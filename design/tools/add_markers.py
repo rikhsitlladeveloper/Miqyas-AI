@@ -1,6 +1,6 @@
 """Add empty /*@@CSS:name@@*/ and /*@@JS:name@@*/ markers for a new module, just before the auth block.
 
-Usage: python add_markers.py <name>   then add <name> to ORDER in sync_modules.py and run it.
+Usage: python add_markers.py <name>   then add <name> to ORDER in sync_modules.py (before "auth") and run it.
 """
 import io, sys
 from pathlib import Path

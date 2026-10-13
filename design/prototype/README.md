@@ -1,4 +1,22 @@
-# METRX clickable prototype (Stage 2, Direction A "Chizma")
+# METRX app (web layer)
+
+## Real-app build (13 October 2026)
+
+The founder asked for the demo parts to go, so this is now the app itself, shown inside the Android and iPhone shells. `modules/real.js` and `modules/real.css` hold the change. Where the older sections below still talk about a Demo panel, a modelled keyboard, sample values or "Simulyatsiya" labels, this section wins.
+
+- **Keyboard:** every text and number field is a real input, so Android and iPhone show their own keyboard. The drawn keyboard is gone. The page resizes above the keyboard, Enter moves to the next field, and number fields open the numeric keypad with comma and dot.
+- **"Saqlandi" chip:** removed from every screen. Saving still happens on every change.
+- **Logo:** logo A (the M drawn as a measured wall line) sits before the METRX wordmark on the welcome, Home and Projects screens, in the PDF header, and is the app icon on both phones.
+- **Demo parts removed:** the Demo panel and its tab, the "Simulyatsiya" labels and notes, the sample project and "jump to" states, sample values in forms, the "Namuna chiziq" button, the expired-subscription switch. A new room is named "Xona 1", "Xona 2" and so on. Grey hint texts inside empty fields (for example "Yusupovlar uyi") are hints only and are never saved.
+- **Laser:** until the real meter arrives, "Lazerdan olish" gives a random length (founder's decision). It is not labelled as simulated, so don't use these values on a real job. The received → confirmed rule is unchanged.
+- **Sign-in:** "Hisob yaratish", "Kirish" and "Google orqali davom etish" stay on the welcome screen and go straight into the app. Opened from Profile, they return to Profile. No account is created.
+- **Phone features that are now real:** camera and gallery for photos, GPS for the project location, "Open in maps", "Call", the PDF report (made on the phone and passed to the share sheet; on Android also saved to `Download/METRX`), and the backup file (`metrx-zaxira-YYYY-MM-DD.metrx`) with restore from a file.
+- **Still not real:** no accounts, no cloud, no subscription payments. Data is kept in the web view's local storage (photos: a few dozen at most). Fonts and the 3D library load from the internet. In a plain browser there is no share sheet, so PDF and backup show "only on the phone".
+- **Checked on the Android emulator from a clean install (13 October 2026):** all of the above with real touches, in the four languages (28 screens each, no clipped text). **Not run on an iPhone:** the iPhone shell is only compiled in GitHub Actions.
+
+---
+
+## Earlier notes (Stage 2 prototype, Direction A "Chizma")
 
 This is a design artifact, not the React Native app. It runs in a browser and behaves like the phone app: real navigation, bottom sheets, a modelled on-screen keyboard, editable sample values, local saving and a 3D room shell.
 
@@ -60,20 +78,42 @@ The five bottom tabs, from left to right:
 
 The navbar follows the "Animated Mobile App Navbar" community component: the active tab rises into a filled circle that slides between tabs. It is recoloured to the app's cobalt. The 2D/3D project views take their plan conventions from the "Interior Design Kit": solid walls, the room name and area in the middle, and a cut-away 3D view.
 
+## Minimal look (13 October 2026)
+
+The founder supplied a minimal design for Home, Projects and New project and asked for it across the app.
+
+- **`modules/minimal.css`** carries the look for every screen except sign-in: Manrope, blue `#374FDD`, a soft grey page, white cards with a hairline in place of a shadow, larger radii, 56-tall fields, and a floating tab bar whose active tab is a filled block.
+- **Home:** a large blue "New project" card when there are no projects; "Quick actions" is now a list in one card.
+- **Projects:** a small blue line above the title, and a new card for "No projects yet".
+- **New project:** a two-line header ("New project" above "Project details").
+- **The earlier look** is kept whole in `design/archive/design-v1-chizma-2026-10-13/` (prototype, modules and the three handoff documents). Open its `prototype/index.html` to see it.
+- To switch the look off, remove `"minimal"` from `ORDER` in `tools/sync_modules.py` and empty the block between its markers; the Home and Projects markup changes live in their own modules.
+
 ## Opening animation and optional sign-in
 
-The structure follows the "Log in, Registration, Onboarding / Sign in & Sign up / Forgot password" community kit (welcome, three-step sign-up, log in with error states, three-step password reset, success screens). It is restyled in the app's drafting look and adapted to the market.
+The structure follows the "Log in, Registration, Onboarding / Sign in & Sign up / Forgot password" community kit (welcome, three-step sign-up, log in with error states, three-step password reset, success screens), adapted to the market.
 
-- **Opening animation (about 3 s, tap to skip):** a room plan draws itself, a simulated laser reading counts up to 5,000 m, the dimension lines appear, then the METRX wordmark. The plan stays at the top of the welcome screen. Reduced-motion settings skip the animation.
+The look follows the founder's Figma file: white pages, light-blue outlines, a blue main button (`#3355B4`), IBM Plex Sans with IBM Plex Mono for labels and numbers. Four frames were drawn there (Welcome, sign-up step 1, the "number has an account" sheet, the code step); the remaining screens use the same style. These colours are scoped to the sign-in screens (`.app.auth`), so the rest of the app is unchanged. Reference captures of the frames are in `design/figma-ref/`.
+
+- **Opening animation (about 3 s, tap to skip):** a room plan draws itself on a white page, a simulated laser reading counts up to 5,000 m, the dimension lines appear, then the METRX wordmark. The same plan sits in the card on the welcome screen. Reduced-motion settings skip the animation.
 - **Welcome:**
-  - Continue with Google, Create an account, Log in.
-  - "Continue without an account", which leads to the existing name and phone step.
+  - A plan card with the sample room (5,00 × 4,00 m, height, area, perimeter).
+  - Create an account, Log in, Continue with Google.
+  - "Continue without an account", tagged "Offline mode", which leads to the existing name and phone step.
   - A language switcher in the top corner replaces the old separate language step.
 - **Phone number and SMS code instead of email:**
   - Sign up: name and phone (1/3), 6-digit SMS code (2/3), password with live rules and a strength bar (3/3), then "Account created".
+  - The phone number is typed on the app's own number pad (digits, Clear, backspace, Close).
+  - A number that already has an account opens a sheet: Log in with password, Change number, or Forgot your password.
   - Forgot password uses the same pattern: phone (1/3), code (2/3), new password (3/3).
+- **Where it differs from the Figma, on purpose:**
+  - The plan card says "Sample room" and gives the height. The Figma's "BLE ONLINE", "±1.5 mm PRECISION" and "v2.4 • Toshkent" are left out, because no laser is connected on this screen and the accuracy and version aren't established.
+  - "In one minute" is left out of the tagline. Step 1 says a 6-digit code, to match the six boxes.
+  - The sheet's title states the fact ("This number already has an account"), and its last link is "Forgot your password?" because the app has no log-in by SMS.
+  - Step 1 uses the white page, outlined fields and single header of the other frames.
+  - All of these are listed as open points 14 to 20 in `design/REVIEW_CHECKLIST.md`.
 - **Simulated:**
-  - Nothing is sent. The test SMS code is **482913**, and the keyboard offers it as "From Messages" autofill.
+  - Nothing is sent. The test SMS code is **482913**, and the keyboard offers it for one-tap entry.
   - The test account is **+998 93 555 12 34 / metrx2026**. Accounts you create are kept in this browser or phone.
   - Google opens a simulated account chooser. Google doesn't share a phone number, so the app then asks for one.
   - Turning on "No internet" in the Demo panel shows the offline message on these screens.
@@ -232,7 +272,7 @@ The behaviour is copied, not Bosch's look, icons or wording.
 - **Profile → Chizma (Drawing):** angle snap, default door/window sizes, room label (name and/or area), PDF contents, show tips again.
 - **One-time tips:** in the editor, wall view and sketch screen, with "Don't show this again". The keyboard has ‹ › to move between fields.
 
-The sign-in, wall-view and sketch code lives directly in `prototype.html`; `modules/auth.*`, `modules/wallview.*` and `modules/sketch.*` are reference copies that the sync script does not touch. All other modules are the source and are pasted in by `tools/sync_modules.py`.
+The wall-view and sketch code lives directly in `prototype.html`; `modules/wallview.*` and `modules/sketch.*` are reference copies that the sync script does not touch. All other modules, including `modules/auth.*` (sign-in), are the source and are pasted in by `tools/sync_modules.py`.
 
 ## Core scenario
 

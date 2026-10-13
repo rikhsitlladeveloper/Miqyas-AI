@@ -2,7 +2,8 @@
 
 Each module sits between /*@@CSS:name@@*/ (or /*@@JS:name@@*/) and the next module's marker. The order below is
 the order of the markers in prototype.html; a new module goes in with add_markers.py first, then a line here.
-auth, wallview and sketch are not listed: their code lives directly in prototype.html and modules/ keeps a reference copy.
+auth ends at its own "authend" marker. wallview and sketch are not listed: their code lives directly in prototype.html
+and modules/ keeps a reference copy.
 """
 import io, subprocess, sys
 from pathlib import Path
@@ -10,8 +11,8 @@ from pathlib import Path
 D = Path(__file__).resolve().parents[1] / "prototype"
 P = D / "prototype.html"
 ORDER = ["openings", "workspace", "home", "projects", "project", "editor", "estimate", "measure", "board",
-         "profile", "report", "targets"]
-END = "auth"  # the block after the last synced module
+         "profile", "report", "targets", "minimal", "auth", "real"]
+END = "authend"  # the marker that closes the last synced module
 
 raw = io.open(P, encoding="utf-8", newline="").read()
 crlf = "\r\n" in raw

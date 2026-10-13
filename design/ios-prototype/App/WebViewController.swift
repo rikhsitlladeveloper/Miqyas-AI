@@ -1,11 +1,20 @@
+import CoreLocation
+import PDFKit
 import UIKit
 import WebKit
 
-/// Shows the bundled prototype (index.html) in a web view, the same way the Android wrapper does.
-final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler {
+/// Shows the bundled web app (index.html) in a web view, the same way the Android shell does, and gives it the
+/// phone's share sheet, files and location.
+final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler,
+                               CLLocationManagerDelegate {
     private var webView: WKWebView!
     private let topBar = UIView()
     private let ink = UIColor(red: 14 / 255, green: 28 / 255, blue: 54 / 255, alpha: 1)
+    private var pdfWeb: WKWebView?
+    private var pdfName = "METRX.pdf"
+    private var pdfPages = 1
+    private let locationManager = CLLocationManager()
+    private var waitingForLocationPermission = false
 
     /// The opening and welcome screens are dark; the page tells us through MetrxNative.setDarkTop.
     private var darkTop = false {
@@ -24,7 +33,15 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         let content = WKUserContentController()
         content.add(self, name: "metrx")
         // Same bridge name the Android wrapper exposes, so the page needs no iPhone-specific code.
-        let bridge = "window.MetrxNative={setDarkTop:function(d){window.webkit.messageHandlers.metrx.postMessage({darkTop:!!d})}};"
+        let bridge = """
+        (function(){var post=function(m){window.webkit.messageHandlers.metrx.postMessage(m)};
+        window.MetrxNative={
+          setDarkTop:function(d){post({darkTop:!!d})},
+          sharePdf:function(html,name,pages){post({pdf:String(html),name:String(name),pages:pages|0})},
+          shareFile:function(name,text,mime){post({file:String(text),name:String(name)})},
+          getLocation:function(){post({location:true})}
+        };})();
+        """
         content.addUserScript(WKUserScript(source: bridge, injectionTime: .atDocumentStart, forMainFrameOnly: true))
         // Keep the designed type sizes, and stop long-press text selection and link previews inside the app.
         let css = "html{-webkit-text-size-adjust:100%}body{-webkit-user-select:none;-webkit-touch-callout:none}"
@@ -82,7 +99,13 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     // MARK: WKScriptMessageHandler
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
-        if let body = message.body as? [String: Any], let dark = body["darkTop"] as? Bool { darkTop = dark }
+        guard let body = message.body as? [String: Any] else { return }
+        if let dark = body["darkTop"] as? Bool { darkTop = dark }
+        if let html = body["pdf"] as? String {
+            makePDF(html: html, name: (body["name"] as? String) ?? "METRX.pdf", pages: (body["pages"] as? Int) ?? 1)
+        }
+        if let text = body["file"] as? String { shareText(text, name: (body["name"] as? String) ?? "metrx-backup.metrx") }
+        if body["location"] != nil { requestLocation() }
     }
 
     // MARK: WKNavigationDelegate
@@ -101,6 +124,110 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         }
         UIApplication.shared.open(url, options: [:], completionHandler: nil)
         decisionHandler(.cancel)
+    }
+
+    // MARK: PDF, files and the share sheet
+
+    /// Lays the report out off screen at A4 width, takes each 595 x 842 page as PDF and opens the share sheet.
+    private func makePDF(html: String, name: String, pages: Int) {
+        pdfWeb?.removeFromSuperview()
+        let off = WKWebView(frame: CGRect(x: -2000, y: 0, width: 595, height: 842))
+        off.navigationDelegate = self
+        view.insertSubview(off, at: 0)
+        pdfWeb = off
+        pdfName = name
+        pdfPages = max(1, min(pages, 60))
+        off.loadHTMLString(html, baseURL: nil)
+    }
+
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        guard webView === pdfWeb else { return }
+        // give the web fonts and embedded photos a moment to paint
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { [weak self] in
+            self?.addPDFPage(0, to: PDFDocument())
+        }
+    }
+
+    private func addPDFPage(_ index: Int, to document: PDFDocument) {
+        guard let off = pdfWeb else { return }
+        if index >= pdfPages { finishPDF(document); return }
+        let config = WKPDFConfiguration()
+        config.rect = CGRect(x: 0, y: CGFloat(index) * 842, width: 595, height: 842)
+        off.createPDF(configuration: config) { [weak self] result in
+            if case .success(let data) = result, let part = PDFDocument(data: data), let page = part.page(at: 0) {
+                document.insert(page, at: document.pageCount)
+            }
+            self?.addPDFPage(index + 1, to: document)
+        }
+    }
+
+    private func finishPDF(_ document: PDFDocument) {
+        pdfWeb?.removeFromSuperview()
+        pdfWeb = nil
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(pdfName)
+        let ok = document.pageCount > 0 && document.write(to: url)
+        if ok { share(url) }
+        webView.evaluateJavaScript("window.__metrxShared&&window.__metrxShared(\(ok))", completionHandler: nil)
+    }
+
+    private func shareText(_ text: String, name: String) {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        do {
+            try text.write(to: url, atomically: true, encoding: .utf8)
+            share(url)
+        } catch { }
+    }
+
+    private func share(_ url: URL) {
+        let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
+        sheet.popoverPresentationController?.sourceView = view
+        present(sheet, animated: true)
+    }
+
+    // MARK: Location
+
+    private func requestLocation() {
+        locationManager.delegate = self
+        locationManager.desiredAccuracy = kCLLocationAccuracyBest
+        switch locationManager.authorizationStatus {
+        case .notDetermined:
+            waitingForLocationPermission = true
+            locationManager.requestWhenInUseAuthorization()
+        case .authorizedWhenInUse, .authorizedAlways:
+            locationManager.requestLocation()
+        default:
+            sendLocation(nil)
+        }
+    }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+        guard waitingForLocationPermission else { return }
+        switch manager.authorizationStatus {
+        case .notDetermined:
+            break
+        case .authorizedWhenInUse, .authorizedAlways:
+            waitingForLocationPermission = false
+            manager.requestLocation()
+        default:
+            waitingForLocationPermission = false
+            sendLocation(nil)
+        }
+    }
+
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        sendLocation(locations.last)
+    }
+
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        sendLocation(nil)
+    }
+
+    private func sendLocation(_ location: CLLocation?) {
+        var script = "window.__metrxLoc&&window.__metrxLoc(null)"
+        if let l = location {
+            script = "window.__metrxLoc&&window.__metrxLoc(\(l.coordinate.latitude),\(l.coordinate.longitude),\(l.horizontalAccuracy))"
+        }
+        webView.evaluateJavaScript(script, completionHandler: nil)
     }
 
     // MARK: WKUIDelegate

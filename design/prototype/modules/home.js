@@ -1,7 +1,8 @@
 /* ============================== Home: today's work ==============================
-   Greeting + laser state, "Continue" with the exact next step, a "Needs attention" list built from the data
-   (unconfirmed measurements, opening errors, dragged openings, unanswered quotes, unfinished estimate rows,
-   missing builder details), four big action tiles, then a short list of recent projects. */
+   Greeting + laser state. With no projects: one large "New project" card and a short "Quick actions" list
+   (the founder's minimal design). With projects: "Continue" with the exact next step, a "Needs attention" list built
+   from the data (unconfirmed measurements, opening errors, dragged openings, unanswered quotes, unfinished estimate
+   rows, missing builder details), the same "Quick actions" list, then recent projects. */
 Object.assign(D,{
 'hm.hi':['Salom, {n}','Здравствуйте, {n}','Hello, {n}'],
 'hm.hi0':['Salom!','Здравствуйте!','Hello!'],
@@ -25,7 +26,13 @@ Object.assign(D,{
 'hm.more':['Yana {n} ta','Ещё {n}','{n} more'],
 'hm.less':['Kamroq ko‘rsatish','Свернуть','Show less'],
 'hm.t.new':['Yangi loyiha','Новый проект','New project'],
-'hm.t.newS':['Mijoz va manzil','Клиент и адрес','Customer and address'],
+'hm.t.newS':['Mijoz, manzil va xona ma’lumotlari','Клиент, адрес и данные комнат','Customer, address and room details'],
+'hm.sub':['Bugun nimadan boshlaymiz?','С чего начнём сегодня?','Where shall we start today?'],
+'hm.qa':['Tezkor amallar','Быстрые действия','Quick actions'],
+'hm.qaN':['{n} ta amal','Действий: {n}','{n} {n:action|actions}'],
+'hm.q.measure':['Xonani o‘lchash','Измерить комнату','Measure a room'],
+'hm.q.measSim':['Simulyator orqali o‘lcham oling','Снимите размер через симулятор','Take a reading with the simulator'],
+'hm.q.restoreS':['Avvalgi loyihani qayta oching','Откройте прежний проект снова','Open an earlier project again'],
 'hm.t.measure':['O‘lchash','Измерить','Measure'],
 'hm.t.photo':['Surat','Фото','Photo'],
 'hm.t.note':['Eslatma','Заметка','Note'],
@@ -73,12 +80,14 @@ PAGES.home=()=>{
   const ps=S.projects.slice().sort((a,b)=>b.edited-a.edited), lk=isLocked();
   const b=S.settings.builder, first=String(b.name||'').trim().split(/\s+/)[0];
   const bt=S.demo.bt, devLab=t(bt==='connected'?'dev.conn':bt==='off'?'dev.off':bt==='denied'?'dev.denied':'dev.disc');
-  const hi=`<div class="hm-hi"><div class="r1"><small>${esc(hmDate())}</small><button class="hm-dev ${bt==='connected'?'on':bt==='disconnected'?'':'bad'}" data-a="device"><i></i><span>${esc(devLab)}</span></button></div><h2>${esc(first?t('hm.hi',{n:first}):t('hm.hi0'))}</h2></div>`;
-  const tile=(a,icn,ti,sub,cls,extra)=>`<button class="hm-tile ${cls||''}" data-a="${a}" ${extra||''}><span class="ic">${ic(icn)}</span><b>${esc(t(ti))}</b><small>${esc(sub)}</small></button>`;
-  const tg=hmTarget();
-  const tiles=`<div class="hm-tiles">${tile('newProject',lk?'lock':'plus','hm.t.new',t('hm.t.newS'),lk?'locked':'pri')}${tile('tab','laser','hm.t.measure',devLab,'','data-v="measure"')}${tile('hmPhoto','camera','hm.t.photo',tg?t('hm.to',{w:floorName(tg.w)}):t('hm.toNone'))}${tile('hmNote','note','hm.t.note',tg?t('hm.to',{w:floorName(tg.w)}):t('hm.toNone'))}</div>`;
+  const hi=`<div class="hm-hi"><div class="r1"><small>${esc(hmDate())}</small><button class="hm-dev ${bt==='connected'?'on':bt==='disconnected'?'':'bad'}" data-a="device"><i></i><span>${esc(devLab)}</span></button></div><h2>${esc(first?t('hm.hi',{n:first}):t('hm.hi0'))}</h2><p>${esc(t('hm.sub'))}</p></div>`;
+  const hero=`<button class="hm-hero ${lk?'locked':''}" data-a="newProject"><span class="hp">${ic(lk?'lock':'plus')}</span><span class="go">${ic('chev','i s')}</span><b>${esc(t('hm.t.new'))}</b><small>${esc(t('hm.t.newS'))}</small></button>`;
+  const row=(a,icn,ti,sub,cls,extra)=>`<button class="it" data-a="${a}" ${extra||''}><span class="ic ${cls||'cob'}">${ic(icn)}</span><span class="tx"><b>${esc(ti)}</b><small>${esc(sub)}</small></span>${ic('chev','i s')}</button>`;
+  const qa=rows=>`<div class="hm-sech"><b>${esc(t('hm.qa'))}</b><small>${esc(t('hm.qaN',{n:rows.length}))}</small></div><div class="hm-qa">${rows.join('')}</div>`;
+  const measRow=row('tab','laser',t('hm.q.measure'),bt==='connected'?t('hm.q.measSim'):devLab,'cob','data-v="measure"');
+  const head=`${bar({right:savedChip()}).replace('<span class="sp"></span>','<span class="wordmark">METRX</span><span class="sp"></span>')}${banners()}`;
   if(!ps.length){ seen('empty');
-    return `<section class="page ${U.anim||''}">${bar({right:savedChip()}).replace('<span class="sp"></span>','<span class="wordmark">METRX</span><span class="sp"></span>')}${banners()}<div class="scroll" data-scroll="home"><div class="hm">${hi}<div class="hm-empty"><h3>${esc(t('home.emptyTitle'))}</h3><p>${esc(t('home.emptyBody'))}</p><button class="btn ghost" data-a="goBackup">${ic('restore','i s')}${esc(t('pl.restore'))}</button></div><div class="hm-tiles">${tile('newProject',lk?'lock':'plus','hm.t.new',t('hm.t.newS'),lk?'locked':'pri')}${tile('tab','laser','hm.t.measure',devLab,'','data-v="measure"')}</div></div></div></section>` }
+    return `<section class="page ${U.anim||''}">${head}<div class="scroll" data-scroll="home"><div class="hm">${hi}${hero}${qa([measRow,row('goBackup','restore',t('pl.restore'),t('hm.q.restoreS'),'amb')])}</div></div></section>` }
   // continue
   const lp=S.lastOpen&&P(S.lastOpen.pid), lr=lp&&R(lp,S.lastOpen.rid);
   let cont='';
@@ -89,9 +98,12 @@ PAGES.home=()=>{
   const att=hmAttention(), shown=U.hmAll?att:att.slice(0,3);
   const attH=att.length?`<div class="hm-sech"><b>${esc(t('hm.att'))}</b><span class="n">${att.length}</span></div><div class="hm-att">${shown.map(x=>`<button class="it" data-a="${x.a}" data-pid="${x.pid||''}" data-id="${x.id||''}" data-tab="${x.tab||''}"><span class="ic ${x.cls}">${ic(x.ic,'i s')}</span><span class="tx"><b>${esc(x.b)}</b><small>${esc(x.s)}</small></span>${ic('chev','i s')}</button>`).join('')}${att.length>3?`<button class="more" data-a="hmAll">${esc(U.hmAll?t('hm.less'):t('hm.more',{n:att.length-3}))}</button>`:''}</div>`
     :`<div class="hm-ok">${ic('check','i s')}<span>${esc(t('hm.allOk'))}</span></div>`;
+  // quick actions: the same list as on the empty Home, with the two capture shortcuts
+  const tg=hmTarget(), toS=tg?t('hm.to',{w:floorName(tg.w)}):t('hm.toNone');
+  const quick=qa([row('newProject',lk?'lock':'plus',t('hm.t.new'),t('hm.t.newS'),lk?'gry':'pri'),measRow,row('hmPhoto','camera',t('hm.t.photo'),toS),row('hmNote','note',t('hm.t.note'),toS)]);
   // recent
   const rec=`<div class="hm-sech"><b>${esc(t('home.recent'))}</b><button data-a="tab" data-v="projects">${esc(t('home.all'))}</button></div><div class="hm-recent">${ps.slice(0,3).map(p=>`<button class="it" data-a="openProjectHome" data-id="${p.id}"><span class="tx"><b>${esc(dn(p.name))}</b><small>${esc([dn(p.customer),dn(p.address)].filter(Boolean).join(', ')||'—')}</small></span><span class="stg ${stageOf(p)==='done'?'done':''}">${esc(t('stage.'+stageOf(p)))}</span></button>`).join('')}</div>`;
-  return `<section class="page ${U.anim||''}">${bar({right:savedChip()}).replace('<span class="sp"></span>','<span class="wordmark">METRX</span><span class="sp"></span>')}${banners()}<div class="scroll" data-scroll="home"><div class="hm">${hi}${cont}${attH}${tiles}${rec}</div></div></section>`;
+  return `<section class="page ${U.anim||''}">${head}<div class="scroll" data-scroll="home"><div class="hm">${hi}${cont}${attH}${quick}${rec}</div></div></section>`;
 };
 function hmGo(routes){ closeSheet(true); blur(); S.nav.tab='projects'; S.nav.stacks.projects=[{s:'projects'},...routes]; U.anim='push'; render() }
 function hmRoomRoutes(p,r){ const w=WSP(p,r.floorId); return [{s:'project',id:p.id,tab:'rooms'},...(w?[{s:'space',pid:p.id,wid:w.id}]:[]),{s:'editor',pid:p.id,rid:r.id,mode:'plan'}] }

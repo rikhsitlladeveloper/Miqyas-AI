@@ -501,6 +501,6 @@ A.repItem=d=>{ const p=P(top().pid), w=WSP(p,d.w), it=w&&wsItems(w).find(x=>x.id
   w.items.push({id:uid(),kind:'photo',name:'@ph.s1',src:'@sample:1',W:1000,H:750,caption:'',created:now-86400e3,edited:now-86400e3,els:[{id:uid(),t:'dim',pts:[[352,112],[668,112]],v:1200,src:'laser',c:'red'},{id:uid(),t:'dim',pts:[[700,140],[700,486]],v:1500,src:'laser',c:'red'},{id:uid(),t:'arrow',pts:[[250,640],[358,486]],c:'red'},{id:uid(),t:'text',pts:[[250,690]],txt:'@smp.phLab',c:'red'}]}) } }
   p.rooms.forEach(r=>r.created=r.created||Date.now()-3600e3); return p } }
 
-/* ---------- render hook: note text follows the keyboard; Android status bar follows the dark auth screens ---------- */
-{ const base=render; render=function(){ noteSync(); base(); const dark=!!(S.firstRun&&typeof auStep==='function'&&['splash','welcome'].includes(auStep())); if(window.MetrxNative&&U.darkTop!==dark){ U.darkTop=dark; try{ MetrxNative.setDarkTop(dark) }catch(e){} } } }
+/* ---------- render hook: note text follows the keyboard; the Android status bar stays light (the sign-in screens are white now) ---------- */
+{ const base=render; render=function(){ noteSync(); base(); if(window.MetrxNative&&U.darkTop!==false){ U.darkTop=false; try{ MetrxNative.setDarkTop(false) }catch(e){} } } }
 { const ini=initForm; initForm=function(v){ U.formFor=null; ini(v) } }

@@ -1,4 +1,4 @@
-# XcodeGen spec for the iPhone wrapper around the HTML design prototype. Not the production app.
+# XcodeGen spec for the iPhone shell around the METRX web app.
 # The Xcode project is generated in CI (see .github/workflows/ios-ipa.yml); it is not committed.
 name: METRX
 options:
@@ -25,6 +25,7 @@ targets:
         ITSAppUsesNonExemptEncryption: false
         NSCameraUsageDescription: "METRX uses the camera when you add a photo to a workspace."
         NSPhotoLibraryUsageDescription: "METRX opens your photo library when you choose a photo for a workspace."
+        NSLocationWhenInUseUsageDescription: "METRX saves the location of a project when you tap Find location."
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: uz.metrx.prototype

@@ -34,3 +34,7 @@
 .app .toast button{min-height:44px;min-width:44px}
 .app .toast{border-radius:12px}
 
+/* Layering (found while capturing screenshots): floating "+" buttons must not sit on top of an open bottom sheet,
+   and the readings chip keeps its own height when the plan area shrinks behind a sheet. */
+.area:has(.sheet) .pj-fab,.area:has(.sheet) .pl-fab,.area:has(.sheet) .ws-fab{display:none}
+.app .rtray{height:44px;top:auto}

@@ -1,5 +1,12 @@
 /* Projects: site cards (option B) + Active / Done / All switch (from option A) */
-.pl{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding:2px 16px 100px}
+.pl{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding:2px 20px 100px}
+.pl.pl-e{padding-bottom:24px}
+.pl-ec{display:grid;justify-items:center;gap:12px;padding:34px 22px 22px;background:var(--sheet);border-radius:26px;box-shadow:var(--sh);text-align:center}
+.pl-ec .ill{position:relative;width:88px;height:88px;display:grid;place-items:center;border-radius:26px;background:var(--wash);color:var(--cobalt);margin-bottom:8px}
+.pl-ec .ill i{position:absolute;right:-6px;top:-6px;width:28px;height:28px;display:grid;place-items:center;border-radius:50%;background:var(--cobalt);color:#fff;border:3px solid var(--sheet);box-sizing:content-box}
+.pl-ec h3{margin:0;font-size:21px;font-weight:800;letter-spacing:-.01em;text-wrap:balance}
+.pl-ec p{max-width:32ch;margin-bottom:10px;color:var(--ink2);font-size:15px;line-height:1.5}
+.pl-foot{padding:8px 12px 0;text-align:center;font-size:13.5px;color:var(--ink3)}
 .pl-seg{display:flex;gap:3px;padding:3px;border-radius:12px;background:var(--fill)}
 .pl-seg button{flex:1;min-width:0;display:flex;align-items:center;justify-content:center;gap:5px;min-height:40px;padding:0 6px;border-radius:9px;font-size:13.5px;font-weight:500;color:var(--ink2);text-align:center!important}
 .pl-seg button.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(16,24,40,.14)}

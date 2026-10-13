@@ -1,9 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Placeholder launcher icon: a hatched room outline. The final logo is pending. -->
+<!-- Launcher icon: logo A, a folding rule opened into the letter M. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp" android:height="108dp"
     android:viewportWidth="108" android:viewportHeight="108">
-    <path android:fillColor="#1C4BD1" android:pathData="M0,0h108v108h-108z" />
-    <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="6"
-        android:pathData="M30,30H62V50H78V78H30Z" />
+    <path android:fillColor="#374FDD" android:pathData="M0,0h108v108h-108z" />
+    <group android:scaleX="1.12" android:scaleY="1.12" android:translateX="18.16" android:translateY="17.04">
+        <path android:fillColor="#00000000" android:strokeColor="#FFFFFF" android:strokeWidth="7"
+            android:strokeLineCap="round" android:strokeLineJoin="round"
+            android:pathData="M15,47V19l17,19 17,-19v28" />
+        <path android:fillColor="#374FDD"
+            android:pathData="M15,19m-1.9,0a1.9,1.9 0 1,0 3.8,0a1.9,1.9 0 1,0 -3.8,0M32,38m-1.9,0a1.9,1.9 0 1,0 3.8,0a1.9,1.9 0 1,0 -3.8,0M49,19m-1.9,0a1.9,1.9 0 1,0 3.8,0a1.9,1.9 0 1,0 -3.8,0" />
+        <path android:fillColor="#00000000" android:strokeColor="#374FDD" android:strokeWidth="1.4"
+            android:pathData="M11.5,28h3M11.5,34h3M11.5,40h3M49.5,28h3M49.5,34h3M49.5,40h3" />
+    </group>
 </vector>

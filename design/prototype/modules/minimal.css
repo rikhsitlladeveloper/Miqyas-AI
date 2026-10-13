@@ -1,0 +1,58 @@
+/* minimal: the app-wide look from the founder's Home / Projects / New project designs (13 Oct 2026).
+   Soft grey page, white cards with a hairline instead of a shadow, large radii, Manrope, blue #374FDD, floating tab bar.
+   Everything is scoped to .app:not(.auth); the sign-in screens keep their own Figma look.
+   The earlier look is kept in design/archive/design-v1-chizma-2026-10-13/. */
+.app:not(.auth){--f-ui:"Manrope","IBM Plex Sans","Segoe UI",Roboto,system-ui,sans-serif;--cobalt:#374FDD;--cobalt2:#2A3FBF;--wash:#EEF2FE;--paper:#F7F8FA;--sheet:#FFFFFF;--ink:#0B1020;--ink2:#566074;--ink3:#667085;--rule:#E4E8EF;--rule2:#EDF0F4;--fill:#F1F4F8;--r:22px;--sh:0 0 0 1px var(--rule)}
+.app:not(.auth) .homebar{background:var(--paper)}
+.app:not(.auth):has(.footer) .homebar,.app:not(.auth):has(.kb) .homebar{background:var(--sheet)}
+
+/* header */
+.app:not(.auth) .wordmark{font:800 17px/1 var(--f-ui);letter-spacing:.3em;padding:0 12px}
+.app:not(.auth) .bar{min-height:56px;padding:0 8px}
+.app:not(.auth) .bar .saved{font-size:13.5px;font-weight:500;padding:0 10px}
+.app:not(.auth) .bar .ttl b{font-weight:700}
+.app:not(.auth) .bar .ttl .ey{order:-1;font-size:12.5px;font-weight:600;color:var(--cobalt)}
+.app:not(.auth) .h1{font-size:30px;font-weight:800;letter-spacing:-.02em;padding:2px 20px 12px}
+.app:not(.auth) .h1-ey{padding:6px 20px 0;font-size:13.5px;font-weight:600;color:var(--cobalt)}
+
+/* floating tab bar: the active tab is a filled block with its icon and name */
+.app:not(.auth) .tabbar{height:72px;margin:0 12px 8px;padding:6px;gap:2px;border-radius:26px;border:1px solid var(--rule);box-shadow:0 10px 28px rgba(16,24,40,.07)}
+.app:not(.auth) .tabbar .bubble{display:none}
+.app:not(.auth) .tabbar button{justify-content:center;gap:6px;padding:0 2px;border-radius:20px;font-size:11.5px;font-weight:600;color:var(--ink2)}
+.app:not(.auth) .tabbar .on{background:var(--cobalt);color:#fff;box-shadow:0 6px 14px rgba(55,79,221,.28)}
+.app:not(.auth) .tabbar .on .ti{opacity:1}
+.app:not(.auth) .tabbar button:active:not(.on){background:var(--fill)}
+
+/* buttons */
+.app:not(.auth) .btn{border-radius:16px;font-weight:700}
+.app:not(.auth) .btn.full,.app:not(.auth) .footer .btn{min-height:54px;border-radius:18px;font-size:16px}
+.app:not(.auth) .btn.pri{box-shadow:0 8px 18px rgba(55,79,221,.22)}
+.app:not(.auth) .btn.pri.dis,.app:not(.auth) .btn.pri[disabled]{box-shadow:none}
+.app:not(.auth) .btn.sm{border-radius:12px}
+.app:not(.auth) .footer{padding:12px 20px 14px}
+
+/* fields */
+.app:not(.auth) .fld{gap:8px}
+.app:not(.auth) .fld>label,.app:not(.auth) .fld>.lab{font-size:15px;font-weight:700;color:var(--ink)}
+.app:not(.auth) .fld>label small,.app:not(.auth) .fld>.lab small{font-size:13px;font-weight:500;color:var(--ink3);text-transform:capitalize}
+.app:not(.auth) .box{min-height:56px;padding:0 18px;border:1px solid var(--rule);border-radius:16px}
+.app:not(.auth) .box.f{border:2px solid var(--cobalt);padding:0 17px;box-shadow:0 0 0 4px var(--wash)}
+.app:not(.auth) .box.bad{border-color:var(--err)}
+.app:not(.auth) .box .ph{color:var(--ink3)}
+.app:not(.auth) .pad{padding:0 20px 20px}
+.app:not(.auth) .bar+.scroll>.pad.form{padding-top:18px}
+.app:not(.auth) .bar:has(.ttl .ey){background:var(--sheet);box-shadow:0 1px 0 var(--rule)}
+.app:not(.auth) .box .pre{color:var(--ink3);font:500 16px var(--f-ui)}
+.app:not(.auth) .box:has(.pre) .v{font:500 16px var(--f-ui)}
+.app:not(.auth) .form{gap:18px}
+.app:not(.auth) .fromset{padding:16px;border-radius:18px;background:var(--fill)}
+.app:not(.auth) .fromset button{min-height:44px;margin:-12px -4px -12px 0;padding:0 4px;font-weight:700}
+.app:not(.auth) .loc{border-radius:18px}
+
+/* surfaces */
+.app:not(.auth) .sheet{border-radius:28px 28px 0 0}
+.app:not(.auth) .toast{border-radius:16px}
+.app:not(.auth) .banner{border-radius:16px}
+.app:not(.auth) .lgroup{margin:0 20px}
+.app:not(.auth) .grouph{padding:18px 20px 8px}
+.app:not(.auth) .listrow>.i:first-child{border-radius:12px;background:var(--wash)}
