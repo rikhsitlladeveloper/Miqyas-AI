@@ -8,6 +8,7 @@ Object.assign(D,{
 'ed2.next':['Keyingi: {w}','Далее: {w}','Next: {w}'],
 'ed2.fromLaser':['{w}, lazerdan','{w}, с лазера','{w}, from the laser'],
 'ed2.fromQuick':['{w}, O‘lchash bo‘limidan','{w}, из раздела «Замер»','{w}, from the Measure tab'],
+'ed2.diag':['Diagonal','Диагональ','Diagonal'],
 'ed2.unconf':['Tasdiqlanmagan','Не подтверждено','Not confirmed'],
 'ed2.confirmed':['Tasdiqlangan','Подтверждено','Confirmed'],
 'ed2.notMeasured':['O‘lchanmagan','Не измерено','Not measured'],
@@ -46,7 +47,7 @@ Object.assign(D,{
 'ed2.cur':['Hozirgi: {v} m. Yangisi tasdiqlanmaguncha o‘zgarmaydi.','Сейчас: {v} м. Не изменится, пока не подтвердите новое.','Now: {v} m. It stays until you confirm a new one.'],
 'ed2.st.recv':['lazerdan, tasdiqlanmagan','с лазера, не подтверждено','from the laser, not confirmed']
 });
-const ed2Name=k=>k==='H'?t('ed.Hs'):k==='T'?t('ed.T'):t('op.wall')+' '+k;
+const ed2Name=k=>k==='H'?t('ed.Hs'):k==='T'?t('ed.T'):/^X\d/.test(k)?t('ed2.diag')+' '+k:t('op.wall')+' '+k;
 const ed2Keys=r=>{ const ks=hmDimKeys(r); if(r.dims.T&&!ks.includes('T')) ks.push('T'); return ks };
 function ed2Focus(r){
   const ks=ed2Keys(r), st=k=>dimStatus(r.dims[k]);

@@ -112,21 +112,21 @@ td:first-child{font-weight:600;white-space:nowrap}
 
   <header class="head">
     <span class="kick">METRX · STAGE 3</span>
-    <h1>Stage 3: check the design, then write it down for the build</h1>
-    <p class="lead">Stage 2 gave you a prototype you can tap through. Stage 3 does two things with it: tests it properly, and turns it into three documents a developer can build from without guessing. Nothing new gets designed in this stage.</p>
+    <h1>Stage 3 is done: the design is checked and written down</h1>
+    <p class="lead">Stage 3 did two things with the prototype: tested it properly, and turned it into three documents a developer can build from without guessing. Nothing new was designed. The documents are in <span class="file">design/</span> and wait for your read-through.</p>
     <div class="rail" aria-label="Project stages">
       <div class="done"><small>DONE</small><b>Stage 1</b><span>Three directions, one chosen</span></div>
       <div class="done"><small>DONE</small><b>Stage 2</b><span>Clickable prototype, every page designed with you</span></div>
-      <div class="now"><small>NEXT</small><b>Stage 3</b><span>Review and handoff documents</span></div>
+      <div class="now"><small>DONE, YOUR REVIEW NEXT</small><b>Stage 3</b><span>Review and three handoff documents</span></div>
       <div class="later"><small>AFTER YOUR APPROVAL</small><b>Build</b><span>CLAUDE_START.md, the real app</span></div>
     </div>
   </header>
 
   <section>
-    <div class="head"><h2>What Stage 3 consists of</h2></div>
+    <div class="head"><h2>What Stage 3 consisted of</h2></div>
     <div class="two">
       <div class="card"><span class="num">PART 1</span><h3>Review</h3>
-        <p class="muted sm">I walk the whole scenario and try to break it, then report what I checked and what still needs a real phone.</p>
+        <p class="muted sm">I walked the whole scenario and tried to break it, then recorded what was checked and what still needs a real phone.</p>
         <ul><li>The core scenario, start to finish</li><li>Phone widths and the on-screen keyboard</li><li>Long Russian and Uzbek labels, Cyrillic text</li><li>Number entry and every error message</li><li>Laser, offline, failed-save and expired states</li></ul></div>
       <div class="card"><span class="num">PART 2</span><h3>Handoff</h3>
         <p class="muted sm">Three documents saved in <span class="file">design/</span>, next to the prototype.</p>
@@ -135,43 +135,49 @@ td:first-child{font-weight:600;white-space:nowrap}
   </section>
 
   <section>
-    <div class="head"><span class="kick">PART 1 · ALREADY STARTED</span><h2>Today's emulator run is the first review pass</h2>
-      <p class="muted">You asked me to test everything on the Android emulator. I installed a clean copy and went through it screen by screen, using real touches where it matters (dragging a door, rotating 3D, swiping pages, the back button). These are the actual results.</p></div>
+    <div class="head"><span class="kick">PART 1 · REVIEW</span><h2>What the review found</h2>
+      <p class="muted">Two passes on the Android emulator from a clean install, at two phone widths, using real touches where it matters: dragging a door, drawing a room outline, rotating and pinching 3D, swiping pages, the Back button. These are the actual results.</p></div>
     <div class="stat">
-      <div><b>12</b><span>areas of the app tested</span></div>
-      <div><b>160</b><span>screen checks across 4 languages, none with cut-off text</span></div>
-      <div><b>5</b><span>problems found, all fixed and re-tested</span></div>
-      <div><b>0</b><span>script errors in the app during the run</span></div>
+      <div><b>352</b><span>screen checks: 44 screens, 4 languages, 2 widths. None with cut-off text</span></div>
+      <div><b>16</b><span>acceptance figures from the build plan, all exact</span></div>
+      <div><b>9</b><span>problems found, all fixed and re-tested</span></div>
+      <div><b>0</b><span>script errors in the app during the runs</span></div>
     </div>
     <div class="tbl"><table>
       <tr><th>Area</th><th>What I tried</th><th>Result</th></tr>
-      <tr><td>Sign-in</td><td>Sign up, SMS code (wrong and right), password rules, log in, forgot password, Google, no account, sign out</td><td><span class="tag ok">Works</span> <span class="tag fix">1 fixed</span></td></tr>
-      <tr><td>New project</td><td>Empty and invalid fields, location, currency, save</td><td><span class="tag ok">Works</span></td></tr>
-      <tr><td>Workspaces</td><td>Room plan, photo with markup, note with checklist, free drawing, menus</td><td><span class="tag ok">Works</span> <span class="tag fix">2 fixed</span></td></tr>
-      <tr><td>Room editor</td><td>Laser reading received then confirmed, typed values, 6 kinds of invalid input, undo, redo, measure again</td><td><span class="tag ok">Works</span> <span class="tag fix">1 fixed</span></td></tr>
+      <tr><td>Acceptance figures</td><td>5 × 4 × 3 m room, door, window, estimate of 4 240 000; then the length changed to 6 m: areas change, the estimate and quote №1 don't</td><td><span class="tag ok">Exact</span></td></tr>
+      <tr><td>Sign-in</td><td>Sign up, SMS code, password rules, log in, reset password, Google, no account, sign out</td><td><span class="tag ok">Works</span> <span class="tag fix">1 fixed</span></td></tr>
+      <tr><td>Room editor</td><td>Received then confirmed, typed values, 6 kinds of invalid input, undo, redo, measure again, readings from the Measure tab</td><td><span class="tag ok">Works</span> <span class="tag fix">3 fixed</span></td></tr>
+      <tr><td>Room shapes</td><td>L-shape, outline drawn in one stroke, corners by tapping, a 45° wall, a crossing outline, a diagonal that disagrees</td><td><span class="tag ok">Works</span></td></tr>
       <tr><td>Laser states</td><td>Connected, disconnected, Bluetooth off, permission denied, scan and connect</td><td><span class="tag ok">Works</span></td></tr>
       <tr><td>Doors and windows</td><td>Add, too wide, too tall, past the corner, overlapping, drag by finger, exact position, all four walls</td><td><span class="tag ok">Works</span></td></tr>
-      <tr><td>3D</td><td>Room shell with door and window, rotate by finger, presets, colours, save a view</td><td><span class="tag ok">Works</span></td></tr>
-      <tr><td>Estimate</td><td>Rows, invalid numbers, empty price, totals: 600 000 + 2 640 000 + 1 000 000 = 4 240 000</td><td><span class="tag ok">Works</span></td></tr>
-      <tr><td>Report and quote</td><td>4 pages, swipe, zoom, report language, share, issue №1, change the estimate, issue №2</td><td><span class="tag ok">Works</span></td></tr>
-      <tr><td>Home, Projects, Board, Measure, Profile</td><td>Every tile, switch, search, next stage, tick, calculator tools, status tiles, backup and restore</td><td><span class="tag ok">Works</span> <span class="tag fix">1 fixed</span></td></tr>
-      <tr><td>Special states</td><td>Subscription expired (read-only), no internet, save failed with retry</td><td><span class="tag ok">Works</span></td></tr>
-      <tr><td>Android</td><td>Back button at every level, call button opens the dialer, real photo picker, data survives a crash and a reboot</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>3D</td><td>Three room shapes, rotate, pinch, presets, colours, save a view</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>Workspaces</td><td>Photo with markup, free drawing, note; copy, rename, move, delete with Undo; delete a workspace and a project</td><td><span class="tag ok">Works</span> <span class="tag fix">3 fixed</span></td></tr>
+      <tr><td>Estimate and money</td><td>Invalid numbers, empty price, 0, 2 and 3 decimals, rounding, a 97-character item name</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>Report and quote</td><td>Swipe, zoom, four report languages, share, issue №1, change, issue №2</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>Home, Projects, Board, Measure, Profile</td><td>Every tile, switch, search, next stage, calculator tools, status tiles, backup and restore</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>Special states</td><td>Subscription expired, no internet, save failed, airplane mode with a force-close</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>Layout</td><td>Every control at least 44 px; toasts clear of the main button</td><td><span class="tag ok">Works</span> <span class="tag fix">2 fixed</span></td></tr>
+      <tr><td>Android</td><td>Back button at every level, dialer, photo picker, data survives a crash and a reboot</td><td><span class="tag ok">Works</span></td></tr>
     </table></div>
     <div class="two">
-      <div class="card"><h3>The 5 fixes</h3><ul>
-        <li>Typing a new value while measuring a wall again left the step card stuck on "measure again".</li>
-        <li>The "PDF" badge covered the first words of a note on its card.</li>
-        <li>Home's Note tile left an empty note behind each time you opened it and went back.</li>
-        <li>A reading typed by hand and sent to a room arrived labelled "from the laser".</li>
-        <li>Going Back from the password step emptied the name and phone you had typed.</li></ul></div>
-      <div class="card"><h3>Not covered today</h3><ul>
-        <li>Pinch to zoom (the test tool can't pinch).</li>
-        <li>L-shaped and free-drawn rooms.</li>
-        <li>Deleting or moving projects, workspaces and items.</li>
-        <li>Confirming a restore (I stopped before it to keep the test data).</li>
-        <li>A 360 px wide phone on the emulator (it's 411 px; 360 px was checked in the browser).</li></ul>
-        <p class="muted sm">These go into the Stage 3 walkthrough.</p></div>
+      <div class="card"><h3>The 9 fixes</h3><ul>
+        <li>Typing a new value while measuring a wall again left the step card stuck.</li>
+        <li>The "PDF" badge covered the first words of a note.</li>
+        <li>Home's Note tile left an empty note behind each time.</li>
+        <li>A typed reading sent to a room arrived labelled "from the laser".</li>
+        <li>Going Back in sign-up emptied the name and phone.</li>
+        <li>About 30 kinds of control were under 44 px; all are 44 now.</li>
+        <li>Toasts covered the main button for five seconds.</li>
+        <li>A diagonal was called "Wall X1".</li>
+        <li>Deleting a project happened at once; it now asks first.</li></ul></div>
+      <div class="card"><h3>Still not checked</h3><ul>
+        <li>Anything that needs a real phone, laser, camera or iPhone.</li>
+        <li>Restore with "Replace" and "Skip".</li>
+        <li>The Board's "waiting N days" highlight (the test quote was sent the same day).</li>
+        <li>Text and eraser tools on photos and drawings.</li>
+        <li>Changing each value in the settings sheets.</li></ul>
+        <p class="muted sm">The checklist marks each of these.</p></div>
     </div>
   </section>
 
@@ -179,7 +185,7 @@ td:first-child{font-weight:600;white-space:nowrap}
     <div class="head"><span class="kick">PART 2 · DOCUMENT 1 OF 3</span><h2>SCREEN_SPEC.md</h2></div>
     <div class="doc">
       <div class="about">
-        <p class="muted">The developer's answer to "what should this screen do when…". One entry per screen, about 25 entries.</p>
+        <p class="muted">The developer's answer to "what should this screen do when…". Twenty sections cover every screen and sheet. The page on the right is a sample.</p>
         <ul><li>Purpose, and how you get there</li><li>The main action</li><li>What data it shows and where it comes from</li><li>Every state: empty, waiting, error, read-only</li><li>What each tap, drag and back does</li><li>Rules that must never break</li></ul>
         <p class="muted sm">It describes behaviour and data, which a screenshot can't.</p>
       </div>
@@ -205,7 +211,7 @@ td:first-child{font-weight:600;white-space:nowrap}
     <div class="head"><span class="kick">PART 2 · DOCUMENT 2 OF 3</span><h2>DESIGN_SYSTEM.md</h2></div>
     <div class="doc">
       <div class="about">
-        <p class="muted">The rules that keep every screen looking like one app, with exact values taken from the prototype.</p>
+        <p class="muted">The rules that keep every screen looking like one app, with exact values measured in the running prototype. The page on the right is a sample.</p>
         <ul><li>Colours, with what each is for</li><li>Typefaces and the size scale</li><li>Spacing, corner radius, shadows</li><li>Controls: sizes and all their states</li><li>Status language: never colour alone</li><li>Icons</li><li>Android and iPhone differences</li></ul>
       </div>
       <div class="page"><div class="bar"><i></i><i></i><i></i>design/DESIGN_SYSTEM.md</div><div class="in">
@@ -228,7 +234,7 @@ td:first-child{font-weight:600;white-space:nowrap}
         </div>
         <h4>3. Controls</h4>
         <div class="ctl"><span class="btn pri">Tasdiqlash</span><span class="btn sec">Qo‘lda</span><span class="st unset">? O‘lchanmagan</span><span class="st recv"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Tasdiqlanmagan</span><span class="st conf"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Tasdiqlangan</span></div>
-        <ul><li>Buttons are 44 to 56 px tall; the ones used most on site are the tallest.</li><li>Target: 44 px for anything tappable. Today 14 controls are under 40 px; they're listed in the checklist.</li><li>Every status has an icon and a word as well as a colour.</li></ul>
+        <ul><li>Buttons are 44 to 56 px tall; the ones used most on site are the tallest.</li><li>Nothing tappable is smaller than 44 px on its short side.</li><li>Every status has an icon and a word as well as a colour.</li></ul>
       </div><div class="fade"></div><div class="more">…continues with spacing, sheets, the keyboard, icons and platform notes.</div></div>
     </div>
   </section>
@@ -239,7 +245,7 @@ td:first-child{font-weight:600;white-space:nowrap}
       <div class="about">
         <p class="muted">The honest list: what was actually checked and how, and what nobody has checked yet.</p>
         <ul><li><span class="tag ok">Passed</span> checked on the emulator or in the browser</li><li><span class="tag dev">Needs a device</span> can only be judged on a real phone or with a real laser</li><li><span class="tag you">Your decision</span> a product choice, not a test</li></ul>
-        <p class="muted sm">Today's run fills in most of the first group already.</p>
+        <p class="muted sm">It has 13 sections, the list of fixes, 13 open points and the device list. The page on the right is a sample.</p>
       </div>
       <div class="page"><div class="bar"><i></i><i></i><i></i>design/REVIEW_CHECKLIST.md</div><div class="in">
         <h4>Core scenario</h4>
@@ -259,7 +265,7 @@ td:first-child{font-weight:600;white-space:nowrap}
         </div>
         <h4>Open</h4>
         <div class="chk">
-          <div><i></i><span>14 tappable controls are under 40 px on their short side</span><span class="tag fix">To fix</span></div>
+          <div><i></i><span>Deleting an estimate row has no Undo</span><span class="tag fix">To fix</span></div>
           <div><i></i><span>Uzbek Cyrillic and Russian wording, read by a native speaker</span><span class="tag you">Your decision</span></div>
           <div><i></i><span>Final logo to replace the METRX wordmark</span><span class="tag you">Your decision</span></div>
         </div>
@@ -268,20 +274,20 @@ td:first-child{font-weight:600;white-space:nowrap}
   </section>
 
   <section>
-    <div class="head"><h2>Four things I noticed and left alone</h2><p class="muted">These came up during testing. Nothing is broken, so I didn't change them without asking.</p></div>
+    <div class="head"><h2>Open points that are yours to decide</h2><p class="muted">The checklist lists 13 open points. Most are small and go to the build. These four need your answer.</p></div>
     <div class="dec">
-      <div><span class="n">1</span><div><b>Board tasks don't tick themselves.</b><p>Every job starts with "Measure the rooms", "Build the estimate" and "Send the quote". The app knows when each is done, but you still tick them by hand, so a job in progress can show "Build the estimate" as its next task. I can make them tick automatically.</p></div></div>
-      <div><span class="n">2</span><div><b>Brick and mortar calculator.</b><p>Still open from earlier. The spec says quantities are typed by hand. For brickmasons, a calculator from the net wall area would save the most time, but it changes the approved scope.</p></div></div>
-      <div><span class="n">3</span><div><b>One laser message for three problems.</b><p>In the room editor, "Bluetooth off" and "permission denied" both show the general "Laser not connected" line. The Measure tab already names each case. Making the editor match is a small change.</p></div></div>
-      <div><span class="n">4</span><div><b>14 controls are small for site use.</b><p>I measured every tappable control. Fourteen are under 40 px on their short side, for example "Cancel" on the measure-again card (28 px tall), "Clear" in the calculator (32 px) and the colour swatches (34 px). They all work. I'd enlarge them at the start of Stage 3 and re-check the four languages.</p></div></div>
+      <div><span class="n">1</span><div><b>Board tasks don't tick themselves.</b><p>"Measure the rooms", "Build the estimate" and "Send the quote" are ticked by hand even when the app knows they're done. I can make them tick automatically.</p></div></div>
+      <div><span class="n">2</span><div><b>Brick and mortar calculator.</b><p>The spec says quantities are typed by hand. For brickmasons, a calculator from the net wall area would save the most time, but it changes the approved scope.</p></div></div>
+      <div><span class="n">3</span><div><b>Wording in Uzbek Cyrillic and Russian.</b><p>The Cyrillic text is converted by machine from the Latin, and Russian is a draft. Both need a native read before the build copies them.</p></div></div>
+      <div><span class="n">4</span><div><b>The logo.</b><p>The PDF header and the Home screen still show the METRX wordmark.</p></div></div>
     </div>
   </section>
 
   <section>
-    <div class="head"><h2>What you'd get at the end</h2></div>
+    <div class="head"><h2>What you have now</h2></div>
     <div class="two">
-      <div class="card"><h3>In the <span class="file">design/</span> folder</h3><ul><li><span class="file">SCREEN_SPEC.md</span></li><li><span class="file">DESIGN_SYSTEM.md</span></li><li><span class="file">REVIEW_CHECKLIST.md</span></li><li><span class="file">prototype/</span>, with today's fixes</li></ul></div>
-      <div class="card"><h3>What I need from you</h3><ul><li>A yes to start.</li><li>Answers to the four points above, or "leave as is".</li><li>One read-through of the documents when they're ready.</li></ul><p class="muted sm">Building the real app (CLAUDE_START.md) stays on hold until you approve the design, as you instructed.</p></div>
+      <div class="card"><h3>In the <span class="file">design/</span> folder</h3><ul><li><span class="file">SCREEN_SPEC.md</span></li><li><span class="file">DESIGN_SYSTEM.md</span></li><li><span class="file">REVIEW_CHECKLIST.md</span></li><li><span class="file">prototype/</span>, with the nine fixes</li></ul></div>
+      <div class="card"><h3>What I need from you</h3><ul><li>One read-through of the three documents.</li><li>Answers to the four points above, or "leave as is".</li><li>Your approval of the design, when you're satisfied.</li></ul><p class="muted sm">Building the real app (CLAUDE_START.md) stays on hold until you approve the design, as you instructed.</p></div>
     </div>
   </section>
 

@@ -88,17 +88,21 @@ The structure follows the "Log in, Registration, Onboarding / Sign in & Sign up 
 
 The interface style follows the "Mobile Apps – Prototyping Kit" community file: soft grey backgrounds, rounded white cards, pill segmented controls, underline tabs and icon tiles in settings. The drawing conventions (hatched walls, dimension lines, the PDF layout) are unchanged.
 
-## Emulator test, 13 October 2026
+## Stage 3 review, 13 October 2026
 
-A clean install was walked through on the Android emulator (1080 × 2400), with real touches for drags, swipes, 3D rotation and the back button. Twelve areas passed, 40 screens were checked in each of the four languages with no cut-off text, and the app raised no script errors. Five problems were found and fixed:
+The whole prototype was walked through on the Android emulator from a clean install, at 411 and 360 wide, with real touches for drags, drawing, swipes, 3D rotation and the Back button. The full record is in `../REVIEW_CHECKLIST.md`. What each screen does is in `../SCREEN_SPEC.md`, and the visual rules are in `../DESIGN_SYSTEM.md`.
 
-- **Room editor:** typing a new value while measuring a wall again left the step card on "measure again". Any confirmed value now ends that state.
-- **Workspace:** the "PDF" badge covered the first words of a note on its card.
-- **Notes:** leaving a note with no title, text or list items now removes it, so Home's Note tile no longer leaves empty notes behind.
-- **Sent readings:** a reading sent from the Measure tab is labelled "from the Measure tab" in the room, not "from the laser".
-- **Sign-up:** going Back from the password or code step keeps the name and phone already typed. The same applies to the forgot-password phone.
+Changes made during the review:
 
-Still open: 14 controls are under 40 px on their short side, Board tasks are ticked by hand, and the room editor shows one general message for Bluetooth off and permission denied. Not covered by this run: pinch zoom, L-shaped and free-drawn rooms, deleting or moving items, and confirming a restore.
+- **Room editor:** a typed value now ends "measure again" and moves the step card on. A diagonal is called "Diagonal X1".
+- **Workspace:** the "PDF" badge no longer covers a note's first words. Leaving a note with nothing in it removes it.
+- **Sent readings:** a reading sent from the Measure tab is labelled "from the Measure tab" in the room.
+- **Sign-up and password reset:** going Back keeps the name and phone already typed.
+- **Deleting a project** now asks for confirmation and says how many issued quotes go with it, as deleting a workspace already did.
+- **Touch targets:** about 30 kinds of control were raised to 44 px on their short side (`modules/targets.css`). The slim handle above the step card stays 22 px tall with a tappable area of about 44 px.
+- **Toasts** appear under the app bar on pages with a footer or 3D controls, so they no longer cover the main button.
+
+Open points and everything that still needs a real phone are listed in the checklist.
 
 ## Report and quote
 

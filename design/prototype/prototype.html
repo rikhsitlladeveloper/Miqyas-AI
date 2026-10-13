@@ -958,6 +958,43 @@ button{font:inherit;color:inherit}
 .rp-nav .rp-fw .i{transform:scaleX(-1)}
 .rp-hint{margin:-4px 0 0;text-align:center;font-size:12.5px;color:var(--ink2)}
 .btn.rp-2l span{line-height:1.15;text-align:center}
+/*@@CSS:targets@@*/
+/* Touch targets (Stage 3 review): nothing tappable under 44 px on its short side.
+   These controls measured 22-36 px on the emulator. Each rule only raises the size; `.app` lifts specificity
+   above the base rule wherever it is defined. */
+.app .ed2-st[data-a]{min-height:44px;padding:0 14px}
+.app .ed2-foot button{min-height:44px}
+.app .qm-meter .st button{min-height:44px}
+.app .qm-meter .seg button{min-height:44px}
+.app .qm-res button{min-height:44px;min-width:44px}
+.app .qm-sech button{min-height:44px;min-width:44px}
+.app .sech button,.app .hm-sech button{min-height:44px;min-width:44px}
+.app .et-meta button{min-height:44px}
+.app .hm-dev{min-height:44px}
+.app .mk-sw{width:44px;height:44px}
+.app .sw{width:44px;height:44px}
+.app .choice .opt{min-width:44px;min-height:44px!important}
+.app .btn{min-height:44px}
+.app .seg button{min-height:44px}
+.app button.act{min-height:44px}
+.app .rp-setup,.app .ed2-add,.app .pc-top{min-height:44px}
+.app .ed2-dev,.app .pj-ic{width:44px;height:44px}
+.app .pwtgl,.app .au-lang,.app .devchip,.app .bd-go,.app .bd-main,.app [data-a="plSeg"]{min-height:44px}
+.app .bd-call{width:44px;height:44px}
+.app .bd-tk{min-height:44px}
+.app .qm-chips button{min-height:44px}
+.app .ed2-foot button{min-width:44px;justify-content:center}
+.app .ed2-fl button{min-height:44px}
+/* the panel handle stays slim; its hit area extends above and below it instead */
+.app .ed2-grab{position:relative}
+.app .ed2-grab::after{content:"";position:absolute;left:0;right:0;top:-12px;bottom:-10px}
+.app .pwtgl{min-width:44px}
+/* Toasts (Stage 3 review): on a page with a footer or the 3D controls, a bottom toast covered the main button
+   for five seconds. There it appears under the app bar instead. Its action button is a full-size target. */
+.app .area:has(.page > .footer) .toast,.app .area:has(.page canvas) .toast{top:60px;bottom:auto!important}
+.app .toast button{min-height:44px;min-width:44px}
+.app .toast{border-radius:12px}
+
 /*@@CSS:auth@@*/
 /* auth: opening animation, welcome, sign up, log in, forgot password (adapted from the "Log in, Registration, Onboarding" community kit) */
 .app.dark .sb{background:#0E1C36;color:#fff}
@@ -4932,6 +4969,18 @@ function pjInfo(p){
   </div><button class="btn sec full" data-a="editProject">${ic(isLocked()?'lock':'edit','i s')}${esc(t('pj.edit'))}</button></div>`;
 }
 
+/* Deleting a project asks first, like deleting a workspace does: it takes rooms, the estimate and issued quotes with it. */
+Object.assign(D,{
+'pj.delQ':['“{n}” o‘chirilsinmi?','Удалить «{n}»?','Delete “{n}”?'],
+'pj.delB':['Loyihadagi xonalar, smeta va {q} ta berilgan taklif ham o‘chiriladi.','Помещения, смета и выданные КП ({q}) тоже будут удалены.','Its rooms, estimate and {q} {q:issued quote|issued quotes} are deleted too.'],
+'pj.delB0':['Loyihadagi xonalar va smeta ham o‘chiriladi.','Помещения и смета тоже будут удалены.','Its rooms and estimate are deleted too.']
+});
+{ const del=A.deleteProject;
+  A.deleteProject=()=>{ if(!guard()) return; U.sheet={type:'projDel',pid:top().id}; render() };
+  A.projDelYes=()=>{ del() };
+  SHEETS.projDel=(sh)=>{ const p=P(sh.pid), q=p.quotes.length;
+    return sheetWrap(t('pj.delQ',{n:dn(p.name)}),`<p>${esc(q?t('pj.delB',{q}):t('pj.delB0'))}</p>`,`<div class="btnrow"><button class="btn sec" data-a="closeSheet">${esc(t('common.cancel'))}</button><button class="btn danger" data-a="projDelYes">${ic('trash','i s')}${esc(t('common.delete'))}</button></div>`) }; }
+
 /*@@JS:editor@@*/
 /* ============================== Room editor: big plan + bottom panel ==============================
    Option A's big plan, with one bottom panel that is
@@ -4943,6 +4992,7 @@ Object.assign(D,{
 'ed2.next':['Keyingi: {w}','Далее: {w}','Next: {w}'],
 'ed2.fromLaser':['{w}, lazerdan','{w}, с лазера','{w}, from the laser'],
 'ed2.fromQuick':['{w}, O‘lchash bo‘limidan','{w}, из раздела «Замер»','{w}, from the Measure tab'],
+'ed2.diag':['Diagonal','Диагональ','Diagonal'],
 'ed2.unconf':['Tasdiqlanmagan','Не подтверждено','Not confirmed'],
 'ed2.confirmed':['Tasdiqlangan','Подтверждено','Confirmed'],
 'ed2.notMeasured':['O‘lchanmagan','Не измерено','Not measured'],
@@ -4981,7 +5031,7 @@ Object.assign(D,{
 'ed2.cur':['Hozirgi: {v} m. Yangisi tasdiqlanmaguncha o‘zgarmaydi.','Сейчас: {v} м. Не изменится, пока не подтвердите новое.','Now: {v} m. It stays until you confirm a new one.'],
 'ed2.st.recv':['lazerdan, tasdiqlanmagan','с лазера, не подтверждено','from the laser, not confirmed']
 });
-const ed2Name=k=>k==='H'?t('ed.Hs'):k==='T'?t('ed.T'):t('op.wall')+' '+k;
+const ed2Name=k=>k==='H'?t('ed.Hs'):k==='T'?t('ed.T'):/^X\d/.test(k)?t('ed2.diag')+' '+k:t('op.wall')+' '+k;
 const ed2Keys=r=>{ const ks=hmDimKeys(r); if(r.dims.T&&!ks.includes('T')) ks.push('T'); return ks };
 function ed2Focus(r){
   const ks=ed2Keys(r), st=k=>dimStatus(r.dims[k]);
@@ -5379,6 +5429,9 @@ function rpAfter(){
   fit(); upd(); v.addEventListener('scroll',upd,{passive:true});
 }
 { const base=render; render=function(){ base(); rpAfter() } }
+
+/*@@JS:targets@@*/
+/* targets: styles only (see targets.css). */
 
 /*@@JS:auth@@*/
 /* ============================== auth (opening animation, welcome, sign up, log in, forgot password) ==============================

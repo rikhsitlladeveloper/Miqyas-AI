@@ -49,3 +49,15 @@ function pjInfo(p){
     ${kv(t('rpt.lang'),esc(LNAME[p.report.lang]||p.report.lang))}
   </div><button class="btn sec full" data-a="editProject">${ic(isLocked()?'lock':'edit','i s')}${esc(t('pj.edit'))}</button></div>`;
 }
+
+/* Deleting a project asks first, like deleting a workspace does: it takes rooms, the estimate and issued quotes with it. */
+Object.assign(D,{
+'pj.delQ':['“{n}” o‘chirilsinmi?','Удалить «{n}»?','Delete “{n}”?'],
+'pj.delB':['Loyihadagi xonalar, smeta va {q} ta berilgan taklif ham o‘chiriladi.','Помещения, смета и выданные КП ({q}) тоже будут удалены.','Its rooms, estimate and {q} {q:issued quote|issued quotes} are deleted too.'],
+'pj.delB0':['Loyihadagi xonalar va smeta ham o‘chiriladi.','Помещения и смета тоже будут удалены.','Its rooms and estimate are deleted too.']
+});
+{ const del=A.deleteProject;
+  A.deleteProject=()=>{ if(!guard()) return; U.sheet={type:'projDel',pid:top().id}; render() };
+  A.projDelYes=()=>{ del() };
+  SHEETS.projDel=(sh)=>{ const p=P(sh.pid), q=p.quotes.length;
+    return sheetWrap(t('pj.delQ',{n:dn(p.name)}),`<p>${esc(q?t('pj.delB',{q}):t('pj.delB0'))}</p>`,`<div class="btnrow"><button class="btn sec" data-a="closeSheet">${esc(t('common.cancel'))}</button><button class="btn danger" data-a="projDelYes">${ic('trash','i s')}${esc(t('common.delete'))}</button></div>`) }; }
