@@ -1,0 +1,60 @@
+# Builds the iPhone wrapper around the HTML prototype and uploads an unsigned IPA.
+# Unsigned means no Apple certificate is needed here; the IPA is signed on the tester's side
+# (for example with Sideloadly or AltStore and their own Apple ID) when it is installed.
+name: iOS prototype (unsigned IPA)
+
+on:
+  push:
+    branches: [builders-v1]
+    paths:
+      - "design/prototype/index.html"
+      - "design/ios-prototype/**"
+      - ".github/workflows/ios-ipa.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Put the prototype into the app
+        run: |
+          mkdir -p design/ios-prototype/App/Resources
+          cp design/prototype/index.html design/ios-prototype/App/Resources/index.html
+
+      - name: Generate the Xcode project
+        working-directory: design/ios-prototype
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Build without code signing
+        working-directory: design/ios-prototype
+        run: |
+          xcodebuild -version
+          xcodebuild -project METRX.xcodeproj -target METRX -configuration Release -sdk iphoneos \
+            SYMROOT="$PWD/build" OBJROOT="$PWD/build/obj" \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build > build.log 2>&1 || { grep -nE "error:|error |FAILED|fatal" -A6 build.log | tail -n 160; exit 1; }
+          tail -n 4 build.log
+
+      - name: Package the IPA
+        working-directory: design/ios-prototype
+        run: |
+          test -f build/Release-iphoneos/METRX.app/index.html
+          mkdir -p out/Payload
+          cp -R build/Release-iphoneos/METRX.app out/Payload/
+          cd out
+          zip -qry METRX-unsigned.ipa Payload
+          ls -la METRX-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: METRX-ipa
+          path: design/ios-prototype/out/METRX-unsigned.ipa
+          if-no-files-found: error

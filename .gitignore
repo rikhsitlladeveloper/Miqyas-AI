@@ -11,3 +11,13 @@ __pycache__/
 *.pyc
 Thumbs.db
 .DS_Store
+
+# iPhone wrapper: generated in CI
+/design/ios-prototype/App/Resources/index.html
+/design/ios-prototype/METRX.xcodeproj/
+/design/ios-prototype/Support/
+/design/ios-prototype/build/
+/design/ios-prototype/out/
+
+# Builds downloaded from GitHub Actions
+/ios-build/

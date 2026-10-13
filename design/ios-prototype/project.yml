@@ -1,0 +1,35 @@
+# XcodeGen spec for the iPhone wrapper around the HTML design prototype. Not the production app.
+# The Xcode project is generated in CI (see .github/workflows/ios-ipa.yml); it is not committed.
+name: METRX
+options:
+  deploymentTarget:
+    iOS: "15.0"
+  createIntermediateGroups: true
+targets:
+  METRX:
+    type: application
+    platform: iOS
+    sources:
+      - path: App          # Swift sources, the asset catalog and Resources/index.html (copied in before the build)
+    info:
+      path: Support/Info.plist
+      properties:
+        CFBundleDisplayName: METRX
+        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "1"
+        LSRequiresIPhoneOS: true
+        UILaunchScreen: {}
+        UIRequiresFullScreen: true
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        ITSAppUsesNonExemptEncryption: false
+        NSCameraUsageDescription: "METRX uses the camera when you add a photo to a workspace."
+        NSPhotoLibraryUsageDescription: "METRX opens your photo library when you choose a photo for a workspace."
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: uz.metrx.prototype
+        PRODUCT_NAME: METRX
+        TARGETED_DEVICE_FAMILY: "1"
+        SWIFT_VERSION: "5.0"
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        GENERATE_INFOPLIST_FILE: NO
