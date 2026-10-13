@@ -1,0 +1,23 @@
+/* Estimate (option A): BOM table, missing values in amber */
+.et{display:grid;gap:12px;padding:10px 16px 20px}
+.et .banner{margin:0}
+.et-miss{display:flex;align-items:center;gap:8px;padding:10px 12px;border-radius:12px;background:var(--amberw);color:var(--amber);font-size:13.5px;font-weight:500}
+.et-tbl{display:grid;grid-template-columns:minmax(0,1fr);background:var(--sheet);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden}
+.et-h,.et-r{display:grid;grid-template-columns:minmax(0,1fr) 52px 66px 80px;gap:4px;align-items:center;padding:8px 10px 8px 12px}
+.et-h{font-size:11.5px;color:var(--ink2);border-bottom:1px solid var(--rule)}
+.et-h b{font-size:14px;font-weight:600;color:var(--ink)}
+.et-h span:not(:first-child),.et-r>span:not(:first-child){text-align:right}
+.et-r{width:100%;min-height:50px;border-bottom:1px solid var(--rule2);text-align:left;font:500 13.5px/1.25 var(--f-num)}
+.et-r:active{background:var(--fill)}
+.et-r .nm{font:500 14px/1.25 var(--f-ui);overflow-wrap:anywhere;min-width:0}
+.et-r .nm small{display:block;font-size:11.5px;color:var(--ink3);font-weight:400}
+.et-r .sum{font-weight:600}
+.et-r .miss{color:var(--amber);font-weight:700}
+.et-r.lab{grid-template-columns:minmax(0,1fr) 96px}
+.et-h.lab{grid-template-columns:minmax(0,1fr) 96px}
+.et-add{display:flex;align-items:center;gap:6px;min-height:44px;padding:0 12px;color:var(--cobalt);font-weight:600;font-size:14px;border-bottom:1px solid var(--rule2)}
+.et-sub{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:9px 12px;background:var(--fill);font-size:13.5px;font-weight:600}
+.et-sub span:last-child{font:600 14px var(--f-num)}
+.et-empty{padding:12px;font-size:13.5px;color:var(--ink2);border-bottom:1px solid var(--rule2)}
+.et-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:13px;color:var(--ink2)}
+.et-meta button{color:var(--cobalt);font-weight:500;min-height:36px}

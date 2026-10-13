@@ -90,42 +90,74 @@ function opModel3D(THREE,sc,w,ar,ctx){
 /* ---------- dragging: wall view (along the wall, and sill height for windows) and plan (along the wall) ---------- */
 { let dg=null;
   const snapOff=(off,o,L)=>{ off=Math.round(off/10)*10; if(L!=null){ const max=Math.max(0,L-o.w), mid=Math.round((L-o.w)/2/10)*10; if(Math.abs(off-mid)<60) off=mid; if(off<40) off=0; if(max-off<40) off=max; off=Math.max(0,Math.min(max,off)) } else off=Math.max(0,off); return off };
-  const snapSill=(sl,o,H)=>{ sl=Math.round(sl/10)*10; const def=(S.settings.defaults.window||{}).sill; if(def!=null&&Math.abs(sl-def)<40) sl=def; return Math.max(0,H!=null?Math.min(H-o.h,sl):sl) };
+  /* a window settles on the usual sill height, on another window's sill, and with its head level with another opening's head */
+  const snapSill=(sl,o,H,r)=>{ sl=Math.round(sl/10)*10; const c=[]; const def=(S.settings.defaults.window||{}).sill; if(def!=null) c.push([def,'def']);
+    if(r) r.openings.forEach(x=>{ if(x.id===o.id||x.wall!==o.wall) return; if(x.type==='window') c.push([x.sill||0,'sill']); c.push([(x.sill||0)+x.h-o.h,'top']) });
+    let hit=null; c.forEach(q=>{ const d=Math.abs(sl-q[0]); if(q[0]>=0&&d<50&&(!hit||d<Math.abs(sl-hit[0]))) hit=q });
+    U.dragSnap=hit?hit[1]:null; if(hit) sl=hit[0];
+    return Math.max(0,H!=null?Math.min(H-o.h,sl):sl) };
+  /* the first few pixels across the direction of the drag are ignored, so a sideways move doesn't change the height */
+  const slack=(v,on)=>on?Math.sign(v)*Math.max(0,Math.abs(v)-14):v;
   const tip=(host,x,y,txt,bad)=>{ let el=host.querySelector('.dg-tip'); if(!el){ el=document.createElement('div'); el.className='dg-tip'; host.appendChild(el) } el.classList.toggle('bad',!!bad); el.innerHTML=txt; el.style.left=x+'px'; el.style.top=y+'px' };
   appEl.addEventListener('pointerdown',e=>{
+    /* a new touch while an old drag never got its "finger up": close the old one first, so nothing stays stuck */
+    if(dg&&e.isPrimary&&e.pointerId!==dg.id) finish(false);
     if(U.sheet||S.firstRun||e.button>0) return; const rt=top(); if(!rt) return;
     const hit=e.target.closest&&e.target.closest('.wv-draw [data-a="editOpening"], .canvas .ophit'); if(!hit) return;
     const p=P(rt.pid), r=R(p,rt.rid); if(!r) return; const o=r.openings.find(x=>x.id===hit.dataset.id); if(!o) return;
     const inWv=rt.s==='wallView'&&!!hit.closest('.wv-draw'), inPlan=rt.s==='editor'&&(rt.mode||'plan')==='plan'&&!!hit.closest('.canvas');
     if(!inWv&&!inPlan) return;
-    const svg=hit.ownerSVGElement; const host=inWv?hit.closest('.wv-draw'):hit.closest('.canvas');
+    const host=inWv?hit.closest('.wv-draw'):hit.closest('.canvas'); const svg=hit.ownerSVGElement||host.querySelector('svg');
     dg={id:e.pointerId,x:e.clientX,y:e.clientY,p,r,o,rt,host,wv:inWv,off0:o.off,sill0:o.sill||0,k:1/((svg.getScreenCTM()||{a:1}).a||1),s:Number(inWv?svg.dataset.s:hit.dataset.s)||1,ux:Number(hit.dataset.ux)||1,uy:Number(hit.dataset.uy)||0,moved:false};
     if(inWv&&typeof wvPtr!=='undefined') wvPtr=null;
   });
   appEl.addEventListener('pointermove',e=>{
     if(!dg||e.pointerId!==dg.id) return; const dx=e.clientX-dg.x, dy=e.clientY-dg.y;
-    if(!dg.moved){ if(Math.hypot(dx,dy)<7) return; if(isLocked()){ dg=null; openSheet({type:'locked'}); return } dg.moved=true; try{ dg.host.setPointerCapture(dg.id) }catch(_){} dg.host.classList.add('dg-on'); U.dragOp=dg.o.id }
+    if(!dg.moved){ if(Math.hypot(dx,dy)<7) return; if(isLocked()){ dg=null; openSheet({type:'locked'}); return } dg.moved=true; try{ dg.host.setPointerCapture(dg.id) }catch(_){} dg.host.classList.add('dg-on'); U.dragOp=dg.o.id;
+      dg.axis=dg.wv&&dg.o.type==='window'?(Math.abs(dy)>Math.abs(dx)*1.4?'v':Math.abs(dx)>Math.abs(dy)*1.4?'h':''):'' }
     e.preventDefault();
+    /* the screen can be redrawn under the finger: carry on in the new drawing */
+    if(!dg.host.isConnected){ const h=appEl.querySelector(dg.wv?'.wv-draw':'.canvas'); if(!h){ dg=null; U.dragOp=null; U.dragSnap=null; return } dg.host=h; h.classList.add('dg-on'); try{ h.setPointerCapture(dg.id) }catch(_){} }
     const {o,r}=dg, L=wallLen(r,o.wall), H=r.dims.H.v;
-    const along=dg.wv?dx:(dx*dg.ux+dy*dg.uy);
+    const along=dg.wv?slack(dx,dg.axis==='v'):(dx*dg.ux+dy*dg.uy);
     o.off=snapOff(dg.off0+along*dg.k/dg.s,o,L);
-    if(dg.wv&&o.type==='window') o.sill=snapSill(dg.sill0-dy*dg.k/dg.s,o,H);
+    if(dg.wv&&o.type==='window') o.sill=snapSill(dg.sill0-slack(dy,dg.axis==='h')*dg.k/dg.s,o,H,r);
     const iss=openingIssue(r,o,r.openings), hr=dg.host.getBoundingClientRect();
-    if(dg.wv){ const ws=roomWalls(r), i=Math.max(0,ws.findIndex(w=>w.id===dg.rt.wall)); const svgOld=dg.host.querySelector('svg'); if(svgOld) svgOld.outerHTML=wvElevSVG(r,ws,i) }
-    else { const svgOld=dg.host.querySelector('svg'); if(svgOld) svgOld.outerHTML=planSVG(r,{selOp:o.id}) }
+    /* The drawing the finger went down on stays in the page, unseen, and the live drawing is laid in its place:
+       taking the touched element away in the middle of a touch makes the browser drop the touch (the drag "hangs"). */
+    { let html; if(dg.wv){ const ws=roomWalls(r), i=Math.max(0,ws.findIndex(w=>w.id===dg.rt.wall)); html=wvElevSVG(r,ws,i) } else html=planSVG(r,{selOp:o.id});
+      let keep=dg.host.querySelector('svg.dg-keep'); if(!keep){ keep=dg.host.querySelector('svg'); if(keep) keep.classList.add('dg-keep') }
+      const live=dg.host.querySelector('svg.dg-live'); if(live) live.remove();
+      if(keep){ keep.insertAdjacentHTML('afterend',html); keep.nextElementSibling.classList.add('dg-live') } }
     const c=wallCorner(r,o.wall);
-    tip(dg.host,e.clientX-hr.left,e.clientY-hr.top-18,`${esc(t('wv.off',{c,v:fmtLen(o.off)+' '+M()}))}${dg.wv&&o.type==='window'?'<br>'+esc(t('wv.sill',{v:fmtLen(o.sill||0)+' '+M()})):''}`,!!iss);
+    /* in the wall view the label sits above the wall, so it never covers the height helpers */
+    let ty=e.clientY-hr.top-18; if(dg.wv&&o.type==='window'){ const face=dg.host.querySelector('svg.dg-live .wv-face')||dg.host.querySelector('.wv-face'); if(face) ty=Math.min(ty,face.getBoundingClientRect().top-hr.top-10) }
+    tip(dg.host,e.clientX-hr.left,ty,`${esc(t('wv.off',{c,v:fmtLen(o.off)+' '+M()}))}${dg.wv&&o.type==='window'?'<br>'+esc(t('wv.sill',{v:fmtLen(o.sill||0)+' '+M()})):''}`,!!iss);
   });
-  const end=e=>{
-    if(!dg||e.pointerId!==dg.id) return; const s=dg; dg=null; U.dragOp=null; if(!s.moved) return;
+  const finish=cancelled=>{
+    const s=dg; dg=null; U.dragOp=null; U.dragSnap=null; if(!s||!s.moved) return;
     U.dragEnd=Date.now(); const {o,r,p}=s, nv={off:o.off,sill:o.sill||0}; o.off=s.off0; o.sill=s.sill0;
     const nm=t(o.type==='door'?'op.door':'op.window');
-    if(e.type==='pointercancel'||(nv.off===s.off0&&nv.sill===s.sill0)){ render(); return }
+    if(cancelled||(nv.off===s.off0&&nv.sill===s.sill0)){ render(); return }
     if(openingIssue(r,Object.assign({},o,nv),r.openings)){ toast(t('op.dragBack',{o:nm})); render(); return }
     pushHist(r); if(nv.off!==s.off0) o.offDrag=true; if(nv.sill!==s.sill0) o.sillDrag=true; o.off=nv.off; if(o.type==='window') o.sill=nv.sill;
     touchRoom(p); toast(t('op.moved',{o:nm}),{label:t('common.undo'),a:'undo'}); render() };
+  const end=e=>{ if(dg&&e.pointerId===dg.id) finish(e.type==='pointercancel') };
   appEl.addEventListener('pointerup',end); appEl.addEventListener('pointercancel',end);
   appEl.addEventListener('click',e=>{ if(U.dragEnd&&Date.now()-U.dragEnd<350){ e.stopImmediatePropagation(); e.preventDefault() } },true); }
+
+/* ---------- wall view: each opening gets a real button laid over it ----------
+   A browser ignores "don't scroll" (touch-action) on a shape inside a drawing, so a window dragged up or down used to
+   turn into a page scroll and the drag was dropped. A button over the opening is honoured; the rest of the wall still scrolls. */
+function wvGrips(){
+  const host=appEl.querySelector('.wv-draw'), svg=host&&host.querySelector('svg'); if(!svg) return;
+  host.querySelectorAll('.op-grip').forEach(e=>e.remove()); const hr=host.getBoundingClientRect();
+  svg.querySelectorAll('[data-a="editOpening"]').forEach(rc=>{ const b=rc.getBoundingClientRect(), g=document.createElement('button');
+    g.type='button'; g.className='op-grip'; g.dataset.a='editOpening'; g.dataset.id=rc.dataset.id; g.setAttribute('aria-label',rc.getAttribute('aria-label')||'');
+    g.style.cssText=`left:${(b.left-hr.left).toFixed(1)}px;top:${(b.top-hr.top).toFixed(1)}px;width:${b.width.toFixed(1)}px;height:${b.height.toFixed(1)}px`;
+    host.appendChild(g); rc.removeAttribute('data-a'); rc.removeAttribute('role'); rc.removeAttribute('aria-label') }) }
+{ const base=render; render=function(){ base(); wvGrips() } }
+window.addEventListener('resize',()=>wvGrips());
 
 /* ---------- where the designs show up ---------- */
 { const base=PAGES.wallView; PAGES.wallView=rt=>{ const html=base(rt), r=R(P(rt.pid),rt.rid); if(!r) return html;

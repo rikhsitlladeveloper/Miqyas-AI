@@ -456,7 +456,7 @@ SHEETS.opening=sh=>{
   const F=U.form, type=F.otype, walls=roomWalls(r); let wi=walls.findIndex(w=>w.id===F.owall); if(wi<0){ wi=0; F.owall=walls[0].id }
   const wall=F.owall, corner=wi+1, nextC=(wi+1)%walls.length+1, errs={}, parsed={};
   [['ow','w',DIM_MAX.A],['oh','h',DIM_MAX.H],['ooff','off',DIM_MAX.A],['osill','sill',DIM_MAX.H]].forEach(([id,k,max])=>{ if(id==='osill'&&type!=='window') return;
-    const res=id==='ooff'||id==='osill'?(()=>{ const x=parseDec(F[id],3); if(x.err) return {err:x.err==='precision'?t('err.precision',{n:3}):t('err.'+x.err)}; return {mm:Number(x.val)} })():lenErr(F[id],max);
+    const res=id==='ooff'||id==='osill'?(()=>{ const x=parseDec(F[id],LDEC()); if(x.err) return {err:x.err==='precision'?t('err.precision',{n:LDEC()}):t('err.'+x.err)}; return {mm:Number(x.val)} })():lenErr(F[id],max);
     if(res.err) errs[id]=res.err; else parsed[k]=res.mm });
   let geoErr=null;
   if(!Object.keys(errs).length){ const o={id:sh.oid||'new',type,wall,w:parsed.w,h:parsed.h,off:parsed.off,sill:type==='window'?parsed.sill:0}; const iss=openingIssue(r,o,r.openings); if(iss){ geoErr=iss; seen('invalid') } }

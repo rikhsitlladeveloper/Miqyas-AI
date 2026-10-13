@@ -11,7 +11,7 @@ from pathlib import Path
 D = Path(__file__).resolve().parents[1] / "prototype"
 P = D / "prototype.html"
 ORDER = ["openings", "workspace", "home", "projects", "project", "editor", "estimate", "measure", "board",
-         "profile", "report", "targets", "minimal", "auth", "real"]
+         "profile", "report", "targets", "minimal", "camera", "auth", "real", "ux"]
 END = "authend"  # the marker that closes the last synced module
 
 raw = io.open(P, encoding="utf-8", newline="").read()

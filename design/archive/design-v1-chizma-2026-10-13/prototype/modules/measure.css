@@ -1,0 +1,53 @@
+/* Measure (option C): one-press meter + quick geometry calculator */
+.qm{display:grid;gap:12px;padding:2px 16px 16px}
+.qm-meter{display:grid;justify-items:center;gap:6px;padding:10px 12px 12px;background:var(--sheet);border-radius:20px;box-shadow:var(--sh)}
+.qm-meter .st{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;font-size:12.5px;color:var(--ink2)}
+.qm-meter .st button{color:var(--cobalt);font-weight:500;min-height:30px}
+.qm-v{font:600 54px/1 var(--f-num);letter-spacing:-.02em;white-space:nowrap}
+.qm-v small{font-size:22px;font-weight:500;color:var(--ink2);margin-left:4px}
+.qm-meter .seg{width:100%}
+.qm-meter .seg button{min-height:36px;font-size:13.5px}
+.qm-live{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 14px;border-radius:18px;background:var(--fill);font-weight:600;font-size:13.5px}
+.qm-tools{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.qm-tools button{display:grid;justify-items:center;gap:3px;min-width:0;min-height:54px;padding:8px 1px;border-radius:12px;background:var(--sheet);box-shadow:var(--sh);font-size:11.5px;font-weight:600;color:var(--ink2);text-align:center!important}
+.qm-tools button span{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qm-tools button.on{background:var(--cobalt);color:#fff;box-shadow:0 4px 12px rgba(28,75,209,.25)}
+.qm-calc{display:grid;gap:8px;padding:12px;border-radius:18px;background:#0E1C36;color:#fff}
+.qm-row{display:flex;align-items:center;gap:6px}
+.qm-row .op{flex:none;color:#B7C3D9;font:600 18px var(--f-num)}
+.qm-slot{flex:1;min-width:0;display:grid;justify-items:center;gap:1px;min-height:58px;padding:7px 4px;border-radius:12px;background:rgba(255,255,255,.1);color:#fff;text-align:center!important}
+.qm-slot b{font:600 20px/1.1 var(--f-num)}
+.qm-slot small{max-width:100%;font-size:11px;color:#B7C3D9;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.qm-slot.empty{background:transparent;border:1.5px dashed rgba(255,255,255,.35)}
+.qm-slot.empty b{color:#B7C3D9}
+.qm-slot.act{box-shadow:0 0 0 2px #FFB547 inset}
+.qm-optl{font-size:11.5px;color:#B7C3D9}
+.qm-res{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,.15)}
+.qm-res span{font-size:13px;color:#B7C3D9}
+.qm-res b{font:700 30px/1 var(--f-num);white-space:nowrap}
+.qm-err{flex:1;display:flex;align-items:center;gap:5px;min-width:0;font-style:normal;font-size:13px;font-weight:600;color:#FFB547}
+.qm-res button{color:#B7C3D9;font-size:13px;min-height:32px}
+.qm-hint{font-size:13px;color:var(--ink2)}
+.qm-chips{display:flex;flex-wrap:wrap;gap:6px}
+.qm-chips button{min-height:40px;padding:0 12px;border-radius:12px;background:var(--sheet);font:600 15px var(--f-num);box-shadow:inset 0 0 0 1px var(--rule)}
+.qm-chips button.used{background:var(--wash);color:var(--cobalt2);box-shadow:inset 0 0 0 1.5px var(--cobalt)}
+.qm-chips button.sim{background-image:repeating-linear-gradient(135deg,transparent 0 6px,rgba(14,28,54,.05) 6px 12px)}
+.qm-sech{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:0 2px}
+.qm-sech b{font-size:15px;font-weight:600}
+.qm-sech button{color:var(--cobalt);font-weight:500;font-size:14px;min-height:36px}
+.qm-foot .btnrow .btn{min-height:56px;border-radius:16px;font-size:16px}
+.qm-foot .btnrow .btn.pri{flex:1.6}
+/* brick tool */
+.qm-lnk{display:inline-flex;align-items:center;gap:5px;justify-self:start;min-height:44px;margin:-6px 0;color:#A9C0FF;font-size:13px;font-weight:600}
+.qm-th{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;padding:3px;border-radius:12px;background:rgba(255,255,255,.1)}
+.qm-th button{display:grid;justify-items:center;align-content:center;gap:1px;min-height:44px;border-radius:9px;color:#B7C3D9;text-align:center!important}
+.qm-th button b{font:600 16px/1 var(--f-num)}
+.qm-th button small{font-size:10.5px;white-space:nowrap}
+.qm-th button.on{background:#fff;color:#0E1C36}
+.qm-res b small{font:500 14px var(--f-ui);color:#B7C3D9}
+.qm-sub{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12.5px;color:#B7C3D9}
+.qm-sub span{min-width:0}
+.qm-sub button{flex:none;min-height:44px;min-width:44px;margin:-8px 0;color:#A9C0FF;font-weight:600;font-size:13px}
+.qb-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.qb-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.qb-3 .ferr,.qb-2 .ferr{font-size:12px}

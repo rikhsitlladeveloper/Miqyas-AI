@@ -81,7 +81,7 @@ PAGES.projects=()=>{
   const lk=isLocked();
   const body=!ps.length?plEmpty():`<div class="pl">${field('pl.q','',{ph:t('pl.search')})}<div class="pl-seg" role="tablist">${[['active','pl.active'],['done','pl.doneSeg'],['all','pl.allSeg']].map(([k,l])=>`<button class="${seg===k?'on':''}" role="tab" aria-selected="${seg===k}" data-a="plSeg" data-v="${k}"><span class="l">${esc(t(l))}</span><span class="n">${n[k]}</span></button>`).join('')}</div>${list.map(pcCard).join('')||`<p class="pl-none">${esc(q?t('pl.noMatch'):t('pl.none'))}</p>`}</div>`;
   const fab=ps.length&&!U.focus?`<button class="pl-fab ${lk?'locked':''}" data-a="newProject">${ic(lk?'lock':'plus')}${esc(t('pl.fab'))}</button>`:'';
-  return `<section class="page ${U.anim||''}">${bar({right:savedChip()}).replace('<span class="sp"></span>','<span class="wordmark">METRX</span><span class="sp"></span>')}<div class="h1-ey">${esc(t(!ps.length?'pl.ey.all':'pl.ey.'+seg))}</div><div class="h1">${esc(t('tab.projects'))}</div>${banners()}<div class="scroll" data-scroll="projects">${body}</div>${fab}</section>`;
+  return `<section class="page ${U.anim||''}">${bar({right:devPill()}).replace('<span class="sp"></span>','<span class="wordmark">METRX</span><span class="sp"></span>')}<div class="h1">${esc(t('tab.projects'))}</div>${banners()}<div class="scroll" data-scroll="projects">${body}</div>${fab}</section>`;
 };
 A.plSeg=d=>{ U.plSeg=d.v; render() };
 A.pcOpen=d=>{ push({s:'project',id:d.id||d.pid,tab:d.tab||'rooms'}) };

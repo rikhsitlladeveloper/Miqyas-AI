@@ -4,6 +4,31 @@ Status: Stage 3 handoff, 13 October 2026. Direction A, "Chizma" (the drawing), i
 
 Sizes are in CSS pixels, which map 1:1 to Android dp and iOS pt.
 
+## 0. Current look: minimal (13 October 2026)
+
+After the handoff the founder supplied a minimal design for Home, Projects and New project and asked for it across the whole app. The prototype now uses it everywhere except the sign-in screens (section 2.7). **Where this section and a later one disagree, this section is right.** Sections 2 to 13 still describe the earlier look value by value, and stay correct for everything not listed here: status colours, drawing conventions, states, the PDF. The earlier look, with its prototype and documents, is kept in `design/archive/design-v1-chizma-2026-10-13/`.
+
+| Token | Earlier | Now | Use |
+| --- | --- | --- | --- |
+| `cobalt` | `#1C4BD1` | `#374FDD` | Main actions, links, active tab |
+| `cobalt2` | `#1238A8` | `#2A3FBF` | Pressed main button, text on the wash |
+| `wash` | `#EAF0FE` | `#EEF2FE` | Icon tiles, selected chips, focus ring |
+| `paper` | `#F4F5F7` | `#F7F8FA` | Page |
+| `ink` | `#0E1C36` | `#0B1020` | Text |
+| `ink2` | `#47536A` | `#566074` | Secondary text |
+| `ink3` | `#6B7486` | `#667085` | Hints, placeholders |
+| `rule` | `#E3E6EB` | `#E4E8EF` | Hairline around cards and fields |
+| `fill` | `#EEF0F4` | `#F1F4F8` | Secondary buttons, neutral chips |
+
+- **Typeface:** Manrope for all interface text (400 to 800). It covers Latin, Russian and the Uzbek Cyrillic letters ў, қ, ғ, ҳ. Numbers on drawings, in tables and in the calculator stay in IBM Plex Sans Condensed, so long values still fit.
+- **Cards:** white, 22 radius, a 1 px `rule` hairline and no shadow. Large feature cards (the New project card on Home, the empty Projects card) use 26.
+- **Buttons:** 16 radius; full-width and footer buttons are 54 tall with 18 radius and weight 700. The main button has a soft blue shadow.
+- **Fields:** 56 tall, 16 radius, 1 px hairline, 18 side padding. Labels are 15 / 700 in `ink`; "Optional" sits at the right of the label. Focus is a 2 px `cobalt` border with a 4 px wash ring.
+- **Tab bar:** a floating white bar, 72 tall, 26 radius, 12 from the screen edges and 8 above the gesture area. The active tab is a filled `cobalt` block (20 radius) with a white icon and label; the others are `ink2`.
+- **Titles:** page title 30 / 800. Home greeting 32 / 800. A page may carry a small blue line (13.5 / 600) above its title.
+- **Sheets:** 28 top radius. Toasts and banners: 16 radius.
+- **Contrast, measured:** white on `cobalt` 6.3:1 · `ink2` on `paper` 5.9:1 · `ink3` on `paper` 4.7:1 · `cobalt` on `wash` 5.6:1. The card hairline is decorative (1.2:1).
+
 ## 1. Principles
 
 1. **Built for a building site.** Big numbers, big buttons, one main action per screen, nothing that needs a careful tap.
@@ -77,12 +102,39 @@ One standard look for all doors and windows: `#E2E6EC` in 2D, `#C5CBD4` in 3D.
 - **Walls:** `#ECE8E1`, `#D9D4CB`, `#D6E0EC`, `#E6D3B3`.
 - **Floor:** `#C49A6C`, `#8A6343`, `#B9BDC2`, `#A7A39C`.
 
+### 2.7 Sign-in screens
+
+The sign-in screens (opening animation, Welcome, Create account, Log in, Reset password) take their look from the founder's Figma file. The values below apply to those screens only; the rest of the app uses the tokens above. Whether this style replaces the app-wide one is an open decision (see the review checklist).
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `auth.primary` | `#3355B4` | Main button, links, progress, active outline, laser line |
+| `auth.primaryPressed` | `#27448F` | Pressed main button |
+| `auth.wash` | `#EBF2FC` | Focus ring, icon circles |
+| `auth.page` | `#FFFFFF` | Every sign-in page |
+| `auth.ink` | `#0B1226` | Headings, values, plan walls |
+| `auth.ink2` | `#56627A` | Body text, labels |
+| `auth.ink3` | `#626E87` | Small print, field icons, placeholders |
+| `auth.outline` | `#C9D6E8` | Outlines of fields, buttons, cards and code boxes |
+| `auth.hairline` | `#E7ECF3` | Dividers |
+| `auth.tint` | `#F1F6FA` | "Continue without an account" card |
+| `auth.chip` | `#D3DFEF` | "Sample room" chip |
+| `auth.padCard` | `#EEF2FC` | Number pad card |
+| `auth.keyboard` | `#F3F4F9` | Ground of the code keyboard |
+
+Contrast, measured: white on `auth.primary` 6.8:1 · `auth.ink2` on white 6.1:1 · `auth.ink3` on white 5.1:1 · `auth.primary` on `auth.wash` 6.0:1. The outline is 1.5:1 against white, as drawn in the Figma. A field is still recognisable by its label and icon, but the outline alone does not meet the 3:1 asked of input boundaries.
+
+- **Shape:** fields 56 tall with a 1.5 outline and 12 radius. Buttons 52 tall, 12 radius; the main one has a soft blue shadow. Code boxes 64 tall with a 2 outline. Plan card 16 radius. Sheets 28 radius with a 48 × 4 handle.
+- **Focused field:** the outline turns `auth.primary` with a 3 wash ring. **Wrong:** the outline turns red with a line of text and an icon underneath.
+- **Labels in capitals:** the tagline, the chips on the plan card, "Offline mode" and the number pad's title are IBM Plex Mono, about 10.5, in capitals with wide letter-spacing. They are short labels only; sentences are never set this way.
+
 ## 3. Typography
 
 - **IBM Plex Sans** for all interface text. It has full Latin and Cyrillic, including the Uzbek letters ў, қ, ғ, ҳ.
 - **IBM Plex Sans Condensed** for numbers: dimensions, areas, money, counters. Narrow digits keep long values on one line.
+- **IBM Plex Mono**, on the sign-in screens only: the wordmark, the small labels in capitals, the phone number, the SMS code and the keys of the number pad. It has the same Latin and Cyrillic coverage.
 - Fallbacks: Segoe UI, Roboto, the system font.
-- **Bundle both families in the app.** The prototype loads them from the internet; the real app must not.
+- **Bundle the families in the app.** The prototype loads them from the internet; the real app must not.
 
 ### 3.1 Scale
 
@@ -203,6 +255,12 @@ One standard look for all doors and windows: `#E2E6EC` in 2D, `#C5CBD4` in 3D.
 
 The prototype draws its own keyboard so the layouts show real keyboard height (240 for numbers). The real app uses the system keyboard: the decimal pad for numbers, and "Next" to move between fields.
 
+The sign-in screens are the exception. As drawn in the Figma, they have their own keyboards, which the real app would build too:
+
+- **Phone number:** a number pad on a tinted card with its title and "Close". Three columns of 48-tall keys; the last row is Clear, 0 and backspace.
+- **SMS code:** a four-column pad with 52-tall keys, backspace at the top right and "Done" at the bottom right. Above the keys, one button offers the code from the SMS for one-tap entry.
+- Name and password use the system keyboard.
+
 ## 6. States and status language
 
 Status is always an icon plus a word. Colour only supports it.
@@ -322,4 +380,14 @@ color.green      #0B7A5A    font.number     IBM Plex Sans Condensed
 color.greenWash  #E6F4EF
 color.red        #B42318
 color.redWash    #FDEDEB
+
+Sign-in screens only (section 2.7):
+auth.primary     #3355B4    auth.outline    #C9D6E8
+auth.pressed     #27448F    auth.hairline   #E7ECF3
+auth.wash        #EBF2FC    auth.tint       #F1F6FA
+auth.ink         #0B1226    auth.padCard    #EEF2FC
+auth.ink2        #56627A    auth.keyboard   #F3F4F9
+auth.ink3        #626E87    font.mono       IBM Plex Mono
+size.authField   56         size.authButton 52
+size.codeBox     64         radius.authSheet 28
 ```

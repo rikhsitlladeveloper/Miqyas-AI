@@ -15,7 +15,7 @@ Small scripts used while building the prototype. They resolve paths from their o
 2. Run `python design/tools/sync_modules.py`.
 3. Open `design/prototype/index.html`, or rebuild the Android app (see `design/android-prototype/README.md`).
 
-`wallview` and `sketch` are the exception: their code lives directly in `prototype.html`, and `modules/` keeps a reference copy that the sync script does not touch. `auth` (sign-in) and `real` (the real-app changes: phone keyboard, no demo parts, logo, camera, GPS, PDF and backup) are synced like the others; `real` is the last module and ends at the `authend` marker.
+`wallview` and `sketch` are the exception: their code lives directly in `prototype.html`, and `modules/` keeps a reference copy that the sync script does not touch. `camera` (camera measuring on the Measure tab), `auth` (sign-in) and `real` (the real-app changes: phone keyboard, no demo parts, logo, camera, GPS, PDF and backup) and `ux` (the founder's review of 13 October: 3D layout and moving, toasts at the top) are synced like the others; `ux` is the last module and ends at the `authend` marker.
 
 ## Checking on the emulator
 

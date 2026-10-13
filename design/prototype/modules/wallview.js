@@ -106,7 +106,7 @@ function wvElevSVG(r,walls,i){
   let g='';
   // floor + wall face
   g+=`<rect x="${wvF(x0-14)}" y="${wvF(yF)}" width="${wvF(xE-x0+28)}" height="7" fill="url(#wvHatch)"/>`;
-  g+=`<rect x="${wvF(x0)}" y="${wvF(yT)}" width="${wvF(ww)}" height="${wvF(wh)}" fill="#FFFFFF"/>`;
+  g+=`<rect class="wv-face" x="${wvF(x0)}" y="${wvF(yT)}" width="${wvF(ww)}" height="${wvF(wh)}" fill="#FFFFFF"/>`;
   const dl=li.st!=='conf'?'stroke-dasharray="5 4"':'', dh=hi.st!=='conf'?'stroke-dasharray="5 4"':'';
   g+=`<path d="M${wvF(x0)} ${wvF(yF)}V${wvF(yT)}M${wvF(x0+ww)} ${wvF(yF)}V${wvF(yT)}" stroke="${ink}" stroke-width="1.6" ${dl}/><path d="M${wvF(x0)} ${wvF(yT)}H${wvF(x0+ww)}" stroke="${ink}" stroke-width="1.6" ${dh}/>`;
   g+=`<path d="M${wvF(x0-14)} ${wvF(yF)}H${wvF(xE+14)}" stroke="${ink}" stroke-width="2.4"/>`;
@@ -127,6 +127,15 @@ function wvElevSVG(r,walls,i){
     if(iss){ g+=`<rect x="${wvF(ox)}" y="${wvF(oy)}" width="${wvF(ow)}" height="${wvF(oh)}" fill="none" stroke="${err}" stroke-width="2.6" stroke-dasharray="4 3"/><circle cx="${wvF(ox+ow)}" cy="${wvF(oy)}" r="8" fill="${err}"/><text x="${wvF(ox+ow)}" y="${wvF(oy+4)}" text-anchor="middle" font-size="12" font-weight="700" fill="#FFFFFF">!</text>` }
     g+=`<rect x="${wvF(ox-4)}" y="${wvF(oy-4)}" width="${wvF(ow+8)}" height="${wvF(oh+8)}" fill="transparent" data-a="editOpening" data-id="${esc(o.id)}" role="button" aria-label="${esc(nm+', '+fmtLen(o.w)+' × '+fmtLen(o.h)+' '+M()+(iss?'. '+iss.msg:''))}"/>`;
   });
+  // while a window is dragged: its height above the floor and below the ceiling, and the lines it lines up with
+  { const o=ops.find(x=>x.id===U.dragOp&&x.type==='window');
+    if(o&&hi.mm!=null){
+      const ox=x0+o.off*s, ow=Math.max(2,o.w*s), yb=yF-(o.sill||0)*s, yt=yF-((o.sill||0)+o.h)*s, sn=U.dragSnap, gap=H-(o.sill||0)-o.h;
+      const right=ox+ow+46<=x0+ww, xd=right?ox+ow+12:ox-12, tx=right?xd+6:xd-6, ta=right?'start':'end';
+      const line=(y,on)=>`<path d="M${wvF(x0)} ${wvF(y)}H${wvF(x0+ww)}" stroke="${cob}" stroke-width="${on?1.6:0.9}" ${on?'':'stroke-dasharray="4 3"'} opacity="${on?1:0.6}"/>`;
+      const seg=(ya,yz,mm)=>ya-yz<2?'':`<path d="M${wvF(xd)} ${wvF(ya)}V${wvF(yz)}" stroke="${cob}" stroke-width="1.1"/>${wvTick(xd,ya,cob)}${wvTick(xd,yz,cob)}<text x="${wvF(tx)}" y="${wvF((ya+yz)/2+4)}" text-anchor="${ta}" font-family="IBM Plex Sans Condensed, sans-serif" font-size="12" font-weight="600" fill="${cob}" paint-order="stroke" stroke="#FFFFFF" stroke-width="3.5">${fmtLen(mm)}</text>`;
+      g+=`<g pointer-events="none">${line(yb,sn==='sill'||sn==='def')}${line(yt,sn==='top')}${seg(yF,yb,o.sill||0)}${seg(yt,yT,gap)}</g>`;
+    } }
   // chain dims: corner → opening edges → end
   if(ops.length){
     const yC=yF+18, segs=wvChain(ops,li.mm), xs=new Set();

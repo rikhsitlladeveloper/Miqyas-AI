@@ -387,7 +387,7 @@ function mkElSVG(e,l){
   /* line (drawing) and dim (photo): a dimension line with end marks and a value pill */
   const tick=e.t==='dim'?[nx*20,ny*20]:[(ux+nx)*13,(uy+ny)*13];
   const ends=[a,b].map(q=>`M${(q[0]-tick[0]).toFixed(1)} ${(q[1]-tick[1]).toFixed(1)}L${(q[0]+tick[0]).toFixed(1)} ${(q[1]+tick[1]).toFixed(1)}`).join('');
-  const has=e.v!=null, txt=has?fmtLen(e.v,l)+' '+t('u.m',null,l):'?', tw=has?txt.length*21+38:64, th=56;
+  const has=e.v!=null, txt=has?fmtLen(e.v,l)+' '+M(l):'?', tw=has?txt.length*21+38:64, th=56;
   const off=e.t==='line'?42:0, mx=(a[0]+b[0])/2+nx*off*(ny>0?-1:1), my=(a[1]+b[1])/2+ny*off*(ny>0?-1:1);
   const halo=e.t==='dim'?`<path d="M${a[0]} ${a[1]}L${b[0]} ${b[1]}${ends}" stroke="#fff" stroke-width="13" stroke-linecap="round" opacity=".85"/>`:'';
   return `<g data-el="${e.id}">${halo}<path d="M${a[0]} ${a[1]}L${b[0]} ${b[1]}${ends}" stroke="${c}" stroke-width="${e.t==='dim'?7:9}" stroke-linecap="round"/><g data-lab="${e.id}" style="cursor:pointer"><rect x="${(mx-tw/2).toFixed(1)}" y="${(my-th/2).toFixed(1)}" width="${tw}" height="${th}" rx="28" fill="${has?'#fff':'#FFF1DF'}" stroke="${has?c:'#9A4D00'}" stroke-width="3" ${has?'':'stroke-dasharray="7 5"'}/><text x="${mx.toFixed(1)}" y="${(my+1).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-family="${F_NUM}" font-size="36" font-weight="600" fill="${has?'#0E1C36':'#9A4D00'}">${esc(txt)}</text></g></g>`;

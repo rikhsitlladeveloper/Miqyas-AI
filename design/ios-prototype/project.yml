@@ -23,7 +23,7 @@ targets:
         UISupportedInterfaceOrientations:
           - UIInterfaceOrientationPortrait
         ITSAppUsesNonExemptEncryption: false
-        NSCameraUsageDescription: "METRX uses the camera when you add a photo to a workspace."
+        NSCameraUsageDescription: "METRX uses the camera for the live measuring view and when you take a photo to draw measurements on."
         NSPhotoLibraryUsageDescription: "METRX opens your photo library when you choose a photo for a workspace."
         NSLocationWhenInUseUsageDescription: "METRX saves the location of a project when you tap Find location."
     settings:

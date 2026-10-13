@@ -16,11 +16,13 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.util.Base64;
 import android.view.View;
 import android.view.WindowInsets;
 import android.view.WindowInsetsController;
 import android.webkit.GeolocationPermissions;
 import android.webkit.JavascriptInterface;
+import android.webkit.PermissionRequest;
 import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
@@ -39,6 +41,8 @@ public class MainActivity extends Activity {
     private static final int PICK_FILE = 41;
     private static final int TAKE_PHOTO = 42;
     private static final int ASK_LOCATION = 43;
+    private static final int ASK_CAMERA_LIVE = 44;
+    private static final int ASK_CAMERA_PHOTO = 45;
     private WebView web;
     private FrameLayout root;
     private View statusBg;
@@ -46,6 +50,8 @@ public class MainActivity extends Activity {
     private Uri cameraUri;
     private String geoOrigin;
     private GeolocationPermissions.Callback geoCallback;
+    private PermissionRequest camRequest;
+    private Intent pickerIntent;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -100,6 +106,7 @@ public class MainActivity extends Activity {
         s.setDomStorageEnabled(true);          // the app saves its data in localStorage
         s.setAllowFileAccess(true);
         s.setGeolocationEnabled(true);
+        s.setMediaPlaybackRequiresUserGesture(false);   // the live camera view starts by itself
         s.setTextZoom(100);                    // keep the designed type sizes regardless of system font scale
         web.setOverScrollMode(View.OVER_SCROLL_NEVER);
 
@@ -126,7 +133,15 @@ public class MainActivity extends Activity {
             public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> callback, FileChooserParams params) {
                 if (fileCallback != null) fileCallback.onReceiveValue(null);
                 fileCallback = callback;
-                if (params.isCaptureEnabled() && openCamera()) return true;
+                if (params.isCaptureEnabled()) {
+                    // An app that declares the camera permission must hold it before it may open the camera app.
+                    if (checkSelfPermission(Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                        pickerIntent = params.createIntent();
+                        requestPermissions(new String[]{Manifest.permission.CAMERA}, ASK_CAMERA_PHOTO);
+                        return true;
+                    }
+                    if (openCamera()) return true;
+                }
                 try {
                     startActivityForResult(params.createIntent(), PICK_FILE);
                 } catch (Exception e) {
@@ -134,6 +149,21 @@ public class MainActivity extends Activity {
                     return false;
                 }
                 return true;
+            }
+
+            // getUserMedia (the live camera): video only, and only after the Android permission is given.
+            @Override
+            public void onPermissionRequest(PermissionRequest request) {
+                boolean video = false;
+                for (String r : request.getResources()) if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(r)) video = true;
+                if (!video) { request.deny(); return; }
+                if (checkSelfPermission(Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) {
+                    request.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+                    return;
+                }
+                if (camRequest != null) camRequest.deny();
+                camRequest = request;
+                requestPermissions(new String[]{Manifest.permission.CAMERA}, ASK_CAMERA_LIVE);
             }
 
             // navigator.geolocation: ask for the Android permission once, then let the page have the position.
@@ -228,6 +258,23 @@ public class MainActivity extends Activity {
             geoCallback.invoke(geoOrigin, ok, false);
             geoCallback = null;
         }
+        boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+        if (requestCode == ASK_CAMERA_LIVE && camRequest != null) {
+            if (granted) camRequest.grant(new String[]{PermissionRequest.RESOURCE_VIDEO_CAPTURE});
+            else camRequest.deny();
+            camRequest = null;
+        }
+        if (requestCode == ASK_CAMERA_PHOTO && fileCallback != null) {
+            // With the permission: the camera. Without it: the system picker, so a photo can still be chosen.
+            if (granted && openCamera()) { pickerIntent = null; return; }
+            try {
+                startActivityForResult(pickerIntent, PICK_FILE);
+            } catch (Exception e) {
+                fileCallback.onReceiveValue(null);
+                fileCallback = null;
+            }
+            pickerIntent = null;
+        }
     }
 
     /** Saves a file to Downloads/METRX and returns its address for sharing. Needs Android 10 or newer. */
@@ -320,6 +367,17 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void sharePdf(String html, String name, int pages) {
             runOnUiThread(() -> makePdf(html, name, pages));
+        }
+
+        /** A picture with its measured lines (JPEG, base64) in the phone's share sheet. */
+        @JavascriptInterface
+        public void shareImage(String name, String base64) {
+            runOnUiThread(() -> {
+                try {
+                    Uri u = saveToDownloads(name, "image/jpeg", Base64.decode(base64, Base64.DEFAULT));
+                    if (u != null) shareUri(u, "image/jpeg", name);
+                } catch (Exception ignored) { }
+            });
         }
 
         /** A text file (the backup) in the phone's share sheet. */

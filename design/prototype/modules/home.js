@@ -76,16 +76,18 @@ function hmTarget(){
   if(lr&&WSP(lp,lr.floorId)) return {pid:lp.id,wid:lr.floorId,w:WSP(lp,lr.floorId)};
   const p=S.projects.slice().sort((a,b)=>b.edited-a.edited).find(x=>x.floors.length); return p?{pid:p.id,wid:p.floors[0].id,w:p.floors[0]}:null;
 }
+/* laser status, shown at the right end of the top bar on Home and Projects */
+function devPill(){ const bt=S.demo.bt; return `<button class="hm-dev ${bt==='connected'?'on':bt==='disconnected'?'':'bad'}" data-a="device"><i></i><span>${esc(t(bt==='connected'?'dev.conn':bt==='off'?'dev.off':bt==='denied'?'dev.denied':'dev.disc'))}</span></button>` }
 PAGES.home=()=>{
   const ps=S.projects.slice().sort((a,b)=>b.edited-a.edited), lk=isLocked();
   const b=S.settings.builder, first=String(b.name||'').trim().split(/\s+/)[0];
   const bt=S.demo.bt, devLab=t(bt==='connected'?'dev.conn':bt==='off'?'dev.off':bt==='denied'?'dev.denied':'dev.disc');
-  const hi=`<div class="hm-hi"><div class="r1"><small>${esc(hmDate())}</small><button class="hm-dev ${bt==='connected'?'on':bt==='disconnected'?'':'bad'}" data-a="device"><i></i><span>${esc(devLab)}</span></button></div><h2>${esc(first?t('hm.hi',{n:first}):t('hm.hi0'))}</h2><p>${esc(t('hm.sub'))}</p></div>`;
+  const hi=`<div class="hm-hi"><h2>${esc(first?t('hm.hi',{n:first}):t('hm.hi0'))}</h2><p>${esc(t('hm.sub'))}</p></div>`;
   const hero=`<button class="hm-hero ${lk?'locked':''}" data-a="newProject"><span class="hp">${ic(lk?'lock':'plus')}</span><span class="go">${ic('chev','i s')}</span><b>${esc(t('hm.t.new'))}</b><small>${esc(t('hm.t.newS'))}</small></button>`;
   const row=(a,icn,ti,sub,cls,extra)=>`<button class="it" data-a="${a}" ${extra||''}><span class="ic ${cls||'cob'}">${ic(icn)}</span><span class="tx"><b>${esc(ti)}</b><small>${esc(sub)}</small></span>${ic('chev','i s')}</button>`;
   const qa=rows=>`<div class="hm-sech"><b>${esc(t('hm.qa'))}</b><small>${esc(t('hm.qaN',{n:rows.length}))}</small></div><div class="hm-qa">${rows.join('')}</div>`;
   const measRow=row('tab','laser',t('hm.q.measure'),bt==='connected'?t('hm.q.measSim'):devLab,'cob','data-v="measure"');
-  const head=`${bar({right:savedChip()}).replace('<span class="sp"></span>','<span class="wordmark">METRX</span><span class="sp"></span>')}${banners()}`;
+  const head=`${bar({right:devPill()}).replace('<span class="sp"></span>','<span class="wordmark">METRX</span><span class="sp"></span>')}${banners()}`;
   if(!ps.length){ seen('empty');
     return `<section class="page ${U.anim||''}">${head}<div class="scroll" data-scroll="home"><div class="hm">${hi}${hero}${qa([measRow,row('goBackup','restore',t('pl.restore'),t('hm.q.restoreS'),'amb')])}</div></div></section>` }
   // continue

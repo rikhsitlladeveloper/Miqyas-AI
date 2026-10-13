@@ -39,6 +39,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
           setDarkTop:function(d){post({darkTop:!!d})},
           sharePdf:function(html,name,pages){post({pdf:String(html),name:String(name),pages:pages|0})},
           shareFile:function(name,text,mime){post({file:String(text),name:String(name)})},
+          shareImage:function(name,b64){post({image:String(b64),name:String(name)})},
           getLocation:function(){post({location:true})}
         };})();
         """
@@ -105,6 +106,7 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
             makePDF(html: html, name: (body["name"] as? String) ?? "METRX.pdf", pages: (body["pages"] as? Int) ?? 1)
         }
         if let text = body["file"] as? String { shareText(text, name: (body["name"] as? String) ?? "metrx-backup.metrx") }
+        if let b64 = body["image"] as? String { shareImage(b64, name: (body["name"] as? String) ?? "METRX.jpg") }
         if body["location"] != nil { requestLocation() }
     }
 
@@ -178,6 +180,16 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
         } catch { }
     }
 
+    /// A picture with its measured lines, sent by the page as base64 JPEG.
+    private func shareImage(_ base64: String, name: String) {
+        guard let data = Data(base64Encoded: base64, options: .ignoreUnknownCharacters) else { return }
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(name)
+        do {
+            try data.write(to: url, options: .atomic)
+            share(url)
+        } catch { }
+    }
+
     private func share(_ url: URL) {
         let sheet = UIActivityViewController(activityItems: [url], applicationActivities: nil)
         sheet.popoverPresentationController?.sourceView = view
@@ -231,6 +243,15 @@ final class WebViewController: UIViewController, WKNavigationDelegate, WKUIDeleg
     }
 
     // MARK: WKUIDelegate
+
+    /// The live camera on the Measure tab: the page may use the camera (never the microphone). iOS still shows its
+    /// own one-time camera prompt with the text from NSCameraUsageDescription.
+    @available(iOS 15.0, *)
+    func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        decisionHandler(type == .camera ? .grant : .deny)
+    }
 
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {

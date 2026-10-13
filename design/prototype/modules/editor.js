@@ -25,7 +25,7 @@ Object.assign(D,{
 'ed2.done':['Hammasi tasdiqlangan','Всё подтверждено','All confirmed'],
 'ed2.sum':['Pol {f} m², devor sof {w} m²','Пол {f} м², стены чистые {w} м²','Floor {f} m², net wall {w} m²'],
 'ed2.sumNoH':['Pol {f} m²','Пол {f} м²','Floor {f} m²'],
-'ed2.all':['Hammasi','Все','All'],
+'ed2.all':['Barcha o‘lchamlar','Все размеры','All sizes'],
 'ed2.hide':['Yopish','Свернуть','Collapse'],
 'ed2.meas':['O‘LCHAMLAR','РАЗМЕРЫ','MEASUREMENTS'],
 'ed2.walls':['DEVOR MAYDONLARI, m²','ПЛОЩАДЬ СТЕН, м²','WALL AREAS, m²'],
@@ -60,8 +60,8 @@ function ed2Focus(r){
 function ed2Card(p,r){
   const f=ed2Focus(r), lk=isLocked(), bt=S.demo.bt==='connected';
   const ks=hmDimKeys(r), open=ks.filter(k=>dimStatus(r.dims[k])!=='conf'&&k!==f.k);
-  const foot=f.k?`<div class="ed2-foot"><span>${esc(open.length?t('ed2.left',{w:ed2Name(open[0]),n:open.length}):(f.kind==='unset'||f.kind==='recv')?t('ed2.last'):'')}</span><button data-a="edPanel">${ic('chev','i s')}${esc(t('ed2.all'))}</button></div>`
-    :`<div class="ed2-foot"><span></span><button data-a="edPanel">${ic('chev','i s')}${esc(t('ed2.all'))}</button></div>`;
+  const foot=f.k?`<div class="ed2-foot"><span>${esc(open.length?t('ed2.left',{w:ed2Name(open[0]),n:open.length}):(f.kind==='unset'||f.kind==='recv')?t('ed2.last'):'')}</span><button data-a="edPanel">${ic('chev','i s')}${esc(t(U.edPanel?'ed2.hide':'ed2.all'))}</button></div>`
+    :`<div class="ed2-foot"><span></span><button data-a="edPanel">${ic('chev','i s')}${esc(t(U.edPanel?'ed2.hide':'ed2.all'))}</button></div>`;
   if(f.kind==='recv'){ const pd=r.dims[f.k].pending;
     return `<div class="ed2-card"><div class="ed2-q"><span class="tx"><small>${esc(t(pd.from==='quick'?'ed2.fromQuick':'ed2.fromLaser',{w:ed2Name(f.k)}))}</small><span class="ed2-v recv">${fmtLen(pd.mm,null,true)}<small>${esc(M())}</small></span></span><span class="ed2-st recv">${ic('clock','i xs')}${esc(t('ed2.unconf'))}</span></div>
       <div class="ed2-acts"><button class="btn sec" data-a="edAgain" data-k="${f.k}">${ic('laser','i s')}<span>${esc(t('ed2.again'))}</span></button><button class="btn pri" data-a="edConfirm" data-k="${f.k}">${ic('check','i s')}<span>${esc(t('ed2.confirm'))}</span></button></div>${foot}</div>` }
@@ -107,7 +107,8 @@ function ed2List(p,r){
   const polyHint=poly&&typeof skHint==='function'?skHint(r,skGeo(r)):'';
   const canvas=`<div class="canvas ${U.sheet?'top':''}">${planSVG(r,{sel:msSel,selOp:opSel})}${fl}${trayBtn()}</div>`;
   const exp=!!U.edPanel;
-  const panel=`<div class="ed2-panel" ${exp?'style="max-height:66%"':''}><button class="ed2-grab" data-a="edPanel" aria-label="${esc(t(exp?'ed2.hide':'ed2.all'))}" aria-expanded="${exp}"></button><div class="ed2-body" data-scroll="ed2-${r.id}">${polyHint.includes('banner')?polyHint:''}${exp?ed2List(p,r):ed2Card(p,r)}</div></div>`;
+  /* one sheet: the step card is always on top, every measurement is underneath and comes up when the sheet is pulled */
+  const panel=`<div class="ed2-panel ${exp?'open':''}" data-rid="${r.id}"><button class="ed2-grab" data-a="edPanel" aria-label="${esc(t(exp?'ed2.hide':'ed2.all'))}" aria-expanded="${exp}"></button><div class="ed2-body" data-scroll="ed2-${r.id}"><div class="ed2-peek">${polyHint.includes('banner')?polyHint:''}${ed2Card(p,r)}</div><div class="ed2-more" ${exp?'':'inert aria-hidden="true"'}>${ed2List(p,r)}</div></div></div>`;
   const tools=`<nav class="tools"><button class="on" data-a="noop">${ic('room')}<span>${esc(t('ed2.plan'))}</span></button><button data-a="wallView">${ic('walls')}<span>${esc(t('ed.tb.walls'))}</span></button><button class="${lk?'lk':''}" data-a="edOpenings">${ic('door')}<span>${esc(t('ed.tb.openings'))}</span></button><button data-a="mode" data-v="3d">${ic('cube')}<span>3D</span></button></nav>`;
   return `<section class="page ed2 ${U.anim||''}">${bar({backIcon:true,title:dn(r.name),sub:crumb,right})}${canvas}${panel}${tools}</section>`;
 } }
@@ -127,8 +128,33 @@ A.edRemeasure=d=>{ if(!guard()) return; const {r}=ed2Room(); if(r.dims[d.k]) del
 A.edCancelRe=()=>{ U.edRe=null; render() };
 /* any confirmed value (typed in the sheet included) ends "measure again" for that dimension and moves the card on */
 { const ad=applyDim; applyDim=function(p,r,dim,mm,src){ if(U.edRe===r.id+':'+dim) U.edRe=null; if(U.edFocus===dim&&U.edFocusRid===r.id) U.edFocus=null; return ad.apply(this,arguments) } }
-/* swipe the panel handle up/down */
-{ let gp=null;
-  appEl.addEventListener('pointerdown',e=>{ const g=e.target.closest&&e.target.closest('.ed2-grab'); gp=g?{y:e.clientY,id:e.pointerId}:null });
-  appEl.addEventListener('pointerup',e=>{ if(!gp||gp.id!==e.pointerId) return; const dy=e.clientY-gp.y; gp=null; if(Math.abs(dy)<30) return; U.edPanel=dy<0; U.edSwipe=Date.now(); render() });
-  appEl.addEventListener('click',e=>{ if(U.edSwipe&&Date.now()-U.edSwipe<350&&e.target.closest&&e.target.closest('.ed2-grab')){ e.stopImmediatePropagation(); e.preventDefault() } },true); }
+/* The panel's height: closed, it shows the step card; open, up to two thirds of the screen. Set after every redraw, so it
+   can glide from where it was (or from where the finger left it). */
+function ed2Fit(){
+  const pn=appEl.querySelector('.ed2-panel'); if(!pn){ U.edH=null; U.edHFor=null; return }
+  const grab=pn.querySelector('.ed2-grab'), peekEl=pn.querySelector('.ed2-peek'), body=pn.querySelector('.ed2-body'), page=pn.closest('.page');
+  const peek=grab.offsetHeight+peekEl.offsetHeight, full=Math.max(peek,Math.min(Math.round(page.clientHeight*0.6),grab.offsetHeight+body.scrollHeight));
+  const target=U.edPanel?full:peek, from=U.edHFor===pn.dataset.rid?U.edH:null;
+  pn.dataset.peek=peek; pn.dataset.full=full; U.edH=target; U.edHFor=pn.dataset.rid;
+  if(from!=null&&Math.abs(from-target)>2){ pn.style.transition='none'; pn.style.height=from+'px'; void pn.offsetHeight; pn.style.transition='' }
+  pn.style.height=target+'px'; if(!U.edPanel) body.scrollTop=0;
+}
+{ const base=render; render=function(){ base(); ed2Fit() } }
+/* drag the handle, or swipe the card up: the sheet follows the finger, then settles open or closed */
+{ let gp=null; const pn=()=>appEl.querySelector('.ed2-panel');
+  appEl.addEventListener('pointerdown',e=>{ gp=null; if(U.sheet||e.button>0||!e.target.closest) return; const el=pn(); if(!el||!el.contains(e.target)) return;
+    if(!e.target.closest('.ed2-grab')&&(U.edPanel||!e.target.closest('.ed2-peek'))) return;
+    gp={id:e.pointerId,y:e.clientY,h0:el.offsetHeight,peek:Number(el.dataset.peek)||el.offsetHeight,full:Number(el.dataset.full)||el.offsetHeight,moved:false,ly:e.clientY,lt:e.timeStamp,v:0} });
+  appEl.addEventListener('pointermove',e=>{ if(!gp||gp.id!==e.pointerId) return; const dy=e.clientY-gp.y;
+    if(!gp.moved){ if(Math.abs(dy)<8) return; gp.moved=true; U.gesture=true }
+    const el=pn(); if(!el){ gp=null; U.gesture=false; return }
+    const dt=e.timeStamp-gp.lt; if(dt>0){ gp.v=(e.clientY-gp.ly)/dt; gp.ly=e.clientY; gp.lt=e.timeStamp }
+    const h=Math.max(gp.peek,Math.min(gp.full,gp.h0-dy)); el.classList.add('drag'); el.style.height=h+'px'; U.edH=h });
+  const end=e=>{ if(!gp||gp.id!==e.pointerId) return; const s=gp; gp=null; if(!s.moved) return; U.gesture=false; U.edSwipe=Date.now();
+    const el=pn(); if(el) el.classList.remove('drag');
+    /* a flick decides by its direction; a slow pull of more than a thumb's width goes where it was pulled; less than that springs back */
+    const pulled=(U.edH||s.h0)-s.h0;
+    if(e.type!=='pointercancel'){ if(Math.abs(s.v)>0.25) U.edPanel=s.v<0; else if(Math.abs(pulled)>56) U.edPanel=pulled>0 }
+    render() };
+  appEl.addEventListener('pointerup',end); appEl.addEventListener('pointercancel',end);
+  appEl.addEventListener('click',e=>{ if(U.edSwipe&&Date.now()-U.edSwipe<350&&e.target.closest&&e.target.closest('.ed2-panel')){ e.stopImmediatePropagation(); e.preventDefault() } },true); }

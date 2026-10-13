@@ -1,0 +1,40 @@
+/* Touch targets (Stage 3 review): nothing tappable under 44 px on its short side.
+   These controls measured 22-36 px on the emulator. Each rule only raises the size; `.app` lifts specificity
+   above the base rule wherever it is defined. */
+.app .ed2-st[data-a]{min-height:44px;padding:0 14px}
+.app .ed2-foot button{min-height:44px}
+.app .qm-meter .st button{min-height:44px}
+.app .qm-meter .seg button{min-height:44px}
+.app .qm-res button{min-height:44px;min-width:44px}
+.app .qm-sech button{min-height:44px;min-width:44px}
+.app .sech button,.app .hm-sech button{min-height:44px;min-width:44px}
+.app .et-meta button{min-height:44px}
+.app .hm-dev{min-height:44px}
+.app .mk-sw{width:44px;height:44px}
+.app .sw{width:44px;height:44px}
+.app .choice .opt{min-width:44px;min-height:44px!important}
+.app .btn{min-height:44px}
+.app .seg button{min-height:44px}
+.app button.act{min-height:44px}
+.app .rp-setup,.app .ed2-add,.app .pc-top{min-height:44px}
+.app .ed2-dev,.app .pj-ic{width:44px;height:44px}
+.app .pwtgl,.app .au-lang,.app .devchip,.app .bd-go,.app .bd-main,.app [data-a="plSeg"]{min-height:44px}
+.app .bd-call{width:44px;height:44px}
+.app .bd-tk{min-height:44px}
+.app .qm-chips button{min-height:44px}
+.app .ed2-foot button{min-width:44px;justify-content:center}
+.app .ed2-fl button{min-height:44px}
+/* the panel handle stays slim; its hit area extends above and below it instead */
+.app .ed2-grab{position:relative}
+.app .ed2-grab::after{content:"";position:absolute;left:0;right:0;top:-12px;bottom:-10px}
+.app .pwtgl{min-width:44px}
+/* Toasts (Stage 3 review): on a page with a footer or the 3D controls, a bottom toast covered the main button
+   for five seconds. There it appears under the app bar instead. Its action button is a full-size target. */
+.app .area:has(.page > .footer) .toast,.app .area:has(.page canvas) .toast{top:60px;bottom:auto!important}
+.app .toast button{min-height:44px;min-width:44px}
+.app .toast{border-radius:12px}
+
+/* Layering (found while capturing screenshots): floating "+" buttons must not sit on top of an open bottom sheet,
+   and the readings chip keeps its own height when the plan area shrinks behind a sheet. */
+.area:has(.sheet) .pj-fab,.area:has(.sheet) .pl-fab,.area:has(.sheet) .ws-fab{display:none}
+.app .rtray{height:44px;top:auto}

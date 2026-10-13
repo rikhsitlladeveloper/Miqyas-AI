@@ -1,0 +1,355 @@
+<title>METRX Camera Measuring</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F3F5F9; --panel:#FFFFFF; --fg:#0B1020; --fg2:#566074; --fg3:#6B7588; --rule:#E0E5ED; --fill:#EBEFF5;
+  --accent:#374FDD; --accent2:#2A3FBF; --wash:#EEF2FE;
+  --ok:#0B6B4F; --okw:#E3F3EC; --amb:#8A4500; --ambw:#FFF1DF; --red:#B42318; --redw:#FDEDEB;
+  --f:"Manrope","Segoe UI",system-ui,sans-serif; --fn:"IBM Plex Sans Condensed","Manrope",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0A0F1C; --panel:#121A2B; --fg:#E9EDF6; --fg2:#A7B1C5; --fg3:#8E99AE; --rule:#243047; --fill:#192238;
+  --accent:#8B9CFF; --accent2:#B3BEFF; --wash:#1A2450;
+  --ok:#5FD3A8; --okw:#11302A; --amb:#F2B66B; --ambw:#33260F; --red:#FF8A7A; --redw:#3A1714; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0A0F1C; --panel:#121A2B; --fg:#E9EDF6; --fg2:#A7B1C5; --fg3:#8E99AE; --rule:#243047; --fill:#192238;
+  --accent:#8B9CFF; --accent2:#B3BEFF; --wash:#1A2450;
+  --ok:#5FD3A8; --okw:#11302A; --amb:#F2B66B; --ambw:#33260F; --red:#FF8A7A; --redw:#3A1714; color-scheme:dark }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 15.5px/1.55 var(--f)}
+.wrap{max-width:1080px;margin:0 auto;padding-inline:20px;padding-block:32px 64px;display:grid;grid-template-columns:minmax(0,1fr);gap:56px}
+h1{margin:0;font:800 clamp(28px,5vw,40px)/1.1 var(--f);letter-spacing:-.02em;text-wrap:balance}
+h2{margin:0;font:800 24px/1.2 var(--f);letter-spacing:-.01em;text-wrap:balance}
+h3{margin:0;font:700 16px/1.3 var(--f)}
+p{margin:0;max-width:68ch}
+ul,ol{margin:0;padding-left:20px;display:grid;gap:6px;max-width:68ch}
+.lead{font-size:17px;color:var(--fg2)}
+.muted{color:var(--fg2)} .sm{font-size:13.5px}
+.kick{font:700 13px/1 var(--f);color:var(--accent)}
+section{display:grid;grid-template-columns:minmax(0,1fr);gap:20px;min-width:0}
+.head{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:18px;padding:18px;display:grid;gap:10px;min-width:0;align-content:start}
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(230px,100%),1fr));gap:10px}
+.sum div{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:14px 16px;display:grid;gap:3px;align-content:start}
+.sum b{font:800 15px/1.3 var(--f)} .sum span{font-size:13.5px;color:var(--fg2)}
+.limit{display:grid;gap:6px;padding:16px 18px;border-radius:16px;background:var(--ambw);color:var(--fg);border:1px solid color-mix(in srgb,var(--amb) 30%,transparent)}
+.limit b{color:var(--amb)}
+.two{display:grid;grid-template-columns:minmax(0,340px) minmax(0,1fr);gap:28px;align-items:start}
+@media (max-width:760px){ .two{grid-template-columns:minmax(0,1fr)} .two .ph{justify-self:center} }
+.notes{display:grid;gap:14px;min-width:0;align-content:start}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:420px;font-size:14.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font-weight:700;color:var(--fg2);font-size:13px}
+td.n{font-family:var(--fn);font-weight:600;font-size:16px;white-space:nowrap}
+.seg{display:inline-flex;padding:4px;border-radius:14px;background:var(--fill);gap:4px}
+.seg button{all:unset;cursor:pointer;min-height:40px;padding:0 16px;border-radius:10px;font:700 14px/1 var(--f);color:var(--fg2);display:inline-flex;align-items:center}
+.seg button[aria-pressed="true"]{background:var(--panel);color:var(--fg);box-shadow:0 1px 3px rgba(16,24,40,.16)}
+.seg button:focus-visible,.pbtn:focus-visible,.link:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(300px,100%),1fr));gap:12px}
+.choices .card b.q{font:800 15.5px/1.3 var(--f)}
+.opt{display:flex;gap:10px;align-items:flex-start;font-size:14.5px}
+.opt i{flex:none;font:800 12px/22px var(--f);font-style:normal;width:22px;height:22px;text-align:center;border-radius:50%;background:var(--fill);color:var(--fg2)}
+.opt.rec i{background:var(--accent);color:#fff}
+.opt.rec span b{color:var(--accent2)}
+.link{all:unset;cursor:pointer;color:var(--accent);font-weight:700;font-size:14px;min-height:40px;display:inline-flex;align-items:center}
+
+/* ---------- phone mock-ups: always the app's own light look ---------- */
+.ph{width:min(340px,100%);border-radius:34px;background:#F7F8FA;color:#0B1020;border:1px solid #D9DEE7;box-shadow:0 18px 40px rgba(16,24,40,.14);overflow:hidden;display:grid;grid-template-columns:minmax(0,1fr);font:500 14px/1.35 var(--f);position:relative}
+.ph .sb{display:flex;justify-content:space-between;padding:10px 22px 4px;font:700 12.5px/1 var(--f)}
+.ph .hd{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 16px 8px 18px}
+.ph .hd b{font:800 26px/1.1 var(--f);letter-spacing:-.02em}
+.chip{display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 10px;border-radius:10px;background:#fff;border:1px solid #E4E8EF;font-size:12.5px}
+.pc{margin:0 14px;background:#fff;border-radius:20px;box-shadow:0 0 0 1px #E4E8EF;padding:12px}
+.meter{display:grid;justify-items:center;gap:4px}
+.meter small{justify-self:start;color:#566074;font-size:12px}
+.meter .v{font:600 44px/1 var(--fn)} .meter .v span{font-size:18px;color:#566074;margin-left:4px}
+.psec{display:flex;justify-content:space-between;align-items:baseline;padding:14px 18px 6px;font:800 15px/1.2 var(--f)}
+.psec span{font:600 13px/1 var(--f);color:#374FDD}
+.psec span.tag{font:800 11px/1.4 var(--f);color:#fff}
+.shots{display:flex;gap:8px;padding:0 14px 4px;overflow:hidden}
+.shot{flex:none;width:96px;border-radius:14px;background:#fff;box-shadow:0 0 0 1px #E4E8EF;overflow:hidden;font-size:11.5px}
+.shot svg{display:block;width:100%;height:66px}
+.shot b{display:block;padding:5px 8px 0;font:600 14px/1.1 var(--fn)}
+.shot small{display:block;padding:0 8px 7px;color:#566074}
+.rd{display:flex;gap:6px;padding:0 14px;flex-wrap:wrap}
+.rd span{padding:7px 10px;border-radius:10px;background:#fff;box-shadow:0 0 0 1px #E4E8EF;font:600 14px/1 var(--fn)}
+.pft{display:flex;gap:8px;padding:12px 14px;margin-top:14px;background:#fff;border-top:1px solid #E4E8EF}
+.pbtn{all:unset;box-sizing:border-box;cursor:pointer;min-height:50px;padding:0 14px;border-radius:16px;font:700 14.5px/1 var(--f);display:inline-flex;align-items:center;justify-content:center;gap:7px;background:#F1F4F8;color:#0B1020;text-align:center}
+.pbtn.pri{background:#374FDD;color:#fff;box-shadow:0 8px 18px rgba(55,79,221,.22);flex:1}
+.pbtn.sq{width:50px;padding:0;flex:none}
+.pbtn.new{box-shadow:0 0 0 2px #374FDD inset;background:#EEF2FE;color:#374FDD}
+.pbtn[disabled]{opacity:.45;cursor:default;box-shadow:none}
+.pbtn svg,.chip svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.tabs{display:flex;margin:10px 10px 10px;padding:5px;border-radius:22px;background:#fff;border:1px solid #E4E8EF;font:600 10.5px/1 var(--f);color:#566074}
+.tabs span{flex:1;display:grid;justify-items:center;gap:5px;padding:8px 0;border-radius:17px}
+.tabs span.on{background:#374FDD;color:#fff}
+.tabs i{width:16px;height:16px;border-radius:5px;border:1.8px solid currentColor;display:block}
+.tag{position:absolute;z-index:3;padding:3px 8px;border-radius:999px;background:#374FDD;color:#fff;font:800 11px/1.4 var(--f)}
+/* sheet */
+.dim{background:rgba(11,16,32,.38);padding-top:150px}
+.sheet{background:#fff;border-radius:26px 26px 0 0;padding:10px 16px 18px;display:grid;gap:10px}
+.sheet .grab{width:40px;height:4px;border-radius:2px;background:#DDE2EA;justify-self:center}
+.sheet h4{margin:4px 0 2px;font:800 17px/1.2 var(--f)}
+.optrow{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;justify-content:space-between;min-height:54px;padding:0 14px;border-radius:14px;border:1px solid #E4E8EF;font:600 15px/1.2 var(--f)}
+.optrow small{display:block;font:500 12.5px/1.3 var(--f);color:#566074}
+.optrow[aria-pressed="true"]{border:2px solid #374FDD;background:#EEF2FE;padding:0 13px}
+.optrow[aria-pressed="true"]::after{content:"✓";color:#374FDD;font-weight:800}
+.sheet p{font-size:12.5px;color:#566074}
+/* camera */
+.cam{background:#0B1020;color:#fff}
+.cam .ctop{display:flex;align-items:center;justify-content:space-between;padding:10px 14px}
+.cam .ctop b{font:700 15px/1 var(--f)}
+.cam .x{width:36px;height:36px;border-radius:50%;background:rgba(255,255,255,.14);display:grid;place-items:center;font-size:16px}
+.vf{position:relative;margin:0 10px;border-radius:18px;overflow:hidden;background:#1a2238;touch-action:none;cursor:crosshair;user-select:none}
+.vf svg{display:block;width:100%;height:auto}
+.vf .hint{position:absolute;left:10px;right:10px;top:10px;padding:8px 12px;border-radius:12px;background:rgba(11,16,32,.72);font-size:13px;text-align:center;pointer-events:none}
+.vf .frozen{position:absolute;left:10px;top:10px;padding:5px 10px;border-radius:999px;background:#fff;color:#0B1020;font:800 12px/1.3 var(--f);pointer-events:none}
+.cam .cbar{display:flex;gap:8px;padding:12px 10px 14px}
+.cam .pbtn{background:rgba(255,255,255,.14);color:#fff}
+.cam .pbtn.pri{background:#374FDD}
+.cam .state{padding:0 14px 12px;font-size:13px;color:#C9D1E3;min-height:34px}
+</style>
+
+<div class="wrap">
+
+<header class="head">
+  <span class="kick">For your confirmation, 13 October 2026</span>
+  <h1>Centimetres, and measuring with the camera</h1>
+  <p class="lead">Three additions to the O‘lchash tab and Profile. Nothing here is built yet. The camera screen further down can be tried: draw a line on it with your finger.</p>
+</header>
+
+<section>
+  <div class="sum">
+    <div><b>1. Centimetres</b><span>Profile → O‘lchov birliklari becomes a choice between Metr and Santimetr.</span></div>
+    <div><b>2. Photo with measured lines</b><span>Already exists inside a workspace. It gets a button on the O‘lchash tab and a Share action.</span></div>
+    <div><b>3. Live camera</b><span>New screen: draw a line on the live view, measure, see the value on the line, save it as a photo.</span></div>
+  </div>
+  <div class="limit">
+    <b>The one limit to know first</b>
+    <p>The app cannot work out a distance from the picture. The number always comes from the laser meter, or is typed. The line you draw shows which distance the number belongs to.</p>
+  </div>
+</section>
+
+<!-- ============================== 1. units ============================== -->
+<section>
+  <div class="head"><span class="kick">1 of 3</span><h2>Centimetres in O‘lchov birliklari</h2>
+    <p class="muted">Tap Metr or Santimetr in the sheet. Every number on this page follows your choice, as it would in the app.</p></div>
+  <div class="two">
+    <div class="ph" aria-label="Units sheet">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="hd"><b>Profil</b></div>
+      <div class="dim">
+        <div class="sheet">
+          <span class="grab"></span>
+          <h4>O‘lchov birliklari</h4>
+          <button class="optrow" data-unit="m" aria-pressed="true"><span>Metr<small>5,00 m · 0,90 m</small></span></button>
+          <button class="optrow" data-unit="cm" aria-pressed="false"><span>Santimetr<small>500 cm · 90 cm</small></span></button>
+          <p>Maydon doim m² da. O‘lchamlar o‘zgarmaydi, faqat ko‘rinishi almashadi.</p>
+        </div>
+      </div>
+    </div>
+    <div class="notes">
+      <div class="tbl"><table>
+        <tr><th>What</th><th>Shown as</th><th>You type</th></tr>
+        <tr><td>Room length</td><td class="n" data-mm="5000"></td><td class="n" data-mm="5000" data-typed></td></tr>
+        <tr><td>Door width</td><td class="n" data-mm="900"></td><td class="n" data-mm="900" data-typed></td></tr>
+        <tr><td>A laser reading</td><td class="n" data-mm="3625" data-full></td><td class="n" data-mm="3625" data-typed></td></tr>
+        <tr><td>Floor area</td><td class="n">20,00 m²</td><td class="muted">not typed</td></tr>
+        <tr><td>Brick size</td><td class="n">250 × 120 × 65 mm</td><td class="n">250</td></tr>
+      </table></div>
+      <ul>
+        <li><b>One switch for the whole app:</b> plan, wall view, 3D labels, the O‘lchash tab, door and window sizes, and the PDF.</li>
+        <li><b>Nothing is lost when you switch.</b> Values are stored in millimetres either way.</li>
+        <li><b>Areas stay in m² and volume in m³</b>, because estimates are priced that way.</li>
+        <li><b>The brick tool stays in mm</b>, as bricks are sold.</li>
+        <li><b>The unit is written beside every field</b>, so 500 is never mistaken for 500 m.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 2. measure tab ============================== -->
+<section>
+  <div class="head"><span class="kick">2 of 3</span><h2>O‘lchash tab: a Kamera button and your pictures</h2>
+    <p class="muted">The two new parts are outlined in blue. Everything else on the tab stays as it is.</p></div>
+  <div class="two">
+    <div class="ph" aria-label="O‘lchash tab with the new camera button">
+      <div class="sb"><span>9:41</span><span>●●●</span></div>
+      <div class="hd"><b>O‘lchash</b><span class="chip"><svg viewBox="0 0 24 24"><path d="M7 7l10 10-5 5V2l5 5L7 17"/></svg>Lazer ulangan</span></div>
+      <div class="pc meter"><small>Kutilmoqda</small><div class="v"><b data-mm="6421" data-full data-bare style="font-weight:600"></b><span data-unitlabel></span></div></div>
+      <div class="psec">O‘lchovlar <span>Ro‘yxat</span></div>
+      <div class="rd"><span data-mm="6421" data-full data-bare></span><span data-mm="4792" data-full data-bare></span><span data-mm="7448" data-full data-bare></span></div>
+      <div class="psec" style="position:relative">Suratlar <span>Hammasi</span><span class="tag" style="left:96px;top:10px">yangi</span></div>
+      <div class="shots">
+        <div class="shot"><svg viewBox="0 0 96 66"><rect width="96" height="66" fill="#D9D2C6"/><rect y="50" width="96" height="16" fill="#B89B78"/><rect x="34" y="12" width="30" height="26" fill="#BFD9EE" stroke="#fff" stroke-width="2"/><path d="M34 44H64" stroke="#E5484D" stroke-width="2"/><path d="M34 41v6M64 41v6" stroke="#E5484D" stroke-width="2"/></svg><b data-mm="1200"></b><small>Deraza</small></div>
+        <div class="shot"><svg viewBox="0 0 96 66"><rect width="96" height="66" fill="#CFD6DA"/><rect y="52" width="96" height="14" fill="#9AA3A8"/><rect x="58" y="14" width="22" height="38" fill="#8C6B4A"/><path d="M52 14V52" stroke="#E5484D" stroke-width="2"/><path d="M49 14h6M49 52h6" stroke="#E5484D" stroke-width="2"/></svg><b data-mm="2100"></b><small>Eshik o‘rni</small></div>
+        <div class="shot"><svg viewBox="0 0 96 66"><rect width="96" height="66" fill="#E3DCCB"/><rect y="48" width="96" height="18" fill="#A98C6A"/><path d="M10 30H84" stroke="#E5484D" stroke-width="2"/><path d="M10 27v6M84 27v6" stroke="#E5484D" stroke-width="2"/></svg><b data-mm="3625" data-full></b><small>Devor</small></div>
+      </div>
+      <div class="pft" style="position:relative">
+        <span class="tag" style="left:8px;top:-9px">yangi</span>
+        <button class="pbtn sq new" aria-label="Kamera"><svg viewBox="0 0 24 24"><path d="M4 8h3l1.5-2.5h7L17 8h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg></button>
+        <button class="pbtn" style="flex:.8"><svg viewBox="0 0 24 24"><rect x="3" y="7" width="18" height="10" rx="2"/><path d="M7 11h.01M11 11h.01M15 11h.01M8 14h8"/></svg>Qo‘lda</button>
+        <button class="pbtn pri">O‘lchash</button>
+      </div>
+      <div class="tabs"><span><i></i>Asosiy</span><span><i></i>Loyihalar</span><span class="on"><i></i>O‘lchash</span><span><i></i>Doska</span><span><i></i>Profil</span></div>
+    </div>
+    <div class="notes">
+      <ul>
+        <li><b>Kamera button:</b> opens a choice of two: <b>Jonli kamera</b> (live view) or <b>Surat olish</b> (take a photo, then draw on it).</li>
+        <li><b>Suratlar:</b> the pictures you saved, each with its measured value. No project is needed, the same as for readings on this tab.</li>
+        <li><b>Tap a picture</b> to open it, add more lines, share it, or use <b>Loyihaga qo‘shish</b> to put it into a workspace, where it also goes into the PDF.</li>
+        <li><b>The photo editor already exists</b> in a workspace under "+ → Surat". This only makes it reachable from here.</li>
+      </ul>
+      <div class="card"><h3>Share</h3><p class="sm muted">"Ulashish" sends one image: the photo with its lines and numbers drawn on it. It goes through the phone's own share sheet, so Telegram, WhatsApp or any other app works.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== 3. live camera ============================== -->
+<section>
+  <div class="head"><span class="kick">3 of 3</span><h2>Live camera: try it</h2>
+    <p class="muted">Draw a line on the wall with your finger or mouse, then press O‘lchash. The wall here is a drawing; in the app it is the camera.</p></div>
+  <div class="two">
+    <div class="ph cam" aria-label="Live camera demo">
+      <div class="ctop"><span class="x" aria-hidden="true">✕</span><b>Jonli kamera</b><span class="chip" style="background:rgba(255,255,255,.14);border:0;color:#fff">Lazer ulangan</span></div>
+      <div class="vf" id="vf">
+        <svg viewBox="0 0 320 400" id="scene" role="img" aria-label="A wall with a window, a door and a radiator">
+          <g id="world">
+            <rect x="-40" width="400" height="400" fill="#D8D0C2"/>
+            <rect x="-40" y="318" width="400" height="82" fill="#A8885F"/>
+            <path d="M-40 318H360" stroke="#8C7150" stroke-width="3"/>
+            <rect x="34" y="70" width="120" height="118" fill="#BFD9EE" stroke="#fff" stroke-width="6"/>
+            <path d="M94 70V188M34 129H154" stroke="#fff" stroke-width="4"/>
+            <rect x="44" y="214" width="100" height="58" rx="4" fill="#EFEFEF" stroke="#C9C9C9"/>
+            <path d="M56 214v58M68 214v58M80 214v58M92 214v58M104 214v58M116 214v58M128 214v58" stroke="#C9C9C9"/>
+            <rect x="214" y="92" width="82" height="226" fill="#8C6B4A"/>
+            <rect x="222" y="102" width="66" height="96" fill="#7A5C3E"/><rect x="222" y="210" width="66" height="98" fill="#7A5C3E"/>
+            <circle cx="226" cy="208" r="4" fill="#E0C27A"/>
+          </g>
+          <g id="lineG"></g>
+        </svg>
+        <div class="hint" id="hint">Devorda chiziq torting</div>
+      </div>
+      <div class="state" id="state">Chiziq hali yo‘q.</div>
+      <div class="cbar">
+        <button class="pbtn" id="bManual" disabled>Qo‘lda</button>
+        <button class="pbtn pri" id="bMeasure" disabled>O‘lchash</button>
+        <button class="pbtn" id="bSave" disabled>Saqlash</button>
+      </div>
+    </div>
+    <div class="notes">
+      <ol>
+        <li><b>Draw the line</b> along what you are measuring. You can redraw it as often as you like.</li>
+        <li><b>O‘lchash</b> takes the reading from the laser. <b>Qo‘lda</b> lets you type it. The value appears on the line.</li>
+        <li><b>Saqlash</b> freezes the view into a photo with the line and value on it, and puts it under Suratlar. From there you can share it.</li>
+      </ol>
+      <div class="limit">
+        <b>The line does not follow the wall</b>
+        <p>It stays where you drew it on the screen. If the phone moves, the line is no longer on the same spot. So the way to use it is: hold steady, measure, save.</p>
+        <button class="link" id="bMove">Show me: move the phone</button>
+      </div>
+      <p class="sm muted">In this preview the number is a sample reading, and it is the same whatever line you draw. That is the point: it does not come from the picture.</p>
+      <button class="link" id="bReset">Start again</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============================== cannot ============================== -->
+<section>
+  <div class="head"><h2>What it will not do</h2></div>
+  <div class="sum">
+    <div><b>Measure from the picture</b><span>A phone photo has no reliable scale. AR measuring is off by centimetres and is not available in the app as it is built.</span></div>
+    <div><b>Keep the live line on the wall</b><span>That needs AR tracking. The saved photo is the lasting record.</span></div>
+    <div><b>Live video to another phone</b><span>That needs a server and internet. Sharing the saved image works without either.</span></div>
+    <div><b>Real laser values, yet</b><span>The laser connection is still simulated, so until a real meter is supported the value is typed.</span></div>
+  </div>
+</section>
+
+<!-- ============================== choices ============================== -->
+<section>
+  <div class="head"><h2>Four choices before I start</h2><p class="muted">My recommendation is marked. Reply with the letters you want, for example "1A 2A 3B 4A", or just "as recommended".</p></div>
+  <div class="choices">
+    <div class="card"><b class="q">1. Where is the Kamera button?</b>
+      <div class="opt rec"><i>A</i><span><b>In the bottom row, left of Qo‘lda</b> (shown above). Always in reach of the thumb.</span></div>
+      <div class="opt"><i>B</i><span>As a sixth tool beside Maydon, Devor, Hajm, Yig‘indi, G‘isht. The row gets crowded at 360 wide.</span></div></div>
+    <div class="card"><b class="q">2. Where do saved pictures go?</b>
+      <div class="opt rec"><i>A</i><span><b>Under Suratlar on the O‘lchash tab</b>, with "Loyihaga qo‘shish" when you want one in a project.</span></div>
+      <div class="opt"><i>B</i><span>Always into a project: the app asks which workspace before saving. Slower on site.</span></div></div>
+    <div class="card"><b class="q">3. How are centimetres written?</b>
+      <div class="opt rec"><i>A</i><span><b>362,5 cm</b>: one digit after the comma, so millimetres are kept.</span></div>
+      <div class="opt"><i>B</i><span>363 cm: whole centimetres only. Simpler to read, but a laser reading loses its millimetres on screen.</span></div></div>
+    <div class="card"><b class="q">4. Estimate other lines from one measured line?</b>
+      <div class="opt rec"><i>A</i><span><b>No.</b> Every line gets its own laser or typed value.</span></div>
+      <div class="opt"><i>B</i><span>Yes, marked "taxminiy". Only roughly right, and only on a flat wall photographed straight on.</span></div></div>
+  </div>
+</section>
+
+<section>
+  <div class="head"><h2>After you confirm</h2></div>
+  <ol>
+    <li><b>Units.</b> The Metr / Santimetr choice, applied to every length on screen, in typing and in the PDF.</li>
+    <li><b>Kamera button, Suratlar and Ulashish</b> on the O‘lchash tab, using the photo editor that exists.</li>
+    <li><b>Live camera screen.</b> This also needs camera permission added to the Android and iPhone apps.</li>
+    <li><b>Checks</b> in four languages at both widths on the emulator, then your iPhone build. The camera cannot open in this browser preview, so that part is tested on the phone.</li>
+  </ol>
+</section>
+
+</div>
+
+<script>
+(function(){
+  /* ---------- one unit switch for every number on the page ---------- */
+  var unit='m';
+  function fmt(mm,full,typed){
+    if(unit==='cm'){ var c=mm/10; return (c%1?c.toFixed(1):String(c)).replace('.',','); }
+    var dec=(full||mm%10)?3:2; return (mm/1000).toFixed(dec).replace('.',',');
+  }
+  function paint(){
+    document.querySelectorAll('[data-mm]').forEach(function(e){
+      var mm=+e.dataset.mm, s=fmt(mm,'full' in e.dataset);
+      e.textContent=('typed' in e.dataset||'bare' in e.dataset)?s:s+' '+unit;
+    });
+    document.querySelectorAll('[data-unitlabel]').forEach(function(e){ e.textContent=unit });
+    document.querySelectorAll('[data-unit]').forEach(function(b){ b.setAttribute('aria-pressed',String(b.dataset.unit===unit)) });
+    drawLine();
+  }
+  document.querySelectorAll('[data-unit]').forEach(function(b){ b.addEventListener('click',function(){ unit=b.dataset.unit; paint() }) });
+
+  /* ---------- live camera demo ---------- */
+  var vf=document.getElementById('vf'), svg=document.getElementById('scene'), G=document.getElementById('lineG'), world=document.getElementById('world');
+  var hint=document.getElementById('hint'), state=document.getElementById('state');
+  var bM=document.getElementById('bMeasure'), bMan=document.getElementById('bManual'), bS=document.getElementById('bSave');
+  var L=null, val=null, saved=false, moved=false, drag=false, SAMPLE=1842;
+  function pt(ev){ var r=svg.getBoundingClientRect(); if(!r.width||!r.height) return [160,200]; return [Math.max(4,Math.min(316,(ev.clientX-r.left)/r.width*320)),Math.max(4,Math.min(396,(ev.clientY-r.top)/r.height*400))] }
+  function drawLine(){
+    if(!L){ G.innerHTML=''; return }
+    var x1=L[0],y1=L[1],x2=L[2],y2=L[3], dx=x2-x1, dy=y2-y1, len=Math.hypot(dx,dy)||1, nx=-dy/len*8, ny=dx/len*8, mx=(x1+x2)/2, my=(y1+y2)/2;
+    var h='<path d="M'+x1+' '+y1+'L'+x2+' '+y2+'" stroke="#fff" stroke-width="5" stroke-linecap="round" opacity=".9"/>'
+      +'<path d="M'+x1+' '+y1+'L'+x2+' '+y2+'M'+(x1-nx)+' '+(y1-ny)+'L'+(x1+nx)+' '+(y1+ny)+'M'+(x2-nx)+' '+(y2-ny)+'L'+(x2+nx)+' '+(y2+ny)+'" stroke="#E5484D" stroke-width="2.5" stroke-linecap="round"/>';
+    var txt=val==null?'?':fmt(val,true)+' '+unit, w=txt.length*9.5+22, ly=Math.max(16,my-22);
+    h+='<rect x="'+(mx-w/2)+'" y="'+(ly-14)+'" width="'+w+'" height="28" rx="14" fill="'+(val==null?'#fff':'#E5484D')+'" stroke="#E5484D" stroke-width="1.5"/>'
+      +'<text x="'+mx+'" y="'+(ly+5.5)+'" text-anchor="middle" font-family="IBM Plex Sans Condensed, Manrope, sans-serif" font-weight="700" font-size="16" fill="'+(val==null?'#B42318':'#fff')+'">'+txt+'</text>';
+    G.innerHTML=h;
+  }
+  function ui(){
+    hint.hidden=!!L||saved; bM.disabled=!L||saved; bMan.disabled=!L||saved; bS.disabled=val==null||saved;
+    var f=vf.querySelector('.frozen'); if(saved&&!f){ f=document.createElement('div'); f.className='frozen'; f.textContent='Saqlandi · Suratlar'; vf.appendChild(f) } if(!saved&&f) f.remove();
+    state.textContent=saved?'Surat chiziq va qiymat bilan saqlandi. Endi uni ulashish mumkin.'
+      :moved?'Telefon qimirladi: chiziq endi boshqa joyda turibdi. Qaytadan chizing.'
+      :val!=null?'Lazerdan qabul qilindi. Saqlash tugmasini bosing.'
+      :L?'Chiziq tayyor. O‘lchash yoki Qo‘lda tugmasini bosing.':'Chiziq hali yo‘q.';
+    world.setAttribute('transform',moved?'translate(26 -14)':'');
+  }
+  vf.addEventListener('pointerdown',function(ev){ if(saved) return; drag=true; moved=false; val=null; var p=pt(ev); L=[p[0],p[1],p[0],p[1]]; vf.setPointerCapture(ev.pointerId); drawLine(); ui(); ev.preventDefault() });
+  vf.addEventListener('pointermove',function(ev){ if(!drag) return; var p=pt(ev); L[2]=p[0]; L[3]=p[1]; drawLine() });
+  function end(){ if(!drag) return; drag=false; if(L&&Math.hypot(L[2]-L[0],L[3]-L[1])<14) L=null; drawLine(); ui() }
+  vf.addEventListener('pointerup',end); vf.addEventListener('pointercancel',end);
+  bM.addEventListener('click',function(){ val=SAMPLE; moved=false; drawLine(); ui() });
+  bMan.addEventListener('click',function(){ val=1200; moved=false; drawLine(); ui() });
+  bS.addEventListener('click',function(){ saved=true; ui() });
+  document.getElementById('bMove').addEventListener('click',function(){ if(saved){ saved=false } if(!L){ L=[40,200,150,200] } moved=true; drawLine(); ui(); vf.scrollIntoView({block:'nearest',behavior:'smooth'}) });
+  document.getElementById('bReset').addEventListener('click',function(){ L=null; val=null; saved=false; moved=false; drawLine(); ui() });
+  paint(); ui();
+})();
+</script>

@@ -121,9 +121,9 @@ Status: Stage 3 review, 13 October 2026. This records what was actually checked,
 | Row saved with no price shows "?" and "—", with a warning above the table | ✅ |
 | Issuing is blocked until the row is filled in | ✅ |
 | UZS, no decimals | ✅ |
-| USD, 2 decimals: 2,5 × 3,33 = 8,33 | ✅ |
-| USD: a price with 3 decimals is rejected | ✅ |
-| EUR, 3 decimals: 1,5 × 2,005 = 3,008 and 0,333 × 1,115 = 0,371 | ✅ |
+| USD, 2 decimals: 2,5 × 3,33 = 8,33 | ✅ at the time; the decimals setting was removed on 13 October 2026, so this no longer applies |
+| USD: a price with 3 decimals is rejected | ✅ at the time; now any price with a fraction is rejected with "Enter a whole number" (checked: 10,5 rejected, 2,5 × 10 = 25) |
+| EUR, 3 decimals: 1,5 × 2,005 = 3,008 and 0,333 × 1,115 = 0,371 | ✅ at the time; no longer applies |
 | Zero price is accepted and not flagged | ✅ |
 | Lines are rounded, then summed | ✅ |
 | 97-character item name: the row wraps, nothing is cut | ✅ |
@@ -184,6 +184,50 @@ Status: Stage 3 review, 13 October 2026. This records what was actually checked,
 | Continue without an account | ✅ |
 | Sign out keeps the projects | ✅ |
 | Resend code after the countdown; "Use another account" | ❓ |
+
+After the review the sign-in screens were redrawn from the founder's Figma file. They were checked again on 13 October 2026:
+
+| Check | Result |
+| --- | --- |
+| Every sign-in screen (20 states) in four languages at 411 and 360 wide: no cut-off text, nothing past the edge | ✅ in the browser |
+| Every control at least 44 × 44, apart from the keys of the simulated system keyboard | ✅ in the browser |
+| With a keyboard open at 360 × 740, the field and the main button are both visible | ✅ in the browser |
+| Number pad: nine digits at most, backspace, Clear, Close; a short number shows its message | ✅ |
+| "Number has an account" sheet: Log in with password, Change number, Forgot password, tap outside, Back | ✅ in the browser |
+| Back from Log in or Reset password, when the sheet led there, returns to step 1 with the name and phone | ✅ in the browser |
+| Full sign-up on the emulator: Welcome, number pad, the sheet, wrong code, one-tap code, password, "Account created" | ✅ |
+| Opening animation on the emulator; the status bar stays light with dark icons | ✅ |
+| Welcome at 360 × 740: fits without scrolling in Uzbek; Russian scrolls by about 40 | ✅ |
+
+After the review the founder supplied a minimal design for Home, Projects and New project and asked for it across the app (13 October 2026). Checked again:
+
+| Check | Result |
+| --- | --- |
+| 44 screens in four languages at 411 and 360 wide on the emulator: no cut-off text, no script errors | ✅ (two "measure again" steps were skipped because the emulator's data had no room in that state) |
+| Home with no projects, Projects with no projects, New project: compared with the founder's images | ✅ in the browser |
+| Home, Projects, project page, estimate, workspace, room editor, Measure, Board, Profile with sample data: looked at one by one | ✅ in the browser |
+| Manrope has the Uzbek Cyrillic letters and the ʻ sign | ✅ |
+| Full walk through the core scenario and the 16 acceptance figures in the new look | ❓ not repeated; only styles and three pages' markup changed |
+
+Centimetres and camera measuring were added on 13 October 2026, after the founder confirmed the design. Checked on the emulator:
+
+| Check | Result |
+| --- | --- |
+| Units sheet: switch to centimetres and back; the choice is saved | ✅ |
+| In centimetres: Measure tab, plan, door and window sizes and the draft report show sm; areas stay m² | ✅ |
+| Typing in centimetres: 250,5 saves 2 505 mm; 250,55 is refused ("at most 1 digit"); 20000 is refused ("10000 sm or less") | ✅ |
+| Live camera: Android asks for the camera once; the view runs; the camera is released after saving (checked in the system's camera log) | ✅ |
+| Live camera: line drawn with a real swipe; laser value and typed value both land on the line; Save is off until there is a value | ✅ |
+| Save: the saved picture has the same framing as the view and the line in the same place | ✅ compared by eye |
+| Share: the phone's share sheet opens with one JPEG that has the line and value drawn in | ✅ |
+| Add to a project: the picture leaves the Measure tab, appears in the workspace and opens as an ordinary photo | ✅ |
+| Delete picture, with confirmation | ✅ |
+| Take a photo: the phone's camera opens (real tap), the photo opens in the editor, a line drawn with a real swipe gets a typed size | ✅ |
+| New screens in four languages at 411 and 360 wide, in both units: no cut-off text, every control at least 44 | ✅ |
+| 18 existing screens walked read-only in centimetres, Uzbek and Russian, at 411 and 360 wide: no cut-off text | ✅ |
+| Camera permission refused; a device with no camera; the phone turned or moved while a line is drawn | ❓ not tried |
+| iPhone: live camera, Take a photo, Share | 📱 the iPhone wrapper was changed but not built or run |
+| Full 44-screen sweep and the 16 acceptance figures after these changes | ❓ not repeated |
 
 ## 11. System states
 
@@ -250,6 +294,20 @@ Things that work today but should change, or need the founder's decision.
 | 11 | The demo account's email looks like a real address | Change it to an `example.com` address |
 | 12 | Uzbek Cyrillic is machine-converted; Russian and English are drafts | Native review by the founder |
 | 13 | The header of the PDF shows the METRX wordmark | Replace with the logo when it is supplied |
+| 14 | The sign-in screens use the colours and type of the founder's Figma (blue `#3355B4`, IBM Plex Sans and Mono). The rest of the app now uses the founder's minimal design (blue `#374FDD`, Manrope) | Founder to choose one blue and one typeface for both |
+| 15 | Welcome: the Figma shows "BLE ONLINE", "±1.5 mm PRECISION" and "METRX v2.4 • Toshkent". The prototype shows "Sample room" and the room's height, and no version line, because no laser is connected on this screen and the accuracy and version are not established | Founder to confirm, or supply the real accuracy and version |
+| 16 | Welcome: the Figma says "in one minute" about the PDF report, and step 1 says a 4-digit code while the code step has six boxes. The prototype leaves out "in one minute" and says 6-digit | Founder to confirm |
+| 17 | The "number has an account" sheet: the Figma's title is a question ("Do you have an account?") and its last link is "Log in by SMS", which the app doesn't have. The prototype says "This number already has an account" and links to "Forgot your password?" | Founder to confirm, or add log-in by SMS to the scope |
+| 18 | Sign-up step 1 in the Figma has a tinted page, fields without outlines, a second step counter and a profile button. The prototype keeps the white page, outlined fields and single header of the other Figma frames | Founder to confirm |
+| 19 | Sign-in outlines (fields, buttons, code boxes) are 1.5:1 against white, as in the Figma | Darken to about `#8496B0` if the outlines must meet 3:1 |
+| 20 | "Terms of Use" and "Privacy Policy" are underlined but open nothing | Write the two documents and link them |
+| 21 | Minimal design: the founder's Projects image ends with "Projects are safely stored on this device". The prototype says "Projects are kept on this phone", because nothing protects them until a backup is made | Founder to confirm |
+| 22 | Minimal design: Home with projects, and every page the founder did not draw, were restyled by applying the same colours, type, radii and tab bar. Their layouts are unchanged | Founder to review page by page |
+| 23 | Sections 2 to 13 of the design system still list the earlier values next to the new section 0 | Rewrite them once the look is approved |
+| 24 | Centimetres are abbreviated "sm" in Uzbek, "см" in Russian and "cm" in English. The confirmation page showed "cm" | Founder to confirm "sm", or ask for "cm" in Uzbek too |
+| 25 | Pictures saved on the Measure tab are not part of the backup file, and they are kept in the app's storage, which is small (about 5 MB in all; a picture is roughly 20 to 150 KB) | Add them to the backup; in the build, keep pictures as files |
+| 26 | In the live camera the laser value is still simulated, like everywhere else in the app | Replace when a real meter is supported |
+| 27 | An issued quote keeps its unit, but the snapshot check now includes the unit, so a draft is marked "changed since the quote" after the unit is switched | Intended; founder to confirm |
 
 ## Needs a real device 📱
 

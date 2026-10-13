@@ -40,7 +40,7 @@ PAGES.profile=()=>{
     ${pfRow('langSheet','globe',t('se.lang'),LNAME[S.lang])}
     ${pfRow('repLangSheet','doc',t('se.reportLang'),LNAME[S.settings.reportLang])}
     ${pfRow('pdfSheet','layers',t('se.pdf'),pdfN+'/5')}
-    ${pfRow('currencySheet','coin',t('se.curPrec'),S.settings.currency+', '+(S.settings.precision?t('es.pN',{n:S.settings.precision}):t('es.p0')))}
+    ${pfRow('currencySheet','coin',t('np.currency'),S.settings.currency)}
     </div><div class="grouph">${esc(t('pf.gMeasure'))}</div><div class="lgroup">
     ${pfRow('defaultsSheet','door',t('se.defaults'),fmtLen(S.settings.defaults.door.w)+' × '+fmtLen(S.settings.defaults.door.h))}
     <button class="listrow" data-a="toggleSnap" aria-pressed="${!!S.settings.angleSnap}">${ic('ruler')}<span class="tx"><b>${esc(t('se.snap'))}</b></span><span class="switch ${S.settings.angleSnap?'on':''}"></span></button>
@@ -50,7 +50,7 @@ PAGES.profile=()=>{
   </div></div></section>`;
 };
 PAGES.settingsMore=()=>`<section class="page ${U.anim||''}">${bar({backIcon:true,title:t('pf.more')})}<div class="scroll" data-scroll="pfm"><div class="pf" style="padding-top:8px"><div class="lgroup">
-  ${pfRow('unitsSheet','ruler',t('se.units'),t('se.unitsVal'))}
+  ${pfRow('unitsSheet','ruler',t('se.units'),t('un.'+UNIT()))}
   ${pfRow('roomLabelSheet','room',t('se.label'),t('se.label.'+(S.settings.roomLabel||'both')))}
   ${pfRow('hintsReset','info',t('se.hintsReset'),'')}
   </div><div class="lgroup">

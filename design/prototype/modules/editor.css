@@ -8,10 +8,16 @@
 .ed2 .canvas{border-bottom:0}
 .ed2-fl{position:absolute;right:10px;top:10px;display:grid;gap:8px;z-index:2}
 .ed2-fl button{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 12px 0 10px;border-radius:20px;background:var(--sheet);box-shadow:var(--sh);font-size:13px;font-weight:600;color:var(--ink)}
-.ed2-panel{flex:none;display:flex;flex-direction:column;max-height:64%;min-height:0;background:var(--sheet);border-radius:20px 20px 0 0;box-shadow:0 -6px 20px rgba(16,24,40,.10);position:relative;z-index:3}
-.ed2-grab{flex:none;display:grid;place-items:center;width:100%;height:22px;touch-action:none}
-.ed2-grab::before{content:"";width:40px;height:4px;border-radius:2px;background:var(--rule)}
-.ed2-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 16px 14px;display:grid;gap:10px}
+.ed2-panel{flex:none;display:flex;flex-direction:column;min-height:0;transition:height .28s cubic-bezier(.2,.8,.2,1);background:var(--sheet);border-radius:20px 20px 0 0;box-shadow:0 -6px 20px rgba(16,24,40,.10);position:relative;z-index:3}
+.ed2-panel.drag{transition:none}
+.ed2-grab{flex:none;display:grid;place-items:center;width:100%;height:30px;touch-action:none;cursor:grab}
+.ed2-grab::before{content:"";width:48px;height:5px;border-radius:3px;background:#C3CAD8}
+.ed2-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 16px 14px}
+.ed2-panel:not(.open) .ed2-body{overflow:hidden}
+.ed2-panel:not(.open) .ed2-peek{touch-action:none}
+.ed2-peek{display:grid;gap:10px;padding-bottom:14px}
+.ed2-more{display:grid;gap:10px;padding-top:14px;border-top:1px solid var(--rule2)}
+@media (prefers-reduced-motion:reduce){.ed2-panel{transition:none}}
 .ed2-card{display:grid;gap:10px}
 .ed2-q{display:flex;align-items:flex-end;gap:10px}
 .ed2-q .tx{flex:1;min-width:0;display:grid;gap:2px}
@@ -30,7 +36,9 @@
 .ed2-acts .btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ed2-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px;font-size:13px;color:var(--ink2)}
 .ed2-foot span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ed2-foot button{flex:none;display:inline-flex;align-items:center;gap:4px;color:var(--cobalt);font-weight:600;min-height:36px}
+.ed2-foot button{flex:none;display:inline-flex;align-items:center;gap:4px;color:var(--cobalt);font-weight:600;min-height:36px;padding:0 14px 0 9px;border-radius:999px;background:var(--wash)}
+.ed2-foot button .i{transform:rotate(-90deg);transition:transform .2s}
+.ed2-panel.open .ed2-foot button .i{transform:rotate(90deg)}
 .ed2-ok{display:flex;align-items:center;gap:10px;padding:2px 0}
 .ed2-ok .ic{width:40px;height:40px;flex:none;border-radius:50%;display:grid;place-items:center;background:#E6F4EF;color:#0B7A5A}
 .ed2-ok .tx{flex:1;min-width:0;display:grid;gap:2px}

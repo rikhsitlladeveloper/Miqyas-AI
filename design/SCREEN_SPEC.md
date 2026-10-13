@@ -35,7 +35,7 @@ Interface text is quoted in English. The Uzbek and Russian wording is in the pro
 
 ### 1.1 Navigation
 
-- **Five tabs:** Home, Projects, Measure, Board, Profile. The active tab is raised in a cobalt circle.
+- **Five tabs:** Home, Projects, Measure, Board, Profile, in a floating rounded bar. The active tab is a filled blue block with its icon and name.
 - **Each tab keeps its own stack.** Tapping the active tab returns to that tab's first page.
 - **The tab bar is hidden** on full-screen pages (room editor, wall view, 3D, free-drawn outline, workspace, note, photo, drawing, report, quote, new project, builder details, backup, subscription) and whenever a sheet or the keyboard is open.
 - **Back** (the bar's arrow or the Android back button) undoes one layer at a time, in this order: keyboard, sheet, page, then from any root tab to Home. From Home, Back leaves the app.
@@ -66,10 +66,13 @@ Every dimension is in exactly one of three states.
 
 ### 1.4 Numbers
 
-- Lengths are stored in millimetres and shown in metres. Areas are in m², volumes in m³.
+- Lengths are stored in millimetres. The builder chooses how they are shown and typed: **metres** (5,00 m; a laser reading as 3,625 m) or **centimetres** (500 sm; 362,5 sm, one digit after the comma so millimetres are kept). The choice is in Profile → More settings → Units and applies everywhere: plans, wall view, 3D labels, the Measure tab, door and window sizes, typed values and the PDF.
+- Areas are always in m² and volumes in m³. The brick tool stays in mm.
+- An issued quote keeps the unit it was issued in. Quotes issued before the setting existed stay in metres.
+- The unit is written beside every length field. A value over the limit says the limit in the chosen unit ("10000 sm").
 - The decimal mark follows the language: comma in Uzbek and Russian, point in English. Both are accepted when typing.
 - Length input is rejected, with its own message, when it is empty, zero, negative, not a number, has more than 3 decimals, or exceeds the limit (100 m for walls, 20 m for height, 2 m for wall thickness).
-- Money uses the project's currency and precision (0, 2 or 3 decimals). Each line is rounded, then lines are summed. A zero price is valid. Negative values and extra decimals are rejected.
+- Money uses the project's currency and is always in whole units: there is no decimals setting (removed at the founder's request, 13 October 2026). Each line is rounded, then lines are summed. A zero price is valid. A negative price is rejected, and a price with a fraction shows "Enter a whole number". Quantities still accept up to 3 decimals.
 
 ### 1.5 Geometry and money stay separate
 
@@ -100,26 +103,44 @@ The room editor, free-drawn room, outline screen and wall view each show a tip c
 
 An account is optional. Projects always stay on the phone.
 
+The layout and look of these screens follow the founder's Figma file: white pages, light-blue outlines and a blue main button. Four screens were drawn there (Welcome, sign-up step 1, the "number already has an account" sheet, and the code step). The other sign-in screens use the same style. Where the prototype differs from the Figma, the review checklist says why.
+
 ### 2.1 Welcome
 
-- **Reached:** first launch, after an opening animation; or Profile → "Sign in or create an account" (then with a Back arrow).
-- **Shows:** wordmark, a small plan drawing, the headline, and a language menu (four languages).
-- **Actions:** Continue with Google · Create account · Log in · Continue without an account.
+- **Reached:** first launch, after an opening animation; or Profile → "Sign in or create an account" (then with a Close button).
+- **Shows, top to bottom:**
+  - The METRX wordmark with the line "Drawing & estimate", and a language menu (four languages).
+  - A card with the sample room as a plan: 5,00 × 4,00 m, a window, a door and one laser line. It is labelled "Sample room" and gives the height, floor area and perimeter.
+  - The headline and one sentence about what the app does.
+- **Actions, in this order:** Create account (the main button) · Log in · Continue with Google · Continue without an account. The last one is a card tagged "Offline mode", with the line "Measurements and calculations stay on the phone".
+- **Small print:** agreeing to the Terms of Use and the Privacy Policy. **(simulated: the two documents don't exist yet, so the underlined names open nothing.)**
+- **No internet:** a message says that signing in needs a connection and that work can continue without an account.
+- **On a 360-wide phone:** the "Drawing & estimate" line is hidden so the language menu fits, and the plan card gets shorter. The page scrolls if the text still doesn't fit (Russian).
 
 ### 2.2 Create account, 3 steps
 
+Every step has a Back arrow, the title "Create account", the step as "1/3", and a three-part progress bar.
+
 | Step | Fields | Rules and states |
 | --- | --- | --- |
-| 1 of 3 | Name or company, phone | Both required. Phone must be 9 digits. A number that already has an account shows "An account already exists for this number" with a Log in link. No internet shows a message that sign-in needs a connection but work can continue without an account. |
-| 2 of 3 | 6-digit code | Verified automatically on the sixth digit. A wrong code shows "The code is wrong"; typing again starts a new code. Resend is available after a 0:59 countdown. "Change number" goes back. **(simulated: no SMS is sent, the test code is shown.)** |
-| 3 of 3 | Password | Three live rules: at least 8 characters, a digit, a letter. Show/hide toggle. The button stays inactive until all pass. |
+| 1 of 3 | Name or company name, phone | Both required. The name field has a clear button. The phone field shows the flag and +998, takes 9 digits, and opens the app's own number pad: digits, Clear, backspace and Close. "Get the code" stays inactive until both are valid. No internet shows a message that sign-in needs a connection. |
+| 2 of 3 | 6-digit code | Six boxes. Verified automatically on the sixth digit. The keyboard offers the code from the SMS for one-tap entry. A wrong code turns the boxes red and shows "The code is wrong"; typing again starts a new code. Resend is available after a 0:59 countdown. "Change number" goes back. **(simulated: no SMS is sent, the test code is shown.)** |
+| 3 of 3 | Password | Three live rules: at least 8 characters, a digit, a letter. Show/hide toggle inside the field. The button stays inactive until all pass. |
 
+- **The number already has an account:** a sheet slides up over step 1, in place of an error on the form. It names the number and offers three ways on:
+  - **Log in with password** opens Log in with the number filled in and the password field ready.
+  - **Change number** closes the sheet and reopens the number pad.
+  - **Forgot your password?** opens Reset password with the number filled in.
+  - Tapping outside the sheet, or Back, closes it. Back from Log in or Reset password returns to step 1 with the name and phone as they were.
+- **With a keyboard open:** the main button stays in view together with the field, and the small print is hidden.
 - Going Back from step 2 or 3 returns to step 1 with the name and phone still filled in.
 - **Done screen:** "Account created", an explanation that the subscription is tied to the account and projects stay on this phone, and **Start**.
 
 ### 2.3 Log in
 
 - Phone and password. Empty fields show their own messages.
+- The number pad has no Next key. When the ninth digit is typed, the password field opens by itself.
+- "Continue with Google" is offered under the Log in button.
 - A wrong password and an unknown number both show "The phone number or password is wrong".
 - While checking, the button shows "Checking…".
 - "Forgot your password?" starts the reset.
@@ -148,7 +169,7 @@ Profile → Sign out → a sheet says "Projects stay on this phone. You can sign
 - **Shows, top to bottom:**
   - wordmark and the Saved chip;
   - the date and a laser chip (opens the device sheet);
-  - a greeting with the builder's first name;
+  - a greeting with the builder's first name, and the line "Where shall we start today?";
   - **Continue card:** the last room's plan, its path (project › workspace), its status, and **Continue**, which opens that room;
   - **Needs attention**, with a count. Each row opens the place to fix it. Possible rows, most urgent first:
     - "A door or window needs fixing";
@@ -157,15 +178,15 @@ Profile → Sign out → a sheet says "Projects stay on this phone. You can sign
     - "Quote sent today" or "Waiting for a reply to the quote, 3 days";
     - "1 estimate row not filled in";
     - "Add your name and phone for reports";
-  - **four tiles:** New project (primary), Measure (shows the laser state), Photo for "workspace", Note for "workspace". The last two add to the most recent workspace;
+  - **Quick actions**, one card with a row per action and their count: New project, Measure a room (the second line is the laser state), Photo for "workspace", Note for "workspace". The last two add to the most recent workspace;
   - **Recent projects** with "All".
-- **Empty state:** "Start with the first project", **New project**, and "Restore from backup".
+- **Empty state (the founder's design):** after the greeting, one large blue **New project** card ("Customer, address and room details"), then Quick actions with two rows: Measure a room, and Restore from backup ("Open an earlier project again").
 
 ---
 
 ## 4. Projects
 
-- **Shows:** a search field, a switch (Active · Done · All, each with its count), project cards, and a floating "+ Project" button.
+- **Shows:** the wordmark and Saved chip, a small blue line above the title naming the section shown ("Active projects", "Finished projects", "All projects"), a search field, a switch (Active · Done · All, each with its count), project cards, and a floating "+ Project" button.
 - **Card:** name, customer and address, stage chip, three numbers (Net wall, Measured n/n, Estimate), one line saying what is waiting, and two buttons.
 - **First button:** Call, which opens the dialer, when the customer has a phone number; otherwise Open.
 - **Second button** is the one main action for the project's state. The first matching row applies:
@@ -180,15 +201,17 @@ Profile → Sign out → a sheet says "Projects stay on this phone. You can sign
 | Quote issued | "Quote sent today" / "Waiting for a reply, 3 days" | View quotes |
 
 - **Search** matches project name, customer and address.
-- **States:** no projects ("No projects yet", New project, Restore from backup) · nothing in this section · no match for the search.
+- **States:** nothing in this section · no match for the search.
+- **No projects (the founder's design):** one card with a folder icon, "No projects yet", "Create your first project. All measurements and estimates are kept here.", the main button **Create a new project** and a second button **Restore from backup**. Under the card: "Projects are kept on this phone".
 
 ---
 
 ## 5. New project
 
-- **Fields:** project name (required), customer name (required), customer phone (optional, 9 digits), address (optional).
+- **Header:** a Close button, the small blue line "New project" and the title "Project details".
+- **Fields:** project name (required), customer name (required), customer phone (optional, 9 digits), address (optional). Optional fields say so at the right of their label.
 - **Location (optional):** "Detect location" fills coordinates with their accuracy, then offers "Detect again" and "Remove". GPS works without internet. **(simulated coordinates)**
-- **Currency and precision:** a sheet with UZS, USD, EUR, RUB and 0, 2 or 3 decimals. The choice applies to this and future projects; existing projects and issued quotes don't change.
+- **Currency:** a sheet with UZS, USD, EUR, RUB. The choice applies to this and future projects; existing projects and issued quotes don't change.
 - **Save** shows each missing or invalid field with its own message and keeps the form open.
 - After saving, the project page opens with an empty Workspaces tab.
 
@@ -210,7 +233,7 @@ Profile → Sign out → a sheet says "Projects stay on this phone. You can sign
 
 ### Info tab
 
-Customer, phone with Call, address, location with "Open in map" **(simulated)**, currency and precision, report language, and **Edit details**.
+Customer, phone with Call, address, location with "Open in map" **(simulated)**, currency, report language, and **Edit details**.
 
 ### Deleting the project
 
@@ -391,7 +414,7 @@ Pen, Line, Text, Eraser; thin or thick; three colours; undo and redo. It does no
 
 ## 14. Estimate (project tab)
 
-- **Top:** "Currency: UZS, no decimals" and **Room areas**, a sheet listing each room's floor, perimeter and net walls. It is for reference: nothing is copied into quantities.
+- **Top:** "Currency: UZS" and **Room areas**, a sheet listing each room's floor, perimeter and net walls. It is for reference: nothing is copied into quantities.
 - **Materials table:** name with its unit underneath · quantity · price · sum. Then "+ Add row" and the materials subtotal.
 - **Labour table:** description ("Agreed sum" underneath) · amount. Then "+ Add row" and the labour subtotal.
 - **Footer:** Grand total and **View report**.
@@ -466,10 +489,20 @@ A sheet with the file name and page count, and Telegram, WhatsApp, Save to Files
 ## 17. Measure
 
 - **Purpose:** measure without opening a project, and do quick sums.
-- **Meter:** laser status, the reference edge ("from the rear edge"), the last reading in large digits, and a Single / Continuous switch.
+- **Header:** the page title at the top left, on the same row as the laser chip at the right.
+- **Meter:** laser status, the last reading in large digits, and a Single / Continuous switch. The "measured from the rear edge" link was removed at the founder's request (13 October 2026).
 - **Single:** the main button **Measure** takes a reading and saves it in one press.
 - **Continuous:** Start/Stop; the meter follows the laser; the main button becomes **Save**.
 - **Type it** opens a sheet for a typed reading.
+- **Camera** (the square button left of "Type it") opens a choice of two:
+  - **Live camera:** the camera opens inside the app. Draw a line on the live view along what is being measured; redraw it as often as needed. **Measure** takes the laser reading and **Type it** takes a typed one; the value appears on the line. **Save** freezes the visible view into a picture with the line and value on it and opens that picture. A line under the view says: "The line stays on the screen, not on the wall. Hold the phone still, measure and save."
+  - **Take a photo:** the phone's camera app opens. The photo opens in the photo editor with the Dimension tool chosen; draw a line and give it a size.
+  - **States of the live camera:** opening · running · no camera permission ("Allow the camera for METRX in the phone's settings, or take a photo instead") · no live camera on this device. Both error states offer **Take a photo**. With no laser connected, Measure is off and the status says to type the value. The camera is released when the screen is left or the app goes to the background.
+  - **The app never works a distance out from the picture.** The number is the laser's or typed; the line shows what it belongs to.
+- **Pictures:** saved pictures appear in a strip under the readings, each with its first measured value. No project is needed. Tapping one opens the photo editor, where the header has **Share** and a menu:
+  - **Share** sends one JPEG, the photo with its lines and numbers drawn in, through the phone's share sheet.
+  - **Add to a project** lists every workspace; the picture moves there and becomes an ordinary photo of that workspace, so it can go into the PDF.
+  - **Delete picture** asks first.
 - **Calculator:** Area (length × width) · Wall (length × height, minus an optional opening) · Volume · Sum · Brick.
   - The box with the yellow frame is filled next: by a new reading, or by tapping a reading chip.
   - Tap a box to choose it. In Sum, tapping a value removes it.
@@ -512,10 +545,10 @@ A sheet with the file name and page count, and Telegram, WhatsApp, Save to Files
 | Backup | Today · N days ago | Not yet (when projects exist) · 7 days or more |
 | Subscription | Active | Expired |
 
-- **Language and report:** app language · default report language · PDF content · currency and precision.
+- **Language and report:** app language · default report language · PDF content · currency.
 - **Measuring and drawing:** default door and window sizes · 45°/90° snapping.
 - **Account:** sign in, or the signed-in account with Sign out.
-- **More settings:** units (metres) · room label (name and area, name, area, none) · show tips again · device · backup · subscription · about.
+- **More settings:** units (metres or centimetres) · room label (name and area, name, area, none) · show tips again · device · backup · subscription · about.
 
 ### Builder details
 
@@ -555,8 +588,8 @@ Laser readings · SMS codes · Google sign-in · the camera · GPS coordinates �
 
 ### Data the app keeps
 
-- **Settings:** language, default report language, builder (name, phone), currency, precision, door and window defaults, snapping, room label, PDF content, hidden tips, last backup time.
-- **Project:** name, customer, phone, address, location, currency, precision, report language; workspaces; rooms; estimate; report choices and notes; quotes; board (stage, tasks, notes).
+- **Settings:** language, default report language, builder (name, phone), currency, door and window defaults, snapping, room label, PDF content, hidden tips, last backup time.
+- **Project:** name, customer, phone, address, location, currency, report language; workspaces; rooms; estimate; report choices and notes; quotes; board (stage, tasks, notes).
 - **Workspace:** name, type, items (photos, drawings, notes).
 - **Room:** name, workspace, shape, wall thickness, dimensions (each with value, source and any pending value), openings, saved 3D views.
 - **Quote:** number, time, the frozen copy, total.

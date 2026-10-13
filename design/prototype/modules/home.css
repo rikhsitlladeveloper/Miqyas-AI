@@ -4,8 +4,8 @@
 .hm-hi p{color:var(--ink2);font-size:16px}
 .hm-hi .r1{display:flex;align-items:center;gap:10px;min-width:0}
 .hm-hi small{flex:1;min-width:0;font-size:14.5px;color:var(--ink2)}
-.hm-hi h2{margin:4px 0 0;font-size:32px;font-weight:800;letter-spacing:-.025em;line-height:1.12;overflow-wrap:break-word}
-.hm-dev{flex:none;display:inline-flex;align-items:center;gap:7px;min-height:34px;max-width:60%;padding:0 12px 0 11px;border-radius:999px;font-size:13px;font-weight:700;background:var(--fill);color:var(--ink2)}
+.hm-hi h2{margin:0;font-size:32px;font-weight:800;letter-spacing:-.025em;line-height:1.12;overflow-wrap:break-word}
+.hm-dev{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:7px;min-height:34px;max-width:60%;margin-right:12px;padding:0 12px 0 11px;border-radius:999px;font-size:13px;font-weight:700;background:var(--fill);color:var(--ink2)}
 .hm-dev span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hm-dev i{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
 .hm-dev.on{background:#EAF7F0;color:#0B6B4F}

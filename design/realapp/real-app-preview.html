@@ -1,0 +1,364 @@
+<title>METRX Real App Preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+:root{
+  --bg:#F3F5F9; --panel:#FFFFFF; --fg:#0B1020; --fg2:#566074; --fg3:#7A8496; --rule:#E0E5ED; --fill:#EBEFF5;
+  --accent:#374FDD; --accent2:#2A3FBF; --wash:#EEF2FE;
+  --ok:#0B6B4F; --okw:#E3F3EC; --amb:#8A4500; --ambw:#FFF1DF; --red:#B42318; --redw:#FDEDEB;
+  --f:"Manrope","Segoe UI",system-ui,sans-serif; --fn:"IBM Plex Sans Condensed","Manrope",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0A0F1C; --panel:#121A2B; --fg:#E9EDF6; --fg2:#A7B1C5; --fg3:#8490A6; --rule:#243047; --fill:#192238;
+  --accent:#8B9CFF; --accent2:#B3BEFF; --wash:#1A2450;
+  --ok:#5FD3A8; --okw:#11302A; --amb:#F2B66B; --ambw:#33260F; --red:#FF8A7A; --redw:#3A1714; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0A0F1C; --panel:#121A2B; --fg:#E9EDF6; --fg2:#A7B1C5; --fg3:#8490A6; --rule:#243047; --fill:#192238;
+  --accent:#8B9CFF; --accent2:#B3BEFF; --wash:#1A2450;
+  --ok:#5FD3A8; --okw:#11302A; --amb:#F2B66B; --ambw:#33260F; --red:#FF8A7A; --redw:#3A1714; color-scheme:dark }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 15.5px/1.55 var(--f)}
+.wrap{max-width:1100px;margin:0 auto;padding-inline:20px;padding-block:32px 64px;display:grid;grid-template-columns:minmax(0,1fr);gap:52px}
+h1{margin:0;font:800 clamp(28px,5vw,40px)/1.1 var(--f);letter-spacing:-.02em;text-wrap:balance}
+h2{margin:0;font:800 24px/1.2 var(--f);letter-spacing:-.01em;text-wrap:balance}
+h3{margin:0;font:700 16px/1.3 var(--f)}
+p{margin:0;max-width:70ch}
+.lead{font-size:17px;color:var(--fg2)}
+.muted{color:var(--fg2)} .sm{font-size:13.5px}
+.kick{font:700 12.5px/1 var(--f);letter-spacing:.14em;color:var(--accent)}
+section{display:grid;grid-template-columns:minmax(0,1fr);gap:18px;min-width:0}
+.head{display:grid;grid-template-columns:minmax(0,1fr);gap:8px;min-width:0}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:18px;padding:18px;display:grid;gap:10px;min-width:0;align-content:start}
+.pick{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;background:var(--wash);color:var(--accent2);font:700 12.5px/1.5 var(--f)}
+/* summary strip */
+.sum{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px}
+.sum div{background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:14px 16px;display:grid;gap:3px}
+.sum b{font:800 15px/1.3 var(--f)} .sum span{font-size:13.5px;color:var(--fg2)}
+/* logos */
+.logos{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(235px,100%),1fr));gap:14px}
+.lg{background:var(--panel);border:1px solid var(--rule);border-radius:20px;padding:18px;display:grid;gap:14px;align-content:start}
+.lg .top{display:flex;align-items:center;gap:14px}
+.lg .ic{width:84px;height:84px;flex:none;border-radius:20px;overflow:hidden;box-shadow:0 8px 20px rgba(16,24,40,.14)}
+.lg .ic svg{display:block;width:100%;height:100%}
+.lg .let{font:800 30px/1 var(--f);color:var(--accent)}
+.lock{display:flex;align-items:center;gap:9px;padding:10px 12px;border-radius:12px;background:#F7F8FA;color:#0B1020}
+.lock svg{width:28px;height:28px;border-radius:8px;flex:none}
+.lock b{font:800 15px/1 var(--f);letter-spacing:.24em}
+.lock.dk{background:#0B1020;color:#fff}
+.lock.dk svg{box-shadow:0 0 0 1px rgba(255,255,255,.18)}
+.lg p{font-size:14px;color:var(--fg2)}
+/* header before / after */
+.ba{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+@media (max-width:640px){ .ba{grid-template-columns:minmax(0,1fr)} }
+.strip{display:grid;gap:8px}
+.strip .lab{font:700 12px/1 var(--f);letter-spacing:.1em;color:var(--fg3)}
+.hd{background:#F7F8FA;color:#0B1020;border:1px solid #E4E8EF;border-radius:16px;padding:12px 14px;display:grid;gap:8px;font-family:var(--f)}
+.hd .bar{display:flex;align-items:center;justify-content:space-between;min-height:30px}
+.hd .wm{font:800 14px/1 var(--f);letter-spacing:.3em}
+.hd .sv{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:#566074}
+.hd .sv.x{color:#B42318;text-decoration:line-through;text-decoration-thickness:1.5px}
+.hd .ey{font:600 12px/1 var(--f);color:#374FDD}
+.hd .t{font:800 24px/1.1 var(--f);letter-spacing:-.02em}
+.hd .lk{display:flex;align-items:center;gap:8px}
+.hd .lk svg{width:26px;height:26px;border-radius:7px}
+/* phones */
+.phones{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(270px,100%),1fr));gap:26px 20px;align-items:start}
+.phones.four{grid-template-columns:repeat(auto-fit,minmax(min(225px,100%),1fr))}
+.pm{display:grid;gap:10px;justify-items:center;min-width:0}
+.pm figcaption{font-size:14px;color:var(--fg2);text-align:center;max-width:34ch}
+.pm figcaption b{color:var(--fg);display:block;font-weight:700}
+figure{margin:0}
+.ph{width:100%;max-width:290px;aspect-ratio:290/610;background:#0B1020;border-radius:38px;padding:7px;box-shadow:0 14px 34px rgba(16,24,40,.18)}
+.scr{position:relative;height:100%;border-radius:32px;overflow:hidden;background:#F7F8FA;color:#0B1020;font:500 11.5px/1.35 var(--f);display:flex;flex-direction:column}
+.sb{flex:none;height:26px;display:flex;align-items:center;justify-content:space-between;padding:6px 20px 0 24px;font:700 11px/1 var(--f)}
+.sb i{width:42px;height:10px;border-radius:5px;background:#0B1020;display:block}
+.bd{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px;padding:6px 12px 10px;overflow:hidden}
+.i{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.c{background:#fff;border:1px solid #E4E8EF;border-radius:16px}
+.h1{font:800 21px/1.1 var(--f);letter-spacing:-.02em}
+.ey{font:600 10.5px/1 var(--f);color:#374FDD}
+.chip{display:inline-flex;align-items:center;gap:4px;padding:3px 8px;border-radius:999px;font:600 10px/1.3 var(--f);white-space:nowrap}
+.chip.ok{background:#E3F3EC;color:#0B6B4F} .chip.amb{background:#FFF1DF;color:#8A4500} .chip.g{background:#F1F4F8;color:#566074}
+.btn{display:flex;align-items:center;justify-content:center;gap:6px;min-height:36px;border-radius:13px;font:700 12px/1 var(--f);background:#F1F4F8;color:#0B1020;padding:0 10px}
+.btn.pri{background:#374FDD;color:#fff;box-shadow:0 6px 14px rgba(55,79,221,.22)}
+.row{display:flex;align-items:center;gap:8px}
+.grow{flex:1;min-width:0}
+.tr{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.m2{color:#566074}
+.tabbar{flex:none;margin:0 9px 8px;height:48px;border-radius:19px;background:#fff;border:1px solid #E4E8EF;box-shadow:0 8px 20px rgba(16,24,40,.07);display:grid;grid-template-columns:repeat(5,1fr);padding:4px;gap:2px}
+.tabbar span{display:grid;justify-items:center;align-content:center;gap:2px;border-radius:14px;font:600 8px/1 var(--f);color:#566074}
+.tabbar span.on{background:#374FDD;color:#fff}
+.lst .r{display:flex;align-items:center;gap:8px;padding:8px 10px;border-bottom:1px solid #EDF0F4}
+.lst .r:last-child{border-bottom:0}
+.sq{width:26px;height:26px;border-radius:9px;background:#EEF2FE;color:#374FDD;display:grid;place-items:center;flex:none}
+.sq.p{background:#374FDD;color:#fff}
+.num{font-family:var(--fn)}
+.fld{display:grid;gap:4px}
+.fld label{font:600 10.5px/1 var(--f)}
+.inp{display:flex;align-items:center;justify-content:space-between;min-height:36px;padding:0 10px;border-radius:12px;background:#fff;border:1px solid #E4E8EF;font:600 13px/1 var(--f)}
+.inp.f{border:1.5px solid #374FDD;box-shadow:0 0 0 3px rgba(55,79,221,.12)}
+.inp .car{display:inline-block;width:1.5px;height:15px;background:#374FDD;margin-left:1px;vertical-align:-2px}
+.inp .ph0{color:#9AA3B2;font-weight:500}
+.scrim{position:absolute;inset:0;background:rgba(11,16,32,.38)}
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#fff;border-radius:22px 22px 0 0;padding:8px 12px 10px;display:grid;gap:8px}
+.sheet .grab{width:30px;height:4px;border-radius:2px;background:#D5DAE3;justify-self:center}
+.sheet h4{margin:0;font:800 13.5px/1.2 var(--f)}
+/* iOS keyboard */
+.ios{flex:none;background:#D2D5DB;font-family:-apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif}
+.ios .acc{display:flex;align-items:center;justify-content:space-between;background:#F4F5F7;border-top:1px solid #C6CAD1;padding:0 12px;height:30px;color:#0A7AFF;font-size:12.5px}
+.ios .acc b{font-weight:600}
+.ios .acc span{display:flex;gap:14px;font-size:15px}
+.ios .pad{display:grid;grid-template-columns:repeat(3,1fr);gap:5px;padding:5px 5px 4px}
+.ios .pad span{height:34px;border-radius:5px;background:#fff;box-shadow:0 1px 0 #8A8D93;display:grid;place-items:center;font-size:17px;color:#000}
+.ios .pad span.fn{background:transparent;box-shadow:none}
+.ios .qw{display:grid;gap:6px;padding:6px 3px 4px}
+.ios .qw div{display:flex;justify-content:center;gap:3.5px}
+.ios .qw span{flex:1;max-width:25px;height:30px;border-radius:5px;background:#fff;box-shadow:0 1px 0 #8A8D93;display:grid;place-items:center;font-size:13px;color:#000}
+.ios .qw span.w{max-width:36px;background:#ABB0BA;font-size:10.5px}
+.ios .qw span.sp{max-width:none;flex:4;font-size:10.5px}
+.ios .qw span.go{max-width:60px;flex:2;background:#0A7AFF;color:#fff;font-size:10.5px}
+.ios .hb{height:18px;display:grid;place-items:center}
+.ios .hb i{width:84px;height:4px;border-radius:2px;background:#0B1020;display:block}
+.hbar{flex:none;height:14px;display:grid;place-items:center}
+.hbar i{width:84px;height:4px;border-radius:2px;background:#0B1020;opacity:.85;display:block}
+/* iOS share sheet */
+.shs{position:absolute;left:5px;right:5px;bottom:5px;border-radius:16px;background:#F2F2F6;padding:10px;display:grid;gap:8px;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;color:#000}
+.shs .f{display:flex;align-items:center;gap:8px;font-size:11px}
+.shs .f i{width:30px;height:36px;border-radius:5px;background:#fff;border:1px solid #D6D8DE;display:grid;place-items:center;font:700 7px/1 var(--f);color:#B42318;font-style:normal}
+.shs .apps{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;font-size:8.5px;text-align:center;color:#3C3C43}
+.shs .apps span{display:grid;justify-items:center;gap:3px}
+.shs .apps i{width:38px;height:38px;border-radius:10px;display:block}
+.shs .act{background:#fff;border-radius:10px;font-size:11.5px}
+.shs .act div{padding:8px 10px;border-bottom:1px solid #E5E5EA;display:flex;justify-content:space-between}
+.shs .act div:last-child{border-bottom:0}
+/* table */
+.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:16px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:700px;font-size:14.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font:700 12.5px/1.2 var(--f);color:var(--fg2);background:var(--fill)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:700;white-space:nowrap}
+td s{color:var(--fg3)}
+.tag{display:inline-flex;padding:2px 9px;border-radius:999px;font:700 12px/1.5 var(--f);white-space:nowrap}
+.tag.ok{background:var(--okw);color:var(--ok)} .tag.amb{background:var(--ambw);color:var(--amb)} .tag.red{background:var(--redw);color:var(--red)}
+/* decisions */
+.dec{display:grid;gap:10px}
+.dec>div{display:grid;grid-template-columns:auto minmax(0,1fr);gap:14px;background:var(--panel);border:1px solid var(--rule);border-radius:16px;padding:16px 18px}
+.dec .n{font:800 22px/1.1 var(--fn);color:var(--accent)}
+.dec b{display:block;margin-bottom:3px}
+.dec p{color:var(--fg2);font-size:14.5px}
+.dec .rec{margin-top:6px;color:var(--fg);font-weight:600}
+ol.steps{margin:0;padding-left:20px;display:grid;gap:5px;color:var(--fg2)}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="s-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></symbol>
+<symbol id="s-folder" viewBox="0 0 24 24"><path d="M3 7h7l2 2h9v10H3z"/></symbol>
+<symbol id="s-laser" viewBox="0 0 24 24"><rect x="3" y="8" width="11" height="8" rx="2"/><path d="M14 12h7M18 9l3 3-3 3"/></symbol>
+<symbol id="s-board" viewBox="0 0 24 24"><rect x="4" y="4" width="4" height="16" rx="1"/><rect x="10" y="4" width="4" height="10" rx="1"/><rect x="16" y="4" width="4" height="6" rx="1"/></symbol>
+<symbol id="s-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+<symbol id="s-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="s-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="s-cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="s-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2-7z"/></symbol>
+<symbol id="s-bt" viewBox="0 0 24 24"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></symbol>
+<symbol id="s-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="s-kbd" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></symbol>
+<symbol id="s-plan" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 12h7M11 4v8"/></symbol>
+<symbol id="s-dev" viewBox="0 0 24 24"><rect x="6" y="3" width="12" height="18" rx="2"/><path d="M9.5 13l2 2 3.5-4"/></symbol>
+<!-- logo A: folding rule that reads as an M -->
+<symbol id="lg-a" viewBox="0 0 64 64"><rect width="64" height="64" fill="#374FDD"/><path d="M15 47V19l17 19 17-19v28" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><g fill="#374FDD"><circle cx="15" cy="19" r="1.9"/><circle cx="32" cy="38" r="1.9"/><circle cx="49" cy="19" r="1.9"/></g><g stroke="#374FDD" stroke-width="1.4"><path d="M11.5 28h3M11.5 34h3M11.5 40h3M49.5 28h3M49.5 34h3M49.5 40h3"/></g></symbol>
+<!-- logo B: room plan with a dimension line -->
+<symbol id="lg-b" viewBox="0 0 64 64"><rect width="64" height="64" fill="#0B1020"/><path d="M26 49H17V25h30v24H36" fill="none" stroke="#fff" stroke-width="5" stroke-linejoin="miter"/><path d="M26 49a10 10 0 0 1 10-10" fill="none" stroke="#fff" stroke-width="1.6"/><g stroke="#8B9CFF" stroke-width="2.6" stroke-linecap="round"><path d="M17 14h30M14.5 16.5l5-5M44.5 16.5l5-5"/></g></symbol>
+<!-- logo C: laser meter, beam and the point on the wall -->
+<symbol id="lg-c" viewBox="0 0 64 64"><rect width="64" height="64" fill="#374FDD"/><rect x="9" y="24" width="17" height="16" rx="4" fill="#fff"/><path d="M27 32h20" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-dasharray="1 5"/><path d="M51 13v38" stroke="#fff" stroke-width="5" stroke-linecap="round"/><circle cx="48" cy="32" r="4.6" fill="#FFB547"/><rect x="13" y="28" width="9" height="5" rx="1.5" fill="#374FDD"/></symbol>
+<!-- logo D: brick bond -->
+<symbol id="lg-d" viewBox="0 0 64 64"><rect width="64" height="64" fill="#EEF2FE"/><g fill="#0B1020"><rect x="10" y="15" width="20" height="9" rx="2"/><rect x="34" y="15" width="20" height="9" rx="2"/><rect x="10" y="27.5" width="8" height="9" rx="2"/><rect x="46" y="27.5" width="8" height="9" rx="2"/><rect x="10" y="40" width="20" height="9" rx="2"/><rect x="34" y="40" width="20" height="9" rx="2"/></g><rect x="22" y="27.5" width="20" height="9" rx="2" fill="#374FDD"/></symbol>
+</svg>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="kick">METRX · FROM PROTOTYPE TO REAL APP</span>
+    <h1>What changes before I build it: logo, header, iPhone keyboard, no demo parts</h1>
+    <p class="lead">Nothing here is built yet. This page shows each change on the current look of the app, so you can confirm or correct it first. Section 5 lists five choices I need from you.</p>
+    <div class="sum">
+      <div><b>1. Logo</b><span>Four options. It replaces the METRX text in the header, on the welcome screen, in the PDF and as the app icon.</span></div>
+      <div><b>2. No "Saqlandi"</b><span>The saved-time label goes. Saving stays automatic; only a failed save shows a message.</span></div>
+      <div><b>3. iPhone keyboard</b><span>Every field uses the phone's own keyboard instead of the drawn one.</span></div>
+      <div><b>4. No demo parts</b><span>The Demo panel, "Simulyatsiya" labels, sample data and simulated buttons are removed or replaced by the real thing.</span></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="head"><span class="kick">1 · LOGO</span><h2>Four logo options</h2>
+      <p class="muted">Each is shown as the app icon and as it sits in the header. "METRX" is still the working name; if the name changes, A needs redrawing and B, C and D keep working.</p></div>
+    <div class="logos">
+      <div class="lg"><div class="top"><span class="ic"><svg><use href="#lg-a"/></svg></span><div><span class="let">A</span><h3>Folding rule</h3><span class="pick">My pick</span></div></div>
+        <div class="lock"><svg><use href="#lg-a"/></svg><b>METRX</b></div><div class="lock dk"><svg><use href="#lg-a"/></svg><b>METRX</b></div>
+        <p>A builder's folding rule opened into the letter M, with hinge points and measure marks. It says "measuring" and carries the name in one shape. It stays readable at the smallest size.</p></div>
+      <div class="lg"><div class="top"><span class="ic"><svg><use href="#lg-b"/></svg></span><div><span class="let">B</span><h3>Room plan</h3></div></div>
+        <div class="lock"><svg><use href="#lg-b"/></svg><b>METRX</b></div><div class="lock dk"><svg><use href="#lg-b"/></svg><b>METRX</b></div>
+        <p>A room with a door swing and a dimension line above it: the app's own drawing style. Clear at icon size, but the thin lines fade when it is very small.</p></div>
+      <div class="lg"><div class="top"><span class="ic"><svg><use href="#lg-c"/></svg></span><div><span class="let">C</span><h3>Laser point</h3></div></div>
+        <div class="lock"><svg><use href="#lg-c"/></svg><b>METRX</b></div><div class="lock dk"><svg><use href="#lg-c"/></svg><b>METRX</b></div>
+        <p>The laser meter, its beam and the amber point on the wall. It shows the product's main trick. It reads less clearly for builders who type measurements by hand.</p></div>
+      <div class="lg"><div class="top"><span class="ic"><svg><use href="#lg-d"/></svg></span><div><span class="let">D</span><h3>Brick bond</h3></div></div>
+        <div class="lock"><svg><use href="#lg-d"/></svg><b>METRX</b></div><div class="lock dk"><svg><use href="#lg-d"/></svg><b>METRX</b></div>
+        <p>Bricks in running bond with one in the app's blue. It speaks directly to brickmasons, but it would feel narrow if other trades join later.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kick">2 · HEADER</span><h2>"Saqlandi" removed, logo in place of the METRX text</h2>
+      <p class="muted">I read "the same place" as where the METRX text sits now, top left. If you meant the right side, where "Saqlandi" was, say so and I'll move it.</p></div>
+    <div class="ba">
+      <div class="strip"><span class="lab">HOME · NOW</span><div class="hd"><div class="bar"><span class="wm">METRX</span><span class="sv x"><svg class="i"><use href="#s-dev"/></svg>Saqlandi 16:39</span></div></div></div>
+      <div class="strip"><span class="lab">HOME · AFTER</span><div class="hd"><div class="bar"><span class="lk"><svg><use href="#lg-a"/></svg><span class="wm">METRX</span></span></div></div></div>
+      <div class="strip"><span class="lab">PROJECTS, BOARD, PROFILE · NOW</span><div class="hd"><div class="bar"><span></span><span class="sv x"><svg class="i"><use href="#s-dev"/></svg>Saqlandi 16:39</span></div><span class="ey">Faol loyihalar</span><span class="t">Loyihalar</span></div></div>
+      <div class="strip"><span class="lab">PROJECTS, BOARD, PROFILE · AFTER</span><div class="hd"><span class="ey">Faol loyihalar</span><span class="t">Loyihalar</span></div></div>
+    </div>
+    <div class="card"><h3>What this means in use</h3>
+      <p class="muted">The app keeps saving after every change, as it does now. You just stop seeing the time. If a save ever fails, the red banner "Oxirgi o‘zgarish saqlanmadi" with "Qayta urinish" still appears, because that is the one moment you need to know. On Projects, Board and Profile the empty top row goes too, so the title moves up and the list gains a row of space.</p></div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kick">3 · KEYBOARD</span><h2>The iPhone's own keyboard</h2>
+      <p class="muted">The grey keyboard in the app today is drawn by the prototype. In the real app each field opens the right iPhone keyboard for what you are typing.</p></div>
+    <div class="phones">
+      <figure class="pm"><div class="ph"><div class="scr">
+        <div class="sb"><span>9:41</span><i></i><span>●●●</span></div>
+        <div class="bd" style="gap:6px"><div class="row"><b style="font-size:13px">Yotoqxona</b></div><div class="c" style="flex:1;display:grid;place-items:center;color:#9AA3B2">reja</div></div>
+        <div class="scrim"></div>
+        <div style="position:absolute;left:0;right:0;bottom:0"><div class="sheet" style="position:static;border-radius:22px 22px 0 0">
+          <span class="grab"></span><h4>Devor B uzunligi</h4>
+          <div class="inp f"><span class="num" style="font-size:16px">3,2<span class="car"></span></span><span class="m2">m</span></div>
+          <span class="m2" style="font-size:10px">Hozirgi qiymat: hali yo‘q</span>
+          <div class="row"><span class="btn grow">Bekor qilish</span><span class="btn pri grow">Saqlash</span></div></div>
+          <div class="ios"><div class="acc"><span>⌃ ⌄</span><b>Tayyor</b></div>
+            <div class="pad"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span>,</span><span>0</span><span class="fn">⌫</span></div><div class="hb"><i></i></div></div></div>
+      </div></div><figcaption><b>Measurements, quantities, prices</b>The number pad with a comma key. Dot or comma both work, as now.</figcaption></figure>
+
+      <figure class="pm"><div class="ph"><div class="scr">
+        <div class="sb"><span>9:41</span><i></i><span>●●●</span></div>
+        <div class="bd"><div><span class="ey">Yangi loyiha</span><div style="font:800 15px/1.2 var(--f)">Loyiha ma’lumotlari</div></div>
+          <div class="fld"><label>Loyiha nomi</label><div class="inp f"><span>Yusupovlar uyi<span class="car"></span></span></div></div>
+          <div class="fld"><label>Buyurtmachi ismi</label><div class="inp"><span class="ph0">Akmal Yusupov</span></div></div>
+          <div class="fld"><label>Buyurtmachi telefoni</label><div class="inp"><span class="ph0">+998 90 123 45 67</span></div></div></div>
+        <div class="ios"><div class="acc"><span>⌃ ⌄</span><b>Tayyor</b></div>
+          <div class="qw"><div><span>q</span><span>w</span><span>e</span><span>r</span><span>t</span><span>y</span><span>u</span><span>i</span><span>o</span><span>p</span></div><div><span>a</span><span>s</span><span>d</span><span>f</span><span>g</span><span>h</span><span>j</span><span>k</span><span>l</span></div><div><span class="w">⇧</span><span>z</span><span>x</span><span>c</span><span>v</span><span>b</span><span>n</span><span>m</span><span class="w">⌫</span></div><div><span class="w">123</span><span class="sp">probel</span><span class="go">keyingi</span></div></div><div class="hb"><i></i></div></div>
+      </div></div><figcaption><b>Names, addresses, notes</b>The normal keyboard in the phone's language, with autocorrect off for names. "Keyingi" jumps to the next field.</figcaption></figure>
+
+      <figure class="pm"><div class="ph"><div class="scr">
+        <div class="sb"><span>9:41</span><i></i><span>●●●</span></div>
+        <div class="bd"><div style="font:800 17px/1.2 var(--f);margin-top:6px">Usta ma’lumotlari</div>
+          <div class="fld"><label>Ism yoki kompaniya</label><div class="inp"><span>Bobur Rahimov</span></div></div>
+          <div class="fld"><label>Telefon</label><div class="inp f"><span><span class="m2">+998 </span>93 555 12<span class="car"></span></span></div></div></div>
+        <div class="ios"><div class="acc"><span>⌃ ⌄</span><b>Tayyor</b></div>
+          <div class="pad"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span><span>6</span><span>7</span><span>8</span><span>9</span><span class="fn"></span><span>0</span><span class="fn">⌫</span></div><div class="hb"><i></i></div></div>
+      </div></div><figcaption><b>Phone numbers</b>Digits only. The +998 prefix stays fixed, as now.</figcaption></figure>
+    </div>
+    <div class="card"><h3>Three things that change with it</h3>
+      <ol class="steps">
+        <li>The screen moves up by itself so the field you are typing in stays visible above the keyboard.</li>
+        <li>The iPhone number pad has no minus key. Negative values are never valid in this app, so nothing is lost.</li>
+        <li>The keyboard's language is the phone's, not the app's. A builder with a Russian keyboard types Russian names; the app's own texts still follow the app language.</li>
+      </ol></div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kick">4 · NO DEMO PARTS</span><h2>What is removed, and what takes its place</h2>
+      <p class="muted">Some demo parts only need deleting. Others stand in for something real, and the real thing needs building or needs something that doesn't exist yet. The last column says which.</p></div>
+    <div class="tbl"><table>
+      <tr><th>Demo part today</th><th>In the real app</th><th>Status</th></tr>
+      <tr><td>Demo tab and control panel</td><td>Gone, with the scenario jumps and the test checklist.</td><td><span class="tag ok">Just removed</span></td></tr>
+      <tr><td>"Simulyatsiya" labels</td><td>Gone everywhere, because nothing simulated is left to label.</td><td><span class="tag ok">Just removed</span></td></tr>
+      <tr><td>Sample project and rooms</td><td>The app starts empty. Your first project is your own.</td><td><span class="tag ok">Just removed</span></td></tr>
+      <tr><td>Pre-filled sample rows</td><td>Estimate rows start empty. Door and window sizes still start from your defaults in Profile, without the "sample values (prototype)" note.</td><td><span class="tag ok">Just removed</span></td></tr>
+      <tr><td>Drawn keyboard</td><td>The phone's keyboard (section 3).</td><td><span class="tag ok">I can build it</span></td></tr>
+      <tr><td>Sample photos from "camera"</td><td>The real camera and photo library.</td><td><span class="tag ok">I can build it</span></td></tr>
+      <tr><td>Simulated GPS</td><td>The phone's real location, after it asks permission once.</td><td><span class="tag ok">I can build it</span></td></tr>
+      <tr><td>Simulated share list</td><td>A real PDF file and the phone's own share sheet (Telegram, WhatsApp, Files, Print).</td><td><span class="tag ok">I can build it</span></td></tr>
+      <tr><td>Simulated backup files</td><td>A real backup file saved to Files, and restore from a file you pick.</td><td><span class="tag ok">I can build it</span></td></tr>
+      <tr><td>"Show expired state" switch</td><td>Gone. The subscription page shows "Faol (pilot)".</td><td><span class="tag ok">Just removed</span></td></tr>
+      <tr><td>Laser simulator</td><td>A real Bluetooth laser. The meter you ordered hasn't arrived, and its connection method is unverified, so the first real build has no working laser button.</td><td><span class="tag amb">Needs the device</span></td></tr>
+      <tr><td>Test SMS code, test account, simulated Google</td><td>Real SMS codes and real Google sign-in need a server and an SMS provider. Neither exists yet.</td><td><span class="tag red">Needs a server</span></td></tr>
+    </table></div>
+
+    <div class="phones four">
+      <figure class="pm"><div class="ph"><div class="scr">
+        <div class="sb"><span>9:41</span><i></i><span>●●●</span></div>
+        <div class="bd">
+          <div class="row" style="min-height:26px"><svg style="width:22px;height:22px;border-radius:6px"><use href="#lg-a"/></svg><b style="font:800 12px/1 var(--f);letter-spacing:.28em">METRX</b></div>
+          <div class="row" style="justify-content:space-between"><span class="m2" style="font-size:10.5px">Seshanba, 13-oktabr</span><span class="chip amb"><svg class="i" style="width:10px;height:10px"><use href="#s-bt"/></svg>Lazer ulanmagan</span></div>
+          <div><div class="h1">Salom, Bobur</div><span class="m2">Bugun nimadan boshlaymiz?</span></div>
+          <div class="c" style="padding:9px;display:grid;gap:8px"><div class="row"><span class="sq"><svg class="i"><use href="#s-plan"/></svg></span><span class="grow"><span class="m2 tr" style="font-size:9.5px;display:block">Yusupovlar uyi › 1-qavat</span><b style="display:block">Mehmonxona</b><span class="chip ok" style="margin-top:3px"><svg class="i" style="width:10px;height:10px"><use href="#s-check"/></svg>Hammasi tasdiqlangan</span></span></div><span class="btn pri">Davom ettirish</span></div>
+          <b style="font-size:12px">Tezkor amallar</b>
+          <div class="c lst">
+            <div class="r"><span class="sq p"><svg class="i"><use href="#s-plus"/></svg></span><span class="grow"><b>Yangi loyiha</b><span class="m2 tr" style="display:block;font-size:9.5px">Mijoz, manzil va ma’lumotlari</span></span><svg class="i m2"><use href="#s-chev"/></svg></div>
+            <div class="r"><span class="sq"><svg class="i"><use href="#s-laser"/></svg></span><span class="grow"><b>Xonani o‘lchash</b><span class="m2 tr" style="display:block;font-size:9.5px">Lazer bilan yoki qo‘lda</span></span><svg class="i m2"><use href="#s-chev"/></svg></div>
+            <div class="r"><span class="sq"><svg class="i"><use href="#s-cam"/></svg></span><span class="grow"><b>Surat</b><span class="m2 tr" style="display:block;font-size:9.5px">“1-qavat” uchun</span></span><svg class="i m2"><use href="#s-chev"/></svg></div>
+          </div>
+        </div>
+        <div class="tabbar"><span class="on"><svg class="i"><use href="#s-home"/></svg>Asosiy</span><span><svg class="i"><use href="#s-folder"/></svg>Loyihalar</span><span><svg class="i"><use href="#s-laser"/></svg>O‘lchash</span><span><svg class="i"><use href="#s-board"/></svg>Doska</span><span><svg class="i"><use href="#s-user"/></svg>Profil</span></div>
+        <div class="hbar"><i></i></div>
+      </div></div><figcaption><b>Home</b>Logo top left, no "Saqlandi". The laser chip shows the real state. "Simulyator orqali o‘lcham oling" becomes "Lazer bilan yoki qo‘lda".</figcaption></figure>
+
+      <figure class="pm"><div class="ph"><div class="scr">
+        <div class="sb"><span>9:41</span><i></i><span>●●●</span></div>
+        <div class="bd">
+          <div class="row" style="justify-content:flex-end"><span class="chip amb"><svg class="i" style="width:10px;height:10px"><use href="#s-bt"/></svg>Lazer ulanmagan</span></div>
+          <div class="h1">O‘lchash</div>
+          <div class="c" style="padding:10px;display:grid;gap:6px;justify-items:center"><span class="m2" style="justify-self:start;font-size:10px">Oxirgi o‘lchov</span><span class="num" style="font:600 34px/1 var(--fn)">2,980<small style="font-size:14px;color:#566074"> m</small></span>
+            <span class="chip amb" style="white-space:normal;border-radius:10px;padding:6px 8px;font-weight:500">Lazer ulanmagan. Qiymatni qo‘lda kiriting yoki lazerni ulang.</span></div>
+          <div class="row" style="gap:4px"><span class="btn pri grow" style="min-height:34px;font-size:9.5px;flex-direction:column;gap:2px">Maydon</span><span class="btn grow" style="min-height:34px;font-size:9.5px;background:#fff;border:1px solid #E4E8EF">Devor</span><span class="btn grow" style="min-height:34px;font-size:9.5px;background:#fff;border:1px solid #E4E8EF">Hajm</span><span class="btn grow" style="min-height:34px;font-size:9.5px;background:#fff;border:1px solid #E4E8EF">G‘isht</span></div>
+          <div style="background:#0B1020;color:#fff;border-radius:15px;padding:10px;display:grid;gap:6px"><div class="row"><span class="grow num" style="background:rgba(255,255,255,.1);border-radius:9px;padding:6px;text-align:center;font-size:14px">3,600</span>×<span class="grow num" style="background:rgba(255,255,255,.1);border-radius:9px;padding:6px;text-align:center;font-size:14px">3,200</span></div><div class="row" style="justify-content:space-between"><span style="color:#B7C3D9">Maydon</span><b class="num" style="font-size:19px">11,52 m²</b></div></div>
+          <div style="flex:1"></div>
+          <div class="row"><span class="btn grow"><svg class="i"><use href="#s-kbd"/></svg>Qo‘lda</span><span class="btn pri" style="flex:1.5"><svg class="i"><use href="#s-bt"/></svg>Lazerni ulash</span></div>
+        </div>
+        <div class="tabbar"><span><svg class="i"><use href="#s-home"/></svg>Asosiy</span><span><svg class="i"><use href="#s-folder"/></svg>Loyihalar</span><span class="on"><svg class="i"><use href="#s-laser"/></svg>O‘lchash</span><span><svg class="i"><use href="#s-board"/></svg>Doska</span><span><svg class="i"><use href="#s-user"/></svg>Profil</span></div>
+        <div class="hbar"><i></i></div>
+      </div></div><figcaption><b>Measure, with no simulator</b>Until a real laser is supported, this is what the tab shows. Typing and the calculator work fully.</figcaption></figure>
+
+      <figure class="pm"><div class="ph"><div class="scr">
+        <div class="sb"><span>9:41</span><i></i><span>●●●</span></div>
+        <div class="bd" style="gap:6px"><div class="row"><b style="font-size:13px">Yotoqxona</b><span class="grow"></span><svg class="i" style="color:#8A4500"><use href="#s-bt"/></svg></div>
+          <div class="c" style="flex:1;display:grid;place-items:center"><svg viewBox="0 0 160 120" style="width:74%"><rect x="20" y="24" width="120" height="78" fill="none" stroke="#0B1020" stroke-width="6"/><path d="M20 12h120" stroke="#374FDD" stroke-width="2" stroke-dasharray="4 3"/><rect x="68" y="3" width="24" height="18" rx="4" fill="#fff" stroke="#374FDD" stroke-width="1.5" stroke-dasharray="3 2"/><text x="80" y="16" text-anchor="middle" font-size="11" font-weight="700" fill="#374FDD">?</text><text x="80" y="66" text-anchor="middle" font-size="9" fill="#566074">YOTOQXONA</text></svg></div>
+          <div class="c" style="padding:10px;display:grid;gap:7px;border-radius:18px"><div class="row" style="justify-content:space-between"><span class="m2" style="font-size:10px">Keyingi: Devor A</span><span class="chip g">O‘lchanmagan</span></div><span class="num" style="font:600 24px/1 var(--fn)">? <small style="font-size:12px;color:#566074">m</small></span><span class="m2" style="font-size:10px">Lazer ulanmagan. Qiymatni qo‘lda kiriting.</span>
+            <div class="row"><span class="btn pri" style="flex:1.5"><svg class="i"><use href="#s-kbd"/></svg>Qo‘lda</span><span class="btn grow"><svg class="i"><use href="#s-bt"/></svg>Lazer</span></div><span class="m2" style="font-size:10px">Keyin: Devor B. Yana 2 ta</span></div>
+        </div><div class="hbar"><i></i></div>
+      </div></div><figcaption><b>Room editor, with no simulator</b>No "Simulyatsiya" tag. With no laser connected, "Qo‘lda" becomes the main button.</figcaption></figure>
+
+      <figure class="pm"><div class="ph"><div class="scr">
+        <div class="sb"><span>9:41</span><i></i><span>●●●</span></div>
+        <div class="bd"><div class="row"><b style="font-size:13px">Hisobot</b></div><div style="background:#0B1020;color:#fff;border-radius:14px;padding:9px 11px"><span style="color:#B7C3D9;font-size:10px">Jami</span><div class="num" style="font:700 17px/1.1 var(--fn)">4 240 000 so‘m</div></div><div class="c" style="flex:1"></div></div>
+        <div class="scrim"></div>
+        <div class="shs"><div class="f"><i>PDF</i><span><b>Yusupovlar_uyi_Taklif_1.pdf</b><br><span style="color:#6C6C70">PDF hujjat · 4 sahifa</span></span></div>
+          <div class="apps"><span><i style="background:#2AABEE"></i>Telegram</span><span><i style="background:#25D366"></i>WhatsApp</span><span><i style="background:#0A7AFF"></i>AirDrop</span><span><i style="background:#8E8E93"></i>Pochta</span></div>
+          <div class="act"><div>Fayllarga saqlash<span>▢</span></div><div>Chop etish<span>▢</span></div></div></div>
+      </div></div><figcaption><b>Sharing a quote</b>A real PDF file in the iPhone's own share sheet, instead of the app's simulated list.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kick">5 · YOUR CALL</span><h2>Five choices before I start</h2></div>
+    <div class="dec">
+      <div><span class="n">1</span><div><b>Which logo: A, B, C or D?</b><p>Or tell me what to change in one of them.</p><p class="rec">I'd pick A.</p></div></div>
+      <div><span class="n">2</span><div><b>The laser, until the real meter is supported.</b><p>With the simulator gone, "take from laser" has nothing to connect to. Either the laser buttons stay and lead to "Lazer ulanmagan" (as drawn above), or they are hidden until the real meter works.</p><p class="rec">I'd keep them visible as drawn, so the screens don't change again when the meter arrives. I'd also keep the simulator in a hidden test switch for you and me only, so the confirm-a-reading flow can still be tested.</p></div></div>
+      <div><span class="n">3</span><div><b>Sign-in, until there is a server.</b><p>Without the test code, nobody can finish creating an account, because no SMS is ever sent. The app is designed to work fully without an account.</p><p class="rec">I'd hide Create account, Log in and Google for now and open the app straight on "your name and phone". The sign-in screens stay in the code for when a server exists.</p></div></div>
+      <div><span class="n">4</span><div><b>Android keyboard too?</b><p>You asked for the native keyboard on iPhone. The drawn keyboard would otherwise stay on Android.</p><p class="rec">I'd switch both, so the two phones behave the same.</p></div></div>
+      <div><span class="n">5</span><div><b>How the real app is built.</b><p>The approved build plan says to rebuild everything in React Native. The other way is to keep the app you already have on the emulator and iPhone, and replace its simulated parts with real phone features inside the two native shells.</p><p class="rec">I'd keep the current app. Everything in this page fits that route, and a React Native rebuild would be a far larger job that starts from zero. One thing must change either way: photos and projects need proper storage on the phone, because the current storage holds only a few dozen photos.</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><h2>After you confirm</h2></div>
+    <div class="card"><ol class="steps">
+      <li>Put the chosen logo in the header, welcome screen, PDF header and both app icons.</li>
+      <li>Remove "Saqlandi" and the empty header row.</li>
+      <li>Switch every field to the phone's keyboard.</li>
+      <li>Remove the Demo panel, labels, sample data and simulated buttons; connect the real camera, location, share sheet and backup files.</li>
+      <li>Build for Android and iPhone, test on the emulator, and give you a new IPA.</li>
+    </ol></div>
+  </section>
+
+</div>

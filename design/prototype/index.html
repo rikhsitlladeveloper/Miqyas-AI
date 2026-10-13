@@ -478,6 +478,11 @@ button{font:inherit;color:inherit}
 .wv-draw,.canvas{position:relative}
 .wv-draw [data-a="editOpening"],.canvas .ophit{cursor:grab;touch-action:none}
 .dg-on [data-a="editOpening"],.dg-on .ophit{cursor:grabbing}
+.dg-on svg.dg-keep{position:absolute!important;left:0;top:0;opacity:0;z-index:-1}
+/* the plan never scrolls, so the browser must not take a drag on it for a scroll (that drops the drag) */
+.app .canvas{touch-action:none}
+.wv-draw .op-grip{position:absolute;z-index:1;margin:0;padding:0;border:0;background:transparent;border-radius:4px;touch-action:none;cursor:grab}
+.wv-draw.dg-on .op-grip{cursor:grabbing}
 .dg-tip{position:absolute;z-index:4;transform:translate(-50%,-100%);padding:6px 10px;border-radius:10px;background:var(--ink);color:#fff;font:600 13px/1.3 var(--f-num);white-space:nowrap;pointer-events:none;box-shadow:0 4px 14px rgba(14,28,54,.3)}
 .dg-tip.bad{background:var(--err)}
 .wv-draghint{display:flex;align-items:flex-start;gap:6px;padding:8px 16px 0;font-size:13px;line-height:1.35;color:var(--ink2)}
@@ -613,8 +618,8 @@ button{font:inherit;color:inherit}
 .hm-hi p{color:var(--ink2);font-size:16px}
 .hm-hi .r1{display:flex;align-items:center;gap:10px;min-width:0}
 .hm-hi small{flex:1;min-width:0;font-size:14.5px;color:var(--ink2)}
-.hm-hi h2{margin:4px 0 0;font-size:32px;font-weight:800;letter-spacing:-.025em;line-height:1.12;overflow-wrap:break-word}
-.hm-dev{flex:none;display:inline-flex;align-items:center;gap:7px;min-height:34px;max-width:60%;padding:0 12px 0 11px;border-radius:999px;font-size:13px;font-weight:700;background:var(--fill);color:var(--ink2)}
+.hm-hi h2{margin:0;font-size:32px;font-weight:800;letter-spacing:-.025em;line-height:1.12;overflow-wrap:break-word}
+.hm-dev{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:7px;min-height:34px;max-width:60%;margin-right:12px;padding:0 12px 0 11px;border-radius:999px;font-size:13px;font-weight:700;background:var(--fill);color:var(--ink2)}
 .hm-dev span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .hm-dev i{width:8px;height:8px;border-radius:50%;background:currentColor;flex:none}
 .hm-dev.on{background:#EAF7F0;color:#0B6B4F}
@@ -779,10 +784,16 @@ button{font:inherit;color:inherit}
 .ed2 .canvas{border-bottom:0}
 .ed2-fl{position:absolute;right:10px;top:10px;display:grid;gap:8px;z-index:2}
 .ed2-fl button{display:flex;align-items:center;gap:6px;min-height:40px;padding:0 12px 0 10px;border-radius:20px;background:var(--sheet);box-shadow:var(--sh);font-size:13px;font-weight:600;color:var(--ink)}
-.ed2-panel{flex:none;display:flex;flex-direction:column;max-height:64%;min-height:0;background:var(--sheet);border-radius:20px 20px 0 0;box-shadow:0 -6px 20px rgba(16,24,40,.10);position:relative;z-index:3}
-.ed2-grab{flex:none;display:grid;place-items:center;width:100%;height:22px;touch-action:none}
-.ed2-grab::before{content:"";width:40px;height:4px;border-radius:2px;background:var(--rule)}
-.ed2-body{min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 16px 14px;display:grid;gap:10px}
+.ed2-panel{flex:none;display:flex;flex-direction:column;min-height:0;transition:height .28s cubic-bezier(.2,.8,.2,1);background:var(--sheet);border-radius:20px 20px 0 0;box-shadow:0 -6px 20px rgba(16,24,40,.10);position:relative;z-index:3}
+.ed2-panel.drag{transition:none}
+.ed2-grab{flex:none;display:grid;place-items:center;width:100%;height:30px;touch-action:none;cursor:grab}
+.ed2-grab::before{content:"";width:48px;height:5px;border-radius:3px;background:#C3CAD8}
+.ed2-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding:0 16px 14px}
+.ed2-panel:not(.open) .ed2-body{overflow:hidden}
+.ed2-panel:not(.open) .ed2-peek{touch-action:none}
+.ed2-peek{display:grid;gap:10px;padding-bottom:14px}
+.ed2-more{display:grid;gap:10px;padding-top:14px;border-top:1px solid var(--rule2)}
+@media (prefers-reduced-motion:reduce){.ed2-panel{transition:none}}
 .ed2-card{display:grid;gap:10px}
 .ed2-q{display:flex;align-items:flex-end;gap:10px}
 .ed2-q .tx{flex:1;min-width:0;display:grid;gap:2px}
@@ -801,7 +812,9 @@ button{font:inherit;color:inherit}
 .ed2-acts .btn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .ed2-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px;font-size:13px;color:var(--ink2)}
 .ed2-foot span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.ed2-foot button{flex:none;display:inline-flex;align-items:center;gap:4px;color:var(--cobalt);font-weight:600;min-height:36px}
+.ed2-foot button{flex:none;display:inline-flex;align-items:center;gap:4px;color:var(--cobalt);font-weight:600;min-height:36px;padding:0 14px 0 9px;border-radius:999px;background:var(--wash)}
+.ed2-foot button .i{transform:rotate(-90deg);transition:transform .2s}
+.ed2-panel.open .ed2-foot button .i{transform:rotate(90deg)}
 .ed2-ok{display:flex;align-items:center;gap:10px;padding:2px 0}
 .ed2-ok .ic{width:40px;height:40px;flex:none;border-radius:50%;display:grid;place-items:center;background:#E6F4EF;color:#0B7A5A}
 .ed2-ok .tx{flex:1;min-width:0;display:grid;gap:2px}
@@ -911,6 +924,10 @@ button{font:inherit;color:inherit}
 .qb-3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
 .qb-2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .qb-3 .ferr,.qb-2 .ferr{font-size:12px}
+/* the page title shares the top row with the laser chip */
+.app .page .bar.qm-bar{gap:12px;min-height:60px;padding:4px 16px 8px 20px}
+.app .page .bar.qm-bar .h1{flex:1;min-width:0;padding:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.app .page .bar.qm-bar .devchip{flex:0 1 auto;max-width:58%}
 /*@@CSS:board@@*/
 /* Board (option A): stage strip + vertical stage lists */
 .bd{display:grid;gap:10px;padding:2px 16px 20px}
@@ -1098,6 +1115,46 @@ button{font:inherit;color:inherit}
 .app:not(.auth) .lgroup{margin:0 20px}
 .app:not(.auth) .grouph{padding:18px 20px 8px}
 .app:not(.auth) .listrow>.i:first-child{border-radius:12px;background:var(--wash)}
+/*@@CSS:camera@@*/
+/* camera: Kamera button and saved pictures on the Measure tab, the live camera screen */
+.app .qm-foot .btnrow .btn.qm-cam{flex:none;width:56px;min-width:56px;padding:0;background:var(--wash);color:var(--cobalt)}
+.cm-n{font:600 12px/1 var(--f-num);padding:3px 8px;border-radius:999px;background:var(--fill);color:var(--ink2)}
+.cm-strip{display:flex;gap:10px;margin:0 -16px;padding:2px 16px 6px;overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+.cm-strip::-webkit-scrollbar{display:none}
+.cm-shot{flex:none;width:112px;display:grid;gap:2px;padding:0 0 8px;border-radius:16px;background:var(--sheet);box-shadow:var(--sh);overflow:hidden;text-align:left}
+.cm-shot:active{background:var(--fill)}
+.cm-shot .th{display:block;height:78px;background:var(--fill);overflow:hidden}
+.cm-shot .th svg{display:block;width:100%;height:100%}
+.cm-shot .th .mk-svg{pointer-events:none}
+.cm-shot b{padding:6px 10px 0;font:600 15px/1.15 var(--f-num);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cm-shot b.none{font:500 12.5px/1.3 var(--f-ui);color:var(--ink3)}
+.cm-shot small{padding:0 10px;font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* live camera: a dark screen, the view takes all the room that is left */
+.app .page.lc{background:#0B1020;color:#fff}
+.lc-top{flex:none;display:flex;align-items:center;gap:8px;min-height:56px;padding:0 12px 0 6px}
+.lc-top .ib{color:#fff}
+.lc-top .ib:active{background:rgba(255,255,255,.14)}
+.lc-top b{flex:1;min-width:0;font-size:17px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lc-dev{flex:0 1 auto;min-width:0;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 10px;border-radius:10px;background:rgba(255,255,255,.14);font-size:12.5px;color:#FFD7A8}
+.lc-dev.on{color:#fff}
+.lc-dev span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lc-view{position:relative;flex:1;min-height:160px;margin:0 10px;border-radius:18px;overflow:hidden;background:#161D30;touch-action:none;cursor:crosshair;user-select:none;-webkit-user-select:none}
+.lc-view video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.lc-svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.lc-hint{position:absolute;left:12px;right:12px;top:12px;padding:9px 12px;border-radius:12px;background:rgba(11,16,32,.72);font-size:13.5px;text-align:center;pointer-events:none}
+.lc-wait{position:absolute;inset:0;display:grid;place-items:center;font-size:14px;color:#C9D1E3;pointer-events:none}
+.lc-state{flex:none;margin:0;padding:10px 16px 0;font-size:14px;font-weight:600;line-height:1.35;min-height:30px}
+.lc-note{flex:none;display:flex;gap:8px;align-items:flex-start;margin:0;padding:4px 16px 0;font-size:12.5px;line-height:1.4;color:#C9D1E3}
+.lc-note .i{flex:none;margin-top:1px}
+.lc-bar{flex:none;display:flex;gap:8px;padding:12px 10px calc(12px + env(safe-area-inset-bottom,0px))}
+.app .lc-bar .btn{flex:1;min-width:0;min-height:54px;padding:0 8px;border-radius:16px;font-size:15px;background:rgba(255,255,255,.14);color:#fff;box-shadow:none}
+.app .lc-bar .btn.pri{flex:1.3;background:var(--cobalt)}
+.app .lc-bar .btn.dis{opacity:.4;pointer-events:none}
+.lc-err{flex:1;display:grid;align-content:center;justify-items:center;gap:12px;padding:24px 28px;text-align:center}
+.lc-err .ill{width:72px;height:72px;border-radius:22px;display:grid;place-items:center;background:rgba(255,255,255,.12)}
+.lc-err h3{margin:0;font-size:20px;font-weight:800}
+.lc-err p{margin:0;max-width:32ch;font-size:14.5px;line-height:1.5;color:#C9D1E3}
+.app:has(.page.lc) .homebar{background:#0B1020}
 /*@@CSS:auth@@*/
 /* auth: opening animation, welcome, sign up, log in, forgot password.
    Look taken from the founder's Figma file (white pages, light-blue outlines, IBM Plex Sans + Mono, blue #3355B4).
@@ -1343,6 +1400,32 @@ button{font:inherit;color:inherit}
 .app .qm-chips button.sim{background-image:none}
 /* notes whose text was a prototype remark are now empty */
 .app .note:has(>span:empty),.app .fhint:empty,.app small:empty{display:none}
+/*@@CSS:ux@@*/
+/* ux: founder's review of 13 Oct 2026 */
+
+/* ---------- toasts come in at the top, on every screen ---------- */
+.app .area .toast:not(#_){top:8px!important;bottom:auto!important;animation:toastTop .22s ease-out}
+@keyframes toastTop{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:none}}
+@media (prefers-reduced-motion:reduce){.app .area .toast:not(#_){animation:none}}
+
+/* ---------- 3D ---------- */
+.app .three .hint{display:none}
+.app .p3d{height:400px}
+.app .three .lbl.go{pointer-events:auto;cursor:pointer;min-height:28px;padding:0 10px;border-radius:14px;font:700 12.5px var(--f-ui);color:var(--ink);box-shadow:0 2px 8px rgba(16,24,40,.12)}
+.app .three .lbl.go::after{content:"";position:absolute;inset:-9px -4px}
+.app .three .lbl.go.on{background:var(--cobalt);border-color:var(--cobalt);color:#fff}
+.app .v3-all,.app .v3-shot{position:absolute;z-index:2;display:inline-flex;align-items:center;gap:7px;min-height:42px;padding:0 15px 0 12px;border-radius:21px;background:var(--sheet);box-shadow:0 2px 10px rgba(16,24,40,.14);font-size:13.5px;font-weight:700;color:var(--ink)}
+.app .v3-all .i,.app .v3-shot .i{color:var(--cobalt)}
+.app .v3-all{right:10px;bottom:10px}
+.app .v3-shot{right:10px;top:10px}
+.app .v3-rep{display:grid;gap:8px}
+.app .v3-rep small{font-size:13px;color:var(--ink2)}
+.app .v3-shots{display:flex;gap:14px;padding-top:4px}
+.app .v3-th{position:relative;flex:none;width:64px;height:48px;border-radius:10px;border:1px solid var(--rule);background:var(--paper)}
+.app .v3-th img{display:block;width:100%;height:100%;object-fit:cover;border-radius:9px}
+.app .v3-th button{position:absolute;right:-9px;top:-9px;width:26px;height:26px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:#fff}
+.app .v3-th button::after{content:"";position:absolute;inset:-9px}
+.app .v3-th button .i{width:13px;height:13px}
 /*@@CSS:authend@@*/
 /* location */
 .loc{background:var(--sheet);border-radius:var(--r);box-shadow:var(--sh);overflow:hidden}
@@ -1660,7 +1743,7 @@ const D = {
 'np.customerName':['Buyurtmachi ismi','Имя заказчика','Customer name'],
 'np.customerPhone':['Buyurtmachi telefoni','Телефон заказчика','Customer phone'],
 'np.location':['Joylashuv','Местоположение','Location'],
-'np.fromSettings':['Valyuta: {c}, {p}. Hisobot tili: {l}. Ular Profil sozlamalaridan olinadi.','Валюта: {c}, {p}. Язык отчёта: {l}. Берутся из настроек профиля.','Currency: {c}, {p}. Report language: {l}. These come from your Profile settings.'],
+'np.fromSettings':['Valyuta: {c}. Hisobot tili: {l}. Ular Profil sozlamalaridan olinadi.','Валюта: {c}. Язык отчёта: {l}. Берутся из настроек профиля.','Currency: {c}. Report language: {l}. These come from your Profile settings.'],
 'np.change':['O‘zgartirish','Изменить','Change'],
 'loc.get':['Joylashuvni aniqlash','Определить местоположение','Get my location'],
 'loc.locating':['Aniqlanmoqda…','Определяем…','Locating…'],
@@ -1671,7 +1754,6 @@ const D = {
 'loc.open':['Xaritada ochish','Открыть на карте','Open in maps'],
 'loc.opened':['Simulyatsiya: telefonning xarita ilovasi ochiladi','Симуляция: откроется приложение карт','Simulated: your phone’s maps app opens'],
 'loc.none':['Ko‘rsatilmagan','Не указано','Not set'],
-'se.curPrec':['Valyuta va kasr','Валюта и точность','Currency and decimals'],
 'se.curNote':['Yangi loyihalarga qo‘llanadi. Mavjud loyihalar va berilgan takliflar o‘zgarmaydi.','Применяется к новым проектам. Существующие проекты и выданные предложения не меняются.','Applies to new projects. Existing projects and issued quotes keep theirs.'],
 'pr.phone':['Telefon','Телефон','Phone'],
 'pr.location':['Joylashuv','Местоположение','Location'],
@@ -1719,11 +1801,9 @@ const D = {
 'np.phone':['Telefon','Телефон','Phone'],
 'np.address':['Manzil','Адрес','Address'],
 'np.currency':['Valyuta','Валюта','Currency'],
-'np.precision':['Kasr xonalari','Знаков после запятой','Decimal places'],
 'np.reportLang':['Hisobot tili','Язык отчёта','Report language'],
 'np.create':['Loyiha yaratish','Создать проект','Create project'],
 'np.nameReq':['Loyiha nomini kiriting.','Введите название проекта.','Enter a project name.'],
-'np.currencyNote':['Valyuta va kasr xonalari faqat qoralamaga ta’sir qiladi. Berilgan takliflar o‘zgarmaydi.','Валюта и точность влияют только на черновик. Выданные предложения не меняются.','Currency and decimals apply to the draft only. Issued quotes don’t change.'],
 'np.created':['“{n}” yaratildi','Проект «{n}» создан','“{n}” created'],
 'pr.customer':['Buyurtmachi','Заказчик','Customer'],
 'pr.address':['Manzil','Адрес','Address'],
@@ -1862,7 +1942,7 @@ const D = {
 'ms.confirmed':['{d}: {v} tasdiqlandi','{d}: {v} подтверждено','{d}: {v} confirmed'],
 'ms.discBody':['Lazer ulanmagan. Qiymatni qo‘lda kiriting yoki lazerni ulang.','Лазер не подключён. Введите значение вручную или подключите лазер.','Laser not connected. Type the value or connect the laser.'],
 'ms.connect':['Ulash','Подключить','Connect'],
-'ms.hint':['Vergul yoki nuqta bilan: 4,25','Через запятую или точку: 4,25','Use a comma or point: 4.25'],
+'ms.hint':['Vergul yoki nuqta bilan: {ex}','Через запятую или точку: {ex}','Use a comma or point: {ex}'],
 'ms.manualNote':['Qo‘lda kiritilgan qiymat saqlanganda tasdiqlanadi.','Введённое вручную значение подтверждается при сохранении.','A typed value is confirmed when you save it.'],
 'src.manual':['Qo‘lda','Вручную','Typed'],
 'src.sim':['Simulyatsiya','Симуляция','Simulated'],
@@ -1871,8 +1951,9 @@ const D = {
 'err.format':['Raqam noto‘g‘ri. Masalan: 4,25','Неверное число. Например: 4,25','Not a valid number. Example: 4.25'],
 'err.zero':['Qiymat 0 dan katta bo‘lishi kerak.','Значение должно быть больше 0.','Must be greater than 0.'],
 'err.negative':['Manfiy qiymat bo‘lmaydi.','Значение не может быть отрицательным.','Can’t be negative.'],
-'err.max':['{max} m dan oshmasligi kerak. O‘lchovni tekshiring.','Не больше {max} м. Проверьте замер.','Must be {max} m or less. Check the reading.'],
-'err.precision':['Ko‘pi bilan {n} ta kasr xonasi.','Не больше {n} знаков после запятой.','At most {n} decimal places.'],
+'err.max':['{max} dan oshmasligi kerak. O‘lchovni tekshiring.','Не больше {max}. Проверьте замер.','Must be {max} or less. Check the reading.'],
+'err.precision':['Verguldan keyin ko‘pi bilan {n} ta raqam.','Не больше {n} цифр после запятой.','At most {n} digits after the decimal mark.'],
+'err.whole':['Butun son kiriting.','Введите целое число.','Enter a whole number.'],
 'op.door':['Eshik','Дверь','Door'],
 'op.window':['Deraza','Окно','Window'],
 'op.new.door':['Eshik qo‘shish','Добавить дверь','Add door'],
@@ -1915,9 +1996,7 @@ const D = {
 '3d.need':['3D uchun uzunlik, kenglik va balandlikni tasdiqlang.','Для 3D подтвердите длину, ширину и высоту.','Confirm length, width and height to see 3D.'],
 '3d.max':['Ko‘pi bilan 4 ta ko‘rinish. Avval bittasini o‘chiring.','Не больше 4 видов. Сначала удалите один.','At most 4 views. Delete one first.'],
 'es.draft':['Qoralama','Черновик','Draft'],
-'es.cur':['Valyuta: {c}, {p}','Валюта: {c}, {p}','Currency: {c}, {p}'],
-'es.p0':['kasrsiz','без дробной части','no decimals'],
-'es.pN':['{n} kasr','{n} зн. после запятой','{n} decimals'],
+'es.cur':['Valyuta: {c}','Валюта: {c}','Currency: {c}'],
 'es.manual':['Miqdorlar qo‘lda','Количества вручную','Quantities typed'],
 'es.mat':['Materiallar','Материалы','Materials'],
 'es.lab':['Ish haqi','Работы','Labor'],
@@ -1950,7 +2029,7 @@ const D = {
 're.nameReq':['Nomini kiriting.','Введите наименование.','Enter a name.'],
 're.added':['Qator qo‘shildi','Строка добавлена','Row added'],
 're.deleted':['Qator o‘chirildi','Строка удалена','Row deleted'],
-'u.pcs':['dona','шт','pcs'],'u.can':['banka','банка','can'],'u.m2':['m²','м²','m²'],'u.m':['m','м','m'],'u.kg':['kg','кг','kg'],'u.bag':['qop','мешок','bag'],'u.l':['litr','л','L'],'u.set':['komplekt','компл.','set'],
+'u.pcs':['dona','шт','pcs'],'u.can':['banka','банка','can'],'u.m2':['m²','м²','m²'],'u.m':['m','м','m'],'u.cm':['sm','см','cm'],'u.kg':['kg','кг','kg'],'u.bag':['qop','мешок','bag'],'u.l':['litr','л','L'],'u.set':['komplekt','компл.','set'],
 'rpt.title':['Hisobot','Отчёт','Report'],
 'rpt.lang':['Hisobot tili','Язык отчёта','Report language'],
 'rpt.parties':['Tomonlar','Стороны','Parties'],
@@ -2018,8 +2097,11 @@ const D = {
 'se.builder':['Usta ma’lumotlari','Данные мастера','Your details'],
 'se.notSet':['Kiritilmagan','Не заполнено','Not set'],
 'se.units':['O‘lchov birliklari','Единицы измерения','Units'],
-'se.unitsVal':['Metr','Метры','Meters'],
-'se.unitsBody':['Uzunliklar metrda, millimetr aniqligida saqlanadi. Santimetr va millimetrda ko‘rsatish keyingi bosqichda.','Длины хранятся в метрах с точностью до миллиметра. Показ в сантиметрах и миллиметрах появится позже.','Lengths are stored in meters to the millimeter. Showing centimeters or millimeters comes later.'],
+'un.m':['Metr','Метры','Metres'],
+'un.cm':['Santimetr','Сантиметры','Centimetres'],
+'un.mEx':['5,00 m · 0,90 m','5,00 м · 0,90 м','5.00 m · 0.90 m'],
+'un.cmEx':['500 sm · 90 sm','500 см · 90 см','500 cm · 90 cm'],
+'un.note':['Maydon doim m² da. O‘lchamlar o‘zgarmaydi, faqat ko‘rinishi almashadi.','Площадь всегда в м². Сами размеры не меняются, меняется только их вид.','Areas are always in m². Your measurements don’t change, only how they are shown.'],
 'se.currency':['Standart valyuta','Валюта по умолчанию','Default currency'],
 'se.device':['O‘lchash qurilmasi','Измерительное устройство','Measuring device'],
 'se.backup':['Zaxira va tiklash','Резервная копия','Backup and restore'],
@@ -2162,7 +2244,11 @@ function t(k,v,l){
   if(v){ s=s.replace(/\{(\w+):([^}]+)\}/g,(m,key,forms)=>plural(Number(v[key]),forms,l)); s=s.replace(/\{(\w+)\}/g,(m,key)=>v[key]!==undefined?v[key]:m) }
   return s;
 }
-const M=l=>t('u.m',null,l), M2=l=>t('u.m2',null,l);
+/* lengths are stored in millimetres; the builder chooses to see and type them in metres or centimetres.
+   U.unitOv holds the unit of an issued quote while its pages are drawn, so old quotes keep the unit they were issued in. */
+const UNIT=()=>U.unitOv||S.settings.unit||'m', LDEC=()=>UNIT()==='cm'?1:3;
+const M=l=>t(UNIT()==='cm'?'u.cm':'u.m',null,l), M2=l=>t('u.m2',null,l);
+const msHint=()=>t('ms.hint',{ex:fmtLen(4255)});
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const dn=(x,l)=>{ if(x==null) return ''; return String(x).startsWith('@')?t(String(x).slice(1),null,l):String(x) };
 const keyIfSame=(val,key)=>val;   /* typed text is stored exactly as typed */
@@ -2171,7 +2257,9 @@ const keyIfSame=(val,key)=>val;   /* typed text is stored exactly as typed */
 const DEC=l=>(l||CUR)==='en'?'.':',';
 const GRP=l=>(l||CUR)==='en'?',':' ';
 const groupInt=(s,l)=>s.replace(/\B(?=(\d{3})+(?!\d))/g,GRP(l));
-function fmtLen(mm,l,full){ if(mm==null) return '?'; const dec=full?3:(mm%10?3:2); return (mm/1000).toFixed(dec).replace('.',DEC(l)) }
+function fmtLen(mm,l,full){ if(mm==null) return '?';
+  if(UNIT()==='cm') return (mm/10).toFixed(full||mm%10?1:0).replace('.',DEC(l));
+  const dec=full?3:(mm%10?3:2); return (mm/1000).toFixed(dec).replace('.',DEC(l)) }
 const fmtArea=(mm2,l)=>(mm2/1e6).toFixed(2).replace('.',DEC(l));
 function parseDec(str,maxDec){
   let s=String(str??'').replace(/[\s  ]/g,'');
@@ -2183,10 +2271,10 @@ function parseDec(str,maxDec){
   return {ok:true,val:BigInt((i||'0')+f.padEnd(maxDec,'0'))};
 }
 function lenErr(str,max){
-  const r=parseDec(str,3);
-  if(r.err) return {err:r.err==='precision'?t('err.precision',{n:3}):t('err.'+r.err)};
+  const r=parseDec(str,LDEC());   /* 3 digits of a metre or 1 digit of a centimetre: both are millimetres */
+  if(r.err) return {err:r.err==='precision'?t('err.precision',{n:LDEC()}):t('err.'+r.err)};
   const mm=Number(r.val); if(mm===0) return {err:t('err.zero')};
-  if(mm>max) return {err:t('err.max',{max:max/1000})};
+  if(mm>max) return {err:t('err.max',{max:fmtLen(max).replace(/[.,]0+$/,'')+' '+M()})};
   return {mm};
 }
 function moneyStr(big,p,l){ const neg=big<0n; let s=(neg?-big:big).toString().padStart(p+1,'0'); const ip=s.slice(0,s.length-p), fp=p?s.slice(-p):''; return (neg?'−':'')+groupInt(ip,l)+(p?DEC(l)+fp:'') }
@@ -2293,7 +2381,10 @@ function openSheet(sh){ U.sheet=sh; U.sheetAnim=true; render() }
 function closeSheet(silent){ U.sheet=null; U.scan=false; blur(); if(!silent) render() }
 function blur(){ U.focus=null; U.shift=false }
 let toastTimer=null;
-function toast(text,action){ U.toast={text,action}; clearTimeout(toastTimer); toastTimer=setTimeout(()=>{U.toast=null;render()},4800) }
+function toast(text,action){ U.toast={text,action}; clearTimeout(toastTimer);
+  /* closing a toast redraws the screen: wait until the finger has let go of whatever it is dragging */
+  const hide=()=>{ if(U.dragOp||U.gesture){ toastTimer=setTimeout(hide,400); return } U.toast=null; render() };
+  toastTimer=setTimeout(hide,4800) }
 function commit(){ persist(); }
 function isLocked(){ return S.demo.expired }
 function guard(){ if(isLocked()){ openSheet({type:'locked'}); return false } return true }
@@ -2339,7 +2430,7 @@ function roomSizeText(r,l){ return fmtLen(r.dims.A.v,l)+' × '+fmtLen(r.dims.B.v
 function room3DReady(r){ return ['A','B','H'].every(k=>r.dims[k].v!=null) }
 function measuredOK(r){ return ['A','B','H'].every(k=>r.dims[k].v!=null) }
 function simTarget(r,dim){ return {A:5000,B:4000,H:3000,T:200}[dim]??3000 }
-function reportDimRows(r,l,prov){ return `<tr><td>${esc(t('r.len',null,l))}</td><td class="r">${fmtLen(r.dims.A.v,l)} ${t('u.m',null,l)}${prov('A')}</td></tr><tr><td>${esc(t('r.wid',null,l))}</td><td class="r">${fmtLen(r.dims.B.v,l)} ${t('u.m',null,l)}${prov('B')}</td></tr>` }
+function reportDimRows(r,l,prov){ return `<tr><td>${esc(t('r.len',null,l))}</td><td class="r">${fmtLen(r.dims.A.v,l)} ${M(l)}${prov('A')}</td></tr><tr><td>${esc(t('r.wid',null,l))}</td><td class="r">${fmtLen(r.dims.B.v,l)} ${M(l)}${prov('B')}</td></tr>` }
 
 /* ============================== plan drawing ============================== */
 function planSVG(r,o={}){
@@ -2513,11 +2604,12 @@ window.addEventListener('resize',()=>{ fitDevice(); const f=isFull(); if(lastFul
 /* ============================== report ============================== */
 function snapshotOf(p){
   const rep=p.report; const rooms=p.rooms.filter(r=>rep.rooms[r.id]!==false).map(r=>{const c=clone(r); c.views=r.views.filter(v=>rep.views[v.id]!==false); c.floorLabel=floorName(p.floors.find(f=>f.id===r.floorId)||p.floors[0],rep.lang); return c});
-  return {name:p.name,customer:p.customer,phone:p.phone,address:p.address,location:p.location||null,currency:p.currency,precision:p.precision,lang:rep.lang,notes:rep.notes,
+  return {name:p.name,customer:p.customer,phone:p.phone,address:p.address,location:p.location||null,currency:p.currency,precision:p.precision,unit:S.settings.unit||'m',lang:rep.lang,notes:rep.notes,
     builder:clone(S.settings.builder),pdf:clone(S.settings.pdf||{plan:true,dims:true,views:true,estimate:true,sign:true}),rooms,estimate:clone({materials:p.estimate.materials,labor:p.estimate.labor})};
 }
-const fingerprint=sn=>JSON.stringify([sn.name,sn.customer,sn.address,sn.currency,sn.precision,sn.lang,sn.notes,sn.builder,sn.rooms.map(r=>[r.name,Object.keys(r.dims).sort().map(k=>[k,r.dims[k].v]),r.openings,r.poly||null,r.rot||0,r.views.map(v=>v.id)]),sn.estimate,(sn.extras||[]).map(x=>[x.id,x.edited,x.name,x.caption||''])]);
-function reportPages(sn,isDraft,meta){
+const fingerprint=sn=>JSON.stringify([sn.name,sn.customer,sn.address,sn.currency,sn.precision,sn.lang,sn.unit||'m',sn.notes,sn.builder,sn.rooms.map(r=>[r.name,Object.keys(r.dims).sort().map(k=>[k,r.dims[k].v]),r.openings,r.poly||null,r.rot||0,r.views.map(v=>v.id)]),sn.estimate,(sn.extras||[]).map(x=>[x.id,x.edited,x.name,x.caption||''])]);
+function reportPages(sn,isDraft,meta){ const u0=U.unitOv; U.unitOv=sn.unit||'m'; try{ return reportPages0(sn,isDraft,meta) } finally{ U.unitOv=u0 } }
+function reportPages0(sn,isDraft,meta){
   const l=sn.lang, pr={precision:sn.precision,currency:sn.currency};
   const pages=[]; const head=(i)=>`<div class="rh"><span class="wm">METRX</span><div><h1>${esc(isDraft?t('r.draft',null,l):t('r.quote',null,l))}</h1><small>${esc(isDraft?t('r.draftDate',{d:fmtDate(Date.now())},l):t('r.no',{n:meta.no,d:fmtDate(meta.ts)},l))}</small></div></div>`;
   const tb=`<table class="tb"><tr><td><span>${esc(t('rpt.builder',null,l))}</span>${esc(dn(sn.builder.name,l)||'—')}<br>${esc(fmtPhone(sn.builder.phone))}</td><td><span>${esc(t('rpt.customer',null,l))}</span>${esc(dn(sn.customer,l)||'—')}<br>${esc(fmtPhone(sn.phone))}</td></tr><tr><td colspan="2"><span>${esc(t('r.project',null,l))}</span>${esc(dn(sn.name,l))}${sn.address?', '+esc(dn(sn.address,l)):''}${sn.location?`<br><span style="display:inline">${esc(t('pr.location',null,l))}:</span> ${locStr(sn.location)}`:''}</td></tr></table>`;
@@ -2527,9 +2619,9 @@ function reportPages(sn,isDraft,meta){
     const PF=sn.pdf||{plan:true,dims:true,views:true,estimate:true,sign:true}; if(!PF.plan&&!PF.dims) return '';
     return `<h2>${esc(t('r.room',{i,n:dn(r.name,l),f:r.floorLabel},l))}</h2><div class="roomblk" style="${PF.plan?'':'grid-template-columns:1fr'}">${PF.plan?planSVG(r,{report:true,lang:l}):''}${PF.dims?'':'<!--'}<table>
       ${reportDimRows(r,l,prov)}
-      <tr><td>${esc(t('r.h',null,l))}</td><td class="r">${fmtLen(r.dims.H.v,l)} ${t('u.m',null,l)}${prov('H')}</td></tr>
-      <tr><td>${esc(t('r.t',null,l))}</td><td class="r">${fmtLen(r.dims.T.v,l)} ${t('u.m',null,l)}</td></tr>
-      ${a?`<tr><td>${esc(t('rp.floorArea',null,l))}</td><td class="r">${fmtArea(a.floor,l)} ${t('u.m2',null,l)}</td></tr><tr><td>${esc(t('rp.perim',null,l))}</td><td class="r">${fmtLen(a.perim,l)} ${t('u.m',null,l)}</td></tr>${a.net!=null?`<tr><td>${esc(t('rp.gross',null,l))}</td><td class="r">${fmtArea(a.gross,l)} ${t('u.m2',null,l)}</td></tr><tr><td>${esc(t('rp.openings',null,l))}</td><td class="r">${fmtArea(a.open,l)} ${t('u.m2',null,l)}</td></tr><tr><td><b>${esc(t('rp.net',null,l))}</b></td><td class="r"><b>${fmtArea(a.net,l)} ${t('u.m2',null,l)}</b></td></tr>`:''}`:''}
+      <tr><td>${esc(t('r.h',null,l))}</td><td class="r">${fmtLen(r.dims.H.v,l)} ${M(l)}${prov('H')}</td></tr>
+      <tr><td>${esc(t('r.t',null,l))}</td><td class="r">${fmtLen(r.dims.T.v,l)} ${M(l)}</td></tr>
+      ${a?`<tr><td>${esc(t('rp.floorArea',null,l))}</td><td class="r">${fmtArea(a.floor,l)} ${t('u.m2',null,l)}</td></tr><tr><td>${esc(t('rp.perim',null,l))}</td><td class="r">${fmtLen(a.perim,l)} ${M(l)}</td></tr>${a.net!=null?`<tr><td>${esc(t('rp.gross',null,l))}</td><td class="r">${fmtArea(a.gross,l)} ${t('u.m2',null,l)}</td></tr><tr><td>${esc(t('rp.openings',null,l))}</td><td class="r">${fmtArea(a.open,l)} ${t('u.m2',null,l)}</td></tr><tr><td><b>${esc(t('rp.net',null,l))}</b></td><td class="r"><b>${fmtArea(a.net,l)} ${t('u.m2',null,l)}</b></td></tr>`:''}`:''}
       ${ops}${a&&a.net!=null&&r.dims.H.v!=null?`<tr><td>${esc(t('ri.volume',null,l))}</td><td class="r">${(a.floor*r.dims.H.v/1e9).toFixed(2).replace('.',DEC(l))} ${t('u.m',null,l)}³</td></tr>`:''}</table>${PF.dims?'':'-->'}</div>`;
   };
   // room pages: first page carries the header + first room; then up to 2 rooms per page
@@ -2640,7 +2732,7 @@ PAGES.measure=()=>{
   const list=rs.length?rs.map(x=>`<div class="listrow"><div class="tx"><b class="cd" style="font-size:22px;font-weight:600">${fmtLen(x.mm,null,true)} ${M()}</b><small>${esc(t('qm.reading',{n:x.n}))}, ${fmtTime(x.ts)}</small></div>${x.src==='sim'?simtag():`<span class="fhint">${esc(t('src.manual'))}</span>`}<button class="ib" data-a="sendReading" data-id="${x.id}" aria-label="${esc(t('qm.send'))}">${ic('send','i s')}</button><button class="ib" data-a="delReading" data-id="${x.id}" aria-label="${esc(t('common.delete'))}">${ic('trash','i s')}</button></div>`).join(''):`<div class="empty" style="padding-top:16px"><h3>${esc(t('qm.empty'))}</h3></div>`;
   return `<section class="page ${U.anim||''}">${bar({right:devChip()})}<div class="h1">${esc(t('tab.measure'))}</div>${banners()}<div class="scroll" data-scroll="measure"><div class="pad form">${meter}${ctl}
     <p class="fhint">${esc(t('qm.body'))}</p>
-    <div class="btnrow" style="align-items:start">${field('qm.val',t('meas.manualTitle'),{num:true,suf:M(),err:U.form['qm.val']?lenFieldErr('qm.val',DIM_MAX.A):null,hint:t('ms.hint')})}<button class="btn sec" style="flex:none;margin-top:23px" data-a="quickAdd" aria-label="${esc(t('qm.add'))}">${ic('plus','i s')}</button></div></div>
+    <div class="btnrow" style="align-items:start">${field('qm.val',t('meas.manualTitle'),{num:true,suf:M(),err:U.form['qm.val']?lenFieldErr('qm.val',DIM_MAX.A):null,hint:msHint()})}<button class="btn sec" style="flex:none;margin-top:23px" data-a="quickAdd" aria-label="${esc(t('qm.add'))}">${ic('plus','i s')}</button></div></div>
     <div class="sech"><b>${esc(t('meas.list'))}</b></div><div class="group" style="margin-top:0">${list}</div></div></section>`;
 };
 
@@ -2655,8 +2747,8 @@ PAGES.profile=()=>{
     ${accountGroup()}<div class="grouph">${esc(t('se.general'))}</div><div class="lgroup">
     ${row('langSheet','globe',t('se.lang'),LNAME[S.lang])}
     ${row('repLangSheet','doc',t('se.reportLang'),LNAME[S.settings.reportLang])}
-    ${row('unitsSheet','ruler',t('se.units'),t('se.unitsVal'))}
-    ${row('currencySheet','coin',t('se.curPrec'),S.settings.currency+', '+(S.settings.precision?t('es.pN',{n:S.settings.precision}):t('es.p0')))}
+    ${row('unitsSheet','ruler',t('se.units'),t('un.'+UNIT()))}
+    ${row('currencySheet','coin',t('np.currency'),S.settings.currency)}
     </div><div class="grouph">${esc(t('se.draw'))}</div><div class="lgroup">
     <button class="listrow" data-a="toggleSnap" aria-pressed="${!!S.settings.angleSnap}">${ic('ruler')}<span class="tx"><b>${esc(t('se.snap'))}</b></span><span class="switch ${S.settings.angleSnap?'on':''}"></span></button>
     ${row('defaultsSheet','door',t('se.defaults'),fmtLen(S.settings.defaults.door.w)+' × '+fmtLen(S.settings.defaults.door.h))}
@@ -2680,14 +2772,14 @@ function locBlock(){
 PAGES.newProject=(r)=>{
   const edit=r.edit&&P(r.edit);
   const nameErr=!String(U.form.name||'').trim()?t('np.nameReq'):null, custErr=!String(U.form.customer||'').trim()?t('np.customerReq'):null, phErr=phoneErr(U.form.phone,false);
-  const cur=edit?edit.currency:S.settings.currency, prec=edit?edit.precision:S.settings.precision, rl=edit?edit.report.lang:S.settings.reportLang;
+  const cur=edit?edit.currency:S.settings.currency, rl=edit?edit.report.lang:S.settings.reportLang;
   return `<section class="page ${U.anim||''}">${bar({close:true,title:t(edit?'np.editTitle':'np.title')})}<div class="scroll" data-scroll="np"><div class="pad form">
     ${field('name',t('np.name'),{err:nameErr,next:'customer',ph:t('smp.project')})}
     ${field('customer',t('np.customerName'),{err:custErr,next:'phone',ph:t('smp.customer')})}
     ${field('phone',t('np.customerPhone'),{opt:true,tel:true,err:phErr,next:'address',ph:'90 123 45 67'})}
     ${field('address',t('np.address'),{opt:true,ph:t('smp.address')})}
     <div class="fld"><span class="lab">${esc(t('np.location'))} <small>${esc(t('common.optional'))}</small></span>${locBlock()}<span class="fhint">${esc(t('loc.note'))}</span></div>
-    <div class="fromset">${ic('sliders','i s')}<span style="flex:1">${esc(t('np.fromSettings',{c:cur,p:prec?t('es.pN',{n:prec}):t('es.p0'),l:LNAME[rl]}))}</span>${edit?'':`<button data-a="currencySheet">${esc(t('np.change'))}</button>`}</div>
+    <div class="fromset">${ic('sliders','i s')}<span style="flex:1">${esc(t('np.fromSettings',{c:cur,l:LNAME[rl]}))}</span>${edit?'':`<button data-a="currencySheet">${esc(t('np.change'))}</button>`}</div>
   </div></div><div class="footer"><button class="btn pri full ${nameErr||custErr||phErr?'dis':''}" data-a="saveProject">${esc(t(edit?'common.save':'np.create'))}</button></div></section>`;
 };
 
@@ -2749,9 +2841,8 @@ function estimateTab(p,tt){
   if(last){ const same=fingerprint(snapshotOf(p))===last.fp; ban=`<div class="banner ${same?'':'warn'}" style="margin:10px 0 0">${ic(same?'check':'info','i s')}<span class="tx">${esc(t(same?'es.same':'es.changed',{n:last.no}))}</span></div>` }
   const mats=p.estimate.materials.map(m=>`<button class="lrow" data-a="editRow" data-k="mat" data-id="${m.id}"><span class="nm">${esc(dn(m.name))}</span><span class="s">${money(lineTotal(m.qty,m.price,p.precision),p)}</span><span class="q cd">${fmtNumStr(m.qty)} ${esc(dn(m.unit))} × ${money(parseDec(m.price,p.precision).val||0n,p)}</span></button>`).join('')||`<div class="lempty">${esc(t('es.emptyMat'))}</div>`;
   const labs=p.estimate.labor.map(m=>`<button class="lrow" data-a="editRow" data-k="lab" data-id="${m.id}"><span class="nm">${esc(dn(m.name))}</span><span class="s">${money(parseDec(m.amount,p.precision).val||0n,p)}</span><span class="q">${esc(t('es.lump'))}</span></button>`).join('')||`<div class="lempty">${esc(t('es.emptyLab'))}</div>`;
-  const pstr=p.precision?t('es.pN',{n:p.precision}):t('es.p0');
   const lk=isLocked()?ic('lock','i s'):ic('plus','i s');
-  return `<div class="emeta"><span>${esc(t('es.cur',{c:p.currency,p:pstr}))}</span><button style="color:#1C4BD1;font-weight:500;min-height:32px" data-a="areas">${esc(t('es.areas'))}</button></div><div class="pad">${ban}
+  return `<div class="emeta"><span>${esc(t('es.cur',{c:p.currency}))}</span><button style="color:#1C4BD1;font-weight:500;min-height:32px" data-a="areas">${esc(t('es.areas'))}</button></div><div class="pad">${ban}
     <div class="ledger"><div class="lh">${esc(t('es.mat'))}<button class="add" data-a="addRow" data-k="mat">${lk}${esc(t('es.add'))}</button></div>${mats}<div class="subt">${esc(t('es.matTot'))}<span>${money(tt.m,p)}</span></div></div>
     <div class="ledger"><div class="lh">${esc(t('es.lab'))}<button class="add" data-a="addRow" data-k="lab">${lk}${esc(t('es.add'))}</button></div>${labs}<div class="subt">${esc(t('es.labTot'))}<span>${money(tt.l,p)}</span></div></div>
     <p class="note" style="margin-top:10px">${ic('info','i s')}<span>${esc(t('es.note'))}</span></p></div>`;
@@ -2861,7 +2952,7 @@ SHEETS.measure=(sh)=>{
     if(b!=='connected') seen('disconnected');
     const err=lenFieldErr('ms.val',DIM_MAX[sh.dim]||100000); if(err&&U.touched['ms.val']) seen('invalid');
     body=`${b!=='connected'?`<div class="banner warn" style="margin:0">${ic('btoff','i s')}<span class="tx">${esc(t(b==='off'?'dv.offBody':b==='denied'?'dv.deniedBody':'ms.discBody'))}</span><button class="act" data-a="device">${esc(t('ms.connect'))}</button></div>`:''}
-      ${field('ms.val',DIMNAME(sh.dim),{num:true,suf:M(),err,hint:t('ms.hint')})}<span class="fhint">${esc(t('ms.current',{v:cur}))}</span><p class="note">${ic('info','i s')}<span>${esc(t('ms.manualNote'))}</span></p>${b==='connected'?sw:''}`;
+      ${field('ms.val',DIMNAME(sh.dim),{num:true,suf:M(),err,hint:msHint()})}<span class="fhint">${esc(t('ms.current',{v:cur}))}</span><p class="note">${ic('info','i s')}<span>${esc(t('ms.manualNote'))}</span></p>${b==='connected'?sw:''}`;
     foot=`<div class="btnrow"><button class="btn sec" data-a="closeSheet">${esc(t('common.cancel'))}</button><button class="btn pri ${err?'dis':''}" data-a="saveManual">${esc(t('common.save'))}</button></div>`;
   }
   return sheetWrap(DIMNAME(sh.dim),body,foot,{light:true});
@@ -2870,7 +2961,7 @@ SHEETS.opening=(sh)=>{
   const p=P(sh.pid), r=R(p,sh.rid); const F=U.form; const type=F.otype;
   const WALLS_=roomWalls(r); const wall=F.owall; const wi=Math.max(0,WALLS_.findIndex(x=>x.id===wall)); const corner=wallCorner(r,wall), nextCorner=WALLS_[(wi+1)%WALLS_.length].corner;
   const errs={}; const parsed={};
-  [['ow','w',DIM_MAX.A],['oh','h',DIM_MAX.H],['ooff','off',DIM_MAX.A],['osill','sill',DIM_MAX.H]].forEach(([id,k,max])=>{ if(id==='osill'&&type!=='window') return; const res=id==='ooff'||id==='osill'?(()=>{const x=parseDec(F[id],3); if(x.err) return {err:x.err==='precision'?t('err.precision',{n:3}):t('err.'+x.err)}; return {mm:Number(x.val)}})():lenErr(F[id],max); if(res.err) errs[id]=res.err; else parsed[k]=res.mm });
+  [['ow','w',DIM_MAX.A],['oh','h',DIM_MAX.H],['ooff','off',DIM_MAX.A],['osill','sill',DIM_MAX.H]].forEach(([id,k,max])=>{ if(id==='osill'&&type!=='window') return; const res=id==='ooff'||id==='osill'?(()=>{const x=parseDec(F[id],LDEC()); if(x.err) return {err:x.err==='precision'?t('err.precision',{n:LDEC()}):t('err.'+x.err)}; return {mm:Number(x.val)}})():lenErr(F[id],max); if(res.err) errs[id]=res.err; else parsed[k]=res.mm });
   let geoErr=null;
   if(!Object.keys(errs).length){ const o={id:sh.oid||'new',type,wall,w:parsed.w,h:parsed.h,off:parsed.off,sill:type==='window'?parsed.sill:0}; const iss=openingIssue(r,o,r.openings); if(iss){ geoErr=iss; seen('invalid') } }
   const L=wallLen(r,wall);
@@ -2961,7 +3052,7 @@ SHEETS.row=(sh)=>{
   const p=P(sh.pid); const F=U.form; const mat=sh.kind==='mat';
   const nameErr=!String(F.ename||'').trim()?t('re.nameReq'):null;
   const E=v=>String(v??'').trim()===''; const q=mat?(E(F.eqty)?{empty:true}:parseDec(F.eqty,3)):null, pr=E(mat?F.eprice:F.eamount)?{empty:true}:parseDec(mat?F.eprice:F.eamount,p.precision);
-  const msg=x=>x.err?(x.err==='precision'?t('err.precision',{n:x.n}):t('err.'+x.err)):null;
+  const msg=x=>x.err?(x.err==='precision'?(x.n?t('err.precision',{n:x.n}):t('err.whole')):t('err.'+x.err)):null;
   const qErr=mat?msg(q):null, pErr=msg(pr);
   if((qErr||pErr)&&(U.touched.eqty||U.touched.eprice||U.touched.eamount)) seen('invalid');
   const units=['u.pcs','u.can','u.m2','u.m','u.kg','u.bag','u.l','u.set'];
@@ -2994,7 +3085,7 @@ SHEETS.share=(sh)=>{
 };
 SHEETS.locked=()=>sheetWrap(t('lock.title'),`<p>${esc(t('lock.body'))}</p><p class="fhint">${esc(t('lock.works'))}</p>${S.demo.offline?`<div class="banner warn" style="margin:0">${ic('plane','i s')}<span class="tx">${esc(t('lock.offline'))}</span></div>`:''}`,`<div class="btnrow"><button class="btn sec" data-a="closeSheet">${esc(t('common.ok'))}</button><button class="btn pri ${S.demo.offline?'dis':''}" data-a="renew">${esc(t('st.renew'))}</button></div>`);
 SHEETS.lang=(sh)=>sheetWrap(t(sh.report?'se.reportLang':'se.lang'),`<div class="optlist">${LANGS.map(x=>{const on=(sh.report?S.settings.reportLang:S.lang)===x;return `<button class="opt ${on?'on':''}" data-a="${sh.report?'setRepLang':'setLang'}" data-v="${x}"><span>${esc(LNAME[x])}</span>${on?ic('check','i s'):''}</button>`}).join('')}</div>`,'');
-SHEETS.currency=()=>sheetWrap(t('se.curPrec'),`<div class="optlist">${['UZS','USD','EUR','RUB'].map(c=>`<button class="opt ${S.settings.currency===c?'on':''}" data-a="setCurrency" data-v="${c}"><span>${c}${c==='UZS'?' ('+esc(t('cur.UZS'))+')':''}</span>${S.settings.currency===c?ic('check','i s'):''}</button>`).join('')}</div><div class="fld"><span class="lab">${esc(t('np.precision'))}</span><div class="seg wide">${[0,2,3].map(n=>`<button class="${S.settings.precision===n?'on':''}" data-a="setPrecision" data-v="${n}">${n?t('es.pN',{n}):t('es.p0')}</button>`).join('')}</div></div><p class="fhint">${esc(t('se.curNote'))}</p>`,'');
+SHEETS.currency=()=>sheetWrap(t('np.currency'),`<div class="optlist">${['UZS','USD','EUR','RUB'].map(c=>`<button class="opt ${S.settings.currency===c?'on':''}" data-a="setCurrency" data-v="${c}"><span>${c}${c==='UZS'?' ('+esc(t('cur.UZS'))+')':''}</span>${S.settings.currency===c?ic('check','i s'):''}</button>`).join('')}</div><p class="fhint">${esc(t('se.curNote'))}</p>`,'');
 SHEETS.info=(sh)=>sheetWrap(t(sh.title),`<p>${esc(t(sh.body))}</p>`,`<button class="btn sec full" data-a="closeSheet">${esc(t('common.ok'))}</button>`);
 SHEETS.sendReading=(sh)=>{
   const x=S.readings.find(r=>r.id===sh.id);
@@ -3064,7 +3155,7 @@ function hintOverlay(){
 function renderApp(){
   if(S.firstRun) return `<div class="app auth ${isFull()?'full':''}">${statusBar()}<div class="area">${renderFirstRun()}</div>${keyboard()}<div class="homebar ${isFull()?'safe':''}"></div></div>`;
   const r=top(); const page=(PAGES[r.s]||PAGES.projects)(r);
-  const hideTabs=['editor','report','quote','newProject','builder','backup','sub','wallView','sketch','space','note','draw','photo'].includes(r.s)||!!U.focus||!!U.sheet;
+  const hideTabs=['editor','report','quote','newProject','builder','backup','sub','wallView','sketch','space','note','draw','photo','liveCam'].includes(r.s)||!!U.focus||!!U.sheet;
   const sheet=U.sheet&&SHEETS[U.sheet.type]?SHEETS[U.sheet.type](U.sheet):'';
   const idx=TABS.findIndex(x=>x[0]===S.nav.tab), from=U.prevTabIdx??idx;
   const tabs=hideTabs?'':`<nav class="tabbar" style="--i:${idx};--from:${from}"><span class="bubble ${from!==idx?'slide':''}" aria-hidden="true">${ic(TABS[idx][1])}</span>${TABS.map(([k,icn,l],i)=>`<button class="${i===idx?'on':''}" data-a="tab" data-v="${k}" ${i===idx?'aria-current="page"':''}><span class="ti">${ic(icn)}</span><span class="tl">${esc(t(l))}</span></button>`).join('')}</nav>`;
@@ -3123,7 +3214,7 @@ A.saveProject=()=>{
   const vals={name:keyIfSame(F.name.trim(),'@smp.project'),customer:keyIfSame(F.customer.trim(),'@smp.customer'),phone:digits(F.phone),address:keyIfSame(String(F.address||'').trim(),'@smp.address'),location:F.loc||null};
   const top_=top();
   if(top_.edit){ const p=P(top_.edit); Object.assign(p,vals,{edited:Date.now()}); commit(); stack().pop(); U.anim='pop'; blur(); toast(t('op.saved',{o:dn(p.name)})); render(); return }
-  const p=newProject(Object.assign(vals,{currency:S.settings.currency,precision:S.settings.precision,reportLang:S.settings.reportLang}));
+  const p=newProject(Object.assign(vals,{currency:S.settings.currency,precision:0,reportLang:S.settings.reportLang}));
   p.floors=[]; S.projects.unshift(p); commit(); blur(); stack().pop(); stack().push({s:'project',id:p.id,tab:'rooms'}); U.anim='push'; toast(t('np.created',{n:dn(p.name)})); render();
 };
 A.locate=()=>{ U.locating=true; render(); setTimeout(()=>{ U.locating=false; const j=()=>(Math.random()-.5)*0.0006; U.form.loc={lat:41.28563+j(),lng:69.20344+j(),acc:4+Math.round(Math.random()*6),ts:Date.now()}; seen('location'); if(top().s==='newProject') render() },1100) };
@@ -3237,7 +3328,7 @@ A.tool=d=>{
 };
 A.editOpening=d=>{ if(isLocked()){ openSheet({type:'locked'}); return } const {p,r}=edRoom(); const o=r.openings.find(x=>x.id===d.id); const fm=mm=>fmtLen(mm,null,mm%10!==0); initForm({otype:o.type,owall:o.wall,ow:fm(o.w),oh:fm(o.h),ooff:fm(o.off),osill:fm(o.sill||0)}); openSheet({type:'opening',pid:p.id,rid:r.id,oid:o.id}) };
 A.saveOpening=()=>{ const s=U.sheet; const p=P(s.pid),r=R(p,s.rid); const F=U.form;
-  const g=id=>{const x=parseDec(F[id],3);return x.ok?Number(x.val):null};
+  const g=id=>{const x=parseDec(F[id],LDEC());return x.ok?Number(x.val):null};
   const o={id:s.oid||uid(),type:F.otype,wall:F.owall,w:g('ow'),h:g('oh'),off:g('ooff'),sill:F.otype==='window'?g('osill'):0};
   if([o.w,o.h,o.off,o.sill].some(x=>x==null)||openingIssue(r,o,r.openings)){ U.submitTry=true; render(); return }
   pushHist(r); if(s.oid){ const i=r.openings.findIndex(x=>x.id===s.oid); r.openings[i]=o } else r.openings.push(o); touchRoom(p);
@@ -3304,8 +3395,9 @@ A.setLang=d=>{ S.lang=d.v; commit(); closeSheet() };
 A.setRepLang=d=>{ S.settings.reportLang=d.v; commit(); closeSheet() };
 A.currencySheet=()=>openSheet({type:'currency'});
 A.setCurrency=d=>{ S.settings.currency=d.v; commit(); render() };
-A.setPrecision=d=>{ S.settings.precision=Number(d.v); commit(); render() };
-A.unitsSheet=()=>openSheet({type:'info',title:'se.units',body:'se.unitsBody'});
+A.unitsSheet=()=>openSheet({type:'units'});
+A.setUnit=d=>{ S.settings.unit=d.v==='cm'?'cm':'m'; commit(); render() };
+SHEETS.units=()=>sheetWrap(t('se.units'),`<div class="optlist">${['m','cm'].map(u=>{ const on=(S.settings.unit||'m')===u; return `<button class="opt ${on?'on':''}" data-a="setUnit" data-v="${u}" aria-pressed="${on}"><span>${esc(t('un.'+u))}<small style="display:block;font-weight:400;color:var(--ink2)">${esc(t('un.'+u+'Ex'))}</small></span>${on?ic('check','i s'):''}</button>` }).join('')}</div><p class="fhint">${esc(t('un.note'))}</p>`,'');
 A.aboutSheet=()=>openSheet({type:'info',title:'se.about',body:'se.aboutBody'});
 A.goBackup=()=>{ if(S.nav.tab!=='profile'){ closeSheet(true); S.nav.tab='profile'; S.nav.stacks.profile=[{s:'profile'}] } push({s:'backup'}) };
 A.goSub=()=>push({s:'sub'});
@@ -3531,7 +3623,7 @@ function wvElevSVG(r,walls,i){
   let g='';
   // floor + wall face
   g+=`<rect x="${wvF(x0-14)}" y="${wvF(yF)}" width="${wvF(xE-x0+28)}" height="7" fill="url(#wvHatch)"/>`;
-  g+=`<rect x="${wvF(x0)}" y="${wvF(yT)}" width="${wvF(ww)}" height="${wvF(wh)}" fill="#FFFFFF"/>`;
+  g+=`<rect class="wv-face" x="${wvF(x0)}" y="${wvF(yT)}" width="${wvF(ww)}" height="${wvF(wh)}" fill="#FFFFFF"/>`;
   const dl=li.st!=='conf'?'stroke-dasharray="5 4"':'', dh=hi.st!=='conf'?'stroke-dasharray="5 4"':'';
   g+=`<path d="M${wvF(x0)} ${wvF(yF)}V${wvF(yT)}M${wvF(x0+ww)} ${wvF(yF)}V${wvF(yT)}" stroke="${ink}" stroke-width="1.6" ${dl}/><path d="M${wvF(x0)} ${wvF(yT)}H${wvF(x0+ww)}" stroke="${ink}" stroke-width="1.6" ${dh}/>`;
   g+=`<path d="M${wvF(x0-14)} ${wvF(yF)}H${wvF(xE+14)}" stroke="${ink}" stroke-width="2.4"/>`;
@@ -3547,6 +3639,15 @@ function wvElevSVG(r,walls,i){
     if(iss){ g+=`<rect x="${wvF(ox)}" y="${wvF(oy)}" width="${wvF(ow)}" height="${wvF(oh)}" fill="none" stroke="${err}" stroke-width="2.6" stroke-dasharray="4 3"/><circle cx="${wvF(ox+ow)}" cy="${wvF(oy)}" r="8" fill="${err}"/><text x="${wvF(ox+ow)}" y="${wvF(oy+4)}" text-anchor="middle" font-size="12" font-weight="700" fill="#FFFFFF">!</text>` }
     g+=`<rect x="${wvF(ox-4)}" y="${wvF(oy-4)}" width="${wvF(ow+8)}" height="${wvF(oh+8)}" fill="transparent" data-a="editOpening" data-id="${esc(o.id)}" role="button" aria-label="${esc(nm+', '+fmtLen(o.w)+' × '+fmtLen(o.h)+' '+M()+(iss?'. '+iss.msg:''))}"/>`;
   });
+  // while a window is dragged: its height above the floor and below the ceiling, and the lines it lines up with
+  { const o=ops.find(x=>x.id===U.dragOp&&x.type==='window');
+    if(o&&hi.mm!=null){
+      const ox=x0+o.off*s, ow=Math.max(2,o.w*s), yb=yF-(o.sill||0)*s, yt=yF-((o.sill||0)+o.h)*s, sn=U.dragSnap, gap=H-(o.sill||0)-o.h;
+      const right=ox+ow+46<=x0+ww, xd=right?ox+ow+12:ox-12, tx=right?xd+6:xd-6, ta=right?'start':'end';
+      const line=(y,on)=>`<path d="M${wvF(x0)} ${wvF(y)}H${wvF(x0+ww)}" stroke="${cob}" stroke-width="${on?1.6:0.9}" ${on?'':'stroke-dasharray="4 3"'} opacity="${on?1:0.6}"/>`;
+      const seg=(ya,yz,mm)=>ya-yz<2?'':`<path d="M${wvF(xd)} ${wvF(ya)}V${wvF(yz)}" stroke="${cob}" stroke-width="1.1"/>${wvTick(xd,ya,cob)}${wvTick(xd,yz,cob)}<text x="${wvF(tx)}" y="${wvF((ya+yz)/2+4)}" text-anchor="${ta}" font-family="IBM Plex Sans Condensed, sans-serif" font-size="12" font-weight="600" fill="${cob}" paint-order="stroke" stroke="#FFFFFF" stroke-width="3.5">${fmtLen(mm)}</text>`;
+      g+=`<g pointer-events="none">${line(yb,sn==='sill'||sn==='def')}${line(yt,sn==='top')}${seg(yF,yb,o.sill||0)}${seg(yt,yT,gap)}</g>`;
+    } }
   // chain dims: corner → opening edges → end
   if(ops.length){
     const yC=yF+18, segs=wvChain(ops,li.mm), xs=new Set();
@@ -3891,8 +3992,8 @@ const skDimNameOrig=DIMNAME;
 DIMNAME=function(d,l){ return skDiagId(d)?t('sk.diagName',{d},l):skDimNameOrig(d,l) };
 const skReportRowsOrig=reportDimRows;
 reportDimRows=function(r,l,prov){ if(!skIsPoly(r)) return skReportRowsOrig(r,l,prov); const g=skGeo(r);
-  return g.walls.map(w=>`<tr><td>${esc(t('op.wall',null,l))} ${w.id}</td><td class="r">${fmtLen(w.len,l)} ${t('u.m',null,l)}${w.computed?` <span class="prov">(${esc(t('sk.calc',null,l))})</span>`:prov(w.id)}</td></tr>`).join('')
-    +g.diags.map(dg=>`<tr><td>${esc(t('sk.diagName',{d:dg.id},l))}, ${dg.a+1}–${dg.b+1}</td><td class="r">${fmtLen(dg.v,l)} ${t('u.m',null,l)}${prov(dg.id)}</td></tr>`).join('') };
+  return g.walls.map(w=>`<tr><td>${esc(t('op.wall',null,l))} ${w.id}</td><td class="r">${fmtLen(w.len,l)} ${M(l)}${w.computed?` <span class="prov">(${esc(t('sk.calc',null,l))})</span>`:prov(w.id)}</td></tr>`).join('')
+    +g.diags.map(dg=>`<tr><td>${esc(t('sk.diagName',{d:dg.id},l))}, ${dg.a+1}–${dg.b+1}</td><td class="r">${fmtLen(dg.v,l)} ${M(l)}${prov(dg.id)}</td></tr>`).join('') };
 const skPlanOrig=planSVG;
 planSVG=function(r,o){ return skIsPoly(r)?skPlanSVG(r,o||{}):skPlanOrig(r,o) };
 
@@ -4120,7 +4221,7 @@ SHEETS.opening=sh=>{
   const F=U.form, type=F.otype, walls=roomWalls(r); let wi=walls.findIndex(w=>w.id===F.owall); if(wi<0){ wi=0; F.owall=walls[0].id }
   const wall=F.owall, corner=wi+1, nextC=(wi+1)%walls.length+1, errs={}, parsed={};
   [['ow','w',DIM_MAX.A],['oh','h',DIM_MAX.H],['ooff','off',DIM_MAX.A],['osill','sill',DIM_MAX.H]].forEach(([id,k,max])=>{ if(id==='osill'&&type!=='window') return;
-    const res=id==='ooff'||id==='osill'?(()=>{ const x=parseDec(F[id],3); if(x.err) return {err:x.err==='precision'?t('err.precision',{n:3}):t('err.'+x.err)}; return {mm:Number(x.val)} })():lenErr(F[id],max);
+    const res=id==='ooff'||id==='osill'?(()=>{ const x=parseDec(F[id],LDEC()); if(x.err) return {err:x.err==='precision'?t('err.precision',{n:LDEC()}):t('err.'+x.err)}; return {mm:Number(x.val)} })():lenErr(F[id],max);
     if(res.err) errs[id]=res.err; else parsed[k]=res.mm });
   let geoErr=null;
   if(!Object.keys(errs).length){ const o={id:sh.oid||'new',type,wall,w:parsed.w,h:parsed.h,off:parsed.off,sill:type==='window'?parsed.sill:0}; const iss=openingIssue(r,o,r.openings); if(iss){ geoErr=iss; seen('invalid') } }
@@ -4424,42 +4525,74 @@ function opModel3D(THREE,sc,w,ar,ctx){
 /* ---------- dragging: wall view (along the wall, and sill height for windows) and plan (along the wall) ---------- */
 { let dg=null;
   const snapOff=(off,o,L)=>{ off=Math.round(off/10)*10; if(L!=null){ const max=Math.max(0,L-o.w), mid=Math.round((L-o.w)/2/10)*10; if(Math.abs(off-mid)<60) off=mid; if(off<40) off=0; if(max-off<40) off=max; off=Math.max(0,Math.min(max,off)) } else off=Math.max(0,off); return off };
-  const snapSill=(sl,o,H)=>{ sl=Math.round(sl/10)*10; const def=(S.settings.defaults.window||{}).sill; if(def!=null&&Math.abs(sl-def)<40) sl=def; return Math.max(0,H!=null?Math.min(H-o.h,sl):sl) };
+  /* a window settles on the usual sill height, on another window's sill, and with its head level with another opening's head */
+  const snapSill=(sl,o,H,r)=>{ sl=Math.round(sl/10)*10; const c=[]; const def=(S.settings.defaults.window||{}).sill; if(def!=null) c.push([def,'def']);
+    if(r) r.openings.forEach(x=>{ if(x.id===o.id||x.wall!==o.wall) return; if(x.type==='window') c.push([x.sill||0,'sill']); c.push([(x.sill||0)+x.h-o.h,'top']) });
+    let hit=null; c.forEach(q=>{ const d=Math.abs(sl-q[0]); if(q[0]>=0&&d<50&&(!hit||d<Math.abs(sl-hit[0]))) hit=q });
+    U.dragSnap=hit?hit[1]:null; if(hit) sl=hit[0];
+    return Math.max(0,H!=null?Math.min(H-o.h,sl):sl) };
+  /* the first few pixels across the direction of the drag are ignored, so a sideways move doesn't change the height */
+  const slack=(v,on)=>on?Math.sign(v)*Math.max(0,Math.abs(v)-14):v;
   const tip=(host,x,y,txt,bad)=>{ let el=host.querySelector('.dg-tip'); if(!el){ el=document.createElement('div'); el.className='dg-tip'; host.appendChild(el) } el.classList.toggle('bad',!!bad); el.innerHTML=txt; el.style.left=x+'px'; el.style.top=y+'px' };
   appEl.addEventListener('pointerdown',e=>{
+    /* a new touch while an old drag never got its "finger up": close the old one first, so nothing stays stuck */
+    if(dg&&e.isPrimary&&e.pointerId!==dg.id) finish(false);
     if(U.sheet||S.firstRun||e.button>0) return; const rt=top(); if(!rt) return;
     const hit=e.target.closest&&e.target.closest('.wv-draw [data-a="editOpening"], .canvas .ophit'); if(!hit) return;
     const p=P(rt.pid), r=R(p,rt.rid); if(!r) return; const o=r.openings.find(x=>x.id===hit.dataset.id); if(!o) return;
     const inWv=rt.s==='wallView'&&!!hit.closest('.wv-draw'), inPlan=rt.s==='editor'&&(rt.mode||'plan')==='plan'&&!!hit.closest('.canvas');
     if(!inWv&&!inPlan) return;
-    const svg=hit.ownerSVGElement; const host=inWv?hit.closest('.wv-draw'):hit.closest('.canvas');
+    const host=inWv?hit.closest('.wv-draw'):hit.closest('.canvas'); const svg=hit.ownerSVGElement||host.querySelector('svg');
     dg={id:e.pointerId,x:e.clientX,y:e.clientY,p,r,o,rt,host,wv:inWv,off0:o.off,sill0:o.sill||0,k:1/((svg.getScreenCTM()||{a:1}).a||1),s:Number(inWv?svg.dataset.s:hit.dataset.s)||1,ux:Number(hit.dataset.ux)||1,uy:Number(hit.dataset.uy)||0,moved:false};
     if(inWv&&typeof wvPtr!=='undefined') wvPtr=null;
   });
   appEl.addEventListener('pointermove',e=>{
     if(!dg||e.pointerId!==dg.id) return; const dx=e.clientX-dg.x, dy=e.clientY-dg.y;
-    if(!dg.moved){ if(Math.hypot(dx,dy)<7) return; if(isLocked()){ dg=null; openSheet({type:'locked'}); return } dg.moved=true; try{ dg.host.setPointerCapture(dg.id) }catch(_){} dg.host.classList.add('dg-on'); U.dragOp=dg.o.id }
+    if(!dg.moved){ if(Math.hypot(dx,dy)<7) return; if(isLocked()){ dg=null; openSheet({type:'locked'}); return } dg.moved=true; try{ dg.host.setPointerCapture(dg.id) }catch(_){} dg.host.classList.add('dg-on'); U.dragOp=dg.o.id;
+      dg.axis=dg.wv&&dg.o.type==='window'?(Math.abs(dy)>Math.abs(dx)*1.4?'v':Math.abs(dx)>Math.abs(dy)*1.4?'h':''):'' }
     e.preventDefault();
+    /* the screen can be redrawn under the finger: carry on in the new drawing */
+    if(!dg.host.isConnected){ const h=appEl.querySelector(dg.wv?'.wv-draw':'.canvas'); if(!h){ dg=null; U.dragOp=null; U.dragSnap=null; return } dg.host=h; h.classList.add('dg-on'); try{ h.setPointerCapture(dg.id) }catch(_){} }
     const {o,r}=dg, L=wallLen(r,o.wall), H=r.dims.H.v;
-    const along=dg.wv?dx:(dx*dg.ux+dy*dg.uy);
+    const along=dg.wv?slack(dx,dg.axis==='v'):(dx*dg.ux+dy*dg.uy);
     o.off=snapOff(dg.off0+along*dg.k/dg.s,o,L);
-    if(dg.wv&&o.type==='window') o.sill=snapSill(dg.sill0-dy*dg.k/dg.s,o,H);
+    if(dg.wv&&o.type==='window') o.sill=snapSill(dg.sill0-slack(dy,dg.axis==='h')*dg.k/dg.s,o,H,r);
     const iss=openingIssue(r,o,r.openings), hr=dg.host.getBoundingClientRect();
-    if(dg.wv){ const ws=roomWalls(r), i=Math.max(0,ws.findIndex(w=>w.id===dg.rt.wall)); const svgOld=dg.host.querySelector('svg'); if(svgOld) svgOld.outerHTML=wvElevSVG(r,ws,i) }
-    else { const svgOld=dg.host.querySelector('svg'); if(svgOld) svgOld.outerHTML=planSVG(r,{selOp:o.id}) }
+    /* The drawing the finger went down on stays in the page, unseen, and the live drawing is laid in its place:
+       taking the touched element away in the middle of a touch makes the browser drop the touch (the drag "hangs"). */
+    { let html; if(dg.wv){ const ws=roomWalls(r), i=Math.max(0,ws.findIndex(w=>w.id===dg.rt.wall)); html=wvElevSVG(r,ws,i) } else html=planSVG(r,{selOp:o.id});
+      let keep=dg.host.querySelector('svg.dg-keep'); if(!keep){ keep=dg.host.querySelector('svg'); if(keep) keep.classList.add('dg-keep') }
+      const live=dg.host.querySelector('svg.dg-live'); if(live) live.remove();
+      if(keep){ keep.insertAdjacentHTML('afterend',html); keep.nextElementSibling.classList.add('dg-live') } }
     const c=wallCorner(r,o.wall);
-    tip(dg.host,e.clientX-hr.left,e.clientY-hr.top-18,`${esc(t('wv.off',{c,v:fmtLen(o.off)+' '+M()}))}${dg.wv&&o.type==='window'?'<br>'+esc(t('wv.sill',{v:fmtLen(o.sill||0)+' '+M()})):''}`,!!iss);
+    /* in the wall view the label sits above the wall, so it never covers the height helpers */
+    let ty=e.clientY-hr.top-18; if(dg.wv&&o.type==='window'){ const face=dg.host.querySelector('svg.dg-live .wv-face')||dg.host.querySelector('.wv-face'); if(face) ty=Math.min(ty,face.getBoundingClientRect().top-hr.top-10) }
+    tip(dg.host,e.clientX-hr.left,ty,`${esc(t('wv.off',{c,v:fmtLen(o.off)+' '+M()}))}${dg.wv&&o.type==='window'?'<br>'+esc(t('wv.sill',{v:fmtLen(o.sill||0)+' '+M()})):''}`,!!iss);
   });
-  const end=e=>{
-    if(!dg||e.pointerId!==dg.id) return; const s=dg; dg=null; U.dragOp=null; if(!s.moved) return;
+  const finish=cancelled=>{
+    const s=dg; dg=null; U.dragOp=null; U.dragSnap=null; if(!s||!s.moved) return;
     U.dragEnd=Date.now(); const {o,r,p}=s, nv={off:o.off,sill:o.sill||0}; o.off=s.off0; o.sill=s.sill0;
     const nm=t(o.type==='door'?'op.door':'op.window');
-    if(e.type==='pointercancel'||(nv.off===s.off0&&nv.sill===s.sill0)){ render(); return }
+    if(cancelled||(nv.off===s.off0&&nv.sill===s.sill0)){ render(); return }
     if(openingIssue(r,Object.assign({},o,nv),r.openings)){ toast(t('op.dragBack',{o:nm})); render(); return }
     pushHist(r); if(nv.off!==s.off0) o.offDrag=true; if(nv.sill!==s.sill0) o.sillDrag=true; o.off=nv.off; if(o.type==='window') o.sill=nv.sill;
     touchRoom(p); toast(t('op.moved',{o:nm}),{label:t('common.undo'),a:'undo'}); render() };
+  const end=e=>{ if(dg&&e.pointerId===dg.id) finish(e.type==='pointercancel') };
   appEl.addEventListener('pointerup',end); appEl.addEventListener('pointercancel',end);
   appEl.addEventListener('click',e=>{ if(U.dragEnd&&Date.now()-U.dragEnd<350){ e.stopImmediatePropagation(); e.preventDefault() } },true); }
+
+/* ---------- wall view: each opening gets a real button laid over it ----------
+   A browser ignores "don't scroll" (touch-action) on a shape inside a drawing, so a window dragged up or down used to
+   turn into a page scroll and the drag was dropped. A button over the opening is honoured; the rest of the wall still scrolls. */
+function wvGrips(){
+  const host=appEl.querySelector('.wv-draw'), svg=host&&host.querySelector('svg'); if(!svg) return;
+  host.querySelectorAll('.op-grip').forEach(e=>e.remove()); const hr=host.getBoundingClientRect();
+  svg.querySelectorAll('[data-a="editOpening"]').forEach(rc=>{ const b=rc.getBoundingClientRect(), g=document.createElement('button');
+    g.type='button'; g.className='op-grip'; g.dataset.a='editOpening'; g.dataset.id=rc.dataset.id; g.setAttribute('aria-label',rc.getAttribute('aria-label')||'');
+    g.style.cssText=`left:${(b.left-hr.left).toFixed(1)}px;top:${(b.top-hr.top).toFixed(1)}px;width:${b.width.toFixed(1)}px;height:${b.height.toFixed(1)}px`;
+    host.appendChild(g); rc.removeAttribute('data-a'); rc.removeAttribute('role'); rc.removeAttribute('aria-label') }) }
+{ const base=render; render=function(){ base(); wvGrips() } }
+window.addEventListener('resize',()=>wvGrips());
 
 /* ---------- where the designs show up ---------- */
 { const base=PAGES.wallView; PAGES.wallView=rt=>{ const html=base(rt), r=R(P(rt.pid),rt.rid); if(!r) return html;
@@ -4857,7 +4990,7 @@ function mkElSVG(e,l){
   /* line (drawing) and dim (photo): a dimension line with end marks and a value pill */
   const tick=e.t==='dim'?[nx*20,ny*20]:[(ux+nx)*13,(uy+ny)*13];
   const ends=[a,b].map(q=>`M${(q[0]-tick[0]).toFixed(1)} ${(q[1]-tick[1]).toFixed(1)}L${(q[0]+tick[0]).toFixed(1)} ${(q[1]+tick[1]).toFixed(1)}`).join('');
-  const has=e.v!=null, txt=has?fmtLen(e.v,l)+' '+t('u.m',null,l):'?', tw=has?txt.length*21+38:64, th=56;
+  const has=e.v!=null, txt=has?fmtLen(e.v,l)+' '+M(l):'?', tw=has?txt.length*21+38:64, th=56;
   const off=e.t==='line'?42:0, mx=(a[0]+b[0])/2+nx*off*(ny>0?-1:1), my=(a[1]+b[1])/2+ny*off*(ny>0?-1:1);
   const halo=e.t==='dim'?`<path d="M${a[0]} ${a[1]}L${b[0]} ${b[1]}${ends}" stroke="#fff" stroke-width="13" stroke-linecap="round" opacity=".85"/>`:'';
   return `<g data-el="${e.id}">${halo}<path d="M${a[0]} ${a[1]}L${b[0]} ${b[1]}${ends}" stroke="${c}" stroke-width="${e.t==='dim'?7:9}" stroke-linecap="round"/><g data-lab="${e.id}" style="cursor:pointer"><rect x="${(mx-tw/2).toFixed(1)}" y="${(my-th/2).toFixed(1)}" width="${tw}" height="${th}" rx="28" fill="${has?'#fff':'#FFF1DF'}" stroke="${has?c:'#9A4D00'}" stroke-width="3" ${has?'':'stroke-dasharray="7 5"'}/><text x="${mx.toFixed(1)}" y="${(my+1).toFixed(1)}" text-anchor="middle" dominant-baseline="middle" font-family="${F_NUM}" font-size="36" font-weight="600" fill="${has?'#0E1C36':'#9A4D00'}">${esc(txt)}</text></g></g>`;
@@ -5054,16 +5187,18 @@ function hmTarget(){
   if(lr&&WSP(lp,lr.floorId)) return {pid:lp.id,wid:lr.floorId,w:WSP(lp,lr.floorId)};
   const p=S.projects.slice().sort((a,b)=>b.edited-a.edited).find(x=>x.floors.length); return p?{pid:p.id,wid:p.floors[0].id,w:p.floors[0]}:null;
 }
+/* laser status, shown at the right end of the top bar on Home and Projects */
+function devPill(){ const bt=S.demo.bt; return `<button class="hm-dev ${bt==='connected'?'on':bt==='disconnected'?'':'bad'}" data-a="device"><i></i><span>${esc(t(bt==='connected'?'dev.conn':bt==='off'?'dev.off':bt==='denied'?'dev.denied':'dev.disc'))}</span></button>` }
 PAGES.home=()=>{
   const ps=S.projects.slice().sort((a,b)=>b.edited-a.edited), lk=isLocked();
   const b=S.settings.builder, first=String(b.name||'').trim().split(/\s+/)[0];
   const bt=S.demo.bt, devLab=t(bt==='connected'?'dev.conn':bt==='off'?'dev.off':bt==='denied'?'dev.denied':'dev.disc');
-  const hi=`<div class="hm-hi"><div class="r1"><small>${esc(hmDate())}</small><button class="hm-dev ${bt==='connected'?'on':bt==='disconnected'?'':'bad'}" data-a="device"><i></i><span>${esc(devLab)}</span></button></div><h2>${esc(first?t('hm.hi',{n:first}):t('hm.hi0'))}</h2><p>${esc(t('hm.sub'))}</p></div>`;
+  const hi=`<div class="hm-hi"><h2>${esc(first?t('hm.hi',{n:first}):t('hm.hi0'))}</h2><p>${esc(t('hm.sub'))}</p></div>`;
   const hero=`<button class="hm-hero ${lk?'locked':''}" data-a="newProject"><span class="hp">${ic(lk?'lock':'plus')}</span><span class="go">${ic('chev','i s')}</span><b>${esc(t('hm.t.new'))}</b><small>${esc(t('hm.t.newS'))}</small></button>`;
   const row=(a,icn,ti,sub,cls,extra)=>`<button class="it" data-a="${a}" ${extra||''}><span class="ic ${cls||'cob'}">${ic(icn)}</span><span class="tx"><b>${esc(ti)}</b><small>${esc(sub)}</small></span>${ic('chev','i s')}</button>`;
   const qa=rows=>`<div class="hm-sech"><b>${esc(t('hm.qa'))}</b><small>${esc(t('hm.qaN',{n:rows.length}))}</small></div><div class="hm-qa">${rows.join('')}</div>`;
   const measRow=row('tab','laser',t('hm.q.measure'),bt==='connected'?t('hm.q.measSim'):devLab,'cob','data-v="measure"');
-  const head=`${bar({right:savedChip()}).replace('<span class="sp"></span>','<span class="wordmark">METRX</span><span class="sp"></span>')}${banners()}`;
+  const head=`${bar({right:devPill()}).replace('<span class="sp"></span>','<span class="wordmark">METRX</span><span class="sp"></span>')}${banners()}`;
   if(!ps.length){ seen('empty');
     return `<section class="page ${U.anim||''}">${head}<div class="scroll" data-scroll="home"><div class="hm">${hi}${hero}${qa([measRow,row('goBackup','restore',t('pl.restore'),t('hm.q.restoreS'),'amb')])}</div></div></section>` }
   // continue
@@ -5179,7 +5314,7 @@ PAGES.projects=()=>{
   const lk=isLocked();
   const body=!ps.length?plEmpty():`<div class="pl">${field('pl.q','',{ph:t('pl.search')})}<div class="pl-seg" role="tablist">${[['active','pl.active'],['done','pl.doneSeg'],['all','pl.allSeg']].map(([k,l])=>`<button class="${seg===k?'on':''}" role="tab" aria-selected="${seg===k}" data-a="plSeg" data-v="${k}"><span class="l">${esc(t(l))}</span><span class="n">${n[k]}</span></button>`).join('')}</div>${list.map(pcCard).join('')||`<p class="pl-none">${esc(q?t('pl.noMatch'):t('pl.none'))}</p>`}</div>`;
   const fab=ps.length&&!U.focus?`<button class="pl-fab ${lk?'locked':''}" data-a="newProject">${ic(lk?'lock':'plus')}${esc(t('pl.fab'))}</button>`:'';
-  return `<section class="page ${U.anim||''}">${bar({right:savedChip()}).replace('<span class="sp"></span>','<span class="wordmark">METRX</span><span class="sp"></span>')}<div class="h1-ey">${esc(t(!ps.length?'pl.ey.all':'pl.ey.'+seg))}</div><div class="h1">${esc(t('tab.projects'))}</div>${banners()}<div class="scroll" data-scroll="projects">${body}</div>${fab}</section>`;
+  return `<section class="page ${U.anim||''}">${bar({right:devPill()}).replace('<span class="sp"></span>','<span class="wordmark">METRX</span><span class="sp"></span>')}<div class="h1">${esc(t('tab.projects'))}</div>${banners()}<div class="scroll" data-scroll="projects">${body}</div>${fab}</section>`;
 };
 A.plSeg=d=>{ U.plSeg=d.v; render() };
 A.pcOpen=d=>{ push({s:'project',id:d.id||d.pid,tab:d.tab||'rooms'}) };
@@ -5227,13 +5362,12 @@ wsList=function(p){
 };
 function pjInfo(p){
   const kv=(label,val,extra)=>`<div class="pj-kv"><span class="tx"><small>${esc(label)}</small><b>${val}</b></span>${extra||''}</div>`;
-  const prec=p.precision?t('es.pN',{n:p.precision}):t('es.p0');
   return `<div class="pj-info"><div class="lgroup">
     ${kv(t('pr.customer'),esc(dn(p.customer)||'—'))}
     ${kv(t('pr.phone'),p.phone?esc(fmtPhone(p.phone)):esc(t('pj.noPhone')),p.phone?`<a class="btn sec" href="tel:+998${esc(digits(p.phone))}">${ic('phone','i s')}${esc(t('pl.call'))}</a>`:'')}
     ${kv(t('pr.address'),esc(dn(p.address)||'—'))}
     ${kv(t('pr.location'),p.location?`<span class="cd">${p.location.lat.toFixed(5)}, ${p.location.lng.toFixed(5)}</span>`:esc(t('loc.none')),p.location?`<button class="btn sec" data-a="openMap">${ic('pin','i s')}${esc(t('loc.open'))}</button>`:'')}
-    ${kv(t('se.curPrec'),esc(p.currency+', '+prec))}
+    ${kv(t('np.currency'),esc(p.currency))}
     ${kv(t('rpt.lang'),esc(LNAME[p.report.lang]||p.report.lang))}
   </div><button class="btn sec full" data-a="editProject">${ic(isLocked()?'lock':'edit','i s')}${esc(t('pj.edit'))}</button></div>`;
 }
@@ -5278,7 +5412,7 @@ Object.assign(D,{
 'ed2.done':['Hammasi tasdiqlangan','Всё подтверждено','All confirmed'],
 'ed2.sum':['Pol {f} m², devor sof {w} m²','Пол {f} м², стены чистые {w} м²','Floor {f} m², net wall {w} m²'],
 'ed2.sumNoH':['Pol {f} m²','Пол {f} м²','Floor {f} m²'],
-'ed2.all':['Hammasi','Все','All'],
+'ed2.all':['Barcha o‘lchamlar','Все размеры','All sizes'],
 'ed2.hide':['Yopish','Свернуть','Collapse'],
 'ed2.meas':['O‘LCHAMLAR','РАЗМЕРЫ','MEASUREMENTS'],
 'ed2.walls':['DEVOR MAYDONLARI, m²','ПЛОЩАДЬ СТЕН, м²','WALL AREAS, m²'],
@@ -5313,8 +5447,8 @@ function ed2Focus(r){
 function ed2Card(p,r){
   const f=ed2Focus(r), lk=isLocked(), bt=S.demo.bt==='connected';
   const ks=hmDimKeys(r), open=ks.filter(k=>dimStatus(r.dims[k])!=='conf'&&k!==f.k);
-  const foot=f.k?`<div class="ed2-foot"><span>${esc(open.length?t('ed2.left',{w:ed2Name(open[0]),n:open.length}):(f.kind==='unset'||f.kind==='recv')?t('ed2.last'):'')}</span><button data-a="edPanel">${ic('chev','i s')}${esc(t('ed2.all'))}</button></div>`
-    :`<div class="ed2-foot"><span></span><button data-a="edPanel">${ic('chev','i s')}${esc(t('ed2.all'))}</button></div>`;
+  const foot=f.k?`<div class="ed2-foot"><span>${esc(open.length?t('ed2.left',{w:ed2Name(open[0]),n:open.length}):(f.kind==='unset'||f.kind==='recv')?t('ed2.last'):'')}</span><button data-a="edPanel">${ic('chev','i s')}${esc(t(U.edPanel?'ed2.hide':'ed2.all'))}</button></div>`
+    :`<div class="ed2-foot"><span></span><button data-a="edPanel">${ic('chev','i s')}${esc(t(U.edPanel?'ed2.hide':'ed2.all'))}</button></div>`;
   if(f.kind==='recv'){ const pd=r.dims[f.k].pending;
     return `<div class="ed2-card"><div class="ed2-q"><span class="tx"><small>${esc(t(pd.from==='quick'?'ed2.fromQuick':'ed2.fromLaser',{w:ed2Name(f.k)}))}</small><span class="ed2-v recv">${fmtLen(pd.mm,null,true)}<small>${esc(M())}</small></span></span><span class="ed2-st recv">${ic('clock','i xs')}${esc(t('ed2.unconf'))}</span></div>
       <div class="ed2-acts"><button class="btn sec" data-a="edAgain" data-k="${f.k}">${ic('laser','i s')}<span>${esc(t('ed2.again'))}</span></button><button class="btn pri" data-a="edConfirm" data-k="${f.k}">${ic('check','i s')}<span>${esc(t('ed2.confirm'))}</span></button></div>${foot}</div>` }
@@ -5360,7 +5494,8 @@ function ed2List(p,r){
   const polyHint=poly&&typeof skHint==='function'?skHint(r,skGeo(r)):'';
   const canvas=`<div class="canvas ${U.sheet?'top':''}">${planSVG(r,{sel:msSel,selOp:opSel})}${fl}${trayBtn()}</div>`;
   const exp=!!U.edPanel;
-  const panel=`<div class="ed2-panel" ${exp?'style="max-height:66%"':''}><button class="ed2-grab" data-a="edPanel" aria-label="${esc(t(exp?'ed2.hide':'ed2.all'))}" aria-expanded="${exp}"></button><div class="ed2-body" data-scroll="ed2-${r.id}">${polyHint.includes('banner')?polyHint:''}${exp?ed2List(p,r):ed2Card(p,r)}</div></div>`;
+  /* one sheet: the step card is always on top, every measurement is underneath and comes up when the sheet is pulled */
+  const panel=`<div class="ed2-panel ${exp?'open':''}" data-rid="${r.id}"><button class="ed2-grab" data-a="edPanel" aria-label="${esc(t(exp?'ed2.hide':'ed2.all'))}" aria-expanded="${exp}"></button><div class="ed2-body" data-scroll="ed2-${r.id}"><div class="ed2-peek">${polyHint.includes('banner')?polyHint:''}${ed2Card(p,r)}</div><div class="ed2-more" ${exp?'':'inert aria-hidden="true"'}>${ed2List(p,r)}</div></div></div>`;
   const tools=`<nav class="tools"><button class="on" data-a="noop">${ic('room')}<span>${esc(t('ed2.plan'))}</span></button><button data-a="wallView">${ic('walls')}<span>${esc(t('ed.tb.walls'))}</span></button><button class="${lk?'lk':''}" data-a="edOpenings">${ic('door')}<span>${esc(t('ed.tb.openings'))}</span></button><button data-a="mode" data-v="3d">${ic('cube')}<span>3D</span></button></nav>`;
   return `<section class="page ed2 ${U.anim||''}">${bar({backIcon:true,title:dn(r.name),sub:crumb,right})}${canvas}${panel}${tools}</section>`;
 } }
@@ -5380,11 +5515,36 @@ A.edRemeasure=d=>{ if(!guard()) return; const {r}=ed2Room(); if(r.dims[d.k]) del
 A.edCancelRe=()=>{ U.edRe=null; render() };
 /* any confirmed value (typed in the sheet included) ends "measure again" for that dimension and moves the card on */
 { const ad=applyDim; applyDim=function(p,r,dim,mm,src){ if(U.edRe===r.id+':'+dim) U.edRe=null; if(U.edFocus===dim&&U.edFocusRid===r.id) U.edFocus=null; return ad.apply(this,arguments) } }
-/* swipe the panel handle up/down */
-{ let gp=null;
-  appEl.addEventListener('pointerdown',e=>{ const g=e.target.closest&&e.target.closest('.ed2-grab'); gp=g?{y:e.clientY,id:e.pointerId}:null });
-  appEl.addEventListener('pointerup',e=>{ if(!gp||gp.id!==e.pointerId) return; const dy=e.clientY-gp.y; gp=null; if(Math.abs(dy)<30) return; U.edPanel=dy<0; U.edSwipe=Date.now(); render() });
-  appEl.addEventListener('click',e=>{ if(U.edSwipe&&Date.now()-U.edSwipe<350&&e.target.closest&&e.target.closest('.ed2-grab')){ e.stopImmediatePropagation(); e.preventDefault() } },true); }
+/* The panel's height: closed, it shows the step card; open, up to two thirds of the screen. Set after every redraw, so it
+   can glide from where it was (or from where the finger left it). */
+function ed2Fit(){
+  const pn=appEl.querySelector('.ed2-panel'); if(!pn){ U.edH=null; U.edHFor=null; return }
+  const grab=pn.querySelector('.ed2-grab'), peekEl=pn.querySelector('.ed2-peek'), body=pn.querySelector('.ed2-body'), page=pn.closest('.page');
+  const peek=grab.offsetHeight+peekEl.offsetHeight, full=Math.max(peek,Math.min(Math.round(page.clientHeight*0.6),grab.offsetHeight+body.scrollHeight));
+  const target=U.edPanel?full:peek, from=U.edHFor===pn.dataset.rid?U.edH:null;
+  pn.dataset.peek=peek; pn.dataset.full=full; U.edH=target; U.edHFor=pn.dataset.rid;
+  if(from!=null&&Math.abs(from-target)>2){ pn.style.transition='none'; pn.style.height=from+'px'; void pn.offsetHeight; pn.style.transition='' }
+  pn.style.height=target+'px'; if(!U.edPanel) body.scrollTop=0;
+}
+{ const base=render; render=function(){ base(); ed2Fit() } }
+/* drag the handle, or swipe the card up: the sheet follows the finger, then settles open or closed */
+{ let gp=null; const pn=()=>appEl.querySelector('.ed2-panel');
+  appEl.addEventListener('pointerdown',e=>{ gp=null; if(U.sheet||e.button>0||!e.target.closest) return; const el=pn(); if(!el||!el.contains(e.target)) return;
+    if(!e.target.closest('.ed2-grab')&&(U.edPanel||!e.target.closest('.ed2-peek'))) return;
+    gp={id:e.pointerId,y:e.clientY,h0:el.offsetHeight,peek:Number(el.dataset.peek)||el.offsetHeight,full:Number(el.dataset.full)||el.offsetHeight,moved:false,ly:e.clientY,lt:e.timeStamp,v:0} });
+  appEl.addEventListener('pointermove',e=>{ if(!gp||gp.id!==e.pointerId) return; const dy=e.clientY-gp.y;
+    if(!gp.moved){ if(Math.abs(dy)<8) return; gp.moved=true; U.gesture=true }
+    const el=pn(); if(!el){ gp=null; U.gesture=false; return }
+    const dt=e.timeStamp-gp.lt; if(dt>0){ gp.v=(e.clientY-gp.ly)/dt; gp.ly=e.clientY; gp.lt=e.timeStamp }
+    const h=Math.max(gp.peek,Math.min(gp.full,gp.h0-dy)); el.classList.add('drag'); el.style.height=h+'px'; U.edH=h });
+  const end=e=>{ if(!gp||gp.id!==e.pointerId) return; const s=gp; gp=null; if(!s.moved) return; U.gesture=false; U.edSwipe=Date.now();
+    const el=pn(); if(el) el.classList.remove('drag');
+    /* a flick decides by its direction; a slow pull of more than a thumb's width goes where it was pulled; less than that springs back */
+    const pulled=(U.edH||s.h0)-s.h0;
+    if(e.type!=='pointercancel'){ if(Math.abs(s.v)>0.25) U.edPanel=s.v<0; else if(Math.abs(pulled)>56) U.edPanel=pulled>0 }
+    render() };
+  appEl.addEventListener('pointerup',end); appEl.addEventListener('pointercancel',end);
+  appEl.addEventListener('click',e=>{ if(U.edSwipe&&Date.now()-U.edSwipe<350&&e.target.closest&&e.target.closest('.ed2-panel')){ e.stopImmediatePropagation(); e.preventDefault() } },true); }
 
 /*@@JS:estimate@@*/
 /* ============================== Estimate (option A): BOM table ==============================
@@ -5412,9 +5572,8 @@ estimateTab=function(p,tt){
     return `<button class="et-r" data-a="editRow" data-k="mat" data-id="${m.id}"><span class="nm">${esc(dn(m.name)||'—')}<small>${esc(dn(m.unit)||'')}</small></span>${num(m.qty,fmtNumStr(m.qty))}${num(m.price,money(parseDec(m.price,p.precision).val||0n,p))}${bad?'<span class="miss">—</span>':`<span class="sum">${money(lineTotal(m.qty,m.price,p.precision),p)}</span>`}</button>` }).join('')||`<div class="et-empty">${esc(t('es.emptyMat'))}</div>`;
   const lRows=labs.map(l=>`<button class="et-r lab" data-a="editRow" data-k="lab" data-id="${l.id}"><span class="nm">${esc(dn(l.name)||'—')}<small>${esc(t('es.lump'))}</small></span>${blank(l.amount)?'<span class="miss">?</span>':`<span class="sum">${money(parseDec(l.amount,p.precision).val||0n,p)}</span>`}</button>`).join('')||`<div class="et-empty">${esc(t('es.emptyLab'))}</div>`;
   const add=k=>`<button class="et-add" data-a="addRow" data-k="${k}">${ic(lk?'lock':'plus','i s')}${esc(t('et.addRow'))}</button>`;
-  const pstr=p.precision?t('es.pN',{n:p.precision}):t('es.p0');
   return `<div class="et">
-    <div class="et-meta"><span>${esc(t('es.cur',{c:p.currency,p:pstr}))}</span><button data-a="areas">${esc(t('es.areas'))}</button></div>
+    <div class="et-meta"><span>${esc(t('es.cur',{c:p.currency}))}</span><button data-a="areas">${esc(t('es.areas'))}</button></div>
     ${ban}${missing?`<div class="et-miss" role="status">${ic('alert','i s')}<span>${esc(t('et.miss',{n:missing}))}</span></div>`:''}
     <div class="et-tbl"><div class="et-h"><b>${esc(t('es.mat'))}</b><span>${esc(t('et.qty'))}</span><span>${esc(t('et.price'))}</span><span>${esc(t('et.sum'))}</span></div>${mRows}${add('mat')}<div class="et-sub"><span>${esc(t('es.matTot'))}</span><span>${money(tt.m,p)}</span></div></div>
     <div class="et-tbl"><div class="et-h lab"><b>${esc(t('es.lab'))}</b><span>${esc(t('et.sum'))}</span></div>${lRows}${add('lab')}<div class="et-sub"><span>${esc(t('es.labTot'))}</span><span>${money(tt.l,p)}</span></div></div>
@@ -5499,7 +5658,7 @@ function qcFill(mm,id){ const c=qc(), v=c.vals[c.tool], i=qcActive(); if(i==null
 function qcResult(){ const c=qc(), v=c.vals[c.tool], g=i=>v[i]&&v[i].mm;
   if(c.tool==='area') return g(0)&&g(1)?{k:'qc.rArea',txt:fmtArea(g(0)*g(1))+' '+M2()}:null;
   if(c.tool==='wall'){ if(!g(0)||!g(1)) return null; const op=g(2)&&g(3)?g(2)*g(3):0; const net=g(0)*g(1)-op; return net>0?{k:'qc.rWall',txt:fmtArea(net)+' '+M2()}:{k:'qc.rWall',err:t('qc.opBig')} }
-  if(c.tool==='vol') return g(0)&&g(1)&&g(2)?{k:'qc.rVol',txt:(g(0)*g(1)*g(2)/1e9).toFixed(2).replace('.',DEC())+' '+M()+'³'}:null;
+  if(c.tool==='vol') return g(0)&&g(1)&&g(2)?{k:'qc.rVol',txt:(g(0)*g(1)*g(2)/1e9).toFixed(2).replace('.',DEC())+' '+t('u.m')+'³'}:null;
   if(c.tool==='sum') return v.length?{k:'qc.rSum',txt:fmtLen(v.reduce((a,x)=>a+x.mm,0))+' '+M()}:null;
   if(c.tool==='brick'){ if(!g(0)||!g(1)) return null; const op=c.bop&&g(2)&&g(3)?g(2)*g(3):0, net=g(0)*g(1)-op; if(net<=0) return {k:'qc.rBrick',err:t('qc.opBig')};
     const r=qbCount(net); return {k:'qc.rBrick',txt:qbInt(r.bricks)+' <small>'+esc(t('u.pcs'))+'</small>',sub:t('qb.mortar')+' '+r.mortar.toFixed(2).replace('.',DEC())+' '+M()+'³',area:fmtArea(net)+' '+M2()} }
@@ -5527,7 +5686,7 @@ PAGES.measure=()=>{
   if(b!=='connected'){ m.live=false; seen('disconnected') }
   const last=b==='connected'&&m.mode==='cont'&&m.val!=null?m.val:rs[0]?rs[0].mm:null;
   const status=b!=='connected'?`<span>${esc(t(b==='off'?'dev.off':b==='denied'?'dev.denied':'dev.disc'))}</span>`:`<span class="live ${m.live?'on':''}">${esc(t(m.live?'meas.live':'meas.idle'))}</span>`;
-  const meter=`<div class="qm-meter"><div class="st">${status}<button data-a="refInfo">${esc(t('meas.ref'))}</button></div><span class="qm-v"><span id="liveVal">${last!=null?fmtLen(last,null,true):'–,–––'}</span><small>${esc(M())}</small></span>
+  const meter=`<div class="qm-meter"><div class="st">${status}</div><span class="qm-v"><span id="liveVal">${last!=null?fmtLen(last,null,true):'–,–––'}</span><small>${esc(M())}</small></span>
     ${b==='connected'?`<div class="seg wide"><button class="${m.mode==='single'?'on':''}" data-a="measMode" data-v="single">${esc(t('meas.single'))}</button><button class="${m.mode==='cont'?'on':''}" data-a="measMode" data-v="cont">${esc(t('meas.cont'))}</button></div>${m.mode==='cont'?`<button class="qm-live" data-a="measLive">${ic('laser','i s')}${esc(t(m.live?'qc.stop':'qc.start'))} ${simtag()}</button>`:''}`
       :`<div class="banner warn" style="margin:0;width:100%">${ic('btoff','i s')}<span class="tx">${esc(t(b==='off'?'dv.offBody':b==='denied'?'dv.deniedBody':'ms.discBody'))}</span></div>`}</div>`;
   const tools=`<div class="qm-tools">${['area','wall','vol','sum','brick'].map(k=>`<button class="${c.tool===k?'on':''}" data-a="qcTool" data-v="${k}" aria-pressed="${c.tool===k}">${qcIc(k)}<span>${esc(t('qc.'+k))}</span></button>`).join('')}</div>`;
@@ -5537,15 +5696,15 @@ PAGES.measure=()=>{
   const main=b!=='connected'?`<button class="btn pri" data-a="device">${ic('bt','i s')}${esc(t('qc.connect'))}</button>`
     :m.mode==='cont'?`<button class="btn pri ${m.val==null?'dis':''}" data-a="qmSaveLive">${ic('save','i s')}${esc(t('qc.saveLive'))}</button>`
     :`<button class="btn pri" data-a="qmMeasure">${ic('laser','i s')}${esc(t('qc.measure'))}</button>`;
-  return `<section class="page ${U.anim||''}">${bar({right:devChip()})}<div class="h1">${esc(t('tab.measure'))}</div>${banners()}<div class="scroll" data-scroll="measure"><div class="qm">${meter}${tools}${qcCalc()}${rs.length&&!c.vals[c.tool].some(Boolean)?`<p class="qm-hint">${esc(t('qc.pick'))}</p>`:''}
-    <div class="qm-sech"><b>${esc(t('qc.readings'))}</b>${rs.length?`<button data-a="qmList">${esc(t(U.qmList?'qc.hide':'qc.list'))}</button>`:''}</div>${chips}${list}</div></div>
-    <div class="footer qm-foot"><div class="btnrow"><button class="btn sec" data-a="qmManual">${ic('kbd','i s')}${esc(t('ed2.manual'))}</button>${main}</div></div></section>`;
+  return `<section class="page ${U.anim||''}"><header class="bar qm-bar"><div class="h1">${esc(t('tab.measure'))}</div>${devChip()}</header>${banners()}<div class="scroll" data-scroll="measure"><div class="qm">${meter}${tools}${qcCalc()}${rs.length&&!c.vals[c.tool].some(Boolean)?`<p class="qm-hint">${esc(t('qc.pick'))}</p>`:''}
+    <div class="qm-sech"><b>${esc(t('qc.readings'))}</b>${rs.length?`<button data-a="qmList">${esc(t(U.qmList?'qc.hide':'qc.list'))}</button>`:''}</div>${chips}${list}${camStrip()}</div></div>
+    <div class="footer qm-foot"><div class="btnrow">${camBtn()}<button class="btn sec" data-a="qmManual">${ic('kbd','i s')}${esc(t('ed2.manual'))}</button>${main}</div></div></section>`;
 };
 function qmAddReading(mm,src){ const r={id:uid(),n:S.readings.length+1,mm,ts:Date.now(),src}; S.readings.push(r); qcFill(mm,r.id); commit(); return r }
 A.qmMeasure=()=>{ A.measSim(); const m=U.meas; if(m.val==null) return; qmAddReading(m.val,'sim'); seen('quick'); render() };
 A.qmSaveLive=()=>{ const m=U.meas; if(m.val==null) return; qmAddReading(m.val,'sim'); seen('quick'); toast(t('qm.saved')); render() };
 A.qmManual=()=>{ initForm({'qm.val':''}); openSheet({type:'qmManual'}); setFocus('qm.val','num',''); render() };
-SHEETS.qmManual=()=>sheetWrap(t('meas.manualTitle'),field('qm.val',t('qc.dist'),{num:true,suf:M(),err:lenFieldErr('qm.val',DIM_MAX.A),hint:t('ms.hint')}),`<button class="btn pri full" data-a="qmManualSave">${esc(t('common.save'))}</button>`);
+SHEETS.qmManual=()=>sheetWrap(t('meas.manualTitle'),field('qm.val',t('qc.dist'),{num:true,suf:M(),err:lenFieldErr('qm.val',DIM_MAX.A),hint:msHint()}),`<button class="btn pri full" data-a="qmManualSave">${esc(t('common.save'))}</button>`);
 A.qmManualSave=()=>{ const v=U.form['qm.val'], res=lenErr(v,DIM_MAX.A); if(!v||res.err){ U.touched['qm.val']=true; seen('invalid'); render(); return } qmAddReading(res.mm,'manual'); seen('manual'); closeSheet(true); toast(t('qm.saved')); render() };
 A.qmList=()=>{ U.qmList=!U.qmList; render() };
 A.qcTool=d=>{ const c=qc(); c.tool=d.v; c.act=null; render() };
@@ -5666,7 +5825,7 @@ PAGES.profile=()=>{
     ${pfRow('langSheet','globe',t('se.lang'),LNAME[S.lang])}
     ${pfRow('repLangSheet','doc',t('se.reportLang'),LNAME[S.settings.reportLang])}
     ${pfRow('pdfSheet','layers',t('se.pdf'),pdfN+'/5')}
-    ${pfRow('currencySheet','coin',t('se.curPrec'),S.settings.currency+', '+(S.settings.precision?t('es.pN',{n:S.settings.precision}):t('es.p0')))}
+    ${pfRow('currencySheet','coin',t('np.currency'),S.settings.currency)}
     </div><div class="grouph">${esc(t('pf.gMeasure'))}</div><div class="lgroup">
     ${pfRow('defaultsSheet','door',t('se.defaults'),fmtLen(S.settings.defaults.door.w)+' × '+fmtLen(S.settings.defaults.door.h))}
     <button class="listrow" data-a="toggleSnap" aria-pressed="${!!S.settings.angleSnap}">${ic('ruler')}<span class="tx"><b>${esc(t('se.snap'))}</b></span><span class="switch ${S.settings.angleSnap?'on':''}"></span></button>
@@ -5676,7 +5835,7 @@ PAGES.profile=()=>{
   </div></div></section>`;
 };
 PAGES.settingsMore=()=>`<section class="page ${U.anim||''}">${bar({backIcon:true,title:t('pf.more')})}<div class="scroll" data-scroll="pfm"><div class="pf" style="padding-top:8px"><div class="lgroup">
-  ${pfRow('unitsSheet','ruler',t('se.units'),t('se.unitsVal'))}
+  ${pfRow('unitsSheet','ruler',t('se.units'),t('un.'+UNIT()))}
   ${pfRow('roomLabelSheet','room',t('se.label'),t('se.label.'+(S.settings.roomLabel||'both')))}
   ${pfRow('hintsReset','info',t('se.hintsReset'),'')}
   </div><div class="lgroup">
@@ -5763,6 +5922,182 @@ function rpAfter(){
    New project: a two-line header as in the founder's design, the step ("New project") above the title ("Project details"). */
 { const np=PAGES.newProject; PAGES.newProject=r=>{ const h=np(r); if(stack().some(x=>x.edit)||(r&&r.edit)) return h;
   return h.replace(`<div class="ttl"><b>${esc(t('np.title'))}</b></div>`,`<div class="ttl"><b>${esc(t('np.editTitle'))}</b><small class="ey">${esc(t('np.title'))}</small></div>`) } }
+
+/*@@JS:camera@@*/
+/* ============================== camera: measured pictures on the Measure tab ==============================
+   Three things, confirmed by the founder on 13 Oct 2026:
+   - "Kamera" on the Measure tab opens a choice: live camera, or take a photo and draw on it;
+   - saved pictures ("Suratlar") live on the Measure tab without a project, open in the existing photo editor,
+     can be shared as one image with their lines and numbers, and can be moved into a project's workspace;
+   - the live camera: draw a line on the live view, take the value from the laser or type it, then save the frame.
+   The app never works a distance out from the picture: the number is the laser's or typed, the line says what it belongs to.
+   The line stays where it was drawn on the screen (no AR tracking), so the frame is saved as the lasting record. */
+Object.assign(D,{
+'cm.btn':['Kamera','Камера','Camera'],
+'cm.pickT':['Kamera bilan o‘lchash','Замер с камерой','Measure with the camera'],
+'cm.live':['Jonli kamera','Живая камера','Live camera'],
+'cm.liveD':['Ekranda chiziq torting, o‘lchang va saqlang','Проведите линию на экране, измерьте и сохраните','Draw a line on the screen, measure and save'],
+'cm.photo':['Surat olish','Сделать фото','Take a photo'],
+'cm.photoD':['Suratga chiziq chizing va o‘lchamini yozing','Нарисуйте линию на фото и укажите размер','Draw a line on the photo and give it a size'],
+'cm.shots':['Suratlar','Снимки','Pictures'],
+'cm.shotN':['Surat {n}','Снимок {n}','Picture {n}'],
+'cm.noVal':['o‘lchamsiz','без размера','no size'],
+'cm.hint':['Devorda chiziq torting','Проведите линию по стене','Draw a line on the wall'],
+'cm.s0':['Chiziq hali yo‘q.','Линии пока нет.','No line yet.'],
+'cm.s1':['Chiziq tayyor. O‘lchash yoki Qo‘lda tugmasini bosing.','Линия готова. Нажмите «Измерить» или «Вручную».','The line is ready. Press Measure or Type.'],
+'cm.s1off':['Chiziq tayyor. Lazer ulanmagan: qiymatni Qo‘lda kiriting.','Линия готова. Лазер не подключён: введите значение вручную.','The line is ready. The laser is not connected: type the value.'],
+'cm.s2l':['Lazerdan qabul qilindi. Saqlash tugmasini bosing.','Получено с лазера. Нажмите «Сохранить».','Received from the laser. Press Save.'],
+'cm.s2m':['Qiymat kiritildi. Saqlash tugmasini bosing.','Значение введено. Нажмите «Сохранить».','Value entered. Press Save.'],
+'cm.steady':['Chiziq ekranda qoladi, devorda emas. Telefonni qimirlatmay o‘lchang va saqlang.','Линия остаётся на экране, а не на стене. Держите телефон неподвижно, измерьте и сохраните.','The line stays on the screen, not on the wall. Hold the phone still, measure and save.'],
+'cm.starting':['Kamera ochilmoqda…','Открываем камеру…','Opening the camera…'],
+'cm.errT':['Kamera ochilmadi','Камера не открылась','The camera did not open'],
+'cm.errDenied':['Kameraga ruxsat berilmagan. Telefon sozlamalarida ⟦METRX⟧ uchun kamerani yoqing yoki surat oling.','Нет доступа к камере. Разрешите камеру для METRX в настройках телефона или сделайте фото.','Camera access is off. Allow the camera for METRX in the phone’s settings, or take a photo instead.'],
+'cm.errNone':['Bu qurilmada jonli kamera ishlamaydi. Surat olib, ustiga chizing.','Живая камера на этом устройстве недоступна. Сделайте фото и рисуйте на нём.','Live camera is not available on this device. Take a photo and draw on it.'],
+'cm.manT':['Chiziq uzunligi','Длина линии','Length of the line'],
+'cm.saved':['Suratlar ichida saqlandi','Сохранено в «Снимках»','Saved under Pictures'],
+'cm.share':['Ulashish','Поделиться','Share'],
+'cm.toProj':['Loyihaga qo‘shish','Добавить в проект','Add to a project'],
+'cm.del':['Suratni o‘chirish','Удалить снимок','Delete picture'],
+'cm.delQ':['Surat o‘chirilsinmi?','Удалить снимок?','Delete this picture?'],
+'cm.delB':['Surat chiziqlari va o‘lchamlari bilan birga o‘chadi.','Снимок удалится вместе с линиями и размерами.','The picture is deleted with its lines and sizes.'],
+'cm.deleted':['Surat o‘chirildi','Снимок удалён','Picture deleted'],
+'cm.toT':['Qaysi ish joyiga?','В какую рабочую зону?','Which workspace?'],
+'cm.toNone':['Avval loyiha va ish joyini yarating.','Сначала создайте проект и рабочую зону.','Create a project and a workspace first.'],
+'cm.moved':['“{w}” ga qo‘shildi','Добавлено в «{w}»','Added to “{w}”'],
+'cm.shareOnly':['Ulashish faqat telefondagi ilovada ishlaydi','Поделиться можно только из приложения на телефоне','Sharing works only in the app on a phone'],
+'cm.shareErr':['Suratni tayyorlab bo‘lmadi','Не удалось подготовить снимок','Could not prepare the picture']
+});
+const shots=()=>S.shots||(S.shots=[]);
+const SHOTS_WS=()=>({id:'shots',name:'@cm.shots',items:shots()});
+/* the photo editor finds its item through itemOf; a picture from the Measure tab has no project around it */
+{ const io=itemOf; itemOf=function(rt){ if(rt&&rt.shot) return {p:null,w:SHOTS_WS(),it:shots().find(x=>x.id===rt.iid)}; return io(rt) } }
+const shotVal=it=>{ const e=(it.els||[]).find(x=>x.t==='dim'&&x.v!=null); return e?fmtLen(e.v)+' '+M():null };
+function camStrip(){
+  const ss=shots(); if(!ss.length) return '';
+  return `<div class="qm-sech"><b>${esc(t('cm.shots'))}</b><span class="cm-n">${ss.length}</span></div><div class="cm-strip" data-scroll="cmshots">${ss.map(it=>{ const v=shotVal(it); return `<button class="cm-shot" data-a="shotOpen" data-id="${it.id}" aria-label="${esc(dn(it.name))}"><span class="th">${mkSVG(it,{thumb:true}).replace('preserveAspectRatio="xMidYMid meet"','preserveAspectRatio="xMidYMid slice"')}</span><b class="${v?'':'none'}">${esc(v||t('cm.noVal'))}</b><small>${esc(dn(it.name))}</small></button>` }).join('')}</div>`;
+}
+const camBtn=()=>`<button class="btn sec qm-cam" data-a="camOpen" aria-label="${esc(t('cm.btn'))}">${ic('camera')}</button>`;
+
+/* ---------- Kamera: the two ways in ---------- */
+SHEETS.camPick=()=>{ const big=(a,icn,l,d)=>`<button class="bigrow" data-a="${a}"><span class="ai">${ic(icn)}</span><span class="tx"><b>${esc(t(l))}</b><small>${esc(t(d))}</small></span>${ic('chev','i s')}</button>`;
+  return sheetWrap(t('cm.pickT'),`<div class="bigrows">${big('camLive','laser','cm.live','cm.liveD')}${big('camShot','camera','cm.photo','cm.photoD')}</div>`,'') };
+A.camOpen=()=>{ if(!guard()) return; openSheet({type:'camPick'}) };
+A.shotOpen=d=>{ push({s:'photo',shot:true,iid:d.id}) };
+function camNewShot(o){ const it=Object.assign({id:uid(),kind:'photo',name:t('cm.shotN',{n:shots().length+1}),caption:'',created:Date.now(),edited:Date.now(),els:[],rep:false},o); shots().unshift(it); commit(); return it }
+/* take a photo with the phone's camera app, then draw on it */
+function camFileInput(){ let el=document.getElementById('camFile'); if(el) return el;
+  el=document.createElement('input'); el.type='file'; el.accept='image/*'; el.setAttribute('capture','environment'); el.id='camFile'; el.className='wsfile'; document.body.appendChild(el);
+  el.addEventListener('change',()=>{ const f=el.files&&el.files[0]; el.value=''; if(!f) return;
+    const rd=new FileReader(); rd.onerror=()=>{ toast(t('mk.photoErr')); render() };
+    rd.onload=()=>{ const img=new Image(); img.onerror=()=>{ toast(t('mk.photoErr')); render() };
+      img.onload=()=>{ const k=Math.min(1,1280/Math.max(img.width,img.height)), cw=Math.round(img.width*k), ch=Math.round(img.height*k); const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch; cv.getContext('2d').drawImage(img,0,0,cw,ch);
+        let src; try{ src=cv.toDataURL('image/jpeg',.72) }catch(e){ toast(t('mk.photoErr')); render(); return }
+        const it=camNewShot({src,W:1000,H:Math.round(1000*ch/cw)}); if(top().s==='liveCam') stack().pop(); push({s:'photo',shot:true,iid:it.id}) };
+      img.src=rd.result };
+    rd.readAsDataURL(f) });
+  return el;
+}
+A.camShot=()=>{ closeSheet(true); render(); camFileInput().click() };
+
+/* ---------- a saved picture in the photo editor: its own menu instead of the workspace one ---------- */
+{ const ph=PAGES.photo; PAGES.photo=rt=>{ if(!rt.shot) return ph(rt); const {it}=itemOf(rt); if(!it) return PAGES.measure(rt);
+    return ph(rt).replace(`<button class="ib" data-a="itemMenu" data-k="photo" data-id="${it.id}" aria-label="menu">`,`<button class="ib" data-a="shotShare" aria-label="${esc(t('cm.share'))}">${ic('share')}</button><button class="ib" data-a="shotMenu" aria-label="menu">`) } }
+const shotCur=()=>{ const r=top(); return r&&r.shot?shots().find(x=>x.id===r.iid):null };
+SHEETS.shotMenu=()=>{ const it=shotCur(); if(!it) return '';
+  const row=(a,icn,k,red)=>`<button class="listrow" style="padding-left:4px;${red?'color:#B42318':''}" data-a="${a}">${ic(icn)}<span class="tx"><b>${esc(t(k))}</b></span></button>`;
+  return sheetWrap(dn(it.name),`<div>${row('shotShare','share','cm.share')}${row('shotTo','layers','cm.toProj')}${row('shotDelAsk','trash','cm.del',true)}</div>`,'') };
+A.shotMenu=()=>openSheet({type:'shotMenu'});
+SHEETS.shotDel=()=>sheetWrap(t('cm.delQ'),`<p>${esc(t('cm.delB'))}</p>`,`<div class="btnrow"><button class="btn sec" data-a="closeSheet">${esc(t('common.cancel'))}</button><button class="btn danger" data-a="shotDel">${esc(t('cm.del'))}</button></div>`);
+A.shotDelAsk=()=>{ U.sheet={type:'shotDel'}; render() };
+A.shotDel=()=>{ const it=shotCur(); if(!it) return; S.shots=shots().filter(x=>x.id!==it.id); commit(); closeSheet(true); stack().pop(); U.anim='pop'; toast(t('cm.deleted')); render() };
+/* into a project: the picture becomes an ordinary photo of that workspace, so it can also go into the PDF */
+SHEETS.shotTo=()=>{ const rows=S.projects.flatMap(p=>p.floors.map(w=>`<button class="listrow" style="padding-left:4px" data-a="shotMove" data-pid="${p.id}" data-id="${w.id}">${ic('layers')}<span class="tx"><b>${esc(floorName(w))}</b><small>${esc(dn(p.name))}</small></span>${ic('chev','i s')}</button>`));
+  return sheetWrap(t('cm.toT'),rows.length?`<div>${rows.join('')}</div>`:`<p class="note">${ic('info','i s')}<span>${esc(t('cm.toNone'))}</span></p>`,'') };
+A.shotTo=()=>{ if(!guard()) return; U.sheet={type:'shotTo'}; render() };
+A.shotMove=d=>{ const it=shotCur(), p=P(d.pid), w=p&&WSP(p,d.id); if(!it||!w) return; S.shots=shots().filter(x=>x.id!==it.id); it.edited=Date.now(); wsItems(w).push(it); p.edited=Date.now(); commit();
+  closeSheet(true); stack().pop(); U.anim='pop'; toast(t('cm.moved',{w:floorName(w)})); render() };
+/* share: the photo with its lines and numbers as one JPEG, through the phone's share sheet */
+function shotImage(it,done){
+  const W=it.W||1000, H=it.H||750, k=Math.min(2,1600/Math.max(W,H));
+  const svg=mkSVG(it).replace('<svg class="mk-svg"',`<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${W}" height="${H}" font-family="Arial, Helvetica, sans-serif"`).replace(/font-family="[^"]*IBM Plex[^"]*"/g,'');
+  const img=new Image(); img.onerror=()=>done(null);
+  img.onload=()=>{ try{ const cv=document.createElement('canvas'); cv.width=Math.round(W*k); cv.height=Math.round(H*k); const g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height); g.drawImage(img,0,0,cv.width,cv.height); done(cv.toDataURL('image/jpeg',.9)) }catch(e){ done(null) } };
+  img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svg);
+}
+A.shotShare=()=>{ const it=shotCur(); if(!it) return; closeSheet(true);
+  const name='METRX_'+String(dn(it.name)).replace(/[\s,№.\/\\:*?"<>|]+/g,'_')+'.jpg';
+  shotImage(it,url=>{ if(!url){ toast(t('cm.shareErr')); render(); return }
+    const n=window.MetrxNative;
+    if(n&&n.shareImage){ try{ n.shareImage(name,url.split(',')[1]) }catch(e){ toast(t('cm.shareErr')); render() } return }
+    try{ fetch(url).then(r=>r.blob()).then(b=>{ const f=new File([b],name,{type:'image/jpeg'});
+        if(navigator.canShare&&navigator.canShare({files:[f]})) return navigator.share({files:[f],title:dn(it.name)}); toast(t('cm.shareOnly')); render() }).catch(()=>{}) }catch(e){ toast(t('cm.shareOnly')); render() } });
+  render() };
+
+/* ---------- live camera ---------- */
+const lc=()=>U.lc||(U.lc={line:null,val:null,src:null,err:null,on:false});
+A.camLive=()=>{ closeSheet(true); U.lc={line:null,val:null,src:null,err:null,on:false}; push({s:'liveCam'}) };
+const lcState=()=>{ const s=lc(); return s.val!=null?t(s.src==='laser'?'cm.s2l':'cm.s2m'):s.line?t(S.demo.bt==='connected'?'cm.s1':'cm.s1off'):t('cm.s0') };
+function lcLineSVG(){
+  const s=lc(); if(!s.line) return '';
+  const v=document.getElementById('lcView'), w=v?v.clientWidth:320, h=v?v.clientHeight:420;
+  const x1=s.line[0]*w, y1=s.line[1]*h, x2=s.line[2]*w, y2=s.line[3]*h, dx=x2-x1, dy=y2-y1, L=Math.hypot(dx,dy)||1, nx=-dy/L*9, ny=dx/L*9, mx=(x1+x2)/2, my=(y1+y2)/2, F=n=>n.toFixed(1);
+  const d=`M${F(x1)} ${F(y1)}L${F(x2)} ${F(y2)}M${F(x1-nx)} ${F(y1-ny)}L${F(x1+nx)} ${F(y1+ny)}M${F(x2-nx)} ${F(y2-ny)}L${F(x2+nx)} ${F(y2+ny)}`;
+  const txt=s.val!=null?fmtLen(s.val,null,true)+' '+M():'?', tw=txt.length*9.5+24, ly=Math.max(18,my-26);
+  return `<path d="${d}" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".85" fill="none"/><path d="${d}" stroke="#D92D20" stroke-width="3" stroke-linecap="round" fill="none"/><rect x="${F(mx-tw/2)}" y="${F(ly-15)}" width="${F(tw)}" height="30" rx="15" fill="${s.val!=null?'#D92D20':'#fff'}" stroke="#D92D20" stroke-width="1.5"/><text x="${F(mx)}" y="${F(ly+1)}" text-anchor="middle" dominant-baseline="middle" font-family="${F_NUM}" font-weight="700" font-size="17" fill="${s.val!=null?'#fff':'#B42318'}">${esc(txt)}</text>`;
+}
+/* the live view is not re-rendered while a line is drawn or a value arrives: only these parts are repainted */
+function lcPaint(){
+  const s=lc(), g=document.getElementById('lcLine'); if(!g) return;
+  g.innerHTML=lcLineSVG();
+  const st=document.getElementById('lcState'); if(st) st.textContent=lcState();
+  const hint=document.getElementById('lcHint'); if(hint) hint.hidden=!!s.line||!s.on;
+  const dis=(id,v)=>{ const b=document.getElementById(id); if(b) b.classList.toggle('dis',v) };
+  dis('lcBtnM',!s.line||S.demo.bt!=='connected'); dis('lcBtnT',!s.line); dis('lcBtnS',s.val==null||!s.on);
+}
+PAGES.liveCam=()=>{
+  const s=lc(), bt=S.demo.bt==='connected';
+  const body=s.err?`<div class="lc-err"><span class="ill">${ic('camera','i l')}</span><h3>${esc(t('cm.errT'))}</h3><p>${esc(t(s.err==='denied'?'cm.errDenied':'cm.errNone'))}</p><button class="btn pri" data-a="camShot">${ic('camera','i s')}${esc(t('cm.photo'))}</button></div>`
+    :`<div class="lc-view" id="lcView"><video id="lcVideo" autoplay playsinline muted poster="data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw=="></video><svg class="lc-svg" aria-hidden="true"><g id="lcLine"></g></svg><div class="lc-hint" id="lcHint" ${s.line||!s.on?'hidden':''}>${esc(t('cm.hint'))}</div>${s.on?'':`<div class="lc-wait">${esc(t('cm.starting'))}</div>`}</div>`;
+  return `<section class="page lc ${U.anim||''}"><div class="lc-top"><button class="ib" data-a="back" aria-label="${esc(t('common.close'))}">${ic('x')}</button><b>${esc(t('cm.live'))}</b><span class="lc-dev ${bt?'on':''}">${ic(bt?'bt':'btoff','i s')}<span>${esc(t(bt?'dev.conn':'dev.disc'))}</span></span></div>
+    ${body}${s.err?'':`<p class="lc-state" id="lcState" role="status">${esc(lcState())}</p><p class="lc-note">${ic('info','i s')}<span>${esc(t('cm.steady'))}</span></p>
+    <div class="lc-bar"><button class="btn ${s.line?'':'dis'}" id="lcBtnT" data-a="lcManual">${ic('kbd','i s')}${esc(t('ed2.manual'))}</button><button class="btn pri ${s.line&&bt?'':'dis'}" id="lcBtnM" data-a="lcMeasure">${ic('laser','i s')}${esc(t('qc.measure'))}</button><button class="btn ${s.val!=null&&s.on?'':'dis'}" id="lcBtnS" data-a="lcSave">${ic('save','i s')}${esc(t('common.save'))}</button></div>`}</section>`;
+};
+function lcStop(){ const st=U.lcStream; U.lcStream=null; if(st){ try{ st.getTracks().forEach(x=>x.stop()) }catch(e){} } if(U.lc) U.lc.on=false }
+function lcAttach(){
+  const v=document.getElementById('lcVideo'); if(!v) return;
+  if(U.lcStream){ if(v.srcObject!==U.lcStream){ v.srcObject=U.lcStream; const p=v.play(); if(p&&p.catch) p.catch(()=>{}) } return }
+  if(U.lcStarting) return;
+  const md=navigator.mediaDevices;
+  if(!md||!md.getUserMedia){ lc().err='none'; render(); return }
+  U.lcStarting=true;
+  md.getUserMedia({audio:false,video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:960}}}).then(st=>{
+    U.lcStarting=false;
+    if(top().s!=='liveCam'){ try{ st.getTracks().forEach(x=>x.stop()) }catch(e){} return }
+    U.lcStream=st; lc().on=true; lc().err=null; render();
+  }).catch(e=>{ U.lcStarting=false; if(top().s!=='liveCam') return; lc().err=e&&(e.name==='NotAllowedError'||e.name==='SecurityError')?'denied':'none'; render() });
+}
+/* after every render: give the stream to the fresh <video>, or let the camera go when the screen is left */
+{ const base=render; render=function(){ base(); const r=!S.firstRun&&top(); if(r&&r.s==='liveCam'){ if(!lc().err) lcAttach(); lcPaint() } else if(U.lcStream||U.lcStarting) lcStop() } }
+document.addEventListener('visibilitychange',()=>{ if(document.hidden){ if(U.lcStream){ lcStop(); } } else if(!S.firstRun&&top().s==='liveCam'){ render() } });
+/* drawing the line */
+{ let drag=null;
+  const at=(v,e)=>{ const r=v.getBoundingClientRect(); return [Math.min(.985,Math.max(.015,(e.clientX-r.left)/r.width)),Math.min(.985,Math.max(.015,(e.clientY-r.top)/r.height))] };
+  appEl.addEventListener('pointerdown',e=>{ const v=e.target.closest&&e.target.closest('#lcView'); if(!v||U.sheet||!lc().on) return; const p=at(v,e); drag={v,id:e.pointerId}; const s=lc(); s.line=[p[0],p[1],p[0],p[1]]; s.val=null; s.src=null; try{ v.setPointerCapture(e.pointerId) }catch(x){} lcPaint(); e.preventDefault() });
+  appEl.addEventListener('pointermove',e=>{ if(!drag||e.pointerId!==drag.id) return; const p=at(drag.v,e), s=lc(); if(!s.line) return; s.line[2]=p[0]; s.line[3]=p[1]; lcPaint() });
+  const end=e=>{ if(!drag||e.pointerId!==drag.id) return; const v=drag.v, s=lc(); drag=null; if(s.line&&Math.hypot((s.line[2]-s.line[0])*v.clientWidth,(s.line[3]-s.line[1])*v.clientHeight)<18) s.line=null; lcPaint() };
+  appEl.addEventListener('pointerup',end); appEl.addEventListener('pointercancel',end); }
+A.lcMeasure=()=>{ const s=lc(); if(!s.line||S.demo.bt!=='connected') return; s.val=600+Math.round(Math.random()*7600); s.src='laser'; lcPaint() };
+A.lcManual=()=>{ const s=lc(); if(!s.line) return; initForm({'lc.val':s.val!=null?fmtLen(s.val,null,true):''}); openSheet({type:'lcManual'}); setFocus('lc.val','num',''); render() };
+SHEETS.lcManual=()=>sheetWrap(t('cm.manT'),field('lc.val',t('mk.value'),{num:true,suf:M(),err:U.form['lc.val']?lenFieldErr('lc.val',DIM_MAX.A):null,hint:msHint()}),`<button class="btn pri full" data-a="lcManualSave">${esc(t('common.save'))}</button>`);
+A.lcManualSave=()=>{ const v=U.form['lc.val'], r=lenErr(v,DIM_MAX.A); if(!v||r.err){ U.touched['lc.val']=true; U.submitTry=true; render(); return } const s=lc(); s.val=r.mm; s.src='manual'; closeSheet(true); render() };
+/* save: the visible part of the frame becomes a photo, the line becomes a measured dimension on it */
+A.lcSave=()=>{ const s=lc(), v=document.getElementById('lcVideo'), box=document.getElementById('lcView'); if(!s.line||s.val==null||!v||!box||!v.videoWidth) return;
+  const vw=box.clientWidth, vh=box.clientHeight, iw=v.videoWidth, ih=v.videoHeight, sc=Math.max(vw/iw,vh/ih), sw=vw/sc, sh=vh/sc, sx=(iw-sw)/2, sy=(ih-sh)/2;
+  const k=Math.min(1,1280/Math.max(sw,sh)), cw=Math.round(sw*k), ch=Math.round(sh*k); let src;
+  try{ const cv=document.createElement('canvas'); cv.width=cw; cv.height=ch; cv.getContext('2d').drawImage(v,sx,sy,sw,sh,0,0,cw,ch); src=cv.toDataURL('image/jpeg',.78) }catch(e){ toast(t('mk.photoErr')); render(); return }
+  const W=1000, H=Math.round(1000*ch/cw), R=n=>Math.round(n);
+  const it=camNewShot({src,W,H,els:[{id:uid(),t:'dim',pts:[[R(s.line[0]*W),R(s.line[1]*H)],[R(s.line[2]*W),R(s.line[3]*H)]],v:s.val,src:s.src==='laser'?'laser':'manual',c:'red'}]});
+  lcStop(); U.lc=null; stack().pop(); toast(t('cm.saved')); push({s:'photo',shot:true,iid:it.id}) };
 
 /*@@JS:auth@@*/
 /* ============================== auth (opening animation, welcome, sign up, log in, forgot password) ==============================
@@ -6366,6 +6701,111 @@ A.doRestore=()=>{ const o=U.restore; if(!o) return; const mode=U.form.conflict||
     else if(mode==='replace'){ S.projects[i]=p; n++ }
     else if(mode==='keep'){ p.id=uid(); p.name=dn(p.name)+' (2)'; S.projects.push(p); n++ } });
   U.restore=null; commit(); closeSheet(true); toast(t('bk.done',{n})); render() };
+
+/*@@JS:ux@@*/
+/* ============================== ux: founder's review of 13 Oct 2026 ==============================
+   - 3D: many rooms are laid out in rows instead of one long line; two fingers move the view, inside limits, so the
+     rooms can't be lost; tapping a room's name goes to that room; no "drag to orbit" text.
+   - The 3D "save view" button is now "Add to report" on the picture itself, and the added views are listed under it.
+   - Toasts appear at the top of the screen. */
+Object.assign(D,{
+'3d.save':['Hisobotga qo‘shish','В отчёт','Add to report'],
+'3d.saved':['3D ko‘rinish hisobotga qo‘shildi.','3D-вид добавлен в отчёт.','3D view added to the report.'],
+'3d.max':['Hisobotda ko‘pi bilan 4 ta 3D ko‘rinish. Avval bittasini olib tashlang.','В отчёте не больше 4 3D-видов. Сначала уберите один.','A report holds at most 4 3D views. Remove one first.'],
+'3d.inRep':['Hisobotdagi 3D ko‘rinishlar: {n}/4','3D-виды в отчёте: {n}/4','3D views in the report: {n}/4'],
+'3d.del':['Hisobotdan olib tashlash','Убрать из отчёта','Remove from the report'],
+'3d.deleted':['3D ko‘rinish hisobotdan olib tashlandi.','3D-вид убран из отчёта.','3D view removed from the report.'],
+'3d.all':['Hammasi','Все','All'],
+'v3d.note':['{n} ta xona. Xona nomini bossangiz, o‘sha xona yaqinlashadi. To‘liq o‘lchanmagan xonalar ko‘rinmaydi.','Помещений: {n}. Нажмите название, чтобы приблизить помещение. Неизмеренные не показаны.','{n} {n:room|rooms}. Tap a name to zoom to that room. Rooms that aren’t fully measured aren’t shown.'],
+'rpt.noViews':['3D ko‘rinish yo‘q. Xonaning 3D sahifasida «Hisobotga qo‘shish» ni bosing.','3D-видов нет. В 3D помещения нажмите «В отчёт».','No 3D views. Tap Add to report in a room’s 3D view.']
+});
+
+/* ---------- 3D: where the camera may go ---------- */
+const V3_FOV=Math.PI/9;                                   // half of the camera's 40° field of view
+function v3Fit(w,d,h){ const a=(T3.cam&&T3.cam.aspect)||1, hh=Math.atan(Math.tan(V3_FOV)*a); return Math.max(3.5,0.5*Math.hypot(w,d,h)/Math.sin(Math.min(V3_FOV,hh))*0.9) }
+function v3Clamp(){ const b=T3.bounds; if(!b) return;
+  T3.tgt[0]=Math.max(b.x0,Math.min(b.x1,T3.tgt[0])); T3.tgt[2]=Math.max(b.z0,Math.min(b.z1,T3.tgt[2]));
+  if(T3.rMax) T3.r=Math.max(T3.rMin||3,Math.min(T3.rMax,T3.r)) }
+function v3Pan(dx,dy){ const h=(T3.host&&T3.host.clientHeight)||400, k=2*T3.r*Math.tan(V3_FOV)/h, kf=k/Math.max(0.35,Math.cos(T3.phi)), th=T3.theta;
+  T3.tgt[0]+=-Math.sin(th)*dx*k-Math.cos(th)*dy*kf; T3.tgt[2]+=Math.cos(th)*dx*k-Math.sin(th)*dy*kf; draw3D() }
+function v3Go(to){ cancelAnimationFrame(T3.raf);
+  const from={t:T3.tgt.slice(),r:T3.r,th:T3.theta,ph:T3.phi}, t0=performance.now(), still=window.matchMedia&&matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const step=now=>{ const k=still?1:Math.min(1,(now-t0)/340), e=1-Math.pow(1-k,3), mix=(a,b)=>a+(b-a)*e;
+    T3.tgt=[0,1,2].map(i=>mix(from.t[i],to.t[i])); T3.r=mix(from.r,to.r); if(to.th!=null){ T3.theta=mix(from.th,to.th); T3.phi=mix(from.ph,to.ph) }
+    draw3D(); if(k<1) T3.raf=requestAnimationFrame(step) };
+  T3.raf=requestAnimationFrame(step) }
+
+/* ---------- 3D: several rooms stand in rows, like on a sheet of paper, not in one long line ---------- */
+{ const b0=build3D;
+  build3D=function(rooms,single){
+    const THREE=window.THREE; T3.rooms3=null; T3.focus=null; T3.fit=null; T3.rFit=null; cancelAnimationFrame(T3.raf);
+    if(single||rooms.length<2){ b0(rooms,single); const d=T3.dims;
+      T3.bounds={x0:d.L*0.15,x1:d.L*0.85,z0:d.W*0.15,z1:d.W*0.85}; T3.rMin=2.5; T3.rMax=null; T3.fit=[d.L,d.W,d.H,1.25,1.6]; return }
+    const GAP=1.4;
+    const parts=rooms.map(room=>{ b0([room],false); const sc=T3.scene; sc.updateMatrixWorld(true);
+      const bx=new THREE.Box3(); sc.traverse(o=>{ if(o.isMesh) bx.expandByObject(o) });
+      const g=new THREE.Group(); sc.children.slice().forEach(o=>{ if(!o.isLight&&o.type!=='GridHelper') g.add(o) });
+      return {room,g,bx,groups:T3.groups||[],w:bx.max.x-bx.min.x,d:bx.max.z-bx.min.z,h:bx.max.y} });
+    // rows: as wide as a square of the same area, so the whole set fits a phone screen
+    const area=parts.reduce((a,p)=>a+(p.w+GAP)*(p.d+GAP),0), rowW=Math.max(...parts.map(p=>p.w),Math.sqrt(area)*1.2);
+    const rows=[]; let cur=null;
+    parts.forEach(p=>{ if(!cur||cur.w+GAP+p.w>rowW){ cur={w:p.w,d:p.d,it:[p]}; rows.push(cur) } else { cur.w+=GAP+p.w; cur.d=Math.max(cur.d,p.d); cur.it.push(p) } });
+    const W=Math.max(...rows.map(r=>r.w)), Dp=rows.reduce((a,r)=>a+r.d,0)+GAP*(rows.length-1), H=Math.max(...parts.map(p=>p.h));
+    const sc=new THREE.Scene(); sc.background=new THREE.Color(0xF3F6FA);
+    sc.add(new THREE.HemisphereLight(0xffffff,0xC9D3E0,0.5)); sc.add(new THREE.AmbientLight(0xffffff,0.3));
+    const dl=new THREE.DirectionalLight(0xffffff,0.55); dl.position.set(W*0.7+3,H*3+4,Dp*1.6+3); sc.add(dl);
+    const gs=Math.max(W,Dp)+4, grid=new THREE.GridHelper(gs,Math.round(gs*2),0xC3CEDF,0xDCE4F0); grid.position.set(W/2,-0.002,Dp/2); sc.add(grid);
+    const groups=[], list=[]; let z=0;
+    rows.forEach(row=>{ let x=(W-row.w)/2;
+      row.it.forEach(p=>{ const dx=x-p.bx.min.x, dz=z-p.bx.min.z; p.g.position.set(dx,0,dz); sc.add(p.g);
+        p.groups.forEach(gp=>{ gp.cx+=dx; gp.cz+=dz; groups.push(gp) });
+        list.push({id:p.room.id,name:dn(p.room.name),cx:x+p.w/2,cz:z+p.d/2,w:p.w,d:p.d,h:p.h}); x+=p.w+GAP });
+      z+=row.d+GAP });
+    T3.scene=sc; T3.groups=groups; T3.labels=[]; T3.rooms3=list; T3.dims={L:W,W:Dp,H};
+    /* the view's centre stays between the middles of the outermost rooms, so some room is always in the picture */
+    T3.bounds={x0:Math.min(...list.map(r=>r.cx)),x1:Math.max(...list.map(r=>r.cx)),z0:Math.min(...list.map(r=>r.cz)),z1:Math.max(...list.map(r=>r.cz))}; T3.tgt=[W/2,H*0.3,Dp/2]; T3.theta=Math.PI/2+0.45; T3.phi=0.9;
+    T3.r=Math.max(W,Dp)*1.5+2.5; T3.rMin=3; T3.rMax=null; T3.fit=[W,Dp,H,1,1.35];
+    T3.cam=new THREE.PerspectiveCamera(40,1,0.1,400);
+  }; }
+/* the distance that shows every room depends on the shape of the picture, which is known only once it is on screen */
+{ const r0=resize3D; resize3D=function(){ r0(); if(T3.fit&&T3.cam&&T3.host&&T3.host.clientWidth){ const f=T3.fit; T3.r=T3.rFit=v3Fit(f[0],f[1],f[2])*f[3]; T3.rMax=T3.r*f[4]; T3.fit=null } } }
+/* every drawing keeps the camera inside its limits; room names are buttons */
+{ const d0=draw3D;
+  draw3D=function(){ v3Clamp(); d0();
+    const host=T3.host, rs=T3.rooms3; if(!host||!rs||!T3.cam||!window.THREE) return;
+    const w=host.clientWidth, h=host.clientHeight; let html='';
+    rs.forEach(r=>{ const v=new window.THREE.Vector3(r.cx,r.h+0.45,r.cz).project(T3.cam); if(v.z>1) return;
+      html+=`<button class="lbl go ${T3.focus===r.id?'on':''}" data-a="v3Room" data-id="${esc(r.id)}" style="left:${((v.x+1)/2*w).toFixed(0)}px;top:${((1-v.y)/2*h).toFixed(0)}px">${esc(r.name)}</button>` });
+    host.insertAdjacentHTML('beforeend',html) }; }
+/* two fingers move the view (and pinch still zooms) */
+{ const m0=mount3D;
+  mount3D=function(host,rooms,single){ m0(host,rooms,single);
+    const c=T3.renderer&&T3.renderer.domElement; if(!c||c.__v3) return; c.__v3=true; const pt=new Map();
+    const mid=()=>{ const a=[...pt.values()]; return [(a[0][0]+a[1][0])/2,(a[0][1]+a[1][1])/2] };
+    c.addEventListener('pointerdown',e=>{ cancelAnimationFrame(T3.raf); pt.set(e.pointerId,[e.clientX,e.clientY]) });
+    c.addEventListener('pointermove',e=>{ if(!pt.has(e.pointerId)) return;
+      if(pt.size===2){ const a=mid(); pt.set(e.pointerId,[e.clientX,e.clientY]); const b=mid(); v3Pan(b[0]-a[0],b[1]-a[1]) }
+      else pt.set(e.pointerId,[e.clientX,e.clientY]) });
+    const up=e=>pt.delete(e.pointerId); c.addEventListener('pointerup',up); c.addEventListener('pointercancel',up);
+  }; }
+A.v3Room=d=>{ const r=(T3.rooms3||[]).find(x=>x.id===d.id); if(!r) return;
+  if(T3.focus===r.id){ A.v3All(); return }
+  T3.focus=r.id; v3Go({t:[r.cx,r.h*0.3,r.cz],r:Math.min(T3.rMax||99,v3Fit(r.w,r.d,r.h)*1.6)}) };
+A.v3All=()=>{ const d=T3.dims; if(!d) return; T3.focus=null; v3Go({t:[d.L/2,d.H*0.3,d.W/2],r:T3.rFit||T3.r,th:Math.PI/2+0.45,ph:0.9}) };
+/* "From above" and "From the corner" also bring the room back to the middle */
+{ const p0=A.preset; A.preset=d=>{ const dm=T3.dims; cancelAnimationFrame(T3.raf); if(dm) T3.tgt=[dm.L/2,dm.H*0.3,dm.W/2]; p0(d); if(T3.rFit){ T3.r=T3.rFit; draw3D() } } }
+
+/* ---------- the two 3D screens: no instruction text; the report button sits on the picture ---------- */
+{ const pe=PAGES.editor; PAGES.editor=rt=>{ let html=pe(rt); if(rt.mode!=='3d') return html;
+    const p=P(rt.pid), r=p&&R(p,rt.rid); if(!r) return html;
+    const shot=`<button class="v3-shot" data-a="saveView">${ic('camera','i s')}<span>${esc(t('3d.save'))}</span></button>`;
+    const strip=r.views.length?`<div class="v3-rep"><small>${esc(t('3d.inRep',{n:r.views.length}))}</small><div class="v3-shots">${r.views.map(v=>`<span class="v3-th"><img src="${v.img}" alt=""><button data-a="v3Del" data-id="${esc(v.id)}" aria-label="${esc(t('3d.del'))}">${ic('x','i xs')}</button></span>`).join('')}</div></div>`:'';
+    return html.replace(/<span class="hint">[^<]*<\/span>/,shot)
+      .replace(/<button class="btn pri full" data-a="saveView">[\s\S]*?<\/button><span class="fhint"[^>]*>[^<]*<\/span>/,strip) } }
+A.v3Del=d=>{ if(!guard()) return; const {p,r}=edRoom(); if(!r) return; r.views=r.views.filter(v=>v.id!==d.id); if(p.report&&p.report.views) delete p.report.views[d.id]; touchRoom(p); toast(t('3d.deleted')); render() };
+{ const pp=PAGES.project; PAGES.project=rt=>{ const html=pp(rt); if((rt.tab||'rooms')!=='rooms'||rt.view!=='3d') return html;
+    const p=P(rt.id), n=p?floorRooms3D(p,rt).length:0;
+    return html.replace(/<span class="hint">[^<]*<\/span>/,n>1?`<button class="v3-all" data-a="v3All">${ic('room','i s')}<span>${esc(t('3d.all'))}</span></button>`:'') } }
 
 /*@@JS:authend@@*/
 

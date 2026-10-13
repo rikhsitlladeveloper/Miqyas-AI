@@ -72,7 +72,7 @@ function qcFill(mm,id){ const c=qc(), v=c.vals[c.tool], i=qcActive(); if(i==null
 function qcResult(){ const c=qc(), v=c.vals[c.tool], g=i=>v[i]&&v[i].mm;
   if(c.tool==='area') return g(0)&&g(1)?{k:'qc.rArea',txt:fmtArea(g(0)*g(1))+' '+M2()}:null;
   if(c.tool==='wall'){ if(!g(0)||!g(1)) return null; const op=g(2)&&g(3)?g(2)*g(3):0; const net=g(0)*g(1)-op; return net>0?{k:'qc.rWall',txt:fmtArea(net)+' '+M2()}:{k:'qc.rWall',err:t('qc.opBig')} }
-  if(c.tool==='vol') return g(0)&&g(1)&&g(2)?{k:'qc.rVol',txt:(g(0)*g(1)*g(2)/1e9).toFixed(2).replace('.',DEC())+' '+M()+'³'}:null;
+  if(c.tool==='vol') return g(0)&&g(1)&&g(2)?{k:'qc.rVol',txt:(g(0)*g(1)*g(2)/1e9).toFixed(2).replace('.',DEC())+' '+t('u.m')+'³'}:null;
   if(c.tool==='sum') return v.length?{k:'qc.rSum',txt:fmtLen(v.reduce((a,x)=>a+x.mm,0))+' '+M()}:null;
   if(c.tool==='brick'){ if(!g(0)||!g(1)) return null; const op=c.bop&&g(2)&&g(3)?g(2)*g(3):0, net=g(0)*g(1)-op; if(net<=0) return {k:'qc.rBrick',err:t('qc.opBig')};
     const r=qbCount(net); return {k:'qc.rBrick',txt:qbInt(r.bricks)+' <small>'+esc(t('u.pcs'))+'</small>',sub:t('qb.mortar')+' '+r.mortar.toFixed(2).replace('.',DEC())+' '+M()+'³',area:fmtArea(net)+' '+M2()} }
@@ -100,7 +100,7 @@ PAGES.measure=()=>{
   if(b!=='connected'){ m.live=false; seen('disconnected') }
   const last=b==='connected'&&m.mode==='cont'&&m.val!=null?m.val:rs[0]?rs[0].mm:null;
   const status=b!=='connected'?`<span>${esc(t(b==='off'?'dev.off':b==='denied'?'dev.denied':'dev.disc'))}</span>`:`<span class="live ${m.live?'on':''}">${esc(t(m.live?'meas.live':'meas.idle'))}</span>`;
-  const meter=`<div class="qm-meter"><div class="st">${status}<button data-a="refInfo">${esc(t('meas.ref'))}</button></div><span class="qm-v"><span id="liveVal">${last!=null?fmtLen(last,null,true):'–,–––'}</span><small>${esc(M())}</small></span>
+  const meter=`<div class="qm-meter"><div class="st">${status}</div><span class="qm-v"><span id="liveVal">${last!=null?fmtLen(last,null,true):'–,–––'}</span><small>${esc(M())}</small></span>
     ${b==='connected'?`<div class="seg wide"><button class="${m.mode==='single'?'on':''}" data-a="measMode" data-v="single">${esc(t('meas.single'))}</button><button class="${m.mode==='cont'?'on':''}" data-a="measMode" data-v="cont">${esc(t('meas.cont'))}</button></div>${m.mode==='cont'?`<button class="qm-live" data-a="measLive">${ic('laser','i s')}${esc(t(m.live?'qc.stop':'qc.start'))} ${simtag()}</button>`:''}`
       :`<div class="banner warn" style="margin:0;width:100%">${ic('btoff','i s')}<span class="tx">${esc(t(b==='off'?'dv.offBody':b==='denied'?'dv.deniedBody':'ms.discBody'))}</span></div>`}</div>`;
   const tools=`<div class="qm-tools">${['area','wall','vol','sum','brick'].map(k=>`<button class="${c.tool===k?'on':''}" data-a="qcTool" data-v="${k}" aria-pressed="${c.tool===k}">${qcIc(k)}<span>${esc(t('qc.'+k))}</span></button>`).join('')}</div>`;
@@ -110,15 +110,15 @@ PAGES.measure=()=>{
   const main=b!=='connected'?`<button class="btn pri" data-a="device">${ic('bt','i s')}${esc(t('qc.connect'))}</button>`
     :m.mode==='cont'?`<button class="btn pri ${m.val==null?'dis':''}" data-a="qmSaveLive">${ic('save','i s')}${esc(t('qc.saveLive'))}</button>`
     :`<button class="btn pri" data-a="qmMeasure">${ic('laser','i s')}${esc(t('qc.measure'))}</button>`;
-  return `<section class="page ${U.anim||''}">${bar({right:devChip()})}<div class="h1">${esc(t('tab.measure'))}</div>${banners()}<div class="scroll" data-scroll="measure"><div class="qm">${meter}${tools}${qcCalc()}${rs.length&&!c.vals[c.tool].some(Boolean)?`<p class="qm-hint">${esc(t('qc.pick'))}</p>`:''}
-    <div class="qm-sech"><b>${esc(t('qc.readings'))}</b>${rs.length?`<button data-a="qmList">${esc(t(U.qmList?'qc.hide':'qc.list'))}</button>`:''}</div>${chips}${list}</div></div>
-    <div class="footer qm-foot"><div class="btnrow"><button class="btn sec" data-a="qmManual">${ic('kbd','i s')}${esc(t('ed2.manual'))}</button>${main}</div></div></section>`;
+  return `<section class="page ${U.anim||''}"><header class="bar qm-bar"><div class="h1">${esc(t('tab.measure'))}</div>${devChip()}</header>${banners()}<div class="scroll" data-scroll="measure"><div class="qm">${meter}${tools}${qcCalc()}${rs.length&&!c.vals[c.tool].some(Boolean)?`<p class="qm-hint">${esc(t('qc.pick'))}</p>`:''}
+    <div class="qm-sech"><b>${esc(t('qc.readings'))}</b>${rs.length?`<button data-a="qmList">${esc(t(U.qmList?'qc.hide':'qc.list'))}</button>`:''}</div>${chips}${list}${camStrip()}</div></div>
+    <div class="footer qm-foot"><div class="btnrow">${camBtn()}<button class="btn sec" data-a="qmManual">${ic('kbd','i s')}${esc(t('ed2.manual'))}</button>${main}</div></div></section>`;
 };
 function qmAddReading(mm,src){ const r={id:uid(),n:S.readings.length+1,mm,ts:Date.now(),src}; S.readings.push(r); qcFill(mm,r.id); commit(); return r }
 A.qmMeasure=()=>{ A.measSim(); const m=U.meas; if(m.val==null) return; qmAddReading(m.val,'sim'); seen('quick'); render() };
 A.qmSaveLive=()=>{ const m=U.meas; if(m.val==null) return; qmAddReading(m.val,'sim'); seen('quick'); toast(t('qm.saved')); render() };
 A.qmManual=()=>{ initForm({'qm.val':''}); openSheet({type:'qmManual'}); setFocus('qm.val','num',''); render() };
-SHEETS.qmManual=()=>sheetWrap(t('meas.manualTitle'),field('qm.val',t('qc.dist'),{num:true,suf:M(),err:lenFieldErr('qm.val',DIM_MAX.A),hint:t('ms.hint')}),`<button class="btn pri full" data-a="qmManualSave">${esc(t('common.save'))}</button>`);
+SHEETS.qmManual=()=>sheetWrap(t('meas.manualTitle'),field('qm.val',t('qc.dist'),{num:true,suf:M(),err:lenFieldErr('qm.val',DIM_MAX.A),hint:msHint()}),`<button class="btn pri full" data-a="qmManualSave">${esc(t('common.save'))}</button>`);
 A.qmManualSave=()=>{ const v=U.form['qm.val'], res=lenErr(v,DIM_MAX.A); if(!v||res.err){ U.touched['qm.val']=true; seen('invalid'); render(); return } qmAddReading(res.mm,'manual'); seen('manual'); closeSheet(true); toast(t('qm.saved')); render() };
 A.qmList=()=>{ U.qmList=!U.qmList; render() };
 A.qcTool=d=>{ const c=qc(); c.tool=d.v; c.act=null; render() };

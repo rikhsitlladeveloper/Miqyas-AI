@@ -14,6 +14,19 @@ The founder asked for the demo parts to go, so this is now the app itself, shown
 - **Still not real:** no accounts, no cloud, no subscription payments. Data is kept in the web view's local storage (photos: a few dozen at most). Fonts and the 3D library load from the internet. In a plain browser there is no share sheet, so PDF and backup show "only on the phone".
 - **Checked on the Android emulator from a clean install (13 October 2026):** all of the above with real touches, in the four languages (28 screens each, no clipped text). **Not run on an iPhone:** the iPhone shell is only compiled in GitHub Actions.
 
+## Founder's review (13 October 2026, same day)
+
+`modules/ux.js` and `ux.css` hold the 3D and toast changes; the others are in the page modules named below.
+
+- **Home and Projects** (`home.js`, `projects.js`): the laser status sits in the top bar, on the same line as the METRX logo. The date line on Home and the blue line above "Loyihalar" are gone.
+- **Project 3D:** rooms stand in rows instead of one long line and always fit the picture. One finger turns the view, two fingers move it and pinch zooms. The view's centre can't leave the rooms and the zoom-out is limited, so the rooms can't be lost. Tapping a room's name goes to that room; "Hammasi" shows all of them again. The "drag to orbit" text is gone.
+- **Room 3D:** "Ko'rinishni saqlash" is now "Hisobotga qo'shish" on the picture itself. The views added to the report are listed under the picture and each one can be removed there.
+- **Dragging a door or window** (`openings.js`): the drag used to be dropped part-way. The browser ignored "don't scroll" on a shape inside a drawing and took the drag for a page scroll; a toast closing during a drag also redrew the screen under the finger. Each opening in the wall view now has a real button over it, the plan no longer lets the browser scroll, and a toast waits for the finger to lift.
+- **Moving a window up or down:** while it is dragged, the wall shows its height above the floor and its gap to the ceiling, with guide lines across the wall. It settles on the usual sill height, on another window's sill, and level with another opening's head. A sideways drag no longer changes the height, and the other way round.
+- **Toasts** appear at the top of the screen everywhere.
+- **Room plan, bottom panel** (`editor.js`): it is one sheet. Drag the handle, or swipe the card up, and it follows the finger and settles open or closed. "Hammasi" is now "Barcha o'lchamlar" with an arrow that shows the direction.
+- **Checked on the Android emulator** with real touches (two-finger moving was checked with scripted touches, because the emulator tool sends one finger only), in the four languages. Not run on an iPhone.
+
 ---
 
 ## Earlier notes (Stage 2 prototype, Direction A "Chizma")
@@ -70,7 +83,7 @@ The five bottom tabs, from left to right:
   - **Tabs:**
     - **Ish joylari (Workspaces):** each workspace with a small plan, counts and its own net wall area. "2D plan" and "3D" buttons show all rooms, and a floating "+ Ish joyi" (Workspace) button adds one.
     - **Smeta (Estimate)** and **Takliflar (Quotes):** as before.
-    - **Ma’lumot (Details):** customer, phone with Call, address, location with "Open in maps", currency and decimals, report language, and "Edit details".
+    - **Ma’lumot (Details):** customer, phone with Call, address, location with "Open in maps", currency, report language, and "Edit details".
   - **Russian tab labels:** shortened to "Зоны" and "КП" so all four fit at 360 px. Inside a project, the Rooms section switches between List, 2D (every room drawn at one scale, with name and area) and 3D (the floor's measured rooms side by side).
 - **O‘lchash (Measure):** live laser readout in single or continuous mode, saved readings, typed values, and sending a reading to a room.
 - **Doska (Board):** kanban columns for Measuring → Estimating → Quote sent → In progress → Done. Each project card has tasks, notes and a Move action.
@@ -124,7 +137,7 @@ The look follows the founder's Figma file: white pages, light-blue outlines, a b
 
 - **First run without an account:** enter your name and phone. The phone field has a fixed +998 prefix, a phone keypad, and a check that the number has 9 digits. Both are required. They stay on the phone and appear on reports.
 - **New project:** project name and customer name (both required), customer phone, address, and location (all optional). In this prototype, "Joylashuvni aniqlash" fills in simulated GPS coordinates, shown with the accuracy and a map placeholder.
-- **Settings instead of form fields:** currency, decimal places and report language are no longer on the form. A new project copies them from Profil → "Valyuta va kasr" and "Standart hisobot tili". Changing those settings affects new projects only, so a project never switches currency after its rows are entered. The report preview still lets you pick a different language for one report.
+- **Settings instead of form fields:** currency and report language are no longer on the form. A new project copies them from Profil → "Valyuta" and "Standart hisobot tili". (The decimals setting was removed on 13 October 2026; money is in whole units.) Changing those settings affects new projects only, so a project never switches currency after its rows are entered. The report preview still lets you pick a different language for one report.
 
 The interface style follows the "Mobile Apps – Prototyping Kit" community file: soft grey backgrounds, rounded white cards, pill segmented controls, underline tabs and icon tiles in settings. The drawing conventions (hatched walls, dimension lines, the PDF layout) are unchanged.
 
@@ -175,6 +188,19 @@ The founder chose option A: a stage list, top to bottom.
 - **Quotes:** the row shows the quote total and how many days the quote has been waiting, highlighted from two days on. If the customer has a phone number, there's also a call button that opens the dialer.
 - **Done:** finished jobs fold into one row, which opens with "Show".
 - **Removed:** the side-scrolling columns, the duplicate stage chips and the Move sheet. The "phone only" note moved to the bottom. Tapping a row still opens the job detail (stage, tasks, notes).
+
+## Centimetres and camera measuring (13 October 2026)
+
+The founder confirmed the design in `design/camera/camera-measure-preview.html` ("as recommended").
+
+- **Units:** Profile → More settings → Units offers Metr or Santimetr. `UNIT()`, `fmtLen()` and `lenErr()` in `prototype.html` are the only places that format and read lengths; values stay in millimetres. A quote snapshot stores its unit.
+- **`modules/camera.js` and `camera.css`:**
+  - the Kamera button and the "Suratlar" strip on the Measure tab;
+  - the live camera screen (`getUserMedia`, a line drawn on the view, value from the laser or typed, Save);
+  - Share, Add to a project and Delete for a saved picture, which opens in the existing photo editor.
+- **The number never comes from the picture.** It is the laser's or typed. The line stays where it was drawn on the screen, so the saved picture is the record.
+- **Phone wrappers:** Android got the camera permission, permission handling for the live view and `MetrxNative.shareImage`. The iPhone wrapper got the same bridge call and the camera permission handler, but has not been built or run since.
+- **In a browser** the live camera needs camera permission for the page; in the artifact preview it cannot open, and the screen offers "Take a photo" instead.
 
 ## Measure
 

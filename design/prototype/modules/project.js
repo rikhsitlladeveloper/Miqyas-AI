@@ -39,13 +39,12 @@ wsList=function(p){
 };
 function pjInfo(p){
   const kv=(label,val,extra)=>`<div class="pj-kv"><span class="tx"><small>${esc(label)}</small><b>${val}</b></span>${extra||''}</div>`;
-  const prec=p.precision?t('es.pN',{n:p.precision}):t('es.p0');
   return `<div class="pj-info"><div class="lgroup">
     ${kv(t('pr.customer'),esc(dn(p.customer)||'—'))}
     ${kv(t('pr.phone'),p.phone?esc(fmtPhone(p.phone)):esc(t('pj.noPhone')),p.phone?`<a class="btn sec" href="tel:+998${esc(digits(p.phone))}">${ic('phone','i s')}${esc(t('pl.call'))}</a>`:'')}
     ${kv(t('pr.address'),esc(dn(p.address)||'—'))}
     ${kv(t('pr.location'),p.location?`<span class="cd">${p.location.lat.toFixed(5)}, ${p.location.lng.toFixed(5)}</span>`:esc(t('loc.none')),p.location?`<button class="btn sec" data-a="openMap">${ic('pin','i s')}${esc(t('loc.open'))}</button>`:'')}
-    ${kv(t('se.curPrec'),esc(p.currency+', '+prec))}
+    ${kv(t('np.currency'),esc(p.currency))}
     ${kv(t('rpt.lang'),esc(LNAME[p.report.lang]||p.report.lang))}
   </div><button class="btn sec full" data-a="editProject">${ic(isLocked()?'lock':'edit','i s')}${esc(t('pj.edit'))}</button></div>`;
 }
