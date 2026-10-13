@@ -513,6 +513,9 @@ button{font:inherit;color:inherit}
 .wc-th.note b{display:block;margin-bottom:4px;font-size:13.5px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .wc-th.note p{display:-webkit-box;-webkit-line-clamp:4;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-line;overflow-wrap:anywhere}
 .wc-th.note .ckp{display:flex;align-items:center;gap:4px;margin-top:6px;color:var(--cobalt);font-weight:600}
+/* the PDF badge sits top-left: push the note text below it instead of under it */
+.wcard:has(.wc-pdf) .wc-th.note{padding-top:32px}
+.wcard:has(.wc-pdf) .wc-th.note p{-webkit-line-clamp:3}
 .wc-b{display:grid;gap:2px;min-width:0;padding:8px 42px 10px 10px}
 .wc-k{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--ink3)}
 .wc-b b{font-size:14.5px;font-weight:600;line-height:1.25;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
@@ -4534,6 +4537,10 @@ PAGES.note=(rt)=>{
   </div></div></section>`;
 };
 const noteIt=()=>itemOf(top()).it;
+/* leaving a note that was never filled in (no title, text or list items) removes it, so stray empty notes don't pile up */
+{ const basePop=pop; pop=function(){ const r=top(); if(r&&r.s==='note'){ noteSync(); const {w,it}=itemOf(r), blank=v=>!String(dn(v)||'').trim();
+    if(it&&blank(it.name)&&blank(it.text)&&!(it.checks||[]).some(c=>!blank(c.text))){ const a=wsItems(w), i=a.indexOf(it); if(i>=0){ a.splice(i,1); commit() } } }
+  return basePop.apply(this,arguments) } }
 A.ntAdd=()=>{ if(!guard()) return; noteSync(); const it=noteIt(); const c={id:uid(),text:'',done:false}; (it.checks||(it.checks=[])).push(c); U.form['ck_'+c.id]=''; it.edited=Date.now(); commit(); setFocus('ck_'+c.id,'text',''); render() };
 A.ntToggle=d=>{ if(!guard()) return; noteSync(); const c=noteIt().checks.find(x=>x.id===d.id); c.done=!c.done; noteIt().edited=Date.now(); commit(); render() };
 A.ntDel=d=>{ if(!guard()) return; noteSync(); const it=noteIt(); it.checks=it.checks.filter(x=>x.id!==d.id); delete U.form['ck_'+d.id]; if(U.focus&&U.focus.id==='ck_'+d.id) blur(); it.edited=Date.now(); commit(); render() };
@@ -4935,6 +4942,7 @@ function pjInfo(p){
 Object.assign(D,{
 'ed2.next':['Keyingi: {w}','Далее: {w}','Next: {w}'],
 'ed2.fromLaser':['{w}, lazerdan','{w}, с лазера','{w}, from the laser'],
+'ed2.fromQuick':['{w}, O‘lchash bo‘limidan','{w}, из раздела «Замер»','{w}, from the Measure tab'],
 'ed2.unconf':['Tasdiqlanmagan','Не подтверждено','Not confirmed'],
 'ed2.confirmed':['Tasdiqlangan','Подтверждено','Confirmed'],
 'ed2.notMeasured':['O‘lchanmagan','Не измерено','Not measured'],
@@ -4989,7 +4997,7 @@ function ed2Card(p,r){
   const foot=f.k?`<div class="ed2-foot"><span>${esc(open.length?t('ed2.left',{w:ed2Name(open[0]),n:open.length}):(f.kind==='unset'||f.kind==='recv')?t('ed2.last'):'')}</span><button data-a="edPanel">${ic('chev','i s')}${esc(t('ed2.all'))}</button></div>`
     :`<div class="ed2-foot"><span></span><button data-a="edPanel">${ic('chev','i s')}${esc(t('ed2.all'))}</button></div>`;
   if(f.kind==='recv'){ const pd=r.dims[f.k].pending;
-    return `<div class="ed2-card"><div class="ed2-q"><span class="tx"><small>${esc(t('ed2.fromLaser',{w:ed2Name(f.k)}))}</small><span class="ed2-v recv">${fmtLen(pd.mm,null,true)}<small>${esc(M())}</small></span></span><span class="ed2-st recv">${ic('clock','i xs')}${esc(t('ed2.unconf'))}</span></div>
+    return `<div class="ed2-card"><div class="ed2-q"><span class="tx"><small>${esc(t(pd.from==='quick'?'ed2.fromQuick':'ed2.fromLaser',{w:ed2Name(f.k)}))}</small><span class="ed2-v recv">${fmtLen(pd.mm,null,true)}<small>${esc(M())}</small></span></span><span class="ed2-st recv">${ic('clock','i xs')}${esc(t('ed2.unconf'))}</span></div>
       <div class="ed2-acts"><button class="btn sec" data-a="edAgain" data-k="${f.k}">${ic('laser','i s')}<span>${esc(t('ed2.again'))}</span></button><button class="btn pri" data-a="edConfirm" data-k="${f.k}">${ic('check','i s')}<span>${esc(t('ed2.confirm'))}</span></button></div>${foot}</div>` }
   if(f.kind==='unset'||f.kind==='again'){ const again=f.kind==='again';
     return `<div class="ed2-card"><div class="ed2-q"><span class="tx"><small>${esc(t(again?'ed2.re':'ed2.next',{w:ed2Name(f.k)}))}</small><span class="ed2-v unset">?<small>${esc(M())}</small></span></span>${again?`<button class="ed2-st unset" data-a="edCancelRe">${ic('x','i xs')}${esc(t('common.cancel'))}</button>`:`<span class="ed2-st unset">${esc(t('ed2.notMeasured'))}</span>`}</div>${again?`<p class="fhint">${esc(t('ed2.cur',{v:fmtLen(r.dims[f.k].v)}))}</p>`:''}
@@ -5051,6 +5059,8 @@ A.edLaser=d=>{ if(!guard()) return; const {r}=ed2Room(); const target=simTarget(
 A.edManual=d=>{ if(!guard()) return; ed2Sheet(d.k,true) };
 A.edRemeasure=d=>{ if(!guard()) return; const {r}=ed2Room(); if(r.dims[d.k]) delete r.dims[d.k].pending; U.edFocus=d.k; U.edFocusRid=r.id; U.edRe=r.id+':'+d.k; render() };
 A.edCancelRe=()=>{ U.edRe=null; render() };
+/* any confirmed value (typed in the sheet included) ends "measure again" for that dimension and moves the card on */
+{ const ad=applyDim; applyDim=function(p,r,dim,mm,src){ if(U.edRe===r.id+':'+dim) U.edRe=null; if(U.edFocus===dim&&U.edFocusRid===r.id) U.edFocus=null; return ad.apply(this,arguments) } }
 /* swipe the panel handle up/down */
 { let gp=null;
   appEl.addEventListener('pointerdown',e=>{ const g=e.target.closest&&e.target.closest('.ed2-grab'); gp=g?{y:e.clientY,id:e.pointerId}:null });
@@ -5479,7 +5489,11 @@ function auBack(){
   if(s==='welcome'){ if(S.authFromProfile){ auExit(); return true } return false }
   if(s==='suDone'){ auExit(); return true }
   if(s==='fpDone'){ A.auToLogin(); return true }
-  const b=AU_BACK[s]; if(b){ auGo(b,'back'); return true }
+  const b=AU_BACK[s];
+  /* going back to a phone step keeps what was already typed there */
+  if(b==='su1'&&U.su) initForm({bname:U.su.name,bphone:U.su.phone});
+  if(b==='fp1'&&U.fp) initForm({fpphone:U.fp.phone});
+  if(b){ auGo(b,'back'); return true }
   return false;
 }
 

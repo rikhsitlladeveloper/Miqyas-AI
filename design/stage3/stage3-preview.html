@@ -1,0 +1,288 @@
+<title>METRX Stage 3 Preview</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+:root{
+  --bg:#F4F5F7; --panel:#FFFFFF; --fg:#0E1C36; --fg2:#47536A; --fg3:#6B7486; --rule:#DDE2EA; --fill:#EEF0F4;
+  --accent:#1C4BD1; --accent2:#1238A8; --wash:#EAF0FE;
+  --ok:#0B6B4F; --okw:#E3F3EC; --amb:#8A4500; --ambw:#FFF1DF; --vio:#4A2FB0; --viow:#ECE7FC;
+  --paper:#FFFFFF; --paperfg:#0E1C36; --code:#F3F5F9;
+  --f-ui:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --f-num:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",sans-serif; --f-mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){
+  --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --fg3:#8793AB; --rule:#26324A; --fill:#1A2540;
+  --accent:#7EA0FF; --accent2:#A9C0FF; --wash:#17254A;
+  --ok:#5FD3A8; --okw:#11302A; --amb:#F2B66B; --ambw:#33260F; --vio:#B9A6FF; --viow:#251E47;
+  --paper:#0F182B; --paperfg:#E8EDF7; --code:#0D1526; color-scheme:dark } }
+:root[data-theme="dark"]{
+  --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --fg3:#8793AB; --rule:#26324A; --fill:#1A2540;
+  --accent:#7EA0FF; --accent2:#A9C0FF; --wash:#17254A;
+  --ok:#5FD3A8; --okw:#11302A; --amb:#F2B66B; --ambw:#33260F; --vio:#B9A6FF; --viow:#251E47;
+  --paper:#0F182B; --paperfg:#E8EDF7; --code:#0D1526; color-scheme:dark }
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:400 15.5px/1.55 var(--f-ui)}
+.wrap{max-width:1040px;margin:0 auto;padding-inline:20px;padding-block:34px 60px;display:grid;gap:44px}
+h1{margin:0;font:700 clamp(28px,5vw,40px)/1.1 var(--f-ui);letter-spacing:-.015em;text-wrap:balance}
+h2{margin:0;font:600 23px/1.2 var(--f-ui);text-wrap:balance}
+h3{margin:0;font:600 16px/1.3 var(--f-ui)}
+p{margin:0;max-width:68ch}
+.lead{font-size:17px;color:var(--fg2)}
+.kick{font:600 13px/1 var(--f-num);letter-spacing:.14em;color:var(--accent)}
+.muted{color:var(--fg2)} .sm{font-size:13.5px}
+section{display:grid;gap:16px;min-width:0}
+.head{display:grid;gap:10px}
+/* stage rail */
+.rail{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+.rail div{display:grid;gap:4px;padding:12px 14px;border-radius:12px;background:var(--panel);border:1px solid var(--rule);min-width:0}
+.rail b{font:600 15px/1.2 var(--f-ui)}
+.rail span{font-size:13px;color:var(--fg2)}
+.rail small{font:600 12px/1 var(--f-num);letter-spacing:.06em}
+.rail .done small{color:var(--ok)} .rail .now{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)} .rail .now small{color:var(--accent)} .rail .later small{color:var(--fg3)}
+@media (max-width:720px){ .rail{grid-template-columns:repeat(2,minmax(0,1fr))} }
+/* two-part summary */
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(320px,100%),1fr));gap:14px}
+.card{background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;display:grid;gap:8px;align-content:start;min-width:0}
+.card ul{margin:0;padding-left:18px;display:grid;gap:4px;color:var(--fg2);font-size:14.5px}
+.num{font:700 15px/1 var(--f-num);color:var(--accent);letter-spacing:.04em}
+/* results table */
+.tbl{overflow-x:auto;border:1px solid var(--rule);border-radius:14px;background:var(--panel)}
+table{border-collapse:collapse;width:100%;min-width:640px;font-size:14.5px}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--rule);vertical-align:top}
+th{font:600 12.5px/1.2 var(--f-ui);color:var(--fg2);background:var(--fill)}
+tr:last-child td{border-bottom:0}
+td:first-child{font-weight:600;white-space:nowrap}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:2px 9px;border-radius:999px;font:600 12.5px/1.5 var(--f-ui);white-space:nowrap}
+.tag.ok{background:var(--okw);color:var(--ok)} .tag.fix{background:var(--wash);color:var(--accent2)} .tag.dev{background:var(--ambw);color:var(--amb)} .tag.you{background:var(--viow);color:var(--vio)}
+.stat{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
+.stat div{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:12px 14px;display:grid;gap:2px}
+.stat b{font:700 28px/1 var(--f-num);font-variant-numeric:tabular-nums}
+.stat span{font-size:13px;color:var(--fg2)}
+/* document previews */
+.doc{display:grid;grid-template-columns:minmax(0,300px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:820px){ .doc{grid-template-columns:minmax(0,1fr)} }
+.doc .about{display:grid;gap:10px}
+.doc .about ul{margin:0;padding-left:18px;display:grid;gap:5px;color:var(--fg2);font-size:14.5px}
+.file{font:500 13px/1 var(--f-mono);color:var(--accent);overflow-wrap:anywhere}
+.page{background:var(--paper);color:var(--paperfg);border:1px solid var(--rule);border-radius:10px;box-shadow:0 2px 14px rgba(16,24,40,.08);overflow:hidden;min-width:0}
+.page .bar{display:flex;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--rule);background:var(--fill);font:500 12.5px/1 var(--f-mono);color:var(--fg2)}
+.page .bar i{width:9px;height:9px;border-radius:50%;background:var(--rule);display:block}
+.page .in{padding:18px 20px 20px;display:grid;gap:12px;font-size:14px;line-height:1.5}
+.page h4{margin:0;font:700 19px/1.2 var(--f-ui)}
+.page h5{margin:6px 0 0;font:600 14.5px/1.3 var(--f-ui)}
+.page p{max-width:none;color:var(--fg2)}
+.page ul{margin:0;padding-left:18px;color:var(--fg2);display:grid;gap:3px}
+.page .scrollx{overflow-x:auto}
+.page table{min-width:460px;font-size:13.5px}
+.page th,.page td{padding:7px 10px}
+.page code{font:500 12.5px var(--f-mono);background:var(--code);padding:1px 5px;border-radius:4px}
+.fade{height:38px;margin-top:-38px;position:relative;background:linear-gradient(transparent,var(--paper))}
+.more{padding:0 20px 16px;font-size:13px;color:var(--fg3)}
+/* swatches */
+.sw{display:grid;grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:8px}
+.sw div{display:grid;gap:5px;font-size:12.5px;color:var(--fg2);min-width:0}
+.sw i{display:block;height:40px;border-radius:8px;border:1px solid var(--rule)}
+.sw b{font:600 13px/1.2 var(--f-ui);color:var(--paperfg)}
+.sw code{justify-self:start}
+.type{display:grid;gap:6px}
+.type div{display:flex;align-items:baseline;justify-content:space-between;gap:12px;border-bottom:1px solid var(--rule);padding-bottom:6px}
+.type div:last-child{border-bottom:0}
+.type span{font-size:12.5px;color:var(--fg3);white-space:nowrap}
+.ctl{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 16px;border-radius:12px;font:600 14px var(--f-ui)}
+.btn.pri{background:#1C4BD1;color:#fff} .btn.sec{background:var(--fill);color:var(--paperfg)}
+.st{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font:600 12.5px/1.2 var(--f-ui)}
+.st svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.st.unset{background:var(--fill);color:var(--fg2)} .st.recv{background:var(--ambw);color:var(--amb)} .st.conf{background:var(--okw);color:var(--ok)}
+/* checklist */
+.chk{display:grid;gap:0}
+.chk div{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:start;padding:8px 0;border-bottom:1px solid var(--rule)}
+.chk div:last-child{border-bottom:0}
+.chk i{width:18px;height:18px;border-radius:5px;border:2px solid var(--fg3);display:grid;place-items:center;margin-top:2px}
+.chk i.on{background:var(--ok);border-color:var(--ok)}
+.chk i.on::after{content:"";width:9px;height:5px;border-left:2px solid var(--paper);border-bottom:2px solid var(--paper);transform:rotate(-45deg) translateY(-1px)}
+.chk span{color:var(--paperfg)}
+/* decisions */
+.dec{display:grid;gap:10px}
+.dec > div{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px;background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:14px 16px}
+.dec .n{font:700 20px/1.1 var(--f-num);color:var(--vio)}
+.dec b{display:block;margin-bottom:2px}
+.dec p{color:var(--fg2);font-size:14.5px}
+</style>
+
+<div class="wrap">
+
+  <header class="head">
+    <span class="kick">METRX · STAGE 3</span>
+    <h1>Stage 3: check the design, then write it down for the build</h1>
+    <p class="lead">Stage 2 gave you a prototype you can tap through. Stage 3 does two things with it: tests it properly, and turns it into three documents a developer can build from without guessing. Nothing new gets designed in this stage.</p>
+    <div class="rail" aria-label="Project stages">
+      <div class="done"><small>DONE</small><b>Stage 1</b><span>Three directions, one chosen</span></div>
+      <div class="done"><small>DONE</small><b>Stage 2</b><span>Clickable prototype, every page designed with you</span></div>
+      <div class="now"><small>NEXT</small><b>Stage 3</b><span>Review and handoff documents</span></div>
+      <div class="later"><small>AFTER YOUR APPROVAL</small><b>Build</b><span>CLAUDE_START.md, the real app</span></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="head"><h2>What Stage 3 consists of</h2></div>
+    <div class="two">
+      <div class="card"><span class="num">PART 1</span><h3>Review</h3>
+        <p class="muted sm">I walk the whole scenario and try to break it, then report what I checked and what still needs a real phone.</p>
+        <ul><li>The core scenario, start to finish</li><li>Phone widths and the on-screen keyboard</li><li>Long Russian and Uzbek labels, Cyrillic text</li><li>Number entry and every error message</li><li>Laser, offline, failed-save and expired states</li></ul></div>
+      <div class="card"><span class="num">PART 2</span><h3>Handoff</h3>
+        <p class="muted sm">Three documents saved in <span class="file">design/</span>, next to the prototype.</p>
+        <ul><li><b>SCREEN_SPEC.md</b>: what every screen does and every state it can be in</li><li><b>DESIGN_SYSTEM.md</b>: colours, type, spacing, controls, states, icons</li><li><b>REVIEW_CHECKLIST.md</b>: what passed, what needs a device, what you still decide</li></ul></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kick">PART 1 · ALREADY STARTED</span><h2>Today's emulator run is the first review pass</h2>
+      <p class="muted">You asked me to test everything on the Android emulator. I installed a clean copy and went through it screen by screen, using real touches where it matters (dragging a door, rotating 3D, swiping pages, the back button). These are the actual results.</p></div>
+    <div class="stat">
+      <div><b>12</b><span>areas of the app tested</span></div>
+      <div><b>160</b><span>screen checks across 4 languages, none with cut-off text</span></div>
+      <div><b>5</b><span>problems found, all fixed and re-tested</span></div>
+      <div><b>0</b><span>script errors in the app during the run</span></div>
+    </div>
+    <div class="tbl"><table>
+      <tr><th>Area</th><th>What I tried</th><th>Result</th></tr>
+      <tr><td>Sign-in</td><td>Sign up, SMS code (wrong and right), password rules, log in, forgot password, Google, no account, sign out</td><td><span class="tag ok">Works</span> <span class="tag fix">1 fixed</span></td></tr>
+      <tr><td>New project</td><td>Empty and invalid fields, location, currency, save</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>Workspaces</td><td>Room plan, photo with markup, note with checklist, free drawing, menus</td><td><span class="tag ok">Works</span> <span class="tag fix">2 fixed</span></td></tr>
+      <tr><td>Room editor</td><td>Laser reading received then confirmed, typed values, 6 kinds of invalid input, undo, redo, measure again</td><td><span class="tag ok">Works</span> <span class="tag fix">1 fixed</span></td></tr>
+      <tr><td>Laser states</td><td>Connected, disconnected, Bluetooth off, permission denied, scan and connect</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>Doors and windows</td><td>Add, too wide, too tall, past the corner, overlapping, drag by finger, exact position, all four walls</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>3D</td><td>Room shell with door and window, rotate by finger, presets, colours, save a view</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>Estimate</td><td>Rows, invalid numbers, empty price, totals: 600 000 + 2 640 000 + 1 000 000 = 4 240 000</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>Report and quote</td><td>4 pages, swipe, zoom, report language, share, issue №1, change the estimate, issue №2</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>Home, Projects, Board, Measure, Profile</td><td>Every tile, switch, search, next stage, tick, calculator tools, status tiles, backup and restore</td><td><span class="tag ok">Works</span> <span class="tag fix">1 fixed</span></td></tr>
+      <tr><td>Special states</td><td>Subscription expired (read-only), no internet, save failed with retry</td><td><span class="tag ok">Works</span></td></tr>
+      <tr><td>Android</td><td>Back button at every level, call button opens the dialer, real photo picker, data survives a crash and a reboot</td><td><span class="tag ok">Works</span></td></tr>
+    </table></div>
+    <div class="two">
+      <div class="card"><h3>The 5 fixes</h3><ul>
+        <li>Typing a new value while measuring a wall again left the step card stuck on "measure again".</li>
+        <li>The "PDF" badge covered the first words of a note on its card.</li>
+        <li>Home's Note tile left an empty note behind each time you opened it and went back.</li>
+        <li>A reading typed by hand and sent to a room arrived labelled "from the laser".</li>
+        <li>Going Back from the password step emptied the name and phone you had typed.</li></ul></div>
+      <div class="card"><h3>Not covered today</h3><ul>
+        <li>Pinch to zoom (the test tool can't pinch).</li>
+        <li>L-shaped and free-drawn rooms.</li>
+        <li>Deleting or moving projects, workspaces and items.</li>
+        <li>Confirming a restore (I stopped before it to keep the test data).</li>
+        <li>A 360 px wide phone on the emulator (it's 411 px; 360 px was checked in the browser).</li></ul>
+        <p class="muted sm">These go into the Stage 3 walkthrough.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kick">PART 2 · DOCUMENT 1 OF 3</span><h2>SCREEN_SPEC.md</h2></div>
+    <div class="doc">
+      <div class="about">
+        <p class="muted">The developer's answer to "what should this screen do when…". One entry per screen, about 25 entries.</p>
+        <ul><li>Purpose, and how you get there</li><li>The main action</li><li>What data it shows and where it comes from</li><li>Every state: empty, waiting, error, read-only</li><li>What each tap, drag and back does</li><li>Rules that must never break</li></ul>
+        <p class="muted sm">It describes behaviour and data, which a screenshot can't.</p>
+      </div>
+      <div class="page"><div class="bar"><i></i><i></i><i></i>design/SCREEN_SPEC.md</div><div class="in">
+        <h4>7. Room editor (plan)</h4>
+        <p><b>Purpose:</b> give a room its dimensions, one at a time, and show the plan filling in.<br><b>Opened from:</b> a room card in a workspace, "Continue" on Home, "2D plan" on a project.<br><b>Main action:</b> "Take from laser" on the step card.</p>
+        <h5>Dimension states</h5>
+        <div class="scrollx"><table>
+          <tr><th>State</th><th>Shown as</th><th>Buttons</th><th>Plan and areas</th></tr>
+          <tr><td><span class="st unset">? Not measured</span></td><td>"?" on the wall</td><td>Type it, Take from laser</td><td>Area shows "?"</td></tr>
+          <tr><td><span class="st recv"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Received</span></td><td>Value plus "Unconfirmed"</td><td>Again, Confirm</td><td><b>Unchanged.</b> A received value is never applied.</td></tr>
+          <tr><td><span class="st conf"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Confirmed</span></td><td>Value with a tick and its source</td><td>Edit, Measure again</td><td>Recalculated; Undo in the toast</td></tr>
+        </table></div>
+        <h5>Errors when typing a value</h5>
+        <ul><li>Empty: "Enter a value."</li><li>Zero or negative: rejected with its own message.</li><li>More than 3 decimals, or over 100 m: rejected.</li><li>The sheet stays open and the old value stays in place.</li></ul>
+        <h5>Other states</h5>
+        <ul><li><b>Laser not connected:</b> the card offers "Type it" and "Laser" (opens the device sheet).</li><li><b>Subscription expired:</b> everything is visible; any edit opens "Subscription needed".</li></ul>
+      </div><div class="fade"></div><div class="more">…continues with gestures, the dimension list, doors and windows, and the back button.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kick">PART 2 · DOCUMENT 2 OF 3</span><h2>DESIGN_SYSTEM.md</h2></div>
+    <div class="doc">
+      <div class="about">
+        <p class="muted">The rules that keep every screen looking like one app, with exact values taken from the prototype.</p>
+        <ul><li>Colours, with what each is for</li><li>Typefaces and the size scale</li><li>Spacing, corner radius, shadows</li><li>Controls: sizes and all their states</li><li>Status language: never colour alone</li><li>Icons</li><li>Android and iPhone differences</li></ul>
+      </div>
+      <div class="page"><div class="bar"><i></i><i></i><i></i>design/DESIGN_SYSTEM.md</div><div class="in">
+        <h4>1. Colour</h4>
+        <div class="sw">
+          <div><i style="background:#0E1C36"></i><b>Ink</b><code>#0E1C36</code>Text, plan walls</div>
+          <div><i style="background:#1C4BD1"></i><b>Cobalt</b><code>#1C4BD1</code>Main actions, links</div>
+          <div><i style="background:#F4F5F7"></i><b>Paper</b><code>#F4F5F7</code>Page background</div>
+          <div><i style="background:#FFFFFF"></i><b>Sheet</b><code>#FFFFFF</code>Cards, sheets</div>
+          <div><i style="background:#FFF1DF"></i><b>Amber wash</b><code>#FFF1DF</code>Received, warnings</div>
+          <div><i style="background:#E3F3EC"></i><b>Green wash</b><code>#E3F3EC</code>Confirmed, connected</div>
+          <div><i style="background:#B42318"></i><b>Red</b><code>#B42318</code>Errors, delete</div>
+        </div>
+        <h4>2. Type</h4>
+        <div class="type">
+          <div><b style="font:700 28px/1.1 var(--f-ui)">Loyihalar</b><span>Page title · Plex Sans 28 / 700</span></div>
+          <div><b style="font:600 16.5px/1.2 var(--f-ui)">Yusupovlar uyi</b><span>Card title · 16.5 / 600</span></div>
+          <div><b style="font:400 15px/1.3 var(--f-ui)">Akmal Yusupov, Chilonzor 14</b><span>Body · 15 / 400</span></div>
+          <div><b style="font:600 34px/1 var(--f-num)">3,600 m</b><span>Readings · Plex Sans Condensed 54 / 600</span></div>
+        </div>
+        <h4>3. Controls</h4>
+        <div class="ctl"><span class="btn pri">Tasdiqlash</span><span class="btn sec">Qo‘lda</span><span class="st unset">? O‘lchanmagan</span><span class="st recv"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg>Tasdiqlanmagan</span><span class="st conf"><svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>Tasdiqlangan</span></div>
+        <ul><li>Buttons are 44 to 56 px tall; the ones used most on site are the tallest.</li><li>Target: 44 px for anything tappable. Today 14 controls are under 40 px; they're listed in the checklist.</li><li>Every status has an icon and a word as well as a colour.</li></ul>
+      </div><div class="fade"></div><div class="more">…continues with spacing, sheets, the keyboard, icons and platform notes.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><span class="kick">PART 2 · DOCUMENT 3 OF 3</span><h2>REVIEW_CHECKLIST.md</h2></div>
+    <div class="doc">
+      <div class="about">
+        <p class="muted">The honest list: what was actually checked and how, and what nobody has checked yet.</p>
+        <ul><li><span class="tag ok">Passed</span> checked on the emulator or in the browser</li><li><span class="tag dev">Needs a device</span> can only be judged on a real phone or with a real laser</li><li><span class="tag you">Your decision</span> a product choice, not a test</li></ul>
+        <p class="muted sm">Today's run fills in most of the first group already.</p>
+      </div>
+      <div class="page"><div class="bar"><i></i><i></i><i></i>design/REVIEW_CHECKLIST.md</div><div class="in">
+        <h4>Core scenario</h4>
+        <div class="chk">
+          <div><i class="on"></i><span>Room 5 × 4 × 3 m gives floor 20,00 m² and walls 54,00 m²</span><span class="tag ok">Passed</span></div>
+          <div><i class="on"></i><span>Door 0,9 × 2,1 and window 1,2 × 1,5 leave 50,31 m² net wall</span><span class="tag ok">Passed</span></div>
+          <div><i class="on"></i><span>Estimate totals 4 240 000 so‘m</span><span class="tag ok">Passed</span></div>
+          <div><i class="on"></i><span>Issued quote stays frozen after the estimate changes</span><span class="tag ok">Passed</span></div>
+        </div>
+        <h4>Needs a real phone</h4>
+        <div class="chk">
+          <div><i></i><span>A real Bluetooth laser: pairing, range, dropped connection</span><span class="tag dev">Needs a device</span></div>
+          <div><i></i><span>Reading the screen in sunlight; tapping with dusty hands or gloves</span><span class="tag dev">Needs a device</span></div>
+          <div><i></i><span>Real camera photos, the real share sheet, a printed PDF</span><span class="tag dev">Needs a device</span></div>
+          <div><i></i><span>iPhone: safe areas, back swipe, keyboard</span><span class="tag dev">Needs a device</span></div>
+          <div><i></i><span>Speed on a low-cost Android phone</span><span class="tag dev">Needs a device</span></div>
+        </div>
+        <h4>Open</h4>
+        <div class="chk">
+          <div><i></i><span>14 tappable controls are under 40 px on their short side</span><span class="tag fix">To fix</span></div>
+          <div><i></i><span>Uzbek Cyrillic and Russian wording, read by a native speaker</span><span class="tag you">Your decision</span></div>
+          <div><i></i><span>Final logo to replace the METRX wordmark</span><span class="tag you">Your decision</span></div>
+        </div>
+      </div><div class="fade"></div><div class="more">…continues with every screen, keyboard behaviour and long-label checks.</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><h2>Four things I noticed and left alone</h2><p class="muted">These came up during testing. Nothing is broken, so I didn't change them without asking.</p></div>
+    <div class="dec">
+      <div><span class="n">1</span><div><b>Board tasks don't tick themselves.</b><p>Every job starts with "Measure the rooms", "Build the estimate" and "Send the quote". The app knows when each is done, but you still tick them by hand, so a job in progress can show "Build the estimate" as its next task. I can make them tick automatically.</p></div></div>
+      <div><span class="n">2</span><div><b>Brick and mortar calculator.</b><p>Still open from earlier. The spec says quantities are typed by hand. For brickmasons, a calculator from the net wall area would save the most time, but it changes the approved scope.</p></div></div>
+      <div><span class="n">3</span><div><b>One laser message for three problems.</b><p>In the room editor, "Bluetooth off" and "permission denied" both show the general "Laser not connected" line. The Measure tab already names each case. Making the editor match is a small change.</p></div></div>
+      <div><span class="n">4</span><div><b>14 controls are small for site use.</b><p>I measured every tappable control. Fourteen are under 40 px on their short side, for example "Cancel" on the measure-again card (28 px tall), "Clear" in the calculator (32 px) and the colour swatches (34 px). They all work. I'd enlarge them at the start of Stage 3 and re-check the four languages.</p></div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><h2>What you'd get at the end</h2></div>
+    <div class="two">
+      <div class="card"><h3>In the <span class="file">design/</span> folder</h3><ul><li><span class="file">SCREEN_SPEC.md</span></li><li><span class="file">DESIGN_SYSTEM.md</span></li><li><span class="file">REVIEW_CHECKLIST.md</span></li><li><span class="file">prototype/</span>, with today's fixes</li></ul></div>
+      <div class="card"><h3>What I need from you</h3><ul><li>A yes to start.</li><li>Answers to the four points above, or "leave as is".</li><li>One read-through of the documents when they're ready.</li></ul><p class="muted sm">Building the real app (CLAUDE_START.md) stays on hold until you approve the design, as you instructed.</p></div>
+    </div>
+  </section>
+
+</div>

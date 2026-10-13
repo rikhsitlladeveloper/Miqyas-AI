@@ -349,6 +349,10 @@ PAGES.note=(rt)=>{
   </div></div></section>`;
 };
 const noteIt=()=>itemOf(top()).it;
+/* leaving a note that was never filled in (no title, text or list items) removes it, so stray empty notes don't pile up */
+{ const basePop=pop; pop=function(){ const r=top(); if(r&&r.s==='note'){ noteSync(); const {w,it}=itemOf(r), blank=v=>!String(dn(v)||'').trim();
+    if(it&&blank(it.name)&&blank(it.text)&&!(it.checks||[]).some(c=>!blank(c.text))){ const a=wsItems(w), i=a.indexOf(it); if(i>=0){ a.splice(i,1); commit() } } }
+  return basePop.apply(this,arguments) } }
 A.ntAdd=()=>{ if(!guard()) return; noteSync(); const it=noteIt(); const c={id:uid(),text:'',done:false}; (it.checks||(it.checks=[])).push(c); U.form['ck_'+c.id]=''; it.edited=Date.now(); commit(); setFocus('ck_'+c.id,'text',''); render() };
 A.ntToggle=d=>{ if(!guard()) return; noteSync(); const c=noteIt().checks.find(x=>x.id===d.id); c.done=!c.done; noteIt().edited=Date.now(); commit(); render() };
 A.ntDel=d=>{ if(!guard()) return; noteSync(); const it=noteIt(); it.checks=it.checks.filter(x=>x.id!==d.id); delete U.form['ck_'+d.id]; if(U.focus&&U.focus.id==='ck_'+d.id) blur(); it.edited=Date.now(); commit(); render() };

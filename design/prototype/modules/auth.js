@@ -106,7 +106,11 @@ function auBack(){
   if(s==='welcome'){ if(S.authFromProfile){ auExit(); return true } return false }
   if(s==='suDone'){ auExit(); return true }
   if(s==='fpDone'){ A.auToLogin(); return true }
-  const b=AU_BACK[s]; if(b){ auGo(b,'back'); return true }
+  const b=AU_BACK[s];
+  /* going back to a phone step keeps what was already typed there */
+  if(b==='su1'&&U.su) initForm({bname:U.su.name,bphone:U.su.phone});
+  if(b==='fp1'&&U.fp) initForm({fpphone:U.fp.phone});
+  if(b){ auGo(b,'back'); return true }
   return false;
 }
 

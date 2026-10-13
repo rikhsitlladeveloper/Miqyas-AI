@@ -7,6 +7,7 @@
 Object.assign(D,{
 'ed2.next':['Keyingi: {w}','Далее: {w}','Next: {w}'],
 'ed2.fromLaser':['{w}, lazerdan','{w}, с лазера','{w}, from the laser'],
+'ed2.fromQuick':['{w}, O‘lchash bo‘limidan','{w}, из раздела «Замер»','{w}, from the Measure tab'],
 'ed2.unconf':['Tasdiqlanmagan','Не подтверждено','Not confirmed'],
 'ed2.confirmed':['Tasdiqlangan','Подтверждено','Confirmed'],
 'ed2.notMeasured':['O‘lchanmagan','Не измерено','Not measured'],
@@ -61,7 +62,7 @@ function ed2Card(p,r){
   const foot=f.k?`<div class="ed2-foot"><span>${esc(open.length?t('ed2.left',{w:ed2Name(open[0]),n:open.length}):(f.kind==='unset'||f.kind==='recv')?t('ed2.last'):'')}</span><button data-a="edPanel">${ic('chev','i s')}${esc(t('ed2.all'))}</button></div>`
     :`<div class="ed2-foot"><span></span><button data-a="edPanel">${ic('chev','i s')}${esc(t('ed2.all'))}</button></div>`;
   if(f.kind==='recv'){ const pd=r.dims[f.k].pending;
-    return `<div class="ed2-card"><div class="ed2-q"><span class="tx"><small>${esc(t('ed2.fromLaser',{w:ed2Name(f.k)}))}</small><span class="ed2-v recv">${fmtLen(pd.mm,null,true)}<small>${esc(M())}</small></span></span><span class="ed2-st recv">${ic('clock','i xs')}${esc(t('ed2.unconf'))}</span></div>
+    return `<div class="ed2-card"><div class="ed2-q"><span class="tx"><small>${esc(t(pd.from==='quick'?'ed2.fromQuick':'ed2.fromLaser',{w:ed2Name(f.k)}))}</small><span class="ed2-v recv">${fmtLen(pd.mm,null,true)}<small>${esc(M())}</small></span></span><span class="ed2-st recv">${ic('clock','i xs')}${esc(t('ed2.unconf'))}</span></div>
       <div class="ed2-acts"><button class="btn sec" data-a="edAgain" data-k="${f.k}">${ic('laser','i s')}<span>${esc(t('ed2.again'))}</span></button><button class="btn pri" data-a="edConfirm" data-k="${f.k}">${ic('check','i s')}<span>${esc(t('ed2.confirm'))}</span></button></div>${foot}</div>` }
   if(f.kind==='unset'||f.kind==='again'){ const again=f.kind==='again';
     return `<div class="ed2-card"><div class="ed2-q"><span class="tx"><small>${esc(t(again?'ed2.re':'ed2.next',{w:ed2Name(f.k)}))}</small><span class="ed2-v unset">?<small>${esc(M())}</small></span></span>${again?`<button class="ed2-st unset" data-a="edCancelRe">${ic('x','i xs')}${esc(t('common.cancel'))}</button>`:`<span class="ed2-st unset">${esc(t('ed2.notMeasured'))}</span>`}</div>${again?`<p class="fhint">${esc(t('ed2.cur',{v:fmtLen(r.dims[f.k].v)}))}</p>`:''}
@@ -123,6 +124,8 @@ A.edLaser=d=>{ if(!guard()) return; const {r}=ed2Room(); const target=simTarget(
 A.edManual=d=>{ if(!guard()) return; ed2Sheet(d.k,true) };
 A.edRemeasure=d=>{ if(!guard()) return; const {r}=ed2Room(); if(r.dims[d.k]) delete r.dims[d.k].pending; U.edFocus=d.k; U.edFocusRid=r.id; U.edRe=r.id+':'+d.k; render() };
 A.edCancelRe=()=>{ U.edRe=null; render() };
+/* any confirmed value (typed in the sheet included) ends "measure again" for that dimension and moves the card on */
+{ const ad=applyDim; applyDim=function(p,r,dim,mm,src){ if(U.edRe===r.id+':'+dim) U.edRe=null; if(U.edFocus===dim&&U.edFocusRid===r.id) U.edFocus=null; return ad.apply(this,arguments) } }
 /* swipe the panel handle up/down */
 { let gp=null;
   appEl.addEventListener('pointerdown',e=>{ const g=e.target.closest&&e.target.closest('.ed2-grab'); gp=g?{y:e.clientY,id:e.pointerId}:null });

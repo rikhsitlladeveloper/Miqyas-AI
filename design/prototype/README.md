@@ -88,6 +88,18 @@ The structure follows the "Log in, Registration, Onboarding / Sign in & Sign up 
 
 The interface style follows the "Mobile Apps – Prototyping Kit" community file: soft grey backgrounds, rounded white cards, pill segmented controls, underline tabs and icon tiles in settings. The drawing conventions (hatched walls, dimension lines, the PDF layout) are unchanged.
 
+## Emulator test, 13 October 2026
+
+A clean install was walked through on the Android emulator (1080 × 2400), with real touches for drags, swipes, 3D rotation and the back button. Twelve areas passed, 40 screens were checked in each of the four languages with no cut-off text, and the app raised no script errors. Five problems were found and fixed:
+
+- **Room editor:** typing a new value while measuring a wall again left the step card on "measure again". Any confirmed value now ends that state.
+- **Workspace:** the "PDF" badge covered the first words of a note on its card.
+- **Notes:** leaving a note with no title, text or list items now removes it, so Home's Note tile no longer leaves empty notes behind.
+- **Sent readings:** a reading sent from the Measure tab is labelled "from the Measure tab" in the room, not "from the laser".
+- **Sign-up:** going Back from the password or code step keeps the name and phone already typed. The same applies to the forgot-password phone.
+
+Still open: 14 controls are under 40 px on their short side, Board tasks are ticked by hand, and the room editor shows one general message for Bluetooth off and permission denied. Not covered by this run: pinch zoom, L-shaped and free-drawn rooms, deleting or moving items, and confirming a restore.
+
 ## Report and quote
 
 The founder chose option A: read it first. The PDF itself is unchanged.
