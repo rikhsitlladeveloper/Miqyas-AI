@@ -1,0 +1,344 @@
+<title>METRX Brick Calculator Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: an intro, then three phone mockups side by side (stacked on a phone), each with its idea and trade-offs underneath. */
+:root{
+  --bg:#EEF1F6; --panel:#FFFFFF; --fg:#0E1C36; --fg2:#47536A; --rule:#D5DCE7; --accent:#1C4BD1;
+  --f-ui:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --f-num:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; color-scheme:dark } }
+:root[data-theme="dark"]{ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 15px/1.5 var(--f-ui);margin:0}
+.wrap{max-width:1300px;margin:0 auto;padding-inline:16px;padding-block:28px 56px}
+header.intro{display:grid;gap:14px;max-width:860px}
+.kicker{font:600 13px/1 var(--f-num);letter-spacing:.14em;color:var(--accent)}
+h1{margin:0;font:700 clamp(28px,4vw,40px)/1.1 var(--f-num);letter-spacing:-.01em;text-wrap:balance}
+.intro p{margin:0;color:var(--fg2);max-width:70ch}
+.now{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:6px}
+.now div{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:12px 14px;font-size:14px;color:var(--fg2)}
+.now b{display:block;color:var(--fg);font-weight:600;margin-bottom:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(372px,100%),1fr));gap:28px 22px;margin-top:30px;align-items:start}
+.opt{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;min-width:0}
+.opt-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.letter{font:700 30px/1 var(--f-num);color:var(--accent)}
+.opt-h h2{margin:0;font:600 20px/1.2 var(--f-ui)}
+.rec{font:600 12px/1 var(--f-num);letter-spacing:.06em;padding:5px 8px;border-radius:6px;background:var(--accent);color:var(--panel);white-space:nowrap}
+.idea{margin:0;color:var(--fg2);font-size:14.5px;min-height:4.5em}
+.notes{display:grid;gap:8px;font-size:14px}
+.notes p{margin:0;padding-left:22px;position:relative;color:var(--fg2)}
+.notes p b{color:var(--fg);font-weight:600}
+.notes p::before{content:"";position:absolute;left:4px;top:.55em;width:8px;height:8px;border-radius:2px;background:var(--accent)}
+.notes p.minus::before{background:none;border:1.5px solid var(--fg2);border-radius:50%}
+.how{margin-top:34px;max-width:860px;background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;display:grid;gap:6px}
+.how h3{margin:0;font:600 16px/1.3 var(--f-ui)}
+.how p{margin:0;color:var(--fg2);font-size:14.5px}
+
+/* ---------- phone mockups: a fixed light app screen (the app itself is light-only) ---------- */
+.phone{--ink:#0E1C36;--ink2:#47536A;--ink3:#6B7486;--paper:#F4F5F7;--sheet:#FFFFFF;--rule:#E3E6EB;--fill:#EEF0F4;--cob:#1C4BD1;--cob2:#1238A8;--wash:#EAF0FE;--amb:#9A4D00;--ambw:#FFF1DF;--ok:#0B7A5A;--okw:#E6F4EF;
+  width:min(360px,100%);height:760px;justify-self:center;border-radius:36px;padding:10px;background:#0E1C36;box-shadow:0 18px 40px rgba(14,28,54,.22)}
+.scr{position:relative;height:100%;border-radius:28px;overflow:hidden;background:var(--paper);color:var(--ink);font:400 14.5px/1.4 var(--f-ui);display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+.sb{flex:none;height:30px;display:flex;align-items:center;justify-content:space-between;padding:4px 22px 0 26px;font:600 13px/1 system-ui,sans-serif}
+.body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:10px;padding:4px 14px 86px}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.s{width:16px;height:16px}.i.xs{width:14px;height:14px}.i.l{width:26px;height:26px}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:74px;background:var(--sheet);box-shadow:0 -1px 0 var(--rule);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px 14px}
+.tabs span{display:grid;justify-items:center;align-content:end;gap:3px;font-size:11px;color:var(--ink2)}
+.tabs span.on{color:var(--ink);font-weight:600;position:relative}
+.tabs span.on::before{content:"";position:absolute;top:-30px;left:50%;width:50px;height:50px;margin-left:-25px;border-radius:50%;background:var(--cob);border:5px solid var(--sheet);box-shadow:0 6px 14px rgba(28,75,209,.28)}
+.tabs span.on .i{position:relative;z-index:1;color:#fff;transform:translateY(-22px)}
+.tabs span.on .i+b{margin-top:-20px}
+.tabs b{font-weight:inherit}
+.card{background:var(--sheet);border-radius:16px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06)}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.sp{flex:1}
+.cd{font-family:var(--f-num)}
+.muted{color:var(--ink2)}
+.sm{font-size:12.5px}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ttl{font-size:26px;font-weight:700;letter-spacing:-.015em;line-height:1.1}
+.search{display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:12px;background:var(--sheet);border:1.5px solid var(--rule);color:var(--ink3);font-size:14px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.st-measure{background:var(--ambw);color:var(--amb)}
+.st-estimate{background:var(--wash);color:var(--cob2)}
+.st-quote{background:#E9E4FB;color:#4A2FB0}
+.st-work{background:var(--fill);color:var(--ink)}
+.st-done{background:var(--okw);color:var(--ok)}
+.seg{display:flex;gap:3px;padding:3px;border-radius:12px;background:var(--fill)}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;min-height:36px;border-radius:9px;font-size:13.5px;color:var(--ink2);font-weight:500}
+.seg span.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(16,24,40,.14)}
+.seg .n{font:600 11.5px/1 var(--f-num);color:var(--ink3)}
+.fab{position:absolute;right:16px;bottom:88px;height:54px;padding:0 18px 0 14px;border-radius:27px;background:var(--cob);color:#fff;display:flex;align-items:center;gap:6px;font-weight:600;font-size:14.5px;box-shadow:0 8px 20px rgba(28,75,209,.35)}
+.bar{height:6px;border-radius:3px;background:var(--fill);overflow:hidden;flex:1}
+.bar i{display:block;height:100%;background:var(--cob)}
+.bar.amb i{background:#D98A1E}
+
+/* A: compact list */
+.a-grp{font-size:12.5px;font-weight:600;color:var(--ink2);padding:4px 2px 0}
+.a-list{display:grid}
+.a-row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 12px;border-bottom:1px solid var(--rule)}
+.a-row:last-child{border-bottom:0}
+.a-row b{font-size:14.5px;font-weight:600}
+.a-row .r{text-align:right;display:grid;gap:2px;justify-items:end}
+.a-row .r b{font:600 14.5px/1.2 var(--f-num)}
+.a-prog{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2);margin-top:4px}
+
+/* B: site cards */
+.b-card{padding:12px;display:grid;gap:10px}
+.b-top{display:flex;gap:10px;align-items:flex-start}
+.b-top .tx{flex:1;min-width:0;display:grid;gap:1px}
+.b-top b{font-size:16px;font-weight:600}
+.b-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.b-nums div{display:grid;gap:1px;padding:7px 8px;border-radius:10px;background:var(--fill)}
+.b-nums span{font-size:11px;color:var(--ink2);line-height:1.2}
+.b-nums b{font:600 15px/1.15 var(--f-num)}
+.b-nums b small{font-size:11px;font-weight:500;color:var(--ink2)}
+.b-acts{display:flex;gap:8px}
+.b-acts span{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border-radius:10px;background:var(--fill);font-size:13px;font-weight:600}
+.b-acts span.pri{background:var(--cob);color:#fff}
+.b-next{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--amb);font-weight:500}
+
+/* C: by stage */
+.c-sec{display:grid;gap:6px}
+.c-h{display:flex;align-items:center;gap:8px;padding:2px 2px;font-weight:600;font-size:14.5px}
+.c-h .n{font:600 12px/1 var(--f-num);padding:3px 8px;border-radius:999px;background:var(--fill);color:var(--ink2)}
+.c-h .i{color:var(--ink3)}
+.c-dot{width:10px;height:10px;border-radius:50%}
+.c-row{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--rule)}
+.c-row:last-child{border-bottom:0}
+.c-row .tx{flex:1;min-width:0;display:grid;gap:1px}
+.c-row .tx b{font-size:14.5px;font-weight:600}
+.c-next{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--cob2);font-weight:500}
+.c-sec.closed .c-h{color:var(--ink2)}
+
+@media (max-width:420px){ .phone{height:740px;border-radius:30px;padding:8px} }
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="ic-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></symbol>
+<symbol id="ic-folder" viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3z"/></symbol>
+<symbol id="ic-laser" viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="10" rx="2"/><path d="M15 12h6M18 9l3 3-3 3"/></symbol>
+<symbol id="ic-board" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/></symbol>
+<symbol id="ic-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></symbol>
+<symbol id="ic-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="ic-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="ic-phone" viewBox="0 0 24 24"><path d="M6 3h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 4 5a2 2 0 0 1 2-2z"/></symbol>
+<symbol id="ic-pin" viewBox="0 0 24 24"><path d="M12 21s-6-6-6-11a6 6 0 0 1 12 0c0 5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></symbol>
+<symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+<symbol id="ic-doc" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 13h7M9 17h7M9 9h3"/></symbol>
+<symbol id="ic-sort" viewBox="0 0 24 24"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></symbol>
+<symbol id="ic-wall" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v5M15 10v5M9 15v4"/></symbol>
+<symbol id="ic-sig" viewBox="0 0 24 24"><path d="M3 20h2v-3H3zM8 20h2v-6H8zM13 20h2v-9h-2zM18 20h2V8h-2z" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<style>
+.bh{display:flex;align-items:center;gap:8px}
+.bh h3{margin:0;font-size:22px;font-weight:700;flex:1}
+.bk{display:flex;align-items:center;gap:6px;color:var(--cob);font-size:13.5px;font-weight:500}
+.lab{font-size:12px;font-weight:500;color:var(--ink2);padding:0 2px}
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chips span{display:inline-flex;align-items:center;gap:5px;min-height:36px;padding:0 10px;border-radius:11px;background:var(--sheet);box-shadow:0 0 0 1px var(--rule) inset;font-size:13px;font-weight:500;white-space:nowrap}
+.chips span b{font:600 13px var(--f-num)}
+.chips span.on{background:var(--wash);color:var(--cob2);box-shadow:0 0 0 1.5px var(--cob) inset}
+.seg4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:3px;padding:3px;border-radius:12px;background:var(--fill)}
+.seg4 span{display:grid;place-items:center;min-height:36px;border-radius:9px;font-size:12.5px;font-weight:500;color:var(--ink2);text-align:center;line-height:1.1}
+.seg4 span small{font:500 10px var(--f-num);color:inherit;opacity:.75}
+.seg4 span.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(16,24,40,.14)}
+.kv2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.kv2 span{display:flex;align-items:baseline;justify-content:space-between;gap:6px;padding:8px 10px;border-radius:11px;background:var(--sheet);box-shadow:0 0 0 1px var(--rule) inset;font-size:12.5px;color:var(--ink2)}
+.kv2 span b{font:600 14px var(--f-num);color:var(--ink)}
+.res{display:grid;gap:6px;padding:12px;border-radius:16px;background:#0E1C36;color:#fff}
+.res .r{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.res .r span{font-size:12.5px;color:#B7C3D9}
+.res .r b{font:700 26px/1 var(--f-num);white-space:nowrap}
+.res .r b small{font:500 13px var(--f-ui);color:#B7C3D9;margin-left:3px}
+.res .r.s b{font-size:17px}
+.res .frm{font-size:11px;color:#B7C3D9;padding-top:6px;border-top:1px solid rgba(255,255,255,.15)}
+.pbtn{display:flex;align-items:center;justify-content:center;gap:7px;min-height:48px;border-radius:14px;background:var(--cob);color:#fff;font-weight:600;font-size:15px}
+.fine{font-size:11.5px;color:var(--ink2);display:flex;gap:6px;align-items:flex-start;line-height:1.35}
+.sheetx{position:absolute;left:0;right:0;bottom:0;top:54px;background:var(--paper);border-radius:22px 22px 0 0;box-shadow:0 -8px 30px rgba(14,28,54,.25);display:flex;flex-direction:column;gap:8px;padding:8px 14px 14px}
+.sheetx .grab{width:36px;height:4px;border-radius:2px;background:var(--rule);margin:0 auto 2px}
+.dim{position:absolute;inset:0;background:rgba(14,28,54,.42)}
+/* B */
+.mh{display:flex;align-items:center;gap:8px}
+.mh h3{margin:0;font-size:22px;font-weight:700;flex:1}
+.lz{display:inline-flex;align-items:center;gap:6px;padding:6px 11px 6px 9px;border-radius:999px;background:var(--okw);color:var(--ok);font-size:12px;font-weight:600}
+.lz i{width:8px;height:8px;border-radius:50%;background:currentColor}
+.meter{display:grid;justify-items:center;padding:8px;background:var(--sheet);border-radius:16px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06)}
+.meter .v{font:600 40px/1 var(--f-num)}
+.meter .v small{font-size:17px;color:var(--ink2);margin-left:4px}
+.tools5{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:5px}
+.tools5 span{display:grid;justify-items:center;gap:3px;padding:7px 1px;border-radius:11px;background:var(--sheet);font-size:10.5px;font-weight:600;color:var(--ink2);box-shadow:0 1px 2px rgba(16,24,40,.05);min-width:0}
+.tools5 span.on{background:var(--cob);color:#fff}
+.calc{display:grid;gap:7px;padding:11px;background:#0E1C36;color:#fff;border-radius:16px}
+.calc .row3{display:flex;align-items:center;gap:6px;font:600 19px var(--f-num)}
+.calc .slot{flex:1;display:grid;justify-items:center;gap:1px;padding:7px 4px;border-radius:10px;background:rgba(255,255,255,.1)}
+.calc .slot small{font:500 10.5px var(--f-ui);color:#B7C3D9}
+.calc .op{color:#B7C3D9;font-size:17px}
+.calc .seg4{background:rgba(255,255,255,.1)}
+.calc .seg4 span{color:#B7C3D9;min-height:32px}
+.calc .seg4 span.on{background:#fff;color:#0E1C36}
+.calc .res2{display:flex;align-items:baseline;justify-content:space-between;padding-top:6px;border-top:1px solid rgba(255,255,255,.15)}
+.calc .res2 b{font:700 27px/1 var(--f-num)}
+.calc .res2 b small{font:500 13px var(--f-ui);color:#B7C3D9;margin-left:3px}
+.calc .res2 span{font-size:12px;color:#B7C3D9}
+.calc .sub{display:flex;justify-content:space-between;gap:8px;font-size:11.5px;color:#B7C3D9}
+.calc .sub u{color:#A9C0FF;text-decoration:none;font-weight:600}
+.two{display:grid;grid-template-columns:1fr 1.5fr;gap:8px}
+.two span{display:flex;align-items:center;justify-content:center;gap:6px;min-height:52px;border-radius:15px;background:var(--fill);font-weight:600;font-size:14.5px}
+.two span.pri{background:var(--cob);color:#fff}
+/* C */
+.wl{display:grid;gap:5px;padding:11px 12px}
+.wl .t{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.wl .t b{font-size:14.5px}
+.wl .t i{font:700 16px var(--f-num);font-style:normal;white-space:nowrap}
+.wl .t i small{font:500 11.5px var(--f-ui);color:var(--ink2);margin-left:2px}
+.wl .m{font-size:12.5px;color:var(--ink2);display:flex;flex-wrap:wrap;gap:4px 10px}
+.wl .m span{white-space:nowrap}
+.addw{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border-radius:13px;border:1.5px dashed #A9B2C2;color:var(--cob);font-weight:600;font-size:13.5px}
+.tot{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.tot span{display:grid;gap:1px;padding:9px 10px;border-radius:12px;background:#0E1C36;color:#B7C3D9;font-size:11.5px}
+.tot span b{font:700 19px/1.1 var(--f-num);color:#fff}
+.tot span b small{font:500 11.5px var(--f-ui);color:#B7C3D9;margin-left:2px}
+.tot span.lt{background:var(--sheet);color:var(--ink2);box-shadow:0 0 0 1px var(--rule) inset}
+.tot span.lt b{color:var(--ink)}
+.tot span.lt b small{color:var(--ink2)}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="ic-brick" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v5M15 10v5M9 15v4"/></symbol>
+<symbol id="ic-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="ic-back" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+<symbol id="ic-sq" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/></symbol>
+<symbol id="ic-cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></symbol>
+<symbol id="ic-sum" viewBox="0 0 24 24"><path d="M17 5H7l6 7-6 7h10"/></symbol>
+<symbol id="ic-wl" viewBox="0 0 24 24"><path d="M3 6h18v12H3z"/><path d="M9 12h6v6H9z"/></symbol>
+<symbol id="ic-kbd" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></symbol>
+<symbol id="ic-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></symbol>
+<symbol id="ic-more" viewBox="0 0 24 24"><path d="M12 6h.01M12 12h.01M12 18h.01"/></symbol>
+</svg>
+<div class="wrap">
+  <header class="intro">
+    <span class="kicker">METRX · G‘ISHT HISOBI</span>
+    <h1>Three ways to add a brick calculator</h1>
+    <p>All three use the same sums: brick 250 × 120 × 65 mm, 10 mm joints, 5% spare. A one-brick wall then takes about 103 bricks per m², and a half-brick wall about 51. The mortar is what is left of the wall's volume after the bricks.</p>
+    <div class="now">
+      <div><b>Today it's done on paper</b>The app knows the net wall area (50,31 m² in the test room) but the mason still works out the bricks by hand and types the result.</div>
+      <div><b>The rule we keep</b>Estimate numbers never change by themselves. In every option the result goes into the estimate only when you tap "Add", and it is a copy: later changes to a room don't touch it.</div>
+      <div><b>This changes the approved scope</b>The spec defers automatic material quantities. Choosing an option means adding one line to the spec and one footnote to the PDF.</div>
+      <div><b>The norms are yours to confirm</b>Brick sizes, joint, spare and cement per m³ below are my starting values. You know the local practice; each will be adjustable.</div>
+    </div>
+  </header>
+  <div class="grid">
+
+  <section class="opt" aria-labelledby="hA">
+    <div class="opt-h"><span class="letter">A</span><h2 id="hA">A helper inside the estimate</h2></div>
+    <p class="idea">A "Brick calculator" button on the Estimate tab opens one sheet. Pick the walls of a measured room, the wall thickness and the brick. It shows bricks and mortar, and "Add to estimate" creates the rows with quantities filled in and prices left for you.</p>
+    <div class="phone" role="img" aria-label="Option A mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="padding-bottom:0"><div class="bh"><h3 style="font-size:18px;color:var(--ink2)">Smeta</h3></div></div>
+      <div class="dim"></div>
+      <div class="sheetx">
+        <span class="grab"></span>
+        <div class="bh"><h3 style="font-size:18px">G‘isht hisobi</h3><span class="muted sm">Mehmonxona</span></div>
+        <span class="lab">Qaysi devorlar</span>
+        <div class="chips"><span class="on"><svg class="i s" style="color:inherit"><use href="#ic-check"/></svg>A <b>13,11</b></span><span class="on"><svg class="i s" style="color:inherit"><use href="#ic-check"/></svg>B <b>12,00</b></span><span class="on"><svg class="i s" style="color:inherit"><use href="#ic-check"/></svg>C <b>13,20</b></span><span class="on"><svg class="i s" style="color:inherit"><use href="#ic-check"/></svg>D <b>12,00</b></span></div>
+        <span class="fine" style="margin-top:-3px"><svg class="i s"><use href="#ic-info"/></svg>Jami 50,31 m². Eshik va deraza ayirilgan.</span>
+        <span class="lab">Devor qalinligi</span>
+        <div class="seg4"><span>½ g‘isht<small>120</small></span><span class="on">1 g‘isht<small>250</small></span><span>1,5<small>380</small></span><span>2<small>510</small></span></div>
+        <span class="lab">G‘isht</span>
+        <div class="chips"><span class="on">250×120×65</span><span>250×120×88</span><span>Boshqa</span></div>
+        <div class="kv2"><span>Chok <b>10 mm</b></span><span>Zaxira <b>5 %</b></span></div>
+        <div class="res">
+          <div class="r"><span>G‘isht</span><b>5 419<small>dona</small></b></div>
+          <div class="r s"><span>Qorishma</span><b>2,52<small>m³</small></b></div>
+          <div class="frm">50,31 m² × 102,6 dona/m² + 5 %</div>
+        </div>
+        <div style="flex:1"></div>
+        <div class="pbtn"><svg class="i s" style="color:#fff"><use href="#ic-plus"/></svg>Smetaga qo‘shish</div>
+        <span class="fine"><svg class="i s"><use href="#ic-info"/></svg>Narxni o‘zingiz yozasiz. Xona o‘lchami keyin o‘zgarsa, bu son o‘zgarmaydi.</span>
+      </div>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> quoting. The area comes from walls you already measured and confirmed, with doors and windows taken off.</p>
+      <p><b>Good for:</b> the smallest change. One button and one sheet; the estimate table stays as it is. A calculated row carries a small mark, and if the room changes later the row says "area changed, recalculate?".</p>
+      <p class="minus">Trade-off: it needs a measured room. A yard wall that isn't a room can't be calculated here.</p>
+    </div>
+  </section>
+
+  <section class="opt" aria-labelledby="hB">
+    <div class="opt-h"><span class="letter">B</span><h2 id="hB">A fifth tool on the Measure tab</h2></div>
+    <p class="idea">"G‘isht" joins Area, Wall, Volume and Sum in the quick calculator. Measure a length and a height, pick the thickness, and read the bricks and mortar. No project needed.</p>
+    <div class="phone" role="img" aria-label="Option B mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="gap:8px">
+        <div class="mh"><h3>O‘lchash</h3><span class="lz"><i></i>Lazer</span></div>
+        <div class="meter"><span class="v">2,980<small>m</small></span></div>
+        <div class="tools5"><span><svg class="i s"><use href="#ic-sq"/></svg>Maydon</span><span><svg class="i s"><use href="#ic-wl"/></svg>Devor</span><span><svg class="i s"><use href="#ic-cube"/></svg>Hajm</span><span><svg class="i s"><use href="#ic-sum"/></svg>Yig‘indi</span><span class="on"><svg class="i s" style="color:#fff"><use href="#ic-brick"/></svg>G‘isht</span></div>
+        <div class="calc">
+          <div class="row3"><span class="slot">3,600<small>uzunlik</small></span><span class="op">×</span><span class="slot">2,980<small>balandlik</small></span></div>
+          <div class="seg4"><span>½ g‘isht</span><span class="on">1 g‘isht</span><span>1,5</span><span>2</span></div>
+          <div class="res2"><span>G‘isht</span><b>1 156<small>dona</small></b></div>
+          <div class="sub"><span>Qorishma 0,54 m³</span><span>10,73 m²</span></div>
+          <div class="sub"><span>250×120×65, chok 10 mm, zaxira 5 %</span><u>O‘zgartirish</u></div>
+        </div>
+        <span class="sm muted">O‘lchovni bosing, u bo‘sh joyga tushadi:</span>
+        <div class="chips"><span class="on"><b>2,980</b></span><span><b>3,200</b></span><span class="on"><b>3,600</b></span><span><b>1,205</b></span></div>
+        <div style="flex:1"></div>
+        <div class="two"><span><svg class="i s"><use href="#ic-kbd"/></svg>Qo‘lda</span><span class="pri"><svg class="i"><use href="#ic-laser"/></svg>O‘lchash</span></div>
+      </div>
+      <nav class="tabs"><span><svg class="i"><use href="#ic-home"/></svg><b>Asosiy</b></span><span><svg class="i"><use href="#ic-folder"/></svg><b>Loyihalar</b></span><span class="on"><svg class="i"><use href="#ic-laser"/></svg><b>O‘lchash</b></span><span><svg class="i"><use href="#ic-board"/></svg><b>Doska</b></span><span><svg class="i"><use href="#ic-user"/></svg><b>Profil</b></span></nav>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> the question on site, "how many bricks for this wall?", answered in two laser presses.</p>
+      <p><b>Good for:</b> any wall, including a yard wall or a gable, because it only needs a length and a height. An opening can be taken off as in the Wall tool.</p>
+      <p class="minus">Trade-off: one wall at a time and nothing reaches the estimate. You'd still type the total there yourself.</p>
+    </div>
+  </section>
+
+  <section class="opt" aria-labelledby="hC">
+    <div class="opt-h"><span class="letter">C</span><h2 id="hC">A brickwork sheet for the whole job</h2></div>
+    <p class="idea">Each project gets a "G‘isht terish" page: a list of the walls to build. A wall comes from a measured room or is typed as length × height, each with its own thickness and openings. The page totals bricks, mortar, cement and sand, and adds them to the estimate in one tap.</p>
+    <div class="phone" role="img" aria-label="Option C mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="gap:8px;padding-bottom:14px">
+        <span class="bk"><svg class="i s" style="color:inherit"><use href="#ic-back"/></svg>Smeta</span>
+        <div class="bh"><h3>G‘isht terish</h3><span class="muted sm">Hovli devori</span></div>
+        <div class="card wl">
+          <div class="t"><b>Old devor</b><i>1 939<small>dona</small></i></div>
+          <div class="m"><span>12,00 × 2,00 m</span><span>1 g‘isht</span><span>− darvoza 3,00 × 2,00</span></div>
+        </div>
+        <div class="card wl">
+          <div class="t"><b>Yon devor</b><i>862<small>dona</small></i></div>
+          <div class="m"><span>8,00 × 2,00 m</span><span>½ g‘isht</span></div>
+        </div>
+        <div class="addw"><svg class="i s" style="color:inherit"><use href="#ic-plus"/></svg>Devor qo‘shish: xonadan yoki o‘lchab</div>
+        <div class="tot">
+          <span>G‘isht<b>2 801<small>dona</small></b></span>
+          <span>Qorishma<b>1,22<small>m³</small></b></span>
+          <span class="lt">Sement, taxminan<b>8<small>qop</small></b></span>
+          <span class="lt">Qum, taxminan<b>1,3<small>m³</small></b></span>
+        </div>
+        <span class="fine"><svg class="i s"><use href="#ic-info"/></svg>250×120×65, chok 10 mm, zaxira 5 %. Sement 300 kg/m³ qorishmaga.</span>
+        <div style="flex:1"></div>
+        <div class="pbtn"><svg class="i s" style="color:#fff"><use href="#ic-plus"/></svg>4 qatorni smetaga qo‘shish</div>
+      </div>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> how a mason actually quotes: wall by wall, with different thicknesses, whether or not the wall belongs to a measured room.</p>
+      <p><b>Good for:</b> cement and sand alongside the bricks, and one place to see the whole job's masonry.</p>
+      <p class="minus">Trade-off: the biggest change. A new page and a new kind of saved data (walls to build), which also has to appear in the PDF and the backup. Cement and sand norms need your figures before I'd show them.</p>
+    </div>
+  </section>
+
+  </div>
+  <section class="how">
+    <h3>My recommendation: A, plus B's tool</h3>
+    <p>A covers quoting from rooms you've measured with one button and no new screens. B adds the on-site answer for any single wall and reuses the same sums, so it costs little extra. Together they cover both moments a mason needs the number. C is the right shape if most of your jobs are free-standing walls rather than rooms; it's worth building later on top of A, once the norms are settled.</p>
+    <p>Tell me a letter, or a mix, and I'll build it in the app. I'd also like your figures for the brick sizes you use and the spare you allow.</p>
+  </section>
+</div>

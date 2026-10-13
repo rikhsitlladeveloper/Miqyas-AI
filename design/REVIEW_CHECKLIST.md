@@ -157,6 +157,12 @@ Status: Stage 3 review, 13 October 2026. This records what was actually checked,
 | Board: strip, tick a task, Next stage, both Undos, Done fold, job detail, move back a stage | ✅ |
 | Board: "waiting N days" highlight | ❓ the test quote was sent the same day |
 | Measure: one press, continuous, typed reading, four calculator tools, list, send | ✅ |
+| Measure, brick tool (added after the review): 3,600 × 3,200 m, one brick thick, gives 1 241 bricks and 0,58 m³ | ✅ checked by hand |
+| Brick tool: ½, 1,5 and 2 bricks give 621, 1 861 and 2 482 | ✅ |
+| Brick tool: taking off a 0,9 × 2,1 door gives 9,63 m² and 1 038 bricks | ✅ |
+| Brick tool: brick 250×120×88 with 10% spare gives 995 | ✅ |
+| Brick tool: out-of-range size and spare are rejected with the allowed range | ✅ |
+| Brick tool in four languages at 360 wide, and on the emulator | ✅ |
 | Profile: tiles in normal and warning states, each opens its fix | ✅ |
 | More settings page and Back | ✅ |
 | Settings sheets open in all four languages | ✅ opened; changing each value ❓ |
@@ -232,7 +238,7 @@ Things that work today but should change, or need the founder's decision.
 | # | Item | Suggested action |
 | --- | --- | --- |
 | 1 | Board tasks "Measure the rooms", "Build the estimate", "Send the quote" are ticked by hand even when the app knows they are done | Tick them automatically. Founder to confirm |
-| 2 | Brick and mortar calculator | Founder decision. The spec defers automatic material quantities |
+| 2 | Brick and mortar calculator | **Decided:** the founder chose a stand-alone Brick tool on the Measure tab. It is built. The brick sizes, joint and spare are starting values and need the founder's figures. Cement and sand are not calculated |
 | 3 | In the room editor, Bluetooth off and no permission show the general "Laser not connected" line | Name each case, as the Measure tab does |
 | 4 | Deleting an estimate row has no Undo | Add an Undo toast |
 | 5 | Free-drawn room: floor area can be 0,01 m² off, because calculated sides are rounded to whole millimetres before the area is worked out | In the build, calculate areas from unrounded geometry and round only for display |

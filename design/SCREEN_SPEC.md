@@ -470,11 +470,18 @@ A sheet with the file name and page count, and Telegram, WhatsApp, Save to Files
 - **Single:** the main button **Measure** takes a reading and saves it in one press.
 - **Continuous:** Start/Stop; the meter follows the laser; the main button becomes **Save**.
 - **Type it** opens a sheet for a typed reading.
-- **Calculator:** Area (length × width) · Wall (length × height, minus an optional opening) · Volume · Sum.
+- **Calculator:** Area (length × width) · Wall (length × height, minus an optional opening) · Volume · Sum · Brick.
   - The box with the yellow frame is filled next: by a new reading, or by tapping a reading chip.
   - Tap a box to choose it. In Sum, tapping a value removes it.
   - An opening bigger than the wall shows a warning, never a negative area.
   - The calculator never touches the estimate.
+- **Brick tool:** how many bricks and how much mortar one wall takes.
+  - **Inputs:** length × height. "Take off a door or window" adds two more boxes for an opening; "Count without the opening" removes them.
+  - **Wall thickness, in bricks:** ½ · 1 · 1,5 · 2, each showing its thickness in mm (120 · 250 · 380 · 510 for the default brick). The choice is remembered.
+  - **Result:** bricks as a whole number, rounded up, with spare included; underneath, the mortar in m³ and the net wall face in m².
+  - **Brick and joint:** one line shows the current values ("250×120×65, 10 mm joint, 5% spare") with **Change**. The sheet has two preset sizes (250×120×65 and 250×120×88), three size fields, joint thickness and spare. Each field accepts a whole number in its range (length 100 to 600 mm, width 50 to 400, height 30 to 300, joint 0 to 30 mm, spare 0 to 30%) and shows the range when the value is outside it.
+  - **How it is worked out:** bricks per m² = half-bricks of thickness ÷ ((brick length + joint) × (brick height + joint)); mortar = wall face × thickness, minus the bricks' own volume. Spare is added to the bricks only.
+  - It is a stand-alone answer. Nothing is written to the estimate, and it needs no project.
 - **Readings:** recent ones as chips (those in use are highlighted). **List** shows all, each with **Send** and **Delete**.
 - **Send** asks "Which dimension?" and lists the rooms' dimensions. The value arrives in that room as Received and must be confirmed there.
 - **Laser not connected:** a warning in the meter and the main button becomes **Connect laser**. Typing still works.

@@ -149,6 +149,7 @@ The founder chose option C: one press to measure, plus a quick calculator.
   - Sum: adds lengths.
 - **Filling the calculator:** the box with the yellow frame is filled next. A new reading goes into it automatically, or you can tap a reading chip. Tap a box to choose it; in Sum, tapping a value removes it. Readings in use are highlighted.
 - **Readings:** recent readings appear as chips. "List" opens the full list, where you can send a reading to a room dimension or delete it.
+- **Brick tool:** the founder chose a fifth tool, "G‘isht", from three options. Length × height, minus an optional door or window, at a wall thickness of ½, 1, 1,5 or 2 bricks, gives the number of bricks (with spare, rounded up) and the mortar in m³. "Change" opens brick size, joint and spare; the defaults are 250×120×65 mm, 10 mm and 5%, and they are saved with the settings.
 - **Geometry only:** the calculator never changes the estimate. Quantities stay manual, as before.
 
 ## Estimate (BOM)
