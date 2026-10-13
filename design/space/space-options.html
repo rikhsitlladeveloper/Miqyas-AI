@@ -1,0 +1,320 @@
+<title>METRX Workspace Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: an intro, then three phone mockups side by side (stacked on a phone), each with its idea and trade-offs underneath. */
+:root{
+  --bg:#EEF1F6; --panel:#FFFFFF; --fg:#0E1C36; --fg2:#47536A; --rule:#D5DCE7; --accent:#1C4BD1;
+  --f-ui:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --f-num:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; color-scheme:dark } }
+:root[data-theme="dark"]{ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 15px/1.5 var(--f-ui);margin:0}
+.wrap{max-width:1300px;margin:0 auto;padding-inline:16px;padding-block:28px 56px}
+header.intro{display:grid;gap:14px;max-width:860px}
+.kicker{font:600 13px/1 var(--f-num);letter-spacing:.14em;color:var(--accent)}
+h1{margin:0;font:700 clamp(28px,4vw,40px)/1.1 var(--f-num);letter-spacing:-.01em;text-wrap:balance}
+.intro p{margin:0;color:var(--fg2);max-width:70ch}
+.now{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:6px}
+.now div{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:12px 14px;font-size:14px;color:var(--fg2)}
+.now b{display:block;color:var(--fg);font-weight:600;margin-bottom:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(372px,100%),1fr));gap:28px 22px;margin-top:30px;align-items:start}
+.opt{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;min-width:0}
+.opt-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.letter{font:700 30px/1 var(--f-num);color:var(--accent)}
+.opt-h h2{margin:0;font:600 20px/1.2 var(--f-ui)}
+.rec{font:600 12px/1 var(--f-num);letter-spacing:.06em;padding:5px 8px;border-radius:6px;background:var(--accent);color:var(--panel);white-space:nowrap}
+.idea{margin:0;color:var(--fg2);font-size:14.5px;min-height:4.5em}
+.notes{display:grid;gap:8px;font-size:14px}
+.notes p{margin:0;padding-left:22px;position:relative;color:var(--fg2)}
+.notes p b{color:var(--fg);font-weight:600}
+.notes p::before{content:"";position:absolute;left:4px;top:.55em;width:8px;height:8px;border-radius:2px;background:var(--accent)}
+.notes p.minus::before{background:none;border:1.5px solid var(--fg2);border-radius:50%}
+.how{margin-top:34px;max-width:860px;background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;display:grid;gap:6px}
+.how h3{margin:0;font:600 16px/1.3 var(--f-ui)}
+.how p{margin:0;color:var(--fg2);font-size:14.5px}
+
+/* ---------- phone mockups: a fixed light app screen (the app itself is light-only) ---------- */
+.phone{--ink:#0E1C36;--ink2:#47536A;--ink3:#6B7486;--paper:#F4F5F7;--sheet:#FFFFFF;--rule:#E3E6EB;--fill:#EEF0F4;--cob:#1C4BD1;--cob2:#1238A8;--wash:#EAF0FE;--amb:#9A4D00;--ambw:#FFF1DF;--ok:#0B7A5A;--okw:#E6F4EF;
+  width:min(360px,100%);height:760px;justify-self:center;border-radius:36px;padding:10px;background:#0E1C36;box-shadow:0 18px 40px rgba(14,28,54,.22)}
+.scr{position:relative;height:100%;border-radius:28px;overflow:hidden;background:var(--paper);color:var(--ink);font:400 14.5px/1.4 var(--f-ui);display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+.sb{flex:none;height:30px;display:flex;align-items:center;justify-content:space-between;padding:4px 22px 0 26px;font:600 13px/1 system-ui,sans-serif}
+.body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:10px;padding:4px 14px 86px}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.s{width:16px;height:16px}.i.xs{width:14px;height:14px}.i.l{width:26px;height:26px}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:74px;background:var(--sheet);box-shadow:0 -1px 0 var(--rule);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px 14px}
+.tabs span{display:grid;justify-items:center;align-content:end;gap:3px;font-size:11px;color:var(--ink2)}
+.tabs span.on{color:var(--ink);font-weight:600;position:relative}
+.tabs span.on::before{content:"";position:absolute;top:-30px;left:50%;width:50px;height:50px;margin-left:-25px;border-radius:50%;background:var(--cob);border:5px solid var(--sheet);box-shadow:0 6px 14px rgba(28,75,209,.28)}
+.tabs span.on .i{position:relative;z-index:1;color:#fff;transform:translateY(-22px)}
+.tabs span.on .i+b{margin-top:-20px}
+.tabs b{font-weight:inherit}
+.card{background:var(--sheet);border-radius:16px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06)}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.sp{flex:1}
+.cd{font-family:var(--f-num)}
+.muted{color:var(--ink2)}
+.sm{font-size:12.5px}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ttl{font-size:26px;font-weight:700;letter-spacing:-.015em;line-height:1.1}
+.search{display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:12px;background:var(--sheet);border:1.5px solid var(--rule);color:var(--ink3);font-size:14px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.st-measure{background:var(--ambw);color:var(--amb)}
+.st-estimate{background:var(--wash);color:var(--cob2)}
+.st-quote{background:#E9E4FB;color:#4A2FB0}
+.st-work{background:var(--fill);color:var(--ink)}
+.st-done{background:var(--okw);color:var(--ok)}
+.seg{display:flex;gap:3px;padding:3px;border-radius:12px;background:var(--fill)}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;min-height:36px;border-radius:9px;font-size:13.5px;color:var(--ink2);font-weight:500}
+.seg span.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(16,24,40,.14)}
+.seg .n{font:600 11.5px/1 var(--f-num);color:var(--ink3)}
+.fab{position:absolute;right:16px;bottom:88px;height:54px;padding:0 18px 0 14px;border-radius:27px;background:var(--cob);color:#fff;display:flex;align-items:center;gap:6px;font-weight:600;font-size:14.5px;box-shadow:0 8px 20px rgba(28,75,209,.35)}
+.bar{height:6px;border-radius:3px;background:var(--fill);overflow:hidden;flex:1}
+.bar i{display:block;height:100%;background:var(--cob)}
+.bar.amb i{background:#D98A1E}
+
+/* A: compact list */
+.a-grp{font-size:12.5px;font-weight:600;color:var(--ink2);padding:4px 2px 0}
+.a-list{display:grid}
+.a-row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 12px;border-bottom:1px solid var(--rule)}
+.a-row:last-child{border-bottom:0}
+.a-row b{font-size:14.5px;font-weight:600}
+.a-row .r{text-align:right;display:grid;gap:2px;justify-items:end}
+.a-row .r b{font:600 14.5px/1.2 var(--f-num)}
+.a-prog{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2);margin-top:4px}
+
+/* B: site cards */
+.b-card{padding:12px;display:grid;gap:10px}
+.b-top{display:flex;gap:10px;align-items:flex-start}
+.b-top .tx{flex:1;min-width:0;display:grid;gap:1px}
+.b-top b{font-size:16px;font-weight:600}
+.b-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.b-nums div{display:grid;gap:1px;padding:7px 8px;border-radius:10px;background:var(--fill)}
+.b-nums span{font-size:11px;color:var(--ink2);line-height:1.2}
+.b-nums b{font:600 15px/1.15 var(--f-num)}
+.b-nums b small{font-size:11px;font-weight:500;color:var(--ink2)}
+.b-acts{display:flex;gap:8px}
+.b-acts span{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border-radius:10px;background:var(--fill);font-size:13px;font-weight:600}
+.b-acts span.pri{background:var(--cob);color:#fff}
+.b-next{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--amb);font-weight:500}
+
+/* C: by stage */
+.c-sec{display:grid;gap:6px}
+.c-h{display:flex;align-items:center;gap:8px;padding:2px 2px;font-weight:600;font-size:14.5px}
+.c-h .n{font:600 12px/1 var(--f-num);padding:3px 8px;border-radius:999px;background:var(--fill);color:var(--ink2)}
+.c-h .i{color:var(--ink3)}
+.c-dot{width:10px;height:10px;border-radius:50%}
+.c-row{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--rule)}
+.c-row:last-child{border-bottom:0}
+.c-row .tx{flex:1;min-width:0;display:grid;gap:1px}
+.c-row .tx b{font-size:14.5px;font-weight:600}
+.c-next{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--cob2);font-weight:500}
+.c-sec.closed .c-h{color:var(--ink2)}
+
+@media (max-width:420px){ .phone{height:740px;border-radius:30px;padding:8px} }
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="ic-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></symbol>
+<symbol id="ic-folder" viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3z"/></symbol>
+<symbol id="ic-laser" viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="10" rx="2"/><path d="M15 12h6M18 9l3 3-3 3"/></symbol>
+<symbol id="ic-board" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/></symbol>
+<symbol id="ic-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></symbol>
+<symbol id="ic-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="ic-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="ic-phone" viewBox="0 0 24 24"><path d="M6 3h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 4 5a2 2 0 0 1 2-2z"/></symbol>
+<symbol id="ic-pin" viewBox="0 0 24 24"><path d="M12 21s-6-6-6-11a6 6 0 0 1 12 0c0 5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></symbol>
+<symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+<symbol id="ic-doc" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 13h7M9 17h7M9 9h3"/></symbol>
+<symbol id="ic-sort" viewBox="0 0 24 24"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></symbol>
+<symbol id="ic-wall" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v5M15 10v5M9 15v4"/></symbol>
+<symbol id="ic-sig" viewBox="0 0 24 24"><path d="M3 20h2v-3H3zM8 20h2v-6H8zM13 20h2v-9h-2zM18 20h2V8h-2z" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<style>
+.hd{display:grid;gap:4px}
+.hd .back{display:flex;align-items:center;gap:2px;color:var(--cob);font-weight:500;font-size:14px}
+.hd .nm{display:flex;align-items:center;gap:10px}
+.hd .ic{width:40px;height:40px;border-radius:12px;background:var(--wash);color:var(--cob);display:grid;place-items:center;flex:none}
+.hd h3{margin:0;font-size:22px;font-weight:700;flex:1;min-width:0}
+.hd .sub{font-size:12.5px;color:var(--ink2)}
+.icb{width:38px;height:38px;border-radius:12px;background:var(--sheet);display:grid;place-items:center;box-shadow:0 1px 2px rgba(16,24,40,.06),0 1px 6px rgba(16,24,40,.06);flex:none}
+.nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.nums div{display:grid;gap:1px;padding:7px 9px;border-radius:10px;background:var(--sheet);box-shadow:0 1px 2px rgba(16,24,40,.05);min-width:0}
+.nums span{font-size:11px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nums b{font:600 15.5px/1.15 var(--f-num);white-space:nowrap}
+.nums b small{font-size:11px;font-weight:500;color:var(--ink2)}
+.sh{display:flex;align-items:baseline;gap:8px;font-size:14.5px;font-weight:600;padding:2px 2px 0}
+.sh .n{font:600 12px/1 var(--f-num);color:var(--ink3)}
+.g2{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.tile{display:grid;overflow:hidden;border-radius:14px;background:var(--sheet);box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06);min-width:0}
+.tile .th{aspect-ratio:4/3;display:grid;place-items:center;background:#fff;border-bottom:1px solid var(--rule)}
+.tile .th.ph{background:#E9E2D6}
+.tile .th.nt{background:#FFFAEB;place-items:start;padding:8px;font-size:11px;color:var(--ink2);text-align:left}
+.tile .b{display:grid;gap:1px;padding:7px 9px 8px;min-width:0}
+.tile .b b{font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tile .b small{font-size:11.5px;color:var(--ink2);display:flex;align-items:center;gap:4px}
+.tile .b small.amb{color:var(--amb)}
+.tile .b small.ok{color:var(--ok)}
+/* B: layout strip */
+.strip{position:relative;background:#F7F8FA;border-radius:14px;padding:10px;background-image:linear-gradient(#E8ECF2 1px,transparent 1px),linear-gradient(90deg,#E8ECF2 1px,transparent 1px);background-size:16px 16px}
+.strip svg{display:block;width:100%;height:auto}
+.rows{display:grid}
+.rw{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--rule);min-height:52px}
+.rw:last-child{border-bottom:0}
+.rw .k{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;background:var(--fill);color:var(--cob);flex:none}
+.rw .tx{flex:1;min-width:0;display:grid;line-height:1.25}
+.rw .tx b{font-size:14px;font-weight:600}
+.rw .tx small{font-size:12px;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* C: rooms with progress */
+.rc{display:grid;gap:8px;padding:10px 12px}
+.rc .t{display:flex;align-items:center;gap:10px}
+.rc .pl{width:54px;height:42px;border-radius:9px;background:var(--fill);display:grid;place-items:center;flex:none}
+.rc .tx{flex:1;min-width:0;display:grid;line-height:1.25}
+.rc .tx b{font-size:15px;font-weight:600}
+.rc .tx small{font-size:12px;color:var(--ink2)}
+.rc .ar{text-align:right;font:600 14px var(--f-num)}
+.rc .ar small{display:block;font:500 10.5px var(--f-ui);color:var(--ink2)}
+.rc .pr{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2)}
+.rc .pr .bar{height:6px;border-radius:3px;background:var(--fill);overflow:hidden;flex:1}
+.rc .pr .bar i{display:block;height:100%;background:var(--cob)}
+.rc .pr .bar.amb i{background:#D98A1E}
+.rc .pr .bar.ok i{background:#0B7A5A}
+.rc .go{display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border-radius:10px;background:var(--cob);color:#fff;font-weight:600;font-size:13.5px}
+.rc .go.amb{background:var(--ambw);color:var(--amb)}
+.hs{display:flex;gap:8px;overflow:hidden}
+.hs .tile{flex:0 0 112px}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="ic-back" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+<symbol id="ic-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></symbol>
+<symbol id="ic-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="ic-layers" viewBox="0 0 24 24"><path d="M12 4l9 5-9 5-9-5z"/><path d="M3 14l9 5 9-5"/></symbol>
+<symbol id="ic-cam" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="ic-note" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h5"/></symbol>
+<symbol id="ic-penc" viewBox="0 0 24 24"><path d="M4 20l4-1L19 8l-3-3L5 16z"/></symbol>
+<symbol id="ic-room" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 12h8v8"/></symbol>
+<symbol id="ic-cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></symbol>
+<symbol id="pl1" viewBox="0 0 60 46"><path d="M6 6h48v34H6z" fill="#fff" stroke="#0E1C36" stroke-width="3.4"/></symbol>
+<symbol id="pl2" viewBox="0 0 60 46"><path d="M10 6h40v34H10z" fill="#fff" stroke="#0E1C36" stroke-width="3.4"/><path d="M50 6v34" stroke="#D98A1E" stroke-width="3.4" stroke-dasharray="4 3"/></symbol>
+<symbol id="pl3" viewBox="0 0 60 46"><path d="M8 6h22v16h22v18H8z" fill="#fff" stroke="#5F6B82" stroke-width="2.4" stroke-dasharray="4 3"/></symbol>
+<symbol id="ph1" viewBox="0 0 120 90"><rect width="120" height="90" fill="#E9E2D6"/><rect y="72" width="120" height="18" fill="#8E6845"/><rect x="42" y="16" width="38" height="42" fill="#F9F9F7"/><rect x="45" y="19" width="32" height="36" fill="#C8DDF2"/><path d="M61 19v36" stroke="#F9F9F7" stroke-width="2"/><path d="M42 12h38" stroke="#D92D20" stroke-width="1.6"/><rect x="52" y="7" width="18" height="8" rx="4" fill="#fff" stroke="#D92D20"/></symbol>
+<symbol id="dr1" viewBox="0 0 120 90"><rect width="120" height="90" fill="#fff"/><path d="M14 40c10-14 22-14 34 0s24 14 34 0" fill="none" stroke="#0E1C36" stroke-width="2"/><path d="M14 64h92M14 60v8M106 60v8" stroke="#0E1C36" stroke-width="2"/><rect x="46" y="55" width="28" height="10" rx="5" fill="#fff" stroke="#0E1C36"/></symbol>
+</svg>
+<div class="wrap">
+  <header class="intro">
+    <span class="kicker">METRX · ISH JOYI</span>
+    <h1>Three ways to design the workspace page</h1>
+    <p>All three show the same workspace, <b>1-qavat</b> (1st floor), with three rooms at different stages and three other items:</p>
+    <ul>
+      <li>Mehmonxona is fully measured: 50,31 m² of net wall.</li>
+      <li>Yotoqxona is 1 of 3 measured, with wall B waiting for confirmation.</li>
+      <li>Koridor is an L-shape that isn't measured yet.</li>
+      <li>The other items are a photo with dimensions, a drawing and a note.</li>
+    </ul>
+    <div class="now">
+      <div><b>Rooms mixed with notes</b>Room plans, photos and notes sit in one grid, so the rooms that still need measuring don't stand out.</div>
+      <div><b>No totals</b>The page doesn't add up the workspace's net wall area or show how much is measured.</div>
+      <div><b>No next step</b>A room card shows its area or "not confirmed", with no button to continue.</div>
+      <div><b>Filter chips</b>Four filter chips take a row and often hide just one or two items.</div>
+    </div>
+  </header>
+  <div class="grid">
+
+  <section class="opt" aria-labelledby="hA">
+    <div class="opt-h"><span class="letter">A</span><h2 id="hA">Grid by sections</h2></div>
+    <p class="idea">The workspace totals on top, then the grid split into two labelled sections, Rooms and Photos and notes, instead of filter chips. Room cards show the measured state.</p>
+    <div class="phone" role="img" aria-label="Option A mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body">
+        <div class="hd"><span class="back"><svg class="i s"><use href="#ic-back"/></svg>Yusupovlar uyi</span><div class="nm"><span class="ic"><svg class="i"><use href="#ic-layers"/></svg></span><h3>1-qavat</h3><span class="icb"><svg class="i s"><use href="#ic-more"/></svg></span></div></div>
+        <div class="nums"><div><span>Devor, sof</span><b>50,31 <small>m² +?</small></b></div><div><span>Pol</span><b>20,00 <small>m² +?</small></b></div><div><span>O‘lchangan</span><b>4/11</b></div></div>
+        <div class="sh">Xonalar <span class="n">3</span></div>
+        <div class="g2">
+          <div class="tile"><div class="th"><svg width="70" height="54"><use href="#pl1"/></svg></div><div class="b"><b>Mehmonxona</b><small class="ok"><svg class="i xs"><use href="#ic-check"/></svg>50,31 m² devor</small></div></div>
+          <div class="tile"><div class="th"><svg width="70" height="54"><use href="#pl2"/></svg></div><div class="b"><b>Yotoqxona</b><small class="amb"><svg class="i xs"><use href="#ic-clock"/></svg>B: tasdiqlang</small></div></div>
+        </div>
+        <div class="sh">Surat, chizma, eslatma <span class="n">3</span></div>
+        <div class="g2">
+          <div class="tile"><div class="th ph"><svg width="100%" height="100%" viewBox="0 0 120 90" preserveAspectRatio="xMidYMid slice"><use href="#ph1"/></svg></div><div class="b"><b>Deraza devori</b><small>2 ta o‘lcham</small></div></div>
+          <div class="tile"><div class="th nt">Pol — laminat, devorlar — och kulrang…</div><div class="b"><b>Mijoz istaklari</b><small>1/3 bajarildi</small></div></div>
+        </div>
+      </div>
+      <span class="fab"><svg class="i"><use href="#ic-plus"/></svg>Qo‘shish</span>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> closest to today; photos and drawings stay visual.</p>
+      <p class="minus">Trade-off: the room tiles are small; no button to continue a room.</p>
+    </div>
+  </section>
+
+  <section class="opt" aria-labelledby="hB">
+    <div class="opt-h"><span class="letter">B</span><h2 id="hB">Floor layout</h2></div>
+    <p class="idea">All rooms of the workspace drawn side by side at one scale, like on paper. Tap a room in the drawing to open it. Photos, drawings and notes follow as a short list.</p>
+    <div class="phone" role="img" aria-label="Option B mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body">
+        <div class="hd"><span class="back"><svg class="i s"><use href="#ic-back"/></svg>Yusupovlar uyi</span><div class="nm"><span class="ic"><svg class="i"><use href="#ic-layers"/></svg></span><h3>1-qavat</h3><span class="icb"><svg class="i s"><use href="#ic-cube"/></svg></span><span class="icb"><svg class="i s"><use href="#ic-more"/></svg></span></div><span class="sub">3 ta xona, devor sof 50,31 m² +?, o‘lchangan 4/11</span></div>
+        <div class="strip"><svg viewBox="0 0 300 170">
+          <g font-family="IBM Plex Sans" text-anchor="middle">
+          <path d="M8 18h125v100H8z" fill="#fff" stroke="#0E1C36" stroke-width="5"/><text x="70" y="64" font-size="10" font-weight="600" fill="#3E4A61">MEHMONXONA</text><text x="70" y="79" font-size="10.5" fill="#0B7A5A">✓ 50,31 m²</text>
+          <path d="M150 18h100v88H150z" fill="#fff" stroke="#0E1C36" stroke-width="5"/><path d="M250 18v88" stroke="#D98A1E" stroke-width="5" stroke-dasharray="7 5"/><text x="200" y="58" font-size="10" font-weight="600" fill="#3E4A61">YOTOQXONA</text><text x="200" y="73" font-size="10.5" fill="#9A4D00">B: tasdiqlang</text>
+          <path d="M150 122h60v-6M150 122v40h120v-30h-60" fill="none" stroke="#5F6B82" stroke-width="2.5" stroke-dasharray="6 4"/><text x="210" y="150" font-size="10" font-weight="600" fill="#5F6B82">KORIDOR, ?</text>
+          <text x="70" y="140" font-size="10" fill="#5F6B82">bir xil masshtab</text>
+          </g></svg></div>
+        <div class="card rows">
+          <div class="rw"><span class="k"><svg class="i s"><use href="#ic-cam"/></svg></span><span class="tx"><b>Deraza devori</b><small>Surat, 2 ta o‘lcham</small></span></div>
+          <div class="rw"><span class="k"><svg class="i s"><use href="#ic-penc"/></svg></span><span class="tx"><b>Eshik sxemasi</b><small>Erkin chizma</small></span></div>
+          <div class="rw"><span class="k"><svg class="i s"><use href="#ic-note"/></svg></span><span class="tx"><b>Mijoz istaklari</b><small>Eslatma, 1/3 bajarildi</small></span></div>
+        </div>
+      </div>
+      <span class="fab"><svg class="i"><use href="#ic-plus"/></svg>Qo‘shish</span>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> seeing the floor the way a brickmason sketches it, comparing room sizes at a glance.</p>
+      <p class="minus">Trade-off: rooms are separate drawings placed side by side, not a joined floor plan (joining rooms is out of scope for this release).</p>
+      <p class="minus">Trade-off: small rooms in a big workspace become hard to tap.</p>
+    </div>
+  </section>
+
+  <section class="opt" aria-labelledby="hC">
+    <div class="opt-h"><span class="letter">C</span><h2 id="hC">Rooms to do</h2></div>
+    <p class="idea">Rooms first, as cards with a measuring bar and the next step as a button. Photos, drawings and notes follow in a short sideways row.</p>
+    <div class="phone" role="img" aria-label="Option C mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="gap:8px">
+        <div class="hd"><span class="back"><svg class="i s"><use href="#ic-back"/></svg>Yusupovlar uyi</span><div class="nm"><span class="ic"><svg class="i"><use href="#ic-layers"/></svg></span><h3>1-qavat</h3><span class="icb"><svg class="i s"><use href="#ic-more"/></svg></span></div></div>
+        <div class="nums"><div><span>Devor, sof</span><b>50,31 <small>m² +?</small></b></div><div><span>Pol</span><b>20,00 <small>m² +?</small></b></div><div><span>O‘lchangan</span><b>4/11</b></div></div>
+        <div class="card rc"><div class="t"><span class="pl"><svg width="52" height="40"><use href="#pl2"/></svg></span><span class="tx"><b>Yotoqxona</b><small>4,00 × ? × ?</small></span></div>
+          <div class="pr"><span class="bar amb"><i style="width:33%"></i></span>1/3</div><span class="go amb"><svg class="i s"><use href="#ic-clock"/></svg>Devor B: tasdiqlash</span></div>
+        <div class="card rc"><div class="t"><span class="pl"><svg width="52" height="40"><use href="#pl3"/></svg></span><span class="tx"><b>Koridor</b><small>L-shakl, o‘lchanmagan</small></span></div>
+          <div class="pr"><span class="bar"><i style="width:0"></i></span>0/5</div><span class="go"><svg class="i s"><use href="#ic-laser"/></svg>O‘lchashni boshlash</span></div>
+        <div class="card rc"><div class="t"><span class="pl"><svg width="52" height="40"><use href="#pl1"/></svg></span><span class="tx"><b>Mehmonxona</b><small>5,00 × 4,00 × 3,00</small></span><span class="ar">50,31<small>devor, sof m²</small></span></div></div>
+        <div class="sh">Surat, chizma, eslatma <span class="n">3</span></div>
+        <div class="hs">
+          <div class="tile"><div class="th ph"><svg width="100%" height="100%" viewBox="0 0 120 90" preserveAspectRatio="xMidYMid slice"><use href="#ph1"/></svg></div><div class="b"><b>Deraza devori</b></div></div>
+          <div class="tile"><div class="th"><svg width="100%" height="100%" viewBox="0 0 120 90"><use href="#dr1"/></svg></div><div class="b"><b>Eshik sxemasi</b></div></div>
+          <div class="tile"><div class="th nt">Pol — laminat…</div><div class="b"><b>Mijoz istaklari</b></div></div>
+        </div>
+      </div>
+      <span class="fab"><svg class="i"><use href="#ic-plus"/></svg>Qo‘shish</span>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> unfinished rooms come first with a big button for the next step, and finished rooms drop below.</p>
+      <p><b>Good for:</b> the workspace totals sit on top, so the total net wall area is ready for brick orders.</p>
+      <p class="minus">Trade-off: photos and notes are smaller (sideways row); "All" opens them in a full grid.</p>
+    </div>
+  </section>
+
+  </div>
+  <section class="how">
+    <h3>My recommendation: C</h3>
+    <p>It matches how a brickmason works through a floor: finish measuring each room, then check the total wall area. The workspace totals use the same three-number strip as the project page, so the app feels consistent. If you like B's drawing, I can add it as a "Layout" button on this page rather than making it the main view.</p>
+    <p>Tell me a letter, or a mix, and I'll build it in the app.</p>
+  </section>
+</div>

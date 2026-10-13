@@ -1,0 +1,317 @@
+<title>METRX Profile Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: an intro, then three phone mockups side by side (stacked on a phone), each with its idea and trade-offs underneath. */
+:root{
+  --bg:#EEF1F6; --panel:#FFFFFF; --fg:#0E1C36; --fg2:#47536A; --rule:#D5DCE7; --accent:#1C4BD1;
+  --f-ui:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --f-num:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; color-scheme:dark } }
+:root[data-theme="dark"]{ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 15px/1.5 var(--f-ui);margin:0}
+.wrap{max-width:1300px;margin:0 auto;padding-inline:16px;padding-block:28px 56px}
+header.intro{display:grid;gap:14px;max-width:860px}
+.kicker{font:600 13px/1 var(--f-num);letter-spacing:.14em;color:var(--accent)}
+h1{margin:0;font:700 clamp(28px,4vw,40px)/1.1 var(--f-num);letter-spacing:-.01em;text-wrap:balance}
+.intro p{margin:0;color:var(--fg2);max-width:70ch}
+.now{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:6px}
+.now div{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:12px 14px;font-size:14px;color:var(--fg2)}
+.now b{display:block;color:var(--fg);font-weight:600;margin-bottom:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(372px,100%),1fr));gap:28px 22px;margin-top:30px;align-items:start}
+.opt{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;min-width:0}
+.opt-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.letter{font:700 30px/1 var(--f-num);color:var(--accent)}
+.opt-h h2{margin:0;font:600 20px/1.2 var(--f-ui)}
+.rec{font:600 12px/1 var(--f-num);letter-spacing:.06em;padding:5px 8px;border-radius:6px;background:var(--accent);color:var(--panel);white-space:nowrap}
+.idea{margin:0;color:var(--fg2);font-size:14.5px;min-height:4.5em}
+.notes{display:grid;gap:8px;font-size:14px}
+.notes p{margin:0;padding-left:22px;position:relative;color:var(--fg2)}
+.notes p b{color:var(--fg);font-weight:600}
+.notes p::before{content:"";position:absolute;left:4px;top:.55em;width:8px;height:8px;border-radius:2px;background:var(--accent)}
+.notes p.minus::before{background:none;border:1.5px solid var(--fg2);border-radius:50%}
+.how{margin-top:34px;max-width:860px;background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;display:grid;gap:6px}
+.how h3{margin:0;font:600 16px/1.3 var(--f-ui)}
+.how p{margin:0;color:var(--fg2);font-size:14.5px}
+
+/* ---------- phone mockups: a fixed light app screen (the app itself is light-only) ---------- */
+.phone{--ink:#0E1C36;--ink2:#47536A;--ink3:#6B7486;--paper:#F4F5F7;--sheet:#FFFFFF;--rule:#E3E6EB;--fill:#EEF0F4;--cob:#1C4BD1;--cob2:#1238A8;--wash:#EAF0FE;--amb:#9A4D00;--ambw:#FFF1DF;--ok:#0B7A5A;--okw:#E6F4EF;
+  width:min(360px,100%);height:760px;justify-self:center;border-radius:36px;padding:10px;background:#0E1C36;box-shadow:0 18px 40px rgba(14,28,54,.22)}
+.scr{position:relative;height:100%;border-radius:28px;overflow:hidden;background:var(--paper);color:var(--ink);font:400 14.5px/1.4 var(--f-ui);display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+.sb{flex:none;height:30px;display:flex;align-items:center;justify-content:space-between;padding:4px 22px 0 26px;font:600 13px/1 system-ui,sans-serif}
+.body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:10px;padding:4px 14px 86px}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.s{width:16px;height:16px}.i.xs{width:14px;height:14px}.i.l{width:26px;height:26px}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:74px;background:var(--sheet);box-shadow:0 -1px 0 var(--rule);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px 14px}
+.tabs span{display:grid;justify-items:center;align-content:end;gap:3px;font-size:11px;color:var(--ink2)}
+.tabs span.on{color:var(--ink);font-weight:600;position:relative}
+.tabs span.on::before{content:"";position:absolute;top:-30px;left:50%;width:50px;height:50px;margin-left:-25px;border-radius:50%;background:var(--cob);border:5px solid var(--sheet);box-shadow:0 6px 14px rgba(28,75,209,.28)}
+.tabs span.on .i{position:relative;z-index:1;color:#fff;transform:translateY(-22px)}
+.tabs span.on .i+b{margin-top:-20px}
+.tabs b{font-weight:inherit}
+.card{background:var(--sheet);border-radius:16px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06)}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.sp{flex:1}
+.cd{font-family:var(--f-num)}
+.muted{color:var(--ink2)}
+.sm{font-size:12.5px}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ttl{font-size:26px;font-weight:700;letter-spacing:-.015em;line-height:1.1}
+.search{display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:12px;background:var(--sheet);border:1.5px solid var(--rule);color:var(--ink3);font-size:14px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.st-measure{background:var(--ambw);color:var(--amb)}
+.st-estimate{background:var(--wash);color:var(--cob2)}
+.st-quote{background:#E9E4FB;color:#4A2FB0}
+.st-work{background:var(--fill);color:var(--ink)}
+.st-done{background:var(--okw);color:var(--ok)}
+.seg{display:flex;gap:3px;padding:3px;border-radius:12px;background:var(--fill)}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;min-height:36px;border-radius:9px;font-size:13.5px;color:var(--ink2);font-weight:500}
+.seg span.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(16,24,40,.14)}
+.seg .n{font:600 11.5px/1 var(--f-num);color:var(--ink3)}
+.fab{position:absolute;right:16px;bottom:88px;height:54px;padding:0 18px 0 14px;border-radius:27px;background:var(--cob);color:#fff;display:flex;align-items:center;gap:6px;font-weight:600;font-size:14.5px;box-shadow:0 8px 20px rgba(28,75,209,.35)}
+.bar{height:6px;border-radius:3px;background:var(--fill);overflow:hidden;flex:1}
+.bar i{display:block;height:100%;background:var(--cob)}
+.bar.amb i{background:#D98A1E}
+
+/* A: compact list */
+.a-grp{font-size:12.5px;font-weight:600;color:var(--ink2);padding:4px 2px 0}
+.a-list{display:grid}
+.a-row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 12px;border-bottom:1px solid var(--rule)}
+.a-row:last-child{border-bottom:0}
+.a-row b{font-size:14.5px;font-weight:600}
+.a-row .r{text-align:right;display:grid;gap:2px;justify-items:end}
+.a-row .r b{font:600 14.5px/1.2 var(--f-num)}
+.a-prog{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2);margin-top:4px}
+
+/* B: site cards */
+.b-card{padding:12px;display:grid;gap:10px}
+.b-top{display:flex;gap:10px;align-items:flex-start}
+.b-top .tx{flex:1;min-width:0;display:grid;gap:1px}
+.b-top b{font-size:16px;font-weight:600}
+.b-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.b-nums div{display:grid;gap:1px;padding:7px 8px;border-radius:10px;background:var(--fill)}
+.b-nums span{font-size:11px;color:var(--ink2);line-height:1.2}
+.b-nums b{font:600 15px/1.15 var(--f-num)}
+.b-nums b small{font-size:11px;font-weight:500;color:var(--ink2)}
+.b-acts{display:flex;gap:8px}
+.b-acts span{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border-radius:10px;background:var(--fill);font-size:13px;font-weight:600}
+.b-acts span.pri{background:var(--cob);color:#fff}
+.b-next{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--amb);font-weight:500}
+
+/* C: by stage */
+.c-sec{display:grid;gap:6px}
+.c-h{display:flex;align-items:center;gap:8px;padding:2px 2px;font-weight:600;font-size:14.5px}
+.c-h .n{font:600 12px/1 var(--f-num);padding:3px 8px;border-radius:999px;background:var(--fill);color:var(--ink2)}
+.c-h .i{color:var(--ink3)}
+.c-dot{width:10px;height:10px;border-radius:50%}
+.c-row{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--rule)}
+.c-row:last-child{border-bottom:0}
+.c-row .tx{flex:1;min-width:0;display:grid;gap:1px}
+.c-row .tx b{font-size:14.5px;font-weight:600}
+.c-next{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--cob2);font-weight:500}
+.c-sec.closed .c-h{color:var(--ink2)}
+
+@media (max-width:420px){ .phone{height:740px;border-radius:30px;padding:8px} }
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="ic-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></symbol>
+<symbol id="ic-folder" viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3z"/></symbol>
+<symbol id="ic-laser" viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="10" rx="2"/><path d="M15 12h6M18 9l3 3-3 3"/></symbol>
+<symbol id="ic-board" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/></symbol>
+<symbol id="ic-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></symbol>
+<symbol id="ic-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="ic-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="ic-phone" viewBox="0 0 24 24"><path d="M6 3h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 4 5a2 2 0 0 1 2-2z"/></symbol>
+<symbol id="ic-pin" viewBox="0 0 24 24"><path d="M12 21s-6-6-6-11a6 6 0 0 1 12 0c0 5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></symbol>
+<symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+<symbol id="ic-doc" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 13h7M9 17h7M9 9h3"/></symbol>
+<symbol id="ic-sort" viewBox="0 0 24 24"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></symbol>
+<symbol id="ic-wall" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v5M15 10v5M9 15v4"/></symbol>
+<symbol id="ic-sig" viewBox="0 0 24 24"><path d="M3 20h2v-3H3zM8 20h2v-6H8zM13 20h2v-9h-2zM18 20h2V8h-2z" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<style>
+.ph{display:flex;align-items:center;gap:8px}
+.ph h3{margin:0;font-size:24px;font-weight:700;flex:1}
+.av{width:46px;height:46px;border-radius:50%;display:grid;place-items:center;background:var(--ink);color:#fff;font-weight:700;font-size:16px;flex:none}
+.me{display:flex;align-items:center;gap:12px;padding:12px}
+.me .tx{flex:1;min-width:0;display:grid;line-height:1.25}
+.me .tx b{font-size:16px}
+.me .ed{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--fill);color:var(--ink)}
+.cap{font-size:11.5px;color:var(--ink2);padding:0 12px 10px;display:flex;gap:6px;align-items:center}
+.lg{display:grid}
+.lg .r{display:flex;align-items:center;gap:10px;padding:0 12px;min-height:48px;border-bottom:1px solid var(--rule);font-size:14px}
+.lg .r:last-child{border-bottom:0}
+.lg .r .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--fill);flex:none}
+.lg .r .ic .i{color:var(--ink)}
+.lg .r .l{flex:1;min-width:0;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.lg .r .v{color:var(--ink2);font-size:13px;white-space:nowrap}
+.lg .r .v.warn{color:var(--amb);font-weight:600}
+.lg .r .v.ok{color:var(--ok);font-weight:600}
+.gh{font-size:12.5px;font-weight:600;color:var(--ink2);padding:2px 4px 0}
+/* A */
+.stt{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.stt span{display:grid;gap:3px;padding:9px 9px 8px;border-radius:13px;background:var(--sheet);box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06);font-size:11.5px;color:var(--ink2);min-width:0}
+.stt span b{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.stt span .i{color:var(--ink)}
+.stt span.ok{box-shadow:inset 0 0 0 1.5px #9FD3BF}
+.stt span.ok b{color:var(--ok)}
+.stt span.warn{background:var(--ambw);box-shadow:none}
+.stt span.warn b,.stt span.warn .i{color:var(--amb)}
+.more{display:flex;align-items:center;justify-content:center;gap:6px;min-height:44px;border-radius:13px;background:var(--fill);font-weight:600;font-size:14px}
+/* B */
+.qcard{display:grid;gap:8px;padding:12px;border-radius:16px;background:var(--sheet);box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06)}
+.qcard .lb{font-size:11.5px;color:var(--ink2);display:flex;align-items:center;justify-content:space-between}
+.qcard .lb span{color:var(--cob);font-weight:600;font-size:13px}
+.sheetp{border:1px solid var(--rule);border-radius:8px;padding:10px 12px;display:grid;gap:6px;background:#fff;font-family:var(--f-num)}
+.sheetp .tp{display:flex;justify-content:space-between;align-items:flex-start;gap:8px}
+.sheetp .tp b{font:700 15px var(--f-ui)}
+.sheetp .tp small{display:block;font-size:11.5px;color:var(--ink2)}
+.sheetp .no{font-size:11px;color:var(--ink2);text-align:right}
+.sheetp .no b{display:block;font:700 13px var(--f-num);color:var(--ink)}
+.sheetp .ln{height:6px;border-radius:3px;background:var(--fill)}
+.addf{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--cob);font-weight:600}
+/* C */
+.tl{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.tl span{display:grid;gap:4px;align-content:start;min-height:84px;padding:11px;border-radius:15px;background:var(--sheet);box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06);min-width:0}
+.tl span .i{width:22px;height:22px;color:var(--cob)}
+.tl span b{font-size:14px}
+.tl span small{font-size:12px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tl span.warn{background:var(--ambw)}
+.tl span.warn .i,.tl span.warn small{color:var(--amb)}
+.tl span.warn small{font-weight:600}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="ic-globe" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.5 2.6 3.6 5.5 3.6 8.5s-1.1 5.9-3.6 8.5c-2.5-2.6-3.6-5.5-3.6-8.5S9.5 6.1 12 3.5z"/></symbol>
+<symbol id="ic-ruler" viewBox="0 0 24 24"><path d="M3 16.5L16.5 3 21 7.5 7.5 21z"/><path d="M7 12.5l2 2M10 9.5l2 2M13 6.5l2 2"/></symbol>
+<symbol id="ic-coin" viewBox="0 0 24 24"><ellipse cx="12" cy="7" rx="7" ry="3"/><path d="M5 7v5c0 1.7 3.1 3 7 3s7-1.3 7-3V7M5 12v5c0 1.7 3.1 3 7 3s7-1.3 7-3v-5"/></symbol>
+<symbol id="ic-door" viewBox="0 0 24 24"><path d="M5 21V4h12v17M3 21h18"/><path d="M14 12h.01"/></symbol>
+<symbol id="ic-bt" viewBox="0 0 24 24"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></symbol>
+<symbol id="ic-save" viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M8 4v5h7V4M8 20v-6h8v6"/></symbol>
+<symbol id="ic-card" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></symbol>
+<symbol id="ic-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></symbol>
+<symbol id="ic-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></symbol>
+<symbol id="ic-gear" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1"/></symbol>
+<symbol id="ic-alert" viewBox="0 0 24 24"><path d="M12 4l9 16H3z"/><path d="M12 10v4M12 17h.01"/></symbol>
+<symbol id="ic-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="ic-shield" viewBox="0 0 24 24"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z"/></symbol>
+</svg>
+<div class="wrap">
+  <header class="intro">
+    <span class="kicker">METRX · PROFIL</span>
+    <h1>Three ways to design the Profile</h1>
+    <p>All three use the same data: builder Bobur Rahimov, +998 93 555 12 34, no account, laser connected (simulated), subscription active and <b>no backup yet</b>. The app keeps everything on this phone, so the backup state matters more than anything else here.</p>
+    <div class="now">
+      <div><b>Fifteen rows, two screens</b>Language, PDF content, angle snapping and "show tips again" sit in one long list with equal weight.</div>
+      <div><b>Risk hidden at the bottom</b>"Backup" is the second-last row and doesn't warn when you have never backed up. Losing the phone loses every project.</div>
+      <div><b>Laser under "Drawing"</b>The device row is buried among drawing settings, though it's the one thing builders check daily.</div>
+      <div><b>Stats with no use</b>"2 projects, 1 quote, 2 rooms" takes a row but leads nowhere. The header doesn't say that your name and phone go on every quote.</div>
+    </div>
+  </header>
+  <div class="grid">
+
+  <section class="opt" aria-labelledby="hA">
+    <div class="opt-h"><span class="letter">A</span><h2 id="hA">Status first, short groups</h2></div>
+    <p class="idea">Under your name, three status tiles: Laser, Backup and Subscription. A problem turns amber and opens its fix. Below, three short groups of the settings people actually change. Rare ones move into "More settings".</p>
+    <div class="phone" role="img" aria-label="Option A mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="gap:7px">
+        <div class="ph"><h3>Profil</h3></div>
+        <div class="card"><div class="me"><span class="av">BR</span><span class="tx"><b>Bobur Rahimov</b><span class="muted sm">+998 93 555 12 34</span></span><span class="ed"><svg class="i s"><use href="#ic-edit"/></svg></span></div><div class="cap"><svg class="i s"><use href="#ic-doc"/></svg>Har bir taklifda shu ism va telefon chiqadi</div></div>
+        <div class="stt"><span class="ok"><svg class="i s"><use href="#ic-bt"/></svg>Lazer<b>Ulangan</b></span><span class="warn"><svg class="i s"><use href="#ic-alert"/></svg>Zaxira<b>Hali yo‘q</b></span><span><svg class="i s"><use href="#ic-card"/></svg>Obuna<b>Faol</b></span></div>
+        <div class="gh">Til va hisobot</div>
+        <div class="card lg">
+          <div class="r"><span class="ic"><svg class="i s"><use href="#ic-globe"/></svg></span><span class="l">Ilova tili</span><span class="v">O‘zbekcha</span></div>
+          <div class="r"><span class="ic"><svg class="i s"><use href="#ic-doc"/></svg></span><span class="l">Taklif tili va tarkibi</span><span class="v">O‘zb., 5/5</span></div>
+          <div class="r"><span class="ic"><svg class="i s"><use href="#ic-coin"/></svg></span><span class="l">Valyuta</span><span class="v">UZS</span></div>
+        </div>
+        <div class="gh">O‘lchash va chizma</div>
+        <div class="card lg">
+          <div class="r"><span class="ic"><svg class="i s"><use href="#ic-door"/></svg></span><span class="l">Eshik va deraza</span><span class="v">0,90 × 2,10</span></div>
+          <div class="r"><span class="ic"><svg class="i s"><use href="#ic-ruler"/></svg></span><span class="l">45°/90° ga tortish</span><span class="v ok">Yoqilgan</span></div>
+        </div>
+        <div class="more"><svg class="i s"><use href="#ic-gear"/></svg>Boshqa sozlamalar</div>
+      </div>
+      <nav class="tabs"><span><svg class="i"><use href="#ic-home"/></svg><b>Asosiy</b></span><span><svg class="i"><use href="#ic-folder"/></svg><b>Loyihalar</b></span><span><svg class="i"><use href="#ic-laser"/></svg><b>O‘lchash</b></span><span><svg class="i"><use href="#ic-board"/></svg><b>Doska</b></span><span class="on"><svg class="i"><use href="#ic-user"/></svg><b>Profil</b></span></nav>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> "is my laser connected, are my projects safe?" answered at a glance. The amber Backup tile opens "Make a backup" directly.</p>
+      <p><b>Good for:</b> one screen instead of two. "More settings" keeps units, room labels, tips and About.</p>
+      <p class="minus">Trade-off: rarely used settings are one tap deeper.</p>
+    </div>
+  </section>
+
+  <section class="opt" aria-labelledby="hB">
+    <div class="opt-h"><span class="letter">B</span><h2 id="hB">Your quote card, settings behind a gear</h2></div>
+    <p class="idea">The Profile shows what the customer sees: a preview of your quote header with your name and phone. Below it, a backup card and the account. All settings move to one Settings page behind the gear.</p>
+    <div class="phone" role="img" aria-label="Option B mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="gap:10px">
+        <div class="ph"><h3>Profil</h3><span class="me" style="padding:0"><span class="ed" style="background:var(--sheet);box-shadow:0 1px 2px rgba(16,24,40,.08)"><svg class="i s"><use href="#ic-gear"/></svg></span></span></div>
+        <div class="qcard">
+          <div class="lb">Buyurtmachi taklifda shuni ko‘radi <span>O‘zgartirish</span></div>
+          <div class="sheetp"><div class="tp"><div><b>Bobur Rahimov</b><small>G‘isht teruvchi usta</small><small>+998 93 555 12 34</small></div><div class="no">TAKLIF<b>№ 1</b>12.10.2026</div></div><div class="ln" style="width:70%"></div><div class="ln" style="width:90%"></div><div class="ln" style="width:55%"></div></div>
+          <div class="addf"><svg class="i s" style="color:inherit"><use href="#ic-plus"/></svg>Kasb yoki kompaniya nomini qo‘shish</div>
+        </div>
+        <div class="card" style="padding:12px;display:grid;gap:8px;background:var(--ambw);box-shadow:none">
+          <div style="display:flex;gap:8px;align-items:center;color:var(--amb);font-weight:600"><svg class="i s" style="color:inherit"><use href="#ic-alert"/></svg>Zaxira hali qilinmagan</div>
+          <div class="sm" style="color:var(--ink)">2 loyiha faqat shu telefonda. Telefon yo‘qolsa, ular ham yo‘qoladi.</div>
+          <div style="display:flex;align-items:center;justify-content:center;gap:6px;min-height:42px;border-radius:12px;background:var(--cob);color:#fff;font-weight:600;font-size:14px"><svg class="i s" style="color:inherit"><use href="#ic-save"/></svg>Zaxira qilish</div>
+        </div>
+        <div class="card lg">
+          <div class="r"><span class="ic"><svg class="i s"><use href="#ic-user"/></svg></span><span class="l">Kirish yoki hisob yaratish</span><svg class="i s"><use href="#ic-chev"/></svg></div>
+          <div class="r"><span class="ic"><svg class="i s"><use href="#ic-card"/></svg></span><span class="l">Obuna</span><span class="v ok">Faol</span></div>
+        </div>
+      </div>
+      <nav class="tabs"><span><svg class="i"><use href="#ic-home"/></svg><b>Asosiy</b></span><span><svg class="i"><use href="#ic-folder"/></svg><b>Loyihalar</b></span><span><svg class="i"><use href="#ic-laser"/></svg><b>O‘lchash</b></span><span><svg class="i"><use href="#ic-board"/></svg><b>Doska</b></span><span class="on"><svg class="i"><use href="#ic-user"/></svg><b>Profil</b></span></nav>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> it's clear why the name and phone matter, and a builder can add a trade or company name to look professional.</p>
+      <p><b>Good for:</b> a calm page; the backup warning can't be missed.</p>
+      <p class="minus">Trade-off: every setting, including the app language, is one tap deeper behind the gear. The laser status lives on the Measure tab only.</p>
+    </div>
+  </section>
+
+  <section class="opt" aria-labelledby="hC">
+    <div class="opt-h"><span class="letter">C</span><h2 id="hC">Big tiles</h2></div>
+    <p class="idea">Six large tiles in two columns, each showing its current value: Language, Laser, Backup, Quote PDF, Units and Subscription. Easy to hit with gloves on. The account and rare settings sit in a short list underneath.</p>
+    <div class="phone" role="img" aria-label="Option C mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="gap:9px">
+        <div class="ph"><h3>Profil</h3></div>
+        <div class="card"><div class="me"><span class="av">BR</span><span class="tx"><b>Bobur Rahimov</b><span class="muted sm">+998 93 555 12 34</span></span><span class="ed"><svg class="i s"><use href="#ic-edit"/></svg></span></div></div>
+        <div class="tl">
+          <span><svg class="i"><use href="#ic-globe"/></svg><b>Til</b><small>O‘zbekcha (lotin)</small></span>
+          <span><svg class="i"><use href="#ic-bt"/></svg><b>Lazer</b><small>Ulangan</small></span>
+          <span class="warn"><svg class="i"><use href="#ic-save"/></svg><b>Zaxira</b><small>Hali qilinmagan</small></span>
+          <span><svg class="i"><use href="#ic-doc"/></svg><b>Taklif PDF</b><small>O‘zbekcha, 5/5</small></span>
+          <span><svg class="i"><use href="#ic-ruler"/></svg><b>Birliklar</b><small>Metr, UZS</small></span>
+          <span><svg class="i"><use href="#ic-card"/></svg><b>Obuna</b><small>Faol (pilot)</small></span>
+        </div>
+        <div class="card lg">
+          <div class="r"><span class="ic"><svg class="i s"><use href="#ic-user"/></svg></span><span class="l">Kirish yoki hisob yaratish</span><svg class="i s"><use href="#ic-chev"/></svg></div>
+          <div class="r"><span class="ic"><svg class="i s"><use href="#ic-gear"/></svg></span><span class="l">Chizma sozlamalari</span><svg class="i s"><use href="#ic-chev"/></svg></div>
+        </div>
+      </div>
+      <nav class="tabs"><span><svg class="i"><use href="#ic-home"/></svg><b>Asosiy</b></span><span><svg class="i"><use href="#ic-folder"/></svg><b>Loyihalar</b></span><span><svg class="i"><use href="#ic-laser"/></svg><b>O‘lchash</b></span><span><svg class="i"><use href="#ic-board"/></svg><b>Doska</b></span><span class="on"><svg class="i"><use href="#ic-user"/></svg><b>Profil</b></span></nav>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> large targets, and every important value is readable without opening anything.</p>
+      <p><b>Good for:</b> matches Home's big tiles, which you liked.</p>
+      <p class="minus">Trade-off: tiles give equal weight to a backup warning and a units setting. Long Russian values ("Симулятор подключён") get cut off in narrow tiles.</p>
+    </div>
+  </section>
+
+  </div>
+  <section class="how">
+    <h3>My recommendation: A</h3>
+    <p>A answers the two daily questions first: is the laser connected, and are my projects backed up. It then fits the settings builders really change on one screen. A also borrows B's idea of a line under your name saying it appears on every quote. B's full quote preview and company name field fit better on the report page, which comes next.</p>
+    <p>Tell me a letter, or a mix, and I'll build it in the app.</p>
+  </section>
+</div>

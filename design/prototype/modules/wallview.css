@@ -1,0 +1,40 @@
+/* wall view (Devor ko‘rinishi) */
+.wv-pager{display:flex;align-items:center;gap:4px;padding:0 8px 6px}
+.wv-pager .ib{color:var(--cobalt);border-radius:12px}
+.wv-pager .ib .i{width:24px;height:24px}
+.wv-dots{flex:1;min-width:0;display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:8px}
+.wv-dots i{width:7px;height:7px;border-radius:50%;background:var(--rule);box-shadow:inset 0 0 0 1px var(--ink3)}
+.wv-dots i.on{width:12px;height:12px;background:var(--ink);box-shadow:none}
+.wv-sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.wv-elev{margin:0 16px;background-color:var(--sheet);background-image:linear-gradient(var(--rule2) 1px,transparent 1px),linear-gradient(90deg,var(--rule2) 1px,transparent 1px);background-size:23px 23px;border-radius:var(--r);box-shadow:var(--sh);overflow:hidden;touch-action:pan-y}
+.wv-top{display:flex;align-items:center;gap:10px;padding:8px 10px 0}
+.wv-loc{flex:none;width:80px;height:62px;display:grid;place-items:center;border-radius:12px;background:var(--sheet);box-shadow:0 0 0 1px var(--rule),0 2px 6px rgba(16,24,40,.08)}
+.wv-loc:active{background:var(--wash)}
+.wv-cap{min-width:0;font-size:12.5px;line-height:1.3;color:var(--ink2)}
+.wv-draw svg{display:block;width:100%;height:auto}
+.wv-draw svg [data-a]{cursor:pointer}
+.wv-in-next{animation:wvInN .22s ease-out}
+.wv-in-prev{animation:wvInP .22s ease-out}
+@keyframes wvInN{from{transform:translateX(28px);opacity:.35}}
+@keyframes wvInP{from{transform:translateX(-28px);opacity:.35}}
+.wv-ban{margin:10px 16px 0}
+.wv-stats{display:grid;gap:8px;padding:12px 16px 0}
+.wv-cnt{display:inline-grid;place-items:center;min-width:24px;height:24px;padding:0 6px;border-radius:12px;background:var(--fill);font-size:12.5px;font-weight:600}
+.wv-strip{display:flex;gap:10px;overflow-x:auto;padding:2px 16px 10px;scroll-snap-type:x proximity;scrollbar-width:none}
+.wv-strip::-webkit-scrollbar{display:none}
+.wv-op{flex:none;width:152px;min-height:96px;scroll-snap-align:start;display:grid;align-content:start;gap:3px;padding:10px 12px;background:var(--sheet);border-radius:14px;box-shadow:var(--sh);text-align:left}
+.wv-op:active{background:var(--wash)}
+.wv-op.sel{box-shadow:0 0 0 2px var(--cobalt),var(--sh)}
+.wv-op.bad{box-shadow:inset 3px 0 0 var(--err),var(--sh)}
+.wv-op.bad.sel{box-shadow:inset 3px 0 0 var(--err),0 0 0 2px var(--cobalt),var(--sh)}
+.wv-op .wv-ot{display:flex;align-items:center;gap:6px;font-weight:600;font-size:14.5px;color:var(--ink);min-width:0}
+.wv-op .wv-ot>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.wv-op .wv-ot .i{color:var(--cobalt)}
+.wv-op .wv-sz{font:600 16px var(--f-num)}
+.wv-op small{font-size:12.5px;color:var(--ink2);overflow-wrap:anywhere}
+.wv-op small.wv-badtx{display:flex;align-items:center;gap:4px;color:var(--err);font-weight:600}
+.wv-none{padding:0 16px 6px}
+.wv-addrow{display:flex;justify-content:center;padding:8px 16px 24px}
+.wv-add{min-width:200px;border-radius:999px}
+.wv-opl{display:flex;align-items:center;gap:10px}
+.wv-opl .i{color:var(--cobalt)}

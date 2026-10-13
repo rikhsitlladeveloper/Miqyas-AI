@@ -1,0 +1,331 @@
+<title>METRX Board Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: an intro, then three phone mockups side by side (stacked on a phone), each with its idea and trade-offs underneath. */
+:root{
+  --bg:#EEF1F6; --panel:#FFFFFF; --fg:#0E1C36; --fg2:#47536A; --rule:#D5DCE7; --accent:#1C4BD1;
+  --f-ui:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --f-num:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; color-scheme:dark } }
+:root[data-theme="dark"]{ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 15px/1.5 var(--f-ui);margin:0}
+.wrap{max-width:1300px;margin:0 auto;padding-inline:16px;padding-block:28px 56px}
+header.intro{display:grid;gap:14px;max-width:860px}
+.kicker{font:600 13px/1 var(--f-num);letter-spacing:.14em;color:var(--accent)}
+h1{margin:0;font:700 clamp(28px,4vw,40px)/1.1 var(--f-num);letter-spacing:-.01em;text-wrap:balance}
+.intro p{margin:0;color:var(--fg2);max-width:70ch}
+.now{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:6px}
+.now div{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:12px 14px;font-size:14px;color:var(--fg2)}
+.now b{display:block;color:var(--fg);font-weight:600;margin-bottom:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(372px,100%),1fr));gap:28px 22px;margin-top:30px;align-items:start}
+.opt{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;min-width:0}
+.opt-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.letter{font:700 30px/1 var(--f-num);color:var(--accent)}
+.opt-h h2{margin:0;font:600 20px/1.2 var(--f-ui)}
+.rec{font:600 12px/1 var(--f-num);letter-spacing:.06em;padding:5px 8px;border-radius:6px;background:var(--accent);color:var(--panel);white-space:nowrap}
+.idea{margin:0;color:var(--fg2);font-size:14.5px;min-height:4.5em}
+.notes{display:grid;gap:8px;font-size:14px}
+.notes p{margin:0;padding-left:22px;position:relative;color:var(--fg2)}
+.notes p b{color:var(--fg);font-weight:600}
+.notes p::before{content:"";position:absolute;left:4px;top:.55em;width:8px;height:8px;border-radius:2px;background:var(--accent)}
+.notes p.minus::before{background:none;border:1.5px solid var(--fg2);border-radius:50%}
+.how{margin-top:34px;max-width:860px;background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;display:grid;gap:6px}
+.how h3{margin:0;font:600 16px/1.3 var(--f-ui)}
+.how p{margin:0;color:var(--fg2);font-size:14.5px}
+
+/* ---------- phone mockups: a fixed light app screen (the app itself is light-only) ---------- */
+.phone{--ink:#0E1C36;--ink2:#47536A;--ink3:#6B7486;--paper:#F4F5F7;--sheet:#FFFFFF;--rule:#E3E6EB;--fill:#EEF0F4;--cob:#1C4BD1;--cob2:#1238A8;--wash:#EAF0FE;--amb:#9A4D00;--ambw:#FFF1DF;--ok:#0B7A5A;--okw:#E6F4EF;
+  width:min(360px,100%);height:760px;justify-self:center;border-radius:36px;padding:10px;background:#0E1C36;box-shadow:0 18px 40px rgba(14,28,54,.22)}
+.scr{position:relative;height:100%;border-radius:28px;overflow:hidden;background:var(--paper);color:var(--ink);font:400 14.5px/1.4 var(--f-ui);display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+.sb{flex:none;height:30px;display:flex;align-items:center;justify-content:space-between;padding:4px 22px 0 26px;font:600 13px/1 system-ui,sans-serif}
+.body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:10px;padding:4px 14px 86px}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.s{width:16px;height:16px}.i.xs{width:14px;height:14px}.i.l{width:26px;height:26px}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:74px;background:var(--sheet);box-shadow:0 -1px 0 var(--rule);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px 14px}
+.tabs span{display:grid;justify-items:center;align-content:end;gap:3px;font-size:11px;color:var(--ink2)}
+.tabs span.on{color:var(--ink);font-weight:600;position:relative}
+.tabs span.on::before{content:"";position:absolute;top:-30px;left:50%;width:50px;height:50px;margin-left:-25px;border-radius:50%;background:var(--cob);border:5px solid var(--sheet);box-shadow:0 6px 14px rgba(28,75,209,.28)}
+.tabs span.on .i{position:relative;z-index:1;color:#fff;transform:translateY(-22px)}
+.tabs span.on .i+b{margin-top:-20px}
+.tabs b{font-weight:inherit}
+.card{background:var(--sheet);border-radius:16px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06)}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.sp{flex:1}
+.cd{font-family:var(--f-num)}
+.muted{color:var(--ink2)}
+.sm{font-size:12.5px}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ttl{font-size:26px;font-weight:700;letter-spacing:-.015em;line-height:1.1}
+.search{display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:12px;background:var(--sheet);border:1.5px solid var(--rule);color:var(--ink3);font-size:14px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.st-measure{background:var(--ambw);color:var(--amb)}
+.st-estimate{background:var(--wash);color:var(--cob2)}
+.st-quote{background:#E9E4FB;color:#4A2FB0}
+.st-work{background:var(--fill);color:var(--ink)}
+.st-done{background:var(--okw);color:var(--ok)}
+.seg{display:flex;gap:3px;padding:3px;border-radius:12px;background:var(--fill)}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;min-height:36px;border-radius:9px;font-size:13.5px;color:var(--ink2);font-weight:500}
+.seg span.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(16,24,40,.14)}
+.seg .n{font:600 11.5px/1 var(--f-num);color:var(--ink3)}
+.fab{position:absolute;right:16px;bottom:88px;height:54px;padding:0 18px 0 14px;border-radius:27px;background:var(--cob);color:#fff;display:flex;align-items:center;gap:6px;font-weight:600;font-size:14.5px;box-shadow:0 8px 20px rgba(28,75,209,.35)}
+.bar{height:6px;border-radius:3px;background:var(--fill);overflow:hidden;flex:1}
+.bar i{display:block;height:100%;background:var(--cob)}
+.bar.amb i{background:#D98A1E}
+
+/* A: compact list */
+.a-grp{font-size:12.5px;font-weight:600;color:var(--ink2);padding:4px 2px 0}
+.a-list{display:grid}
+.a-row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 12px;border-bottom:1px solid var(--rule)}
+.a-row:last-child{border-bottom:0}
+.a-row b{font-size:14.5px;font-weight:600}
+.a-row .r{text-align:right;display:grid;gap:2px;justify-items:end}
+.a-row .r b{font:600 14.5px/1.2 var(--f-num)}
+.a-prog{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2);margin-top:4px}
+
+/* B: site cards */
+.b-card{padding:12px;display:grid;gap:10px}
+.b-top{display:flex;gap:10px;align-items:flex-start}
+.b-top .tx{flex:1;min-width:0;display:grid;gap:1px}
+.b-top b{font-size:16px;font-weight:600}
+.b-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.b-nums div{display:grid;gap:1px;padding:7px 8px;border-radius:10px;background:var(--fill)}
+.b-nums span{font-size:11px;color:var(--ink2);line-height:1.2}
+.b-nums b{font:600 15px/1.15 var(--f-num)}
+.b-nums b small{font-size:11px;font-weight:500;color:var(--ink2)}
+.b-acts{display:flex;gap:8px}
+.b-acts span{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border-radius:10px;background:var(--fill);font-size:13px;font-weight:600}
+.b-acts span.pri{background:var(--cob);color:#fff}
+.b-next{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--amb);font-weight:500}
+
+/* C: by stage */
+.c-sec{display:grid;gap:6px}
+.c-h{display:flex;align-items:center;gap:8px;padding:2px 2px;font-weight:600;font-size:14.5px}
+.c-h .n{font:600 12px/1 var(--f-num);padding:3px 8px;border-radius:999px;background:var(--fill);color:var(--ink2)}
+.c-h .i{color:var(--ink3)}
+.c-dot{width:10px;height:10px;border-radius:50%}
+.c-row{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--rule)}
+.c-row:last-child{border-bottom:0}
+.c-row .tx{flex:1;min-width:0;display:grid;gap:1px}
+.c-row .tx b{font-size:14.5px;font-weight:600}
+.c-next{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--cob2);font-weight:500}
+.c-sec.closed .c-h{color:var(--ink2)}
+
+@media (max-width:420px){ .phone{height:740px;border-radius:30px;padding:8px} }
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="ic-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></symbol>
+<symbol id="ic-folder" viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3z"/></symbol>
+<symbol id="ic-laser" viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="10" rx="2"/><path d="M15 12h6M18 9l3 3-3 3"/></symbol>
+<symbol id="ic-board" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/></symbol>
+<symbol id="ic-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></symbol>
+<symbol id="ic-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="ic-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="ic-phone" viewBox="0 0 24 24"><path d="M6 3h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 4 5a2 2 0 0 1 2-2z"/></symbol>
+<symbol id="ic-pin" viewBox="0 0 24 24"><path d="M12 21s-6-6-6-11a6 6 0 0 1 12 0c0 5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></symbol>
+<symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+<symbol id="ic-doc" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 13h7M9 17h7M9 9h3"/></symbol>
+<symbol id="ic-sort" viewBox="0 0 24 24"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></symbol>
+<symbol id="ic-wall" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v5M15 10v5M9 15v4"/></symbol>
+<symbol id="ic-sig" viewBox="0 0 24 24"><path d="M3 20h2v-3H3zM8 20h2v-6H8zM13 20h2v-9h-2zM18 20h2V8h-2z" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<style>
+.bh{display:flex;align-items:center;gap:8px}
+.bh h3{margin:0;font-size:24px;font-weight:700;flex:1}
+.bh .ad{width:38px;height:38px;border-radius:12px;display:grid;place-items:center;background:var(--sheet);box-shadow:0 1px 2px rgba(16,24,40,.08)}
+.pipe{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}
+.pipe span{display:grid;gap:3px;justify-items:center;padding:6px 2px 5px;border-radius:10px;font-size:10px;font-weight:600;text-align:center;line-height:1.15;min-width:0}
+.pipe span b{font:700 17px/1 var(--f-num)}
+.pipe span em{font-style:normal;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pipe span.on{box-shadow:0 0 0 2px var(--cob) inset}
+.st-measure{background:var(--ambw);color:var(--amb)}
+.st-estimate{background:var(--wash);color:var(--cob2)}
+.st-quote{background:#E9E4FB;color:#4A2FB0}
+.st-work{background:#E3E7EE;color:var(--ink)}
+.st-done{background:var(--okw);color:var(--ok)}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+/* A */
+.sgh{display:flex;align-items:center;gap:8px;padding:2px 2px 0;font-weight:600;font-size:14px}
+.sgh i{width:10px;height:10px;border-radius:3px}
+.sgh .n{color:var(--ink2);font:600 13px var(--f-num)}
+.sgh .sp{flex:1}
+.ar{display:grid;gap:1px;padding:9px 12px;border-bottom:1px solid var(--rule)}
+.ar .lr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-top:4px}
+.ar:last-child{border-bottom:0}
+.ar .nm{font-weight:600;font-size:14.5px}
+.ar .nx{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--ink);min-width:0}
+.ar .nx .i{color:var(--ink3)}
+.ar .go{flex:none;display:flex;align-items:center;gap:3px;padding:6px 8px 6px 10px;border-radius:10px;background:var(--wash);color:var(--cob2);font-size:12px;font-weight:600}
+.ar .go.call{background:var(--okw);color:var(--ok)}
+.ar .wt{font-size:12px;color:#4A2FB0;font-weight:600}
+.coll{display:flex;align-items:center;gap:8px;padding:10px 12px;font-weight:600;font-size:14px}
+.coll .n{color:var(--ink2);font:600 13px var(--f-num)}
+/* B */
+.stabs{display:flex;gap:6px;overflow:hidden}
+.stabs span{flex:none;display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border-radius:999px;background:var(--sheet);font-size:13px;font-weight:600;color:var(--ink2);box-shadow:0 0 0 1px var(--rule) inset}
+.stabs span b{font:700 13px var(--f-num)}
+.stabs span.on{background:var(--ink);color:#fff;box-shadow:none}
+.dots{display:flex;justify-content:center;gap:5px}
+.dots i{width:6px;height:6px;border-radius:50%;background:#C9CFDA}
+.dots i.on{width:18px;border-radius:3px;background:var(--ink)}
+.bc{display:grid;gap:8px;padding:12px}
+.bc .top{display:flex;align-items:flex-start;gap:8px}
+.bc .top .tx{flex:1;min-width:0;display:grid}
+.bc .top b{font-size:15px}
+.prog{height:6px;border-radius:3px;background:var(--fill);overflow:hidden}
+.prog i{display:block;height:100%;background:var(--cob);border-radius:3px}
+.tk{display:flex;align-items:center;gap:8px;font-size:13.5px;min-height:26px}
+.tk.done{color:var(--ink3);text-decoration:line-through}
+.tk.done .i{color:var(--ok)}
+.bc .nt{font-size:12.5px;color:var(--ink2);padding:7px 9px;border-radius:9px;background:var(--fill)}
+.bc .ft{display:flex;gap:6px}
+.bc .ft span{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;min-height:40px;border-radius:11px;font-size:13px;font-weight:600;background:var(--fill)}
+.bc .ft span.pri{background:var(--cob);color:#fff;flex:1.4}
+.peek{opacity:.55;transform:scale(.97);transform-origin:top}
+/* C */
+.td{display:grid}
+.td .r{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--rule);min-height:52px}
+.td .r:last-child{border-bottom:0}
+.td .r .tx{flex:1;min-width:0;display:grid;line-height:1.25}
+.td .r .tx b{font-weight:500;font-size:14px}
+.td .r .tx small{font-size:12px;color:var(--ink2)}
+.td .r .bx{width:24px;height:24px;border-radius:7px;border:2px solid #A9B2C2;flex:none}
+.td .r .cl{width:38px;height:38px;border-radius:11px;display:grid;place-items:center;background:var(--okw);color:var(--ok);flex:none}
+.td .r.al{background:#F7F4FE}
+.td .r .bell{width:24px;height:24px;border-radius:7px;display:grid;place-items:center;background:#E9E4FB;color:#4A2FB0;flex:none}
+.pl{display:grid;gap:6px}
+.pl .r{display:flex;align-items:center;gap:8px;font-size:13px}
+.pl .r .lab{width:82px;flex:none;font-weight:600}
+.pl .r .ps{display:flex;gap:4px;flex-wrap:nowrap;overflow:hidden;min-width:0;flex:1}
+.pl .r .ps span{flex:none;padding:4px 8px;border-radius:8px;background:var(--sheet);box-shadow:0 0 0 1px var(--rule) inset;font-size:12px;white-space:nowrap}
+.secH{display:flex;align-items:baseline;justify-content:space-between;font-weight:600;font-size:14.5px;padding:0 2px}
+.secH span{font-size:13px;color:var(--cob);font-weight:500}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="ic-box" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/></symbol>
+<symbol id="ic-boxok" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 12.5l3 3 5-6"/></symbol>
+<symbol id="ic-next" viewBox="0 0 24 24"><path d="M5 12h13M13 6l6 6-6 6"/></symbol>
+<symbol id="ic-note" viewBox="0 0 24 24"><path d="M6 4h9l4 4v12H6z"/><path d="M9 11h7M9 15h5"/></symbol>
+<symbol id="ic-bell" viewBox="0 0 24 24"><path d="M6 16V11a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 20h4"/></symbol>
+<symbol id="ic-swipe" viewBox="0 0 24 24"><path d="M4 12h16M8 8l-4 4 4 4M16 8l4 4-4 4"/></symbol>
+</svg>
+<div class="wrap">
+  <header class="intro">
+    <span class="kicker">METRX · DOSKA</span>
+    <h1>Three ways to design the Board</h1>
+    <p>All three show the same six jobs: two being measured, one estimate, one quote waiting for an answer, one wall being built and one finished. The Board answers "where is each job, and what do I do next?". It stays on this phone only.</p>
+    <div class="now">
+      <div><b>Side-scrolling columns</b>Five stage columns at phone width: you see one and a bit, never the whole picture.</div>
+      <div><b>Moving takes three taps</b>Move, then a sheet, then pick the stage. Most moves are just "next stage".</div>
+      <div><b>"0 of 3 done" hides the job</b>Cards count tasks but don't say what the next task is.</div>
+      <div><b>Repeated chips and notes</b>Stage chips above the columns repeat the column headers, and the "phone only" note takes a row every visit.</div>
+    </div>
+  </header>
+  <div class="grid">
+
+  <section class="opt" aria-labelledby="hA">
+    <div class="opt-h"><span class="letter">A</span><h2 id="hA">Stage list, top to bottom</h2></div>
+    <p class="idea">A five-step strip shows the count at each stage. Below, each stage is a short list: the job, the customer and the next task. A "Next" button moves a job on with one tap. Finished jobs fold away.</p>
+    <div class="phone" role="img" aria-label="Option A mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="gap:8px">
+        <div class="bh"><h3>Doska</h3></div>
+        <div class="pipe"><span class="st-measure"><b>2</b><em>O‘lchash</em></span><span class="st-estimate"><b>1</b><em>Smeta</em></span><span class="st-quote"><b>1</b><em>Taklif</em></span><span class="st-work"><b>1</b><em>Ishda</em></span><span class="st-done"><b>1</b><em>Tugadi</em></span></div>
+        <div class="sgh"><i style="background:#F2B66B"></i>O‘lchash <span class="n">2</span></div>
+        <div class="card">
+          <div class="ar"><b class="nm trunc">Karimovlar oshxonasi</b><span class="muted sm trunc">Dilnoza Karimova, Yunusobod 4</span><div class="lr"><span class="nx"><svg class="i s"><use href="#ic-box"/></svg>Xonalarni o‘lchash</span><span class="go">Smetaga<svg class="i s" style="color:inherit"><use href="#ic-chev"/></svg></span></div></div>
+          <div class="ar"><b class="nm trunc">Ombor devori</b><span class="muted sm trunc">Bekzod Tursunov, Sergeli</span><div class="lr"><span class="nx"><svg class="i s"><use href="#ic-box"/></svg>Poydevor balandligi</span><span class="go">Smetaga<svg class="i s" style="color:inherit"><use href="#ic-chev"/></svg></span></div></div>
+        </div>
+        <div class="sgh"><i style="background:#8FA6EC"></i>Smeta <span class="n">1</span></div>
+        <div class="card"><div class="ar"><b class="nm trunc">Rahimova kvartirasi</b><span class="muted sm trunc">Nodira Rahimova, Mirzo Ulug‘bek</span><div class="lr"><span class="nx"><svg class="i s"><use href="#ic-box"/></svg>2 qatorga narx yozish</span><span class="go">Taklif<svg class="i s" style="color:inherit"><use href="#ic-chev"/></svg></span></div></div></div>
+        <div class="sgh"><i style="background:#A792E8"></i>Taklif berildi <span class="n">1</span></div>
+        <div class="card"><div class="ar"><b class="nm trunc">Yusupovlar uyi</b><span class="muted sm trunc">18 450 000 so‘m, Akmal Yusupov</span><div class="lr"><span class="wt">Javob kutilmoqda: 3 kun</span><span class="go call"><svg class="i s" style="color:inherit"><use href="#ic-phone"/></svg>Qo‘ng‘iroq</span></div></div></div>
+        <div class="sgh"><i style="background:#9AA3B2"></i>Ishda <span class="n">1</span></div>
+        <div class="card"><div class="ar"><b class="nm trunc">Hovli devori</b><span class="muted sm trunc">Sardor Aliyev, Olmazor</span><div class="lr"><span class="nx"><svg class="i s"><use href="#ic-box"/></svg>G‘isht keltirish · 3/5</span><span class="go">Tugatish<svg class="i s" style="color:inherit"><use href="#ic-chev"/></svg></span></div></div></div>
+      </div>
+      <nav class="tabs"><span><svg class="i"><use href="#ic-home"/></svg><b>Asosiy</b></span><span><svg class="i"><use href="#ic-folder"/></svg><b>Loyihalar</b></span><span><svg class="i"><use href="#ic-laser"/></svg><b>O‘lchash</b></span><span class="on"><svg class="i"><use href="#ic-board"/></svg><b>Doska</b></span><span><svg class="i"><use href="#ic-user"/></svg><b>Profil</b></span></nav>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> the whole picture on one screen without sideways scrolling. Tap a stage in the strip to jump to its list.</p>
+      <p><b>Good for:</b> one tap moves a job to the next stage, with Undo in the toast. Quotes waiting for an answer get a call button and a day count.</p>
+      <p class="minus">Trade-off: no drag between columns. Moving back a stage goes through the job's detail.</p>
+    </div>
+  </section>
+
+  <section class="opt" aria-labelledby="hB">
+    <div class="opt-h"><span class="letter">B</span><h2 id="hB">One column at a time, swipe</h2></div>
+    <p class="idea">Still a kanban, but each stage fills the screen. Swipe or tap a stage to change column. Cards are bigger: the task checklist, the latest note and a "Next stage" button sit on the card.</p>
+    <div class="phone" role="img" aria-label="Option B mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="gap:8px">
+        <div class="bh"><h3>Doska</h3></div>
+        <div class="stabs"><span class="on">O‘lchash <b>2</b></span><span>Smeta <b>1</b></span><span>Taklif <b>1</b></span><span>Ishda <b>1</b></span></div>
+        <div class="dots"><i class="on"></i><i></i><i></i><i></i><i></i></div>
+        <div class="card bc">
+          <div class="top"><span class="tx"><b class="trunc">Karimovlar oshxonasi</b><span class="muted sm trunc">Dilnoza Karimova, Yunusobod 4</span></span><span class="chip st-measure">1/3</span></div>
+          <div class="prog"><i style="width:33%"></i></div>
+          <div><div class="tk done"><svg class="i s"><use href="#ic-boxok"/></svg>Buyurtmachi bilan uchrashish</div><div class="tk"><svg class="i s"><use href="#ic-box"/></svg>Xonalarni o‘lchash</div><div class="tk"><svg class="i s"><use href="#ic-box"/></svg>Rasm olish</div></div>
+          <div class="nt">Oshxona shifti past, 2,60 m</div>
+          <div class="ft"><span><svg class="i s"><use href="#ic-folder"/></svg>Ochish</span><span class="pri">Smetaga<svg class="i s" style="color:inherit"><use href="#ic-next"/></svg></span></div>
+        </div>
+        <div class="card bc peek">
+          <div class="top"><span class="tx"><b class="trunc">Ombor devori</b><span class="muted sm trunc">Bekzod Tursunov, Sergeli</span></span><span class="chip st-measure">0/2</span></div>
+          <div class="prog"><i style="width:0"></i></div>
+          <div><div class="tk"><svg class="i s"><use href="#ic-box"/></svg>Poydevor balandligi</div></div>
+        </div>
+      </div>
+      <nav class="tabs"><span><svg class="i"><use href="#ic-home"/></svg><b>Asosiy</b></span><span><svg class="i"><use href="#ic-folder"/></svg><b>Loyihalar</b></span><span><svg class="i"><use href="#ic-laser"/></svg><b>O‘lchash</b></span><span class="on"><svg class="i"><use href="#ic-board"/></svg><b>Doska</b></span><span><svg class="i"><use href="#ic-user"/></svg><b>Profil</b></span></nav>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> it feels like a real kanban, and tasks get ticked right on the card without opening anything.</p>
+      <p><b>Good for:</b> big cards with big buttons, easy with dusty hands.</p>
+      <p class="minus">Trade-off: you see one stage at a time. "What's waiting on me overall?" takes four swipes.</p>
+    </div>
+  </section>
+
+  <section class="opt" aria-labelledby="hC">
+    <div class="opt-h"><span class="letter">C</span><h2 id="hC">To-do first, stages below</h2></div>
+    <p class="idea">The Board opens on "Next steps": the next open task from every active job, in one tickable list. Quotes waiting more than two days appear as reminders with a call button. A small stage summary sits underneath.</p>
+    <div class="phone" role="img" aria-label="Option C mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="gap:8px">
+        <div class="bh"><h3>Doska</h3><span class="ad"><svg class="i s" style="color:var(--ink)"><use href="#ic-plus"/></svg></span></div>
+        <div class="secH">Keyingi qadamlar <span class="muted" style="color:var(--ink2)">5</span></div>
+        <div class="card td">
+          <div class="r al"><span class="bell"><svg class="i s" style="color:inherit"><use href="#ic-bell"/></svg></span><span class="tx"><b>Taklifga javob yo‘q, 3 kun</b><small class="trunc">Yusupovlar uyi · Akmal Yusupov</small></span><span class="cl"><svg class="i s" style="color:inherit"><use href="#ic-phone"/></svg></span></div>
+          <div class="r"><span class="bx"></span><span class="tx"><b>Xonalarni o‘lchash</b><small class="trunc">Karimovlar oshxonasi</small></span><span class="chip st-measure">O‘lchash</span></div>
+          <div class="r"><span class="bx"></span><span class="tx"><b>Poydevor balandligi</b><small class="trunc">Ombor devori</small></span><span class="chip st-measure">O‘lchash</span></div>
+          <div class="r"><span class="bx"></span><span class="tx"><b>2 qatorga narx yozish</b><small class="trunc">Rahimova kvartirasi</small></span><span class="chip st-estimate">Smeta</span></div>
+          <div class="r"><span class="bx"></span><span class="tx"><b>G‘isht keltirish</b><small class="trunc">Hovli devori · 3/5</small></span><span class="chip st-work">Ishda</span></div>
+        </div>
+        <div class="secH">Bosqichlar <span>Hammasi</span></div>
+        <div class="pl">
+          <div class="r"><span class="lab chip st-measure" style="justify-content:center">O‘lchash 2</span><span class="ps"><span>Karimovlar…</span><span>Ombor devori</span></span></div>
+          <div class="r"><span class="lab chip st-estimate" style="justify-content:center">Smeta 1</span><span class="ps"><span>Rahimova kvartirasi</span></span></div>
+          <div class="r"><span class="lab chip st-quote" style="justify-content:center">Taklif 1</span><span class="ps"><span>Yusupovlar uyi</span></span></div>
+          <div class="r"><span class="lab chip st-work" style="justify-content:center">Ishda 1</span><span class="ps"><span>Hovli devori</span></span></div>
+        </div>
+      </div>
+      <nav class="tabs"><span><svg class="i"><use href="#ic-home"/></svg><b>Asosiy</b></span><span><svg class="i"><use href="#ic-folder"/></svg><b>Loyihalar</b></span><span><svg class="i"><use href="#ic-laser"/></svg><b>O‘lchash</b></span><span class="on"><svg class="i"><use href="#ic-board"/></svg><b>Doska</b></span><span><svg class="i"><use href="#ic-user"/></svg><b>Profil</b></span></nav>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> the morning question "what do I do today?" in one list, ticked off as you go.</p>
+      <p><b>Good for:</b> reminders to call back a customer who hasn't answered a quote.</p>
+      <p class="minus">Trade-off: it overlaps with Home's "needs attention" block, and moving a job between stages happens in its detail page.</p>
+    </div>
+  </section>
+
+  </div>
+  <section class="how">
+    <h3>My recommendation: A</h3>
+    <p>A brickmason has a handful of jobs at once, so one vertical list shows all of them without sideways scrolling. Each row says what to do next, and "Next" moves a job on in one tap. I'd also take C's call-back reminder for quotes waiting more than two days; A's mockup already shows it as the Call button. Tapping a row opens the job's detail: stage, tasks and notes, as today.</p>
+    <p>Tell me a letter, or a mix, and I'll build it in the app.</p>
+  </section>
+</div>

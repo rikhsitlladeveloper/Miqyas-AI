@@ -1,0 +1,26 @@
+/* sketch module: polygon rooms */
+.sk-pad{touch-action:none;cursor:crosshair;overflow:hidden}
+.sk-pad svg{touch-action:none}
+.sk-tip{position:absolute;left:16px;right:16px;top:14px;display:flex;gap:8px;align-items:center;justify-content:center;padding:10px 12px;border-radius:12px;background:rgba(255,255,255,.94);color:var(--ink2);font-size:14px;line-height:1.3;text-align:center;pointer-events:none;box-shadow:var(--sh)}
+.sk-tip .i{color:var(--cobalt)}
+.sk-msg{margin:8px 16px;flex:none}
+.sk-msg .tx{min-width:0}
+.sk-snap{min-height:44px}
+.sk-snap[aria-pressed="true"]{border-color:var(--cobalt);background:var(--wash);color:var(--cobalt2);font-weight:600}
+.sk-snap .i{flex:none}
+.sk-chips .chip{min-height:44px}
+.sk-bar{align-items:center;gap:8px}
+.sk-bar>.i{color:var(--cobalt)}
+.sk-bartx{flex:1 1 auto;min-width:0;font-size:13px;line-height:1.25;color:var(--ink2);white-space:normal}
+.sk-bar .btn.sm{flex:none;min-height:44px}
+.sk-edit{touch-action:none}
+.sk-edit [data-skv]{cursor:grab}
+.sk-legend{position:absolute;left:10px;bottom:8px;display:flex;flex-wrap:wrap;gap:2px 12px;max-width:calc(100% - 20px);padding:3px 9px;border-radius:8px;background:rgba(255,255,255,.9);font-size:12px;color:var(--ink2);pointer-events:none}
+.sk-legend b{font-family:var(--f-num);font-weight:600;color:var(--ink)}
+.hintline.sk-hint{font-size:13.5px;line-height:1.3;padding:2px 12px}
+.hintline.sk-hint button{text-align:center!important;justify-content:center}
+.banner.sk-hint{flex:none;margin:0;border-radius:0;font-size:13px}
+.banner.sk-hint .act{min-height:44px}
+.sk-msg .act{min-height:44px}
+.sk-walls .opt{min-height:44px;min-width:56px;padding:0 12px;justify-content:center}
+.sk-walls .opt small{font-family:var(--f-num)}

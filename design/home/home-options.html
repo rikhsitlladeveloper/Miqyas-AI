@@ -1,0 +1,340 @@
+<title>METRX Home Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: an intro, then four phone mockups side by side (stacked on a phone), each with its idea and trade-offs underneath. */
+:root{
+  --bg:#EEF1F6; --panel:#FFFFFF; --fg:#0E1C36; --fg2:#47536A; --rule:#D5DCE7; --accent:#1C4BD1; --accent-wash:#E3EBFD; --amber:#9A4D00;
+  --f-ui:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --f-num:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; --accent-wash:#1A2847; --amber:#F2B25C; color-scheme:dark } }
+:root[data-theme="dark"]{ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; --accent-wash:#1A2847; --amber:#F2B25C; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 15px/1.5 var(--f-ui);margin:0}
+.wrap{max-width:1640px;margin:0 auto;padding-inline:16px;padding-block:28px 56px}
+header.intro{display:grid;gap:14px;max-width:860px}
+.kicker{font:600 13px/1 var(--f-num);letter-spacing:.14em;color:var(--accent)}
+h1{margin:0;font:700 clamp(28px,4vw,40px)/1.1 var(--f-num);letter-spacing:-.01em;text-wrap:balance}
+.intro p{margin:0;color:var(--fg2);max-width:70ch}
+.now{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:10px;margin-top:6px}
+.now div{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:12px 14px;font-size:14px;color:var(--fg2)}
+.now b{display:block;color:var(--fg);font-weight:600;margin-bottom:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(372px,100%),1fr));gap:28px 22px;margin-top:30px;align-items:start}
+.opt{display:grid;gap:14px;min-width:0}
+.opt-h{display:flex;align-items:baseline;gap:10px}
+.letter{font:700 30px/1 var(--f-num);color:var(--accent)}
+.opt-h h2{margin:0;font:600 20px/1.2 var(--f-ui)}
+.rec{font:600 12px/1 var(--f-num);letter-spacing:.06em;padding:5px 8px;border-radius:6px;background:var(--accent);color:var(--panel);white-space:nowrap}
+.idea{margin:0;color:var(--fg2);font-size:14.5px;min-height:3em}
+.notes{display:grid;gap:8px;font-size:14px}
+.notes p{margin:0;padding-left:22px;position:relative;color:var(--fg2)}
+.notes p b{color:var(--fg);font-weight:600}
+.notes p::before{content:"";position:absolute;left:4px;top:.55em;width:8px;height:8px;border-radius:2px;background:var(--accent)}
+.notes p.minus::before{background:none;border:1.5px solid var(--fg2);border-radius:50%}
+.how{margin-top:34px;max-width:860px;background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;display:grid;gap:6px}
+.how h3{margin:0;font:600 16px/1.3 var(--f-ui)}
+.how p{margin:0;color:var(--fg2);font-size:14.5px}
+
+/* ---------- phone mockups: a fixed light app screen (the app itself is light-only) ---------- */
+.phone{--ink:#0E1C36;--ink2:#47536A;--ink3:#6B7486;--paper:#F4F5F7;--sheet:#FFFFFF;--rule:#E3E6EB;--fill:#EEF0F4;--cob:#1C4BD1;--cob2:#1238A8;--wash:#EAF0FE;--amb:#9A4D00;--ambw:#FFF1DF;--err:#B42318;--ok:#0B7A5A;
+  width:min(360px,100%);height:760px;justify-self:center;border-radius:36px;padding:10px;background:#0E1C36;box-shadow:0 18px 40px rgba(14,28,54,.22)}
+.scr{position:relative;height:100%;border-radius:28px;overflow:hidden;background:var(--paper);color:var(--ink);font:400 14.5px/1.4 var(--f-ui);display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+.sb{flex:none;height:30px;display:flex;align-items:center;justify-content:space-between;padding:4px 22px 0 26px;font:600 13px/1 system-ui,sans-serif}
+.sb .r{display:flex;gap:5px;align-items:center}
+.body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:12px;padding:6px 14px 86px}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.s{width:16px;height:16px}.i.l{width:26px;height:26px}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:74px;background:var(--sheet);box-shadow:0 -1px 0 var(--rule);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px 14px}
+.tabs span{display:grid;justify-items:center;align-content:end;gap:3px;font-size:11px;color:var(--ink2)}
+.tabs span.on{color:var(--ink);font-weight:600;position:relative}
+.tabs span.on::before{content:"";position:absolute;top:-30px;left:50%;width:50px;height:50px;margin-left:-25px;border-radius:50%;background:var(--cob);border:5px solid var(--sheet);box-shadow:0 6px 14px rgba(28,75,209,.28)}
+.tabs span.on .i{position:relative;z-index:1;color:#fff;transform:translateY(-22px)}
+.tabs span.on .i+b{margin-top:-20px}
+.tabs b{font-weight:inherit}
+.card{background:var(--sheet);border-radius:16px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06)}
+.row{display:flex;align-items:center;gap:10px}
+.sp{flex:1}
+.cd{font-family:var(--f-num)}
+.muted{color:var(--ink2)}
+.sm{font-size:12.5px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:4px 9px 4px 7px;border-radius:999px;font-size:12px;font-weight:500;white-space:nowrap}
+.chip.ok{background:#E6F4EF;color:var(--ok)}
+.chip.st{background:var(--fill);color:var(--ink)}
+.chip.amb{background:var(--ambw);color:var(--amb)}
+.dot{width:7px;height:7px;border-radius:50%;background:currentColor}
+.btn{display:flex;align-items:center;justify-content:center;gap:7px;min-height:46px;border-radius:12px;font-weight:600;font-size:14.5px}
+.btn.pri{background:var(--cob);color:#fff}
+.btn.sec{background:var(--fill);color:var(--ink)}
+.sech{display:flex;align-items:baseline;justify-content:space-between;padding:2px 2px 0}
+.sech b{font-size:15.5px}
+.sech span{color:var(--cob);font-weight:500;font-size:13.5px}
+
+/* A: today */
+.a-hi h3{margin:0;font-size:22px;font-weight:700;letter-spacing:-.01em}
+.a-cont{padding:12px;display:grid;gap:10px}
+.a-cont .top{display:flex;gap:12px}
+.a-cont .pl{width:84px;height:68px;border-radius:10px;background:var(--fill);display:grid;place-items:center;flex:none}
+.a-cont .crumb{font-size:12px;color:var(--ink2)}
+.a-cont h4{margin:1px 0 3px;font-size:17px;font-weight:600}
+.a-att{padding:2px 12px}
+.a-att .it{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--rule)}
+.a-att .it:last-child{border-bottom:0}
+.a-att .ic{width:34px;height:34px;border-radius:10px;display:grid;place-items:center;flex:none}
+.a-att .tx{flex:1;min-width:0;display:grid;line-height:1.3}
+.a-att .tx b{font-size:14px;font-weight:600}
+.a-att .tx small{font-size:12.5px;color:var(--ink2)}
+.a-qa{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}
+.a-qa span{display:grid;justify-items:center;gap:5px;font-size:12px;text-align:center;color:var(--ink)}
+.a-qa i{width:52px;height:52px;border-radius:16px;background:var(--sheet);display:grid;place-items:center;color:var(--cob);box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06)}
+.a-qa span:first-child i{background:var(--cob);color:#fff}
+
+/* B: pipeline */
+.b-sum{padding:14px;display:grid;gap:12px;background:var(--ink);color:#fff}
+.b-sum .big{font:700 28px/1 var(--f-num)}
+.b-sum small{color:#B7C3D9;font-size:12.5px}
+.b-bar{display:flex;height:10px;border-radius:5px;overflow:hidden;gap:2px}
+.b-bar i{display:block}
+.b-legend{display:grid;grid-template-columns:repeat(5,1fr);gap:4px}
+.b-legend span{display:grid;gap:1px;font-size:10.5px;color:#B7C3D9;line-height:1.2}
+.b-legend b{font:700 17px/1 var(--f-num);color:#fff}
+.b-stage{display:grid;gap:8px}
+.b-stage .h{display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px}
+.b-stage .h .n{font:600 12px/1 var(--f-num);padding:3px 7px;border-radius:999px;background:var(--fill)}
+.b-card{padding:12px;display:grid;gap:6px}
+.b-card .act{display:flex;align-items:center;gap:6px;color:var(--cob);font-weight:600;font-size:13.5px;padding-top:6px;border-top:1px solid var(--rule)}
+.fab{position:absolute;right:16px;bottom:88px;width:56px;height:56px;border-radius:50%;background:var(--cob);color:#fff;display:grid;place-items:center;box-shadow:0 8px 20px rgba(28,75,209,.35)}
+
+/* C: tool first */
+.c-tool{padding:14px;display:grid;gap:10px;background:#0E1C36;color:#fff}
+.c-tool .read{font:600 48px/1 var(--f-num);letter-spacing:-.01em}
+.c-tool .read small{font-size:20px;font-weight:500;color:#B7C3D9;margin-left:4px}
+.c-tool .btn.pri{background:#FFB547;color:#0E1C36}
+.c-tool .st{display:flex;align-items:center;gap:8px;font-size:12.5px;color:#B7C3D9}
+.c-tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.c-tile{padding:12px;display:grid;gap:6px;min-height:104px;align-content:start}
+.c-tile .ic{width:38px;height:38px;border-radius:12px;background:var(--wash);color:var(--cob);display:grid;place-items:center}
+.c-tile b{font-size:15px;line-height:1.2}
+.c-tile small{font-size:12px;color:var(--ink2);line-height:1.3}
+.c-tile.hot{background:var(--cob);color:#fff}
+.c-tile.hot .ic{background:rgba(255,255,255,.16);color:#fff}
+.c-tile.hot small{color:#D7E1FF}
+.c-list .it{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--rule)}
+.c-list .it:last-child{border-bottom:0}
+
+/* D: sites */
+.d-map{position:relative;height:250px;margin:-6px -14px 0;background:#E8ECE4;overflow:hidden;flex:none}
+.d-map svg{position:absolute;inset:0;width:100%;height:100%}
+.d-search{position:absolute;left:12px;right:12px;top:10px;height:42px;border-radius:12px;background:#fff;display:flex;align-items:center;gap:8px;padding:0 12px;color:var(--ink2);font-size:14px;box-shadow:0 2px 10px rgba(16,24,40,.12)}
+.d-me{position:absolute;right:14px;bottom:14px;width:42px;height:42px;border-radius:50%;background:#fff;display:grid;place-items:center;color:var(--cob);box-shadow:0 2px 10px rgba(16,24,40,.15)}
+.d-list{display:grid;gap:10px}
+.d-site{padding:12px;display:grid;gap:8px}
+.d-site .pin{width:30px;height:30px;border-radius:50% 50% 50% 4px;transform:rotate(-45deg);display:grid;place-items:center;flex:none}
+.d-site .pin b{transform:rotate(45deg);font:700 13px/1 var(--f-num);color:#fff}
+.d-site .acts{display:flex;gap:8px}
+.d-site .acts span{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:38px;border-radius:10px;background:var(--fill);font-size:13px;font-weight:600}
+.d-site .acts span:last-child{background:var(--wash);color:var(--cob2)}
+
+@media (max-width:420px){ .phone{height:740px;border-radius:30px;padding:8px} .grid{grid-template-columns:1fr} }
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="ic-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></symbol>
+<symbol id="ic-folder" viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3z"/></symbol>
+<symbol id="ic-laser" viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="10" rx="2"/><path d="M15 12h6M18 9l3 3-3 3"/></symbol>
+<symbol id="ic-board" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/></symbol>
+<symbol id="ic-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="ic-camera" viewBox="0 0 24 24"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></symbol>
+<symbol id="ic-note" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M15 3v4h4M9 12h7M9 16h5"/></symbol>
+<symbol id="ic-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+<symbol id="ic-send" viewBox="0 0 24 24"><path d="M4 12l16-8-6 16-2-7z"/></symbol>
+<symbol id="ic-doc" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 13h7M9 17h7M9 9h3"/></symbol>
+<symbol id="ic-bt" viewBox="0 0 24 24"><path d="M7 7l10 10-5 4V3l5 4L7 17"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></symbol>
+<symbol id="ic-target" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></symbol>
+<symbol id="ic-nav" viewBox="0 0 24 24"><path d="M12 3l7 18-7-4-7 4z"/></symbol>
+<symbol id="ic-phone" viewBox="0 0 24 24"><path d="M6 3h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 4 5a2 2 0 0 1 2-2z"/></symbol>
+<symbol id="ic-sig" viewBox="0 0 24 24"><path d="M3 20h2v-3H3zM8 20h2v-6H8zM13 20h2v-9h-2zM18 20h2V8h-2z" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<div class="wrap">
+  <header class="intro">
+    <span class="kicker">METRX · ASOSIY SAHIFA</span>
+    <h1>Four ways to design the Home screen</h1>
+    <p>All four use the same data: a builder with three projects, a simulated laser connected, and a room in progress. Text is in Uzbek Latin, the app's main language. Pick one, or tell me which parts to combine.</p>
+    <div class="now">
+      <div><b>What the current Home gets wrong</b>The "Continue" card shows an empty rectangle and doesn't say what to do next.</div>
+      <div><b>Repeats the Projects tab</b>The large project cards are the same as on the Projects screen, so Home has little of its own.</div>
+      <div><b>Important things are hidden</b>Unconfirmed measurements, quotes waiting for an answer and the board counts are below the fold.</div>
+    </div>
+  </header>
+
+  <div class="grid">
+
+  <!-- ===================== A ===================== -->
+  <section class="opt" aria-labelledby="hA">
+    <div class="opt-h"><span class="letter">A</span><h2 id="hA">Today's work</h2><span class="rec">RECOMMENDED</span></div>
+    <p class="idea">Opens on what to do now: continue the last room, then a short list of things that need attention, then four quick actions.</p>
+    <div class="phone" role="img" aria-label="Option A mockup">
+      <div class="scr">
+        <div class="sb"><span>9:41</span><span class="r"><svg class="i s"><use href="#ic-sig"/></svg></span></div>
+        <div class="body">
+          <div class="row a-hi"><div><span class="muted sm">Dushanba, 12-oktabr</span><h3>Salom, Bobur</h3></div><span class="sp"></span><span class="chip ok"><span class="dot"></span>Lazer ulangan</span></div>
+          <div class="card a-cont">
+            <div class="top">
+              <span class="pl"><svg width="70" height="54" viewBox="0 0 70 54"><path d="M6 6h58v42H6z" fill="#fff" stroke="#0E1C36" stroke-width="4"/><path d="M60 6v42" stroke="#1C4BD1" stroke-width="5"/><rect x="40" y="20" width="26" height="14" rx="3" fill="#FFF1DF" stroke="#9A4D00"/><text x="53" y="30" text-anchor="middle" font-size="8" font-family="IBM Plex Sans Condensed" font-weight="600" fill="#0E1C36">4,02</text></svg></span>
+              <div style="min-width:0"><span class="crumb">Yusupovlar uyi › 1-qavat</span><h4>Mehmonxona</h4><span class="chip amb"><svg class="i s"><use href="#ic-clock"/></svg>B devor: tasdiqlang</span></div>
+            </div>
+            <span class="btn pri"><svg class="i s"><use href="#ic-laser"/></svg>Davom ettirish</span>
+          </div>
+          <div class="sech"><b>E’tibor bering</b><span>3</span></div>
+          <div class="card a-att">
+            <div class="it"><span class="ic" style="background:#FFF1DF;color:#9A4D00"><svg class="i s"><use href="#ic-clock"/></svg></span><span class="tx"><b>2 o‘lcham tasdiqlanmagan</b><small>Karimovlar oshxonasi</small></span><svg class="i s" style="color:#6B7486"><use href="#ic-chev"/></svg></div>
+            <div class="it"><span class="ic" style="background:#EAF0FE;color:#1C4BD1"><svg class="i s"><use href="#ic-send"/></svg></span><span class="tx"><b>Taklif javobini kutyapti, 2 kun</b><small>Yusupovlar uyi, 4 240 000 so‘m</small></span><svg class="i s" style="color:#6B7486"><use href="#ic-chev"/></svg></div>
+            <div class="it"><span class="ic" style="background:#EEF0F4;color:#47536A"><svg class="i s"><use href="#ic-doc"/></svg></span><span class="tx"><b>Smetada 3 qator narxsiz</b><small>Rahimova kvartirasi</small></span><svg class="i s" style="color:#6B7486"><use href="#ic-chev"/></svg></div>
+          </div>
+          <div class="a-qa">
+            <span><i><svg class="i"><use href="#ic-plus"/></svg></i>Loyiha</span>
+            <span><i><svg class="i"><use href="#ic-laser"/></svg></i>O‘lchash</span>
+            <span><i><svg class="i"><use href="#ic-camera"/></svg></i>Surat</span>
+            <span><i><svg class="i"><use href="#ic-note"/></svg></i>Eslatma</span>
+          </div>
+        </div>
+        <nav class="tabs"><span class="on"><svg class="i"><use href="#ic-home"/></svg><b>Asosiy</b></span><span><svg class="i"><use href="#ic-folder"/></svg><b>Loyihalar</b></span><span><svg class="i"><use href="#ic-laser"/></svg><b>O‘lchash</b></span><span><svg class="i"><use href="#ic-board"/></svg><b>Doska</b></span><span><svg class="i"><use href="#ic-user"/></svg><b>Profil</b></span></nav>
+      </div>
+    </div>
+    <div class="notes">
+      <p><b>Good for:</b> a builder on site who needs to pick up where they left off and not forget unconfirmed numbers.</p>
+      <p><b>Good for:</b> "Continue" names the exact next step, not just the room.</p>
+      <p class="minus">Trade-off: no money overview; totals stay on the Board and in projects.</p>
+    </div>
+  </section>
+
+  <!-- ===================== B ===================== -->
+  <section class="opt" aria-labelledby="hB">
+    <div class="opt-h"><span class="letter">B</span><h2 id="hB">Work pipeline</h2></div>
+    <p class="idea">A business overview: how many projects are at each stage and how much money is in quotes, then each project's next action, grouped by stage.</p>
+    <div class="phone" role="img" aria-label="Option B mockup">
+      <div class="scr">
+        <div class="sb"><span>9:41</span><span class="r"><svg class="i s"><use href="#ic-sig"/></svg></span></div>
+        <div class="body">
+          <div class="row"><b style="font-size:20px">Oktabr</b><span class="sp"></span><span class="chip ok"><span class="dot"></span>Lazer</span></div>
+          <div class="card b-sum">
+            <div class="row" style="align-items:flex-end"><div><small>Yuborilgan takliflar</small><div class="big">4 240 000 <span style="font-size:15px;font-weight:500">so‘m</span></div></div><span class="sp"></span><div style="text-align:right"><small>Faol</small><div class="big">3</div></div></div>
+            <div class="b-bar" aria-hidden="true"><i style="flex:1;background:#FFB547"></i><i style="flex:1;background:#7EA0FF"></i><i style="flex:1;background:#1C4BD1"></i><i style="flex:.15;background:#3A4A66"></i><i style="flex:2;background:#2FA37E"></i></div>
+            <div class="b-legend"><span><b>1</b>O‘lchash</span><span><b>1</b>Smeta</span><span><b>1</b>Taklif</span><span><b>0</b>Ishda</span><span><b>2</b>Tugadi</span></div>
+          </div>
+          <div class="b-stage">
+            <div class="h"><span class="dot" style="color:#FFB547;width:9px;height:9px"></span>O‘lchash<span class="n">1</span></div>
+            <div class="card b-card"><div class="row"><b>Karimovlar oshxonasi</b><span class="sp"></span><span class="muted sm cd">11,52 m²</span></div><span class="muted sm">Yunusobod 4-mavze</span><span class="act"><svg class="i s"><use href="#ic-clock"/></svg>2 o‘lchamni tasdiqlash</span></div>
+          </div>
+          <div class="b-stage">
+            <div class="h"><span class="dot" style="color:#7EA0FF;width:9px;height:9px"></span>Smeta<span class="n">1</span></div>
+            <div class="card b-card"><div class="row"><b>Rahimova kvartirasi</b><span class="sp"></span><span class="muted sm cd">12 800 000</span></div><span class="muted sm">Mirzo Ulug‘bek tumani</span><span class="act"><svg class="i s"><use href="#ic-doc"/></svg>3 qatorga narx qo‘yish</span></div>
+          </div>
+          <div class="b-stage">
+            <div class="h"><span class="dot" style="color:#1C4BD1;width:9px;height:9px"></span>Taklif berildi<span class="n">1</span></div>
+          </div>
+        </div>
+        <span class="fab"><svg class="i l"><use href="#ic-plus"/></svg></span>
+        <nav class="tabs"><span class="on"><svg class="i"><use href="#ic-home"/></svg><b>Asosiy</b></span><span><svg class="i"><use href="#ic-folder"/></svg><b>Loyihalar</b></span><span><svg class="i"><use href="#ic-laser"/></svg><b>O‘lchash</b></span><span><svg class="i"><use href="#ic-board"/></svg><b>Doska</b></span><span><svg class="i"><use href="#ic-user"/></svg><b>Profil</b></span></nav>
+      </div>
+    </div>
+    <div class="notes">
+      <p><b>Good for:</b> a builder running several jobs at once who thinks in money and stages.</p>
+      <p><b>Good for:</b> each project card names its next action.</p>
+      <p class="minus">Trade-off: overlaps with the Board tab, and "continue the last room" is less prominent.</p>
+    </div>
+  </section>
+
+  <!-- ===================== C ===================== -->
+  <section class="opt" aria-labelledby="hC">
+    <div class="opt-h"><span class="letter">C</span><h2 id="hC">Tool first</h2></div>
+    <p class="idea">Home works like the laser's own screen: the device and last reading at the top, then four large tiles for the main jobs. Built for gloves and one hand.</p>
+    <div class="phone" role="img" aria-label="Option C mockup">
+      <div class="scr">
+        <div class="sb"><span>9:41</span><span class="r"><svg class="i s"><use href="#ic-sig"/></svg></span></div>
+        <div class="body">
+          <div class="card c-tool">
+            <div class="st"><svg class="i s"><use href="#ic-bt"/></svg>Lazer ulangan, batareya 82%<span class="sp"></span><span>Simulyatsiya</span></div>
+            <div><span style="font-size:12.5px;color:#B7C3D9">Oxirgi o‘lchov, 2 daqiqa oldin</span><div class="read">3,215<small>m</small></div></div>
+            <span class="btn pri"><svg class="i s"><use href="#ic-laser"/></svg>O‘lchash</span>
+          </div>
+          <div class="c-tiles">
+            <div class="card c-tile hot"><span class="ic"><svg class="i"><use href="#ic-chev"/></svg></span><b>Davom ettirish</b><small>Mehmonxona, Yusupovlar uyi</small></div>
+            <div class="card c-tile"><span class="ic"><svg class="i"><use href="#ic-plus"/></svg></span><b>Yangi loyiha</b><small>Mijoz va manzil</small></div>
+            <div class="card c-tile"><span class="ic"><svg class="i"><use href="#ic-camera"/></svg></span><b>Surat</b><small>O‘lchamlar bilan</small></div>
+            <div class="card c-tile"><span class="ic"><svg class="i"><use href="#ic-note"/></svg></span><b>Eslatma</b><small>Matn va ro‘yxat</small></div>
+          </div>
+          <div class="sech"><b>So‘nggi loyihalar</b><span>Barchasi</span></div>
+          <div class="card c-list">
+            <div class="it"><div style="flex:1;min-width:0"><b style="font-size:14px">Yusupovlar uyi</b><div class="muted sm">Chilonzor 14</div></div><span class="chip st">Taklif berildi</span></div>
+            <div class="it"><div style="flex:1;min-width:0"><b style="font-size:14px">Karimovlar oshxonasi</b><div class="muted sm">Yunusobod 4</div></div><span class="chip amb">O‘lchash</span></div>
+          </div>
+        </div>
+        <nav class="tabs"><span class="on"><svg class="i"><use href="#ic-home"/></svg><b>Asosiy</b></span><span><svg class="i"><use href="#ic-folder"/></svg><b>Loyihalar</b></span><span><svg class="i"><use href="#ic-laser"/></svg><b>O‘lchash</b></span><span><svg class="i"><use href="#ic-board"/></svg><b>Doska</b></span><span><svg class="i"><use href="#ic-user"/></svg><b>Profil</b></span></nav>
+      </div>
+    </div>
+    <div class="notes">
+      <p><b>Good for:</b> fast measuring on site; the biggest targets of the four.</p>
+      <p><b>Good for:</b> the laser's state is always visible without opening a menu.</p>
+      <p class="minus">Trade-off: overlaps with the Measure tab, and things that need attention aren't on the screen.</p>
+    </div>
+  </section>
+
+  <!-- ===================== D ===================== -->
+  <section class="opt" aria-labelledby="hD">
+    <div class="opt-h"><span class="letter">D</span><h2 id="hD">Sites on a map</h2></div>
+    <p class="idea">A map of Tashkent with a pin for each site and a list sorted by distance. For builders who drive between several jobs a day.</p>
+    <div class="phone" role="img" aria-label="Option D mockup">
+      <div class="scr">
+        <div class="sb"><span>9:41</span><span class="r"><svg class="i s"><use href="#ic-sig"/></svg></span></div>
+        <div class="body">
+          <div class="d-map">
+            <svg viewBox="0 0 360 250" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+              <rect width="360" height="250" fill="#E8ECE4"/>
+              <path d="M-10 170C60 150 90 190 150 168S260 120 370 140" fill="none" stroke="#BFD6EA" stroke-width="14"/>
+              <path d="M0 70H360M0 210H360M70 0V250M210 0V250M300 0V250" stroke="#FFFFFF" stroke-width="9"/>
+              <path d="M0 120L360 40M120 0L180 250" stroke="#F6E7C1" stroke-width="7"/>
+              <rect x="226" y="86" width="56" height="40" rx="4" fill="#D6E3CF"/><rect x="90" y="96" width="44" height="30" rx="4" fill="#D6E3CF"/>
+              <circle cx="168" cy="148" r="16" fill="#1C4BD1" opacity=".15"/><circle cx="168" cy="148" r="7" fill="#1C4BD1" stroke="#fff" stroke-width="3"/>
+              <g font-family="IBM Plex Sans Condensed" font-weight="700" font-size="12" fill="#fff" text-anchor="middle">
+                <path d="M98 186a12 12 0 1 1 0.1 0L98 198z" fill="#9A4D00"/><text x="98" y="179">1</text>
+                <path d="M250 92a12 12 0 1 1 0.1 0L250 104z" fill="#1C4BD1"/><text x="250" y="85">2</text>
+                <path d="M296 190a12 12 0 1 1 0.1 0L296 202z" fill="#47536A"/><text x="296" y="183">3</text>
+              </g>
+            </svg>
+            <div class="d-search"><svg class="i s"><use href="#ic-search"/></svg>Loyiha yoki manzil</div>
+            <span class="d-me"><svg class="i"><use href="#ic-target"/></svg></span>
+          </div>
+          <div class="d-list">
+            <div class="card d-site">
+              <div class="row"><span class="pin" style="background:#9A4D00"><b>1</b></span><div style="flex:1;min-width:0"><b style="font-size:14.5px">Karimovlar oshxonasi</b><div class="muted sm">Yunusobod 4, 2,1 km</div></div><span class="chip amb">O‘lchash</span></div>
+              <div class="acts"><span><svg class="i s"><use href="#ic-nav"/></svg>Yo‘l</span><span><svg class="i s"><use href="#ic-laser"/></svg>Davom ettirish</span></div>
+            </div>
+            <div class="card d-site">
+              <div class="row"><span class="pin" style="background:#1C4BD1"><b>2</b></span><div style="flex:1;min-width:0"><b style="font-size:14.5px">Yusupovlar uyi</b><div class="muted sm">Chilonzor 14, 6,8 km</div></div><span class="chip st">Taklif</span></div>
+            </div>
+          </div>
+        </div>
+        <nav class="tabs"><span class="on"><svg class="i"><use href="#ic-home"/></svg><b>Asosiy</b></span><span><svg class="i"><use href="#ic-folder"/></svg><b>Loyihalar</b></span><span><svg class="i"><use href="#ic-laser"/></svg><b>O‘lchash</b></span><span><svg class="i"><use href="#ic-board"/></svg><b>Doska</b></span><span><svg class="i"><use href="#ic-user"/></svg><b>Profil</b></span></nav>
+      </div>
+    </div>
+    <div class="notes">
+      <p><b>Good for:</b> planning the day's route and opening navigation to a site.</p>
+      <p class="minus">Trade-off: needs online map tiles, which goes against the offline core. Offline it falls back to the list only.</p>
+      <p class="minus">Trade-off: only useful when projects have a saved location (that field is optional).</p>
+    </div>
+  </section>
+
+  </div>
+
+  <section class="how">
+    <h3>My recommendation: A, with one idea from C</h3>
+    <p>A puts the next step and the forgotten items first, which is what goes wrong most on site. From C, I would take the laser state chip (already in A) and make its quick-action tiles larger. B's money summary fits better on the Board tab, and D works better as a "Map" view inside Projects.</p>
+    <p>Tell me a letter, or a mix such as "A plus B's money strip", and I'll build it in the app.</p>
+  </section>
+</div>

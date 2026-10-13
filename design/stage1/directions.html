@@ -1,0 +1,1005 @@
+<title>METRX Design Directions</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geologica:wght@300..700&family=Golos+Text:wght@400..700&family=IBM+Plex+Sans+Condensed:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=Sofia+Sans+Condensed:wght@500..900&family=Sofia+Sans:wght@400..800&display=swap">
+<style>
+/* Layout: a review document. Each direction is one row of three phones on a horizontal rail, then its tokens and field notes. The structure spec follows below. */
+:root{
+  --bg:#F1F2EF; --surface:#FFFFFF; --fg:#1A1D1B; --muted:#535B57; --line:#D5D9D4; --accent:#2B52C2; --callout:#E8EDF9;
+  --bezel:#202322; --shadow:rgba(20,24,22,.22);
+  --f-ui:"Golos Text","Segoe UI",Roboto,system-ui,sans-serif;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#131615; --surface:#1C201E; --fg:#E7EBE9; --muted:#A5ADA9; --line:#333A37; --accent:#9DB4FF; --callout:#1F2638;
+  --bezel:#000000; --shadow:rgba(0,0,0,.55); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#131615; --surface:#1C201E; --fg:#E7EBE9; --muted:#A5ADA9; --line:#333A37; --accent:#9DB4FF; --callout:#1F2638;
+  --bezel:#000000; --shadow:rgba(0,0,0,.55); color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:16px/1.55 var(--f-ui)}
+.wrap{max-width:1200px;margin:0 auto;padding-inline:16px;padding-block:36px 96px}
+h1,h2,h3,h4{text-wrap:balance;line-height:1.15;margin:0}
+h1{font-size:clamp(30px,5vw,44px);font-weight:650;letter-spacing:-.015em}
+h2{font-size:clamp(24px,3.4vw,30px);font-weight:620;letter-spacing:-.01em}
+h3{font-size:20px;font-weight:620}
+h4{font-size:16px;font-weight:650}
+p{margin:0}
+a{color:var(--accent)}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.lead{font-size:18px;color:var(--muted);max-width:62ch}
+.muted{color:var(--muted)}
+.stack{display:grid;gap:14px}
+section.block{display:grid;gap:22px;padding-block:56px 0}
+section.block>header{display:grid;gap:10px;max-width:70ch}
+.toc{display:flex;flex-wrap:wrap;gap:8px 18px;font-size:15px;padding-top:6px}
+.toc a{text-decoration:none;border-bottom:1px solid currentColor}
+
+/* direction rows */
+.dir{display:grid;gap:18px;padding-block:28px 34px;border-top:1px solid var(--line)}
+.dir-head{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px}
+.dir-head h3{font-size:24px}
+.dir-head .tag{font-size:14px;color:var(--muted)}
+.dir-head .rec{font-size:13px;font-weight:650;padding:3px 10px;border-radius:20px;background:var(--fg);color:var(--bg)}
+.dir-idea{max-width:68ch}
+.rail{display:flex;gap:34px;overflow-x:auto;margin-inline:-16px;padding:16px 24px 26px;scroll-snap-type:x proximity}
+.shot{margin:0;flex:0 0 auto;display:grid;gap:16px;scroll-snap-align:start}
+.shot figcaption{font-size:14px;color:var(--muted);padding-left:4px}
+.shot figcaption b{color:var(--fg);font-weight:600}
+@media (max-width:440px){ .shot .phone{zoom:.86} .rail{gap:26px} }
+.meta-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,330px),1fr));gap:18px 34px}
+.meta-grid>div{min-width:0;display:grid;gap:10px;align-content:start}
+.meta-grid h4{font-size:14px;color:var(--muted);font-weight:600}
+.swatches{display:flex;flex-wrap:wrap;gap:10px}
+.sw{display:grid;grid-template-columns:28px auto;column-gap:8px;align-items:center;font-size:13px;line-height:1.25}
+.sw i{grid-row:1/3;width:28px;height:28px;border-radius:6px;box-shadow:inset 0 0 0 1px rgba(127,127,127,.35)}
+.sw span{font-weight:600}
+.sw em{font-style:normal;color:var(--muted);font-variant-numeric:tabular-nums}
+.specimen{font-size:19px;line-height:1.35;padding:12px 14px;border-radius:8px;background:var(--surface);border:1px solid var(--line)}
+.specimen small{display:block;font-size:13px;color:var(--muted);font-family:var(--f-ui);margin-top:6px}
+ul.pc{margin:0;padding-left:20px;display:grid;gap:6px}
+ul.pc li::marker{color:var(--muted)}
+
+.callout{background:var(--callout);border-radius:12px;padding:22px 22px 24px;display:grid;gap:12px;max-width:80ch}
+.callout ul{margin:0;padding-left:20px;display:grid;gap:6px}
+
+.rules{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:14px}
+.rule{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:grid;gap:6px;align-content:start}
+.rule p{font-size:15px}
+.rule .so{font-size:14px;color:var(--muted)}
+
+.navmap{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:14px}
+.navcol{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px 18px;display:grid;gap:8px;align-content:start}
+.navcol ul{margin:0;padding-left:18px;display:grid;gap:5px;font-size:15px}
+.navcol .k{font-size:13px;color:var(--muted)}
+.changes{display:grid;gap:12px;max-width:80ch}
+.change{display:grid;gap:4px;padding-left:14px;border-left:3px solid var(--line)}
+.change p{font-size:15px}
+
+ol.journey{margin:0;padding-left:26px;display:grid;gap:8px;max-width:76ch}
+ol.journey li{padding-left:4px}
+ol.journey li::marker{font-weight:650;color:var(--muted)}
+
+.screens{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:16px}
+.scr{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:18px 20px;display:grid;gap:10px;align-content:start;min-width:0}
+.scr h4{font-size:17px}
+.scr h4 small{font-weight:400;color:var(--muted);font-size:14px;margin-left:6px}
+.scr dl{margin:0;display:grid;grid-template-columns:118px 1fr;gap:6px 14px;font-size:14.5px;line-height:1.45}
+.scr dt{color:var(--muted)}
+.scr dd{margin:0;min-width:0}
+@media (max-width:520px){.scr dl{grid-template-columns:1fr}.scr dt{margin-top:6px}}
+.states{display:grid;gap:4px;margin:0;padding-left:18px}
+
+.deflist{display:grid;gap:10px;max-width:80ch;margin:0;padding-left:20px}
+.foot{padding-top:56px;font-size:14px;color:var(--muted);display:grid;gap:8px;max-width:80ch}
+
+/* ───────── phone mock primitives (fixed-look objects, own colors) ───────── */
+.phone{width:360px;height:760px;border-radius:40px;overflow:hidden;position:relative;display:flex;flex-direction:column;
+  box-shadow:0 0 0 7px var(--bezel),0 26px 50px -20px var(--shadow);isolation:isolate;text-align:left}
+.phone *{box-sizing:border-box}
+:where(.phone) button{cursor:default;font:inherit;color:inherit;background:none;border:0;padding:0;margin:0}
+.phone p{margin:0}
+.sb{height:34px;flex:0 0 34px;display:flex;align-items:center;justify-content:space-between;padding:4px 26px 0 32px;font:600 14px/1 system-ui,-apple-system,"Segoe UI",sans-serif}
+.home{flex:0 0 20px;display:grid;place-items:center}
+.home::after{content:"";width:118px;height:4px;border-radius:2px;background:currentColor;opacity:.8}
+.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.s{width:17px;height:17px}
+.i.xs{width:15px;height:15px}
+.num{font-variant-numeric:tabular-nums}
+.phone .sp{flex:1}
+.plan{width:100%;height:100%;display:block}
+
+/* ───────── A · Chizma (drafting sheet) ───────── */
+.A{--ink:#0E1C36;--ink2:#46536B;--paper:#F3F6FA;--sheet:#FFFFFF;--rule:#C8D2E1;--cobalt:#1C4BD1;--wash:#E7EEFD;--amber:#9E4F00;--amberw:#FFF2E2;
+  background:var(--paper);color:var(--ink);font:400 15px/1.35 "IBM Plex Sans","Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+.A .cd{font-family:"IBM Plex Sans Condensed","IBM Plex Sans",sans-serif}
+.A .home{background:var(--sheet)}
+.a-bar{display:flex;align-items:center;gap:2px;height:52px;flex:none;padding:0 6px}
+.a-back{display:flex;align-items:center;gap:2px;height:44px;padding:0 8px 0 4px;color:var(--cobalt);font-weight:500}
+.a-ib{width:44px;height:44px;display:grid;place-items:center;border-radius:4px}
+.a-ib.dis{opacity:.32}
+.a-ttl{flex:1;display:grid;line-height:1.2;padding-left:2px;min-width:0}
+.a-ttl b{font-size:17px;font-weight:600}
+.a-ttl small{font-size:12.5px;color:var(--ink2)}
+.a-tblock{margin:0 16px;border:1.5px solid var(--ink);background:var(--sheet);flex:none}
+.a-tname{font-size:22px;font-weight:600;line-height:1.2;padding:9px 12px 8px;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.a-saved{display:inline-flex;align-items:center;gap:5px;font-size:13px;color:var(--ink2);padding-right:2px}
+.a-tname span{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-weight:500;color:var(--ink2)}
+.a-sched tr.fl td{background:var(--paper);padding:6px 8px 5px;border-right:0;border-top:1px solid var(--ink);font-size:13px;color:var(--ink2)}
+.a-sched tr.fl td b{font-size:15px;color:var(--ink);margin-right:8px}
+.a-sched tr.fl span{float:right}
+.a-body>.a-sched{margin-top:12px}
+.a-tgrid{display:grid;grid-template-columns:1fr 1fr;margin:0}
+.a-tgrid>div{padding:6px 12px 7px;border-top:1px solid var(--rule);min-width:0}
+.a-tgrid>div.l{border-right:1px solid var(--rule)}
+.a-tgrid>div.w{grid-column:1/-1}
+.a-tgrid dt{font-size:12px;color:var(--ink2)}
+.a-tgrid dd{margin:1px 0 0;font-size:15px;font-weight:500;display:flex;gap:6px;align-items:center}
+.a-tabs{display:flex;margin:12px 16px 0;border-bottom:1px solid var(--rule);flex:none}
+.a-tabs span{flex:1;text-align:center;height:44px;line-height:44px;font-weight:500;color:var(--ink2)}
+.a-tabs .on{color:var(--cobalt);box-shadow:inset 0 -3px 0 var(--cobalt);font-weight:600}
+.a-body{flex:1;min-height:0;overflow:hidden;padding:0 16px}
+.a-floor{display:flex;justify-content:space-between;align-items:baseline;padding:14px 0 6px;font-size:13px;color:var(--ink2)}
+.a-floor b{font-size:16px;color:var(--ink);font-weight:600}
+.a-sched{width:100%;border-collapse:collapse;background:var(--sheet);border:1px solid var(--ink)}
+.a-sched th{font-size:12px;font-weight:500;color:var(--ink2);text-align:left;padding:4px 8px;border-bottom:1px solid var(--ink);border-right:1px solid var(--rule)}
+.a-sched td{padding:7px 8px;border-top:1px solid var(--rule);border-right:1px solid var(--rule);vertical-align:top;font-size:15px}
+.a-sched td:last-child,.a-sched th:last-child{border-right:0}
+.a-sched .n{width:26px;text-align:center;color:var(--ink2);padding-inline:4px}
+.a-sched .r{text-align:right}
+.a-sched b{font-weight:600}
+.a-sched small{display:flex;align-items:center;gap:4px;font-size:12.5px;color:var(--ink2);margin-top:2px;white-space:nowrap}
+.a-sched .pend{color:var(--amber);font-weight:600}
+.a-sched tr.warn td:first-child{box-shadow:inset 3px 0 0 var(--amber)}
+.a-actions{display:flex;gap:10px;padding:10px 16px 12px;flex:none}
+.a-btn{height:48px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 16px;border-radius:4px;font-weight:600;font-size:15px}
+.a-btn.pri{background:var(--cobalt);color:#fff;flex:1}
+.a-btn.sec{border:1.5px solid var(--ink);color:var(--ink);background:var(--sheet);flex:none}
+.a-nav,.a-tools{display:flex;flex:none;height:60px;background:var(--sheet);border-top:1px solid var(--rule)}
+.a-nav span,.a-tools span{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-size:12px;color:var(--ink2)}
+.a-nav .on{color:var(--cobalt);font-weight:600}
+.a-tools .on{color:var(--cobalt);font-weight:600;background:var(--wash);box-shadow:inset 0 2px 0 var(--cobalt)}
+.a-sub{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:0 16px 8px;flex:none}
+.a-seg{display:flex;border:1px solid var(--ink);border-radius:4px;overflow:hidden}
+.a-seg span{height:38px;line-height:38px;padding:0 16px;font-weight:500;font-size:14px}
+.a-seg .on{background:var(--ink);color:#fff}
+.a-dev{display:inline-flex;align-items:center;gap:6px;height:38px;padding:0 10px;border:1px dashed var(--ink2);border-radius:4px;font-size:13px;background:var(--sheet)}
+.a-canvas{flex:1;min-height:0;display:grid;place-items:center;border-block:1px solid var(--rule)}
+.a-sheet{flex:none;background:var(--sheet);padding:6px 16px 12px;display:grid;gap:9px;box-shadow:0 -1.5px 0 var(--ink)}
+.a-grab{width:36px;height:4px;border-radius:2px;background:var(--rule);justify-self:center}
+.a-sh-hd{display:flex;align-items:center;justify-content:space-between}
+.a-sh-hd b{font-size:16px;font-weight:600}
+.a-link{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 4px 0 8px;color:var(--cobalt);font-weight:500;font-size:14px}
+.a-read{display:flex;align-items:baseline;gap:6px}
+.a-read .v{font:600 46px/1 "IBM Plex Sans Condensed",sans-serif}
+.a-read .u{font-size:20px;color:var(--ink2)}
+.a-simtag{margin-left:auto;align-self:center;font-size:12.5px;font-weight:600;padding:3px 8px;border:1px dashed var(--ink);border-radius:3px;background:repeating-linear-gradient(135deg,transparent 0 6px,rgba(14,28,54,.07) 6px 12px)}
+.a-state{display:flex;gap:8px;align-items:flex-start;padding:7px 10px;background:var(--amberw);box-shadow:inset 3px 0 0 var(--amber);font-size:13.5px;line-height:1.35}
+.a-state .i{color:var(--amber)}
+.a-state b{font-weight:600}
+.a-btns{display:flex;gap:10px}
+.a-btns .a-btn{flex:1}
+.a-pname{display:flex;align-items:center;justify-content:space-between;margin:0 16px;padding:2px 0 0;flex:none}
+.a-pname b{font-size:20px;font-weight:600}
+.a-tag{display:inline-flex;align-items:center;gap:5px;height:28px;padding:0 9px;border:1px solid var(--ink);border-radius:3px;font-size:13px;font-weight:600;background:var(--sheet)}
+.a-emeta{display:flex;justify-content:space-between;padding:10px 16px 0;font-size:13px;color:var(--ink2);flex:none}
+.a-ledger{background:var(--sheet);border:1px solid var(--ink);margin-top:10px}
+.a-lh{display:flex;align-items:center;justify-content:space-between;padding:0 4px 0 12px;height:40px;border-bottom:1px solid var(--ink);font-weight:600}
+.a-lh .add{display:inline-flex;align-items:center;gap:4px;color:var(--cobalt);font-weight:500;font-size:14px;height:40px;padding:0 8px}
+.a-row{display:grid;grid-template-columns:1fr auto;gap:1px 12px;padding:7px 12px 8px;border-top:1px solid var(--rule)}
+.a-lh+.a-row{border-top:0}
+.a-row .nm{font-weight:500}
+.a-row .q{font-size:13px;color:var(--ink2)}
+.a-row .s{grid-row:1/3;grid-column:2;align-self:center;font:600 16px "IBM Plex Sans Condensed",sans-serif}
+.a-subt{display:flex;justify-content:space-between;padding:7px 12px;font-weight:600;border-top:1px solid var(--ink);font-size:14.5px}
+.a-subt span{font-family:"IBM Plex Sans Condensed",sans-serif;font-size:16px}
+.a-note{display:flex;gap:8px;margin-top:10px;font-size:12.5px;color:var(--ink2);line-height:1.35}
+.a-foot{flex:none;background:var(--sheet);padding:8px 16px 10px;display:grid;gap:8px;box-shadow:0 -1.5px 0 var(--ink)}
+.a-tot{display:flex;justify-content:space-between;align-items:baseline}
+.a-tot span{font-size:13.5px;color:var(--ink2)}
+.a-tot b{font:600 23px/1.15 "IBM Plex Sans Condensed",sans-serif;border-bottom:3px double var(--ink)}
+
+/* ───────── B · Ruletka (tape measure) ───────── */
+.B{--ink:#000000;--ink2:#4A4A45;--conc:#EDECE7;--card:#FFFFFF;--yel:#FFCF00;--soft:#F6F5F1;
+  background:var(--conc);color:var(--ink);font:500 16px/1.3 "Sofia Sans","Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+.B .cd{font-family:"Sofia Sans Condensed","Sofia Sans",sans-serif}
+.B .sb{background:var(--card)}
+.B .i{stroke-width:2.2}
+.B .home{background:#000;color:#fff}
+.B .home.w{background:var(--card);color:#000}
+.b-bar{display:flex;align-items:center;height:48px;flex:none;padding:0 8px;background:var(--card)}
+.b-back{display:flex;align-items:center;gap:2px;height:44px;padding:0 10px 0 4px;font-weight:700}
+.b-ib{width:46px;height:44px;display:grid;place-items:center}
+.b-ib.box{border:2px solid #000;border-radius:7px;width:46px;margin-left:6px}
+.b-ib.dis{opacity:.3}
+.b-ttl{flex:1;display:grid;line-height:1.1;min-width:0;padding-left:2px}
+.b-ttl b{font:800 23px/1.05 "Sofia Sans Condensed",sans-serif}
+.b-ttl small{font-size:13.5px;color:var(--ink2);font-weight:600}
+.b-head{background:var(--card);padding:0 16px 11px;display:grid;gap:6px;justify-items:start;flex:none}
+.b-head h4{margin:0;font:800 34px/1 "Sofia Sans Condensed",sans-serif;letter-spacing:-.01em}
+.b-head p{margin:0;font-size:15px;color:var(--ink2);line-height:1.35;font-weight:500}
+.b-chip{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 10px 0 8px;border:2px solid #000;border-radius:6px;font-size:14px;font-weight:700;background:var(--card)}
+.b-tape{flex:none;height:14px;border-block:2px solid #000;background:
+  repeating-linear-gradient(90deg,#000 0 2px,transparent 2px 40px) 0 0/100% 9px no-repeat,
+  repeating-linear-gradient(90deg,#000 0 1.5px,transparent 1.5px 8px) 0 0/100% 4px no-repeat,
+  var(--yel)}
+.b-seg{display:flex;margin:10px 16px 0;border:2px solid #000;border-radius:8px;overflow:hidden;background:var(--card);flex:none}
+.b-seg span{flex:1;text-align:center;height:44px;line-height:44px;font-weight:800;font-size:16px}
+.b-seg span+span{border-left:2px solid #000}
+.b-seg .on{background:var(--yel)}
+.b-body{flex:1;min-height:0;overflow:hidden;padding:0 16px}
+.b-floor{display:flex;justify-content:space-between;align-items:baseline;padding:10px 2px 5px}
+.b-floor b{font:800 22px "Sofia Sans Condensed",sans-serif}
+.b-floor span{font-size:14.5px;color:var(--ink2);font-weight:700}
+.b-list{background:var(--card);border:2px solid #000;border-radius:9px;overflow:hidden}
+.b-room{display:flex;align-items:center;gap:8px;padding:8px 6px 8px 14px;min-height:66px;position:relative}
+.b-room+.b-room{border-top:1.5px solid #000}
+.b-room .t{flex:1;min-width:0;display:grid;gap:2px}
+.b-room .t b{font-size:18px;font-weight:800}
+.b-room .d{font-size:15px;color:var(--ink2)}
+.b-room .st{display:flex;align-items:center;gap:5px;font-size:14px;font-weight:700}
+.b-room .ar{text-align:right;line-height:1}
+.b-room .ar b{display:block;font:800 25px/1 "Sofia Sans Condensed",sans-serif}
+.b-room .ar span{font-size:13px;color:var(--ink2);font-weight:700}
+.b-room.warn{padding-left:24px}
+.b-room.warn::before{content:"";position:absolute;left:0;top:0;bottom:0;width:11px;border-right:1.5px solid #000;background:repeating-linear-gradient(45deg,#000 0 5px,var(--yel) 5px 10px)}
+.b-actions{display:flex;gap:10px;padding:12px 16px;flex:none}
+.b-btn{height:54px;display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:0 18px;border:2px solid #000;border-radius:9px;font-weight:800;font-size:17px;background:var(--card)}
+.b-btn.pri{background:var(--yel);flex:1}
+.b-nav{display:flex;height:64px;flex:none;background:#000;color:#fff}
+.b-nav span{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12.5px;font-weight:700;position:relative;color:#D2D2D2}
+.b-nav .on{color:var(--yel)}
+.b-nav .on::before{content:"";position:absolute;top:0;left:24%;right:24%;height:4px;background:var(--yel)}
+.b-sub{display:flex;align-items:center;gap:10px;padding:2px 16px 10px;background:var(--card);border-bottom:2px solid #000;flex:none}
+.b-seg.sm{margin:0;flex:none}
+.b-seg.sm span{padding:0 18px;height:40px;line-height:40px;flex:none}
+.b-dev{margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 8px 0 6px;border:2px solid #000;border-radius:7px;font-size:14.5px;font-weight:800;background:var(--card)}
+.b-dev em{font-style:normal;background:#000;color:var(--yel);font-size:12px;padding:2px 6px;border-radius:3px;font-weight:800}
+.b-canvas{flex:1;min-height:0;background:var(--card);display:grid;place-items:center}
+.b-sheet{flex:none;background:var(--card);border-top:3px solid #000;padding:10px 16px 12px;display:grid;gap:10px}
+.b-sh-hd{display:flex;align-items:center;justify-content:space-between}
+.b-sh-hd b{font:800 21px "Sofia Sans Condensed",sans-serif}
+.b-link{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 4px 0 8px;font-weight:800;text-decoration:underline;text-underline-offset:3px;font-size:15px}
+.b-readrow{display:flex;align-items:stretch;border:2px solid #000;border-radius:9px;overflow:hidden}
+.b-read{display:flex;align-items:baseline;gap:5px;padding:8px 12px 6px}
+.b-read .v{font:800 54px/1 "Sofia Sans Condensed",sans-serif}
+.b-read .u{font-size:22px;font-weight:800}
+.b-pend{flex:1;display:flex;flex-direction:column;justify-content:center;gap:3px;padding:6px 8px 6px 22px;border-left:2px solid #000;position:relative;font-size:14px;line-height:1.2}
+.b-pend::before{content:"";position:absolute;left:0;top:0;bottom:0;width:11px;border-right:1.5px solid #000;background:repeating-linear-gradient(45deg,#000 0 5px,var(--yel) 5px 10px)}
+.b-pend b{font-size:15.5px;font-weight:800}
+.b-pend em{font-style:normal;align-self:flex-start;background:#000;color:var(--yel);font-size:12px;padding:2px 6px;border-radius:3px;font-weight:800;margin-top:2px}
+.b-was{font-size:14.5px;color:var(--ink2);font-weight:600}
+.b-btns{display:flex;gap:10px}
+.b-btns .b-btn{flex:1;padding:0 10px}
+.b-tools{display:flex;height:64px;flex:none;background:var(--card);border-top:2px solid #000;padding:6px;gap:4px}
+.b-tools span{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:12.5px;font-weight:800;border-radius:7px}
+.b-tools .on{background:var(--yel);box-shadow:inset 0 0 0 2px #000}
+.b-tag{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 9px;border:2px dashed #000;border-radius:6px;font-weight:800;font-size:14px}
+.b-sec{display:flex;justify-content:space-between;align-items:baseline;padding:12px 2px 7px}
+.b-sec b{font:800 22px "Sofia Sans Condensed",sans-serif}
+.b-sec span{font:800 18px "Sofia Sans Condensed",sans-serif;color:var(--ink2)}
+.b-line{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:9px 14px;align-items:center}
+.b-line+.b-line{border-top:1.5px solid #000}
+.b-line .nm{font-size:17px;font-weight:800}
+.b-line .q{font-size:15px;color:var(--ink2);font-weight:600}
+.b-line .s{grid-column:2;grid-row:1/3;font:800 22px "Sofia Sans Condensed",sans-serif}
+.b-addrow{display:flex;align-items:center;justify-content:center;gap:6px;height:48px;border-top:1.5px dashed #000;font-weight:800;font-size:15.5px;background:var(--soft)}
+.b-foot{flex:none;background:#000;color:#fff;padding:10px 16px 12px;display:grid;gap:10px}
+.b-foot .tot{display:flex;justify-content:space-between;align-items:baseline}
+.b-foot .tot span{font-size:15px;font-weight:700;color:#DCDCDC}
+.b-foot .tot b{font:800 33px/1 "Sofia Sans Condensed",sans-serif;color:var(--yel)}
+.b-foot .b-btn{border-color:var(--yel);width:100%;height:52px}
+.b-foot+.b-nav{border-top:1px solid #3a3a3a}
+
+/* ───────── C · Asbob (instrument, dark) ───────── */
+.C{--cbg:#0D1F1B;--pn:#15302A;--rs:#1E3F37;--ln:#2E4F47;--tx:#E8F2EE;--tx2:#A3BBB3;--lime:#C3F53C;--amb:#FFC24D;--ambw:#3A2F12;--dark:#0D1F1B;
+  background:var(--cbg);color:var(--tx);font:400 15px/1.4 Geologica,"Segoe UI",Roboto,sans-serif;font-variant-numeric:tabular-nums}
+.C .home{background:var(--pn)}
+.C .home.c{background:var(--cbg)}
+.c-bar{display:flex;align-items:center;height:52px;flex:none;padding:0 8px;gap:2px}
+.c-ib{width:44px;height:44px;display:grid;place-items:center;border-radius:22px}
+.c-ib.dis{opacity:.32}
+.c-back{display:flex;align-items:center;gap:2px;height:44px;padding:0 10px 0 4px;color:var(--tx2)}
+.c-ttl{flex:1;display:grid;line-height:1.2;padding-left:4px;min-width:0}
+.c-ttl b{font-size:17px;font-weight:600}
+.c-ttl small{font-size:12.5px;color:var(--tx2)}
+.c-head{padding:0 20px 12px;display:grid;gap:7px;justify-items:start;flex:none}
+.c-head h4{margin:0;font-size:27px;font-weight:600;letter-spacing:-.015em;line-height:1.1}
+.c-head p{margin:0;color:var(--tx2);font-size:14px}
+.c-pill{display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px 0 10px;border-radius:15px;background:var(--pn);font-size:13px}
+.c-pill .i{color:var(--lime)}
+.c-pill.d{border:1px dashed var(--tx2);background:none}
+.c-seg{display:flex;margin:2px 16px 0;padding:4px;border-radius:26px;background:var(--pn);flex:none}
+.c-seg span{flex:1;height:40px;line-height:40px;text-align:center;border-radius:20px;color:var(--tx2);font-weight:500;font-size:14.5px}
+.c-seg .on{background:var(--lime);color:var(--dark);font-weight:600}
+.c-body{flex:1;min-height:0;overflow:hidden;padding:0 16px;position:relative}
+.c-floor{display:flex;justify-content:space-between;align-items:baseline;padding:16px 4px 8px;color:var(--tx2);font-size:13px}
+.c-floor b{color:var(--tx);font-size:15px;font-weight:600}
+.c-room{display:flex;align-items:center;gap:12px;padding:9px 14px 9px 9px;background:var(--pn);border-radius:16px;min-height:70px}
+.c-room+.c-room{margin-top:8px}
+.c-thumb{width:56px;height:50px;border-radius:11px;background:var(--cbg);display:grid;place-items:center;flex:none}
+.c-room .t{flex:1;min-width:0;display:grid;gap:1px}
+.c-room .t b{font-size:16px;font-weight:600}
+.c-room .d{font-size:13.5px;color:var(--tx2)}
+.c-room .st{display:flex;gap:5px;align-items:center;font-size:12.5px;color:var(--tx2)}
+.c-room .st .i{color:var(--lime)}
+.c-room.warn .st{color:var(--amb)}
+.c-room.warn .st .i{color:var(--amb)}
+.c-room .nl{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.c-room .ar{font-size:16px;font-weight:600}
+.c-ghost{display:flex;align-items:center;justify-content:flex-start;padding-left:16px;gap:6px;height:48px;margin-top:12px;border:1.5px dashed var(--ln);border-radius:16px;color:var(--tx2);font-size:14px}
+.c-fab{position:absolute;right:16px;bottom:14px;display:inline-flex;align-items:center;gap:8px;height:56px;padding:0 20px 0 16px;border-radius:18px;background:var(--lime);color:var(--dark);font-weight:600;font-size:15px;box-shadow:0 10px 24px rgba(0,0,0,.4)}
+.c-nav{display:flex;height:66px;flex:none;background:var(--pn)}
+.c-nav span{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;font-size:12px;color:var(--tx2)}
+.c-nav .ic{width:58px;height:30px;border-radius:15px;display:grid;place-items:center}
+.c-nav .on{color:var(--tx);font-weight:600}
+.c-nav .on .ic{background:var(--rs);color:var(--lime)}
+.c-sub{display:flex;align-items:center;gap:8px;padding:0 16px 10px;flex:none}
+.c-seg.sm{margin:0;flex:none}
+.c-seg.sm span{padding:0 18px;height:36px;line-height:36px;flex:none}
+.c-dev{margin-left:auto;display:inline-flex;align-items:center;gap:6px;height:44px;padding:0 12px 0 10px;border-radius:22px;background:var(--pn);font-size:13px}
+.c-dev .i{color:var(--lime)}
+.c-sim{font-size:11.5px;color:var(--amb);border:1px solid var(--amb);border-radius:6px;padding:1px 6px;font-weight:500}
+.c-canvas{flex:1;min-height:0;position:relative;display:grid;place-items:start center;padding-top:4px}
+.c-dock{position:absolute;left:50%;bottom:12px;transform:translateX(-50%);display:flex;gap:2px;padding:5px;border-radius:26px;background:var(--rs);box-shadow:0 10px 26px rgba(0,0,0,.45)}
+.c-dock span{width:61px;height:48px;border-radius:21px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:11.5px;color:var(--tx2);gap:1px}
+.c-dock .on{background:var(--lime);color:var(--dark);font-weight:600}
+.c-sheet{flex:none;background:var(--pn);border-radius:24px 24px 0 0;padding:8px 18px 12px;display:grid;gap:10px}
+.c-grab{width:36px;height:4px;border-radius:2px;background:var(--ln);justify-self:center}
+.c-sh-hd{display:flex;justify-content:space-between;align-items:center}
+.c-sh-hd b{font-size:16px;font-weight:600}
+.c-link{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 13px;border-radius:20px;background:var(--rs);font-size:13.5px}
+.c-read{display:flex;align-items:baseline;gap:8px}
+.c-read .v{font-size:50px;font-weight:300;line-height:1;letter-spacing:-.02em}
+.c-read .u{font-size:20px;color:var(--tx2)}
+.c-read .c-sim{margin-left:auto;align-self:center}
+.c-state{display:flex;gap:8px;align-items:flex-start;padding:9px 12px;border-radius:12px;background:var(--ambw);color:var(--amb);font-size:13.5px;line-height:1.35}
+.c-state span{color:var(--tx)}
+.c-btns{display:flex;gap:10px}
+.c-btn{flex:1;height:52px;border-radius:26px;display:inline-flex;align-items:center;justify-content:center;gap:8px;font-weight:600;font-size:15px;background:var(--rs);color:var(--tx)}
+.c-btn.pri{background:var(--lime);color:var(--dark)}
+.c-meta{display:flex;justify-content:space-between;align-items:center;padding:9px 4px 7px;font-size:13px;color:var(--tx2)}
+.c-grp{background:var(--pn);border-radius:18px;overflow:hidden}
+.c-grp+.c-grp{margin-top:8px}
+.c-gh{display:flex;justify-content:space-between;align-items:baseline;padding:9px 14px 4px}
+.c-gh b{font-size:15px;font-weight:600}
+.c-gh span{color:var(--tx2);font-size:14px}
+.c-line{display:grid;grid-template-columns:1fr auto;gap:1px 10px;padding:7px 14px 8px;border-top:1px solid var(--ln)}
+.c-line .nm{font-size:15px}
+.c-line .q{font-size:13px;color:var(--tx2)}
+.c-line .s{grid-row:1/3;grid-column:2;align-self:center;font-size:16px;font-weight:500}
+.c-add{display:flex;align-items:center;gap:6px;height:42px;padding:0 14px;border-top:1px solid var(--ln);color:var(--lime);font-size:14px}
+.c-note{display:flex;gap:8px;padding:10px 4px 0;font-size:12.5px;color:var(--tx2);line-height:1.35}
+.c-tot{flex:none;margin:0 12px 8px;padding:10px 12px 12px 16px;border-radius:22px;background:var(--rs);display:grid;gap:8px}
+.c-tot .c-btn{height:48px}
+.c-tot .r{display:flex;justify-content:space-between;align-items:baseline}
+.c-tot .r span{color:var(--tx2);font-size:13.5px}
+.c-tot .r b{font-size:25px;font-weight:600;letter-spacing:-.01em}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-status" viewBox="0 0 58 12"><g fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="6" width="3" height="6" rx="1"/><rect x="9" y="3.5" width="3" height="8.5" rx="1"/><rect x="13.5" y="1" width="3" height="11" rx="1"/></g><path d="M22 4.6a9 9 0 0 1 12 0M24.6 7.4a5 5 0 0 1 6.8 0" stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"/><circle cx="28" cy="10.2" r="1.3" fill="currentColor"/><rect x="38.5" y="1.5" width="17" height="9" rx="2.5" stroke="currentColor" fill="none" opacity=".5"/><rect x="40.5" y="3.5" width="11" height="5" rx="1.2" fill="currentColor"/><rect x="56.4" y="4.5" width="1.5" height="3" rx=".7" fill="currentColor" opacity=".5"/></symbol>
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 5l-7 7 7 7"/></symbol>
+  <symbol id="i-chev" viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></symbol>
+  <symbol id="i-more" viewBox="0 0 24 24"><circle cx="12" cy="5.5" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="12" r="1.4" fill="currentColor" stroke="none"/><circle cx="12" cy="18.5" r="1.4" fill="currentColor" stroke="none"/></symbol>
+  <symbol id="i-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></symbol>
+  <symbol id="i-redo" viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H9.5a5.5 5.5 0 0 0 0 11H13"/></symbol>
+  <symbol id="i-bt" viewBox="0 0 24 24"><path d="M7 7l10 10-5 5V2l5 5L7 17"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7"/></symbol>
+  <symbol id="i-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></symbol>
+  <symbol id="i-alert" viewBox="0 0 24 24"><path d="M12 3.5L2.5 20h19L12 3.5z"/><path d="M12 10v4.5"/><path d="M12 17.3v.2"/></symbol>
+  <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+  <symbol id="i-door" viewBox="0 0 24 24"><path d="M3.5 20.5h17"/><path d="M6.5 20.5V4.5l9 1.8v14.2"/><path d="M15.5 6.3h3v14.2"/><path d="M12.2 13v.1"/></symbol>
+  <symbol id="i-window" viewBox="0 0 24 24"><rect x="4" y="4.5" width="16" height="15" rx="1"/><path d="M12 4.5v15M4 12h16"/></symbol>
+  <symbol id="i-column" viewBox="0 0 24 24"><rect x="7" y="3.5" width="10" height="17"/><path d="M7 9.5l6-6M7 15.5l10-10M7 20.5l10-10M12 20.5l5-5"/></symbol>
+  <symbol id="i-dim" viewBox="0 0 24 24"><path d="M3 12h18M3 8v8M21 8v8M6.5 9.5L3.5 12l3 2.5M17.5 9.5l3 2.5-3 2.5"/></symbol>
+  <symbol id="i-room" viewBox="0 0 24 24"><rect x="3.5" y="3.5" width="17" height="17"/><path d="M3.5 13.5h6v7M14 3.5v5h6.5"/></symbol>
+  <symbol id="i-cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></symbol>
+  <symbol id="i-folder" viewBox="0 0 24 24"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></symbol>
+  <symbol id="i-tape" viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="13.5" height="13.5" rx="3.5"/><circle cx="9.25" cy="12.25" r="2.6"/><path d="M16 15.5h5.5v3.5H16"/><path d="M19 15.5v1.6"/></symbol>
+  <symbol id="i-sliders" viewBox="0 0 24 24"><path d="M4 7h9M17 7h3M4 17h3M11 17h9"/><circle cx="15" cy="7" r="2.2"/><circle cx="9" cy="17" r="2.2"/></symbol>
+  <symbol id="i-device" viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M9.5 12.2l1.8 1.8 3.4-3.6"/></symbol>
+  <symbol id="i-layers" viewBox="0 0 24 24"><path d="M12 4l9 4.8-9 4.8-9-4.8L12 4z"/><path d="M3 13.6l9 4.8 9-4.8"/></symbol>
+  <symbol id="i-kbd" viewBox="0 0 24 24"><rect x="2.5" y="6" width="19" height="12" rx="2"/><path d="M6.5 10h.01M10 10h.01M13.5 10h.01M17 10h.01M7.5 14h9"/></symbol>
+  <symbol id="i-edit" viewBox="0 0 24 24"><path d="M4 20h4L19 9l-4-4L4 16v4z"/><path d="M13.5 6.5l4 4"/></symbol>
+  <symbol id="i-doc" viewBox="0 0 24 24"><path d="M6 3h8.5L19 7.5V21H6z"/><path d="M14 3v5h5M9 12.5h7M9 16.5h7"/></symbol>
+  <symbol id="i-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8v.2"/></symbol>
+</svg>
+
+<main class="wrap" lang="en">
+
+<header class="stack" style="gap:16px">
+  <p class="muted" style="font-size:14px">METRX is a temporary wordmark. Stage 1 of the design phase, 12 October 2026.</p>
+  <h1>Three directions for the room-measuring app</h1>
+  <p class="lead">Each direction shows the same project, the same room and the same estimate in Uzbek Latin. All three use the 5 × 4 × 3 m acceptance fixture with its door, window and 4 240 000 so‘m total. Pick one, and Stage 2 turns it into a clickable prototype.</p>
+  <nav class="toc" aria-label="On this page">
+    <a href="#directions">Directions</a><a href="#recommendation">Recommendation</a><a href="#rules">Product rules</a><a href="#navigation">Navigation</a><a href="#journey">Primary journey</a><a href="#screens">Screen inventory</a><a href="#defaults">Defaults and open points</a>
+  </nav>
+</header>
+
+<section class="block" id="directions">
+  <header>
+    <h2>Directions</h2>
+    <p class="muted">Every phone is drawn at 360 × 760 pt, a common small Android size, so tight layouts show up now rather than on a device. In the room editor, wall B has a simulated laser reading that is received but not yet confirmed. Wall A is confirmed. Swipe each row sideways on a phone.</p>
+  </header>
+
+  <!-- ═══════════════ A ═══════════════ -->
+  <article class="dir" id="dir-a">
+    <div class="dir-head"><h3>A. Chizma</h3><span class="tag">The drafting sheet</span></div>
+    <p class="dir-idea">Builds on technical drawing. The project header is a drawing title block, the room list is a room schedule with numbered rows, the plan has hatched walls and ticked dimension lines, and the estimate is a ruled ledger with a double rule under the total. Navy ink on cool paper, with cobalt for selection.</p>
+    <div class="rail">
+
+      <figure class="shot"><div class="phone A" lang="uz-Latn">
+        <div class="sb"><span>9:41</span><svg width="58" height="12"><use href="#i-status"/></svg></div>
+        <div class="a-bar"><span class="a-back"><svg class="i"><use href="#i-back"/></svg>Loyihalar</span><span class="sp"></span><span class="a-saved"><svg class="i s"><use href="#i-device"/></svg>Qurilmada saqlangan</span><span class="a-ib"><svg class="i"><use href="#i-more"/></svg></span></div>
+        <div class="a-tblock">
+          <div class="a-tname">Yusupovlar uyi</div>
+          <dl class="a-tgrid">
+            <div class="l"><dt>Buyurtmachi</dt><dd>Akmal Yusupov</dd></div>
+            <div><dt>Smeta, qoralama</dt><dd class="cd">4 240 000 so‘m</dd></div>
+            <div class="w"><dt>Manzil</dt><dd>Toshkent, Chilonzor 14-mavze</dd></div>
+          </dl>
+        </div>
+        <div class="a-tabs"><span class="on">Xonalar</span><span>Smeta</span><span>Takliflar</span></div>
+        <div class="a-body">
+          <table class="a-sched">
+            <thead><tr><th>№</th><th>Xona</th><th>O‘lchami, m</th><th class="r">m²</th></tr></thead>
+            <tbody>
+              <tr class="fl"><td colspan="4"><b>1-qavat</b><span>2 xona, 31,52 m²</span></td></tr>
+              <tr><td class="n">1</td><td><b>Mehmonxona</b><small><svg class="i xs"><use href="#i-check"/></svg>Tasdiqlangan</small></td><td class="cd">5,00 × 4,00<small>balandlik 3,00</small></td><td class="r cd">20,00</td></tr>
+              <tr><td class="n">2</td><td><b>Oshxona</b><small><svg class="i xs"><use href="#i-check"/></svg>Tasdiqlangan</small></td><td class="cd">3,60 × 3,20<small>balandlik 3,00</small></td><td class="r cd">11,52</td></tr>
+              <tr class="fl"><td colspan="4"><b>2-qavat</b><span>1 xona, 14,70 m²</span></td></tr>
+              <tr class="warn"><td class="n">3</td><td><b>Yotoqxona</b><small class="pend"><svg class="i xs"><use href="#i-clock"/></svg>1 ta tasdiqlanmagan</small></td><td class="cd">4,20 × 3,50<small>balandlik 2,80</small></td><td class="r cd">14,70</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="a-actions"><button class="a-btn pri"><svg class="i s"><use href="#i-plus"/></svg>Xona qo‘shish</button><button class="a-btn sec"><svg class="i s"><use href="#i-layers"/></svg>Qavat</button></div>
+        <nav class="a-nav"><span class="on"><svg class="i"><use href="#i-folder"/></svg>Loyihalar</span><span><svg class="i"><use href="#i-tape"/></svg>Tez o‘lchash</span><span><svg class="i"><use href="#i-sliders"/></svg>Sozlamalar</span></nav>
+        <div class="home"></div>
+      </div><figcaption><b>Project overview.</b> Title block and room schedule</figcaption></figure>
+
+      <figure class="shot"><div class="phone A" lang="uz-Latn">
+        <div class="sb"><span>9:41</span><svg width="58" height="12"><use href="#i-status"/></svg></div>
+        <div class="a-bar"><span class="a-ib"><svg class="i"><use href="#i-back"/></svg></span><div class="a-ttl"><b>Mehmonxona</b><small>1-qavat, devor qalinligi 0,20 m</small></div><span class="a-ib"><svg class="i"><use href="#i-undo"/></svg></span><span class="a-ib dis"><svg class="i"><use href="#i-redo"/></svg></span></div>
+        <div class="a-sub"><div class="a-seg"><span class="on">Reja</span><span>3D</span></div><span class="a-dev"><svg class="i s"><use href="#i-bt"/></svg>Simulyator ulangan</span></div>
+        <div class="a-canvas">
+          <svg class="plan" viewBox="0 0 360 292" role="img" aria-label="Mehmonxona rejasi, 5,00 × 4,00 m, eshik va deraza bilan">
+            <defs>
+              <pattern id="aGrid" width="23" height="23" patternUnits="userSpaceOnUse" x="65" y="62"><path d="M23 0H0V23" fill="none" stroke="#DCE4F0" stroke-width="1"/></pattern>
+              <pattern id="aHatch" width="4" height="4" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="4" height="4" fill="#FFFFFF"/><rect width="1.1" height="4" fill="#0E1C36"/></pattern>
+            </defs>
+            <rect width="360" height="292" fill="url(#aGrid)"/>
+            <rect x="290.5" y="48.3" width="18.2" height="211.4" fill="#E7EEFD" stroke="#1C4BD1" stroke-width="1.5"/>
+            <path d="M55.8 52.8H304.2V255.2H55.8Z M65 62V246H295V62Z" fill="url(#aHatch)" fill-rule="evenodd" stroke="#0E1C36" stroke-width="1.2"/>
+            <rect x="295" y="52.8" width="9.2" height="202.4" fill="#1C4BD1"/>
+            <rect x="88" y="52" width="41.4" height="10.8" fill="#F3F6FA"/>
+            <path d="M88 52.8V62M129.4 52.8V62" stroke="#0E1C36" stroke-width="1.2"/>
+            <path d="M88 62V103.4" stroke="#0E1C36" stroke-width="2.2"/>
+            <path d="M129.4 62A41.4 41.4 0 0 1 88 103.4" fill="none" stroke="#0E1C36" stroke-width="1" stroke-dasharray="3 3"/>
+            <rect x="193.8" y="246" width="55.2" height="9.2" fill="#FFFFFF" stroke="#0E1C36" stroke-width="1.2"/>
+            <path d="M193.8 250.6H249" stroke="#0E1C36" stroke-width="1"/>
+            <g font-family="IBM Plex Sans, sans-serif" font-size="11" font-weight="600" text-anchor="middle">
+              <circle cx="180" cy="80" r="9" fill="#FFFFFF" stroke="#46536B"/><text x="180" y="84" fill="#0E1C36">A</text>
+              <circle cx="277" cy="154" r="9" fill="#1C4BD1"/><text x="277" y="158" fill="#FFFFFF">B</text>
+              <circle cx="180" cy="228" r="9" fill="#FFFFFF" stroke="#46536B"/><text x="180" y="232" fill="#0E1C36">C</text>
+              <circle cx="83" cy="154" r="9" fill="#FFFFFF" stroke="#46536B"/><text x="83" y="158" fill="#0E1C36">D</text>
+            </g>
+            <g stroke="#0E1C36" fill="none" stroke-width="1"><path d="M65 48V20M295 48V20M59 26H301"/><path d="M61 30L69 22M291 30L299 22" stroke-width="1.6"/></g>
+            <text x="178" y="20" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-weight="600" font-size="15" fill="#0E1C36">5,00</text>
+            <path d="M198 13.5l3.5 3.5 6.5-6.5" stroke="#0E1C36" stroke-width="1.8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="108.7" y="45" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-size="12" fill="#46536B">0,90</text>
+            <g stroke="#9E4F00" fill="none"><path d="M312 62H340M312 246H340" stroke-width="1"/><path d="M334 56V252" stroke-dasharray="5 4" stroke-width="1.3"/><path d="M330 66L338 58M330 250L338 242" stroke-width="1.6"/></g>
+            <rect x="310" y="140" width="48" height="28" rx="3" fill="#FFF2E2" stroke="#9E4F00" stroke-width="1.2"/>
+            <circle cx="319" cy="154" r="5" fill="none" stroke="#9E4F00" stroke-width="1.4"/><path d="M319 151.4V154l1.8 1.2" stroke="#9E4F00" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+            <text x="340" y="159" text-anchor="middle" font-family="IBM Plex Sans Condensed, sans-serif" font-weight="600" font-size="13.5" fill="#0E1C36">4,000</text>
+            <g stroke="#46536B" fill="none" stroke-width="1"><path d="M193.8 259V282M249 259V282M295 259V282M188 276H301"/><path d="M189.8 280L197.8 272M245 280L253 272M291 280L299 272" stroke-width="1.5"/></g>
+            <g font-family="IBM Plex Sans Condensed, sans-serif" font-size="12.5" fill="#46536B" text-anchor="middle"><text x="221.4" y="271">1,20</text><text x="272" y="271">1,00</text></g>
+          </svg>
+        </div>
+        <div class="a-sheet">
+          <div class="a-grab"></div>
+          <div class="a-sh-hd"><b>Devor B uzunligi</b><span class="a-link"><svg class="i s"><use href="#i-kbd"/></svg>Qo‘lda kiritish</span></div>
+          <div class="a-read"><span class="v">4,000</span><span class="u">m</span><span class="a-simtag">Simulyatsiya</span></div>
+          <div class="a-state"><svg class="i s"><use href="#i-clock"/></svg><span><b>Qabul qilindi, hali tasdiqlanmagan.</b> Hozirgi qiymat: 4,00 m (shablon)</span></div>
+          <div class="a-btns"><button class="a-btn sec">Qayta o‘lchash</button><button class="a-btn pri"><svg class="i s"><use href="#i-check"/></svg>Tasdiqlash</button></div>
+        </div>
+        <nav class="a-tools"><span class="on"><svg class="i"><use href="#i-dim"/></svg>O‘lcham</span><span><svg class="i"><use href="#i-door"/></svg>Eshik</span><span><svg class="i"><use href="#i-window"/></svg>Deraza</span><span><svg class="i"><use href="#i-column"/></svg>Ustun</span><span><svg class="i"><use href="#i-room"/></svg>Xona</span></nav>
+        <div class="home"></div>
+      </div><figcaption><b>Room editor.</b> Wall B selected, simulated reading awaiting confirmation</figcaption></figure>
+
+      <figure class="shot"><div class="phone A" lang="uz-Latn">
+        <div class="sb"><span>9:41</span><svg width="58" height="12"><use href="#i-status"/></svg></div>
+        <div class="a-bar"><span class="a-back"><svg class="i"><use href="#i-back"/></svg>Loyihalar</span><span class="sp"></span><span class="a-ib"><svg class="i"><use href="#i-more"/></svg></span></div>
+        <div class="a-pname"><b>Yusupovlar uyi</b><span class="a-tag"><svg class="i xs"><use href="#i-edit"/></svg>Qoralama</span></div>
+        <div class="a-tabs"><span>Xonalar</span><span class="on">Smeta</span><span>Takliflar</span></div>
+        <div class="a-emeta"><span>Valyuta: UZS, kasrsiz</span><span>Miqdorlar qo‘lda</span></div>
+        <div class="a-body">
+          <div class="a-ledger">
+            <div class="a-lh">Materiallar<span class="add"><svg class="i s"><use href="#i-plus"/></svg>Qo‘shish</span></div>
+            <div class="a-row"><span class="nm">Devor bo‘yog‘i, oq</span><span class="s">600 000</span><span class="q cd">12 banka × 50 000</span></div>
+            <div class="a-row"><span class="nm">Laminat pol qoplamasi</span><span class="s">2 640 000</span><span class="q cd">22 m² × 120 000</span></div>
+            <div class="a-subt">Materiallar jami<span>3 240 000</span></div>
+          </div>
+          <div class="a-ledger">
+            <div class="a-lh">Ish haqi<span class="add"><svg class="i s"><use href="#i-plus"/></svg>Qo‘shish</span></div>
+            <div class="a-row"><span class="nm">Bo‘yash va pol yotqizish</span><span class="s">1 000 000</span><span class="q">Kelishilgan summa</span></div>
+            <div class="a-subt">Ish haqi jami<span>1 000 000</span></div>
+          </div>
+          <p class="a-note"><svg class="i s"><use href="#i-info"/></svg><span>Miqdor va narxlarni usta kiritgan. Xona o‘lchamlari o‘zgarsa, ular o‘zgarmaydi.</span></p>
+        </div>
+        <div class="a-foot"><div class="a-tot"><span>Umumiy summa</span><b>4 240 000 so‘m</b></div><button class="a-btn pri"><svg class="i s"><use href="#i-doc"/></svg>Hisobotni ko‘rish</button></div>
+        <nav class="a-nav"><span class="on"><svg class="i"><use href="#i-folder"/></svg>Loyihalar</span><span><svg class="i"><use href="#i-tape"/></svg>Tez o‘lchash</span><span><svg class="i"><use href="#i-sliders"/></svg>Sozlamalar</span></nav>
+        <div class="home"></div>
+      </div><figcaption><b>Estimate.</b> Ruled ledger, double rule under the total</figcaption></figure>
+    </div>
+
+    <div class="meta-grid">
+      <div>
+        <h4>Palette and type</h4>
+        <div class="swatches">
+          <div class="sw"><i style="background:#0E1C36"></i><span>Ink</span><em>#0E1C36</em></div>
+          <div class="sw"><i style="background:#F3F6FA"></i><span>Paper</span><em>#F3F6FA</em></div>
+          <div class="sw"><i style="background:#1C4BD1"></i><span>Cobalt</span><em>#1C4BD1</em></div>
+          <div class="sw"><i style="background:#C8D2E1"></i><span>Rule</span><em>#C8D2E1</em></div>
+          <div class="sw"><i style="background:#9E4F00"></i><span>Received</span><em>#9E4F00</em></div>
+        </div>
+        <p class="specimen" style="font-family:'IBM Plex Sans',sans-serif"><span lang="uz-Cyrl">Ўлчам қабул қилинди: <span style="font-family:'IBM Plex Sans Condensed',sans-serif;font-weight:600">4,000 м</span>.</span> <span lang="ru">Подтвердить замер стены.</span><small>IBM Plex Sans for the interface, Plex Sans Condensed for dimensions and money. Cyrillic Extended covers ў қ ғ ҳ.</small></p>
+      </div>
+      <div>
+        <h4>On site</h4>
+        <ul class="pc">
+          <li>The room schedule and ledger carry straight into the PDF, so screen and report look like one system.</li>
+          <li>Hatched walls and ticked dimensions read as a real drawing to builders and customers.</li>
+          <li>Risk: hairlines and 12–13 px secondary text fade in direct sun.</li>
+          <li>Risk: cobalt selection is less obvious at arm's length than a filled highlight.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ═══════════════ B ═══════════════ -->
+  <article class="dir" id="dir-b">
+    <div class="dir-head"><h3>B. Ruletka</h3><span class="tag">The tape measure</span><span class="rec">Recommended</span></div>
+    <p class="dir-idea">Builds on the tool the builder already holds. Black on white for full sunlight contrast, with tape yellow reserved for what is selected, the primary action and the money total. Caution stripes mean "received, waiting for you", so that state reads without color. Condensed numerals are large enough to read at arm's length, and the narrow letterforms give long Russian and Uzbek labels room.</p>
+    <div class="rail">
+
+      <figure class="shot"><div class="phone B" lang="uz-Latn">
+        <div class="sb"><span>9:41</span><svg width="58" height="12"><use href="#i-status"/></svg></div>
+        <div class="b-bar"><span class="b-back"><svg class="i"><use href="#i-back"/></svg>Loyihalar</span><span class="sp"></span><span class="b-ib"><svg class="i"><use href="#i-more"/></svg></span></div>
+        <div class="b-head">
+          <h4>Yusupovlar uyi</h4>
+          <p>Akmal Yusupov, Toshkent, Chilonzor 14-mavze</p>
+          <span class="b-chip"><svg class="i s"><use href="#i-device"/></svg>Qurilmada saqlangan</span>
+        </div>
+        <div class="b-tape"></div>
+        <div class="b-seg"><span class="on">Xonalar</span><span>Smeta</span><span>Takliflar</span></div>
+        <div class="b-body">
+          <div class="b-floor"><b>1-qavat</b><span>2 xona, 31,52 m²</span></div>
+          <div class="b-list">
+            <div class="b-room"><div class="t"><b>Mehmonxona</b><span class="d">5,00 × 4,00 m, balandlik 3,00</span><span class="st"><svg class="i xs"><use href="#i-check"/></svg>Tasdiqlangan</span></div><div class="ar"><b>20,00</b><span>m²</span></div><svg class="i"><use href="#i-chev"/></svg></div>
+            <div class="b-room"><div class="t"><b>Oshxona</b><span class="d">3,60 × 3,20 m, balandlik 3,00</span><span class="st"><svg class="i xs"><use href="#i-check"/></svg>Tasdiqlangan</span></div><div class="ar"><b>11,52</b><span>m²</span></div><svg class="i"><use href="#i-chev"/></svg></div>
+          </div>
+          <div class="b-floor"><b>2-qavat</b><span>1 xona, 14,70 m²</span></div>
+          <div class="b-list">
+            <div class="b-room warn"><div class="t"><b>Yotoqxona</b><span class="d">4,20 × 3,50 m, balandlik 2,80</span><span class="st"><svg class="i xs"><use href="#i-clock"/></svg>1 ta o‘lcham tasdiqlanmagan</span></div><div class="ar"><b>14,70</b><span>m²</span></div><svg class="i"><use href="#i-chev"/></svg></div>
+          </div>
+        </div>
+        <div class="b-actions"><button class="b-btn pri"><svg class="i"><use href="#i-plus"/></svg>Xona qo‘shish</button><button class="b-btn"><svg class="i"><use href="#i-layers"/></svg>Qavat</button></div>
+        <nav class="b-nav"><span class="on"><svg class="i"><use href="#i-folder"/></svg>Loyihalar</span><span><svg class="i"><use href="#i-tape"/></svg>Tez o‘lchash</span><span><svg class="i"><use href="#i-sliders"/></svg>Sozlamalar</span></nav>
+        <div class="home"></div>
+      </div><figcaption><b>Project overview.</b> Tape strip, thick list, striped warning row</figcaption></figure>
+
+      <figure class="shot"><div class="phone B" lang="uz-Latn">
+        <div class="sb"><span>9:41</span><svg width="58" height="12"><use href="#i-status"/></svg></div>
+        <div class="b-bar"><span class="b-ib"><svg class="i"><use href="#i-back"/></svg></span><div class="b-ttl"><b>Mehmonxona</b><small>1-qavat, devor 0,20 m</small></div><span class="b-ib box"><svg class="i"><use href="#i-undo"/></svg></span><span class="b-ib box dis"><svg class="i"><use href="#i-redo"/></svg></span></div>
+        <div class="b-sub"><div class="b-seg sm"><span class="on">Reja</span><span>3D</span></div><span class="b-dev"><svg class="i s"><use href="#i-bt"/></svg>Ulangan<em>Simulyator</em></span></div>
+        <div class="b-canvas">
+          <svg class="plan" viewBox="0 0 360 292" role="img" aria-label="Mehmonxona rejasi, 5,00 × 4,00 m, eshik va deraza bilan">
+            <defs><pattern id="bStripe" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="8" height="8" fill="#FFCF00"/><rect width="4" height="8" fill="#000"/></pattern></defs>
+            <rect x="288" y="45.8" width="23.2" height="216.4" fill="#FFCF00"/>
+            <path d="M55.8 52.8H304.2V255.2H55.8Z M65 62V246H295V62Z" fill="#000" fill-rule="evenodd"/>
+            <rect x="88" y="52" width="41.4" height="10.8" fill="#FFFFFF"/>
+            <path d="M88 62V103.4" stroke="#000" stroke-width="2.5"/>
+            <path d="M129.4 62A41.4 41.4 0 0 1 88 103.4" fill="none" stroke="#000" stroke-width="1.3"/>
+            <rect x="193.8" y="246" width="55.2" height="9.2" fill="#FFFFFF" stroke="#000" stroke-width="1.6"/>
+            <path d="M193.8 250.6H249" stroke="#000" stroke-width="1.2"/>
+            <g font-family="Sofia Sans Condensed, sans-serif" font-size="13" font-weight="800" text-anchor="middle">
+              <rect x="172" y="72" width="16" height="16" rx="2" fill="#000"/><text x="180" y="85" fill="#FFF">A</text>
+              <rect x="268" y="146" width="18" height="18" rx="2" fill="#FFCF00" stroke="#000" stroke-width="2"/><text x="277" y="160" fill="#000">B</text>
+              <rect x="172" y="220" width="16" height="16" rx="2" fill="#000"/><text x="180" y="233" fill="#FFF">C</text>
+              <rect x="75" y="146" width="16" height="16" rx="2" fill="#000"/><text x="83" y="159" fill="#FFF">D</text>
+            </g>
+            <g stroke="#000" fill="none" stroke-width="1.5"><path d="M65 48V22M295 48V22M65 28H295"/><path d="M65 21V35M295 21V35" stroke-width="2.4"/></g>
+            <text x="176" y="21" text-anchor="middle" font-family="Sofia Sans Condensed, sans-serif" font-weight="800" font-size="18" fill="#000">5,00</text>
+            <path d="M197 13.5l3.5 3.5 6.5-6.5" stroke="#000" stroke-width="2.4" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="108.7" y="45" text-anchor="middle" font-family="Sofia Sans Condensed, sans-serif" font-weight="700" font-size="14" fill="#000">0,90</text>
+            <g stroke="#000" fill="none"><path d="M314 62H342M314 246H342" stroke-width="1.2"/><path d="M336 62V246" stroke-dasharray="6 4" stroke-width="1.8"/><path d="M329 62H343M329 246H343" stroke-width="2.4"/></g>
+            <rect x="308" y="139" width="51" height="30" rx="4" fill="#FFFFFF" stroke="#000" stroke-width="2"/>
+            <path d="M312 140H319V168H312a3 3 0 0 1-3-3V143a3 3 0 0 1 3-3z" fill="url(#bStripe)"/>
+            <path d="M319 140V168" stroke="#000" stroke-width="1.5"/>
+            <text x="339" y="160" text-anchor="middle" font-family="Sofia Sans Condensed, sans-serif" font-weight="800" font-size="17" fill="#000">4,000</text>
+            <g stroke="#000" fill="none" stroke-width="1.2"><path d="M193.8 259V283M249 259V283M295 259V283M193.8 277H295"/><path d="M193.8 271V283M249 271V283M295 271V283" stroke-width="2.2"/></g>
+            <g font-family="Sofia Sans Condensed, sans-serif" font-size="14" font-weight="700" fill="#000" text-anchor="middle"><text x="221.4" y="272">1,20</text><text x="272" y="272">1,00</text></g>
+          </svg>
+        </div>
+        <div class="b-sheet">
+          <div class="b-sh-hd"><b>Devor B uzunligi</b><span class="b-link"><svg class="i s"><use href="#i-kbd"/></svg>Qo‘lda kiritish</span></div>
+          <div class="b-readrow"><div class="b-read"><span class="v">4,000</span><span class="u">m</span></div><div class="b-pend"><b>Qabul qilindi</b><span>Hali tasdiqlanmagan</span><em>Simulyatsiya</em></div></div>
+          <div class="b-was">Hozirgi qiymat: 4,00 m (shablon)</div>
+          <div class="b-btns"><button class="b-btn">Qayta o‘lchash</button><button class="b-btn pri"><svg class="i"><use href="#i-check"/></svg>Tasdiqlash</button></div>
+        </div>
+        <nav class="b-tools"><span class="on"><svg class="i"><use href="#i-dim"/></svg>O‘lcham</span><span><svg class="i"><use href="#i-door"/></svg>Eshik</span><span><svg class="i"><use href="#i-window"/></svg>Deraza</span><span><svg class="i"><use href="#i-column"/></svg>Ustun</span><span><svg class="i"><use href="#i-room"/></svg>Xona</span></nav>
+        <div class="home w"></div>
+      </div><figcaption><b>Room editor.</b> Yellow means selected, stripes mean waiting to confirm</figcaption></figure>
+
+      <figure class="shot"><div class="phone B" lang="uz-Latn">
+        <div class="sb"><span>9:41</span><svg width="58" height="12"><use href="#i-status"/></svg></div>
+        <div class="b-bar"><span class="b-ib"><svg class="i"><use href="#i-back"/></svg></span><div class="b-ttl"><b>Yusupovlar uyi</b></div><span class="b-tag"><svg class="i xs"><use href="#i-edit"/></svg>Qoralama</span></div>
+        <div class="b-tape" style="margin-top:6px"></div>
+        <div class="b-seg"><span>Xonalar</span><span class="on">Smeta</span><span>Takliflar</span></div>
+        <div class="b-body">
+          <div class="b-sec"><b>Materiallar</b><span>3 240 000</span></div>
+          <div class="b-list">
+            <div class="b-line"><span class="nm">Devor bo‘yog‘i, oq</span><span class="s">600 000</span><span class="q">12 banka × 50 000</span></div>
+            <div class="b-line"><span class="nm">Laminat pol qoplamasi</span><span class="s">2 640 000</span><span class="q">22 m² × 120 000</span></div>
+            <div class="b-addrow"><svg class="i s"><use href="#i-plus"/></svg>Material qo‘shish</div>
+          </div>
+          <div class="b-sec"><b>Ish haqi</b><span>1 000 000</span></div>
+          <div class="b-list">
+            <div class="b-line"><span class="nm">Bo‘yash va pol yotqizish</span><span class="s">1 000 000</span><span class="q">Kelishilgan summa</span></div>
+            <div class="b-addrow"><svg class="i s"><use href="#i-plus"/></svg>Ish qo‘shish</div>
+          </div>
+        </div>
+        <div class="b-foot"><div class="tot"><span>Umumiy summa, UZS</span><b>4 240 000</b></div><button class="b-btn pri"><svg class="i"><use href="#i-doc"/></svg>Hisobotni ko‘rish</button></div>
+        <nav class="b-nav"><span class="on"><svg class="i"><use href="#i-folder"/></svg>Loyihalar</span><span><svg class="i"><use href="#i-tape"/></svg>Tez o‘lchash</span><span><svg class="i"><use href="#i-sliders"/></svg>Sozlamalar</span></nav>
+        <div class="home"></div>
+      </div><figcaption><b>Estimate.</b> Subtotals in section headers, black total bar</figcaption></figure>
+    </div>
+
+    <div class="meta-grid">
+      <div>
+        <h4>Palette and type</h4>
+        <div class="swatches">
+          <div class="sw"><i style="background:#000000"></i><span>Black</span><em>#000000</em></div>
+          <div class="sw"><i style="background:#FFFFFF"></i><span>White</span><em>#FFFFFF</em></div>
+          <div class="sw"><i style="background:#EDECE7"></i><span>Concrete</span><em>#EDECE7</em></div>
+          <div class="sw"><i style="background:#FFCF00"></i><span>Tape</span><em>#FFCF00</em></div>
+          <div class="sw"><i style="background:#4A4A45"></i><span>Steel</span><em>#4A4A45</em></div>
+        </div>
+        <p class="specimen" style="font-family:'Sofia Sans',sans-serif;font-weight:500"><span lang="uz-Cyrl">Ўлчам қабул қилинди: <span style="font-family:'Sofia Sans Condensed',sans-serif;font-weight:800">4,000 м</span>.</span> <span lang="ru">Подтвердить замер стены.</span><small>Sofia Sans for running text, Sofia Sans Condensed for titles, numerals and long labels. The family has four widths, so a long label can step narrower before it shrinks.</small></p>
+      </div>
+      <div>
+        <h4>On site</h4>
+        <ul class="pc">
+          <li>Strongest sunlight contrast: black on white, and text on yellow is always black, at 15:1.</li>
+          <li>Selected, waiting and confirmed differ in fill, stripes and a check icon, so none of them depends on hue.</li>
+          <li>Readings at 54 px and dimension labels at 17–18 px are the largest of the three.</li>
+          <li>Risk: 2 px borders cost height on small screens, so the estimate needs tight row design.</li>
+          <li>Risk: yellow and black is close to power-tool branding. Yellow stays limited to its three jobs.</li>
+          <li>Risk, found in testing: Sofia Sans draws Bulgarian-style Cyrillic (д, л, т) by default. Text tagged as Russian switches to Russian forms, but Uzbek Cyrillic has no such switch. The specimen above shows both. Fix: bundle a modified copy with Russian forms as the default, which the open font license allows under a new name, or set B in Roboto Flex instead.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+
+  <!-- ═══════════════ C ═══════════════ -->
+  <article class="dir" id="dir-c">
+    <div class="dir-head"><h3>C. Asbob</h3><span class="tag">The instrument, dark</span></div>
+    <p class="dir-idea">Continues the deep green of the earlier O'lchov concept boards and treats the phone like the laser meter's display. Rooms show plan thumbnails, the editor tools float in a dock so the canvas gets the most height, and amber marks readings that still need confirming. Rounded panels, light numerals.</p>
+    <div class="rail">
+
+      <figure class="shot"><div class="phone C" lang="uz-Latn">
+        <div class="sb"><span>9:41</span><svg width="58" height="12"><use href="#i-status"/></svg></div>
+        <div class="c-bar"><span class="c-back"><svg class="i"><use href="#i-back"/></svg>Loyihalar</span><span class="sp"></span><span class="c-ib"><svg class="i"><use href="#i-more"/></svg></span></div>
+        <div class="c-head">
+          <h4>Yusupovlar uyi</h4>
+          <p>Akmal Yusupov, Toshkent, Chilonzor 14-mavze</p>
+          <span class="c-pill"><svg class="i s"><use href="#i-device"/></svg>Qurilmada saqlangan</span>
+        </div>
+        <div class="c-seg"><span class="on">Xonalar</span><span>Smeta</span><span>Takliflar</span></div>
+        <div class="c-body">
+          <div class="c-floor"><b>1-qavat</b><span>2 xona, 31,52 m²</span></div>
+          <div class="c-room"><span class="c-thumb"><svg width="56" height="50" viewBox="0 0 56 50"><rect x="10.5" y="11" width="35" height="28" fill="none" stroke="#C3F53C" stroke-width="2"/><path d="M14.5 11h6.3" stroke="#0D1F1B" stroke-width="3"/><path d="M30 39h8.4" stroke="#0D1F1B" stroke-width="3"/></svg></span><div class="t"><span class="nl"><b>Mehmonxona</b><span class="ar">20,00 m²</span></span><span class="d">5,00 × 4,00 m, balandlik 3,00</span><span class="st"><svg class="i xs"><use href="#i-check"/></svg>Tasdiqlangan</span></div></div>
+          <div class="c-room"><span class="c-thumb"><svg width="56" height="50" viewBox="0 0 56 50"><rect x="15.4" y="13.8" width="25.2" height="22.4" fill="none" stroke="#C3F53C" stroke-width="2"/></svg></span><div class="t"><span class="nl"><b>Oshxona</b><span class="ar">11,52 m²</span></span><span class="d">3,60 × 3,20 m, balandlik 3,00</span><span class="st"><svg class="i xs"><use href="#i-check"/></svg>Tasdiqlangan</span></div></div>
+          <div class="c-floor"><b>2-qavat</b><span>1 xona, 14,70 m²</span></div>
+          <div class="c-room warn"><span class="c-thumb"><svg width="56" height="50" viewBox="0 0 56 50"><path d="M13.3 12.75H42.7V37.25H13.3Z" fill="none" stroke="#A3BBB3" stroke-width="2"/><path d="M42.7 12.75V37.25" stroke="#FFC24D" stroke-width="2.2" stroke-dasharray="3 2.5"/></svg></span><div class="t"><span class="nl"><b>Yotoqxona</b><span class="ar">14,70 m²</span></span><span class="d">4,20 × 3,50 m, balandlik 2,80</span><span class="st"><svg class="i xs"><use href="#i-clock"/></svg>1 ta o‘lcham tasdiqlanmagan</span></div></div>
+          <div class="c-ghost"><svg class="i s"><use href="#i-layers"/></svg>Qavat qo‘shish</div>
+          <span class="c-fab"><svg class="i"><use href="#i-plus"/></svg>Xona qo‘shish</span>
+        </div>
+        <nav class="c-nav"><span class="on"><span class="ic"><svg class="i"><use href="#i-folder"/></svg></span>Loyihalar</span><span><span class="ic"><svg class="i"><use href="#i-tape"/></svg></span>Tez o‘lchash</span><span><span class="ic"><svg class="i"><use href="#i-sliders"/></svg></span>Sozlamalar</span></nav>
+        <div class="home"></div>
+      </div><figcaption><b>Project overview.</b> Plan thumbnails, floating add button</figcaption></figure>
+
+      <figure class="shot"><div class="phone C" lang="uz-Latn">
+        <div class="sb"><span>9:41</span><svg width="58" height="12"><use href="#i-status"/></svg></div>
+        <div class="c-bar"><span class="c-ib"><svg class="i"><use href="#i-back"/></svg></span><div class="c-ttl"><b>Mehmonxona</b><small>1-qavat, devor 0,20 m</small></div><span class="c-ib"><svg class="i"><use href="#i-undo"/></svg></span><span class="c-ib dis"><svg class="i"><use href="#i-redo"/></svg></span></div>
+        <div class="c-sub"><div class="c-seg sm"><span class="on">Reja</span><span>3D</span></div><span class="c-dev"><svg class="i s"><use href="#i-bt"/></svg>Ulangan<span class="c-sim">Simulyator</span></span></div>
+        <div class="c-canvas">
+          <svg class="plan" viewBox="0 0 360 292" style="width:326px;height:auto" role="img" aria-label="Mehmonxona rejasi, 5,00 × 4,00 m, eshik va deraza bilan">
+            <defs><pattern id="cDots" width="23" height="23" patternUnits="userSpaceOnUse" x="65" y="62"><circle cx="11.5" cy="11.5" r="1.1" fill="#2C4A42"/></pattern></defs>
+            <rect width="360" height="292" fill="url(#cDots)"/>
+            <rect x="289.5" y="47.3" width="20.2" height="213.4" rx="4" fill="none" stroke="#C3F53C" stroke-width="1.4" opacity=".7"/>
+            <path d="M55.8 52.8H304.2V255.2H55.8Z M65 62V246H295V62Z" fill="#CFDDD7" fill-rule="evenodd"/>
+            <rect x="295" y="52.8" width="9.2" height="202.4" fill="#C3F53C"/>
+            <rect x="88" y="52" width="41.4" height="10.8" fill="#0D1F1B"/>
+            <path d="M88 62V103.4" stroke="#CFDDD7" stroke-width="2.2"/>
+            <path d="M129.4 62A41.4 41.4 0 0 1 88 103.4" fill="none" stroke="#7F9A92" stroke-width="1" stroke-dasharray="3 3"/>
+            <rect x="193.8" y="246" width="55.2" height="9.2" fill="#0D1F1B" stroke="#CFDDD7" stroke-width="1.2"/>
+            <path d="M193.8 250.6H249" stroke="#CFDDD7" stroke-width="1"/>
+            <g font-family="Geologica, sans-serif" font-size="11" font-weight="600" text-anchor="middle">
+              <circle cx="180" cy="80" r="9.5" fill="#1E3F37"/><text x="180" y="84" fill="#E8F2EE">A</text>
+              <circle cx="277" cy="154" r="9.5" fill="#C3F53C"/><text x="277" y="158" fill="#0D1F1B">B</text>
+              <circle cx="180" cy="228" r="9.5" fill="#1E3F37"/><text x="180" y="232" fill="#E8F2EE">C</text>
+              <circle cx="83" cy="154" r="9.5" fill="#1E3F37"/><text x="83" y="158" fill="#E8F2EE">D</text>
+            </g>
+            <g stroke="#7F9A92" fill="none" stroke-width="1"><path d="M65 48V22M295 48V22M65 28H295"/></g>
+            <circle cx="65" cy="28" r="2.4" fill="#7F9A92"/><circle cx="295" cy="28" r="2.4" fill="#7F9A92"/>
+            <text x="176" y="21" text-anchor="middle" font-family="Geologica, sans-serif" font-weight="500" font-size="14.5" fill="#E8F2EE">5,00</text>
+            <path d="M196 13.5l3.5 3.5 6.5-6.5" stroke="#C3F53C" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="108.7" y="45" text-anchor="middle" font-family="Geologica, sans-serif" font-size="12" fill="#A3BBB3">0,90</text>
+            <g stroke="#FFC24D" fill="none"><path d="M314 62H340M314 246H340" stroke-width="1"/><path d="M334 62V246" stroke-dasharray="5 4" stroke-width="1.3"/></g>
+            <circle cx="334" cy="62" r="2.4" fill="#FFC24D"/><circle cx="334" cy="246" r="2.4" fill="#FFC24D"/>
+            <rect x="309" y="140" width="50" height="28" rx="14" fill="#3A2F12" stroke="#FFC24D" stroke-width="1.2"/>
+            <circle cx="320" cy="154" r="5" fill="none" stroke="#FFC24D" stroke-width="1.4"/><path d="M320 151.4V154l1.8 1.2" stroke="#FFC24D" stroke-width="1.3" fill="none" stroke-linecap="round"/>
+            <text x="341" y="158.5" text-anchor="middle" font-family="Geologica, sans-serif" font-weight="500" font-size="12.5" fill="#FFC24D">4,000</text>
+            <g stroke="#7F9A92" fill="none" stroke-width="1"><path d="M193.8 259V282M249 259V282M295 259V282M193.8 277H295"/></g>
+            <circle cx="193.8" cy="277" r="2.2" fill="#7F9A92"/><circle cx="249" cy="277" r="2.2" fill="#7F9A92"/><circle cx="295" cy="277" r="2.2" fill="#7F9A92"/>
+            <g font-family="Geologica, sans-serif" font-size="12" fill="#A3BBB3" text-anchor="middle"><text x="221.4" y="271">1,20</text><text x="272" y="271">1,00</text></g>
+          </svg>
+          <div class="c-dock"><span class="on"><svg class="i"><use href="#i-dim"/></svg>O‘lcham</span><span><svg class="i"><use href="#i-door"/></svg>Eshik</span><span><svg class="i"><use href="#i-window"/></svg>Deraza</span><span><svg class="i"><use href="#i-column"/></svg>Ustun</span><span><svg class="i"><use href="#i-room"/></svg>Xona</span></div>
+        </div>
+        <div class="c-sheet">
+          <div class="c-grab"></div>
+          <div class="c-sh-hd"><b>Devor B uzunligi</b><span class="c-link"><svg class="i s"><use href="#i-kbd"/></svg>Qo‘lda kiritish</span></div>
+          <div class="c-read"><span class="v">4,000</span><span class="u">m</span><span class="c-sim">Simulyatsiya</span></div>
+          <div class="c-state"><svg class="i s"><use href="#i-clock"/></svg><span>Qabul qilindi, hali tasdiqlanmagan. Hozirgi qiymat: 4,00 m (shablon)</span></div>
+          <div class="c-btns"><button class="c-btn">Qayta o‘lchash</button><button class="c-btn pri"><svg class="i s"><use href="#i-check"/></svg>Tasdiqlash</button></div>
+        </div>
+        <div class="home"></div>
+      </div><figcaption><b>Room editor.</b> Floating tool dock, tallest canvas of the three</figcaption></figure>
+
+      <figure class="shot"><div class="phone C" lang="uz-Latn">
+        <div class="sb"><span>9:41</span><svg width="58" height="12"><use href="#i-status"/></svg></div>
+        <div class="c-bar"><span class="c-ib"><svg class="i"><use href="#i-back"/></svg></span><div class="c-ttl"><b>Yusupovlar uyi</b></div><span class="c-pill d"><svg class="i xs"><use href="#i-edit"/></svg>Qoralama</span></div>
+        <div class="c-seg"><span>Xonalar</span><span class="on">Smeta</span><span>Takliflar</span></div>
+        <div class="c-body">
+          <div class="c-meta"><span>UZS, kasrsiz</span><span>Miqdorlar qo‘lda kiritilgan</span></div>
+          <div class="c-grp">
+            <div class="c-gh"><b>Materiallar</b><span>3 240 000</span></div>
+            <div class="c-line"><span class="nm">Devor bo‘yog‘i, oq</span><span class="s">600 000</span><span class="q">12 banka × 50 000</span></div>
+            <div class="c-line"><span class="nm">Laminat pol qoplamasi</span><span class="s">2 640 000</span><span class="q">22 m² × 120 000</span></div>
+            <div class="c-add"><svg class="i s"><use href="#i-plus"/></svg>Material qo‘shish</div>
+          </div>
+          <div class="c-grp">
+            <div class="c-gh"><b>Ish haqi</b><span>1 000 000</span></div>
+            <div class="c-line"><span class="nm">Bo‘yash va pol yotqizish</span><span class="s">1 000 000</span><span class="q">Kelishilgan summa</span></div>
+            <div class="c-add"><svg class="i s"><use href="#i-plus"/></svg>Ish qo‘shish</div>
+          </div>
+          <p class="c-note"><svg class="i s"><use href="#i-info"/></svg><span>Xona o‘lchamlari o‘zgarsa, miqdorlar o‘zgarmaydi.</span></p>
+        </div>
+        <div class="c-tot"><div class="r"><span>Umumiy summa</span><b>4 240 000 so‘m</b></div><button class="c-btn pri"><svg class="i s"><use href="#i-doc"/></svg>Hisobotni ko‘rish</button></div>
+        <nav class="c-nav"><span class="on"><span class="ic"><svg class="i"><use href="#i-folder"/></svg></span>Loyihalar</span><span><span class="ic"><svg class="i"><use href="#i-tape"/></svg></span>Tez o‘lchash</span><span><span class="ic"><svg class="i"><use href="#i-sliders"/></svg></span>Sozlamalar</span></nav>
+        <div class="home"></div>
+      </div><figcaption><b>Estimate.</b> Grouped panels, pinned total card</figcaption></figure>
+    </div>
+
+    <div class="meta-grid">
+      <div>
+        <h4>Palette and type</h4>
+        <div class="swatches">
+          <div class="sw"><i style="background:#0D1F1B"></i><span>Spruce</span><em>#0D1F1B</em></div>
+          <div class="sw"><i style="background:#15302A"></i><span>Panel</span><em>#15302A</em></div>
+          <div class="sw"><i style="background:#E8F2EE"></i><span>Mist</span><em>#E8F2EE</em></div>
+          <div class="sw"><i style="background:#C3F53C"></i><span>Lime</span><em>#C3F53C</em></div>
+          <div class="sw"><i style="background:#FFC24D"></i><span>Received</span><em>#FFC24D</em></div>
+        </div>
+        <p class="specimen" style="font-family:Geologica,sans-serif"><span lang="uz-Cyrl">Ўлчам қабул қилинди: <span style="font-weight:300">4,000 м</span>.</span> <span lang="ru">Подтвердить замер стены.</span><small>Geologica throughout, light weight for big readings. Cyrillic Extended included.</small></p>
+      </div>
+      <div>
+        <h4>On site</h4>
+        <ul class="pc">
+          <li>Comfortable in unlit interiors and on OLED screens at night.</li>
+          <li>The floating dock gives the plan the most height: about 350 pt with the sheet open.</li>
+          <li>Risk: glare and reflections make dark screens hard to read outdoors and in bright rooms.</li>
+          <li>Risk: a dark app produces white PDFs, so screen and report look like different products.</li>
+          <li>Risk: lime on dark green is a common look and would need more work to feel like its own.</li>
+        </ul>
+      </div>
+    </div>
+  </article>
+</section>
+
+<section class="block" id="recommendation">
+  <div class="callout">
+    <h2>Recommendation: B, Ruletka</h2>
+    <p>Building sites are bright, gloves are thick and phones are held at arm's length. B leads on all three criteria that matter there.</p>
+    <ul>
+      <li><b>Readability.</b> It has the highest contrast and the largest numerals. The condensed family absorbs long labels such as «Подтвердить измерение» without shrinking the text.</li>
+      <li><b>State clarity.</b> Selected, received and confirmed each get their own shape: fill, stripes or a check icon. They stay distinguishable in grayscale, in glare and with color-blindness.</li>
+      <li><b>Report fit.</b> Black on white prints cleanly, so the PDF can use the same type and stripe language.</li>
+    </ul>
+    <p>One caveat from testing: B's typeface needs a font fix before Uzbek Cyrillic looks right (see its risks). If you'd rather avoid a modified font, Roboto Flex keeps the same layout with plainer letters.</p>
+    <p>Two things are worth taking from A for Stage 2. The PDF should use A's numbered room schedule and ledger double rule, which is how builders' paper estimates already look. On the canvas, the hatched walls are better than solid black once rooms have columns and recesses. C's palette can come back later as an optional dark theme for interiors. It is not in the pilot scope.</p>
+  </div>
+</section>
+
+<section class="block" id="rules">
+  <header><h2>Product rules that shape the design</h2><p class="muted">Taken from PRODUCT_SPEC.md and BUILD_PLAN.md. Each one ends with what it means for the interface.</p></header>
+  <div class="rules">
+    <div class="rule"><h4>Measure, review, confirm</h4><p>The builder selects a dimension first, then takes a reading, reviews it and confirms it. A distance never decides which wall it belongs to.</p><p class="so">Every dimension has a visible state: unset, received or confirmed. Rectangle templates add a fourth, derived from the opposite wall. Cancelling leaves the old value.</p></div>
+    <div class="rule"><h4>Manual entry always works</h4><p>Typing a value needs no Bluetooth permission and no device.</p><p class="so">Manual entry stays one tap away in every measurement state, including while waiting for the device.</p></div>
+    <div class="rule"><h4>Simulated data is labelled</h4><p>Manual, simulated and device readings are separate sources. Hardware support is unverified.</p><p class="so">Every simulated reading carries a "Simulyatsiya" label. The copy never claims a laser model works until it has been tested.</p></div>
+    <div class="rule"><h4>Interior dimensions define the room</h4><p>Wall thickness is entered separately. An opening has a wall, width, height, offset from the wall's start corner and, for windows, sill height.</p><p class="so">The plan shows wall letters and start corners. The opening sheet shows which corner the offset is measured from.</p></div>
+    <div class="rule"><h4>Explain errors, never auto-fix</h4><p>Self-intersecting shapes, openings that don't fit and overlaps are rejected.</p><p class="so">The error names the problem and the change that fixes it. The app doesn't change measurements on its own. Unresolved dimensions are marked.</p></div>
+    <div class="rule"><h4>Floors hold separate rooms</h4><p>Rooms are not joined into a floor plan. Each room has a flat ceiling and its own height.</p><p class="so">The project screen groups rooms under floors and shows each room's height.</p></div>
+    <div class="rule"><h4>Quantities are the builder's</h4><p>Geometry never rewrites material quantities or labor charges.</p><p class="so">Areas appear only as read-only reference. Report quantities are labelled as entered by the builder, and the area convention is stated: openings deducted, reveals and columns excluded.</p></div>
+    <div class="rule"><h4>Money is exact</h4><p>Each project has one currency and a set precision. Each line is rounded, then lines are summed. Negative and invalid values are rejected. A price of zero is allowed.</p><p class="so">The numeric fields show the unit and currency, explain each error inline and accept zero.</p></div>
+    <div class="rule"><h4>Draft or issued</h4><p>Drafts can be edited. Issuing a quote freezes a snapshot. A revision keeps every older quote.</p><p class="so">Draft and issued look different. An issued quote opens read-only with a lock icon and can't be edited.</p></div>
+    <div class="rule"><h4>Two language settings</h4><p>The report language is chosen separately from the interface language. There are four languages, including two Uzbek scripts.</p><p class="so">The report preview has its own language picker. Layouts must survive long Russian labels and Cyrillic Extended letters.</p></div>
+    <div class="rule"><h4>Offline, no account</h4><p>The whole workflow runs and saves on the device. Backup and restore work from a file.</p><p class="so">There is no sign-in screen. A "saved on device" status replaces any cloud language.</p></div>
+    <div class="rule"><h4>Expiry keeps the basics</h4><p>A lapsed subscription still allows measurement capture, viewing, backup and PDF export of saved work, including drafts.</p><p class="so">A read-only mode marks locked controls with a lock icon and a reason. It never hides data or blocks export.</p></div>
+  </div>
+  <p class="muted" style="max-width:80ch">Out of scope, so not designed: curved walls, sloped ceilings, stairs, furniture, photo annotation, AI design, connected floor plans, shared price catalogs, automatic takeoff, cloud sync, discounts, taxes and deposits. The earlier concept boards show several of these. They are left out here on purpose.</p>
+</section>
+
+<section class="block" id="navigation">
+  <header><h2>Navigation</h2><p class="muted">I kept the proposed main destinations and made four changes inside projects, explained below.</p></header>
+  <div class="navmap">
+    <div class="navcol"><span class="k">Bottom tabs, always visible except in the room editor</span><h4>Loyihalar</h4><ul><li>Project list</li><li>Project, with three sections: Xonalar, Smeta, Takliflar</li><li>Room editor, full screen, with Reja and 3D modes</li><li>Report preview, opened from Smeta</li></ul></div>
+    <div class="navcol"><span class="k">Bottom tab</span><h4>Tez o‘lchash</h4><ul><li>Device status and connect</li><li>Readings list, manual or device</li><li>Send a reading to a room dimension, where it arrives as received and still needs confirming</li></ul></div>
+    <div class="navcol"><span class="k">Bottom tab</span><h4>Sozlamalar</h4><ul><li>Interface and default report language</li><li>Builder details for reports</li><li>Units and number format</li><li>Default currency and precision</li><li>Measuring device, and the simulator during the pilot</li><li>Backup and restore</li><li>Subscription status</li></ul></div>
+  </div>
+  <div class="changes">
+    <div class="change"><h4>3D is a mode of the room editor, not a separate page</h4><p>It's the same room, and builders switch back and forth to check openings. A toggle keeps zoom and selection. Tradeoff: 3D gets a smaller toolbar, and saving views for the report lives there.</p></div>
+    <div class="change"><h4>Reports and revisions become "Takliflar" inside the project</h4><p>The report preview opens from the estimate, because a report comes from an estimate. The Takliflar section lists issued quotes. Tradeoff: there's no stand-alone report entry point, so the preview is always one step from Smeta.</p></div>
+    <div class="change"><h4>The room editor hides the bottom tabs</h4><p>This gives the canvas about 60 pt more height, which matters most on small phones. Tradeoff: leaving the editor takes a back tap. The editor has its own measurement flow, so Quick Measure isn't needed there.</p></div>
+    <div class="change"><h4>Device status is a chip, not a destination</h4><p>The chip in the editor and in Quick Measure opens a device sheet. Pairing details live in Settings. The chip never covers the canvas or the input field.</p></div>
+  </div>
+</section>
+
+<section class="block" id="journey">
+  <header><h2>Primary journey</h2><p class="muted">These are the steps from opening the app to issuing a quote, using the acceptance fixture. The Stage 2 prototype follows these steps.</p></header>
+  <ol class="journey">
+    <li><b>Open the app.</b> On first run, choose the interface language and optionally enter builder details. There is no account.</li>
+    <li><b>Create a project.</b> Enter a name, customer and address. Currency defaults to UZS with no decimals. "1-qavat" is created automatically.</li>
+    <li><b>Add a room.</b> Enter "Mehmonxona" and choose the rectangle template. The editor opens with the length selected.</li>
+    <li><b>Measure.</b> Select wall A, take a reading or type it, review it and confirm 5,00 m. Repeat for wall B (4,00 m). Set height 3,00 and wall thickness 0,20 in room properties.</li>
+    <li><b>Add openings.</b> Door on wall A: 0,90 × 2,10, offset 0,50. Window on wall C: 1,20 × 1,50, offset 1,00, sill 0,90.</li>
+    <li><b>Check in 3D.</b> Orbit, confirm the openings sit in the right walls, and save a view for the report.</li>
+    <li><b>Build the estimate.</b> Add paint at 12 × 50 000 and flooring at 22 × 120 000, then labor at 1 000 000. The total is 4 240 000 so‘m.</li>
+    <li><b>Preview the report.</b> Choose the report language, check the parties and views, then add notes.</li>
+    <li><b>Issue the quote.</b> Confirm that it will be frozen. Taklif №1 appears in Takliflar, and the PDF can be shared.</li>
+    <li><b>Revise.</b> Later edits change only the draft. Issuing again creates №2, and №1 stays unchanged.</li>
+  </ol>
+</section>
+
+<section class="block" id="screens">
+  <header><h2>Screen inventory</h2><p class="muted">Sheets are contextual panels over a screen, not separate pages. Copy is a draft in Uzbek Latin.</p></header>
+  <div class="screens">
+    <article class="scr"><h4>First run <small>language and builder details</small></h4><dl>
+      <dt>Purpose</dt><dd>Set the interface language. Optionally enter the builder name and phone for reports.</dd>
+      <dt>Primary action</dt><dd>Davom etish</dd>
+      <dt>Key information</dt><dd>Each of the four languages shown in its own script: O‘zbekcha, Ўзбекча, Русский, English. A note that the report language is chosen per report.</dd>
+      <dt>Navigation</dt><dd>Shown once. Changed later in Settings.</dd>
+      <dt>Empty and error</dt><dd>Builder details can be skipped. Issuing a quote later asks for them before freezing.</dd></dl></article>
+
+    <article class="scr"><h4>Project list</h4><dl>
+      <dt>Purpose</dt><dd>Find and open projects.</dd>
+      <dt>Primary action</dt><dd>Yangi loyiha</dd>
+      <dt>Key information</dt><dd>Name, customer, last edit, room count, draft total, latest quote number, and "saved on device" status.</dd>
+      <dt>Navigation</dt><dd>Root of the Loyihalar tab. Tapping a project opens it on Xonalar.</dd>
+      <dt>Empty and error</dt><dd><ul class="states"><li>Empty: "Hali loyiha yo‘q" with create and restore-from-backup buttons.</li><li>Read-only: a banner explains what still works. Create shows a lock icon and the reason.</li><li>Save failed: a banner states that the last change was not saved, with a retry. The previous data is intact.</li></ul></dd></dl></article>
+
+    <article class="scr"><h4>New project <small>sheet</small></h4><dl>
+      <dt>Purpose</dt><dd>Start a project with the details reports need.</dd>
+      <dt>Primary action</dt><dd>Loyiha yaratish</dd>
+      <dt>Key information</dt><dd>Name (required), customer, phone, address, currency (default UZS), precision 0–3, default report language.</dd>
+      <dt>Navigation</dt><dd>Opens from the project list. Closes into the new project.</dd>
+      <dt>Empty and error</dt><dd>The name is required and the error appears inline. Currency and precision changes apply to the draft only, never to issued quotes.</dd></dl></article>
+
+    <article class="scr"><h4>Project: Xonalar</h4><dl>
+      <dt>Purpose</dt><dd>See every floor and room and their measurement status.</dd>
+      <dt>Primary action</dt><dd>Xona qo‘shish, added to the floor in view</dd>
+      <dt>Key information</dt><dd>Room count and floor area per floor. For each room: dimensions, height, area and status (all confirmed, N unconfirmed, or needs fixing).</dd>
+      <dt>Navigation</dt><dd>Sections for Xonalar, Smeta and Takliflar. A room opens the editor. Row menu: rename, duplicate, move to floor, delete. Delete shows an undo snackbar.</dd>
+      <dt>Empty and error</dt><dd>A new project shows "1-qavat" with "Birinchi xonani qo‘shing" and template choices. Invalid rooms are flagged with what to fix.</dd></dl></article>
+
+    <article class="scr"><h4>New room <small>sheet</small></h4><dl>
+      <dt>Purpose</dt><dd>Name the room, choose a floor and pick a starting shape.</dd>
+      <dt>Primary action</dt><dd>Xona yaratish, which opens the editor with the first dimension selected</dd>
+      <dt>Key information</dt><dd>Templates: rectangle, L-shape and sketch. The pilot prototype uses the rectangle only. Height defaults from the previous room, and wall thickness defaults to 0,20.</dd>
+      <dt>Navigation</dt><dd>Opens from Xonalar.</dd>
+      <dt>Empty and error</dt><dd>Template dimensions start as unset. They are drawn to proportion but labelled "?" until measured.</dd></dl></article>
+
+    <article class="scr"><h4>Room editor: Reja</h4><dl>
+      <dt>Purpose</dt><dd>Define geometry by selecting and confirming dimensions, and place openings.</dd>
+      <dt>Primary action</dt><dd>Depends on the selection. With nothing selected, a hint reads "O‘lchamni tanlang".</dd>
+      <dt>Key information</dt><dd>Plan with wall letters, dimension states, openings, height and wall thickness. Also the device chip, undo and redo, and an area summary (floor, perimeter, net wall) with its convention label.</dd>
+      <dt>Interaction</dt><dd>Tapping a dimension selects it and opens the measurement sheet at half height. The canvas pans so the selected wall stays above the sheet. Pinch zooms, and double-tap fits the room. Tapping an opening opens its sheet. Undo restores the previous value and its source.</dd>
+      <dt>Navigation</dt><dd>Back returns to the project. Reja and 3D toggle in the header. The bottom tabs are hidden.</dd>
+      <dt>Empty and error</dt><dd>An opening that doesn't fit gets a hatched red outline and an error such as "Deraza devordan 0,30 m chiqib ketmoqda. Kenglik yoki oraliqni kamaytiring." Nothing is corrected automatically.</dd></dl></article>
+
+    <article class="scr"><h4>Measurement sheet</h4><dl>
+      <dt>Purpose</dt><dd>Take and confirm one selected dimension.</dd>
+      <dt>Primary action</dt><dd>Tasdiqlash. For manual entry, Saqlash, which also confirms.</dd>
+      <dt>States</dt><dd><ul class="states"><li><b>Disconnected:</b> the chip reads "Lazer ulanmagan". The manual field has focus, with a secondary Ulash button.</li><li><b>Waiting:</b> "Lazerda o‘lchash tugmasini bosing", with cancel. Manual entry is still available.</li><li><b>Received:</b> large reading, source label (device or simulated), current value. It is not applied until confirmed.</li><li><b>Confirmed:</b> the sheet closes, the label gets a check, and a snackbar shows "Devor B: 4,000 m tasdiqlandi" with undo.</li><li><b>Manual:</b> decimal keypad, "m" suffix, accepts comma or dot.</li><li><b>Invalid:</b> empty, 0, negative, "4,0,0" or more than 100 m. The error appears inline and Saqlash is disabled.</li></ul></dd>
+      <dt>Navigation</dt><dd>Swipe down or ✕ cancels and leaves the value unchanged.</dd></dl></article>
+
+    <article class="scr"><h4>Opening sheet <small>door, window</small></h4><dl>
+      <dt>Purpose</dt><dd>Place and size a door or window.</dd>
+      <dt>Primary action</dt><dd>Saqlash. O‘chirish is secondary.</dd>
+      <dt>Key information</dt><dd>Type, wall (A–D), width, height, offset with a small diagram of its start corner, and sill height for windows. Each field can be measured like a dimension.</dd>
+      <dt>Empty and error</dt><dd>Errors when the opening is wider than the wall less its offset, overlaps another opening, or has sill plus height above the room height. Each error names the field to change.</dd></dl></article>
+
+    <article class="scr"><h4>Room properties <small>sheet</small></h4><dl>
+      <dt>Purpose</dt><dd>Edit name, floor, height and wall thickness, and read the areas.</dd>
+      <dt>Key information</dt><dd>Floor 20,00 m², perimeter 18,00 m, gross wall 54,00 m², openings 3,69 m², net wall 50,31 m². Convention: "Ochiqlar ayirilgan; otkos va ustunlar hisobga olinmagan."</dd>
+      <dt>Empty and error</dt><dd>While a dimension is unconfirmed, areas are marked "taxminiy" (provisional).</dd></dl></article>
+
+    <article class="scr"><h4>Room editor: 3D</h4><dl>
+      <dt>Purpose</dt><dd>Inspect the shell, set surface colors and save views for the report.</dd>
+      <dt>Primary action</dt><dd>Ko‘rinishni saqlash</dd>
+      <dt>Key information</dt><dd>Orbit and zoom, preset views (top and corner), wall letters, openings, number of saved views.</dd>
+      <dt>Navigation</dt><dd>Toggles back to Reja. Geometry is edited in Reja only.</dd>
+      <dt>Empty and error</dt><dd>If the renderer fails: "3D yuklanmadi. Reja va hisobot 3D rasmsiz ishlaydi." The plan stays usable.</dd></dl></article>
+
+    <article class="scr"><h4>Project: Smeta</h4><dl>
+      <dt>Purpose</dt><dd>Enter materials and labor and see the totals.</dd>
+      <dt>Primary action</dt><dd>Hisobotni ko‘rish. Adding rows is secondary.</dd>
+      <dt>Key information</dt><dd>Material rows (name, quantity, unit, price, line total), labor rows (description, charge), subtotals, grand total, currency and precision. A note says quantities are entered by the builder, and room areas are available as reference.</dd>
+      <dt>Row sheet</dt><dd>Fields: name, unit (list or custom), quantity, price. The line total updates live. The keyboard is a decimal pad, and "Keyingi" moves to the next field.</dd>
+      <dt>Empty and error</dt><dd>Empty: "Smeta bo‘sh" with buttons to add materials and labor. Negative or invalid values get inline errors. A price of 0 is accepted. A banner shows when the draft matches the last issued quote.</dd></dl></article>
+
+    <article class="scr"><h4>Report preview</h4><dl>
+      <dt>Purpose</dt><dd>Check the PDF before sharing it or freezing it.</dd>
+      <dt>Primary action</dt><dd>Taklifni chiqarish (issue). PDF ulashish shares a draft PDF and is secondary.</dd>
+      <dt>Key information</dt><dd>Report language, builder and customer, rooms and views included, notes, page thumbnails. Draft PDFs carry a "Qoralama" mark.</dd>
+      <dt>Empty and error</dt><dd>If builder details are missing, the app asks for them before issuing. A failed PDF shows a retry with the cause. Long names wrap and are never cut off.</dd></dl></article>
+
+    <article class="scr"><h4>Project: Takliflar</h4><dl>
+      <dt>Purpose</dt><dd>List issued quotes, which cannot be changed.</dd>
+      <dt>Primary action</dt><dd>Open or share a quote's PDF.</dd>
+      <dt>Key information</dt><dd>Number, date, total and currency, report language, a lock icon with "Berilgan" (issued), and whether the current draft differs.</dd>
+      <dt>Empty and error</dt><dd>"Hali taklif chiqarilmagan. Smetadan hisobotni ko‘rib chiqing."</dd></dl></article>
+
+    <article class="scr"><h4>Quick Measure</h4><dl>
+      <dt>Purpose</dt><dd>Capture readings without a project. This stays available after a subscription expires.</dd>
+      <dt>Primary action</dt><dd>O‘lchash (device) or Qo‘lda qo‘shish (manual).</dd>
+      <dt>Key information</dt><dd>Device status. Readings list with label, time and source. Send a reading to a room dimension, where it arrives as received.</dd>
+      <dt>Empty and error</dt><dd>"O‘lchovlar yo‘q", with both actions.</dd></dl></article>
+
+    <article class="scr"><h4>Device sheet</h4><dl>
+      <dt>Purpose</dt><dd>Show and change the laser connection.</dd>
+      <dt>States</dt><dd>Bluetooth off, permission denied, scanning, found, connected, connection lost, and simulator active (labelled). Every state ends with "Qo‘lda kiritish har doim ishlaydi."</dd>
+      <dt>Primary action</dt><dd>Ulash, or Simulyatorni yoqish during the pilot.</dd></dl></article>
+
+    <article class="scr"><h4>Backup and restore</h4><dl>
+      <dt>Purpose</dt><dd>Export everything to a file, or bring it back.</dd>
+      <dt>Interaction</dt><dd>Export creates a versioned file and opens the share sheet. Restore: pick a file, the app checks the whole file, then shows a summary (projects and conflicts). For each conflict, choose keep both, replace or skip, then confirm.</dd>
+      <dt>Empty and error</dt><dd>"Fayl buzilgan yoki to‘liq emas. Hozirgi maʼlumotlar o‘zgarmadi."</dd></dl></article>
+
+    <article class="scr"><h4>Read-only mode <small>subscription expired</small></h4><dl>
+      <dt>Purpose</dt><dd>Keep saved work accessible when creation and editing are locked.</dd>
+      <dt>Interaction</dt><dd>A banner on the list and project screens reads "Obuna muddati tugagan. Ko‘rish, o‘lchash, zaxira va PDF ishlaydi." Locked controls show a lock icon. Tapping one explains why and offers renewal, which needs a connection.</dd>
+      <dt>Rule</dt><dd>Data is never hidden, and exporting PDFs of drafts still works.</dd></dl></article>
+  </div>
+</section>
+
+<section class="block" id="defaults">
+  <header><h2>Defaults where the spec is silent</h2><p class="muted">Each of these is a proposal you can override. None blocks your choice of direction.</p></header>
+  <ul class="deflist">
+    <li><b>Number format follows the language.</b> Uzbek and Russian use a decimal comma and space-separated thousands (5,00 m and 4 240 000). English uses a decimal point. Input accepts either separator.</li>
+    <li><b>Lengths in meters.</b> Plans show two decimals, or three when the value has millimeters. The measurement sheet always shows three. Settings will offer cm and mm. Please confirm which unit your builders talk in.</li>
+    <li><b>Wall letters.</b> Walls are lettered clockwise from the top-left corner (A, B, C, D). Each wall starts at its clockwise corner, and offsets are measured from there.</li>
+    <li><b>One estimate per project,</b> not per room, matching the spec's single grand total.</li>
+    <li><b>Quote numbering.</b> Quotes are numbered "Taklif №1", "№2" and so on per project. A revision is a new number, not a version suffix.</li>
+    <li><b>Light theme only for the pilot.</b> A dark theme can follow if field use asks for it.</li>
+    <li><b>Uzbek apostrophe.</b> The correct character in oʻ and gʻ is ʻ (U+02BB). In testing, Sofia Sans, Geologica and Golos Text don't include it, and IBM Plex draws it as wide as a letter. These previews use ‘ (U+2018) instead. Proposal: store U+02BB, and patch a correctly spaced U+02BB glyph into each bundled font. Typed input also accepts ' and ‘.</li>
+  </ul>
+</section>
+
+<footer class="foot">
+  <p>Uzbek copy is a draft for your review. Russian and Uzbek Cyrillic layouts, the on-screen keyboard and the full state set come in the Stage 2 prototype.</p>
+  <p>Fonts load from Google Fonts for this preview only. The app bundles its fonts so it works offline.</p>
+</footer>
+</main>

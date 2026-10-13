@@ -1,0 +1,315 @@
+<title>METRX Room Editor Options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: an intro, then three phone mockups side by side (stacked on a phone), each with its idea and trade-offs underneath. */
+:root{
+  --bg:#EEF1F6; --panel:#FFFFFF; --fg:#0E1C36; --fg2:#47536A; --rule:#D5DCE7; --accent:#1C4BD1;
+  --f-ui:"IBM Plex Sans","Segoe UI",system-ui,sans-serif; --f-num:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",sans-serif;
+}
+@media (prefers-color-scheme: dark){ :root:not([data-theme="light"]){ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; color-scheme:dark } }
+:root[data-theme="dark"]{ --bg:#0B1324; --panel:#121C31; --fg:#E8EDF7; --fg2:#A5B1C7; --rule:#26324A; --accent:#7EA0FF; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font:400 15px/1.5 var(--f-ui);margin:0}
+.wrap{max-width:1300px;margin:0 auto;padding-inline:16px;padding-block:28px 56px}
+header.intro{display:grid;gap:14px;max-width:860px}
+.kicker{font:600 13px/1 var(--f-num);letter-spacing:.14em;color:var(--accent)}
+h1{margin:0;font:700 clamp(28px,4vw,40px)/1.1 var(--f-num);letter-spacing:-.01em;text-wrap:balance}
+.intro p{margin:0;color:var(--fg2);max-width:70ch}
+.now{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:10px;margin-top:6px}
+.now div{background:var(--panel);border:1px solid var(--rule);border-radius:12px;padding:12px 14px;font-size:14px;color:var(--fg2)}
+.now b{display:block;color:var(--fg);font-weight:600;margin-bottom:2px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(372px,100%),1fr));gap:28px 22px;margin-top:30px;align-items:start}
+.opt{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;min-width:0}
+.opt-h{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.letter{font:700 30px/1 var(--f-num);color:var(--accent)}
+.opt-h h2{margin:0;font:600 20px/1.2 var(--f-ui)}
+.rec{font:600 12px/1 var(--f-num);letter-spacing:.06em;padding:5px 8px;border-radius:6px;background:var(--accent);color:var(--panel);white-space:nowrap}
+.idea{margin:0;color:var(--fg2);font-size:14.5px;min-height:4.5em}
+.notes{display:grid;gap:8px;font-size:14px}
+.notes p{margin:0;padding-left:22px;position:relative;color:var(--fg2)}
+.notes p b{color:var(--fg);font-weight:600}
+.notes p::before{content:"";position:absolute;left:4px;top:.55em;width:8px;height:8px;border-radius:2px;background:var(--accent)}
+.notes p.minus::before{background:none;border:1.5px solid var(--fg2);border-radius:50%}
+.how{margin-top:34px;max-width:860px;background:var(--panel);border:1px solid var(--rule);border-radius:14px;padding:16px 18px;display:grid;gap:6px}
+.how h3{margin:0;font:600 16px/1.3 var(--f-ui)}
+.how p{margin:0;color:var(--fg2);font-size:14.5px}
+
+/* ---------- phone mockups: a fixed light app screen (the app itself is light-only) ---------- */
+.phone{--ink:#0E1C36;--ink2:#47536A;--ink3:#6B7486;--paper:#F4F5F7;--sheet:#FFFFFF;--rule:#E3E6EB;--fill:#EEF0F4;--cob:#1C4BD1;--cob2:#1238A8;--wash:#EAF0FE;--amb:#9A4D00;--ambw:#FFF1DF;--ok:#0B7A5A;--okw:#E6F4EF;
+  width:min(360px,100%);height:760px;justify-self:center;border-radius:36px;padding:10px;background:#0E1C36;box-shadow:0 18px 40px rgba(14,28,54,.22)}
+.scr{position:relative;height:100%;border-radius:28px;overflow:hidden;background:var(--paper);color:var(--ink);font:400 14.5px/1.4 var(--f-ui);display:flex;flex-direction:column;font-variant-numeric:tabular-nums}
+.sb{flex:none;height:30px;display:flex;align-items:center;justify-content:space-between;padding:4px 22px 0 26px;font:600 13px/1 system-ui,sans-serif}
+.body{flex:1;min-height:0;overflow:hidden;display:flex;flex-direction:column;gap:10px;padding:4px 14px 86px}
+.i{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.s{width:16px;height:16px}.i.xs{width:14px;height:14px}.i.l{width:26px;height:26px}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:74px;background:var(--sheet);box-shadow:0 -1px 0 var(--rule);display:grid;grid-template-columns:repeat(5,1fr);padding:6px 4px 14px}
+.tabs span{display:grid;justify-items:center;align-content:end;gap:3px;font-size:11px;color:var(--ink2)}
+.tabs span.on{color:var(--ink);font-weight:600;position:relative}
+.tabs span.on::before{content:"";position:absolute;top:-30px;left:50%;width:50px;height:50px;margin-left:-25px;border-radius:50%;background:var(--cob);border:5px solid var(--sheet);box-shadow:0 6px 14px rgba(28,75,209,.28)}
+.tabs span.on .i{position:relative;z-index:1;color:#fff;transform:translateY(-22px)}
+.tabs span.on .i+b{margin-top:-20px}
+.tabs b{font-weight:inherit}
+.card{background:var(--sheet);border-radius:16px;box-shadow:0 1px 2px rgba(16,24,40,.05),0 2px 10px rgba(16,24,40,.06)}
+.row{display:flex;align-items:center;gap:10px;min-width:0}
+.sp{flex:1}
+.cd{font-family:var(--f-num)}
+.muted{color:var(--ink2)}
+.sm{font-size:12.5px}
+.trunc{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
+.ttl{font-size:26px;font-weight:700;letter-spacing:-.015em;line-height:1.1}
+.search{display:flex;align-items:center;gap:8px;height:44px;padding:0 12px;border-radius:12px;background:var(--sheet);border:1.5px solid var(--rule);color:var(--ink3);font-size:14px}
+.chip{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:999px;font-size:12px;font-weight:600;white-space:nowrap}
+.st-measure{background:var(--ambw);color:var(--amb)}
+.st-estimate{background:var(--wash);color:var(--cob2)}
+.st-quote{background:#E9E4FB;color:#4A2FB0}
+.st-work{background:var(--fill);color:var(--ink)}
+.st-done{background:var(--okw);color:var(--ok)}
+.seg{display:flex;gap:3px;padding:3px;border-radius:12px;background:var(--fill)}
+.seg span{flex:1;display:flex;align-items:center;justify-content:center;gap:5px;min-height:36px;border-radius:9px;font-size:13.5px;color:var(--ink2);font-weight:500}
+.seg span.on{background:var(--sheet);color:var(--ink);font-weight:600;box-shadow:0 1px 3px rgba(16,24,40,.14)}
+.seg .n{font:600 11.5px/1 var(--f-num);color:var(--ink3)}
+.fab{position:absolute;right:16px;bottom:88px;height:54px;padding:0 18px 0 14px;border-radius:27px;background:var(--cob);color:#fff;display:flex;align-items:center;gap:6px;font-weight:600;font-size:14.5px;box-shadow:0 8px 20px rgba(28,75,209,.35)}
+.bar{height:6px;border-radius:3px;background:var(--fill);overflow:hidden;flex:1}
+.bar i{display:block;height:100%;background:var(--cob)}
+.bar.amb i{background:#D98A1E}
+
+/* A: compact list */
+.a-grp{font-size:12.5px;font-weight:600;color:var(--ink2);padding:4px 2px 0}
+.a-list{display:grid}
+.a-row{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 12px;border-bottom:1px solid var(--rule)}
+.a-row:last-child{border-bottom:0}
+.a-row b{font-size:14.5px;font-weight:600}
+.a-row .r{text-align:right;display:grid;gap:2px;justify-items:end}
+.a-row .r b{font:600 14.5px/1.2 var(--f-num)}
+.a-prog{grid-column:1/-1;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2);margin-top:4px}
+
+/* B: site cards */
+.b-card{padding:12px;display:grid;gap:10px}
+.b-top{display:flex;gap:10px;align-items:flex-start}
+.b-top .tx{flex:1;min-width:0;display:grid;gap:1px}
+.b-top b{font-size:16px;font-weight:600}
+.b-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.b-nums div{display:grid;gap:1px;padding:7px 8px;border-radius:10px;background:var(--fill)}
+.b-nums span{font-size:11px;color:var(--ink2);line-height:1.2}
+.b-nums b{font:600 15px/1.15 var(--f-num)}
+.b-nums b small{font-size:11px;font-weight:500;color:var(--ink2)}
+.b-acts{display:flex;gap:8px}
+.b-acts span{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:40px;border-radius:10px;background:var(--fill);font-size:13px;font-weight:600}
+.b-acts span.pri{background:var(--cob);color:#fff}
+.b-next{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--amb);font-weight:500}
+
+/* C: by stage */
+.c-sec{display:grid;gap:6px}
+.c-h{display:flex;align-items:center;gap:8px;padding:2px 2px;font-weight:600;font-size:14.5px}
+.c-h .n{font:600 12px/1 var(--f-num);padding:3px 8px;border-radius:999px;background:var(--fill);color:var(--ink2)}
+.c-h .i{color:var(--ink3)}
+.c-dot{width:10px;height:10px;border-radius:50%}
+.c-row{display:flex;align-items:center;gap:10px;padding:11px 12px;border-bottom:1px solid var(--rule)}
+.c-row:last-child{border-bottom:0}
+.c-row .tx{flex:1;min-width:0;display:grid;gap:1px}
+.c-row .tx b{font-size:14.5px;font-weight:600}
+.c-next{display:flex;align-items:center;gap:5px;font-size:12.5px;color:var(--cob2);font-weight:500}
+.c-sec.closed .c-h{color:var(--ink2)}
+
+@media (max-width:420px){ .phone{height:740px;border-radius:30px;padding:8px} }
+:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="ic-home" viewBox="0 0 24 24"><path d="M4 11l8-7 8 7v9h-5v-6H9v6H4z"/></symbol>
+<symbol id="ic-folder" viewBox="0 0 24 24"><path d="M3 6h7l2 2h9v11H3z"/></symbol>
+<symbol id="ic-laser" viewBox="0 0 24 24"><rect x="3" y="7" width="12" height="10" rx="2"/><path d="M15 12h6M18 9l3 3-3 3"/></symbol>
+<symbol id="ic-board" viewBox="0 0 24 24"><rect x="3" y="4" width="5" height="16" rx="1"/><rect x="10" y="4" width="5" height="10" rx="1"/><rect x="17" y="4" width="4" height="7" rx="1"/></symbol>
+<symbol id="ic-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c1-4 4-6 8-6s7 2 8 6"/></symbol>
+<symbol id="ic-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+<symbol id="ic-search" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></symbol>
+<symbol id="ic-chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></symbol>
+<symbol id="ic-down" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></symbol>
+<symbol id="ic-phone" viewBox="0 0 24 24"><path d="M6 3h4l2 5-3 2a11 11 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A17 17 0 0 1 4 5a2 2 0 0 1 2-2z"/></symbol>
+<symbol id="ic-pin" viewBox="0 0 24 24"><path d="M12 21s-6-6-6-11a6 6 0 0 1 12 0c0 5-6 11-6 11z"/><circle cx="12" cy="10" r="2"/></symbol>
+<symbol id="ic-clock" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></symbol>
+<symbol id="ic-doc" viewBox="0 0 24 24"><path d="M6 3h9l4 4v14H6z"/><path d="M9 13h7M9 17h7M9 9h3"/></symbol>
+<symbol id="ic-sort" viewBox="0 0 24 24"><path d="M7 4v16M3 16l4 4 4-4M17 20V4M13 8l4-4 4 4"/></symbol>
+<symbol id="ic-wall" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v5M15 10v5M9 15v4"/></symbol>
+<symbol id="ic-sig" viewBox="0 0 24 24"><path d="M3 20h2v-3H3zM8 20h2v-6H8zM13 20h2v-9h-2zM18 20h2V8h-2z" fill="currentColor" stroke="none"/></symbol>
+</svg>
+
+<style>
+.eh{display:flex;align-items:center;gap:6px;padding:0 0 4px}
+.eh .bk{width:36px;height:36px;display:grid;place-items:center;color:var(--ink)}
+.eh .tt{flex:1;min-width:0;display:grid;line-height:1.2}
+.eh .tt b{font-size:16.5px;font-weight:600}
+.eh .tt small{font-size:12px;color:var(--ink2)}
+.eh .ib{width:36px;height:36px;display:grid;place-items:center;color:var(--ink2)}
+.lz{display:inline-flex;align-items:center;gap:5px;padding:4px 9px 4px 7px;border-radius:999px;background:var(--okw);color:var(--ok);font-size:12px;font-weight:600;white-space:nowrap}
+.lz i{width:7px;height:7px;border-radius:50%;background:currentColor}
+.plan{background:#F7F8FA;border-radius:16px;position:relative;overflow:hidden;background-image:linear-gradient(#E8ECF2 1px,transparent 1px),linear-gradient(90deg,#E8ECF2 1px,transparent 1px);background-size:20px 20px}
+.plan svg{display:block;width:100%;height:100%}
+.rail{position:absolute;right:6px;top:50%;transform:translateY(-50%);display:grid;gap:6px}
+.rail span{width:44px;height:44px;border-radius:12px;background:var(--sheet);display:grid;place-items:center;color:var(--ink);box-shadow:0 2px 8px rgba(16,24,40,.12)}
+.peek{position:absolute;left:0;right:0;bottom:74px;background:var(--sheet);border-radius:20px 20px 0 0;box-shadow:0 -6px 20px rgba(16,24,40,.12);padding:8px 14px 14px;display:grid;gap:10px}
+.peek .grab{width:38px;height:4px;border-radius:2px;background:var(--rule);justify-self:center}
+.peek .q{display:flex;align-items:center;gap:10px}
+.peek .q .v{font:600 28px/1 var(--f-num);color:var(--amb)}
+.peek .acts{display:flex;gap:8px}
+.peek .acts span{flex:1;display:flex;align-items:center;justify-content:center;gap:6px;min-height:46px;border-radius:12px;background:var(--fill);font-weight:600;font-size:14px}
+.peek .acts span.pri{background:var(--cob);color:#fff;flex:1.4}
+.steps{display:flex;gap:6px}
+.steps span{flex:1;min-width:0;overflow:hidden;white-space:nowrap;display:grid;justify-items:center;gap:3px;padding:6px 2px;border-radius:10px;background:var(--sheet);font-size:11px;color:var(--ink2);box-shadow:0 1px 2px rgba(16,24,40,.05)}
+.steps span b{font:700 14px/1 var(--f-num);color:var(--ink)}
+.steps span.ok{background:var(--okw);color:var(--ok)}
+.steps span.ok b{color:var(--ok)}
+.steps span.now{background:var(--cob);color:#D7E1FF;box-shadow:0 4px 12px rgba(28,75,209,.3)}
+.steps span.now b{color:#fff}
+.big{padding:14px;display:grid;gap:10px;text-align:center}
+.big .lab{font-size:13px;color:var(--ink2)}
+.big h4{margin:0;font-size:18px;font-weight:600}
+.big .rd{font:600 52px/1 var(--f-num);color:var(--amb);letter-spacing:-.01em}
+.big .rd small{font-size:22px;color:var(--ink2);margin-left:4px}
+.big .st{justify-self:center;display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;background:var(--ambw);color:var(--amb);font-size:12.5px;font-weight:600}
+.big .acts{display:grid;grid-template-columns:1fr 1.4fr;gap:8px}
+.big .acts span{display:flex;align-items:center;justify-content:center;gap:6px;min-height:52px;border-radius:14px;background:var(--fill);font-weight:600;font-size:15px}
+.big .acts span.pri{background:var(--cob);color:#fff}
+.big .lnk{display:flex;justify-content:space-between;font-size:13.5px;color:var(--cob);font-weight:500;padding:0 4px}
+.ml{display:grid;grid-template-columns:minmax(0,1fr)}
+.ml .gh{padding:8px 12px 4px;font-size:11.5px;font-weight:600;color:var(--ink3);letter-spacing:.04em}
+.ml .r{display:flex;align-items:center;gap:10px;padding:9px 12px;border-bottom:1px solid var(--rule);min-height:50px}
+.ml .r:last-child{border-bottom:0}
+.ml .k{width:28px;height:28px;border-radius:8px;display:grid;place-items:center;font:700 13px var(--f-num);background:var(--fill);flex:none}
+.ml .tx{flex:1;min-width:0;display:grid;line-height:1.25}
+.ml .tx b{font-size:14px;font-weight:600}
+.ml .tx small{font-size:12px;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ml .val{font:600 15px var(--f-num);text-align:right}
+.ml .val.amb{color:var(--amb)}
+.ml .val.unset{color:var(--ink3)}
+.ml .act{padding:6px 10px;border-radius:9px;font-size:12.5px;font-weight:600;background:var(--cob);color:#fff;white-space:nowrap}
+.ml .act.sec{background:var(--fill);color:var(--ink)}
+.ml .ok{color:var(--ok)}
+.tb{position:absolute;left:0;right:0;bottom:0;height:74px;background:var(--sheet);box-shadow:0 -1px 0 var(--rule);display:grid;grid-template-columns:repeat(4,1fr);padding:8px 4px 14px}
+.tb span{display:grid;justify-items:center;align-content:center;gap:3px;font-size:11px;color:var(--ink2)}
+.tb span.on{color:var(--cob);font-weight:600}
+</style>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+<symbol id="ic-back" viewBox="0 0 24 24"><path d="M15 6l-6 6 6 6"/></symbol>
+<symbol id="ic-undo" viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></symbol>
+<symbol id="ic-check" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></symbol>
+<symbol id="ic-door" viewBox="0 0 24 24"><path d="M6 21V4h12v17M4 21h16"/><circle cx="15" cy="12" r="1"/></symbol>
+<symbol id="ic-window" viewBox="0 0 24 24"><rect x="4" y="4" width="16" height="16" rx="1"/><path d="M12 4v16M4 12h16"/></symbol>
+<symbol id="ic-wallv" viewBox="0 0 24 24"><path d="M3 5h18v14H3zM3 10h18M3 15h18M9 5v5M15 10v5M9 15v4"/></symbol>
+<symbol id="ic-cube" viewBox="0 0 24 24"><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z"/><path d="M12 12l8-4.5M12 12v9M12 12L4 7.5"/></symbol>
+<symbol id="ic-kbd" viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><path d="M7 10h.01M11 10h.01M15 10h.01M7 14h10"/></symbol>
+<symbol id="ic-dim" viewBox="0 0 24 24"><path d="M3 12h18M3 8v8M21 8v8M7 12l-2-2M7 12l-2 2M17 12l2-2M17 12l2 2"/></symbol>
+<symbol id="ic-room" viewBox="0 0 24 24"><path d="M4 4h16v16H4zM4 12h8v8"/></symbol>
+<symbol id="ic-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></symbol>
+<symbol id="planA" viewBox="0 0 320 300">
+  <defs><pattern id="h" width="5" height="5" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="5" height="5" fill="#fff"/><rect width="1.4" height="5" fill="#0E1C36"/></pattern></defs>
+  <path d="M38 58H272V256H38Z M48 68V246H262V68Z" fill="url(#h)" fill-rule="evenodd" stroke="#0E1C36" stroke-width="1.4"/>
+  <rect x="72" y="57" width="44" height="12" fill="#F7F8FA"/><path d="M72 69V112M72 112A44 44 0 0 0 116 69" stroke="#0E1C36" stroke-width="1.6" fill="none" stroke-dasharray="3 3"/>
+  <rect x="128" y="245" width="58" height="12" fill="#fff" stroke="#0E1C36"/><path d="M128 251H186" stroke="#0E1C36"/>
+  <path d="M38 34H272M38 28V40M272 28V40" stroke="#0E1C36" stroke-width="1.2"/>
+  <rect x="129" y="21" width="52" height="26" rx="4" fill="#fff" stroke="#0E1C36"/><text x="149" y="39" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="#0E1C36">5,00</text><path d="M167 34l3 3 6-6" stroke="#0E1C36" stroke-width="1.8" fill="none"/>
+  <path d="M296 58V256M290 58H302M290 256H302" stroke="#9A4D00" stroke-width="1.2" stroke-dasharray="5 4"/>
+  <rect x="268" y="142" width="56" height="28" rx="4" fill="#FFF1DF" stroke="#9A4D00" stroke-width="2"/><text x="296" y="161" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-weight="600" font-size="15" fill="#0E1C36">4,012</text>
+  <rect x="262" y="68" width="10" height="178" fill="#1C4BD1"/>
+  <text x="155" y="152" text-anchor="middle" font-size="12" font-weight="600" letter-spacing="1" fill="#3E4A61">MEHMONXONA</text><text x="155" y="170" text-anchor="middle" font-family="IBM Plex Sans Condensed" font-size="13" fill="#3E4A61">≈ 20,06 m²</text>
+  <g font-size="11" font-weight="600" text-anchor="middle"><circle cx="155" cy="84" r="9" fill="#fff" stroke="#3E4A61"/><text x="155" y="88" fill="#0E1C36">A</text><circle cx="246" cy="157" r="9" fill="#1C4BD1"/><text x="246" y="161" fill="#fff">B</text><circle cx="155" cy="230" r="9" fill="#fff" stroke="#3E4A61"/><text x="155" y="234" fill="#0E1C36">C</text><circle cx="64" cy="157" r="9" fill="#fff" stroke="#3E4A61"/><text x="64" y="161" fill="#0E1C36">D</text></g>
+</symbol>
+</svg>
+<div class="wrap">
+  <header class="intro">
+    <span class="kicker">METRX · XONA MUHARRIRI</span>
+    <h1>Three ways to design the room editor</h1>
+    <p>All three show the same moment: <b>Mehmonxona</b>, 5 × 4 m, wall A confirmed (5,00), wall B received from the laser but not confirmed yet (4,012, amber), height not measured, with a door and a window placed. The wall thickness is 0,25 m, one standard brick.</p>
+    <div class="now">
+      <div><b>The plan gets squeezed</b>About eight layers sit on top of each other: mode switch, laser chip, height and thickness chips, plan, readings tray, hint line and toolbar.</div>
+      <div><b>The measure sheet covers the plan</b>When you measure, a sheet covers half the screen, so you lose sight of which wall you're on.</div>
+      <div><b>Small targets</b>The number tags on the plan are about 26 px high: hard to hit with gloves.</div>
+      <div><b>No wall areas</b>A brickmason needs each wall's area and the area minus doors and windows, but the editor shows only the floor area.</div>
+    </div>
+  </header>
+  <div class="grid">
+
+  <section class="opt" aria-labelledby="hA">
+    <div class="opt-h"><span class="letter">A</span><h2 id="hA">Big plan + bottom panel</h2></div>
+    <p class="idea">The plan fills the screen. Tools sit on a slim rail on the right. A small panel at the bottom always shows the next step with large buttons; drag it up for the full list of measurements.</p>
+    <div class="phone" role="img" aria-label="Option A mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="padding-bottom:0">
+        <div class="eh"><span class="bk"><svg class="i"><use href="#ic-back"/></svg></span><div class="tt"><b>Mehmonxona</b><small>Yusupovlar uyi › 1-qavat</small></div><span class="lz"><i></i>Lazer</span><span class="ib"><svg class="i"><use href="#ic-undo"/></svg></span></div>
+        <div class="plan" style="height:330px"><svg viewBox="0 0 320 300" style="width:calc(100% - 52px)"><use href="#planA"/></svg>
+          <div class="rail"><span><svg class="i"><use href="#ic-door"/></svg></span><span><svg class="i"><use href="#ic-window"/></svg></span><span><svg class="i"><use href="#ic-wallv"/></svg></span><span><svg class="i"><use href="#ic-cube"/></svg></span></div></div>
+      </div>
+      <div class="peek"><span class="grab"></span>
+        <div class="q"><div style="flex:1;display:grid"><span class="sm muted">Devor B uzunligi, lazerdan</span><span class="v">4,012 <small style="font-size:15px;color:#47536A">m</small></span></div><span class="chip st-measure">Tasdiqlanmagan</span></div>
+        <div class="acts"><span>Qayta</span><span class="pri"><svg class="i s"><use href="#ic-check"/></svg>Tasdiqlash</span></div>
+        <span class="sm muted" style="text-align:center">Keyin: Balandlik. 2 ta o‘lcham qoldi</span>
+      </div>
+      <nav class="tb"><span class="on"><svg class="i"><use href="#ic-room"/></svg>Reja</span><span><svg class="i"><use href="#ic-wallv"/></svg>Devorlar</span><span><svg class="i"><use href="#ic-door"/></svg>Ochiq joylar</span><span><svg class="i"><use href="#ic-cube"/></svg>3D</span></nav>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> the plan is about 40% larger than today, and the next step is always visible without covering it.</p>
+      <p><b>Good for:</b> the familiar map-app pattern: a pull-up panel over a big drawing.</p>
+      <p class="minus">Trade-off: the full list of walls and areas is one swipe away, not on screen.</p>
+    </div>
+  </section>
+
+  <section class="opt" aria-labelledby="hB">
+    <div class="opt-h"><span class="letter">B</span><h2 id="hB">Guided measuring</h2></div>
+    <p class="idea">A step-by-step mode: a row of steps (A, B, H, T, doors and windows), a smaller plan with the current wall highlighted, and one big card with the laser reading and two large buttons.</p>
+    <div class="phone" role="img" aria-label="Option B mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="padding-bottom:84px">
+        <div class="eh"><span class="bk"><svg class="i"><use href="#ic-back"/></svg></span><div class="tt"><b>Mehmonxona</b><small>O‘lchash: 2 / 5</small></div><span class="lz"><i></i>Lazer</span></div>
+        <div class="steps"><span class="ok"><b>A</b>5,00</span><span class="now"><b>B</b>hozir</span><span><b>H</b>?</span><span class="ok"><b>T</b>0,25</span><span><b><svg class="i xs" style="vertical-align:-2px"><use href="#ic-door"/></svg> 2</b>joylar</span></div>
+        <div class="plan" style="height:190px"><svg viewBox="0 0 320 300"><use href="#planA"/></svg></div>
+        <div class="card big">
+          <span class="lab">Devor B uzunligi</span>
+          <div class="rd">4,012<small>m</small></div>
+          <span class="st"><svg class="i xs"><use href="#ic-clock"/></svg>Lazerdan qabul qilindi. Tasdiqlang</span>
+          <div class="acts"><span>Qayta o‘lchash</span><span class="pri"><svg class="i s"><use href="#ic-check"/></svg>Tasdiqlash</span></div>
+          <div class="lnk"><span>Qo‘lda kiritish</span><span>O‘tkazib yuborish</span></div>
+        </div>
+      </div>
+      <nav class="tb"><span class="on"><svg class="i"><use href="#ic-dim"/></svg>O‘lchash</span><span><svg class="i"><use href="#ic-room"/></svg>Reja</span><span><svg class="i"><use href="#ic-wallv"/></svg>Devorlar</span><span><svg class="i"><use href="#ic-cube"/></svg>3D</span></nav>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> on site with gloves: one big number, two big buttons, always clear what comes next.</p>
+      <p><b>Good for:</b> the received → confirmed rule is very visible: amber number, explicit "Tasdiqlash" (confirm).</p>
+      <p class="minus">Trade-off: the plan is small while measuring; after all steps it switches to the normal plan view.</p>
+    </div>
+  </section>
+
+  <section class="opt" aria-labelledby="hC">
+    <div class="opt-h"><span class="letter">C</span><h2 id="hC">Plan + measurement list</h2></div>
+    <p class="idea">The plan on top, and below it a list of every measurement with its state and a button, plus each wall's area minus doors and windows for the brickmason.</p>
+    <div class="phone" role="img" aria-label="Option C mockup"><div class="scr">
+      <div class="sb"><span>9:41</span><svg class="i s"><use href="#ic-sig"/></svg></div>
+      <div class="body" style="padding-bottom:84px;gap:8px">
+        <div class="eh"><span class="bk"><svg class="i"><use href="#ic-back"/></svg></span><div class="tt"><b>Mehmonxona</b><small>Yusupovlar uyi › 1-qavat</small></div><span class="lz"><i></i>Lazer</span><span class="ib"><svg class="i"><use href="#ic-more"/></svg></span></div>
+        <div class="plan" style="height:200px"><svg viewBox="0 0 320 300"><use href="#planA"/></svg></div>
+        <div class="card ml">
+          <div class="gh">O‘LCHAMLAR</div>
+          <div class="r"><span class="k">A</span><span class="tx"><b>Uzunlik</b><small>maydon uchun balandlik kerak</small></span><span class="val">5,00</span><svg class="i s ok"><use href="#ic-check"/></svg></div>
+          <div class="r"><span class="k" style="background:#1C4BD1;color:#fff">B</span><span class="tx"><b>Kenglik</b><small>lazerdan, tasdiqlanmagan</small></span><span class="val amb">4,012</span><span class="act">Tasdiqlash</span></div>
+          <div class="r"><span class="k">H</span><span class="tx"><b>Balandlik</b><small>o‘lchanmagan</small></span><span class="val unset">?</span><span class="act sec">O‘lchash</span></div>
+          <div class="r"><span class="k">T</span><span class="tx"><b>Devor qalinligi</b><small>1 g‘isht</small></span><span class="val">0,25</span><svg class="i s ok"><use href="#ic-check"/></svg></div>
+        </div>
+      </div>
+      <nav class="tb"><span class="on"><svg class="i"><use href="#ic-room"/></svg>Reja</span><span><svg class="i"><use href="#ic-wallv"/></svg>Devorlar</span><span><svg class="i"><use href="#ic-door"/></svg>Ochiq joylar</span><span><svg class="i"><use href="#ic-cube"/></svg>3D</span></nav>
+    </div></div>
+    <div class="notes">
+      <p><b>Good for:</b> seeing every number and its state at once; each row has its own button.</p>
+      <p><b>Good for:</b> each wall's net area is right there for brick and mortar counts.</p>
+      <p class="minus">Trade-off: the plan shrinks to half the screen; the list scrolls for L-shaped rooms with many walls.</p>
+    </div>
+  </section>
+
+  </div>
+  <section class="how">
+    <h3>My recommendation: A, with B's step card and C's list in the panel</h3>
+    <p>Keep A's big plan. Its bottom panel works like B's step card while you measure (big amber number, Re-measure / Confirm). Dragged up, the panel shows C's list of measurements and each wall's net area. That gives one screen for both measuring and reviewing, with no mode switch.</p>
+    <p>Tell me a letter, or a mix, and I'll build it in the app.</p>
+  </section>
+</div>

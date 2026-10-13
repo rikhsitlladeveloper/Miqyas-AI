@@ -1,0 +1,13 @@
+# Reference images kept on disk only: other people's material, not for a public repo
+/Bosch MeasureON/
+/photo_*.jpg
+
+# Copied from design/prototype/index.html on every Android build
+/design/android-prototype/app/src/main/assets/index.html
+
+# Local settings and caches
+.claude/settings.local.json
+__pycache__/
+*.pyc
+Thumbs.db
+.DS_Store
