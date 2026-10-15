@@ -3,6 +3,10 @@ import SwiftUI
 @main
 struct METRXApp: App {
     var body: some Scene {
-        WindowGroup { Text("METRX").font(.custom("PlusJakartaSans-Bold", size: 34)) }
+        WindowGroup {
+            RootView()
+                // very large text sizes would break the glass layouts; up to xxLarge follows the phone's setting
+                .dynamicTypeSize(...DynamicTypeSize.xxLarge)
+        }
     }
 }
