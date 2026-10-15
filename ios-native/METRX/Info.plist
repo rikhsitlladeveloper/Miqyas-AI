@@ -22,6 +22,8 @@
 	<key>UIStatusBarStyle</key><string>UIStatusBarStyleLightContent</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key><true/>
 	<key>ITSAppUsesNonExemptEncryption</key><false/>
+	<!-- asked only when the builder taps "Joylashuvni aniqlash" on a project; GPS works without internet -->
+	<key>NSLocationWhenInUseUsageDescription</key><string>METRX saves the project's place so you can find it on a map later. / Loyiha joyini saqlab, keyin xaritada topish uchun.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>PlusJakartaSans-Regular.ttf</string><string>PlusJakartaSans-Medium.ttf</string><string>PlusJakartaSans-SemiBold.ttf</string>

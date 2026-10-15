@@ -55,7 +55,7 @@ struct HomeScreen: View {
                         T(line, ui(19, 500, G.slate, lh: 1.35)).frame(maxWidth: 320, alignment: .leading)
                     }
                     .padding(.top, 22).padding(.bottom, 16)
-                    BigCard { app.say("nt.part", ["n": 2], kind: .info) }
+                    BigCard { app.push(.newProject(editId: nil)) }
                     HStack(spacing: 14) {
                         SmallCard(icon: RULER, title: tr("gl.meas"), sub: tr("gl.measS")) { app.say("nt.part", ["n": 7], kind: .info) }
                         SmallCard(icon: CALC, title: tr("gl.calc"), sub: tr("gl.calcS")) { app.say("nt.part", ["n": 7], kind: .info) }
@@ -129,37 +129,6 @@ private struct SmallCard: View {
 struct PageTitle: View {
     let text: String
     var body: some View { T(text, ui(36, 800, G.ink, lh: 1.15, ls: -0.02)).accessibilityAddTraits(.isHeader) }
-}
-
-/// Projects with no project yet: one card that invites the first one (prototype plEmpty).
-struct ProjectsScreen: View {
-    let app: AppModel
-    var body: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            GlassHeader { app.sheet = .device }
-            PageTitle(text: tr("tab.projects")).padding(.horizontal, 20).padding(.top, 6)
-            ScrollView {
-                VStack(spacing: 12) {
-                    ZStack(alignment: .topTrailing) {
-                        MIcon("folder", G.cobalt, 40, 1.8).frame(width: 88, height: 88)
-                            .background(RoundedRectangle(cornerRadius: 26, style: .continuous).fill(G.cobalt.opacity(0.12)))
-                        MIcon("plus", .white, 16, 2.4).frame(width: 28, height: 28).background(Circle().fill(G.cobalt))
-                            .padding(3).background(Circle().fill(G.solid.opacity(0.9))).offset(x: 9, y: -9)
-                    }
-                    .padding(.bottom, 8)
-                    T(tr("pl.e.t"), ui(21, 800, G.ink, lh: 1.2, ls: -0.01), align: .center)
-                    T(tr("pl.e.b"), ui(15, 400, G.ink2, lh: 1.5), align: .center).frame(maxWidth: 300).padding(.bottom, 10)
-                    GlassButton(tr("pl.e.new"), icon: "plus") { app.say("nt.part", ["n": 2], kind: .info) }
-                }
-                .padding(.horizontal, 22).padding(.top, 34).padding(.bottom, 22)
-                .frame(maxWidth: .infinity)
-                .glassCard(RoundedRectangle(cornerRadius: 26, style: .continuous), fill: G.glass(0.55))
-                T(tr("pl.e.foot"), ui(13.5, 400, G.ink3), align: .center).frame(maxWidth: .infinity).padding(.top, 8)
-            }
-            .padding(.horizontal, 20).padding(.top, 14)
-            .contentMargins(.bottom, 24 + NAV_SPACE, for: .scrollContent)
-        }
-    }
 }
 
 /// App language (prototype SHEETS.lang).

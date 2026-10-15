@@ -49,6 +49,7 @@ struct ProfileScreen: View {
                     Card {
                         Row1(icon: "globe", title: tr("se.lang"), value: s.lang.longName) { app.sheet = .language }
                         Row1(icon: "doc", title: tr("se.reportLang"), value: s.reportLang.longName) { app.sheet = .reportLang }
+                        Row1(icon: "coin", title: tr("np.currency"), value: s.currency) { app.sheet = .currency }
                     }
                     // dark mode: this app's own (the prototype has only the light look)
                     Card { SwitchRow(icon: "moon", title: tr("nt.dark"), on: s.dark) { s.setDarkMode(!s.dark) } }.padding(.top, 10)

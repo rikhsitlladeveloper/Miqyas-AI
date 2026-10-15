@@ -91,7 +91,7 @@ struct RootView: View {
         ZStack(alignment: .bottom) {
             Aurora()
             page
-                .id("\(app.tab)-\(app.stack.count)")
+                .id("\(app.tab)-\(app.stack.count)-\(app.top.pageKey)")
                 .transition(app.dir > 0 ? .push(from: .trailing) : .push(from: .leading))
             // iPhone's back gesture: a swipe from the left edge closes the page
             if app.stack.count > 1 && app.sheet == nil {
@@ -99,8 +99,8 @@ struct RootView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .gesture(DragGesture(minimumDistance: 10).onEnded { v in if v.translation.width > 70 { app.pop() } })
             }
-            // the tab bar shows on the tab pages; it steps away under a sheet
-            if app.sheet == nil && app.top == .root {
+            // the tab bar shows on the tab pages and the project page; it steps away under a sheet
+            if app.sheet == nil && (app.top == .root || { if case .project = app.top { return true }; return false }()) {
                 GlassNav(cur: app.tab) { app.selectTab($0) }.transition(.opacity)
             }
         }
@@ -111,11 +111,15 @@ struct RootView: View {
         case .root:
             switch app.tab {
             case .home: HomeScreen(app: app)
-            case .projects: ProjectsScreen(app: app)
+            case .projects: ProjectsList(app: app)
             case .profile: ProfileScreen(app: app)
             }
         case .settingsMore: SettingsMoreScreen(app: app)
         case .subscription: SubscriptionScreen(app: app)
+        case .newProject(let e): NewProjectScreen(app: app, editId: e)
+        case .project(let id, let tab): ProjectScreen(app: app, id: id, tab: tab)
+        case .space(let pid, let wid): SpaceScreen(app: app, pid: pid, wid: wid)
+        case .note(let pid, let wid, let iid): NoteScreen(app: app, pid: pid, wid: wid, iid: iid)
         }
     }
 
@@ -123,7 +127,8 @@ struct RootView: View {
         switch s {
         case .language: LanguageSheet(app: app)
         case .device: DeviceSheet(app: app)
-        default: ProfileSheet(app: app, sheet: s)
+        default:
+            if ProjectSheet.handles(s) { ProjectSheet(app: app, sheet: s) } else { ProfileSheet(app: app, sheet: s) }
         }
     }
 }

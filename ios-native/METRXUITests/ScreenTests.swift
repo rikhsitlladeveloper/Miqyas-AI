@@ -86,4 +86,54 @@ final class ScreenTests: XCTestCase {
         sleep(1); shot("31-ru-home")
         app.buttons["tab.profile"].tap(); usleep(700_000); shot("32-ru-profile")
     }
+
+    /// First start without an account, straight to Home.
+    private func firstRun(_ app: XCUIApplication) {
+        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 8))
+        app.buttons["welcome.skip"].tap(); usleep(700_000)
+        app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Sanjar Usta")
+        app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
+        app.buttons["local.start"].tap()
+        XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 5))
+        usleep(800_000)
+    }
+
+    /// Part 2: a new project, a workspace, a note with a checklist, the item menu, Details, the list, delete and Undo.
+    func testProjects() {
+        let app = launch()
+        firstRun(app)
+        app.buttons["home.new"].tap(); usleep(900_000); shot("40-new-project")
+        app.textFields.element(boundBy: 0).typeText("Yangi uy")
+        app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("Ali Valiyev")
+        app.textFields.element(boundBy: 2).tap(); app.textFields.element(boundBy: 2).typeText("901112233")
+        app.textFields.element(boundBy: 3).tap(); app.textFields.element(boundBy: 3).typeText("Chilonzor 9")
+        shot("41-new-project-filled")
+        app.buttons["np.save"].tap(); usleep(1_000_000); shot("42-project")
+        app.buttons["ws.create"].tap(); usleep(800_000); shot("43-new-workspace")
+        btn(app, "Hammom").tap(); usleep(400_000); shot("44-new-workspace-bath")
+        app.buttons["ws.save"].tap(); usleep(1_000_000); shot("45-workspace-blank")
+        app.buttons["space.add"].tap(); usleep(800_000); shot("46-add-sheet")
+        app.buttons["add.note"].tap(); usleep(1_000_000)
+        app.typeText("Bo‘yoq rangi")
+        app.textViews.firstMatch.exists ? app.textViews.firstMatch.tap() : app.textFields.element(boundBy: 1).tap()
+        app.typeText("Devorlarni oq rangga bo‘yash")
+        app.buttons["note.addCheck"].tap(); usleep(500_000); app.typeText("Eshik almashtirilmaydi")
+        app.buttons["note.addCheck"].tap(); usleep(500_000); app.typeText("Pol laminat")
+        btn(app, "☐").tap(); usleep(400_000)
+        shot("47-note")
+        app.buttons["Orqaga"].firstMatch.tap(); usleep(900_000); shot("48-workspace-with-note")
+        // the note card's own menu (the page's menu comes first)
+        let menus = app.buttons.matching(NSPredicate(format: "label == %@", "menu"))
+        menus.element(boundBy: max(0, menus.count - 1)).tap(); usleep(700_000); shot("49-item-menu")
+        app.buttons["sheet.close"].tap(); usleep(500_000)
+        app.buttons["Orqaga"].firstMatch.tap(); usleep(900_000); shot("50-project-with-workspace")
+        app.buttons["ptab.info"].tap(); usleep(700_000); shot("51-project-info")
+        app.buttons["back"].firstMatch.tap(); usleep(900_000); shot("52-projects-list")
+        app.textFields.firstMatch.tap(); app.typeText("Ali"); usleep(500_000); shot("53-projects-search")
+        btn(app, "Yangi uy").tap(); usleep(900_000)
+        app.buttons["project.menu"].tap(); usleep(600_000)
+        btn(app, "Loyihani o‘chirish").tap(); usleep(600_000); shot("54-delete-ask")
+        app.buttons["pj.delete"].tap(); usleep(700_000); shot("55-deleted-toast")
+        btn(app, "Qaytarish").tap(); usleep(900_000); shot("56-undo")
+    }
 }

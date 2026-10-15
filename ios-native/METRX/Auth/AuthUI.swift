@@ -139,11 +139,11 @@ struct AuField<Focus: Hashable>: View {
     @ViewBuilder private var field: some View {
         switch kind {
         case .phone:
-            PhoneTextField(value: $value, placeholder: placeholder, label: label, focus: focus, me: me) { on in
+            PhoneTextField(value: $value, placeholder: placeholder, label: label, focus: focus, me: me, onFocus: { on in
                 phoneFocused = on
                 // SwiftUI's own focus is left alone: clearing it would close the keyboard under this field
                 if !on { onBlur() }
-            }
+            })
             .frame(height: 30)
         case .password:
             Group {
@@ -210,6 +210,10 @@ struct PhoneTextField<Focus: Hashable>: UIViewRepresentable {
     let label: String
     let focus: FocusState<Focus?>.Binding
     let me: Focus
+    var font = UIFont(name: "IBMPlexMono-SemiBold", size: 22) ?? .systemFont(ofSize: 22)
+    var color = UIColor(Au.ink)
+    var placeholderColor = UIColor(Au.ink3)
+    var kern: CGFloat = 22 * 0.01
     /// The field got or lost the keyboard (SwiftUI's focus state doesn't see UIKit fields, so it is reported here).
     let onFocus: (Bool) -> Void
 
@@ -218,10 +222,10 @@ struct PhoneTextField<Focus: Hashable>: UIViewRepresentable {
         f.delegate = context.coordinator
         f.keyboardType = .phonePad
         f.textContentType = .telephoneNumber
-        f.font = UIFont(name: "IBMPlexMono-SemiBold", size: 22)
-        f.textColor = UIColor(Au.ink)
-        f.defaultTextAttributes[.kern] = 22 * 0.01
-        f.attributedPlaceholder = NSAttributedString(string: placeholder, attributes: [.foregroundColor: UIColor(Au.ink3), .font: UIFont(name: "IBMPlexMono-SemiBold", size: 22) as Any])
+        f.font = font
+        f.textColor = color
+        f.defaultTextAttributes[.kern] = kern
+        f.attributedPlaceholder = NSAttributedString(string: placeholder, attributes: [.foregroundColor: placeholderColor, .font: font])
         f.accessibilityLabel = label
         f.setContentHuggingPriority(.defaultLow, for: .horizontal)
         f.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
@@ -231,6 +235,7 @@ struct PhoneTextField<Focus: Hashable>: UIViewRepresentable {
 
     func updateUIView(_ f: UITextField, context: Context) {
         context.coordinator.parent = self
+        f.textColor = color
         let shown = Phone.groups(value)
         if f.text != shown { f.text = shown }
         // the previous field's "next" asks for this one: take the keyboard once per request
