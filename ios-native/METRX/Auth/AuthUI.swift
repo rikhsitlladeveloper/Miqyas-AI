@@ -90,9 +90,10 @@ struct AuField<Focus: Hashable>: View {
     var onSubmit: () -> Void = {}
     var onBlur: () -> Void = {}
     @State private var showPw = false
+    @State private var phoneFocused = false
 
     var body: some View {
-        let focused = focus.wrappedValue == me
+        let focused = kind == .phone ? phoneFocused : focus.wrappedValue == me
         let bad = showError && error != nil
         let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
         VStack(alignment: .leading, spacing: 6) {
@@ -128,7 +129,7 @@ struct AuField<Focus: Hashable>: View {
                 HStack(alignment: .top, spacing: 6) { MIcon("alert", G.err, 18, 2); T(error, au(13.5, 500, G.err)) }
             }
         }
-        .onChange(of: focused) { was, now in if was && !now { onBlur() } }
+        .onChange(of: focused) { was, now in if kind != .phone && was && !now { onBlur() } }
     }
 
     private var textField: some View {
@@ -138,7 +139,11 @@ struct AuField<Focus: Hashable>: View {
     @ViewBuilder private var field: some View {
         switch kind {
         case .phone:
-            PhoneTextField(value: $value, placeholder: placeholder, label: label, focus: focus, me: me).frame(height: 30)
+            PhoneTextField(value: $value, placeholder: placeholder, label: label, focus: focus, me: me) { on in
+                phoneFocused = on
+                if on { if focus.wrappedValue != nil { focus.wrappedValue = nil } } else { onBlur() }
+            }
+            .frame(height: 30)
         case .password:
             Group {
                 if showPw { TextField("", text: $value, prompt: Text(placeholder).foregroundColor(Au.ink3)) }
@@ -204,6 +209,8 @@ struct PhoneTextField<Focus: Hashable>: UIViewRepresentable {
     let label: String
     let focus: FocusState<Focus?>.Binding
     let me: Focus
+    /// The field got or lost the keyboard (SwiftUI's focus state doesn't see UIKit fields, so it is reported here).
+    let onFocus: (Bool) -> Void
 
     func makeUIView(context: Context) -> UITextField {
         let f = UITextField()
@@ -225,17 +232,20 @@ struct PhoneTextField<Focus: Hashable>: UIViewRepresentable {
         context.coordinator.parent = self
         let shown = Phone.groups(value)
         if f.text != shown { f.text = shown }
+        // the previous field's "next" asks for this one: take the keyboard once per request
         let want = focus.wrappedValue == me
-        DispatchQueue.main.async {
-            if want && !f.isFirstResponder { f.becomeFirstResponder() }
-            else if !want && f.isFirstResponder { f.resignFirstResponder() }
+        if want && !context.coordinator.requested && !f.isFirstResponder {
+            context.coordinator.requested = true
+            DispatchQueue.main.async { f.becomeFirstResponder() }
         }
+        if !want { context.coordinator.requested = false }
     }
 
     func makeCoordinator() -> Coordinator { Coordinator(self) }
 
     final class Coordinator: NSObject, UITextFieldDelegate {
         var parent: PhoneTextField
+        var requested = false
         init(_ p: PhoneTextField) { parent = p }
         func textField(_ f: UITextField, shouldChangeCharactersIn range: NSRange, replacementString s: String) -> Bool {
             let old = (f.text ?? "") as NSString
@@ -249,7 +259,7 @@ struct PhoneTextField<Focus: Hashable>: UIViewRepresentable {
             parent.value = d
             return false
         }
-        func textFieldDidBeginEditing(_ f: UITextField) { if parent.focus.wrappedValue != parent.me { parent.focus.wrappedValue = parent.me } }
-        func textFieldDidEndEditing(_ f: UITextField) { if parent.focus.wrappedValue == parent.me { parent.focus.wrappedValue = nil } }
+        func textFieldDidBeginEditing(_ f: UITextField) { parent.onFocus(true) }
+        func textFieldDidEndEditing(_ f: UITextField) { parent.onFocus(false) }
     }
 }
