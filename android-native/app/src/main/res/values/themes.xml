@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- The system launch screen is the blueprint colour of the opening animation, with no icon, so nothing flashes. -->
+    <style name="Theme.Metrx.Starting" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/blueprint</item>
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_empty</item>
+        <item name="postSplashScreenTheme">@style/Theme.Metrx</item>
+    </style>
+    <style name="Theme.Metrx" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/blueprint</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+</resources>

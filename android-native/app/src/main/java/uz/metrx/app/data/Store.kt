@@ -1,0 +1,114 @@
+package uz.metrx.app.data
+
+import android.content.ContentValues
+import android.content.Context
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
+import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+
+/**
+ * The projects on this phone, in SQLite. Each project is one row holding the project as JSON (the same shape as
+ * the prototype's state), so the model can grow without table migrations; the JSON carries every field's default.
+ *
+ * The screens read [projects] (a Compose state list) and change projects through [update]; every change is written
+ * to the database shortly after (coalesced per project), in one transaction, off the main thread.
+ */
+class Store private constructor(context: Context) {
+    private val db = Db(context.applicationContext)
+    private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val pending = HashMap<String, Job>()
+    /** The newest unsaved version of each project, written by its job or by [flush]. */
+    private val unsaved = java.util.concurrent.ConcurrentHashMap<String, Project>()
+
+    /** Newest edit first, like the prototype's list. */
+    val projects = mutableStateListOf<Project>()
+
+    init {
+        val loaded = ArrayList<Project>()
+        db.readableDatabase.rawQuery("SELECT json FROM projects", null).use { c ->
+            while (c.moveToNext()) runCatching { json.decodeFromString(Project.serializer(), c.getString(0)) }
+                .onSuccess { loaded += it }
+                .onFailure { Log.e("METRX", "a saved project could not be read and was skipped", it) }
+        }
+        projects.addAll(loaded.sortedByDescending { it.edited })
+    }
+
+    fun get(id: String?): Project? = projects.firstOrNull { it.id == id }
+
+    fun add(p: Project) { projects.add(0, p); save(p) }
+
+    /** Change one project; [touch] moves it to the top of the list (edited now). */
+    fun update(id: String, touch: Boolean = true, change: (Project) -> Project): Project? {
+        val i = projects.indexOfFirst { it.id == id }
+        if (i < 0) return null
+        var p = change(projects[i])
+        if (touch) p = p.copy(edited = System.currentTimeMillis())
+        projects[i] = p
+        if (touch && i != 0) { projects.removeAt(i); projects.add(0, p) }
+        save(p)
+        return p
+    }
+
+    fun delete(id: String): Pair<Project, Int>? {
+        val i = projects.indexOfFirst { it.id == id }
+        if (i < 0) return null
+        val p = projects.removeAt(i)
+        pending.remove(id)?.cancel(); unsaved.remove(id)
+        io.launch { db.writableDatabase.delete("projects", "id = ?", arrayOf(id)) }
+        return p to i
+    }
+
+    /** Puts a deleted project back where it was (Undo). */
+    fun restore(p: Project, index: Int) { projects.add(index.coerceIn(0, projects.size), p); save(p, now = true) }
+
+    private fun save(p: Project, now: Boolean = false) {
+        pending.remove(p.id)?.cancel()
+        unsaved[p.id] = p
+        pending[p.id] = io.launch {
+            if (!now) delay(250)
+            unsaved.remove(p.id, p)
+            write(p)
+        }
+    }
+
+    private fun write(p: Project) {
+        val text = json.encodeToString(Project.serializer(), p)
+        val w = db.writableDatabase
+        w.beginTransaction()
+        try {
+            w.insertWithOnConflict("projects", null, ContentValues().apply {
+                put("id", p.id); put("edited", p.edited); put("json", text)
+            }, SQLiteDatabase.CONFLICT_REPLACE)
+            w.setTransactionSuccessful()
+        } catch (e: Exception) {
+            Log.e("METRX", "saving a project failed", e)
+        } finally { w.endTransaction() }
+    }
+
+    /** Writes every change still waiting, right now (the app is going to the background). */
+    fun flush() {
+        pending.values.forEach { it.cancel() }; pending.clear()
+        unsaved.keys.toList().forEach { id -> unsaved.remove(id)?.let { if (get(id) != null) write(it) } }
+    }
+
+    private class Db(context: Context) : SQLiteOpenHelper(context, "metrx.db", null, 1) {
+        override fun onCreate(db: SQLiteDatabase) {
+            db.execSQL("CREATE TABLE projects (id TEXT PRIMARY KEY, edited INTEGER NOT NULL, json TEXT NOT NULL)")
+        }
+        override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+    }
+
+    companion object {
+        @Volatile private var inst: Store? = null
+        fun get(context: Context) = inst ?: synchronized(this) { inst ?: Store(context).also { inst = it } }
+    }
+}

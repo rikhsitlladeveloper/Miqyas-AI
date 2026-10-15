@@ -1,0 +1,258 @@
+package uz.metrx.app.ui
+
+import android.app.Activity
+import androidx.activity.compose.BackHandler
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
+import androidx.core.view.WindowCompat
+import dev.chrisbanes.haze.rememberHazeState
+import kotlinx.coroutines.delay
+import uz.metrx.app.core.Laser
+import uz.metrx.app.core.Settings
+import uz.metrx.app.core.Strings
+import uz.metrx.app.ui.auth.AuthNav
+import uz.metrx.app.ui.auth.LocalScreen
+import uz.metrx.app.ui.auth.LogInScreen
+import uz.metrx.app.ui.auth.SignUpScreen
+import uz.metrx.app.ui.auth.SoonSheet
+import uz.metrx.app.ui.auth.WelcomeScreen
+import uz.metrx.app.ui.components.ToastHost
+import uz.metrx.app.ui.components.ToastKind
+import uz.metrx.app.ui.components.ToastMsg
+import uz.metrx.app.ui.glass.AuroraBox
+import uz.metrx.app.ui.glass.LocalHaze
+import uz.metrx.app.ui.main.DeviceSheet
+import uz.metrx.app.ui.main.GlassNav
+import uz.metrx.app.ui.main.HomeScreen
+import uz.metrx.app.ui.main.LanguageSheet
+import uz.metrx.app.ui.main.MainNav
+import uz.metrx.app.ui.main.ProfileScreen
+import uz.metrx.app.ui.projects.NewProjectScreen
+import uz.metrx.app.ui.projects.NoteScreen
+import uz.metrx.app.ui.projects.ProjectScreen
+import uz.metrx.app.ui.projects.ProjectSheet
+import uz.metrx.app.ui.projects.ProjectsList
+import uz.metrx.app.ui.projects.SpaceScreen
+import uz.metrx.app.data.Store
+import uz.metrx.app.ui.main.Tab
+import uz.metrx.app.ui.splash.RoomHops
+import uz.metrx.app.ui.theme.LocalLang
+import uz.metrx.app.ui.theme.LocalSettings
+
+/** Screens of the sign-in flow. "Profile" means it was opened from Profile, so leaving it goes back there. */
+private enum class AuthStep { WELCOME, SIGNUP, LOGIN, LOCAL }
+
+@Composable
+fun MetrxApp(settings: Settings, playIntro: Boolean) {
+    val haze = rememberHazeState()
+    val view = LocalView.current
+    val density = LocalDensity.current
+
+    var splash by remember { mutableStateOf(playIntro) }
+    val splashFade = remember { Animatable(1f) }
+    var welcomeRise by remember { mutableStateOf(playIntro) }
+
+    val authStack = remember { mutableStateListOf<AuthStep>().apply { if (!settings.firstRunDone) add(AuthStep.WELCOME) } }
+    var authFromProfile by remember { mutableStateOf(false) }
+    var editMe by rememberSaveable { mutableStateOf(false) }
+    var soon by remember { mutableStateOf(false) }
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val app = remember { App(settings, Store.get(context), context.applicationContext) }
+
+    val inAuth = authStack.isNotEmpty()
+    val lang = settings.lang
+    fun say(key: String, vararg v: Pair<String, Any?>, kind: ToastKind = ToastKind.INFO) = app.say(key, *v, kind = kind)
+
+    // light status-bar icons over the blueprint of the opening animation, dark ones on every light screen
+    SideEffect {
+        val w = (view.context as? Activity)?.window ?: return@SideEffect
+        WindowCompat.getInsetsController(w, view).apply {
+            // light icons over the opening animation and the live camera, dark ones on every light screen
+            val darkPage = splash || (!inAuth && (app.top == Route.LiveCam || settings.dark))
+            isAppearanceLightStatusBars = !darkPage
+            isAppearanceLightNavigationBars = !darkPage
+        }
+    }
+
+    // opening a sheet puts the keyboard away
+    val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
+    LaunchedEffect(app.sheet) { if (app.sheet != null) focusManager.clearFocus() }
+
+    // the simulated laser: searching takes a moment, then finds the simulator
+    LaunchedEffect(settings.laser) {
+        if (settings.laser == Laser.SEARCHING) { delay(1400); settings.laser = Laser.FOUND }
+    }
+
+    val authNav = object : AuthNav {
+        override fun signUp() { authStack.add(AuthStep.SIGNUP) }
+        override fun logIn() { authStack.add(AuthStep.LOGIN) }
+        override fun local() {
+            if (authFromProfile) { authStack.clear(); authFromProfile = false } else authStack.add(AuthStep.LOCAL)
+        }
+        override fun back() {
+            when {
+                editMe -> editMe = false
+                authStack.size > 1 -> authStack.removeAt(authStack.lastIndex)
+                authFromProfile -> { authStack.clear(); authFromProfile = false }
+            }
+        }
+        override fun done() {
+            if (editMe) { editMe = false; say("common.save", kind = ToastKind.OK); return }
+            settings.finishFirstRun(); authStack.clear(); authFromProfile = false; soon = false
+        }
+        override fun soon() { soon = true }
+    }
+    val mainNav = object : MainNav {
+        override fun laser() { app.sheet = Sheet.Device }
+        override fun newProject() { app.push(Route.NewProject()) }
+        override fun measure() { app.push(Route.Measure(false)) }
+        override fun calculator() { app.push(Route.Measure(true)) }
+        override fun languages() { app.sheet = Sheet.Language }
+        override fun signIn() { authFromProfile = true; welcomeRise = false; authStack.clear(); authStack.add(AuthStep.WELCOME) }
+    }
+
+    BackHandler(enabled = !splash && (soon || app.sheet != null || editMe || authStack.size > 1 || authFromProfile || (!inAuth && (app.stack.size > 1 || app.tab != Tab.HOME)))) {
+        when {
+            soon -> soon = false
+            app.sheet != null -> app.sheet = null
+            editMe || inAuth -> authNav.back()
+            app.stack.size > 1 -> app.pop()
+            app.tab != Tab.HOME -> app.tab = Tab.HOME
+        }
+    }
+
+    uz.metrx.app.ui.editor.PlanLabel.mode = settings.roomLabel
+    uz.metrx.app.ui.theme.Theme.dark = settings.dark && !inAuth
+    CompositionLocalProvider(LocalSettings provides settings, LocalLang provides lang, LocalHaze provides haze, LocalApp provides app) {
+        Box(Modifier.fillMaxSize()) {
+            if (!splash || splashFade.value < 1f) {
+                when {
+                    editMe -> LocalScreen(authNav, Strings.t("fr.builderTitle", lang))
+                    inAuth -> AnimatedContent(
+                        authStack.last(),
+                        transitionSpec = {
+                            val fwd = targetState.ordinal > initialState.ordinal
+                            (slideInHorizontally(tween(260)) { if (fwd) it / 4 else -it / 4 } + fadeIn(tween(200))) togetherWith
+                                (slideOutHorizontally(tween(260)) { if (fwd) -it / 4 else it / 4 } + fadeOut(tween(160)))
+                        }, label = "auth"
+                    ) { step ->
+                        when (step) {
+                            AuthStep.WELCOME -> WelcomeScreen(authNav, fromSplash = welcomeRise)
+                            AuthStep.SIGNUP -> SignUpScreen(authNav)
+                            AuthStep.LOGIN -> LogInScreen(authNav)
+                            AuthStep.LOCAL -> LocalScreen(authNav)
+                        }
+                    }
+                    else -> AuroraBox(haze) {
+                        AnimatedContent(
+                            app.tab to app.top,
+                            // the same page with another tab, view or mode does not slide
+                            contentKey = { (t, r) -> t to pageKey(r) },
+                            transitionSpec = {
+                                if (initialState.first != targetState.first) fadeIn(tween(180)) togetherWith fadeOut(tween(120))
+                                else {
+                                    val d = app.dir
+                                    (slideInHorizontally(tween(280)) { w -> if (d > 0) w else -w / 3 } + fadeIn(tween(200))) togetherWith
+                                        (slideOutHorizontally(tween(280)) { w -> if (d > 0) -w / 3 else w } + fadeOut(tween(200)))
+                                }
+                            }, label = "page"
+                        ) { (t, route) ->
+                            Box(Modifier.fillMaxSize()) {
+                                when (route) {
+                                    Route.Root -> when (t) {
+                                        Tab.HOME -> HomeScreen(mainNav)
+                                        Tab.PROJECTS -> ProjectsList()
+                                        Tab.PROFILE -> ProfileScreen(mainNav) { editMe = true }
+                                    }
+                                    is Route.NewProject -> NewProjectScreen(route.editId)
+                                    is Route.Project -> ProjectScreen(route)
+                                    is Route.Space -> SpaceScreen(route)
+                                    is Route.Note -> NoteScreen(route)
+                                    is Route.Editor -> uz.metrx.app.ui.editor.EditorScreen(route)
+                                    is Route.WallView -> uz.metrx.app.ui.editor.WallViewScreen(route)
+                                    is Route.Sketch -> uz.metrx.app.ui.editor.SketchScreen(route)
+                                    Route.SettingsMore -> uz.metrx.app.ui.main.SettingsMoreScreen()
+                                    Route.Subscription -> uz.metrx.app.ui.main.SubscriptionScreen()
+                                    is Route.Report -> uz.metrx.app.ui.report.ReportScreen(route.pid, null)
+                                    is Route.Quote -> uz.metrx.app.ui.report.ReportScreen(route.pid, route.no)
+                                    is Route.Measure -> uz.metrx.app.ui.measure.MeasureScreen(route.calc)
+                                    is Route.Markup -> uz.metrx.app.ui.markup.MarkupScreen(route)
+                                    Route.LiveCam -> uz.metrx.app.ui.markup.LiveCamScreen()
+                                }
+                            }
+                        }
+                    }
+                }
+                // the tab bar shows on the tab pages and the project page; it steps away under a sheet
+                val navOn = !inAuth && !editMe && app.sheet == null && (app.top == Route.Root || app.top is Route.Project || app.top is Route.Measure)
+                if (navOn) Box(Modifier.align(Alignment.BottomCenter)) { GlassNav(app.tab, { app.selectTab(it) }) }
+                when (val sh = app.sheet) {
+                    Sheet.Language -> LanguageSheet(lang, { settings.setLanguage(it); app.sheet = null }) { app.sheet = null }
+                    Sheet.Device -> DeviceSheet(
+                        onClose = { app.sheet = null },
+                        onSearch = { settings.laser = Laser.SEARCHING },
+                        onConnect = { settings.laser = Laser.CONNECTED; app.sheet = null; say("dv.connected", kind = ToastKind.OK) },
+                        onDisconnect = { settings.laser = Laser.DISCONNECTED; app.sheet = null }
+                    )
+                    null -> {}
+                    else -> if (!ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
+                }
+                if (soon) SoonSheet(onLocal = { soon = false; authNav.local() }, onClose = { soon = false })
+                ToastHost(app.toast) { app.toast = null }
+                uz.metrx.app.ui.markup.PhotoIntake(app)
+            }
+            if (splash) {
+                // the animation docks its tile where the next screen's header logo is
+                val top = WindowInsets.statusBars.getTop(density).toFloat()
+                val dock = with(density) {
+                    if (inAuth) Rect(Offset(20.dp.toPx(), top + 14.dp.toPx()), Size(28.dp.toPx(), 28.dp.toPx()))
+                    else Rect(Offset(20.dp.toPx(), top + 13.dp.toPx()), Size(38.dp.toPx(), 38.dp.toPx()))
+                }
+                var done by remember { mutableStateOf(false) }
+                LaunchedEffect(done) {
+                    if (done) { splashFade.animateTo(0f, tween(220)); splash = false }
+                }
+                RoomHops(dock, onDone = { done = true }, modifier = Modifier.alpha(splashFade.value))
+            }
+        }
+    }
+}
+
+/** A page's identity: what it shows inside (project tab and view, editor mode) does not make it another page. */
+private fun pageKey(r: Route): Any = when (r) {
+    is Route.Project -> "project:" + r.id
+    is Route.Editor -> "editor:" + r.pid + ":" + r.rid
+    is Route.Measure -> "measure"
+    is Route.Markup -> "markup:" + r.iid
+    else -> r
+}
+
+private val Int.dp get() = androidx.compose.ui.unit.Dp(this.toFloat())

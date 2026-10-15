@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- the shared PDFs and pictures, written to the cache just before sharing, and the photo the camera app writes -->
+<paths>
+    <cache-path name="pdf" path="pdf/" />
+    <cache-path name="share" path="share/" />
+    <cache-path name="camera" path="camera/" />
+</paths>
