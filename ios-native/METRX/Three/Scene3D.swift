@@ -234,10 +234,12 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
 
     /* ---------------- materials and meshes ---------------- */
 
-    /// A flat colour, shown exactly as given (no tone mapping, which darkened the prototype's colours unevenly).
+    /// A flat colour, shown exactly as given: without tone mapping, which darkens the prototype's colours unevenly
+    /// (iOS 18 and newer; on iOS 17 the picture comes out a little darker).
     private func mat(_ rgb: Int, _ a: Double) -> UnlitMaterial {
-        var m = UnlitMaterial(applyPostProcessToneMap: false)
-        m.color = .init(tint: uiColor(rgb))
+        var m: UnlitMaterial
+        if #available(iOS 18.0, *) { m = UnlitMaterial(applyPostProcessToneMap: false); m.color = .init(tint: uiColor(rgb)) }
+        else { m = UnlitMaterial(color: uiColor(rgb)) }
         if a < 1 { m.blending = .transparent(opacity: .init(floatLiteral: Float(a))) }
         return m
     }
