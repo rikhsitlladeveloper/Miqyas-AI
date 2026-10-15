@@ -49,7 +49,7 @@ jobs:
           set -o pipefail
           TEST_RUNNER_SHOTS="$PWD/out/shots" xcodebuild test -project METRX.xcodeproj -scheme METRX \
             -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath out/dd -resultBundlePath out/tests.xcresult \
-            CODE_SIGNING_ALLOWED=NO > out/test.log 2>&1 || { grep -nE "error:|: error|failed|FAILED|Test Case.*failed" -A5 out/test.log | head -n 250; exit 1; }
+            > out/test.log 2>&1 || { grep -nE "error:|: error|failed|FAILED|Test Case.*failed" -A5 out/test.log | head -n 250; exit 1; }
           grep -E "Test Case|Executed" out/test.log | tail -n 60
           ls out/shots
 
