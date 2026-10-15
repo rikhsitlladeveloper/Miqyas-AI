@@ -31,7 +31,7 @@ Package `uz.metrx.app`, Android 8.0 (API 26) and newer, portrait.
 | `ui/theme/Theme.kt` | glass and sign-in colours, Plus Jakarta Sans (Latin), Manrope (Cyrillic and sign-in), IBM Plex Mono |
 | `ui/glass/Glass.kt` | aurora background, frosted cards, real blur (Android 12+) with a frosted tint below |
 | `ui/icons/` | the prototype's 61 icons, converted by `tools/icons2kt.py` |
-| `ui/splash/` | the AB2 "Room hops" opening animation, redrawn from the founder's artifact |
+| `ui/splash/` | the "Room hops" opening animation, option B "Line + read hold" (3.4 s), redrawn from the founder's artifact |
 | `ui/auth/` | welcome, sign up, log in, continue without an account |
 | `ui/main/` | tab bar, Home, empty Projects, Profile (part 1), language and laser sheets |
 | `data/` | the project model (same shape as the prototype), SQLite store, names and counts |
@@ -235,5 +235,5 @@ camera.
 
 Kotlin + Compose (iPhone later in Swift); name METRX; every prototype screen; look identical to the glass prototype;
 native 3D (SceneView); Android 8.0+; laser simulated and labelled until a device is chosen; sign-in screens without
-a server; Pro card shown with everything unlocked; light theme with a dark switch; AB2 on every cold start, tap to skip;
+a server; Pro card shown with everything unlocked; light theme with a dark switch; "Room hops" B (Line + read hold) on every cold start, tap to skip;
 no crash reporting; APK files first; new package, no data moved from the old test app.

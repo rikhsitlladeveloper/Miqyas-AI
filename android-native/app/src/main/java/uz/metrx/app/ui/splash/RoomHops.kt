@@ -58,10 +58,13 @@ import kotlin.math.max
 import kotlin.math.min
 
 /**
- * AB2 "Room hops" from the founder's launch-motion artifact (MxXnmrubuGSLppMi2zwRf1, m5.html + common.js),
- * redrawn natively. The laser dot lands in a corner and hops round the room; each landing snaps a neon wall with
- * its length, the third shows the area; the room folds into the M, the dot lands in the V and swells into blue,
- * and the blue contracts into the logo tile, which docks where the next screen's header logo sits.
+ * "Room hops", option B "Line + read hold" from the founder's launch-motion artifact (MxXnmrubuGSLppMi2zwRf1,
+ * m8.html + room.js + common.js; chosen 15 Oct 2026), redrawn natively. The laser dot lands in a corner and hops round
+ * the room, resting a moment on each landing; each landing snaps a neon wall with its length and adds one word to the
+ * line "O‘lchang. Chizing. Hisoblang." (the newest word bright, earlier ones dimmed), the third shows the area; the
+ * whole line brightens and the walls glow softly while it is read; then the room folds into the M, the dot lands in
+ * the V and swells into blue, and the blue contracts into the logo tile, which docks where the next screen's header
+ * logo sits. 3.4 s.
  *
  * Everything is drawn in the artifact's 390 × 844 design stage, scaled to fit the safe area, from one clock t (s).
  *
@@ -99,7 +102,14 @@ fun RoomHops(dockTo: Rect, onDone: () -> Unit, modifier: Modifier = Modifier) {
 }
 
 private class Timeline {
-    companion object { const val END = 3.0f }
+    companion object {
+        // option B's timing (m8.html): landings, hop lengths, the fold; the tail after the fold always takes 1.30 s
+        const val LA = .22f; const val LB = .58f; const val LD = 1.14f; const val LE = 1.68f
+        const val HB = .22f; const val HD = .24f; const val HE = .22f
+        const val F = 2.10f; const val BRIGHT = 1.98f
+        const val WIPE = F + .34f; const val CN = WIPE + .30f; const val DOCK = CN + .46f
+        const val END = DOCK + .2f
+    }
 
     // ---- geometry of the artifact, in stage px ----
     private val S = 3.42f
@@ -140,17 +150,23 @@ private class Timeline {
     private val dotScale = mapOf('A' to Track(0f), 'B' to Track(0f), 'C' to Track(0f), 'D' to Track(0f), 'E' to Track(0f))
     private fun mark(k: Char, t: Float) { dotScale.getValue(k).to(t, .18f, 1f, Ease.backOut(3f)) }
 
-    private val rings = listOf(A0 to .30f, B0 to .66f, D0 to 1.04f, E0 to 1.40f)
-    private val pulses = listOf(.66f, 1.04f, 1.40f)
+    private val rings = listOf(A0 to LA, B0 to LB, D0 to LD, E0 to LE)
+    /** The walls' middle glow layer (.wl.g1), which breathes during the read hold. */
+    private val glowG1 = Track(.38f)
 
     // ---- dimension lines, labels, area ----
     private val dmL = Track(0f); private val dmT = Track(0f); private val dtL = Track(0f); private val dtT = Track(0f)
     private val dimsO = Track(1f)
     private val areaO = Track(0f); private val areaS = Track(.6f)
 
-    // ---- captions, one letter at a time ----
-    private class Cap(val text: String, val inAt: Float, val outAt: Float)
-    private val caps = listOf(Cap("O‘lchang.", .66f, .92f), Cap("Chizing.", 1.04f, 1.28f), Cap("Hisoblang.", 1.40f, 1.68f))
+    // ---- the tagline: one line built word by word (room.css #tagline) ----
+    private val words = listOf("O‘lchang.", "Chizing.", "Hisoblang.")
+    private val wordO = List(3) { Track(0f) }; private val wordY = List(3) { Track(0f) }
+    private val taglineO = Track(1f)
+    private fun wordIn(i: Int, t: Float) {
+        wordO[i].fromTo(t, .18f, 0f, 1f, Ease.p3Out); wordY[i].fromTo(t, .18f, 8f, 0f, Ease.p3Out)
+        for (j in 0 until i) wordO[j].to(t, .2f, .6f, Ease.p1Out)        // the newest word brightest
+    }
 
     // ---- the blue: wipe, logo, tile, lockup, dock ----
     private val flipSolid = Track(0f); private val logoO = Track(0f)
@@ -161,41 +177,52 @@ private class Timeline {
     private val dock = Track(0f)
 
     init {
-        dotO.to(.06f, .06f, 1f, Ease.none)
-        dotSX.to(.08f, .22f * .9f, .8f, Ease.p1In); dotSY.to(.08f, .22f * .9f, 1.3f, Ease.p1In)
-        dotY.to(.08f, .22f, 486f, Ease.p2In); land(.30f); mark('A', .30f)
+        // the laser dot falls into the first corner
+        val fall = .20f
+        dotO.to(maxOf(0f, LA - fall - .02f), .06f, 1f, Ease.none)
+        dotSX.to(LA - fall, fall * .9f, .8f, Ease.p1In); dotSY.to(LA - fall, fall * .9f, 1.3f, Ease.p1In)
+        dotY.to(LA - fall, fall, 486f, Ease.p2In); land(LA); mark('A', LA)
 
-        hop(.44f, Offset(80f, 336f), 290f, .22f); land(.66f)
-        snap(150f / 530f, .66f); mark('B', .66f)
-        dmL.to(.68f, .2f, 1f, Ease.p3Out); dtL.to(.70f, .14f, 1f, Ease.none)
+        // three hops: each landing snaps a wall and adds a word
+        hop(LB - HB, Offset(80f, 336f), 290f, HB); land(LB)                        // left wall
+        snap(150f / 530f, LB); mark('B', LB); wordIn(0, LB)
+        dmL.to(LB + .10f, .2f, 1f, Ease.p3Out); dtL.to(LB + .12f, .14f, 1f, Ease.none)
 
-        hop(.80f, Offset(310f, 336f), 262f, .24f); land(1.04f)
-        snap(380f / 530f, 1.04f); mark('D', 1.04f)
-        dmT.to(1.06f, .2f, 1f, Ease.p3Out); dtT.to(1.08f, .14f, 1f, Ease.none)
+        hop(LD - HD, Offset(310f, 336f), 262f, HD); land(LD)                       // top wall
+        snap(380f / 530f, LD); mark('D', LD); wordIn(1, LD)
+        dmT.to(LD + .10f, .2f, 1f, Ease.p3Out); dtT.to(LD + .12f, .14f, 1f, Ease.none)
 
-        hop(1.18f, Offset(310f, 486f), 300f, .22f); land(1.40f)
-        snap(1f, 1.40f); mark('E', 1.40f)
-        floorO.set(1.42f, 1f); floorB.to(1.42f, .12f, 1f, Ease.p2Out)
-        areaO.fromTo(1.44f, .2f, 0f, 1f, Ease.backOut(2.2f)); areaS.fromTo(1.44f, .2f, .6f, 1f, Ease.backOut(2.2f))
+        hop(LE - HE, Offset(310f, 486f), 300f, HE); land(LE)                       // right wall, floor closes, area
+        snap(1f, LE); mark('E', LE); wordIn(2, LE)
+        floorO.set(LE + .02f, 1f); floorB.to(LE + .02f, .12f, 1f, Ease.p2Out)
+        areaO.fromTo(LE + .08f, .2f, 0f, 1f, Ease.backOut(2.2f)); areaS.fromTo(LE + .08f, .2f, .6f, 1f, Ease.backOut(2.2f))
 
-        dimsO.to(1.70f, .1f, 0f, Ease.p1In)
-        floorA.to(1.70f, .12f, .5f, Ease.p2In); floorB.to(1.70f, .12f, .5f, Ease.p2In); floorO.set(1.82f, 0f)
-        fold.to(1.70f, .32f, 1f, Ease.p3InOut)
-        dotScale.getValue('C').to(1.70f, .14f, 1f, Ease.expoOut)
-        dotScale.getValue('A').to(1.70f, .32f, 0f, Ease.p2In); dotScale.getValue('E').to(1.70f, .32f, 0f, Ease.p2In)
-        hop(1.72f, Offset(CST.x, CST.y + 6f), 360f, .30f); land(2.02f, true)
+        // the read hold: the whole line back to full brightness, the walls breathe once
+        wordO.forEach { it.to(BRIGHT, .25f, 1f, Ease.p1InOut) }
+        val g = (F - LE - .14f) / 2f
+        glowG1.to(LE + .12f, g, .62f, Ease.sineInOut); glowG1.to(LE + .12f + g, g, .38f, Ease.sineInOut)
 
-        dotO.set(2.04f, 0f)
-        flipSolid.set(2.32f, 1f)
-        logoO.to(2.23f, .08f, 1f, Ease.none); planO.to(2.23f, .08f, 0f, Ease.none)
+        // the room folds into the M; the dot hops into the V
+        dimsO.to(F, .1f, 0f, Ease.p1In)
+        floorA.to(F, .12f, .5f, Ease.p2In); floorB.to(F, .12f, .5f, Ease.p2In); floorO.set(F + .12f, 0f)
+        fold.to(F, .32f, 1f, Ease.p3InOut)
+        dotScale.getValue('C').to(F, .14f, 1f, Ease.expoOut)
+        dotScale.getValue('A').to(F, .32f, 0f, Ease.p2In); dotScale.getValue('E').to(F, .32f, 0f, Ease.p2In)
+        hop(F + .02f, Offset(CST.x, CST.y + 6f), 360f, .30f); land(F + .32f, true)
+
+        // the dot swells into blue and covers everything; the drawing becomes the solid M
+        dotO.set(WIPE, 0f)
+        flipSolid.set(WIPE + .28f, 1f)
+        logoO.to(WIPE + .19f, .08f, 1f, Ease.none); planO.to(WIPE + .19f, .08f, 0f, Ease.none)
+        taglineO.set(WIPE + .24f, 0f)                                                // already under the blue
 
         // the blue contracts into the tile; layers swap while the screen is covered
-        tileO.set(2.34f, 1f); light.set(2.34f, 1f); flipSolid.set(2.34f, 0f)
-        tileK.to(2.34f, .22f, .95f, Ease.expoInOut); tileK.to(2.56f, .14f, 1f, Ease.backOut(2.5f))
-        logoK.to(2.34f, .22f, 1f, Ease.expoInOut); logoY.to(2.34f, .22f, 0f, Ease.expoInOut)
-        shadowO.fromTo(2.48f, .2f, 0f, 1f, Ease.p2Out); shadowY.fromTo(2.48f, .2f, -4f, 0f, Ease.p2Out)
-        lockupX.to(2.48f, .3f, 0f, Ease.p3Out)
-        dock.to(2.8f, .2f, 1f, Ease.p3Out)
+        tileO.set(CN, 1f); light.set(CN, 1f); flipSolid.set(CN, 0f)
+        tileK.to(CN, .22f, .95f, Ease.expoInOut); tileK.to(CN + .22f, .14f, 1f, Ease.backOut(2.5f))
+        logoK.to(CN, .22f, 1f, Ease.expoInOut); logoY.to(CN, .22f, 0f, Ease.expoInOut)
+        shadowO.fromTo(CN + .14f, .2f, 0f, 1f, Ease.p2Out); shadowY.fromTo(CN + .14f, .2f, -4f, 0f, Ease.p2Out)
+        lockupX.to(CN + .14f, .3f, 0f, Ease.p3Out)
+        dock.to(DOCK, .2f, 1f, Ease.p3Out)
     }
 
     private val roomPath = Path()
@@ -225,18 +252,9 @@ private class Timeline {
 
         translate(sx, sy) { scale(s, s, pivot = Offset.Zero) {
             if (!lit) {
-                pulses.forEach { p ->   // a soft blue flash on each landing
-                    val a = when {
-                        t < p -> 0f
-                        t < p + .05f -> .22f * (t - p) / .05f
-                        t < p + .31f -> .22f * (1 - Ease.p1Out((t - p - .05f) / .26f))
-                        else -> 0f
-                    }
-                    if (a > 0f) drawRect(G.cobalt.copy(alpha = a), Offset(vb.left, vb.top), Size(vb.width, vb.height))
-                }
                 if (planO(t) > 0f) plan(t, planO(t))
                 dims(t, tm)
-                captions(t, tm)
+                tagline(t, tm)
                 rings(t)
                 logoOnBlue(t)
                 dot(t)
@@ -276,7 +294,7 @@ private class Timeline {
         if (wallOn(t) > 0f && drawn > 0f) {
             measure.setPath(roomPath, false); seg.reset()
             measure.getSegment(0f, measure.length * drawn, seg, true)
-            neonStroke(seg, alpha)
+            neonStroke(seg, alpha, glowG1(t))
         }
         if (floorO(t) > 0f) {
             val fa = floorA(t); val fb = floorB(t)
@@ -298,9 +316,9 @@ private class Timeline {
         }
     }
 
-    private fun DrawScope.neonStroke(p: Path, alpha: Float) {
+    private fun DrawScope.neonStroke(p: Path, alpha: Float, g1: Float) {
         drawPath(p, wallBrush, alpha = .14f * alpha, style = Stroke(13f, cap = StrokeCap.Round, join = StrokeJoin.Round))
-        drawPath(p, wallBrush, alpha = .38f * alpha, style = Stroke(6f, cap = StrokeCap.Round, join = StrokeJoin.Round))
+        drawPath(p, wallBrush, alpha = g1 * alpha, style = Stroke(6f, cap = StrokeCap.Round, join = StrokeJoin.Round))
         drawPath(p, Color(0xFFECF3FF), alpha = alpha, style = Stroke(1.8f, cap = StrokeCap.Round, join = StrokeJoin.Round))
     }
 
@@ -344,30 +362,23 @@ private class Timeline {
         rotate(rot, center) { drawText(r, topLeft = Offset(center.x - r.size.width / 2f, center.y - r.size.height / 2f), alpha = alpha) }
     }
 
-    private val capStyle = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Bold, fontSize = 30.sp, color = Color(0xFFF2F6FF), shadow = Shadow(Color(0x593FD8F2), blurRadius = 14f))
-    private val capCache = HashMap<String, List<TextLayoutResult>>()
+    private val tagStyle = TextStyle(fontFamily = Jakarta, fontWeight = FontWeight.Bold, fontSize = 22.sp, color = Color(0xFFF2F6FF), shadow = Shadow(Color(0x593FD8F2), blurRadius = 12f))
+    private var tagWords: List<TextLayoutResult>? = null
+    private var tagSpace = 0f
 
-    private fun DrawScope.captions(t: Float, tm: TextMeasurer) {
-        for (c in caps) {
-            if (t < c.inAt || t > c.outAt + .12f + c.text.length * .008f) continue
-            val letters = capCache.getOrPut(c.text) { c.text.map { tm.measure(it.toString(), capStyle, density = UNIT) } }
-            val total = letters.sumOf { it.size.width }.toFloat()
-            var x = 195f - total / 2f
-            val n = letters.size
-            letters.forEachIndexed { i, r ->
-                val inStart = c.inAt + (n - 1 - i) * .014f
-                val pin = ((t - inStart) / .2f).coerceIn(0f, 1f)
-                val e = Ease.backOut(2f)(pin)
-                var o = if (t < inStart) 0f else e.coerceIn(0f, 1f)
-                var dy = 14f * (1 - e); val sc = .6f + .4f * e
-                val outStart = c.outAt + i * .008f
-                if (t >= outStart) { val po = Ease.p2In(((t - outStart) / .12f).coerceIn(0f, 1f)); o *= (1 - po); dy = -12f * po }
-                if (o > 0f) {
-                    val bottom = Offset(x + r.size.width / 2f, 540f + 34f / 2f + r.size.height / 2f)
-                    scale(sc, sc, pivot = bottom) { drawText(r, topLeft = Offset(x, 557f - r.size.height / 2f + dy), alpha = o) }
-                }
-                x += r.size.width
-            }
+    /** The line under the room: centred on y 536 (its 28 px line box starts at 522), whole words with a space between. */
+    private fun DrawScope.tagline(t: Float, tm: TextMeasurer) {
+        val lo = taglineO(t); if (lo <= 0f) return
+        val ws = tagWords ?: words.map { tm.measure(it, tagStyle, density = UNIT) }.also {
+            tagWords = it
+            tagSpace = tm.measure("a a", tagStyle, density = UNIT).size.width - 2f * tm.measure("a", tagStyle, density = UNIT).size.width
+        }
+        val total = ws.sumOf { it.size.width }.toFloat() + tagSpace * (ws.size - 1)
+        var x = 195f - total / 2f
+        ws.forEachIndexed { i, r ->
+            val o = (wordO[i](t) * lo).coerceIn(0f, 1f)
+            if (o > 0f) drawText(r, topLeft = Offset(x, 536f - r.size.height / 2f + wordY[i](t)), alpha = o)
+            x += r.size.width + tagSpace
         }
     }
 
@@ -393,10 +404,10 @@ private class Timeline {
 
     private fun DrawScope.wipe(t: Float, vb: Rect) {
         if (flipSolid(t) >= 1f) { drawRect(G.cobalt, Offset(vb.left, vb.top), Size(vb.width, vb.height)); return }
-        if (t < 2.04f) return
+        if (t < WIPE) return
         val far = listOf(Offset(vb.left, vb.top), Offset(vb.right, vb.top), Offset(vb.left, vb.bottom), Offset(vb.right, vb.bottom))
             .maxOf { hypot(it.x - CST.x, it.y - CST.y) }
-        val k = Ease.p2In(((t - 2.04f) / .28f).coerceIn(0f, 1f))
+        val k = Ease.p2In(((t - WIPE) / .28f).coerceIn(0f, 1f))
         val scale = 1f + ((2 * far) / 12f + 2f - 1f) * k
         drawCircle(G.cobalt, 6f * scale, CST)
     }
@@ -450,10 +461,10 @@ private class Timeline {
             // tile: starts covering the screen, contracts to 88 px with a small overshoot
             val tk = tileK(t)
             val cover = 2f * max(max(195f - vb.left, vb.right - 195f), max(422f - vb.top, vb.bottom - 422f)) / 88f * 1.03f
-            val tileScale = if (t < 2.34f) cover else {
+            val tileScale = if (t < CN) cover else {
                 // the contraction runs from the cover scale towards .95, then settles at 1
-                val p = ((t - 2.34f) / .22f).coerceIn(0f, 1f)
-                if (t < 2.56f) cover + (.95f - cover) * Ease.expoInOut(p) else tk
+                val p = ((t - CN) / .22f).coerceIn(0f, 1f)
+                if (t < CN + .22f) cover + (.95f - cover) * Ease.expoInOut(p) else tk
             }
             val c = Offset(44f, 44f)
             scale(tileScale, tileScale, pivot = c) {
@@ -463,7 +474,7 @@ private class Timeline {
             // wordmark letters pop in one after another
             var x = T + gap
             letters.forEachIndexed { i, r ->
-                val st = 2.50f + i * .03f
+                val st = CN + .16f + i * .03f
                 val p = ((t - st) / .24f).coerceIn(0f, 1f)
                 if (t >= st) {
                     val e = Ease.backOut(2.2f)(p)
