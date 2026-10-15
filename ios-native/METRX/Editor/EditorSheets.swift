@@ -140,7 +140,7 @@ private struct NewRoomSheet: View {
         Store.shared.update(p.id) { $0.rooms.append(r) }
         close()
         app.push(.editor(pid: p.id, rid: r.id, mode: "plan"))
-        if shape == "lshape" { app.say("sk.created", ["n": 6]) } else { RoomOps.shared.focus(r.id, "A") }
+        if shape == "lshape" { app.say("sk.created", ["n": dn(r.name)]) } else { RoomOps.shared.focus(r.id, "A") }
     }
 }
 

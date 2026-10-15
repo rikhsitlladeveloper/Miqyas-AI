@@ -126,7 +126,7 @@ struct SketchScreen: View {
         room.template = "poly"; room.shape = "poly"; room.dims = Geo.polyDims(mm.count); room.poly = Poly(verts: mm, template: "sketch")
         Store.shared.update(pid) { $0.rooms.append(room) }
         app.replaceTop(.editor(pid: pid, rid: room.id, mode: "plan"))
-        app.say("sk.created", ["n": mm.count])
+        app.say("sk.created", ["n": dn(room.name)])
     }
 
     private func drawSketch(_ ctx: GraphicsContext, _ res: Sketch.Result?) {

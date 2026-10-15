@@ -226,6 +226,7 @@ final class ScreenTests: XCTestCase {
         app.buttons["add.sketch"].tap(); usleep(700_000)
         app.buttons["add.plan"].tap(); usleep(800_000)
         app.buttons["nr.lshape"].tap(); sleep(1); shot("80-lshape-editor")
+        sleep(4)    // the "created" toast covers the back button for 3.4 s
         app.buttons["back"].firstMatch.tap(); usleep(1_000_000)
 
         // a room drawn by tapping four corners and the first one again
@@ -240,6 +241,7 @@ final class ScreenTests: XCTestCase {
         }
         shot("82-sketch-closed")
         app.buttons["sk.create"].tap(); sleep(1); shot("83-sketch-editor")
+        sleep(4)
         app.buttons["back"].firstMatch.tap(); usleep(1_000_000); shot("84-workspace-three-rooms")
         app.buttons["back"].firstMatch.tap(); usleep(1_000_000); shot("85-project-thumb")
     }
