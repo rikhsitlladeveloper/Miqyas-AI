@@ -25,7 +25,11 @@ final class AppSettings {
     /// What a plan shows in the middle of a room: "both", "name", "area" or "none".
     private(set) var roomLabel: String
     /// Default door and window sizes, mm.
-    private(set) var doorW: Int, doorH: Int, winW: Int, winH: Int, winSill: Int
+    private(set) var doorW: Int
+    private(set) var doorH: Int
+    private(set) var winW: Int
+    private(set) var winH: Int
+    private(set) var winSill: Int
     /// One visit = one cold start; the Home greeting line changes with it.
     let visit: Int
     /// Simulated laser state; not saved, a new start begins disconnected like a real Bluetooth device.
