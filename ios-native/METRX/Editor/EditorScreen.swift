@@ -76,8 +76,6 @@ struct EditorScreen: View {
                 }
                 if !ops.tipSeen && !AppSettings.shared.editorTipOff && app.sheet == nil { EditorTip() }
             }
-            // the keyboard of a sheet covers the page instead of squeezing the plan
-            .ignoresSafeArea(.keyboard)
             .onAppear { if mode == "3d" { ops.mode(p.id, r.id, "plan") } }
         }
     }
