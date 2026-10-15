@@ -50,5 +50,13 @@ three-tab bar, Home, the empty Projects page, Profile (name card, METRX Pro, app
 snapping, sign-in), More settings (units, room label, laser, subscription, about), the subscription page, the laser
 sheet with the labelled simulator, toasts, dark mode, the app icon.
 
+Checked on the iPhone 17 simulator (iOS 26.5, Xcode 26.6) by the screen tests on GitHub: the first start without an
+account (the name and phone fields with the phone keyboard; the number shown as 90 123 45 67 while typing), the
+welcome's language menu, sign-up, Home, the laser sheet from search to connected, Projects, Profile, More settings,
+the units and language sheets, dark mode on Profile, Home and a sheet, and the first screens in Russian (long labels
+fit). The cold-start video shows the whole animation from its first frame into Home, with no flash in between.
+Not checked yet: a real iPhone (install the IPA with Sideloadly), iOS 17–25 (the simulator has iOS 26), VoiceOver,
+large text sizes.
+
 Not in part 1 (they come with the parts that need them): projects and everything inside them, the Measure page and
 calculators, Profile's PDF parts, currency, door and window sizes and hints.
