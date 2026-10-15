@@ -90,6 +90,12 @@ struct RootView: View {
             page
                 .id("\(app.tab)-\(app.stack.count)")
                 .transition(app.dir > 0 ? .push(from: .trailing) : .push(from: .leading))
+            // iPhone's back gesture: a swipe from the left edge closes the page
+            if app.stack.count > 1 && app.sheet == nil {
+                Color.clear.frame(width: 20).frame(maxHeight: .infinity).contentShape(Rectangle())
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .gesture(DragGesture(minimumDistance: 10).onEnded { v in if v.translation.width > 70 { app.pop() } })
+            }
             // the tab bar shows on the tab pages; it steps away under a sheet
             if app.sheet == nil && app.top == .root {
                 GlassNav(cur: app.tab) { app.selectTab($0) }.transition(.opacity)

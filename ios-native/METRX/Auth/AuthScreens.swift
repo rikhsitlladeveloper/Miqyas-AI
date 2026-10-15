@@ -31,7 +31,8 @@ struct WelcomeScreen: View {
     var body: some View {
         let s = AppSettings.shared
         GeometryReader { geo in
-            let cardH = min(330, max(158, geo.size.height - 600))
+            // the whole screen's height, as on Android (bars included)
+            let cardH = min(330, max(158, geo.size.height + geo.safeAreaInsets.top + geo.safeAreaInsets.bottom - 600))
             ScrollView {
                 VStack(alignment: .leading, spacing: 13) {
                     HStack {

@@ -89,6 +89,8 @@ struct AuField<Focus: Hashable>: View {
     var onSubmit: () -> Void = {}
     var onBlur: () -> Void = {}
     @State private var showPw = false
+    /// What a phone field shows: the digits in groups (90 123 45 67), reformatted while typing.
+    @State private var phoneText = ""
 
     var body: some View {
         let focused = focus.wrappedValue == me
@@ -138,8 +140,13 @@ struct AuField<Focus: Hashable>: View {
     @ViewBuilder private var field: some View {
         switch kind {
         case .phone:
-            TextField("", text: Binding(get: { Phone.groups(value) }, set: { value = Phone.normalise($0) }),
-                      prompt: Text(placeholder).foregroundColor(Au.ink3))
+            TextField("", text: $phoneText, prompt: Text(placeholder).foregroundColor(Au.ink3))
+                .onAppear { phoneText = Phone.groups(value) }
+                .onChange(of: phoneText) { _, new in
+                    let d = Phone.normalise(new), g = Phone.groups(d)
+                    if value != d { value = d }
+                    if g != new { phoneText = g }
+                }
                 .font(.custom("IBMPlexMono-SemiBold", size: 22)).tracking(22 * 0.01).foregroundColor(Au.ink)
                 .keyboardType(.phonePad).textContentType(.telephoneNumber)
         case .password:

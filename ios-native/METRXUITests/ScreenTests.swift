@@ -21,13 +21,16 @@ final class ScreenTests: XCTestCase {
         return app
     }
 
+    /// A button whose spoken label starts with text (rows announce their value after the title).
+    private func btn(_ app: XCUIApplication, _ text: String) -> XCUIElement {
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", text)).firstMatch
+    }
+
     private func tapOutside(_ app: XCUIApplication) { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).tap() }
 
     /// First start without an account, then the three tabs, the laser sheet, Profile's pages and sheets, dark mode.
     func testFirstRunAndTabs() {
         let app = launch()
-        usleep(900_000); shot("01-splash-0.9s")
-        usleep(800_000); shot("02-splash-1.7s")
         XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 8))
         sleep(1); shot("03-welcome")
 
@@ -54,15 +57,15 @@ final class ScreenTests: XCTestCase {
         app.buttons["tab.projects"].tap(); usleep(700_000); shot("12-projects-empty")
         app.buttons["tab.profile"].tap(); usleep(700_000); shot("13-profile")
         app.swipeUp(); usleep(500_000); shot("14-profile-scrolled")
-        app.buttons["Boshqa sozlamalar"].firstMatch.tap(); usleep(800_000); shot("15-settings-more")
-        app.buttons["O‘lchov birliklari"].firstMatch.tap(); usleep(700_000); shot("16-units-sheet")
+        btn(app, "Boshqa sozlamalar").tap(); usleep(800_000); shot("15-settings-more")
+        btn(app, "O‘lchov birliklari").tap(); usleep(700_000); shot("16-units-sheet")
         app.buttons["sheet.close"].tap(); usleep(500_000)
         app.buttons["Orqaga"].firstMatch.tap(); usleep(700_000)
         app.swipeDown(); usleep(400_000)
-        app.buttons["Ilova tili"].firstMatch.tap(); usleep(700_000); shot("17-language-sheet")
+        btn(app, "Ilova tili").tap(); usleep(700_000); shot("17-language-sheet")
         app.buttons["sheet.close"].tap(); usleep(500_000)
 
-        app.buttons["Tungi rejim"].firstMatch.tap(); usleep(700_000); shot("18-profile-dark")
+        btn(app, "Tungi rejim").tap(); usleep(700_000); shot("18-profile-dark")
         app.buttons["tab.home"].tap(); usleep(700_000); shot("19-home-dark")
         app.buttons["laser"].firstMatch.tap(); usleep(700_000); shot("20-laser-sheet-dark")
     }

@@ -54,9 +54,9 @@ struct GlassSheet<Content: View, Footer: View>: View {
                 }
             }
             .frame(maxWidth: .infinity)
-            .glassBlur(shape, tint: G.sheet(0.84))
-            .topHighlight(shape, 1)
-            .overlay(shape.stroke(G.rim, lineWidth: 1))
+            // the glass runs down to the screen's edge, under the home indicator
+            .background { ZStack { shape.fill(.ultraThinMaterial); shape.fill(G.sheet(0.84)) }.ignoresSafeArea(edges: .bottom) }
+            .overlay(shape.stroke(G.rim, lineWidth: 1).ignoresSafeArea(edges: .bottom))
             .background(shape.fill(Color.black.opacity(0.001)).boxShadow(G.shade.opacity(0.16), blur: 40, y: -12))
             .contentShape(shape)
             .onTapGesture {}
