@@ -14,7 +14,9 @@ struct RootView: View {
     var body: some View {
         GeometryReader { geo in
             ZStack {
-                if !splash || splashFade < 1 { screens }
+                // the first screen is laid out under the animation from the start, so nothing flashes when it fades
+                (inAuth ? Color.white : G.paper).ignoresSafeArea()
+                screens
                 if splash {
                     RoomHops(dockTo: dock(geo), onDone: endSplash).opacity(splashFade)
                 }
