@@ -30,6 +30,8 @@ final class AppModel {
     var authFromProfile = false
     var editMe = false
     var soon = false
+    /// The launch animation has handed over (the welcome screen rises then).
+    var splashDone = false
 
     var stack: [Route] { stacks[tab] ?? [.root] }
     var top: Route { stack.last ?? .root }

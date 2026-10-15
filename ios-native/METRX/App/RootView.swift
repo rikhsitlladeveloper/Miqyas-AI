@@ -34,6 +34,7 @@ struct RootView: View {
     }
 
     private func endSplash() {
+        app.splashDone = true
         withAnimation(.linear(duration: 0.22)) { splashFade = 0 }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.24) { splash = false }
     }

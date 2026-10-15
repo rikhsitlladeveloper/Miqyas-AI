@@ -17,7 +17,10 @@ private struct Rise: ViewModifier {
     @State private var on = false
     func body(content: Content) -> some View {
         content.opacity(!play || on ? 1 : 0).offset(y: !play || on ? 0 : 10)
-            .onAppear { if play { withAnimation(.timingCurve(0.3, 0.7, 0.2, 1, duration: 0.45).delay(delay)) { on = true } } }
+            // it waits for the launch animation to hand over (the screen is already there, under it)
+            .onChange(of: AppModel.shared.splashDone, initial: true) { _, done in
+                if play && done && !on { withAnimation(.timingCurve(0.3, 0.7, 0.2, 1, duration: 0.45).delay(delay)) { on = true } }
+            }
     }
 }
 private extension View { func rise(_ play: Bool, _ delayMs: Double) -> some View { modifier(Rise(play: play, delay: delayMs / 1000)) } }
