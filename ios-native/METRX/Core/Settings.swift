@@ -22,6 +22,9 @@ final class AppSettings {
     /// Lengths in metres or centimetres; 90°/45° snapping for drawn rooms.
     private(set) var unitCm: Bool
     private(set) var angleSnap: Bool
+    var unit: LenUnit { unitCm ? .cm : .m }
+    /// "Don't show again" for the editor's first-time tip.
+    private(set) var editorTipOff: Bool
     /// What a plan shows in the middle of a room: "both", "name", "area" or "none".
     private(set) var roomLabel: String
     /// Default door and window sizes, mm.
@@ -51,6 +54,7 @@ final class AppSettings {
         reportLang = Lang.of(d.string(forKey: "reportLang") ?? d.string(forKey: "lang"))
         unitCm = d.string(forKey: "unit") == "cm"
         angleSnap = d.object(forKey: "angleSnap") as? Bool ?? true
+        editorTipOff = d.bool(forKey: "tipEditor")
         roomLabel = d.string(forKey: "roomLabel") ?? "both"
         func int(_ k: String, _ v: Int) -> Int { d.object(forKey: k) as? Int ?? v }
         doorW = int("doorW", 900); doorH = int("doorH", 2100); winW = int("winW", 1200); winH = int("winH", 1500); winSill = int("winSill", 900)
@@ -77,6 +81,7 @@ final class AppSettings {
         builderName = name.trimmingCharacters(in: .whitespacesAndNewlines); builderPhone = Phone.digits(phone)
         d.set(builderName, forKey: "builderName"); d.set(builderPhone, forKey: "builderPhone")
     }
+    func hideEditorTip() { editorTipOff = true; d.set(true, forKey: "tipEditor") }
     func finishFirstRun() { firstRunDone = true; d.set(true, forKey: "firstRunDone") }
 }
 

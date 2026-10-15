@@ -149,4 +149,116 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(btn(again, "Hammom").waitForExistence(timeout: 3))
         shot("57-after-restart")
     }
+
+    /// A project with one workspace, opened at the workspace page (for the editor tests).
+    private func newWorkspace(_ app: XCUIApplication, _ name: String) {
+        app.buttons["home.new"].tap(); usleep(900_000)
+        app.textFields.element(boundBy: 0).typeText(name)
+        app.buttons["np.save"].tap(); usleep(1_000_000)
+        app.buttons["ws.create"].tap(); usleep(800_000)
+        app.buttons["ws.save"].tap(); usleep(1_000_000)
+    }
+
+    private func typeValue(_ app: XCUIApplication, _ v: String) {
+        let f = app.textFields["ms.value"]
+        XCTAssertTrue(f.waitForExistence(timeout: 3))
+        f.tap(); f.typeText(v); usleep(300_000)
+    }
+
+    /// Part 3: a rectangle room measured by hand, a door and a window, the full list, the wall view, the laser,
+    /// room info, the room card, an L-shaped room and a room drawn by tapping its corners.
+    func testEditor() {
+        let app = launch()
+        firstRun(app)
+        newWorkspace(app, "Uy 3")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000); shot("60-new-room")
+        app.buttons["nr.create"].tap(); sleep(1); shot("61-editor-tip")
+        app.buttons["tip.ok"].tap(); usleep(700_000); shot("62-editor-A")
+
+        app.buttons["ed.manual"].tap(); usleep(700_000)
+        typeValue(app, "4"); shot("63-measure-sheet")
+        app.textFields["ms.value"].typeText("x"); usleep(300_000)
+        app.buttons["ms.save"].tap(); usleep(500_000); shot("64-measure-invalid")
+        let f = app.textFields["ms.value"]
+        f.typeText(XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + "5")
+        app.buttons["ms.save"].tap(); usleep(900_000); shot("65-editor-A-confirmed")
+        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, "4"); app.buttons["ms.save"].tap(); usleep(900_000)
+        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, "3"); app.buttons["ms.save"].tap(); usleep(900_000)
+        shot("66-editor-measured")
+
+        app.buttons["ed.openings"].tap(); usleep(700_000); shot("67-add-opening")
+        app.buttons["ao.door"].tap(); usleep(800_000); shot("68-door-sheet")
+        app.buttons["op.save"].tap(); usleep(900_000)
+        app.buttons["ed.openings"].tap(); usleep(700_000)
+        app.buttons["ao.window"].tap(); usleep(800_000); shot("69-window-sheet")
+        app.buttons["op.save"].tap(); usleep(900_000); shot("70-plan-door-window")
+        app.buttons["ed.all"].firstMatch.tap(); usleep(900_000); shot("71-full-list")
+        app.swipeUp(); usleep(500_000); shot("72-full-list-scrolled")
+        app.buttons["ed.all"].firstMatch.tap(); usleep(700_000)
+
+        app.buttons["ed.walls"].tap(); usleep(900_000); shot("73-wall-A")
+        app.buttons["wv.next"].tap(); usleep(500_000)
+        app.buttons["wv.next"].tap(); usleep(700_000); shot("74-wall-C-window")
+        app.buttons["back"].firstMatch.tap(); usleep(900_000)
+
+        // the simulated laser: connect, measure the height again, confirm
+        app.buttons["laser"].firstMatch.tap(); usleep(700_000)
+        app.buttons["Qidirish"].tap(); sleep(2); app.buttons["Ulash"].tap(); usleep(900_000)
+        app.buttons["ed.all"].firstMatch.tap(); usleep(800_000)
+        app.otherElements["row.H"].tap(); usleep(700_000)
+        app.buttons["ed.all"].firstMatch.tap(); usleep(700_000)
+        btn(app, "Qayta o‘lchash").tap(); usleep(700_000); shot("75-remeasure")
+        app.buttons["ed.laser"].tap(); usleep(900_000); shot("76-laser-reading")
+        app.buttons["ed.confirm"].tap(); usleep(900_000); shot("77-laser-confirmed")
+
+        app.buttons["ed.menu"].tap(); usleep(800_000); shot("78-room-info")
+        app.buttons["sheet.close"].tap(); usleep(600_000)
+        app.buttons["back"].firstMatch.tap(); usleep(1_000_000); shot("79-workspace-room-card")
+
+        // an L-shaped room
+        app.buttons["space.addTile"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.lshape"].tap(); sleep(1); shot("80-lshape-editor")
+        app.buttons["back"].firstMatch.tap(); usleep(1_000_000)
+
+        // a room drawn by tapping four corners and the first one again
+        app.buttons["space.addTile"].firstMatch.tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.sketch"].tap(); usleep(900_000); shot("81-sketch")
+        app.buttons["seg.t"].tap(); usleep(400_000)
+        let pad = app.otherElements["pad"].exists ? app.otherElements["pad"] : app.images["pad"]
+        for (x, y) in [(0.2, 0.2), (0.8, 0.2), (0.8, 0.7), (0.2, 0.7), (0.2, 0.2)] {
+            pad.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y)).tap(); usleep(350_000)
+        }
+        shot("82-sketch-closed")
+        app.buttons["sk.create"].tap(); sleep(1); shot("83-sketch-editor")
+        app.buttons["back"].firstMatch.tap(); usleep(1_000_000); shot("84-workspace-three-rooms")
+        app.buttons["back"].firstMatch.tap(); usleep(1_000_000); shot("85-project-thumb")
+    }
+
+    /// The editor in Russian, to see long labels in the step card and the sheets.
+    func testEditorRussian() {
+        let app = launch(lang: "ru")
+        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 8))
+        app.buttons["welcome.skip"].tap(); usleep(700_000)
+        app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Санжар Уста")
+        app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
+        app.buttons["local.start"].tap()
+        XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 5)); usleep(800_000)
+        newWorkspace(app, "Дом")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.create"].tap(); sleep(1)
+        app.buttons["tip.ok"].tap(); usleep(700_000); shot("90-ru-editor")
+        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, "5,2"); app.buttons["ms.save"].tap(); usleep(900_000)
+        app.buttons["ed.openings"].tap(); usleep(700_000)
+        app.buttons["ao.window"].tap(); usleep(800_000); shot("91-ru-window-sheet")
+        app.buttons["op.save"].tap(); usleep(900_000)
+        app.buttons["ed.all"].firstMatch.tap(); usleep(900_000); shot("92-ru-full-list")
+    }
 }

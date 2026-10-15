@@ -157,8 +157,13 @@ private struct WorkspacesTab: View {
             VStack(spacing: 10) {
                 ForEach(p.floors) { w in
                     HStack(spacing: 12) {
-                        MIcon(wsIcon(w.type), G.cobalt, 26, 2).frame(width: 66, height: 52)
-                            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(G.ink.opacity(0.06)))
+                        Group {
+                            if let r0 = p.rooms.first(where: { $0.floorId == w.id }) { RoomThumb(r: r0).padding(3) }
+                            else { MIcon(wsIcon(w.type), G.cobalt, 26, 2) }
+                        }
+                        .frame(width: 66, height: 52)
+                        .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(G.ink.opacity(0.06)))
+                        .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
                         VStack(alignment: .leading, spacing: 1) {
                             T(floorName(w), ui(15.5, 600), lines: 1)
                             let c = wsCounts(p, w)

@@ -30,6 +30,8 @@ struct SpaceScreen: View {
                         }
                     }
                     .padding(.horizontal, 36).padding(.bottom, 10)
+                    let wsRooms = p.rooms.filter { $0.floorId == w.id }.sorted { $0.created > $1.created }
+                    if !wsRooms.isEmpty { WsNums(rooms: wsRooms) }
                     if blank {
                         VStack(spacing: 8) {
                             BlankSheet().padding(.bottom, 6)
@@ -41,6 +43,23 @@ struct SpaceScreen: View {
                     } else {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 14) {
+                                if !wsRooms.isEmpty {
+                                    Section1(title: tr("ws.secRooms"), n: wsRooms.count) {
+                                        // the dashed add tile closes the rooms grid when there is nothing else
+                                        let cells: [Room?] = wsRooms + (items.isEmpty ? [nil] : [])
+                                        ForEach(0..<((cells.count + 1) / 2), id: \.self) { r in
+                                            HStack(spacing: 12) {
+                                                ForEach(0..<2, id: \.self) { c in
+                                                    let i = r * 2 + c
+                                                    if i < cells.count {
+                                                        if let rm = cells[i] { RoomCard(app: app, p: p, r: rm) }
+                                                        else { AddTile { app.sheet = .addItem(pid: p.id, wid: w.id, step: "root") } }
+                                                    } else { Color.clear.frame(maxWidth: .infinity) }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                                 if !items.isEmpty {
                                     Section1(title: tr("ws.secOther"), n: items.count) {
                                         // two cards a row; the dashed "Qo‘shish" tile comes last
@@ -97,6 +116,90 @@ private struct Section1<Content: View>: View {
             HStack(spacing: 8) { T(title, ui(15.5, 600)); CountPill(n: n) }.padding(.horizontal, 2)
             VStack(spacing: 12) { content }
         }
+    }
+}
+
+/// The workspace's own totals: net wall, floor, measurements confirmed ("+?" while some rooms lack values).
+private struct WsNums: View {
+    let rooms: [Room]
+    var body: some View {
+        let t = totals()
+        HStack(spacing: 8) {
+            NumTile(label: tr("pl.wall"), value: t.0, unit: "m²")
+            NumTile(label: tr("ws.floor"), value: t.1, unit: "m²")
+            NumTile(label: tr("pl.meas"), value: t.2, unit: nil)
+        }
+        .padding(.horizontal, 16).padding(.bottom, 12)
+    }
+    private func totals() -> (String, String, String) {
+        let en = AppSettings.shared.lang == .en, snap = AppSettings.shared.angleSnap
+        var net: Int64 = 0, nn = 0, fl: Int64 = 0, fn = 0, need = 0, conf = 0
+        for r in rooms {
+            if let a = Geo.areas(r, snap) { fl += a.floor; fn += 1; if let n = a.net { net += n; nn += 1 } }
+            let ks = Geo.stepKeys(r, snap); need += ks.count; conf += ks.filter { r.dim($0).status == "conf" }.count
+        }
+        func v(_ sum: Int64, _ n: Int) -> String { n > 0 ? Geo.fmtArea(sum, en) + (n < rooms.count ? " +?" : "") : "?" }
+        return (v(net, nn), v(fl, fn), need > 0 ? "\(conf)/\(need)" : "—")
+    }
+}
+
+private struct NumTile: View {
+    let label: String
+    let value: String
+    let unit: String?
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            T(label, ui(11.5, 400, G.ink2), lines: 1)
+            HStack(alignment: .lastTextBaseline, spacing: 0) {
+                Text(value).st(num(17, 800)).lineLimit(1)
+                if let unit, value != "?" && value != "—" { T(" " + unit, ui(11, 600, G.ink2)) }
+            }
+        }
+        .padding(.leading, 12).padding(.trailing, 8).padding(.vertical, 9)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(G.glass(0.45)))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(G.rim, lineWidth: 1))
+    }
+}
+
+/// A room plan card: a small plan with its sizes, the kind, the name and the next step or the net wall area.
+private struct RoomCard: View {
+    let app: AppModel
+    let p: Project
+    let r: Room
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        let nx = RoomOps.shared.next(r)
+        let c: Color = nx.cls == "ok" ? (Theme.shared.dark ? G.green : Color(argb: 0xFF15803D)) : nx.cls == "recv" ? G.amberInk : nx.cls == "bad" ? G.err : G.ink2
+        ZStack(alignment: .bottomTrailing) {
+            VStack(alignment: .leading, spacing: 0) {
+                RoomThumb(r: r, detailed: true).padding(.top, 8).frame(maxWidth: .infinity).frame(height: 129).background(Color.white)
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 4) { MIcon("room", G.ink3, 15, 2); T(tr("it.k.room"), ui(12, 400, G.ink3), lines: 1) }
+                    T(dn(r.name), ui(14.5, 600, G.ink, lh: 1.25), lines: 1)
+                    HStack(spacing: 4) { MIcon(nx.icon, c, 13, 2.2); T(nx.text, ui(12.5, 400, c), lines: 1) }
+                }
+                .padding(.leading, 10).padding(.trailing, 42).padding(.top, 8).padding(.bottom, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .contentShape(Rectangle())
+            .onTapGesture { app.push(.editor(pid: p.id, rid: r.id, mode: "plan")) }
+            .accessibilityElement(children: .combine)
+            .accessibilityAddTraits(.isButton)
+            .accessibilityIdentifier("room.card")
+            MIcon("more", G.ink, 18, 2).frame(width: 44, height: 44).pressable(0.95, label: "menu") { app.sheet = .roomMenu(pid: p.id, rid: r.id) }
+                .padding(.bottom, 4)
+                .accessibilityIdentifier("room.menu")
+        }
+        .overlay(alignment: .topLeading) {
+            if p.reportRooms[r.id] != false {
+                Text("PDF").st(num(10.5, 600, .white, ls: 0.06)).padding(.horizontal, 6).padding(.vertical, 4)
+                    .background(RoundedRectangle(cornerRadius: 6).fill(Color(argb: 0xCC0E1C36))).padding(8)
+            }
+        }
+        .frame(maxWidth: .infinity).frame(height: 205)
+        .clipShape(shape)
+        .glassCard(shape, shadowBlur: 24, shadowY: 10, shadowAlpha: 0.1)
     }
 }
 

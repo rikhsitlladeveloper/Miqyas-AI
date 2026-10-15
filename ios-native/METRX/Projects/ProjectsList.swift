@@ -103,7 +103,10 @@ private struct ProjectRow: View {
         let en = AppSettings.shared.lang == .en
         let area = st.nets > 0 ? Geo.fmtArea(st.net, en) + " " + tr("u.m2") : "— " + tr("u.m2")
         HStack(spacing: 12) {
-            PathIcon(EMPTY_THUMB, G.cobalt, 40, 1.8, viewBox: 40)
+            Group {
+                if let r0 = p.rooms.first { RoomThumb(r: r0).frame(width: 46, height: 40) }
+                else { PathIcon(EMPTY_THUMB, G.cobalt, 40, 1.8, viewBox: 40) }
+            }
                 .frame(width: 64, height: 64)
                 .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color.white.opacity(0.7)))
                 .topHighlight(RoundedRectangle(cornerRadius: 18, style: .continuous), 1, width: 1)

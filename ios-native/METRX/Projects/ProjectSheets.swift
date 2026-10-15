@@ -194,7 +194,7 @@ private struct AddItem: View {
                 GlassSheet(tr("add." + step), onClose: { app.sheet = nil }, back: { app.sheet = .addItem(pid: pid, wid: wid, step: "root") }) {
                     VStack(spacing: 10) {
                         if step == "sketch" {
-                            BigRow(icon: "room", title: "add.plan", desc: "add.planD") { app.sheet = nil; app.say("nt.part", ["n": 3], kind: .info) }
+                            BigRow(icon: "room", title: "add.plan", desc: "add.planD") { app.sheet = .newRoom(pid: pid, wid: wid) }.accessibilityIdentifier("add.plan")
                             BigRow(icon: "pen", title: "add.free", desc: "add.freeD") { app.sheet = nil; app.say("nt.part", ["n": 7], kind: .info) }
                         } else {
                             BigRow(icon: "camera", title: "add.camera", desc: "add.cameraD") { app.sheet = nil; app.say("nt.part", ["n": 7], kind: .info) }

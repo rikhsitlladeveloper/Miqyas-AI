@@ -16,11 +16,17 @@ enum Route: Hashable {
     case project(id: String, tab: String)
     case space(pid: String, wid: String)
     case note(pid: String, wid: String, iid: String)
+    /// The room editor; mode "plan" or "3d" (prototype top().mode).
+    case editor(pid: String, rid: String, mode: String)
+    case wallView(pid: String, rid: String, wall: String)
+    /// Drawing a new room's outline (prototype PAGES.sketch).
+    case sketch(pid: String, wid: String, name: String)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
         switch self {
         case .project(let id, _): return "project:" + id
+        case .editor(let pid, let rid, _): return "editor:" + pid + ":" + rid
         default: return "\(self)"
         }
     }
@@ -34,6 +40,15 @@ enum Sheet: Equatable {
     /// "+" in a workspace: step "root", "sketch" or "photo".
     case addItem(pid: String, wid: String, step: String)
     case itemMenu(pid: String, wid: String, iid: String), itemRename(pid: String, wid: String, iid: String), itemMove(pid: String, wid: String, iid: String)
+    /// The room editor's sheets: a new room, typing a measurement, doors and windows, the room's info, rename, the
+    /// readings tray, a room card's menu and move, adding from the wall view (the wall fixed).
+    case newRoom(pid: String, wid: String)
+    case measure(pid: String, rid: String, k: String)
+    case addOpening(pid: String, rid: String)
+    case openingForm(pid: String, rid: String, oid: String?, type: String, wall: String?)
+    case roomInfo(pid: String, rid: String), roomRename(pid: String, rid: String), tray(pid: String, rid: String)
+    case roomMenu(pid: String, rid: String), roomMove(pid: String, rid: String)
+    case wallAdd(pid: String, rid: String, wall: String)
 }
 
 /// Screens of the sign-in flow.
@@ -81,11 +96,19 @@ final class AppModel {
                 case .newProject(let e): return e == nil || store.get(e) != nil
                 case .space(let pid, let wid): return store.get(pid)?.floors.contains { $0.id == wid } == true
                 case .note(let pid, let wid, let iid): return store.get(pid)?.floors.first { $0.id == wid }?.items.contains { $0.id == iid } == true
+                case .editor(let pid, let rid, _), .wallView(let pid, let rid, _): return store.get(pid)?.rooms.contains { $0.id == rid } == true
+                case .sketch(let pid, let wid, _): return store.get(pid)?.floors.contains { $0.id == wid } == true
                 default: return true
                 }
             }
             if keep.count != st.count { stacks[t] = keep }
         }
+    }
+
+    /// Back until a page that matches (or the first page).
+    func popTo(_ match: (Route) -> Bool) {
+        dir = -1
+        withAnimation(.easeOut(duration: 0.28)) { while stack.count > 1 && !match(top) { stacks[tab]?.removeLast() } }
     }
 
     /// Tapping the current tab again goes back to its first page.
