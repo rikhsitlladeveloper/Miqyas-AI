@@ -56,7 +56,7 @@ struct PolyPlan: View {
         let mode = ops.polyRoom == r.id ? ops.polyMode : "plan"
         let drawVerts = mode == "shape" ? (live ?? r.poly!.verts) : geo.verts
         let lay = PolyLayout(drawVerts, r.dim("T").v ?? 200)
-        let T = r.dim("T").v ?? 200
+        let thick = r.dim("T").v ?? 200
         ZStack(alignment: .topLeading) {
             GeometryReader { gr in
                 Canvas { ctx, size in
@@ -77,7 +77,7 @@ struct PolyPlan: View {
                         if mode == "shape" {
                             let sp = fit.vb(v.startLocation)
                             if let ci = lay.inner.indices.min(by: { (lay.inner[$0] - sp).len < (lay.inner[$1] - sp).len }), (lay.inner[ci] - sp).len <= 22 {
-                                st.corner = ci; st.frozen = PolyLayout(r.poly!.verts, T)     // the view stays still while dragging
+                                st.corner = ci; st.frozen = PolyLayout(r.poly!.verts, thick)     // the view stays still while dragging
                                 st.cur = r.poly!.verts
                             }
                         }
