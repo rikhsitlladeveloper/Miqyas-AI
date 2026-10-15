@@ -154,7 +154,9 @@ final class ScreenTests: XCTestCase {
     private func newWorkspace(_ app: XCUIApplication, _ name: String) {
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText(name)
+        app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText(name == "Дом" ? "Иван" : "Ali Valiyev")
         app.buttons["np.save"].tap(); usleep(1_000_000)
+        XCTAssertTrue(app.buttons["ws.create"].waitForExistence(timeout: 4))
         app.buttons["ws.create"].tap(); usleep(800_000)
         app.buttons["ws.save"].tap(); usleep(1_000_000)
     }
