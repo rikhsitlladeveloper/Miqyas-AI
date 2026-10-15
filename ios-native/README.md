@@ -71,7 +71,8 @@ photo say their part); notes with title, text, checklist and the report switch; 
 duplicate, report, delete with Undo); Profile's currency.
 
 Checked by the screen tests on the iPhone 17 simulator: that whole path, from a new project to deleting it and
-Undo. Not checked yet: GPS on a real iPhone, many projects, a project saved and reopened after the app was closed.
+Undo, then the app closed and opened again with the project, its workspace and note still there. Not checked yet:
+GPS on a real iPhone, many projects.
 
 Not in parts 1–2 (they come with the parts that need them): projects and everything inside them, the Measure page and
 calculators, Profile's PDF parts, currency, door and window sizes and hints.

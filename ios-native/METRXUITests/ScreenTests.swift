@@ -137,5 +137,16 @@ final class ScreenTests: XCTestCase {
         btn(app, "Loyihani o‘chirish").tap(); usleep(600_000); shot("54-delete-ask")
         app.buttons["pj.delete"].tap(); usleep(700_000); shot("55-deleted-toast")
         btn(app, "Qaytarish").tap(); usleep(900_000); shot("56-undo")
+
+        // closed and opened again: the project, its workspace and the note are still there
+        app.terminate()
+        let again = XCUIApplication()
+        again.launch()
+        XCTAssertTrue(again.buttons["tab.projects"].waitForExistence(timeout: 10))
+        again.buttons["tab.projects"].tap(); usleep(900_000)
+        XCTAssertTrue(btn(again, "Yangi uy").waitForExistence(timeout: 3))
+        btn(again, "Yangi uy").tap(); usleep(900_000)
+        XCTAssertTrue(btn(again, "Hammom").waitForExistence(timeout: 3))
+        shot("57-after-restart")
     }
 }
