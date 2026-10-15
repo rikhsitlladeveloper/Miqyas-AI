@@ -14,6 +14,8 @@ final class RoomOps {
     /// "Measuring again" for this room:key (prototype U.edRe).
     var again: String? = nil
     var panelOpen = false
+    /// The room the panel state belongs to: another room starts with the list closed.
+    @ObservationIgnored var panelRoom: String? = nil
     var tipSeen = false
     /// A drawn room's plan mode: "plan", "shape" (move corners) or "diag" (pick two corners), and which room it is for.
     var polyMode = "plan"

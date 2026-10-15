@@ -79,7 +79,10 @@ struct EditorScreen: View {
                 }
                 if !ops.tipSeen && !AppSettings.shared.editorTipOff && app.sheet == nil { EditorTip() }
             }
-            .onAppear { if mode == "3d" { ops.mode(p.id, r.id, "plan") } }
+            .onAppear {
+                if ops.panelRoom != r.id { ops.panelRoom = r.id; ops.panelOpen = false }
+                if mode == "3d" { ops.mode(p.id, r.id, "plan") }
+            }
         }
     }
 }

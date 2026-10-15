@@ -243,7 +243,7 @@ final class ScreenTests: XCTestCase {
         app.buttons["sk.create"].tap(); sleep(1); shot("83-sketch-editor")
         sleep(4)
         app.buttons["back"].firstMatch.tap(); usleep(1_000_000); shot("84-workspace-three-rooms")
-        app.buttons["back"].firstMatch.tap(); usleep(1_000_000); shot("85-project-thumb")
+        app.buttons["Orqaga"].firstMatch.tap(); usleep(1_000_000); shot("85-project-thumb")
     }
 
     /// The editor in Russian, to see long labels in the step card and the sheets.
