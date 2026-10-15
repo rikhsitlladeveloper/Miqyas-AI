@@ -74,5 +74,26 @@ Checked by the screen tests on the iPhone 17 simulator: that whole path, from a 
 Undo, then the app closed and opened again with the project, its workspace and note still there. Not checked yet:
 GPS on a real iPhone, many projects.
 
-Not in parts 1–2 (they come with the parts that need them): projects and everything inside them, the Measure page and
+## Status: part 3 of 7 (15 October 2026)
+
+Built: the room editor. A new room from the workspace's add sheet (name, then rectangle, L-shape or drawn); the plan
+of a rectangle room (hatched walls, wall letters and corners, overall and chain dimensions, the confirmed / waiting /
+unmeasured pills, doors with their swing and windows) with taps on walls, pills, doors and windows, and doors and
+windows dragged along their wall with offset snapping; the drawn-room plan with its Shape mode (drag corners, 45°
+snapping and alignment guides) and Diagonal mode; the step card (next measurement, a reading to confirm, measuring
+again, a problem to fix, done) and the full list (measurements, wall areas table, doors and windows); typing a
+measurement with the decimal keyboard and its errors; the simulated laser reading and confirming; Undo / Redo; the
+door and window sheet (type, wall, the small wall drawing, size, offset, sill, problems); room info (areas, volume,
+rename, rotate, delete with Undo); one wall seen from inside (pager, room map, elevation with dragging doors and
+windows, sill snapping, the wall's areas, its openings); drawing a room by one stroke or by tapping corners; room cards
+with their small plans on the workspace page, the workspace's totals, and plans on the project and list rows; the
+first-time tip. The 3D button says part 4; the readings tray is empty until part 7 (the Measure page).
+
+Checked by the screen tests on the iPhone 17 simulator: a rectangle room measured by hand (with an invalid entry),
+a door and a window added, the full list, walls A and C seen from inside, the height measured again with the laser and
+confirmed, room info, the room card, an L-shaped room, a room drawn by tapping four corners, and the editor in Russian
+(long labels in the step card, the window sheet and the list fit). Not checked yet by a test: dragging doors, windows
+and corners (needs a real finger to judge), rotating, deleting a room.
+
+Not in parts 1–3 (they come with the parts that need them): projects and everything inside them, the Measure page and
 calculators, Profile's PDF parts, currency, door and window sizes and hints.
