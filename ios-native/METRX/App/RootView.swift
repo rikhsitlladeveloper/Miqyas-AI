@@ -101,7 +101,8 @@ struct RootView: View {
             }
             // the tab bar shows on the tab pages and the project page; it steps away under a sheet
             if app.sheet == nil && (app.top == .root || { if case .project = app.top { return true }; return false }()) {
-                GlassNav(cur: app.tab) { app.selectTab($0) }.transition(.opacity)
+                // it stays at the bottom when the keyboard opens (the keyboard covers it, as in other iPhone apps)
+                GlassNav(cur: app.tab) { app.selectTab($0) }.transition(.opacity).ignoresSafeArea(.keyboard)
             }
         }
     }

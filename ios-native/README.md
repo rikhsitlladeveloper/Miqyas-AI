@@ -58,5 +58,20 @@ fit). The cold-start video shows the whole animation from its first frame into H
 Not checked yet: a real iPhone (install the IPA with Sideloadly), iOS 17–25 (the simulator has iOS 26), VoiceOver,
 large text sizes.
 
-Not in part 1 (they come with the parts that need them): projects and everything inside them, the Measure page and
+## Status: part 2 of 7 (15 October 2026)
+
+Built: projects stored on the phone (one JSON file per project in Application Support, the Android app's format,
+saved 250 ms after a change and at once when the app leaves the foreground); the Projects list with search and the
+Active / Done / All chips; new and edit project (name, customer, phone, address, the phone's location from one GPS
+fix, currency from Profile); the project page with the three numbers and four tabs (Workspaces and Details work,
+Estimate and Quotes say which part adds them); call and map buttons; delete a project with Undo; workspaces:
+create with a type (the suggested name follows the type), rename, change type, delete with Undo; the workspace page
+with its empty state and arrow, cards and the dashed add tile; the add sheet (a note now; room plan, drawing and
+photo say their part); notes with title, text, checklist and the report switch; the item menu (rename, move,
+duplicate, report, delete with Undo); Profile's currency.
+
+Checked by the screen tests on the iPhone 17 simulator: that whole path, from a new project to deleting it and
+Undo. Not checked yet: GPS on a real iPhone, many projects, a project saved and reopened after the app was closed.
+
+Not in parts 1–2 (they come with the parts that need them): projects and everything inside them, the Measure page and
 calculators, Profile's PDF parts, currency, door and window sizes and hints.
