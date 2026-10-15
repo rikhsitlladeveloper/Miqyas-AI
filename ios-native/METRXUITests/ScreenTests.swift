@@ -21,9 +21,12 @@ final class ScreenTests: XCTestCase {
         return app
     }
 
-    /// A button whose spoken label starts with text (rows announce their value after the title).
+    /// A button or switch whose spoken label starts with text (rows announce their value after the title;
+    /// the on/off rows are switches).
     private func btn(_ app: XCUIApplication, _ text: String) -> XCUIElement {
-        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", text)).firstMatch
+        let p = NSPredicate(format: "label BEGINSWITH %@", text)
+        let b = app.buttons.matching(p).firstMatch
+        return b.exists ? b : app.switches.matching(p).firstMatch
     }
 
     private func tapOutside(_ app: XCUIApplication) { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).tap() }

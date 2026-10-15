@@ -57,7 +57,7 @@ jobs:
           ls out/shots
 
       - name: Record a cold start
-        if: success()
+        if: always() && steps.sim.outcome == 'success'
         run: |
           APP=$(find out/dd/Build/Products -name "METRX.app" -path "*iphonesimulator*" | head -1)
           UDID=${{ steps.sim.outputs.udid }}
@@ -73,7 +73,7 @@ jobs:
           ls -la out/shots
 
       - name: Unsigned IPA
-        if: success()
+        if: always() && steps.sim.outcome == 'success'
         run: |
           xcodebuild -project METRX.xcodeproj -target METRX -configuration Release -sdk iphoneos \
             SYMROOT="$PWD/out/ipa" OBJROOT="$PWD/out/ipa/obj" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
@@ -92,7 +92,8 @@ jobs:
           if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
-        if: success()
+        if: always()
         with:
           name: METRX-ipa
           path: ios-native/out/METRX-unsigned.ipa
+          if-no-files-found: ignore
