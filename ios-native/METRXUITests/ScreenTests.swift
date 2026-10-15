@@ -128,7 +128,9 @@ final class ScreenTests: XCTestCase {
         app.buttons["sheet.close"].tap(); usleep(500_000)
         app.buttons["Orqaga"].firstMatch.tap(); usleep(900_000); shot("50-project-with-workspace")
         app.buttons["ptab.info"].tap(); usleep(700_000); shot("51-project-info")
-        app.buttons["back"].firstMatch.tap(); usleep(900_000); shot("52-projects-list")
+        // the project was made from Home, so its back pill returns there (as on Android); the list is on its own tab
+        app.buttons["back"].firstMatch.tap(); usleep(900_000)
+        app.buttons["tab.projects"].tap(); usleep(900_000); shot("52-projects-list")
         app.textFields.firstMatch.tap(); app.typeText("Ali"); usleep(500_000); shot("53-projects-search")
         btn(app, "Yangi uy").tap(); usleep(900_000)
         app.buttons["project.menu"].tap(); usleep(600_000)
