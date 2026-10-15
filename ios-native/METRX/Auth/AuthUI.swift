@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /* Pieces of the sign-in screens (prototype modules/auth.css; the look of the founder's Figma file). */
 
@@ -89,8 +90,6 @@ struct AuField<Focus: Hashable>: View {
     var onSubmit: () -> Void = {}
     var onBlur: () -> Void = {}
     @State private var showPw = false
-    /// What a phone field shows: the digits in groups (90 123 45 67), reformatted while typing.
-    @State private var phoneText = ""
 
     var body: some View {
         let focused = focus.wrappedValue == me
@@ -113,12 +112,7 @@ struct AuField<Focus: Hashable>: View {
                 case .password: MIcon("lock", focused ? Au.cobalt : Au.ink3, 22, 1.8)
                 case .text: MIcon("user", focused ? Au.cobalt : Au.ink3, 22, 1.8)
                 }
-                field
-                    .focused(focus, equals: me)
-                    .submitLabel(submit)
-                    .onSubmit(onSubmit)
-                    .accessibilityLabel(label)
-                    .padding(.vertical, 8)
+                if kind == .phone { field.padding(.vertical, 8) } else { textField }
                 if kind == .text && !value.isEmpty {
                     PathIcon("M12 3.5a8.5 8.5 0 1 1 0 17a8.5 8.5 0 1 1 0-17zM9 9l6 6M15 9l-6 6", Au.ink3, 22, 1.8)
                         .frame(width: 44, height: 44)
@@ -137,18 +131,14 @@ struct AuField<Focus: Hashable>: View {
         .onChange(of: focused) { was, now in if was && !now { onBlur() } }
     }
 
+    private var textField: some View {
+        field.focused(focus, equals: me).submitLabel(submit).onSubmit(onSubmit).accessibilityLabel(label).padding(.vertical, 8)
+    }
+
     @ViewBuilder private var field: some View {
         switch kind {
         case .phone:
-            TextField("", text: $phoneText, prompt: Text(placeholder).foregroundColor(Au.ink3))
-                .onAppear { phoneText = Phone.groups(value) }
-                .onChange(of: phoneText) { _, new in
-                    let d = Phone.normalise(new), g = Phone.groups(d)
-                    if value != d { value = d }
-                    if g != new { phoneText = g }
-                }
-                .font(.custom("IBMPlexMono-SemiBold", size: 22)).tracking(22 * 0.01).foregroundColor(Au.ink)
-                .keyboardType(.phonePad).textContentType(.telephoneNumber)
+            PhoneTextField(value: $value, placeholder: placeholder, label: label, focus: focus, me: me).frame(height: 30)
         case .password:
             Group {
                 if showPw { TextField("", text: $value, prompt: Text(placeholder).foregroundColor(Au.ink3)) }
@@ -203,5 +193,63 @@ struct AuHeading: View {
             if let lead { T(lead, au(15, 400, Au.ink2, lh: 1.45)) }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+/// The phone number field: a UIKit text field, so each key press is turned into the 9 local digits and shown as
+/// 90 123 45 67 at once (a SwiftUI field that is rewritten while typing loses fast key presses).
+struct PhoneTextField<Focus: Hashable>: UIViewRepresentable {
+    @Binding var value: String
+    let placeholder: String
+    let label: String
+    let focus: FocusState<Focus?>.Binding
+    let me: Focus
+
+    func makeUIView(context: Context) -> UITextField {
+        let f = UITextField()
+        f.delegate = context.coordinator
+        f.keyboardType = .phonePad
+        f.textContentType = .telephoneNumber
+        f.font = UIFont(name: "IBMPlexMono-SemiBold", size: 22)
+        f.textColor = UIColor(Au.ink)
+        f.defaultTextAttributes[.kern] = 22 * 0.01
+        f.attributedPlaceholder = NSAttributedString(string: placeholder, attributes: [.foregroundColor: UIColor(Au.ink3), .font: UIFont(name: "IBMPlexMono-SemiBold", size: 22) as Any])
+        f.accessibilityLabel = label
+        f.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        f.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        f.text = Phone.groups(value)
+        return f
+    }
+
+    func updateUIView(_ f: UITextField, context: Context) {
+        context.coordinator.parent = self
+        let shown = Phone.groups(value)
+        if f.text != shown { f.text = shown }
+        let want = focus.wrappedValue == me
+        DispatchQueue.main.async {
+            if want && !f.isFirstResponder { f.becomeFirstResponder() }
+            else if !want && f.isFirstResponder { f.resignFirstResponder() }
+        }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    final class Coordinator: NSObject, UITextFieldDelegate {
+        var parent: PhoneTextField
+        init(_ p: PhoneTextField) { parent = p }
+        func textField(_ f: UITextField, shouldChangeCharactersIn range: NSRange, replacementString s: String) -> Bool {
+            let old = (f.text ?? "") as NSString
+            var next = old.replacingCharacters(in: range, with: s)
+            // deleting a space removes the digit before it
+            if s.isEmpty && range.length == 1 && old.substring(with: range) == " " && range.location > 0 {
+                next = old.replacingCharacters(in: NSRange(location: range.location - 1, length: 2), with: "")
+            }
+            let d = Phone.normalise(next)
+            f.text = Phone.groups(d)
+            parent.value = d
+            return false
+        }
+        func textFieldDidBeginEditing(_ f: UITextField) { if parent.focus.wrappedValue != parent.me { parent.focus.wrappedValue = parent.me } }
+        func textFieldDidEndEditing(_ f: UITextField) { if parent.focus.wrappedValue == parent.me { parent.focus.wrappedValue = nil } }
     }
 }
