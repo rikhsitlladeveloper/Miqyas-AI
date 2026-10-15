@@ -13,7 +13,8 @@ struct RoomHops: View {
     /// Where the 38 pt header tile of the next screen is, in points from the top-left of the screen.
     let dockTo: CGRect
     let onDone: () -> Void
-    @State private var start = Date()
+    /// When the first frame was drawn: the clock starts there, not when the view was made (a cold start can take a moment).
+    @State private var start: Date? = nil
     @State private var skipped = false
     @State private var finished = false
     @State private var tl = HopsTimeline()
@@ -21,18 +22,20 @@ struct RoomHops: View {
 
     var body: some View {
         TimelineView(.animation(paused: finished)) { ctx in
-            let t = skipped || reduced ? HopsTimeline.END : min(HopsTimeline.END, ctx.date.timeIntervalSince(start))
+            let t0 = start ?? ctx.date
+            let t = skipped || reduced ? HopsTimeline.END : min(HopsTimeline.END, ctx.date.timeIntervalSince(t0))
             Canvas { g, size in tl.draw(g, size, t, dockTo) }
                 .onChange(of: t >= HopsTimeline.END) { _, done in if done { finish() } }
+                .onAppear { if start == nil { start = ctx.date } }
         }
         .ignoresSafeArea()
         .contentShape(Rectangle())
         .onTapGesture { skipped = true; finish() }
         .accessibilityLabel("METRX")
         .onAppear {
-            start = Date()
+            // with Reduce Motion the last frame is held briefly; otherwise a backstop in case frames stop coming
             if reduced { DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { finish() } }
-            else { DispatchQueue.main.asyncAfter(deadline: .now() + HopsTimeline.END + 0.05) { finish() } }
+            else { DispatchQueue.main.asyncAfter(deadline: .now() + HopsTimeline.END + 3) { finish() } }
         }
     }
 
