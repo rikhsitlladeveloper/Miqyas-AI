@@ -299,7 +299,6 @@ struct Project3D: View {
                 }
                 .frame(height: 400)
                 .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
-                .accessibilityIdentifier("scene3d")
             }
             NoteLine(text: tr("v3d.note", ["n": rs.count]))
         }

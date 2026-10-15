@@ -50,7 +50,6 @@ struct Room3DScreen: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         .padding(.top, 10).padding(.trailing, 10)
                 }
-                .accessibilityIdentifier("scene3d")
                 Controls3D(r: r, cam: cam,
                            onColor: { wall, c in
                                Store.shared.update(p.id) { pp in
