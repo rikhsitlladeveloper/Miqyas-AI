@@ -99,7 +99,7 @@ private struct BigCard: View {
         .clipShape(shape)
         .glassCard(shape, shadowBlur: 40, shadowY: 18, shadowAlpha: 0.16)
         .overlay(alignment: .bottom) { Rectangle().fill(G.hi(0.35)).frame(height: 1).padding(.horizontal, 20) }
-        .pressable(action)
+        .pressable(0.985, action)
         .accessibilityElement(children: .combine)
         .accessibilityIdentifier("home.new")
     }
@@ -120,7 +120,7 @@ private struct SmallCard: View {
         .padding(18)
         .frame(maxWidth: .infinity, minHeight: 150, alignment: .topLeading)
         .glassCard(RoundedRectangle(cornerRadius: 28, style: .continuous))
-        .pressable(action)
+        .pressable(0.985, action)
         .accessibilityElement(children: .combine)
     }
 }
