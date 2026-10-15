@@ -1,0 +1,95 @@
+# The native iPhone app (ios-native/): builds it, runs the screen tests on an iPhone simulator (each saves a
+# screenshot), records a cold start, and packages an unsigned IPA for Sideloadly. Artifacts: screens + IPA.
+name: iOS native app
+
+on:
+  push:
+    branches: [ios-native]
+    paths:
+      - "ios-native/**"
+      - "android-native/app/src/main/assets/strings.json"
+      - ".github/workflows/ios-native.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-native
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    timeout-minutes: 45
+    defaults:
+      run:
+        working-directory: ios-native
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Newest Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1)
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Pick a simulator
+        id: sim
+        run: python3 tools/pick_sim.py | tee -a "$GITHUB_OUTPUT"
+
+      - name: Build and run the screen tests
+        run: |
+          mkdir -p out/shots
+          set -o pipefail
+          TEST_RUNNER_SHOTS="$PWD/out/shots" xcodebuild test -project METRX.xcodeproj -scheme METRX \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath out/dd -resultBundlePath out/tests.xcresult \
+            CODE_SIGNING_ALLOWED=NO > out/test.log 2>&1 || { grep -nE "error:|: error|failed|FAILED|Test Case.*failed" -A5 out/test.log | head -n 250; exit 1; }
+          grep -E "Test Case|Executed" out/test.log | tail -n 60
+          ls out/shots
+
+      - name: Record a cold start
+        if: success()
+        run: |
+          APP=$(find out/dd/Build/Products -name "METRX.app" -path "*iphonesimulator*" | head -1)
+          UDID=${{ steps.sim.outputs.udid }}
+          xcrun simctl bootstatus "$UDID" -b
+          xcrun simctl terminate "$UDID" uz.metrx.app || true
+          xcrun simctl install "$UDID" "$APP"
+          xcrun simctl io "$UDID" recordVideo --codec h264 --force out/shots/coldstart.mp4 &
+          REC=$!
+          sleep 2
+          xcrun simctl launch "$UDID" uz.metrx.app
+          sleep 7
+          kill -INT $REC; wait $REC || true
+          ls -la out/shots
+
+      - name: Unsigned IPA
+        if: success()
+        run: |
+          xcodebuild -project METRX.xcodeproj -target METRX -configuration Release -sdk iphoneos \
+            SYMROOT="$PWD/out/ipa" OBJROOT="$PWD/out/ipa/obj" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build > out/ipa.log 2>&1 || { grep -nE "error:|FAILED" -A5 out/ipa.log | tail -n 120; exit 1; }
+          mkdir -p out/pkg/Payload && cp -R out/ipa/Release-iphoneos/METRX.app out/pkg/Payload/
+          (cd out/pkg && zip -qry ../METRX-unsigned.ipa Payload)
+          ls -la out/METRX-unsigned.ipa
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens
+          path: |
+            ios-native/out/shots
+            ios-native/out/test.log
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: METRX-ipa
+          path: ios-native/out/METRX-unsigned.ipa
