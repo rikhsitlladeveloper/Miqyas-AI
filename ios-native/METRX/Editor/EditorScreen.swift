@@ -70,7 +70,10 @@ struct EditorScreen: View {
                         }
                         .padding(.bottom, 12)
                     }
-                    .frame(minHeight: 170)
+                    // the plan keeps room next to the opened list; under a sheet it may shrink, so the sheet and its
+                    // keyboard still fit on the screen (a page taller than the screen would push the sheet's buttons
+                    // under the keyboard)
+                    .frame(minHeight: app.sheet == nil ? 170 : 0)
                     StepPanel(app: app, pid: p.id, r: r, f: f)
                     Tools(app: app, pid: p.id, r: r)
                 }
