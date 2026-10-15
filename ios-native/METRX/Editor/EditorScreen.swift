@@ -11,78 +11,82 @@ struct EditorScreen: View {
 
     var body: some View {
         if let p = Store.shared.get(pid), let r = p.rooms.first(where: { $0.id == rid }) {
-            let w = p.floors.first { $0.id == r.floorId }
-            let unit = AppSettings.shared.unit, en = AppSettings.shared.lang == .en
-            let _ = ops.histTick
-            let f = ops.focusOf(r)
-            let sel: String? = { if case .measure(_, _, let k)? = app.sheet { return k }; return f.k }()
-            let selOp: String? = { if case .openingForm(_, _, let oid, _, _)? = app.sheet { return oid }; return nil }()
-            ZStack {
-                RoomGrid().ignoresSafeArea()
-                VStack(spacing: 0) {
-                    HStack(spacing: 10) {
-                        GlassIconButton("back", tr("nt.back")) { app.pop() }.accessibilityIdentifier("back")
-                        VStack(alignment: .leading, spacing: 0) {
-                            T(dn(r.name), ui(20, 800, G.ink, lh: 1.2), lines: 1)
-                            T(dn(p.name) + (w.map { " › " + floorName($0) } ?? ""), ui(12, 400, G.ink2), lines: 1)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        LaserButton { app.sheet = .device }.frame(width: 44, height: 44)
-                        GlassIconButton("more", "menu") { app.sheet = .roomInfo(pid: p.id, rid: r.id) }.accessibilityIdentifier("ed.menu")
+            if mode == "3d" { Room3DScreen(app: app, p: p, r: r) } else { plan(p, r) }
+        }
+    }
+
+    /// The plan page: the room's drawing, the step card and the tools.
+    @ViewBuilder private func plan(_ p: Project, _ r: Room) -> some View {
+        let w = p.floors.first { $0.id == r.floorId }
+        let unit = AppSettings.shared.unit, en = AppSettings.shared.lang == .en
+        let _ = ops.histTick
+        let f = ops.focusOf(r)
+        let sel: String? = { if case .measure(_, _, let k)? = app.sheet { return k }; return f.k }()
+        let selOp: String? = { if case .openingForm(_, _, let oid, _, _)? = app.sheet { return oid }; return nil }()
+        ZStack {
+            RoomGrid().ignoresSafeArea()
+            VStack(spacing: 0) {
+                HStack(spacing: 10) {
+                    GlassIconButton("back", tr("nt.back")) { app.pop() }.accessibilityIdentifier("back")
+                    VStack(alignment: .leading, spacing: 0) {
+                        T(dn(r.name), ui(20, 800, G.ink, lh: 1.2), lines: 1)
+                        T(dn(p.name) + (w.map { " › " + floorName($0) } ?? ""), ui(12, 400, G.ink2), lines: 1)
                     }
-                    .padding(.horizontal, 16).frame(height: 64)
-                    ZStack(alignment: .bottom) {
-                        Group {
-                            if r.isPoly { PolyPlan(pid: p.id, r: r, sel: sel, selOp: selOp) }
-                            else {
-                                RectPlan(r: r, sel: sel, selOp: selOp, label: dn(r.name),
-                                         issueOf: { ops.issue(r, $0) != nil },
-                                         onWall: { ops.select(p.id, r.id, $0) },
-                                         onOpening: { app.sheet = .openingForm(pid: p.id, rid: r.id, oid: $0, type: "door", wall: nil) },
-                                         onDragEnd: { o, off in ops.moveOpening(p.id, r.id, o, off, o.sill) },
-                                         tipText: { o, off in tr("wv.off", ["c": Geo.wallCorner(r, o.wall), "v": Geo.fmtLen(off, unit, en) + " " + unitName()]) })
-                                    .padding(.bottom, 60)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        // the readings tray (bottom left) and undo / redo (bottom right) float over the plan
-                        HStack {
-                            GlassPill {
-                                HStack(spacing: 8) {
-                                    MIcon("laser", G.cobalt, 20, 2)
-                                    T(tr("tr.btn"), ui(15, 700), lines: 1)
-                                    T("0", ui(13, 800, .white)).padding(.horizontal, 9).padding(.vertical, 4).background(Capsule().fill(G.cobalt))
-                                }
-                                .padding(.leading, 14).padding(.trailing, 8).frame(maxHeight: .infinity)
-                                .pressable(0.97) { app.sheet = .tray(pid: p.id, rid: r.id) }
-                            }
-                            .padding(.leading, 12)
-                            Spacer()
-                            GlassPill {
-                                HStack(spacing: 0) {
-                                    HistBtn(icon: "undo", on: ops.canUndo(r.id), label: tr("common.undo")) { ops.undo(p.id, r.id) }
-                                    Rectangle().fill(G.ink.opacity(0.12)).frame(width: 1, height: 20)
-                                    HistBtn(icon: "redo", on: ops.canRedo(r.id), label: "redo") { ops.redo(p.id, r.id) }
-                                }
-                                .padding(.horizontal, 4)
-                            }
-                            .padding(.trailing, 16)
-                        }
-                        .padding(.bottom, 12)
-                    }
-                    // the plan keeps room next to the opened list; under a sheet it may shrink, so the sheet and its
-                    // keyboard still fit on the screen (a page taller than the screen would push the sheet's buttons
-                    // under the keyboard)
-                    .frame(minHeight: app.sheet == nil ? 170 : 0)
-                    StepPanel(app: app, pid: p.id, r: r, f: f)
-                    Tools(app: app, pid: p.id, r: r)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    LaserButton { app.sheet = .device }.frame(width: 44, height: 44)
+                    GlassIconButton("more", "menu") { app.sheet = .roomInfo(pid: p.id, rid: r.id) }.accessibilityIdentifier("ed.menu")
                 }
-                if !ops.tipSeen && !AppSettings.shared.editorTipOff && app.sheet == nil { EditorTip() }
+                .padding(.horizontal, 16).frame(height: 64)
+                ZStack(alignment: .bottom) {
+                    Group {
+                        if r.isPoly { PolyPlan(pid: p.id, r: r, sel: sel, selOp: selOp) }
+                        else {
+                            RectPlan(r: r, sel: sel, selOp: selOp, label: dn(r.name),
+                                     issueOf: { ops.issue(r, $0) != nil },
+                                     onWall: { ops.select(p.id, r.id, $0) },
+                                     onOpening: { app.sheet = .openingForm(pid: p.id, rid: r.id, oid: $0, type: "door", wall: nil) },
+                                     onDragEnd: { o, off in ops.moveOpening(p.id, r.id, o, off, o.sill) },
+                                     tipText: { o, off in tr("wv.off", ["c": Geo.wallCorner(r, o.wall), "v": Geo.fmtLen(off, unit, en) + " " + unitName()]) })
+                                .padding(.bottom, 60)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    // the readings tray (bottom left) and undo / redo (bottom right) float over the plan
+                    HStack {
+                        GlassPill {
+                            HStack(spacing: 8) {
+                                MIcon("laser", G.cobalt, 20, 2)
+                                T(tr("tr.btn"), ui(15, 700), lines: 1)
+                                T("0", ui(13, 800, .white)).padding(.horizontal, 9).padding(.vertical, 4).background(Capsule().fill(G.cobalt))
+                            }
+                            .padding(.leading, 14).padding(.trailing, 8).frame(maxHeight: .infinity)
+                            .pressable(0.97) { app.sheet = .tray(pid: p.id, rid: r.id) }
+                        }
+                        .padding(.leading, 12)
+                        Spacer()
+                        GlassPill {
+                            HStack(spacing: 0) {
+                                HistBtn(icon: "undo", on: ops.canUndo(r.id), label: tr("common.undo")) { ops.undo(p.id, r.id) }
+                                Rectangle().fill(G.ink.opacity(0.12)).frame(width: 1, height: 20)
+                                HistBtn(icon: "redo", on: ops.canRedo(r.id), label: "redo") { ops.redo(p.id, r.id) }
+                            }
+                            .padding(.horizontal, 4)
+                        }
+                        .padding(.trailing, 16)
+                    }
+                    .padding(.bottom, 12)
+                }
+                // the plan keeps room next to the opened list; under a sheet it may shrink, so the sheet and its
+                // keyboard still fit on the screen (a page taller than the screen would push the sheet's buttons
+                // under the keyboard)
+                .frame(minHeight: app.sheet == nil ? 170 : 0)
+                StepPanel(app: app, pid: p.id, r: r, f: f)
+                Tools(app: app, pid: p.id, r: r)
             }
-            .onAppear {
-                if ops.panelRoom != r.id { ops.panelRoom = r.id; ops.panelOpen = false }
-                if mode == "3d" { ops.mode(p.id, r.id, "plan") }
-            }
+            if !ops.tipSeen && !AppSettings.shared.editorTipOff && app.sheet == nil { EditorTip() }
+        }
+        .onAppear {
+            if ops.panelRoom != r.id { ops.panelRoom = r.id; ops.panelOpen = false }
         }
     }
 }
@@ -112,8 +116,8 @@ private struct HistBtn: View {
     }
 }
 
-/// The 3D view arrives in part 4.
-func open3D(_ pid: String, _ rid: String) { AppModel.shared.say("nt.part", ["n": 4], kind: .info) }
+/// The room's 3D page, on the same page as the plan (prototype A.mode).
+func open3D(_ pid: String, _ rid: String) { RoomOps.shared.mode(pid, rid, "3d") }
 
 /* ---------------- the bottom panel: the step card, and the full list when opened ---------------- */
 
@@ -457,6 +461,7 @@ private struct Tools: View {
             Tool(icon: "door", label: tr("ed.tb.openings"), on: false) { app.sheet = .addOpening(pid: pid, rid: r.id) }
                 .accessibilityIdentifier("ed.openings")
             Tool(icon: "cube", label: "3D", on: false) { open3D(pid, r.id) }
+                .accessibilityIdentifier("ed.3d")
         }
         .padding(6).frame(height: 66)
         .glassBlur(shape, tint: G.sheet(0.5))

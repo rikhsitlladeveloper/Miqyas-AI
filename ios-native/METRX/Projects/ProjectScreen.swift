@@ -7,6 +7,8 @@ struct ProjectScreen: View {
     let app: AppModel
     let id: String
     let tab: String
+    var view = "list"
+    var floor: String? = nil
     @Environment(\.openURL) private var openURL
 
     var body: some View {
@@ -20,7 +22,14 @@ struct ProjectScreen: View {
                         case "info": InfoTab(app: app, p: p, call: { call(p) }, map: { openMap(p) })
                         case "estimate": LaterTab(icon: "coin", part: 5)
                         case "quotes": LaterTab(icon: "doc", part: 6)
-                        default: WorkspacesTab(app: app, p: p)
+                        default:
+                            if view != "list" && !p.rooms.isEmpty {
+                                VStack(alignment: .leading, spacing: 0) {
+                                    ViewSeg(cur: view) { app.setProjectView($0) }
+                                    if view == "2d" { Plans2D(app: app, p: p) } else { Project3D(app: app, p: p, floor: floor) }
+                                }
+                                .padding(.horizontal, 20).padding(.top, 12)
+                            } else { WorkspacesTab(app: app, p: p) }
                         }
                     }
                     .padding(.bottom, 24 + NAV_SPACE)
@@ -184,6 +193,12 @@ private struct WorkspacesTab: View {
                     .pressable(0.985) { app.push(.space(pid: p.id, wid: w.id)) }
                     .accessibilityElement(children: .combine)
                     .accessibilityAddTraits(.isButton)
+                }
+                if !p.rooms.isEmpty {
+                    HStack(spacing: 8) {
+                        GBtn(tr("pj.v2d"), kind: .secondary, icon: "room", height: 48, fontSize: 15) { app.setProjectView("2d") }.accessibilityIdentifier("pj.v2d")
+                        GBtn(tr("pj.v3d"), kind: .secondary, icon: "cube", height: 48, fontSize: 15) { app.setProjectView("3d") }.accessibilityIdentifier("pj.v3d")
+                    }
                 }
                 HStack(spacing: 8) { MIcon("plus", G.cobalt2, 22, 2.2); T(tr("gl.addWs"), ui(16, 700, G.cobalt2)) }
                     .frame(maxWidth: .infinity).frame(height: 64)

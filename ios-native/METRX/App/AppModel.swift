@@ -12,8 +12,9 @@ enum Route: Hashable {
     case root, settingsMore, subscription
     /// New project, or edit project editId.
     case newProject(editId: String?)
-    /// A project page with its tab: "rooms", "estimate", "quotes" or "info".
-    case project(id: String, tab: String)
+    /// A project page with its tab: "rooms", "estimate", "quotes" or "info"; the Workspaces tab's view "list", "2d" or
+    /// "3d", and the workspace its 3D view shows.
+    case project(id: String, tab: String, view: String = "list", floor: String? = nil)
     case space(pid: String, wid: String)
     case note(pid: String, wid: String, iid: String)
     /// The room editor; mode "plan" or "3d" (prototype top().mode).
@@ -25,7 +26,7 @@ enum Route: Hashable {
     /// The same page with another tab does not slide.
     var pageKey: String {
         switch self {
-        case .project(let id, _): return "project:" + id
+        case .project(let id, _, _, _): return "project:" + id
         case .editor(let pid, let rid, _): return "editor:" + pid + ":" + rid
         default: return "\(self)"
         }
@@ -85,14 +86,16 @@ final class AppModel {
     func replaceTop(_ r: Route) { dir = 1; withAnimation(.easeOut(duration: 0.28)) { stacks[tab, default: [.root]][stack.count - 1] = r } }
     /// Changes what the top page shows without moving to another page (the project's tab).
     func setTop(_ r: Route) { stacks[tab, default: [.root]][stack.count - 1] = r }
-    func setProjectTab(_ t: String) { if case .project(let id, _) = top { setTop(.project(id: id, tab: t)) } }
+    func setProjectTab(_ t: String) { if case .project(let id, _, let v, let f) = top { setTop(.project(id: id, tab: t, view: v, floor: f)) } }
+    /// The Workspaces tab's view (list, 2D, 3D) and the workspace the 3D view shows.
+    func setProjectView(_ v: String, floor: String? = nil) { if case .project(let id, let t, _, let f) = top { setTop(.project(id: id, tab: t, view: v, floor: floor ?? f)) } }
 
     /// Leaves pages of a project, workspace or note that no longer exists (after a delete).
     func dropMissing() {
         for (t, st) in stacks {
             let keep = st.filter { r in
                 switch r {
-                case .project(let id, _): return store.get(id) != nil
+                case .project(let id, _, _, _): return store.get(id) != nil
                 case .newProject(let e): return e == nil || store.get(e) != nil
                 case .space(let pid, let wid): return store.get(pid)?.floors.contains { $0.id == wid } == true
                 case .note(let pid, let wid, let iid): return store.get(pid)?.floors.first { $0.id == wid }?.items.contains { $0.id == iid } == true

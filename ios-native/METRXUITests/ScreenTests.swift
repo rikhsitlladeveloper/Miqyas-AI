@@ -267,4 +267,55 @@ final class ScreenTests: XCTestCase {
         app.buttons["op.save"].tap(); usleep(900_000)
         app.buttons["ed.all"].firstMatch.tap(); usleep(900_000); shot("92-ru-full-list")
     }
+
+    /// A rectangle room measured by hand with a door and a window (for the 3D tests).
+    private func measuredRoom(_ app: XCUIApplication, _ a: String, _ b: String, _ h: String, openings: Bool) {
+        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, a); app.buttons["ms.save"].tap(); usleep(900_000)
+        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, b); app.buttons["ms.save"].tap(); usleep(900_000)
+        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, h); app.buttons["ms.save"].tap(); usleep(900_000)
+        guard openings else { return }
+        app.buttons["ed.openings"].tap(); usleep(700_000); app.buttons["ao.door"].tap(); usleep(800_000); app.buttons["op.save"].tap(); usleep(900_000)
+        app.buttons["ed.openings"].tap(); usleep(700_000); app.buttons["ao.window"].tap(); usleep(800_000); app.buttons["op.save"].tap(); usleep(900_000)
+    }
+
+    /// Part 4: the room in 3D (views, colours, a saved view, turning and zooming), then the project's 2D and 3D views.
+    func testThreeD() {
+        let app = launch()
+        firstRun(app)
+        newWorkspace(app, "Uy 4")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.create"].tap(); sleep(1)
+        app.buttons["tip.ok"].tap(); usleep(700_000)
+        measuredRoom(app, "5", "4", "3", openings: true)
+        sleep(6)    // the last toast goes away
+        app.buttons["ed.3d"].tap(); sleep(3); shot("100-room-3d")
+        app.buttons["3d.top"].tap(); sleep(1); shot("101-from-above")
+        app.buttons["3d.corner"].tap(); usleep(500_000)
+        app.buttons["wc.2"].tap(); usleep(500_000); app.buttons["fc.1"].tap(); sleep(1); shot("102-colours")
+        app.buttons["3d.save"].tap(); sleep(2); shot("103-view-saved")
+        let win = app.windows.firstMatch
+        win.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.4)).press(forDuration: 0.1, thenDragTo: win.coordinate(withNormalizedOffset: CGVector(dx: 0.75, dy: 0.45)))
+        sleep(1); shot("104-turned")
+        let scene = app.otherElements["scene3d"].firstMatch
+        if scene.exists { scene.pinch(withScale: 1.6, velocity: 1.5) } else { win.pinch(withScale: 1.6, velocity: 1.5) }
+        sleep(1); shot("105-zoomed")
+        app.buttons["mode.plan"].tap(); usleep(900_000); shot("106-back-to-plan")
+
+        // a second room, then the project's 2D and 3D views
+        app.buttons["back"].firstMatch.tap(); usleep(1_000_000)
+        app.buttons["space.addTile"].firstMatch.tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.create"].tap(); sleep(1)
+        measuredRoom(app, "4", "3", "3", openings: false)
+        sleep(6)
+        app.buttons["back"].firstMatch.tap(); usleep(1_000_000)
+        app.buttons["Orqaga"].firstMatch.tap(); usleep(1_000_000); shot("107-project-buttons")
+        app.buttons["pj.v2d"].tap(); sleep(1); shot("108-project-2d")
+        app.buttons["view.3d"].tap(); sleep(3); shot("109-project-3d")
+        app.buttons["v3.room"].firstMatch.tap(); sleep(1); shot("110-zoomed-to-room")
+        app.buttons["3d.all"].tap(); sleep(1); shot("111-all-rooms")
+    }
 }

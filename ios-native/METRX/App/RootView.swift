@@ -118,7 +118,7 @@ struct RootView: View {
         case .settingsMore: SettingsMoreScreen(app: app)
         case .subscription: SubscriptionScreen(app: app)
         case .newProject(let e): NewProjectScreen(app: app, editId: e)
-        case .project(let id, let tab): ProjectScreen(app: app, id: id, tab: tab)
+        case .project(let id, let tab, let view, let floor): ProjectScreen(app: app, id: id, tab: tab, view: view, floor: floor)
         case .space(let pid, let wid): SpaceScreen(app: app, pid: pid, wid: wid)
         case .note(let pid, let wid, let iid): NoteScreen(app: app, pid: pid, wid: wid, iid: iid)
         case .editor(let pid, let rid, let mode): EditorScreen(app: app, pid: pid, rid: rid, mode: mode)
