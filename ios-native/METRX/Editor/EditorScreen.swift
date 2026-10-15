@@ -70,11 +70,14 @@ struct EditorScreen: View {
                         }
                         .padding(.bottom, 12)
                     }
+                    .frame(minHeight: 170)
                     StepPanel(app: app, pid: p.id, r: r, f: f)
                     Tools(app: app, pid: p.id, r: r)
                 }
                 if !ops.tipSeen && !AppSettings.shared.editorTipOff && app.sheet == nil { EditorTip() }
             }
+            // the keyboard of a sheet covers the page instead of squeezing the plan
+            .ignoresSafeArea(.keyboard)
             .onAppear { if mode == "3d" { ops.mode(p.id, r.id, "plan") } }
         }
     }
@@ -139,8 +142,8 @@ private struct StepPanel: View {
                     ScrollView {
                         VStack(spacing: 0) { Hairline(); FullList(app: app, pid: pid, r: r, f: f) }.padding(.top, 12)
                     }
+                    // it gives way to the plan on small screens (the plan keeps at least 170 pt)
                     .frame(maxHeight: 380)
-                    .fixedSize(horizontal: false, vertical: true)
                 }
             }
             .padding(.horizontal, 16).padding(.bottom, 14)

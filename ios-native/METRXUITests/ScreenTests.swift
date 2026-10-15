@@ -143,6 +143,7 @@ final class ScreenTests: XCTestCase {
         let again = XCUIApplication()
         again.launch()
         XCTAssertTrue(again.buttons["tab.projects"].waitForExistence(timeout: 10))
+        sleep(4)    // the launch animation covers the tabs for 3.4 s
         again.buttons["tab.projects"].tap(); usleep(900_000)
         XCTAssertTrue(btn(again, "Yangi uy").waitForExistence(timeout: 3))
         btn(again, "Yangi uy").tap(); usleep(900_000)
@@ -215,6 +216,7 @@ final class ScreenTests: XCTestCase {
         app.buttons["ed.laser"].tap(); usleep(900_000); shot("76-laser-reading")
         app.buttons["ed.confirm"].tap(); usleep(900_000); shot("77-laser-confirmed")
 
+        sleep(6)    // the toast over the top bar (5.2 s with Undo) goes away first
         app.buttons["ed.menu"].tap(); usleep(800_000); shot("78-room-info")
         app.buttons["sheet.close"].tap(); usleep(600_000)
         app.buttons["back"].firstMatch.tap(); usleep(1_000_000); shot("79-workspace-room-card")
