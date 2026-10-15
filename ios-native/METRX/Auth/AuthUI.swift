@@ -141,7 +141,8 @@ struct AuField<Focus: Hashable>: View {
         case .phone:
             PhoneTextField(value: $value, placeholder: placeholder, label: label, focus: focus, me: me) { on in
                 phoneFocused = on
-                if on { if focus.wrappedValue != nil { focus.wrappedValue = nil } } else { onBlur() }
+                // SwiftUI's own focus is left alone: clearing it would close the keyboard under this field
+                if !on { onBlur() }
             }
             .frame(height: 30)
         case .password:
