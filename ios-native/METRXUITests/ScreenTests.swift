@@ -451,4 +451,55 @@ final class ScreenTests: XCTestCase {
         app.buttons["gs.save"].tap(); sleep(1); shot("152-estimate-changed")
         app.buttons["ptab.quotes"].tap(); usleep(900_000); shot("153-quote-differs")
     }
+
+    /// Part 7a: the Measure page (manual readings, the area, wall and brick tools, the laser, the readings list, sending
+    /// a reading), Kalkulyator, Profile's PDF parts and door/window sizes, and the editor's readings tray.
+    func testMeasure() {
+        let app = launch()
+        firstRun(app)
+        app.buttons["home.measure"].tap(); usleep(900_000); shot("160-measure")
+        app.buttons["qm.manual"].tap(); usleep(800_000)
+        typeIn(app, "qm.value", "4.2"); app.buttons["qm.save"].tap(); usleep(900_000)
+        app.buttons["qm.manual"].tap(); usleep(800_000)
+        typeIn(app, "qm.value", "3"); app.buttons["qm.save"].tap(); usleep(900_000); shot("161-area")
+        XCTAssertEqual(app.staticTexts["qc.result"].label, "12,60 m²")
+        app.buttons["qm.connect"].tap(); usleep(700_000)
+        app.buttons["Qidirish"].tap(); sleep(2); app.buttons["Ulash"].tap(); usleep(900_000)
+        app.buttons["qc.wall"].tap(); usleep(400_000)
+        app.buttons["qm.measure"].tap(); usleep(500_000); app.buttons["qm.measure"].tap(); usleep(700_000); shot("162-wall-laser")
+        app.buttons["qc.brick"].tap(); usleep(400_000)
+        app.buttons["qm.chip"].element(boundBy: 0).tap(); usleep(300_000); app.buttons["qm.chip"].element(boundBy: 1).tap(); usleep(600_000); shot("163-bricks")
+        app.buttons["qb.change"].tap(); usleep(900_000); shot("164-brick-sheet")
+        app.buttons["sheet.close"].tap(); usleep(600_000)
+        app.buttons["meas.cont"].tap(); usleep(400_000); app.buttons["qc.live"].tap(); sleep(2); shot("165-continuous")
+        app.buttons["qc.live"].tap(); usleep(500_000)
+        app.swipeUp(); usleep(500_000)
+        app.buttons["qc.list"].tap(); usleep(700_000); shot("166-readings-list")
+        app.buttons["qm.send"].firstMatch.tap(); usleep(800_000); shot("167-send-no-rooms")
+        app.buttons["sheet.close"].tap(); usleep(600_000)
+        app.buttons["back"].firstMatch.tap(); usleep(900_000)
+        app.buttons["home.calc"].tap(); usleep(1_200_000); shot("168-calculator")
+        app.buttons["back"].firstMatch.tap(); usleep(900_000)
+
+        // Profile: PDF parts, door and window sizes
+        app.buttons["tab.profile"].tap(); usleep(800_000)
+        btn(app, "PDF tarkibi").tap(); usleep(800_000)
+        app.buttons["pdf.sign"].tap(); usleep(400_000); shot("169-pdf-parts")
+        app.buttons["sheet.close"].tap(); usleep(600_000)
+        btn(app, "Eshik va deraza").tap(); usleep(800_000)
+        let dw = app.textFields["df.dw"]
+        dw.tap(); dw.typeText(XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + "0,8"); shot("170-defaults")
+        app.buttons["df.save"].tap(); usleep(800_000); shot("171-profile-after")
+
+        // the readings tray in a room
+        app.buttons["tab.home"].tap(); usleep(800_000)
+        newWorkspace(app, "Uy 7")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.create"].tap(); sleep(1)
+        app.buttons["tip.ok"].tap(); usleep(700_000)
+        app.buttons["ed.tray"].tap(); usleep(900_000); shot("172-tray")
+        app.buttons["tr.A"].firstMatch.tap(); usleep(900_000); shot("173-reading-on-wall-A")
+    }
 }

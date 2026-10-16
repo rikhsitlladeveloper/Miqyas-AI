@@ -121,6 +121,22 @@ final class RoomOps {
         return Int.random(in: 2400...6400)
     }
 
+    /// The tray's laser button: a simulated reading near one of the room's still-needed lengths (prototype trayLaser).
+    func trayReading(_ pid: String, _ rid: String) {
+        guard let r = room(pid, rid) else { return }
+        let pool = Geo.stepKeys(r, snap).map { simTarget(r, $0) }
+        let n = s.readings.count
+        s.addReading(pool[n % max(1, pool.count)] + ((n % 3) - 1) * 2, "sim")
+    }
+
+    /// Puts a reading on a wall or the height, waiting for confirmation (prototype trayAssign).
+    func assignReading(_ pid: String, _ rid: String, _ id: String, _ k: String) {
+        guard let x = s.readings.first(where: { $0.id == id }) else { return }
+        change(pid, rid, hist: false) { $0.dims[k] = Dim(v: $0.dim(k).v, src: $0.dim(k).src, pending: Pending(mm: x.mm, src: x.src, from: "quick")) }
+        s.markReadingUsed(id, dimLabel(k))
+        focus(rid, k)
+    }
+
     /// Confirms a value (prototype applyDim): history, the value, the toast with Undo; the card moves on by itself.
     func apply(_ pid: String, _ rid: String, _ k: String, _ mm: Int, _ src: String) {
         change(pid, rid) { $0.dims[k] = Dim(v: mm, src: src) }

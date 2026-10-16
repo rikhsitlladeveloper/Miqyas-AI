@@ -49,12 +49,16 @@ struct ProfileScreen: View {
                     Card {
                         Row1(icon: "globe", title: tr("se.lang"), value: s.lang.longName) { app.sheet = .language }
                         Row1(icon: "doc", title: tr("se.reportLang"), value: s.reportLang.longName) { app.sheet = .reportLang }
+                        Row1(icon: "layers", title: tr("se.pdf"), value: "\(pdfCount(s.pdf))/5") { app.sheet = .pdfParts }
                         Row1(icon: "coin", title: tr("np.currency"), value: s.currency) { app.sheet = .currency }
                     }
                     // dark mode: this app's own (the prototype has only the light look)
                     Card { SwitchRow(icon: "moon", title: tr("nt.dark"), on: s.dark) { s.setDarkMode(!s.dark) } }.padding(.top, 10)
                     Group1(text: tr("pf.gMeasure"))
-                    Card { SwitchRow(icon: "ruler", title: tr("se.snap"), on: s.angleSnap) { s.setSnap(!s.angleSnap) } }
+                    Card {
+                        Row1(icon: "door", title: tr("se.defaults"), value: Geo.fmtLen(s.doorW, s.unit, s.lang == .en) + " × " + Geo.fmtLen(s.doorH, s.unit, s.lang == .en)) { app.sheet = .defaults }
+                        SwitchRow(icon: "ruler", title: tr("se.snap"), on: s.angleSnap) { s.setSnap(!s.angleSnap) }
+                    }
                     Group1(text: tr("ac.group"))
                     Card { Row1(icon: "user", title: tr("ac.signIn"), value: nil, sub: tr("ac.noneB")) { signIn() } }
                     HStack(spacing: 10) {
@@ -214,6 +218,7 @@ struct SettingsMoreScreen: View {
             Card {
                 Row1(icon: "ruler", title: tr("se.units"), value: tr(s.unitCm ? "un.cm" : "un.m")) { app.sheet = .units }
                 Row1(icon: "room", title: tr("se.label"), value: tr("se.label." + s.roomLabel)) { app.sheet = .roomLabel }
+                Row1(icon: "info", title: tr("se.hintsReset"), value: nil) { s.resetHints(); RoomOps.shared.tipSeen = false; app.say("se.hintsDone") }
             }
             Card {
                 Row1(icon: "bt", title: tr("se.device"), value: tr(s.laser == .connected ? "pf.btOn" : "pf.btDisc")) { app.sheet = .device }
@@ -278,8 +283,74 @@ struct ProfileSheet: View {
             } footer: {
                 GBtn(tr("common.close"), kind: .secondary) { app.sheet = nil }
             }
+        case .pdfParts: PdfPartsSheet(app: app)
+        case .defaults: DefaultsSheet(app: app)
         default:
             EmptyView()
+        }
+    }
+}
+
+func pdfCount(_ p: PdfParts) -> Int { [p.plan, p.dims, p.views, p.estimate, p.sign].filter { $0 }.count }
+
+/// What the PDF shows (prototype SHEETS.pdf).
+private struct PdfPartsSheet: View {
+    let app: AppModel
+    var body: some View {
+        let s = AppSettings.shared, p = s.pdf
+        GlassSheet(tr("se.pdf"), onClose: { app.sheet = nil }) {
+            ForEach([("plan", p.plan), ("dims", p.dims), ("views", p.views), ("estimate", p.estimate), ("sign", p.sign)], id: \.0) { k, on in
+                HStack(spacing: 12) { MIcon(on ? "boxok" : "box", on ? G.cobalt : G.ink2, 24, 2); T(tr("pdf." + k), ui(16, 500)).frame(maxWidth: .infinity, alignment: .leading) }
+                    .padding(.horizontal, 4).frame(minHeight: 52)
+                    .pressable(0.98) {
+                        var n = p
+                        switch k { case "plan": n.plan = !on; case "dims": n.dims = !on; case "views": n.views = !on; case "estimate": n.estimate = !on; default: n.sign = !on }
+                        s.setPdfParts(n)
+                    }
+                    .accessibilityAddTraits(on ? .isSelected : [])
+                    .accessibilityIdentifier("pdf." + k)
+            }
+            T(tr("se.pdfBody"), ui(13, 400, G.ink2, lh: 1.45))
+        }
+    }
+}
+
+private enum DF: Hashable { case f(Int) }
+
+/// Default door and window sizes (prototype SHEETS.defaults): typed with the length rules of the room editor.
+private struct DefaultsSheet: View {
+    let app: AppModel
+    @State private var f: [String] = []
+    @State private var tried = false
+    @FocusState private var focus: DF?
+    private func bind(_ i: Int) -> Binding<String> { Binding(get: { i < f.count ? f[i] : "" }, set: { if i < f.count { f[i] = $0 } }) }
+    var body: some View {
+        let s = AppSettings.shared, u = s.unit, en = s.lang == .en, m = unitName()
+        let maxes = [100_000, 20_000, 100_000, 20_000, 20_000]
+        let r = (0..<5).map { Geo.lenErr($0 < f.count ? f[$0] : "", maxes[$0], u, en) }
+        GlassSheet(tr("se.defaults"), onClose: { app.sheet = nil }) {
+            T(tr("se.defaultsBody"), ui(14, 400, G.ink2, lh: 1.45))
+            T(tr("op.door"), ui(13, 700, G.ink2))
+            HStack(alignment: .top, spacing: 10) {
+                NumField(label: tr("op.width"), value: bind(0), suffix: m, error: errText(r[0]), showError: tried, focus: $focus, me: .f(0), id: "df.dw")
+                NumField(label: tr("op.height"), value: bind(1), suffix: m, error: errText(r[1]), showError: tried, focus: $focus, me: .f(1))
+            }
+            T(tr("op.window"), ui(13, 700, G.ink2))
+            HStack(alignment: .top, spacing: 10) {
+                NumField(label: tr("op.width"), value: bind(2), suffix: m, error: errText(r[2]), showError: tried, focus: $focus, me: .f(2))
+                NumField(label: tr("op.height"), value: bind(3), suffix: m, error: errText(r[3]), showError: tried, focus: $focus, me: .f(3))
+            }
+            NumField(label: tr("op.sill"), value: bind(4), suffix: m, error: errText(r[4]), showError: tried, focus: $focus, me: .f(4))
+        } footer: {
+            GBtn(tr("common.save")) {
+                let v = r.compactMap(\.value)
+                guard v.count == 5 else { tried = true; return }
+                s.setDefaults(Int(v[0]), Int(v[1]), Int(v[2]), Int(v[3]), Int(v[4])); app.sheet = nil; app.say("se.saved")
+            }
+            .accessibilityIdentifier("df.save")
+        }
+        .onAppear {
+            if f.isEmpty { f = [s.doorW, s.doorH, s.winW, s.winH, s.winSill].map { Geo.fmtField($0, u, en) } }
         }
     }
 }

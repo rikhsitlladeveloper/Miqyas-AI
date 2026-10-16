@@ -57,10 +57,11 @@ struct EditorScreen: View {
                             HStack(spacing: 8) {
                                 MIcon("laser", G.cobalt, 20, 2)
                                 T(tr("tr.btn"), ui(15, 700), lines: 1)
-                                T("0", ui(13, 800, .white)).padding(.horizontal, 9).padding(.vertical, 4).background(Capsule().fill(G.cobalt))
+                                T("\(AppSettings.shared.readings.filter { $0.used == nil }.count)", ui(13, 800, .white)).padding(.horizontal, 9).padding(.vertical, 4).background(Capsule().fill(G.cobalt))
                             }
                             .padding(.leading, 14).padding(.trailing, 8).frame(maxHeight: .infinity)
                             .pressable(0.97) { app.sheet = .tray(pid: p.id, rid: r.id) }
+                            .accessibilityIdentifier("ed.tray")
                         }
                         .padding(.leading, 12)
                         Spacer()

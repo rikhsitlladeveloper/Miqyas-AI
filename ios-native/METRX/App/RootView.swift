@@ -100,7 +100,7 @@ struct RootView: View {
                     .gesture(DragGesture(minimumDistance: 10).onEnded { v in if v.translation.width > 70 { app.pop() } })
             }
             // the tab bar shows on the tab pages and the project page; it steps away under a sheet
-            if app.sheet == nil && (app.top == .root || { if case .project = app.top { return true }; return false }()) {
+            if app.sheet == nil && (app.top == .root || { switch app.top { case .project, .measure: return true; default: return false } }()) {
                 // it stays at the bottom when the keyboard opens (the keyboard covers it, as in other iPhone apps)
                 GlassNav(cur: app.tab) { app.selectTab($0) }.transition(.opacity).ignoresSafeArea(.keyboard)
             }
@@ -125,6 +125,7 @@ struct RootView: View {
         case .wallView(let pid, let rid, let wall): WallViewScreen(app: app, pid: pid, rid: rid, wall: wall)
         case .sketch(let pid, let wid, let name): SketchScreen(app: app, pid: pid, wid: wid, name: name)
         case .report(let pid, let no): ReportScreen(app: app, pid: pid, no: no)
+        case .measure(let calc): MeasureScreen(app: app, calcTitle: calc)
         }
     }
 
@@ -136,6 +137,7 @@ struct RootView: View {
             if EditorSheet.handles(s) { EditorSheet(app: app, sheet: s) }
             else if EstimateSheet.handles(s) { EstimateSheet(app: app, sheet: s) }
             else if ReportSheet.handles(s) { ReportSheet(app: app, sheet: s) }
+            else if MeasureSheet.handles(s) { MeasureSheet(app: app, sheet: s) }
             else if ProjectSheet.handles(s) { ProjectSheet(app: app, sheet: s) } else { ProfileSheet(app: app, sheet: s) }
         }
     }

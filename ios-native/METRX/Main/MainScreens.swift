@@ -57,8 +57,8 @@ struct HomeScreen: View {
                     .padding(.top, 22).padding(.bottom, 16)
                     BigCard { app.push(.newProject(editId: nil)) }
                     HStack(spacing: 14) {
-                        SmallCard(icon: RULER, title: tr("gl.meas"), sub: tr("gl.measS")) { app.say("nt.part", ["n": 7], kind: .info) }
-                        SmallCard(icon: CALC, title: tr("gl.calc"), sub: tr("gl.calcS")) { app.say("nt.part", ["n": 7], kind: .info) }
+                        SmallCard(icon: RULER, title: tr("gl.meas"), sub: tr("gl.measS")) { app.push(.measure(calc: false)) }.accessibilityIdentifier("home.measure")
+                        SmallCard(icon: CALC, title: tr("gl.calc"), sub: tr("gl.calcS")) { app.push(.measure(calc: true)) }.accessibilityIdentifier("home.calc")
                     }
                 }
                 .padding(.horizontal, 20).padding(.top, 6).padding(.bottom, 24 + NAV_SPACE)

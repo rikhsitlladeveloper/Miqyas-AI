@@ -35,6 +35,12 @@ final class AppSettings {
     private(set) var winSill: Int
     /// One visit = one cold start; the Home greeting line changes with it.
     let visit: Int
+    /// Laser and typed readings of the Measure page, oldest first (prototype S.readings); not tied to a project.
+    private(set) var readings: [Reading]
+    /// The brick tool's brick, joint and spare (prototype S.settings.brick).
+    private(set) var brick: BrickSpec
+    /// Pictures taken on the Measure page, newest first (prototype S.shots): photos that belong to no project yet.
+    private(set) var shots: [Item]
     /// What the PDF shows (Profile → PDF; prototype S.settings.pdf).
     private(set) var pdf: PdfParts
     /// Estimate rows typed but not saved (prototype S.rowDrafts), by "project|mat or lab|row id or new": the sheet's
@@ -63,6 +69,9 @@ final class AppSettings {
         roomLabel = d.string(forKey: "roomLabel") ?? "both"
         func int(_ k: String, _ v: Int) -> Int { d.object(forKey: k) as? Int ?? v }
         doorW = int("doorW", 900); doorH = int("doorH", 2100); winW = int("winW", 1200); winH = int("winH", 1500); winSill = int("winSill", 900)
+        readings = d.data(forKey: "readings").flatMap { try? JSONDecoder().decode([Reading].self, from: $0) } ?? []
+        brick = d.data(forKey: "brick").flatMap { try? JSONDecoder().decode(BrickSpec.self, from: $0) } ?? BrickSpec()
+        shots = d.data(forKey: "shots").flatMap { try? JSONDecoder().decode([Item].self, from: $0) } ?? []
         pdf = d.data(forKey: "pdf").flatMap { try? JSONDecoder().decode(PdfParts.self, from: $0) } ?? PdfParts()
         rowDrafts = (d.data(forKey: "rowDrafts")).flatMap { try? JSONDecoder().decode([String: [String: String]].self, from: $0) } ?? [:]
         visit = d.integer(forKey: "visit") + (d.object(forKey: "visit") == nil ? 0 : 1)
@@ -88,6 +97,17 @@ final class AppSettings {
         builderName = name.trimmingCharacters(in: .whitespacesAndNewlines); builderPhone = Phone.digits(phone)
         d.set(builderName, forKey: "builderName"); d.set(builderPhone, forKey: "builderPhone")
     }
+    @discardableResult func addReading(_ mm: Int, _ src: String) -> Reading {
+        let r = Reading(id: uid(), n: (readings.map(\.n).max() ?? 0) + 1, mm: mm, ts: nowMs(), src: src)
+        readings.append(r); saveReadings(); return r
+    }
+    func deleteReading(_ id: String) { readings.removeAll { $0.id == id }; saveReadings() }
+    func markReadingUsed(_ id: String, _ where_: String) { if let i = readings.firstIndex(where: { $0.id == id }) { readings[i].used = where_; saveReadings() } }
+    private func saveReadings() { d.set(try? JSONEncoder().encode(readings), forKey: "readings") }
+    func setBrickSpec(_ b: BrickSpec) { brick = b; d.set(try? JSONEncoder().encode(b), forKey: "brick") }
+    func saveShots(_ v: [Item]) { shots = v; d.set(try? JSONEncoder().encode(v), forKey: "shots") }
+    /// Profile → "Hints back": the editor's first-time tip shows again.
+    func resetHints() { editorTipOff = false; d.set(false, forKey: "tipEditor") }
     func setPdfParts(_ v: PdfParts) { pdf = v; d.set(try? JSONEncoder().encode(v), forKey: "pdf") }
     func setDraft(_ key: String, _ form: [String: String]?) {
         if let form { rowDrafts[key] = form } else { rowDrafts.removeValue(forKey: key) }

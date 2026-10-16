@@ -512,15 +512,21 @@ private struct RenameSheet: View {
     }
 }
 
-/// The readings tray: readings taken on the Measure tab wait here to be given to a wall. Taking them arrives in part 7.
+/// The readings tray: readings taken on the Measure page (or here, with the laser) wait to be given to a wall.
 private struct TraySheet: View {
     let app: AppModel
     let pid: String
     let rid: String
     var body: some View {
+        let st = AppSettings.shared, en = st.lang == .en
+        let rs = Array(st.readings.reversed())
+        let r = RoomOps.shared.room(pid, rid)
+        let targets = (r.map { Geo.stepKeys($0, st.angleSnap) } ?? []) + ["T"]
         GlassSheet(tr("tr.title"), onClose: close) {
             T(tr("tr.body"), ui(14, 400, G.ink2, lh: 1.45))
-            if AppSettings.shared.laser != .connected {
+            if st.laser == .connected {
+                GBtn(tr("ms.simPress"), kind: .secondary, icon: "laser") { RoomOps.shared.trayReading(pid, rid) }.accessibilityIdentifier("tr.laser")
+            } else {
                 HStack(spacing: 8) {
                     MIcon("btoff", G.amberInk, 18, 2)
                     T(tr("ms.discBody"), ui(13.5, 500, G.ink, lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading)
@@ -529,7 +535,31 @@ private struct TraySheet: View {
                 .padding(.leading, 12).padding(.trailing, 6).padding(.vertical, 6)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.amberWash))
             }
-            T(tr("tr.empty"), ui(14, 500, G.ink2, lh: 1.45))
+            if rs.isEmpty { T(tr("tr.empty"), ui(14, 500, G.ink2, lh: 1.45)) }
+            ForEach(rs) { x in
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack {
+                        Text(Geo.fmtLen(x.mm, st.unit, en, full: true) + " " + unitName()).st(num(20, 600)).frame(maxWidth: .infinity, alignment: .leading)
+                        T(tr(x.src == "manual" ? "src.manual" : "src.sim"), ui(12.5, 500, G.ink2))
+                    }
+                    if let used = x.used {
+                        HStack(spacing: 4) { MIcon("check", G.green, 14, 2.4); T(tr("tr.used", ["d": used]), ui(13, 400, G.ink2)) }
+                    } else {
+                        FlowLayout(spacing: 6) {
+                            T(tr("tr.assign"), ui(13, 400, G.ink2)).frame(minHeight: 40)
+                            ForEach(targets, id: \.self) { k in
+                                T(k == "H" ? tr("ed.Hs") : k == "T" ? tr("ed.Ts") : k, ui(14, 600)).padding(.horizontal, 12).frame(minHeight: 40)
+                                    .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(G.glass(0.7)))
+                                    .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(G.rim, lineWidth: 1))
+                                    .pressable(0.97) { RoomOps.shared.assignReading(pid, rid, x.id, k); app.sheet = nil }
+                                    .accessibilityIdentifier("tr." + k)
+                            }
+                        }
+                    }
+                }
+                .padding(.horizontal, 12).padding(.vertical, 10).frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.glass(0.6)))
+            }
         }
     }
 }

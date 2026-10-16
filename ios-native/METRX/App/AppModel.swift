@@ -24,6 +24,8 @@ enum Route: Hashable {
     case sketch(pid: String, wid: String, name: String)
     /// The draft report (no nil) or issued quote № no.
     case report(pid: String, no: Int?)
+    /// The Measure page, from Home's "O‘lchash" or, scrolled to the calculator, "Kalkulyator" (prototype tab 'measure').
+    case measure(calc: Bool)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -59,6 +61,11 @@ enum Sheet: Equatable {
     /// The report's set-up (language, rooms, extras, views, note) and issuing a quote (builderOnly: only the builder).
     case reportSetup(pid: String)
     case issue(pid: String, builderOnly: Bool = false)
+    /// The Measure page: typing a reading, the brick settings, sending a reading to a room.
+    case qmManual, brickSet
+    case sendReading(id: String)
+    /// Profile: the PDF's parts and the door and window sizes new openings start from.
+    case pdfParts, defaults
 }
 
 /// Screens of the sign-in flow.
