@@ -137,5 +137,31 @@ rounding and a 15-digit amount, display); the screen test on the simulator: a qu
 kiriting."), the draft kept, brought back and cleared, labour, editing and deleting a row, the total read back as
 "4 240 000", the areas sheet, the header's "4,24 mln".
 
-Not in parts 1–5 (they come with the parts that need them): projects and everything inside them, the Measure page and
+## Status: part 6 of 7 (16 October 2026)
+
+Built: the report page (prototype "read it first"): the A4 pages across the screen, swipe or arrows between them, tap
+to zoom (all pages, + for full size); a dark strip with the total, page count and language; notices for a missing
+builder (with a sheet to add name and phone) and unconfirmed measurements. "Sozlash": report language, rooms, notes,
+3D views and the report's note. "Qoralamani ulashish" makes the PDF with its DRAFT mark and opens the iPhone's share
+sheet. "Taklifni chiqarish" (blocked while estimate rows lack numbers, and asking for the builder first if needed)
+freezes quote №n: the pages, total, language and parties, with copies of its 3D pictures; the Quotes tab lists them
+(newest first, whether the draft still matches), each opens in the same viewer with a lock banner and can be shared.
+The Smeta tab says whether the draft is the same as the last quote or has changed since.
+
+The pages follow the prototype's reportPages and .a4 styles, laid out as in the Android app (`Report/Pages.swift`):
+header with the mark, parties table, each room's plan beside its measurements, notes page, 3D views, materials and
+labour tables, grand total with the double rule, footnotes, signatures, page numbers, the diagonal DRAFT mark; content
+that would run off a page continues on the next (a table repeats its heading row). Each page is drawn once as SwiftUI
+drawing steps (text by TextKit, so what is measured is what is drawn) and rendered by `ImageRenderer` as a picture for
+the preview and into a PDF context for the file (595 × 842 pt, vector).
+
+Checked: 3 more unit tests (`METRXTests/ReportTests.swift`: what changes the fingerprint and what does not, the quote
+total and file name, and the PDF read back with PDFKit — one PDF page per report page, the room's name and the total
+"4 240 000" found as text); the screen test on the simulator: a measured room with its estimate gives 2 pages, page 2
+with the tables, the viewer and its zoom, the report in Russian, the share sheet opening, issuing quote №1 with the
+stage offer, the Quotes tab, the frozen quote, and after an estimate change "changed since" on the Smeta tab and
+"differs" on the quote. Not checked yet: sharing into another app on a real iPhone, drawings and photos in the report
+(they arrive with part 7).
+
+Not in parts 1–6 (they come with the parts that need them): projects and everything inside them, the Measure page and
 calculators, Profile's PDF parts, currency, door and window sizes and hints.
