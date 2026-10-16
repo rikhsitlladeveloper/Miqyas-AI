@@ -13,27 +13,33 @@ struct ProjectScreen: View {
 
     var body: some View {
         if let p = Store.shared.get(id) {
-            VStack(alignment: .leading, spacing: 0) {
-                HStack { BackPill(text: tr("tab.projects")) { app.pop() }; Spacer() }.padding(.leading, 8).frame(minHeight: 64)
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 0) {
-                        header(p)
-                        switch tab {
-                        case "info": InfoTab(app: app, p: p, call: { call(p) }, map: { openMap(p) })
-                        case "estimate": LaterTab(icon: "coin", part: 5)
-                        case "quotes": LaterTab(icon: "doc", part: 6)
-                        default:
-                            if view != "list" && !p.rooms.isEmpty {
-                                VStack(alignment: .leading, spacing: 0) {
-                                    ViewSeg(cur: view) { app.setProjectView($0) }
-                                    if view == "2d" { Plans2D(app: app, p: p) } else { Project3D(app: app, p: p, floor: floor) }
-                                }
-                                .padding(.horizontal, 20).padding(.top, 12)
-                            } else { WorkspacesTab(app: app, p: p) }
+            let withTotal = tab == "estimate" && !(p.estimate.materials.isEmpty && p.estimate.labor.isEmpty)
+            ZStack(alignment: .bottom) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack { BackPill(text: tr("tab.projects")) { app.pop() }; Spacer() }.padding(.leading, 8).frame(minHeight: 64)
+                    ScrollView {
+                        VStack(alignment: .leading, spacing: 0) {
+                            header(p)
+                            switch tab {
+                            case "info": InfoTab(app: app, p: p, call: { call(p) }, map: { openMap(p) })
+                            case "estimate": EstimateTab(app: app, p: p)
+                            case "quotes": LaterTab(icon: "doc", part: 6)
+                            default:
+                                if view != "list" && !p.rooms.isEmpty {
+                                    VStack(alignment: .leading, spacing: 0) {
+                                        ViewSeg(cur: view) { app.setProjectView($0) }
+                                        if view == "2d" { Plans2D(app: app, p: p) } else { Project3D(app: app, p: p, floor: floor) }
+                                    }
+                                    .padding(.horizontal, 20).padding(.top, 12)
+                                } else { WorkspacesTab(app: app, p: p) }
+                            }
                         }
+                        // the floating total leaves room for the last rows
+                        .padding(.bottom, (withTotal ? 150 : 24) + NAV_SPACE)
                     }
-                    .padding(.bottom, 24 + NAV_SPACE)
                 }
+                // the total floats over the tab bar, the rows scroll above it (prototype .footer.gs-tot)
+                if withTotal { EstimateTotal(app: app, p: p).padding(.bottom, NAV_SPACE - 12) }
             }
         }
     }
@@ -124,8 +130,8 @@ private struct Nums: View {
                 vline
                 cell(tr("pl.meas"), st.need > 0 ? "\(st.conf)/\(st.need)" : "—", nil).padding(.leading, 12)
                 vline
-                // the estimate's total arrives with the Smeta tab in part 5
-                cell(tr("pl.est"), "—", nil).padding(.leading, 12)
+                let est = Money.short(p, Money.totals(p).g, en, tr("pl.mln"))
+                cell(tr("pl.est"), est.0, est.1).padding(.leading, 12)
             }
             .padding(.horizontal, 4).padding(.top, 10)
             .fixedSize(horizontal: false, vertical: true)

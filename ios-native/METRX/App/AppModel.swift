@@ -50,6 +50,10 @@ enum Sheet: Equatable {
     case roomInfo(pid: String, rid: String), roomRename(pid: String, rid: String), tray(pid: String, rid: String)
     case roomMenu(pid: String, rid: String), roomMove(pid: String, rid: String)
     case wallAdd(pid: String, rid: String, wall: String)
+    /// The Smeta tab's sheets: the rooms' areas, and a material or labour row (kind "mat" or "lab"; id nil for a new
+    /// one, which may start with a suggested name and unit).
+    case areas(pid: String)
+    case row(pid: String, kind: String, id: String? = nil, name: String? = nil, unit: String? = nil)
 }
 
 /// Screens of the sign-in flow.

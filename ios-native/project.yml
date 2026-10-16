@@ -27,6 +27,17 @@ targets:
         TARGETED_DEVICE_FAMILY: "1"
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         GENERATE_INFOPLIST_FILE: NO
+  METRXTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources: [METRXTests]
+    dependencies:
+      - target: METRX
+    settings:
+      base:
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/METRX.app/METRX"
+        BUNDLE_LOADER: "$(TEST_HOST)"
   METRXUITests:
     type: bundle.ui-testing
     platform: iOS
@@ -42,6 +53,7 @@ schemes:
     build:
       targets:
         METRX: all
+        METRXTests: [test]
         METRXUITests: [test]
     test:
-      targets: [METRXUITests]
+      targets: [METRXTests, METRXUITests]

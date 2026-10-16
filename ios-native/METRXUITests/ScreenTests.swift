@@ -318,4 +318,65 @@ final class ScreenTests: XCTestCase {
         app.buttons["v3.room"].firstMatch.tap(); sleep(1); shot("110-zoomed-to-room")
         app.buttons["3d.all"].tap(); sleep(1); shot("111-all-rooms")
     }
+
+    private func typeIn(_ app: XCUIApplication, _ id: String, _ v: String) {
+        let f = app.textFields[id]
+        XCTAssertTrue(f.waitForExistence(timeout: 3))
+        f.tap(); f.typeText(v); usleep(300_000)
+    }
+
+    /// Part 5: the Smeta tab — empty state, a quick add from the walls with 10 % spare, materials and labour, a wrong
+    /// amount, a draft kept and cleared, editing and deleting, and the BUILD_PLAN total 4 240 000.
+    func testEstimate() {
+        let app = launch()
+        firstRun(app)
+        newWorkspace(app, "Uy 5")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.create"].tap(); sleep(1)
+        app.buttons["tip.ok"].tap(); usleep(700_000)
+        measuredRoom(app, "5", "4", "3", openings: true)
+        sleep(6)
+        app.buttons["back"].firstMatch.tap(); usleep(1_000_000)
+        app.buttons["Orqaga"].firstMatch.tap(); usleep(1_000_000)
+        app.buttons["ptab.estimate"].tap(); usleep(900_000); shot("120-estimate-empty")
+
+        // a quick add: wallpaper by the net wall area, with 10 % spare
+        app.buttons["es.quick"].firstMatch.tap(); usleep(900_000)
+        app.buttons["gs.fromWall"].tap(); usleep(400_000)
+        app.buttons["gs.reserve"].tap(); usleep(400_000)
+        typeIn(app, "gs.price", "120000"); shot("121-row-from-walls")
+        app.buttons["gs.save"].tap(); usleep(1_000_000); shot("122-estimate-one-row")
+
+        // paint and flooring, the second with "Add another"
+        app.buttons["gs.addMat"].tap(); usleep(900_000)
+        app.typeText("Bo'yoq"); typeIn(app, "gs.qty", "12"); typeIn(app, "gs.price", "50000")
+        app.buttons["gs.again"].tap(); usleep(900_000)
+        app.typeText("Laminat"); typeIn(app, "gs.qty", "22"); typeIn(app, "gs.price", "120000")
+        app.buttons["gs.save"].tap(); usleep(1_000_000)
+
+        // labour: a wrong amount first, then a draft kept, brought back and cleared
+        app.buttons["gs.addLab"].tap(); usleep(900_000)
+        app.typeText("Ish haqi"); typeIn(app, "gs.sum", "12.5")
+        app.buttons["gs.save"].tap(); usleep(600_000); shot("123-labour-wrong-amount")
+        app.buttons["sheet.close"].tap(); usleep(900_000); shot("124-draft-kept")
+        app.buttons["gs.addLab"].tap(); usleep(900_000); shot("125-draft-back")
+        app.buttons["gs.dClear"].tap(); usleep(500_000)
+        app.typeText("Ish haqi"); typeIn(app, "gs.sum", "1000000")
+        app.buttons["gs.save"].tap(); usleep(1_000_000); shot("126-estimate-full")
+        app.swipeUp(); usleep(600_000); shot("127-estimate-scrolled")
+
+        // edit the wallpaper row and delete it: what is left is the BUILD_PLAN estimate
+        app.swipeDown(); usleep(600_000)
+        app.buttons["es.row"].firstMatch.tap(); usleep(900_000); shot("128-edit-row")
+        app.buttons["gs.del"].tap(); sleep(1)
+        let grand = app.staticTexts["es.grand"]
+        XCTAssertTrue(grand.waitForExistence(timeout: 3))
+        XCTAssertEqual(grand.label, "4 240 000")
+        shot("129-build-plan-total")
+        app.buttons["es.walls"].tap(); usleep(900_000); shot("130-areas-sheet")
+        app.buttons["sheet.close"].tap(); usleep(600_000)
+        app.buttons["ptab.rooms"].tap(); usleep(700_000); shot("131-header-estimate")
+    }
 }

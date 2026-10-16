@@ -133,6 +133,7 @@ struct RootView: View {
         case .device: DeviceSheet(app: app)
         default:
             if EditorSheet.handles(s) { EditorSheet(app: app, sheet: s) }
+            else if EstimateSheet.handles(s) { EstimateSheet(app: app, sheet: s) }
             else if ProjectSheet.handles(s) { ProjectSheet(app: app, sheet: s) } else { ProfileSheet(app: app, sheet: s) }
         }
     }
