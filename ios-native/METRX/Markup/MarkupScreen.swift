@@ -113,7 +113,8 @@ final class MarkOps {
             let id = uid()
             guard let saved = PhotoFiles.save(id, img) else { self.app.say("cm.shareErr", kind: .error); return }
             let it = self.addPhoto(t, id, saved.0, saved.1, saved.2)
-            self.app.push(.markup(pid: t.pid, iid: it.id))
+            // from the live camera's own screen, the picture takes its place (back goes to the Measure page)
+            if self.app.top == .liveCam { self.app.replaceTop(.markup(pid: t.pid, iid: it.id)) } else { self.app.push(.markup(pid: t.pid, iid: it.id)) }
         }
     }
 }

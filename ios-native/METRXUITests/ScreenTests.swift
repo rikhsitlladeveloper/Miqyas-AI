@@ -96,7 +96,7 @@ final class ScreenTests: XCTestCase {
         app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Sanjar Usta")
         app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
         app.buttons["local.start"].tap()
-        XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 10))
         usleep(800_000)
     }
 

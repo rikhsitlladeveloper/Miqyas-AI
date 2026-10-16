@@ -163,5 +163,36 @@ stage offer, the Quotes tab, the frozen quote, and after an estimate change "cha
 "differs" on the quote. Not checked yet: sharing into another app on a real iPhone, drawings and photos in the report
 (they arrive with part 7).
 
-Not in parts 1–6 (they come with the parts that need them): projects and everything inside them, the Measure page and
+## Status: part 7 of 7 (16 October 2026)
+
+Built:
+- Profile: PDF parts (what the report shows), door and window sizes (new openings start from them), hints back, on top
+  of what parts 1–2 brought (name card, METRX Pro, app and report language, currency, dark mode, angle snapping, units,
+  room label, about, more settings, the subscription page).
+- Measure page (Home's "O‘lchash", or "Kalkulyator" opening it at the calculators): the meter with the laser's state,
+  single or continuous measuring with the simulated laser, five calculators (area, net wall less an opening, volume,
+  sum, bricks with mortar and its own brick/joint/spare sheet), readings as chips and a list, typing one, sending one to
+  any room's wall or height (it waits there for confirmation), deleting one. The room editor's readings tray lists them,
+  gives them to walls, counts the unused ones on its badge, and has the laser button when connected.
+- Drawings and photos in workspaces: free drawing (pen, line with length, text, eraser), photo from the camera app or
+  the library (dimension, arrow, text, pen, eraser), three colours, thin/thick pen, undo/redo, caption; tapping a length
+  or a text opens it; lengths from the laser or typed. Card pictures; duplicate, move, rename, delete as for notes.
+- The live camera (AVFoundation): draw a line on the live view, take its length from the laser or type it, save the
+  frame (cropped to what the screen showed); pictures live under "Suratlar" on the Measure page, open in the photo
+  editor, can be shared as one JPEG or moved into a workspace. Refused or missing camera access shows its own screen
+  with "Surat olish".
+- Report: drawings and photos chosen for the report get pages of their own, two a page, with name, workspace and
+  caption, and the photo footnote; issued quotes keep copies of their photos.
+
+Checked: 1 more unit test (a drawing chosen for the report gets its page; an empty drawing stays out); the screen tests
+on the simulator: the Measure page from empty through typed readings (4,20 × 3,00 = 12,60 m²), the laser, the net wall,
+bricks (894 pieces, 0,33 m³ mortar), the brick sheet, continuous measuring, the list, sending with no rooms, Kalkulyator,
+PDF parts and door/window sizes in Profile, the tray giving a reading to wall A; a drawing with a pen stroke, a 3,60 m
+line and a text; a photo (a drawn sample picture stands in for the camera and library, which the simulator does not
+have) with a 0,90 m dimension and a caption; the workspace cards; the camera choice, iPhone's camera question, the
+refused-camera screen, a picture taken there, the Measure page's pictures and moving one into a workspace.
+Not checked yet: the live camera and the camera app with a real camera (a real iPhone), picking from a real photo
+library.
+
+Not in parts 1–7: nothing of the prototype's screens is left; accounts stay on this phone (as on Android).: projects and everything inside them, the Measure page and
 calculators, Profile's PDF parts, currency, door and window sizes and hints.
