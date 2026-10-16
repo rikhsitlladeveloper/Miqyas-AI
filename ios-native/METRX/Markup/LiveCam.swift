@@ -124,7 +124,6 @@ struct LiveCamScreen: View {
                         .accessibilityIdentifier("lc.photo")
                 }
                 .padding(.horizontal, 28).padding(.vertical, 24).frame(maxWidth: .infinity, maxHeight: .infinity)
-                .accessibilityIdentifier("lc.error")
             } else {
                 ZStack(alignment: .top) {
                     LC_VIEW
