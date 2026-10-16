@@ -491,7 +491,6 @@ private struct RowSheet: View {
                             .accessibilityIdentifier("gs.again")
                     }
                     GBtn(tr("common.save"), height: 54, corner: 27, fontSize: 15) { save(p, again: false, bad) }.opacity(bad ? 0.5 : 1)
-                        .frame(maxWidth: .infinity).layoutPriority(1)
                         .accessibilityIdentifier("gs.save")
                 }
             }
