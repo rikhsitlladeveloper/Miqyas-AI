@@ -219,7 +219,7 @@ private struct BlankSheet: View {
     }
 }
 
-/// A card for a note (its text and checklist); drawings and photos get their pictures in part 7.
+/// A card for a note (its text and checklist), a drawing or a photo (its picture with the marks).
 private struct ItemCard: View {
     let app: AppModel
     let p: Project
@@ -243,6 +243,7 @@ private struct ItemCard: View {
                 }
                 .padding(.horizontal, 12).padding(.top, 32).padding(.bottom, 10)
                 .frame(maxWidth: .infinity, alignment: .leading).frame(height: 129)
+                .background { if it.kind != "note" { MarkThumb(it: it) } }
                 .background(it.kind == "note" ? G.noteWash : it.kind == "photo" ? Color(argb: 0xFF0E1C36) : Color.white)
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) { MIcon(KIND_IC[it.kind] ?? "note", G.ink3, 15, 2); T(tr("it.k." + it.kind), ui(12, 400, G.ink3), lines: 1) }
@@ -253,7 +254,7 @@ private struct ItemCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .contentShape(Rectangle())
-            .onTapGesture { if it.kind == "note" { app.push(.note(pid: p.id, wid: w.id, iid: it.id)) } else { app.say("nt.part", ["n": 7], kind: .info) } }
+            .onTapGesture { if it.kind == "note" { app.push(.note(pid: p.id, wid: w.id, iid: it.id)) } else { app.push(.markup(pid: p.id, iid: it.id)) } }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("item." + it.kind)

@@ -55,4 +55,20 @@ final class ReportTests: XCTestCase {
             try? FileManager.default.copyItem(at: url, to: URL(fileURLWithPath: dir).appendingPathComponent("report-draft.pdf"))
         }
     }
+
+    /// A drawing chosen for the report gets a page of its own (two figures a page).
+    func testFigurePages() {
+        var p = project()
+        let base = reportPages(snapshotOf(p), draft: true, meta: nil, image: { _ in nil }).count
+        var d = Item(id: "d1", kind: "drawing", name: "Chizma 1", created: 1, edited: 1)
+        d.W = 1000; d.H = 1300
+        d.els = [MkEl(id: "e1", t: "line", pts: [[100, 200], [800, 200]], v: 3600, src: "manual")]
+        p.floors[0].items = [d]
+        let sn = snapshotOf(p)
+        XCTAssertEqual(sn.extras.count, 1)
+        XCTAssertEqual(reportPages(sn, draft: true, meta: nil, image: { _ in nil }).count, base + 1)
+        // an empty drawing stays out of the report
+        p.floors[0].items[0].els = []
+        XCTAssertEqual(snapshotOf(p).extras.count, 0)
+    }
 }

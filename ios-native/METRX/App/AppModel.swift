@@ -26,6 +26,10 @@ enum Route: Hashable {
     case report(pid: String, no: Int?)
     /// The Measure page, from Home's "O‘lchash" or, scrolled to the calculator, "Kalkulyator" (prototype tab 'measure').
     case measure(calc: Bool)
+    /// A free drawing or a photo (prototype PAGES.draw / PAGES.photo); pid nil: a picture of the Measure page.
+    case markup(pid: String?, iid: String)
+    /// The Measure page's live camera (prototype PAGES.liveCam).
+    case liveCam
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -66,6 +70,11 @@ enum Sheet: Equatable {
     case sendReading(id: String)
     /// Profile: the PDF's parts and the door and window sizes new openings start from.
     case pdfParts, defaults
+    /// The markup editor: a line's length, a text mark, the photo's caption; a Measure page picture's menu, deleting it,
+    /// moving it into a project; the camera choice; the live camera's typed length.
+    case mkDim(eid: String)
+    case mkText(eid: String?, x: Double, y: Double)
+    case mkCaption, shotMenu, shotDel, shotTo, cameraPick, lcManual
 }
 
 /// Screens of the sign-in flow.
@@ -117,6 +126,8 @@ final class AppModel {
                 case .note(let pid, let wid, let iid): return store.get(pid)?.floors.first { $0.id == wid }?.items.contains { $0.id == iid } == true
                 case .editor(let pid, let rid, _), .wallView(let pid, let rid, _): return store.get(pid)?.rooms.contains { $0.id == rid } == true
                 case .sketch(let pid, let wid, _): return store.get(pid)?.floors.contains { $0.id == wid } == true
+                case .markup(let pid, let iid):
+                    return pid.map { store.get($0)?.floors.contains { w in w.items.contains { $0.id == iid } } == true } ?? AppSettings.shared.shots.contains { $0.id == iid }
                 case .report(let pid, let no): return store.get(pid).map { p in no == nil || p.quotes.contains { $0.no == no } } == true
                 default: return true
                 }

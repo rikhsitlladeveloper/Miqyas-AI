@@ -24,6 +24,8 @@
 	<key>ITSAppUsesNonExemptEncryption</key><false/>
 	<!-- asked only when the builder taps "Joylashuvni aniqlash" on a project; GPS works without internet -->
 	<key>NSLocationWhenInUseUsageDescription</key><string>METRX saves the project's place so you can find it on a map later. / Loyiha joyini saqlab, keyin xaritada topish uchun.</string>
+	<key>NSCameraUsageDescription</key><string>METRX takes photos of walls and openings to draw dimensions on them. / Devor va ochiq joylarni suratga olib, ustiga o‘lcham chizish uchun.</string>
+	<key>NSPhotoLibraryUsageDescription</key><string>METRX opens a photo from your library to draw dimensions on it. / Galereyadagi suratni ochib, ustiga o‘lcham chizish uchun.</string>
 	<key>UIAppFonts</key>
 	<array>
 		<string>PlusJakartaSans-Regular.ttf</string><string>PlusJakartaSans-Medium.ttf</string><string>PlusJakartaSans-SemiBold.ttf</string>

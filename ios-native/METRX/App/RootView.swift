@@ -126,6 +126,8 @@ struct RootView: View {
         case .sketch(let pid, let wid, let name): SketchScreen(app: app, pid: pid, wid: wid, name: name)
         case .report(let pid, let no): ReportScreen(app: app, pid: pid, no: no)
         case .measure(let calc): MeasureScreen(app: app, calcTitle: calc)
+        case .markup(let pid, let iid): MarkupScreen(app: app, pid: pid, iid: iid)
+        case .liveCam: LiveCamScreen(app: app)
         }
     }
 
@@ -137,7 +139,9 @@ struct RootView: View {
             if EditorSheet.handles(s) { EditorSheet(app: app, sheet: s) }
             else if EstimateSheet.handles(s) { EstimateSheet(app: app, sheet: s) }
             else if ReportSheet.handles(s) { ReportSheet(app: app, sheet: s) }
-            else if MeasureSheet.handles(s) { MeasureSheet(app: app, sheet: s) }
+            else if QuickSheet.handles(s) { QuickSheet(app: app, sheet: s) }
+            else if MarkupSheet.handles(s) { MarkupSheet(app: app, sheet: s) }
+            else if case .lcManual = s { LcManualSheet(app: app) }
             else if ProjectSheet.handles(s) { ProjectSheet(app: app, sheet: s) } else { ProfileSheet(app: app, sheet: s) }
         }
     }

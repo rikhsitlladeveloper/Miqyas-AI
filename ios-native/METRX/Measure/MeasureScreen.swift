@@ -111,6 +111,7 @@ struct MeasureScreen: View {
                             if rs.isEmpty { T(tr("qc.none"), ui(13, 400, G.ink2, lh: 1.4)) }
                             else { Chips(c: c, rs: rs, u: u, en: en) }
                             if c.showList && !rs.isEmpty { ReadingList(app: app, rs: rs, u: u, en: en, m: m) }
+                            if !s.shots.isEmpty { Shots(app: app, ss: s.shots, u: u, en: en, m: m) }
                         }
                         .padding(.horizontal, 16).padding(.top, 2).padding(.bottom, 110 + NAV_SPACE)
                     }
@@ -145,8 +146,8 @@ struct MeasureScreen: View {
     }
 }
 
-/// The camera button (the live camera and the camera app; see Markup).
-func openCamera(_ app: AppModel) { app.say("nt.part", ["n": 7], kind: .info) }
+/// The camera button: the live camera, or a photo to draw on.
+func openCamera(_ app: AppModel) { app.sheet = .cameraPick }
 
 private struct Meter: View {
     let c: MeasureCalc
@@ -395,9 +396,45 @@ private struct ReadingList: View {
     }
 }
 
+/// The pictures taken here (prototype camStrip): each with its first measured line, opens in the photo editor.
+private struct Shots: View {
+    let app: AppModel
+    let ss: [Item]
+    let u: LenUnit
+    let en: Bool
+    let m: String
+    var body: some View {
+        HStack {
+            T(tr("cm.shots"), ui(15, 600))
+            Spacer()
+            Text("\(ss.count)").st(num(12, 600, G.ink2)).padding(.horizontal, 8).padding(.vertical, 3).background(Capsule().fill(G.ink.opacity(0.06)))
+        }
+        .padding(.horizontal, 2).padding(.vertical, 4)
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(ss) { it in
+                    let v = it.els.first { $0.t == "dim" && $0.v != nil }?.v
+                    VStack(alignment: .leading, spacing: 2) {
+                        MarkThumb(it: it, slice: true).frame(width: 112, height: 78).background(Color(argb: 0xFF0E1C36)).clipped()
+                        if let v { Text(Geo.fmtLen(v, u, en) + " " + m).st(num(15, 600)).lineLimit(1).padding(.horizontal, 10).padding(.top, 6) }
+                        else { T(tr("cm.noVal"), ui(12.5, 500, G.ink3, lh: 1.3), lines: 1).padding(.horizontal, 10).padding(.top, 6) }
+                        T(dn(it.name), ui(12, 400, G.ink2), lines: 1).padding(.horizontal, 10)
+                    }
+                    .padding(.bottom, 8).frame(width: 112, alignment: .leading)
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.glass(0.7)))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
+                    .pressable(0.98) { app.push(.markup(pid: nil, iid: it.id)) }
+                    .accessibilityIdentifier("qm.shot")
+                }
+            }
+        }
+        .padding(.bottom, 6)
+    }
+}
+
 /* ---------------- sheets ---------------- */
 
-struct MeasureSheet: View {
+struct QuickSheet: View {
     let app: AppModel
     let sheet: Sheet
     var body: some View {

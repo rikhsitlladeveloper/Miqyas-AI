@@ -333,18 +333,3 @@ private struct QuotesTab: View {
         }
     }
 }
-
-/// Tabs that arrive in later parts say so plainly.
-struct LaterTab: View {
-    let icon: String
-    let part: Int
-    var body: some View {
-        VStack(spacing: 10) {
-            MIcon(icon, G.cobalt, 26, 2).frame(width: 56, height: 56).background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.cobalt.opacity(0.12)))
-            T(tr("nt.part", ["n": part]), ui(15, 600, G.ink2), align: .center).frame(maxWidth: 280)
-        }
-        .padding(24).frame(maxWidth: .infinity)
-        .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
-        .padding(.horizontal, 16).padding(.top, 14)
-    }
-}

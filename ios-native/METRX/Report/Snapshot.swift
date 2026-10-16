@@ -90,3 +90,12 @@ func fmtTime(_ ts: Ms) -> String {
     let c = Calendar.current.dateComponents([.hour, .minute], from: Date(timeIntervalSince1970: Double(ts) / 1000))
     return String(format: "%02d:%02d", c.hour ?? 0, c.minute ?? 0)
 }
+
+extension SnapExtra {
+    /// The extra as the item it was, for drawing it.
+    func asItem() -> Item {
+        var it = Item(id: id, kind: kind, name: name, edited: edited)
+        it.text = text; it.checks = checks; it.els = els; it.src = src; it.W = W; it.H = H; it.caption = caption
+        return it
+    }
+}

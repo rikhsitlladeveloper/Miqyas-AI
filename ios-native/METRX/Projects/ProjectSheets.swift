@@ -195,10 +195,10 @@ private struct AddItem: View {
                     VStack(spacing: 10) {
                         if step == "sketch" {
                             BigRow(icon: "room", title: "add.plan", desc: "add.planD") { app.sheet = .newRoom(pid: pid, wid: wid) }.accessibilityIdentifier("add.plan")
-                            BigRow(icon: "pen", title: "add.free", desc: "add.freeD") { app.sheet = nil; app.say("nt.part", ["n": 7], kind: .info) }
+                            BigRow(icon: "pen", title: "add.free", desc: "add.freeD") { MarkOps.shared.newDrawing(pid, wid) }.accessibilityIdentifier("add.free")
                         } else {
-                            BigRow(icon: "camera", title: "add.camera", desc: "add.cameraD") { app.sheet = nil; app.say("nt.part", ["n": 7], kind: .info) }
-                            BigRow(icon: "folder", title: "add.gallery", desc: "add.galleryD") { app.sheet = nil; app.say("nt.part", ["n": 7], kind: .info) }
+                            BigRow(icon: "camera", title: "add.camera", desc: "add.cameraD") { MarkOps.shared.pickPhoto(PhotoTarget(pid: pid, wid: wid), camera: true) }.accessibilityIdentifier("add.camera")
+                            BigRow(icon: "folder", title: "add.gallery", desc: "add.galleryD") { MarkOps.shared.pickPhoto(PhotoTarget(pid: pid, wid: wid), camera: false) }.accessibilityIdentifier("add.gallery")
                         }
                     }
                     .padding(.bottom, 6)

@@ -13,9 +13,9 @@ final class ScreenTests: XCTestCase {
         let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png"); a.name = name; a.lifetime = .keepAlways; add(a)
     }
 
-    private func launch(lang: String? = nil) -> XCUIApplication {
+    private func launch(lang: String? = nil, extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiReset"]
+        app.launchArguments = ["-uiReset"] + extra
         if let lang { app.launchEnvironment["UI_LANG"] = lang }
         app.launch()
         return app
@@ -501,5 +501,56 @@ final class ScreenTests: XCTestCase {
         app.buttons["tip.ok"].tap(); usleep(700_000)
         app.buttons["ed.tray"].tap(); usleep(900_000); shot("172-tray")
         app.buttons["tr.A"].firstMatch.tap(); usleep(900_000); shot("173-reading-on-wall-A")
+    }
+
+    private func drag(_ el: XCUIElement, _ a: (CGFloat, CGFloat), _ b: (CGFloat, CGFloat)) {
+        el.coordinate(withNormalizedOffset: CGVector(dx: a.0, dy: a.1)).press(forDuration: 0.15, thenDragTo: el.coordinate(withNormalizedOffset: CGVector(dx: b.0, dy: b.1)))
+        usleep(600_000)
+    }
+
+    /// Part 7b and 7c: a free drawing (pen, a line with its length, text), a photo with a dimension and a caption, the
+    /// workspace cards, the Measure page's camera choice, the live camera's no-camera screen, a picture taken there and
+    /// moved into the project. The photo pickers give a drawn sample picture (-uiSamplePhoto).
+    func testMarkup() {
+        let app = launch(extra: ["-uiSamplePhoto"])
+        firstRun(app)
+        newWorkspace(app, "Uy 8")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.free"].tap(); sleep(1); shot("180-drawing-empty")
+        let cv = app.descendants(matching: .any).matching(identifier: "mk.canvas").firstMatch
+        XCTAssertTrue(cv.waitForExistence(timeout: 3))
+        drag(cv, (0.2, 0.3), (0.6, 0.5))
+        app.buttons["mk.line"].tap(); usleep(400_000)
+        drag(cv, (0.15, 0.7), (0.85, 0.7)); usleep(500_000); shot("181-line-length")
+        typeIn(app, "mk.value", "3.6"); app.buttons["mk.save"].tap(); usleep(800_000)
+        app.buttons["mk.text"].tap(); usleep(400_000)
+        cv.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.2)).tap(); usleep(900_000)
+        typeName(app, "Shkaf"); app.buttons["mk.textSave"].tap(); usleep(800_000); shot("182-drawing")
+        app.buttons["back"].firstMatch.tap(); usleep(900_000)
+
+        app.buttons["space.addTile"].firstMatch.tap(); usleep(700_000)
+        app.buttons["add.photo"].tap(); usleep(700_000)
+        app.buttons["add.gallery"].tap(); sleep(2); shot("183-photo")
+        app.buttons["mk.dim"].tap(); usleep(400_000)
+        drag(cv, (0.36, 0.75), (0.62, 0.75)); usleep(500_000)
+        typeIn(app, "mk.value", "0.9"); app.buttons["mk.save"].tap(); usleep(800_000)
+        app.buttons["mk.caption"].tap(); usleep(800_000)
+        typeName(app, "Eshik o'rni"); app.buttons["mk.captionSave"].tap(); usleep(800_000); shot("184-photo-dimension")
+        app.buttons["back"].firstMatch.tap(); usleep(900_000); shot("185-workspace-cards")
+
+        // the Measure page's camera
+        app.buttons["Orqaga"].firstMatch.tap(); usleep(900_000)
+        app.buttons["back"].firstMatch.tap(); usleep(900_000)
+        app.buttons["tab.home"].tap(); usleep(700_000)
+        app.buttons["home.measure"].tap(); usleep(900_000)
+        app.buttons["qm.camera"].tap(); usleep(800_000); shot("186-camera-pick")
+        app.buttons["cm.live"].tap(); sleep(2); shot("187-live-camera-none")
+        app.buttons["lc.photo"].tap(); sleep(2); shot("188-picture")
+        app.buttons["back"].firstMatch.tap(); usleep(900_000); shot("189-measure-pictures")
+        app.buttons["qm.shot"].firstMatch.tap(); usleep(900_000)
+        app.buttons["mk.menu"].tap(); usleep(800_000)
+        app.buttons["cm.toProj"].tap(); usleep(800_000); shot("190-move-to-project")
+        app.buttons["cm.toWs"].firstMatch.tap(); usleep(900_000); shot("191-moved")
     }
 }

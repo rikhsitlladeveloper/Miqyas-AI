@@ -358,6 +358,39 @@ private final class Doc {
         y = max(top + planH, pf.dims ? y + 10 : top); pend = 0
     }
 
+    /// Drawings and photos chosen for the report, two a page (prototype extraPages, figures): each in a light frame the
+    /// page's width and at most 292 high, with its name, workspace and caption under it; photos add a footnote.
+    func figurePages() {
+        let figs = sn.extras.filter { $0.kind != "note" }
+        if figs.isEmpty { return }
+        let f = MkFmt(unit: unit, en: en, m: mUnit(), lang: l)
+        var i = 0
+        while i < figs.count {
+            let two = Array(figs[i..<min(figs.count, i + 2)])
+            newPage(); h2(t("r.extras")); space(0)
+            for x in two {
+                let it = x.asItem()
+                let vb = mkViewBox(it, .report)
+                let fh = min(CW * vb.height / vb.width, 292) + 2
+                let cap = NSMutableAttributedString(attributedString: a(dn(x.name, l), ui(9.5, 700, INK3)))
+                cap.append(a(", " + x.ws + (x.caption.trimmingCharacters(in: .whitespaces).isEmpty ? "" : ". " + dn(x.caption, l)), ui(9.5, 400, INK3)))
+                let cS = measure(cap, CW)
+                space(0)
+                let top = y
+                let photo = x.src.flatMap { image($0) }
+                draw { ctx in
+                    ctx.fill(Path(CGRect(x: PX, y: top, width: CW, height: fh)), with: .color(.white))
+                    Theme.shared.onPaper { drawMarkup(ctx, it, photo, CGRect(x: PX + 1, y: top + 1, width: CW - 2, height: fh - 2), f, .report) }
+                    ctx.stroke(Path(CGRect(x: PX + 0.5, y: top + 0.5, width: CW - 1, height: fh - 1)), with: .color(FIG), lineWidth: 1)
+                    drawText(ctx, cap, CGRect(x: PX, y: top + fh + 4, width: CW, height: cS.height))
+                }
+                y += fh + 4 + cS.height; after(12)
+            }
+            if two.contains(where: { $0.kind == "photo" }) { fn(t("r.photoNote")) }
+            i += 2
+        }
+    }
+
     /// Notes chosen for the report (prototype extraPages, notes part).
     func notesPages() {
         let notes = sn.extras.filter { $0.kind == "note" }
@@ -496,6 +529,7 @@ func reportPages(_ sn: Snap, draft: Bool, meta: QuoteMeta?, image: @escaping (St
         if i + 1 < rooms.count { d.roomBlock(rooms[i + 1].room, i + 2, rooms[i + 1].floorLabel) }
         i += 2
     }
+    d.figurePages()
     d.notesPages()
     d.newPage()
     if sn.pdf.views { d.views() }
