@@ -50,5 +50,9 @@ final class ReportTests: XCTestCase {
         XCTAssertTrue(text.contains("Mehmonxona"), "the text reads back from the PDF")
         XCTAssertTrue(text.contains("4 240 000"), "the grand total is on the estimate page")
         XCTAssertNotNil(pageImage(pages[0], width: 300))
+        // CI keeps the PDF with the screenshots, to look at the file itself
+        if let dir = ProcessInfo.processInfo.environment["SHOTS"] {
+            try? FileManager.default.copyItem(at: url, to: URL(fileURLWithPath: dir).appendingPathComponent("report-draft.pdf"))
+        }
     }
 }
