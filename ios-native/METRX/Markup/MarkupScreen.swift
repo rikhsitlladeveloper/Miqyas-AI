@@ -243,7 +243,7 @@ struct MarkupScreen: View {
                             HStack(spacing: 0) {
                                 ForEach([(1, "mk.thin"), (2, "mk.thick")], id: \.0) { k, l in
                                     let on = ops.width == k
-                                    T(tr(l), ui(13, on ? 600 : 500, on ? G.ink : G.ink2)).padding(.horizontal, 10).frame(minHeight: 38)
+                                    T(tr(l), ui(13, on ? 600 : 500, on ? G.ink : G.ink2), lines: 1).fixedSize().padding(.horizontal, 10).frame(minHeight: 38)
                                         .background(RoundedRectangle(cornerRadius: 9).fill(on ? G.solid : .clear))
                                         .pressable(0.97) { ops.width = k }
                                 }

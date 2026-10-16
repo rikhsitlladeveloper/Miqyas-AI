@@ -468,6 +468,7 @@ final class ScreenTests: XCTestCase {
         app.buttons["qc.wall"].tap(); usleep(400_000)
         app.buttons["qm.measure"].tap(); usleep(500_000); app.buttons["qm.measure"].tap(); usleep(700_000); shot("162-wall-laser")
         app.buttons["qc.brick"].tap(); usleep(400_000)
+        app.swipeUp(); usleep(600_000)    // the reading chips are under the button bar until the page scrolls
         app.buttons.matching(identifier: "qm.chip").element(boundBy: 0).tap(); usleep(300_000); app.buttons.matching(identifier: "qm.chip").element(boundBy: 1).tap(); usleep(600_000); shot("163-bricks")
         app.buttons["qb.change"].tap(); usleep(900_000); shot("164-brick-sheet")
         app.buttons["sheet.close"].tap(); usleep(600_000)
@@ -545,7 +546,11 @@ final class ScreenTests: XCTestCase {
         app.buttons["tab.home"].tap(); usleep(700_000)
         app.buttons["home.measure"].tap(); usleep(900_000)
         app.buttons["qm.camera"].tap(); usleep(800_000); shot("186-camera-pick")
-        app.buttons["cm.live"].tap(); sleep(2); shot("187-live-camera-none")
+        app.buttons["cm.live"].tap(); sleep(2); shot("187-live-camera-ask")
+        // iPhone asks for the camera first; refusing shows the screen with "Surat olish"
+        let deny = XCUIApplication(bundleIdentifier: "com.apple.springboard").buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Don")).firstMatch
+        if deny.waitForExistence(timeout: 4) { deny.tap(); sleep(1) }
+        shot("187-live-camera-refused")
         app.buttons["lc.photo"].tap(); sleep(2); shot("188-picture")
         app.buttons["back"].firstMatch.tap(); usleep(900_000); shot("189-measure-pictures")
         app.buttons["qm.shot"].firstMatch.tap(); usleep(900_000)
