@@ -116,5 +116,26 @@ colours changed, a view added to the report, turned by a drag, zoomed by a pinch
 project's 2D view and 3D view, zooming to one room and back to all. Not checked yet: iOS 17 (the colours), turning and
 moving with real fingers, two-finger move.
 
-Not in parts 1–4 (they come with the parts that need them): projects and everything inside them, the Measure page and
+## Status: part 5 of 7 (16 October 2026)
+
+Built: the Smeta tab as in the prototype's glass design (stages 4–6): three tiles (net walls and floor, which open the
+areas by room, and the currency); materials and labour cards with each row's quantity × price and sum, rows missing a
+number marked in amber; an empty state with Material / Labour and quick adds; the total over the tab bar (grand total,
+materials and labour, "View report" — part 6). The row sheet: Material | Labour for a new row, name with suggestions,
+unit chips, quantity and price with their units, "take from the rooms" (net walls or floor area) and +10 % spare for m²,
+the line total worked out while typing, the prototype's number rules and messages, "Add another", delete. A row left
+unsaved is kept as a draft (also when the app goes to the background), marked on its add button and brought back with
+"Clear". The first saved row moves the project from Measuring to Estimate; the project header shows the estimate in
+millions.
+
+Money is exact: amounts are whole numbers of the smallest unit in `Decimal` (38 digits; the prototype and the Android
+app use big integers), quantities have 3 decimals and line totals round half up (`Core/Money.swift`).
+
+Checked: 4 unit tests (`METRXTests/MoneyTests.swift`: the BUILD_PLAN total 4 240 000 so'm, the typing rules, half-up
+rounding and a 15-digit amount, display); the screen test on the simulator: a quick add from the net walls with +10 %
+(50,31 m² → 55,341 m² × 120 000 = 6 640 920), paint and flooring with "Add another", a wrong labour amount ("Butun son
+kiriting."), the draft kept, brought back and cleared, labour, editing and deleting a row, the total read back as
+"4 240 000", the areas sheet, the header's "4,24 mln".
+
+Not in parts 1–5 (they come with the parts that need them): projects and everything inside them, the Measure page and
 calculators, Profile's PDF parts, currency, door and window sizes and hints.
