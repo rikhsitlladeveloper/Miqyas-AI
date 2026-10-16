@@ -100,9 +100,6 @@ and corners (needs a real finger to judge), rotating, deleting a room.
 
 ## Status: part 4 of 7 (16 October 2026)
 
-Green in CI run 38904771621 (compile, IPA, 8 unit tests, 10 screen tests, all first try);
-IPA design/native/metrx-ios-0.7-part7-unsigned.ipa, screens design/native/ios-part7/.
-
 Built: the room's 3D page (Plan | 3D, wall letters, From above / From the corner, wall and floor colours, "Add to
 report" on the picture with the views listed under it, at most 4, × to take one out); the project's 2D view (every
 workspace's rooms at one scale, tap opens the room) and 3D view (one workspace at a time, rooms in rows, a room's name
@@ -170,6 +167,9 @@ stage offer, the Quotes tab, the frozen quote, and after an estimate change "cha
 (they arrive with part 7).
 
 ## Status: part 7 of 7 (16 October 2026)
+
+Green in CI run 38904771621 (compile, IPA, 8 unit tests, 10 screen tests, all first try);
+IPA design/native/metrx-ios-0.7-part7-unsigned.ipa, screens design/native/ios-part7/.
 
 Built:
 - Profile: PDF parts (what the report shows), door and window sizes (new openings start from them), hints back, on top
