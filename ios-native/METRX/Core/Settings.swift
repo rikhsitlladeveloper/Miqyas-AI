@@ -35,6 +35,8 @@ final class AppSettings {
     private(set) var winSill: Int
     /// One visit = one cold start; the Home greeting line changes with it.
     let visit: Int
+    /// What the PDF shows (Profile → PDF; prototype S.settings.pdf).
+    private(set) var pdf: PdfParts
     /// Estimate rows typed but not saved (prototype S.rowDrafts), by "project|mat or lab|row id or new": the sheet's
     /// fields, kept when the sheet is left without saving, brought back when it opens again.
     private(set) var rowDrafts: [String: [String: String]]
@@ -61,6 +63,7 @@ final class AppSettings {
         roomLabel = d.string(forKey: "roomLabel") ?? "both"
         func int(_ k: String, _ v: Int) -> Int { d.object(forKey: k) as? Int ?? v }
         doorW = int("doorW", 900); doorH = int("doorH", 2100); winW = int("winW", 1200); winH = int("winH", 1500); winSill = int("winSill", 900)
+        pdf = d.data(forKey: "pdf").flatMap { try? JSONDecoder().decode(PdfParts.self, from: $0) } ?? PdfParts()
         rowDrafts = (d.data(forKey: "rowDrafts")).flatMap { try? JSONDecoder().decode([String: [String: String]].self, from: $0) } ?? [:]
         visit = d.integer(forKey: "visit") + (d.object(forKey: "visit") == nil ? 0 : 1)
         d.set(visit, forKey: "visit")
@@ -85,6 +88,7 @@ final class AppSettings {
         builderName = name.trimmingCharacters(in: .whitespacesAndNewlines); builderPhone = Phone.digits(phone)
         d.set(builderName, forKey: "builderName"); d.set(builderPhone, forKey: "builderPhone")
     }
+    func setPdfParts(_ v: PdfParts) { pdf = v; d.set(try? JSONEncoder().encode(v), forKey: "pdf") }
     func setDraft(_ key: String, _ form: [String: String]?) {
         if let form { rowDrafts[key] = form } else { rowDrafts.removeValue(forKey: key) }
         d.set(try? JSONEncoder().encode(rowDrafts), forKey: "rowDrafts")

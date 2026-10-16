@@ -257,3 +257,15 @@ private func overall(_ ctx: GraphicsContext, _ lay: RectLayout, _ w: SideWall, _
     if st == "conf" { ctx.tick(rect.maxX - 14, c.y, PC.okGreen, 2.4) }
     else if st == "recv" { ctx.clock(CGPoint(x: rect.minX + 12, y: c.y), PC.amber) }
 }
+
+/// A room's plan for the report (prototype planSVG with report:true), in the prototype's 360-wide units, on paper:
+/// rectangle and drawn rooms alike, the values in plain white boxes.
+func drawReportPlan(_ ctx: GraphicsContext, _ r: Room, _ unit: LenUnit, _ en: Bool, _ label: String) {
+    Theme.shared.onPaper {
+        if r.isPoly { _ = drawReportPoly(ctx, r, unit, en, label, snap: true) }
+        else { drawRectPlan(ctx, RectLayout(r), r, nil, nil, unit, en, label, { _ in false }, report: true) }
+    }
+}
+
+/// The height of a room's plan drawing in the 360-wide units.
+func reportPlanHeight(_ r: Room, snap: Bool) -> CGFloat { r.isPoly ? reportPolyHeight(r, snap: snap) : RectLayout(r).VH }

@@ -22,6 +22,8 @@ enum Route: Hashable {
     case wallView(pid: String, rid: String, wall: String)
     /// Drawing a new room's outline (prototype PAGES.sketch).
     case sketch(pid: String, wid: String, name: String)
+    /// The draft report (no nil) or issued quote № no.
+    case report(pid: String, no: Int?)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -54,6 +56,9 @@ enum Sheet: Equatable {
     /// one, which may start with a suggested name and unit).
     case areas(pid: String)
     case row(pid: String, kind: String, id: String? = nil, name: String? = nil, unit: String? = nil)
+    /// The report's set-up (language, rooms, extras, views, note) and issuing a quote (builderOnly: only the builder).
+    case reportSetup(pid: String)
+    case issue(pid: String, builderOnly: Bool = false)
 }
 
 /// Screens of the sign-in flow.
@@ -105,6 +110,7 @@ final class AppModel {
                 case .note(let pid, let wid, let iid): return store.get(pid)?.floors.first { $0.id == wid }?.items.contains { $0.id == iid } == true
                 case .editor(let pid, let rid, _), .wallView(let pid, let rid, _): return store.get(pid)?.rooms.contains { $0.id == rid } == true
                 case .sketch(let pid, let wid, _): return store.get(pid)?.floors.contains { $0.id == wid } == true
+                case .report(let pid, let no): return store.get(pid).map { p in no == nil || p.quotes.contains { $0.no == no } } == true
                 default: return true
                 }
             }

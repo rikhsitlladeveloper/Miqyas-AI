@@ -23,7 +23,7 @@ struct ProjectScreen: View {
                             switch tab {
                             case "info": InfoTab(app: app, p: p, call: { call(p) }, map: { openMap(p) })
                             case "estimate": EstimateTab(app: app, p: p)
-                            case "quotes": LaterTab(icon: "doc", part: 6)
+                            case "quotes": QuotesTab(app: app, p: p)
                             default:
                                 if view != "list" && !p.rooms.isEmpty {
                                     VStack(alignment: .leading, spacing: 0) {
@@ -278,6 +278,59 @@ private struct InfoTab: View {
             extra()
         }
         .padding(.vertical, 8).frame(minHeight: 60)
+    }
+}
+
+/// The issued quotes, newest first, each saying whether the draft still matches it.
+private struct QuotesTab: View {
+    let app: AppModel
+    let p: Project
+    var body: some View {
+        if p.quotes.isEmpty {
+            VStack(spacing: 10) {
+                MIcon("doc", G.cobalt, 26, 2).frame(width: 56, height: 56).background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.cobalt.opacity(0.12)))
+                T(tr("q.emptyTitle"), ui(18, 700), align: .center)
+                T(tr("q.emptyBody"), ui(14, 400, G.ink2, lh: 1.45), align: .center)
+                GBtn(tr("pr.estimate"), kind: .secondary, fill: false) { app.setProjectTab("estimate") }
+            }
+            .padding(24).frame(maxWidth: .infinity)
+            .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
+            .padding(.horizontal, 20).padding(.top, 14)
+        } else {
+            let now = fingerprint(snapshotOf(p))
+            let en = AppSettings.shared.lang == .en
+            VStack(spacing: 10) {
+                ForEach(p.quotes.reversed(), id: \.no) { q in
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 0) {
+                            T(tr("q.no", ["n": q.no]), ui(17, 600)).frame(maxWidth: .infinity, alignment: .leading)
+                            MIcon("lock", G.ink2, 14, 2); T(" " + tr("q.issued"), ui(13.5, 400, G.ink2))
+                        }
+                        T(fmtDate(q.ts) + ", " + fmtTime(q.ts) + ". " + tr("q.lang", ["l": Lang.of(q.sn.lang).longName]), ui(13.5, 400, G.ink2, lh: 1.35))
+                        T(tr("q.rooms", ["n": q.sn.rooms.count]), ui(13.5, 400, G.ink2))
+                        Hairline().padding(.top, 6)
+                        HStack {
+                            T(tr("es.grand"), ui(14, 400)).frame(maxWidth: .infinity, alignment: .leading)
+                            T(Money.str(Decimal(string: q.total) ?? 0, q.sn.precision, en) + " " + Money.cur(q.sn.currency), ui(14, 700))
+                        }
+                        .padding(.top, 6)
+                        Hairline().padding(.top, 6)
+                        HStack(spacing: 6) {
+                            MIcon(q.fp == now ? "check" : "info", G.ink, 14, 2.2)
+                            T(tr(q.fp == now ? "q.same" : "q.differs"), ui(14, 400))
+                        }
+                        .padding(.top, 6)
+                    }
+                    .padding(14)
+                    .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
+                    .pressable(0.985) { app.push(.report(pid: p.id, no: q.no)) }
+                    .accessibilityElement(children: .combine)
+                    .accessibilityAddTraits(.isButton)
+                    .accessibilityIdentifier("quote.card")
+                }
+            }
+            .padding(.horizontal, 20).padding(.top, 12)
+        }
     }
 }
 

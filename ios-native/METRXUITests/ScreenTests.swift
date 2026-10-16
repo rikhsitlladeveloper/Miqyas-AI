@@ -379,4 +379,65 @@ final class ScreenTests: XCTestCase {
         app.buttons["sheet.close"].tap(); usleep(600_000)
         app.buttons["ptab.rooms"].tap(); usleep(700_000); shot("131-header-estimate")
     }
+
+    /// Part 6: the report of a measured room with its estimate — pages, the zoom viewer, set-up (language), sharing the
+    /// draft, issuing quote №1, the Quotes tab, the frozen quote, and the Smeta tab noticing a change after it.
+    func testReport() {
+        let app = launch()
+        firstRun(app)
+        newWorkspace(app, "Uy 6")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.create"].tap(); sleep(1)
+        app.buttons["tip.ok"].tap(); usleep(700_000)
+        measuredRoom(app, "5", "4", "3", openings: true)
+        sleep(6)
+        app.buttons["back"].firstMatch.tap(); usleep(1_000_000)
+        app.buttons["Orqaga"].firstMatch.tap(); usleep(1_000_000)
+        app.buttons["ptab.estimate"].tap(); usleep(900_000)
+        app.buttons["es.addMat"].tap(); usleep(900_000)
+        app.typeText("Bo'yoq"); typeIn(app, "gs.qty", "12"); typeIn(app, "gs.price", "50000")
+        app.buttons["gs.again"].tap(); usleep(900_000)
+        app.typeText("Laminat"); typeIn(app, "gs.qty", "22"); typeIn(app, "gs.price", "120000")
+        app.buttons["gs.save"].tap(); usleep(1_000_000)
+        app.buttons["gs.addLab"].tap(); usleep(900_000)
+        app.typeText("Ish haqi"); typeIn(app, "gs.sum", "1000000")
+        app.buttons["gs.save"].tap(); sleep(4)
+
+        app.buttons["es.preview"].tap(); sleep(3); shot("140-report")
+        XCTAssertEqual(app.staticTexts["rp.total"].label, "4 240 000 so‘m")
+        app.buttons["rp.next"].tap(); sleep(1); shot("141-report-page2")
+        app.buttons["rp.next"].tap(); sleep(1); shot("142-report-page3")
+        app.images["rp.page"].firstMatch.tap(); sleep(2); shot("143-viewer")
+        app.buttons["pv.zoom"].tap(); sleep(2); shot("144-viewer-zoomed")
+        app.buttons["pv.close"].tap(); usleep(700_000)
+        app.buttons["rp.setup"].tap(); usleep(900_000); shot("145-setup")
+        app.buttons["rl.ru"].tap(); usleep(900_000)
+        app.buttons["rp.done"].tap(); sleep(3); shot("146-report-russian")
+        app.buttons["rp.setup"].tap(); usleep(900_000); app.buttons["rl.uz"].tap(); usleep(600_000); app.buttons["rp.done"].tap(); sleep(3)
+
+        // the draft as a PDF into the share sheet
+        app.buttons["rp.shareDraft"].tap(); sleep(4); shot("147-share-sheet")
+        let close = app.buttons["Close"].firstMatch
+        if close.waitForExistence(timeout: 3) { close.tap() } else { app.swipeDown() }
+        sleep(1)
+
+        // issue quote №1, take the offer to move the stage
+        app.buttons["rp.issue"].tap(); usleep(900_000); shot("148-issue-sheet")
+        app.buttons["iss.go"].tap(); sleep(1); shot("149-quote-issued")
+        let move = btn(app, "Ko‘chirish")
+        if move.waitForExistence(timeout: 3) { move.tap(); usleep(700_000) }
+        shot("150-quotes-tab")
+        app.buttons["quote.card"].firstMatch.tap(); sleep(3); shot("151-quote-frozen")
+        app.buttons["back"].firstMatch.tap(); usleep(900_000)
+
+        // a change after the quote: the Smeta tab says so
+        app.buttons["ptab.estimate"].tap(); usleep(900_000)
+        app.buttons["es.row"].firstMatch.tap(); usleep(900_000)
+        let qty = app.textFields["gs.qty"]
+        qty.tap(); qty.typeText(XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + "14")
+        app.buttons["gs.save"].tap(); sleep(1); shot("152-estimate-changed")
+        app.buttons["ptab.quotes"].tap(); usleep(900_000); shot("153-quote-differs")
+    }
 }

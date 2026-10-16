@@ -124,6 +124,7 @@ struct RootView: View {
         case .editor(let pid, let rid, let mode): EditorScreen(app: app, pid: pid, rid: rid, mode: mode)
         case .wallView(let pid, let rid, let wall): WallViewScreen(app: app, pid: pid, rid: rid, wall: wall)
         case .sketch(let pid, let wid, let name): SketchScreen(app: app, pid: pid, wid: wid, name: name)
+        case .report(let pid, let no): ReportScreen(app: app, pid: pid, no: no)
         }
     }
 
@@ -134,6 +135,7 @@ struct RootView: View {
         default:
             if EditorSheet.handles(s) { EditorSheet(app: app, sheet: s) }
             else if EstimateSheet.handles(s) { EstimateSheet(app: app, sheet: s) }
+            else if ReportSheet.handles(s) { ReportSheet(app: app, sheet: s) }
             else if ProjectSheet.handles(s) { ProjectSheet(app: app, sheet: s) } else { ProfileSheet(app: app, sheet: s) }
         }
     }

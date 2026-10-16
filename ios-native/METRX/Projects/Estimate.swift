@@ -50,6 +50,11 @@ struct EstimateTab: View {
         let tt = Money.totals(p)
         VStack(alignment: .leading, spacing: 12) {
             Stats(app: app, p: p)
+            // after a quote: is the draft still the same as the last one issued? (prototype es.same / es.changed)
+            if let q = p.quotes.last {
+                let same = fingerprint(snapshotOf(p)) == q.fp
+                QuoteBanner(same: same, text: tr(same ? "es.same" : "es.changed", ["n": q.no]))
+            }
             if mats.isEmpty && labs.isEmpty { EmptyEstimate(app: app, p: p) }
             else {
                 RowsCard(title: tr("es.mat"), n: mats.count, total: Money.of(tt.m, p), addKey: "gs.addMat",
@@ -79,6 +84,22 @@ struct EstimateTab: View {
             }
         }
         .padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 24)
+    }
+}
+
+/// Whether the draft matches the last issued quote.
+struct QuoteBanner: View {
+    let same: Bool
+    let text: String
+    var body: some View {
+        HStack(spacing: 10) {
+            MIcon(same ? "check" : "info", same ? (Theme.shared.dark ? G.green : Color(argb: 0xFF15803D)) : AMBER, 18, 2.2)
+            T(text, ui(13.5, 500, G.ink, lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(same ? Color(argb: 0x1F16A34A) : G.amberWash))
+        .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(same ? Color(argb: 0x3316A34A) : Color(argb: 0x33EA8C00), lineWidth: 1))
+        .accessibilityIdentifier("es.quoteBanner")
     }
 }
 
@@ -261,7 +282,7 @@ struct EstimateTotal: View {
                 }
             }
             .padding(.horizontal, 6)
-            GBtn(tr("es.preview"), icon: "doc", height: 54, corner: 27, fontSize: 16) { app.say("nt.part", ["n": 6], kind: .info) }
+            GBtn(tr("es.preview"), icon: "doc", height: 54, corner: 27, fontSize: 16) { app.push(.report(pid: p.id, no: nil)) }.accessibilityIdentifier("es.preview")
         }
         .padding(14)
         .glassBlur(shape, tint: G.sheet(0.6))
