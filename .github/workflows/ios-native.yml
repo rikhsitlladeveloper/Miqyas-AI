@@ -1,5 +1,10 @@
-# The native iPhone app (ios-native/): builds it, runs the screen tests on an iPhone simulator (each saves a
-# screenshot), records a cold start, and packages an unsigned IPA for Sideloadly. Artifacts: screens + IPA.
+# The native iPhone app (ios-native/), in the order that reports problems soonest:
+#   1. compile (app and both test bundles), so a source error fails in a few minutes with its lines listed;
+#   2. the unsigned IPA (the device build), so device-only problems show early and a build to install always exists;
+#   3. the unit tests (money, report, PDF), under a minute;
+#   4. the screen tests, one class per part on two simulators at once, a failed test retried once (simulator stalls);
+#   5. a cold start recorded as a video.
+# Artifacts: screens (screenshots, video, logs) and METRX-ipa.
 name: iOS native app
 
 on:
@@ -7,6 +12,7 @@ on:
     branches: [ios-native]
     paths:
       - "ios-native/**"
+      - "!ios-native/README.md"
       - "android-native/app/src/main/assets/strings.json"
       - ".github/workflows/ios-native.yml"
   workflow_dispatch:
@@ -43,24 +49,59 @@ jobs:
         id: sim
         run: python3 tools/pick_sim.py | tee -a "$GITHUB_OUTPUT"
 
-      - name: Build and run the screen tests
+      - name: 1. Compile
+        id: compile
         run: |
           mkdir -p out/shots
-          set -o pipefail
-          TEST_RUNNER_SHOTS="$PWD/out/shots" xcodebuild test -project METRX.xcodeproj -scheme METRX \
-            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath out/dd -resultBundlePath out/tests.xcresult \
-            > out/test.log 2>&1 || {
-              echo "== source errors"; { grep -E "^/.*\.swift:[0-9]+:[0-9]+: error" out/test.log || true; } | sed 's|.*/ios-native/||' | sort -u | head -n 120
-              echo "== other failures"; { grep -nE "error: -\[|failed|FAILED|xcodebuild: error" out/test.log || true; } | head -n 60
+          xcodebuild build-for-testing -project METRX.xcodeproj -scheme METRX -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath out/dd > out/build.log 2>&1 || {
+              echo "== source errors"; { grep -E "^/.*\.swift:[0-9]+:[0-9]+: error" out/build.log || true; } | sed 's|.*/ios-native/||' | sort -u | head -n 120
+              echo "== other errors"; { grep -nE "error:|FAILED" out/build.log || true; } | head -n 40
               exit 1; }
-          grep -E "Test Case|Executed" out/test.log | tail -n 60
-          ls out/shots
+          echo "compiled"
 
-      - name: Record a cold start
-        if: always() && steps.sim.outcome == 'success'
+      - name: 2. Unsigned IPA
+        id: ipa
+        if: steps.compile.outcome == 'success'
+        run: |
+          xcodebuild -project METRX.xcodeproj -target METRX -configuration Release -sdk iphoneos \
+            SYMROOT="$PWD/out/ipa" OBJROOT="$PWD/out/ipa/obj" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            build > out/ipa.log 2>&1 || { grep -nE "error:|FAILED" -A5 out/ipa.log | tail -n 120; exit 1; }
+          mkdir -p out/pkg/Payload && cp -R out/ipa/Release-iphoneos/METRX.app out/pkg/Payload/
+          (cd out/pkg && zip -qry ../METRX-unsigned.ipa Payload)
+          ls -la out/METRX-unsigned.ipa
+
+      - name: 3. Unit tests
+        id: unit
+        if: always() && steps.compile.outcome == 'success'
+        run: |
+          R=0
+          TEST_RUNNER_SHOTS="$PWD/out/shots" xcodebuild test-without-building -project METRX.xcodeproj -scheme METRX \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath out/dd -only-testing:METRXTests \
+            > out/unit.log 2>&1 || R=$?
+          grep -E "Test [Cc]ase .*(passed|failed)|error: -\[|Executed" out/unit.log | sed 's/^.*Test [Cc]ase //' | tail -n 40
+          exit $R
+
+      - name: 4. Screen tests
+        id: screens
+        if: always() && steps.compile.outcome == 'success'
+        run: |
+          R=0
+          TEST_RUNNER_SHOTS="$PWD/out/shots" xcodebuild test-without-building -project METRX.xcodeproj -scheme METRX \
+            -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath out/dd -only-testing:METRXUITests \
+            -parallel-testing-enabled YES -parallel-testing-worker-count 2 -retry-tests-on-failure -test-iterations 2 \
+            > out/test.log 2>&1 || R=$?
+          echo "== results"; grep -E "Test [Cc]ase .*(passed|failed)" out/test.log | sed 's/^.*Test [Cc]ase //' | sort | uniq | tail -n 60
+          echo "== failures"; { grep -E "error: -\[|error: .*Test" out/test.log || true; } | sed 's|.*/ios-native/||' | sort -u | head -n 40
+          ls out/shots | head -n 300
+          exit $R
+
+      - name: 5. Record a cold start
+        if: always() && steps.compile.outcome == 'success'
         run: |
           APP=$(find out/dd/Build/Products -name "METRX.app" -path "*iphonesimulator*" | head -1)
           UDID=${{ steps.sim.outputs.udid }}
+          xcrun simctl boot "$UDID" 2>/dev/null || true
           xcrun simctl bootstatus "$UDID" -b
           xcrun simctl terminate "$UDID" uz.metrx.app || true
           xcrun simctl install "$UDID" "$APP"
@@ -72,17 +113,7 @@ jobs:
           SIMCTL_CHILD_UI_LANG=uz xcrun simctl launch "$UDID" uz.metrx.app
           sleep 7
           kill -INT $REC; wait $REC || true
-          ls -la out/shots
-
-      - name: Unsigned IPA
-        if: always() && steps.sim.outcome == 'success'
-        run: |
-          xcodebuild -project METRX.xcodeproj -target METRX -configuration Release -sdk iphoneos \
-            SYMROOT="$PWD/out/ipa" OBJROOT="$PWD/out/ipa/obj" CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
-            build > out/ipa.log 2>&1 || { grep -nE "error:|FAILED" -A5 out/ipa.log | tail -n 120; exit 1; }
-          mkdir -p out/pkg/Payload && cp -R out/ipa/Release-iphoneos/METRX.app out/pkg/Payload/
-          (cd out/pkg && zip -qry ../METRX-unsigned.ipa Payload)
-          ls -la out/METRX-unsigned.ipa
+          ls -la out/shots/coldstart.mp4
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -90,6 +121,8 @@ jobs:
           name: screens
           path: |
             ios-native/out/shots
+            ios-native/out/build.log
+            ios-native/out/unit.log
             ios-native/out/test.log
           if-no-files-found: ignore
 

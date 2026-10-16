@@ -1,9 +1,10 @@
 import XCTest
 
-/// Walks the app's screens on the simulator and saves a picture of each (CI uploads them for review).
+/// Walks the app's screens on the simulator and saves a picture of each (CI uploads them for review). One class per
+/// part, so CI can run the parts on two simulators at once; the steps they share are here.
 /// Texts are found by their Uzbek (Latin) or Russian labels from strings.json, or by accessibility identifiers.
-final class ScreenTests: XCTestCase {
-    private var dir: URL? { ProcessInfo.processInfo.environment["SHOTS"].map { URL(fileURLWithPath: $0) } }
+class ScreenTestCase: XCTestCase {
+    var dir: URL? { ProcessInfo.processInfo.environment["SHOTS"].map { URL(fileURLWithPath: $0) } }
 
     override func setUp() { continueAfterFailure = true }
 
@@ -13,7 +14,7 @@ final class ScreenTests: XCTestCase {
         let a = XCTAttachment(data: png, uniformTypeIdentifier: "public.png"); a.name = name; a.lifetime = .keepAlways; add(a)
     }
 
-    private func launch(lang: String? = nil, extra: [String] = []) -> XCUIApplication {
+    func launch(lang: String? = nil, extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-uiReset"] + extra
         if let lang { app.launchEnvironment["UI_LANG"] = lang }
@@ -23,14 +24,75 @@ final class ScreenTests: XCTestCase {
 
     /// A button or switch whose spoken label starts with text (rows announce their value after the title;
     /// the on/off rows are switches).
-    private func btn(_ app: XCUIApplication, _ text: String) -> XCUIElement {
+    func btn(_ app: XCUIApplication, _ text: String) -> XCUIElement {
         let p = NSPredicate(format: "label BEGINSWITH %@", text)
         let b = app.buttons.matching(p).firstMatch
         return b.exists ? b : app.switches.matching(p).firstMatch
     }
 
-    private func tapOutside(_ app: XCUIApplication) { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).tap() }
+    func tapOutside(_ app: XCUIApplication) { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).tap() }
 
+    /// First start without an account, straight to Home.
+    func firstRun(_ app: XCUIApplication) {
+        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 20))
+        sleep(4)    // the launch animation (3.4 s) covers the welcome screen until it rises
+        app.buttons["welcome.skip"].tap(); usleep(700_000)
+        XCTAssertTrue(app.textFields.element(boundBy: 0).waitForExistence(timeout: 5))
+        app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Sanjar Usta")
+        app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
+        app.buttons["local.start"].tap()
+        XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 10))
+        usleep(800_000)
+    }
+
+    /// A project with one workspace, opened at the workspace page (for the editor tests).
+    func newWorkspace(_ app: XCUIApplication, _ name: String) {
+        app.buttons["home.new"].tap(); usleep(900_000)
+        app.textFields.element(boundBy: 0).typeText(name)
+        app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText(name == "Дом" ? "Иван" : "Ali Valiyev")
+        app.buttons["np.save"].tap(); usleep(1_000_000)
+        XCTAssertTrue(app.buttons["ws.create"].waitForExistence(timeout: 4))
+        app.buttons["ws.create"].tap(); usleep(800_000)
+        app.buttons["ws.save"].tap(); usleep(1_000_000)
+    }
+
+    func typeValue(_ app: XCUIApplication, _ v: String) {
+        let f = app.textFields["ms.value"]
+        XCTAssertTrue(f.waitForExistence(timeout: 3))
+        f.tap(); f.typeText(v); usleep(300_000)
+    }
+
+    /// A rectangle room measured by hand with a door and a window (for the 3D tests).
+    func measuredRoom(_ app: XCUIApplication, _ a: String, _ b: String, _ h: String, openings: Bool) {
+        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, a); app.buttons["ms.save"].tap(); usleep(900_000)
+        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, b); app.buttons["ms.save"].tap(); usleep(900_000)
+        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, h); app.buttons["ms.save"].tap(); usleep(900_000)
+        guard openings else { return }
+        app.buttons["ed.openings"].tap(); usleep(700_000); app.buttons["ao.door"].tap(); usleep(800_000); app.buttons["op.save"].tap(); usleep(900_000)
+        app.buttons["ed.openings"].tap(); usleep(700_000); app.buttons["ao.window"].tap(); usleep(800_000); app.buttons["op.save"].tap(); usleep(900_000)
+    }
+
+    /// Types a row's name into the open row sheet (its first field).
+    func typeName(_ app: XCUIApplication, _ v: String) {
+        let f = app.textFields.element(boundBy: 0)
+        XCTAssertTrue(f.waitForExistence(timeout: 4))
+        f.tap(); f.typeText(v); usleep(300_000)
+    }
+
+    func typeIn(_ app: XCUIApplication, _ id: String, _ v: String) {
+        let f = app.textFields[id]
+        XCTAssertTrue(f.waitForExistence(timeout: 3))
+        f.tap(); f.typeText(v); usleep(300_000)
+    }
+
+    func drag(_ el: XCUIElement, _ a: (CGFloat, CGFloat), _ b: (CGFloat, CGFloat)) {
+        el.coordinate(withNormalizedOffset: CGVector(dx: a.0, dy: a.1)).press(forDuration: 0.15, thenDragTo: el.coordinate(withNormalizedOffset: CGVector(dx: b.0, dy: b.1)))
+        usleep(600_000)
+    }
+}
+
+/// Part 1: first start, tabs, Profile, Russian.
+final class Part1Tests: ScreenTestCase {
     /// First start without an account, then the three tabs, the laser sheet, Profile's pages and sheets, dark mode.
     func testFirstRunAndTabs() {
         let app = launch()
@@ -72,7 +134,6 @@ final class ScreenTests: XCTestCase {
         app.buttons["tab.home"].tap(); usleep(700_000); shot("19-home-dark")
         app.buttons["laser"].firstMatch.tap(); usleep(700_000); shot("20-laser-sheet-dark")
     }
-
     /// The same first screens in Russian, to see long labels and Cyrillic.
     func testRussian() {
         let app = launch(lang: "ru")
@@ -86,20 +147,10 @@ final class ScreenTests: XCTestCase {
         sleep(1); shot("31-ru-home")
         app.buttons["tab.profile"].tap(); usleep(700_000); shot("32-ru-profile")
     }
+}
 
-    /// First start without an account, straight to Home.
-    private func firstRun(_ app: XCUIApplication) {
-        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 20))
-        sleep(4)    // the launch animation (3.4 s) covers the welcome screen until it rises
-        app.buttons["welcome.skip"].tap(); usleep(700_000)
-        XCTAssertTrue(app.textFields.element(boundBy: 0).waitForExistence(timeout: 5))
-        app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Sanjar Usta")
-        app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
-        app.buttons["local.start"].tap()
-        XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 10))
-        usleep(800_000)
-    }
-
+/// Part 2: projects, workspaces, notes.
+final class Part2Tests: ScreenTestCase {
     /// Part 2: a new project, a workspace, a note with a checklist, the item menu, Details, the list, delete and Undo.
     func testProjects() {
         let app = launch()
@@ -152,24 +203,10 @@ final class ScreenTests: XCTestCase {
         XCTAssertTrue(btn(again, "Hammom").waitForExistence(timeout: 3))
         shot("57-after-restart")
     }
+}
 
-    /// A project with one workspace, opened at the workspace page (for the editor tests).
-    private func newWorkspace(_ app: XCUIApplication, _ name: String) {
-        app.buttons["home.new"].tap(); usleep(900_000)
-        app.textFields.element(boundBy: 0).typeText(name)
-        app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText(name == "Дом" ? "Иван" : "Ali Valiyev")
-        app.buttons["np.save"].tap(); usleep(1_000_000)
-        XCTAssertTrue(app.buttons["ws.create"].waitForExistence(timeout: 4))
-        app.buttons["ws.create"].tap(); usleep(800_000)
-        app.buttons["ws.save"].tap(); usleep(1_000_000)
-    }
-
-    private func typeValue(_ app: XCUIApplication, _ v: String) {
-        let f = app.textFields["ms.value"]
-        XCTAssertTrue(f.waitForExistence(timeout: 3))
-        f.tap(); f.typeText(v); usleep(300_000)
-    }
-
+/// Part 3: the room editor.
+final class Part3Tests: ScreenTestCase {
     /// Part 3: a rectangle room measured by hand, a door and a window, the full list, the wall view, the laser,
     /// room info, the room card, an L-shaped room and a room drawn by tapping its corners.
     func testEditor() {
@@ -247,7 +284,6 @@ final class ScreenTests: XCTestCase {
         app.buttons["back"].firstMatch.tap(); usleep(1_000_000); shot("84-workspace-three-rooms")
         app.buttons["Orqaga"].firstMatch.tap(); usleep(1_000_000); shot("85-project-thumb")
     }
-
     /// The editor in Russian, to see long labels in the step card and the sheets.
     func testEditorRussian() {
         let app = launch(lang: "ru")
@@ -269,17 +305,10 @@ final class ScreenTests: XCTestCase {
         app.buttons["op.save"].tap(); usleep(900_000)
         app.buttons["ed.all"].firstMatch.tap(); usleep(900_000); shot("92-ru-full-list")
     }
+}
 
-    /// A rectangle room measured by hand with a door and a window (for the 3D tests).
-    private func measuredRoom(_ app: XCUIApplication, _ a: String, _ b: String, _ h: String, openings: Bool) {
-        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, a); app.buttons["ms.save"].tap(); usleep(900_000)
-        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, b); app.buttons["ms.save"].tap(); usleep(900_000)
-        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, h); app.buttons["ms.save"].tap(); usleep(900_000)
-        guard openings else { return }
-        app.buttons["ed.openings"].tap(); usleep(700_000); app.buttons["ao.door"].tap(); usleep(800_000); app.buttons["op.save"].tap(); usleep(900_000)
-        app.buttons["ed.openings"].tap(); usleep(700_000); app.buttons["ao.window"].tap(); usleep(800_000); app.buttons["op.save"].tap(); usleep(900_000)
-    }
-
+/// Part 4: 3D.
+final class Part4Tests: ScreenTestCase {
     /// Part 4: the room in 3D (views, colours, a saved view, turning and zooming), then the project's 2D and 3D views.
     func testThreeD() {
         let app = launch()
@@ -320,20 +349,10 @@ final class ScreenTests: XCTestCase {
         app.buttons["v3.room"].firstMatch.tap(); sleep(1); shot("110-zoomed-to-room")
         app.buttons["3d.all"].tap(); sleep(1); shot("111-all-rooms")
     }
+}
 
-    /// Types a row's name into the open row sheet (its first field).
-    private func typeName(_ app: XCUIApplication, _ v: String) {
-        let f = app.textFields.element(boundBy: 0)
-        XCTAssertTrue(f.waitForExistence(timeout: 4))
-        f.tap(); f.typeText(v); usleep(300_000)
-    }
-
-    private func typeIn(_ app: XCUIApplication, _ id: String, _ v: String) {
-        let f = app.textFields[id]
-        XCTAssertTrue(f.waitForExistence(timeout: 3))
-        f.tap(); f.typeText(v); usleep(300_000)
-    }
-
+/// Part 5: the Smeta tab.
+final class Part5Tests: ScreenTestCase {
     /// Part 5: the Smeta tab — empty state, a quick add from the walls with 10 % spare, materials and labour, a wrong
     /// amount, a draft kept and cleared, editing and deleting, and the BUILD_PLAN total 4 240 000.
     func testEstimate() {
@@ -388,7 +407,10 @@ final class ScreenTests: XCTestCase {
         app.buttons["sheet.close"].tap(); usleep(600_000)
         app.buttons["ptab.rooms"].tap(); usleep(700_000); shot("131-header-estimate")
     }
+}
 
+/// Part 6: the report and quotes.
+final class Part6Tests: ScreenTestCase {
     /// Part 6: the report of a measured room with its estimate — pages, the zoom viewer, set-up (language), sharing the
     /// draft, issuing quote №1, the Quotes tab, the frozen quote, and the Smeta tab noticing a change after it.
     func testReport() {
@@ -451,7 +473,10 @@ final class ScreenTests: XCTestCase {
         app.buttons["gs.save"].tap(); sleep(1); shot("152-estimate-changed")
         app.buttons["ptab.quotes"].tap(); usleep(900_000); shot("153-quote-differs")
     }
+}
 
+/// Part 7: the Measure page, drawings, photos, the camera.
+final class Part7Tests: ScreenTestCase {
     /// Part 7a: the Measure page (manual readings, the area, wall and brick tools, the laser, the readings list, sending
     /// a reading), Kalkulyator, Profile's PDF parts and door/window sizes, and the editor's readings tray.
     func testMeasure() {
@@ -503,12 +528,6 @@ final class ScreenTests: XCTestCase {
         app.buttons["ed.tray"].tap(); usleep(900_000); shot("172-tray")
         app.buttons["tr.A"].firstMatch.tap(); usleep(900_000); shot("173-reading-on-wall-A")
     }
-
-    private func drag(_ el: XCUIElement, _ a: (CGFloat, CGFloat), _ b: (CGFloat, CGFloat)) {
-        el.coordinate(withNormalizedOffset: CGVector(dx: a.0, dy: a.1)).press(forDuration: 0.15, thenDragTo: el.coordinate(withNormalizedOffset: CGVector(dx: b.0, dy: b.1)))
-        usleep(600_000)
-    }
-
     /// Part 7b and 7c: a free drawing (pen, a line with its length, text), a photo with a dimension and a caption, the
     /// workspace cards, the Measure page's camera choice, the live camera's no-camera screen, a picture taken there and
     /// moved into the project. The photo pickers give a drawn sample picture (-uiSamplePhoto).

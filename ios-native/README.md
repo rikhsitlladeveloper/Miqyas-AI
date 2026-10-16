@@ -13,14 +13,17 @@ an `ARView` without the camera inside SwiftUI.
 There is no Mac here: GitHub's macOS runners build the app. Every push to the `ios-native` branch that touches
 `ios-native/` runs `.github/workflows/ios-native.yml`:
 
-1. generates the Xcode project from `project.yml` with xcodegen,
-2. picks the newest iPhone simulator (`tools/pick_sim.py`),
-3. runs the screen tests (`METRXUITests/ScreenTests.swift`), which walk through the app and save a screenshot at
-   each step,
-4. records a cold start as a video,
-5. builds an unsigned IPA.
+1. generates the Xcode project from `project.yml` with xcodegen and picks the newest iPhone simulator
+   (`tools/pick_sim.py`),
+2. compiles the app and both test bundles, so a source error fails within minutes with its lines listed,
+3. builds the unsigned IPA (the device build), so device-only problems show early,
+4. runs the unit tests (`METRXTests/`: money, the report, the PDF),
+5. runs the screen tests (`METRXUITests/ScreenTests.swift`, one class per part, on two simulators at once; a failed
+   test is retried once, for simulator stalls), which walk through the app and save a screenshot at each step,
+6. records a cold start as a video.
 
-Artifacts: `screens` (the screenshots, the video, the test log) and `METRX-ipa` (`METRX-unsigned.ipa`).
+Artifacts: `screens` (the screenshots, the video, the build, unit and screen-test logs) and `METRX-ipa`
+(`METRX-unsigned.ipa`). Pushes that change only this README do not start a run.
 
 To install on an iPhone: download `METRX-unsigned.ipa` from the run's artifacts and sign it while installing with
 Sideloadly (free Apple ID; it has to be re-signed every 7 days).
