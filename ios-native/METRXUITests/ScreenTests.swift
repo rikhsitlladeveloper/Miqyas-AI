@@ -1,7 +1,7 @@
 import XCTest
 
 /// Walks the app's screens on the simulator and saves a picture of each (CI uploads them for review). One class per
-/// part, so CI can run the parts on two simulators at once; the steps they share are here.
+/// part, so CI lists the results part by part; the steps they share are here.
 /// Texts are found by their Uzbek (Latin) or Russian labels from strings.json, or by accessibility identifiers.
 class ScreenTestCase: XCTestCase {
     var dir: URL? { ProcessInfo.processInfo.environment["SHOTS"].map { URL(fileURLWithPath: $0) } }

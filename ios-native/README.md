@@ -18,7 +18,7 @@ There is no Mac here: GitHub's macOS runners build the app. Every push to the `i
 2. compiles the app and both test bundles, so a source error fails within minutes with its lines listed,
 3. builds the unsigned IPA (the device build), so device-only problems show early,
 4. runs the unit tests (`METRXTests/`: money, the report, the PDF),
-5. runs the screen tests (`METRXUITests/ScreenTests.swift`, one class per part, on two simulators at once; a failed
+5. runs the screen tests (`METRXUITests/ScreenTests.swift`, one class per part, on one simulator; a failed
    test is retried once, for simulator stalls), which walk through the app and save a screenshot at each step,
 6. records a cold start as a video.
 

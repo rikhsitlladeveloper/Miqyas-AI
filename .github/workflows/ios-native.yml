@@ -2,7 +2,8 @@
 #   1. compile (app and both test bundles), so a source error fails in a few minutes with its lines listed;
 #   2. the unsigned IPA (the device build), so device-only problems show early and a build to install always exists;
 #   3. the unit tests (money, report, PDF), under a minute;
-#   4. the screen tests, one class per part on two simulators at once, a failed test retried once (simulator stalls);
+#   4. the screen tests, one class per part on one simulator (two at once ran each test 2-3 times slower and made the
+#      3D test fail on the runner), a failed test retried once for simulator stalls;
 #   5. a cold start recorded as a video.
 # Artifacts: screens (screenshots, video, logs) and METRX-ipa.
 name: iOS native app
@@ -89,7 +90,7 @@ jobs:
           R=0
           TEST_RUNNER_SHOTS="$PWD/out/shots" xcodebuild test-without-building -project METRX.xcodeproj -scheme METRX \
             -destination "id=${{ steps.sim.outputs.udid }}" -derivedDataPath out/dd -only-testing:METRXUITests \
-            -parallel-testing-enabled YES -parallel-testing-worker-count 2 -retry-tests-on-failure -test-iterations 2 \
+            -parallel-testing-enabled NO -retry-tests-on-failure -test-iterations 2 \
             > out/test.log 2>&1 || R=$?
           echo "== results"; grep -E "Test [Cc]ase .*(passed|failed)" out/test.log | sed 's/^.*Test [Cc]ase //' | sort | uniq | tail -n 60
           echo "== failures"; { grep -E "error: -\[|error: .*Test" out/test.log || true; } | sed 's|.*/ios-native/||' | sort -u | head -n 40
