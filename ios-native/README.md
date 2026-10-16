@@ -100,6 +100,9 @@ and corners (needs a real finger to judge), rotating, deleting a room.
 
 ## Status: part 4 of 7 (16 October 2026)
 
+Green in CI run 38904771621 (compile, IPA, 8 unit tests, 10 screen tests, all first try);
+IPA design/native/metrx-ios-0.7-part7-unsigned.ipa, screens design/native/ios-part7/.
+
 Built: the room's 3D page (Plan | 3D, wall letters, From above / From the corner, wall and floor colours, "Add to
 report" on the picture with the views listed under it, at most 4, × to take one out); the project's 2D view (every
 workspace's rooms at one scale, tap opens the room) and 3D view (one workspace at a time, rooms in rows, a room's name
@@ -189,7 +192,7 @@ Built:
 
 Checked: 1 more unit test (a drawing chosen for the report gets its page; an empty drawing stays out); the screen tests
 on the simulator: the Measure page from empty through typed readings (4,20 × 3,00 = 12,60 m²), the laser, the net wall,
-bricks (894 pieces, 0,33 m³ mortar), the brick sheet, continuous measuring, the list, sending with no rooms, Kalkulyator,
+bricks on a 1,736 × 3,154 m wall (295 pieces, 0,11 m³ mortar), the brick sheet, continuous measuring, the list, sending with no rooms, Kalkulyator,
 PDF parts and door/window sizes in Profile, the tray giving a reading to wall A; a drawing with a pen stroke, a 3,60 m
 line and a text; a photo (a drawn sample picture stands in for the camera and library, which the simulator does not
 have) with a 0,90 m dimension and a caption; the workspace cards; the camera choice, iPhone's camera question, the
@@ -197,5 +200,5 @@ refused-camera screen, a picture taken there, the Measure page's pictures and mo
 Not checked yet: the live camera and the camera app with a real camera (a real iPhone), picking from a real photo
 library.
 
-Not in parts 1–7: nothing of the prototype's screens is left; accounts stay on this phone (as on Android).: projects and everything inside them, the Measure page and
+Not in parts 1–7: nothing of the prototype's screens is left; accounts stay on this phone (as on Android). Saved on the phone: projects and everything inside them, the Measure page and
 calculators, Profile's PDF parts, currency, door and window sizes and hints.
