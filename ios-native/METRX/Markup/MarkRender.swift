@@ -108,7 +108,7 @@ func drawMark(_ ctx: GraphicsContext, _ e: MkEl, _ f: MkFmt, alpha: Double = 1) 
         ctx.stroke(mkPolyPath(e.pts.map(pt)), with: .color(c), style: StrokeStyle(lineWidth: e.w == 2 ? 18 : 8, lineCap: .round, lineJoin: .round))
     case "text":
         // white outline under the letters, then the letters (prototype paint-order stroke)
-        let s = dn(e.txt ?: "", f.lang)
+        let s = dn(e.txt ?? "", f.lang)
         let font = UIFont(name: face(f.lang, 600), size: 50) ?? .systemFont(ofSize: 50, weight: .semibold)
         let p = pt(e.pts[0])
         let outline = NSAttributedString(string: s, attributes: [.font: font, .strokeColor: UIColor.white.withAlphaComponent(alpha), .strokeWidth: 22])
