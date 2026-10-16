@@ -34,7 +34,7 @@ final class ScreenTests: XCTestCase {
     /// First start without an account, then the three tabs, the laser sheet, Profile's pages and sheets, dark mode.
     func testFirstRunAndTabs() {
         let app = launch()
-        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 20)); sleep(3)
         sleep(1); shot("03-welcome")
 
         app.buttons["welcome.lang"].tap(); usleep(500_000); shot("04-welcome-lang-menu")
@@ -76,7 +76,7 @@ final class ScreenTests: XCTestCase {
     /// The same first screens in Russian, to see long labels and Cyrillic.
     func testRussian() {
         let app = launch(lang: "ru")
-        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 20)); sleep(3)
         sleep(1); shot("30-ru-welcome")
         app.buttons["welcome.skip"].tap(); usleep(700_000)
         app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Санжар Уста")
@@ -89,8 +89,10 @@ final class ScreenTests: XCTestCase {
 
     /// First start without an account, straight to Home.
     private func firstRun(_ app: XCUIApplication) {
-        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 20))
+        sleep(4)    // the launch animation (3.4 s) covers the welcome screen until it rises
         app.buttons["welcome.skip"].tap(); usleep(700_000)
+        XCTAssertTrue(app.textFields.element(boundBy: 0).waitForExistence(timeout: 5))
         app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Sanjar Usta")
         app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
         app.buttons["local.start"].tap()
@@ -249,7 +251,7 @@ final class ScreenTests: XCTestCase {
     /// The editor in Russian, to see long labels in the step card and the sheets.
     func testEditorRussian() {
         let app = launch(lang: "ru")
-        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 8))
+        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 20)); sleep(3)
         app.buttons["welcome.skip"].tap(); usleep(700_000)
         app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Санжар Уста")
         app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
@@ -317,6 +319,13 @@ final class ScreenTests: XCTestCase {
         app.buttons["view.3d"].tap(); sleep(3); shot("109-project-3d")
         app.buttons["v3.room"].firstMatch.tap(); sleep(1); shot("110-zoomed-to-room")
         app.buttons["3d.all"].tap(); sleep(1); shot("111-all-rooms")
+    }
+
+    /// Types a row's name into the open row sheet (its first field).
+    private func typeName(_ app: XCUIApplication, _ v: String) {
+        let f = app.textFields.element(boundBy: 0)
+        XCTAssertTrue(f.waitForExistence(timeout: 4))
+        f.tap(); f.typeText(v); usleep(300_000)
     }
 
     private func typeIn(_ app: XCUIApplication, _ id: String, _ v: String) {
@@ -397,13 +406,15 @@ final class ScreenTests: XCTestCase {
         app.buttons["Orqaga"].firstMatch.tap(); usleep(1_000_000)
         app.buttons["ptab.estimate"].tap(); usleep(900_000)
         app.buttons["es.addMat"].tap(); usleep(900_000)
-        app.typeText("Bo'yoq"); typeIn(app, "gs.qty", "12"); typeIn(app, "gs.price", "50000")
+        typeName(app, "Bo'yoq"); typeIn(app, "gs.qty", "12"); typeIn(app, "gs.price", "50000")
         app.buttons["gs.again"].tap(); usleep(900_000)
-        app.typeText("Laminat"); typeIn(app, "gs.qty", "22"); typeIn(app, "gs.price", "120000")
+        typeName(app, "Laminat"); typeIn(app, "gs.qty", "22"); typeIn(app, "gs.price", "120000")
         app.buttons["gs.save"].tap(); usleep(1_000_000)
-        app.buttons["gs.addLab"].tap(); usleep(900_000)
-        app.typeText("Ish haqi"); typeIn(app, "gs.sum", "1000000")
+        app.swipeUp(); usleep(600_000)
+        app.buttons["gs.addLab"].tap(); usleep(900_000); shot("139-labour-sheet")
+        typeName(app, "Ish haqi"); typeIn(app, "gs.sum", "1000000")
         app.buttons["gs.save"].tap(); sleep(4)
+        app.swipeDown(); usleep(600_000)
 
         app.buttons["es.preview"].tap(); sleep(3); shot("140-report")
         XCTAssertEqual(app.staticTexts["rp.total"].label, "4 240 000 so‘m")
