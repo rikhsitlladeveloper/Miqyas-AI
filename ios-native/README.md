@@ -95,5 +95,26 @@ confirmed, room info, the room card, an L-shaped room, a room drawn by tapping f
 (long labels in the step card, the window sheet and the list fit). Not checked yet by a test: dragging doors, windows
 and corners (needs a real finger to judge), rotating, deleting a room.
 
-Not in parts 1–3 (they come with the parts that need them): projects and everything inside them, the Measure page and
+## Status: part 4 of 7 (16 October 2026)
+
+Built: the room's 3D page (Plan | 3D, wall letters, From above / From the corner, wall and floor colours, "Add to
+report" on the picture with the views listed under it, at most 4, × to take one out); the project's 2D view (every
+workspace's rooms at one scale, tap opens the room) and 3D view (one workspace at a time, rooms in rows, a room's name
+zooms to it, "All" goes back). One finger turns the view, two fingers move it and pinch zooms, inside the prototype's
+limits; walls facing the camera become see-through. Doors and windows are modelled as in the prototype (frames, leaf,
+handle, two-pane window, sill); drawn rooms are extruded along their solved shape with glass in the windows.
+
+How it matches the prototype and the Android app: the shell (`Geo/Shell3D.swift`) is a port of the Android app's, and
+the picture is drawn by RealityKit (an `ARView` without the camera, since iOS 17 has no non-AR RealityView) with flat
+colours worked out the way three.js lights the prototype's walls. From iOS 18 they are shown exactly (checked: the
+inside of a wall comes out 176/176/173, the computed value; the background 243/246/250); the setting that turns off
+RealityKit's tone mapping for these colours needs iOS 18, so on iOS 17 the picture is a little darker. Saved views are JPEG files in the
+app's storage (`views/<id>.jpg`), as on Android.
+
+Checked by the screen tests on the iPhone 17 simulator: a measured room with a door and a window in 3D, from above,
+colours changed, a view added to the report, turned by a drag, zoomed by a pinch, back to the plan; a second room; the
+project's 2D view and 3D view, zooming to one room and back to all. Not checked yet: iOS 17 (the colours), turning and
+moving with real fingers, two-finger move.
+
+Not in parts 1–4 (they come with the parts that need them): projects and everything inside them, the Measure page and
 calculators, Profile's PDF parts, currency, door and window sizes and hints.
