@@ -468,7 +468,7 @@ final class ScreenTests: XCTestCase {
         app.buttons["qc.wall"].tap(); usleep(400_000)
         app.buttons["qm.measure"].tap(); usleep(500_000); app.buttons["qm.measure"].tap(); usleep(700_000); shot("162-wall-laser")
         app.buttons["qc.brick"].tap(); usleep(400_000)
-        app.buttons["qm.chip"].element(boundBy: 0).tap(); usleep(300_000); app.buttons["qm.chip"].element(boundBy: 1).tap(); usleep(600_000); shot("163-bricks")
+        app.buttons.matching(identifier: "qm.chip").element(boundBy: 0).tap(); usleep(300_000); app.buttons.matching(identifier: "qm.chip").element(boundBy: 1).tap(); usleep(600_000); shot("163-bricks")
         app.buttons["qb.change"].tap(); usleep(900_000); shot("164-brick-sheet")
         app.buttons["sheet.close"].tap(); usleep(600_000)
         app.buttons["meas.cont"].tap(); usleep(400_000); app.buttons["qc.live"].tap(); sleep(2); shot("165-continuous")
