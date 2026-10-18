@@ -16,6 +16,7 @@ struct KitchenScreen: View {
     let pid: String
     let fid: String
     let wall: String?
+    var d3 = false
 
     var body: some View {
         let kit = KitOps.shared
@@ -45,6 +46,9 @@ struct KitchenScreen: View {
                     }
                     .padding(.horizontal, 16).frame(height: 64)
                     if let room, let run {
+                        HStack { DimSeg(d3: d3) { app.setTop(.kitchen(pid: pid, fid: fid, wall: wall, d3: $0)) }; Spacer() }
+                            .padding(.horizontal, 16).padding(.bottom, 10)
+                        if d3 { Furniture3DPane(app: app, p: p, room: room) } else {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 12) {
                                 ScrollView(.horizontal, showsIndicators: false) {
@@ -111,6 +115,7 @@ struct KitchenScreen: View {
                                 CostCard(p: p, f: f)
                             }
                             .padding(.horizontal, 16).padding(.bottom, 28)
+                        }
                         }
                     } else {
                         T(tr("kt.roomLost"), ui(15, 500, G.ink2, lh: 1.45)).padding(24)

@@ -731,7 +731,6 @@ final class Furniture4Tests: ScreenTestCase {
         XCTAssertTrue(app.buttons["space.addTile"].waitForExistence(timeout: 4))
         app.buttons["space.addTile"].tap(); usleep(900_000); shot("f4-02-add-sheet")
         app.buttons["add.furn"].tap(); usleep(900_000); shot("f4-03-new-furniture")
-        app.buttons["nf.wardrobe"].tap(); usleep(500_000)
         app.buttons["nf.lL"].tap(); usleep(500_000); shot("f4-04-L-layout")
         app.buttons["nf.start"].tap(); sleep(2); shot("f4-05-empty-wall")
         app.buttons["kt.auto"].tap(); sleep(1); shot("f4-06-auto-A")
@@ -813,5 +812,51 @@ final class Furniture5Tests: ScreenTestCase {
         app.buttons["sheet.close"].tap(); usleep(900_000); shot("f5-11-mdf-fronts")
         app.buttons["back"].tap(); sleep(1); shot("f5-12-workspace-card")
         XCTAssertTrue(app.buttons["furn.card"].exists || app.otherElements["furn.card"].exists)
+    }
+}
+
+/// iPhone furniture part 6: the kitchen and a wardrobe in 3D (CI only: the VM's simulator has no GPU for RealityKit).
+final class Furniture6Tests: ScreenTestCase {
+    func testFurnitureIn3D() {
+        let app = launch()
+        firstRun(app, "ind.furn")
+        newWorkspace(app, "Oshxona 3D")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.create"].tap(); sleep(1)
+        app.buttons["tip.ok"].tap(); usleep(700_000)
+        measuredRoom(app, "3,4", "2,6", "2,7", openings: true)
+        sleep(6)
+        app.buttons.matching(identifier: "back").allElementsBoundByIndex.last { $0.isHittable }?.tap(); sleep(2)
+        XCTAssertTrue(app.buttons["space.addTile"].waitForExistence(timeout: 4))
+        // an L-kitchen on A and B, filled
+        app.buttons["space.addTile"].tap(); usleep(900_000)
+        app.buttons["add.furn"].tap(); usleep(900_000)
+        app.buttons["nf.lL"].tap(); usleep(500_000)
+        app.buttons["nf.start"].tap(); sleep(6)
+        app.buttons["kt.auto"].tap(); sleep(5)
+        app.buttons["kt.wall.B"].tap(); usleep(900_000)
+        app.buttons["kt.auto"].tap(); sleep(5)
+        app.buttons["dim.3D"].tap(); sleep(4); shot("f6-01-kitchen-3d")
+        app.buttons["f3.openAll"].tap(); sleep(3); shot("f6-02-open-all")
+        app.buttons["3d.top"].tap(); sleep(2); shot("f6-03-from-above")
+        app.buttons["f3.close"].tap(); sleep(2)
+        app.buttons["3d.corner"].tap(); sleep(2)
+        // a tap in the middle of the picture opens what is there
+        app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap(); sleep(2); shot("f6-04-tap")
+        app.buttons["dim.2D"].tap(); sleep(2)
+        app.buttons["back"].tap(); sleep(2)
+        // a wardrobe on wall D next to it
+        app.buttons["space.addTile"].exists ? app.buttons["space.addTile"].tap() : app.buttons["space.add"].tap()
+        usleep(900_000)
+        if app.buttons["add.furn"].waitForExistence(timeout: 3) {
+            app.buttons["add.furn"].tap(); usleep(900_000)
+            app.buttons["nf.wardrobe"].tap(); usleep(600_000)
+            app.buttons["nf.c3"].tap(); usleep(500_000)
+            app.buttons["nf.start"].tap(); sleep(6)
+            app.buttons["dim.3D"].tap(); sleep(4); shot("f6-05-room-3d")
+            app.buttons["f3.openAll"].tap(); sleep(3); shot("f6-06-wardrobe-open")
+        }
     }
 }

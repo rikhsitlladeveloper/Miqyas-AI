@@ -137,8 +137,8 @@ struct RootView: View {
         case .measure(let calc): MeasureScreen(app: app, calcTitle: calc)
         case .markup(let pid, let iid): MarkupScreen(app: app, pid: pid, iid: iid)
         case .liveCam: LiveCamScreen(app: app)
-        case .kitchen(let pid, let fid, let wall): KitchenScreen(app: app, pid: pid, fid: fid, wall: wall)
-        case .wardrobe(let pid, let fid, let step, let sec): WardrobeScreen(app: app, pid: pid, fid: fid, step: step, sec: sec)
+        case .kitchen(let pid, let fid, let wall, let d3): KitchenScreen(app: app, pid: pid, fid: fid, wall: wall, d3: d3)
+        case .wardrobe(let pid, let fid, let step, let sec, let d3): WardrobeScreen(app: app, pid: pid, fid: fid, step: step, sec: sec, d3: d3)
         }
     }
 

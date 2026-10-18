@@ -8,6 +8,8 @@ struct Room3DScreen: View {
     let r: Room
     @State private var cam = Cam3D()
     @State private var shot = Shot3D()
+    /// A furniture order's doors and drawers that are open.
+    @State private var open: Set<String> = []
     private var ops: RoomOps { RoomOps.shared }
 
     var body: some View {
@@ -42,9 +44,16 @@ struct Room3DScreen: View {
                 }
                 .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                let shell = buildShell([r], single: true, snap: snap)
-                Scene3D(shell: shell, key: shellKey([r], snap), cam: cam, shot: shot, points: shell.labels.map(\.p),
-                        label: { AnyView(Lbl3D(text: shell.labels[$0].text)) }) {
+                let base = buildShell([r], single: true, snap: snap)
+                // a furniture order's furniture stands in its room; a tap opens a door or a drawer
+                let fur: (Shell3D, Furn3D, String)? = p.isFurniture ? furnShell(p, r, base, open, snap) : nil
+                let shell = fur?.0 ?? base
+                Scene3D(shell: shell, key: fur?.2 ?? shellKey([r], snap), cam: cam, shot: shot, points: shell.labels.map(\.p),
+                        label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
+                        onTap: fur.map { f in { pt in
+                            let (e, d) = cam.ray(pt.x, pt.y)
+                            if let k = f.1.pick(e, d) { if open.contains(k) { open.remove(k) } else { open.insert(k) } }
+                        } }) {
                     ShotPill(icon: "camera", label: tr("3d.save")) { save() }
                         .accessibilityIdentifier("3d.save")
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
@@ -80,7 +89,7 @@ struct Room3DScreen: View {
 
 /// What the 3D picture is built from: when it changes, the scene is rebuilt.
 func shellKey(_ rooms: [Room], _ snap: Bool, _ names: [String] = []) -> String {
-    rooms.map { "\($0.id)|\($0.dims)|\($0.openings)|\(String(describing: $0.poly))|\($0.wallColor)|\($0.floorColor)" }.joined(separator: "/") + "\(snap)\(names)"
+    rooms.map { "\($0.id)|\($0.dims)|\($0.openings)|\($0.points)|\(String(describing: $0.poly))|\($0.wallColor)|\($0.floorColor)" }.joined(separator: "/") + "\(snap)\(names)"
 }
 
 /// Plan | 3D (prototype .subbar .seg).

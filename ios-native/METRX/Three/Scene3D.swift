@@ -106,6 +106,15 @@ final class Cam3D {
         moved()
     }
 
+    /// The ray from the eye through point (x, y) of the picture: its start and direction (the inverse of project).
+    func ray(_ x: CGFloat, _ y: CGFloat) -> (V3, V3) {
+        let e = eye(), f = (tgt - e).unit
+        let s = f.cross(V3(0, 1, 0)).unit, u = s.cross(f)
+        let k = tan(FOV_HALF)
+        let nx = 2 * Double(x) / Double(max(1, w)) - 1, ny = 1 - 2 * Double(y) / Double(max(1, h))
+        return (e, (f + s * (nx * k * aspect) + u * (ny * k)).unit)
+    }
+
     /// Where a point appears in the picture, in points; nil behind the camera.
     func project(_ p: V3) -> CGPoint? {
         guard w > 0, h > 0 else { return nil }
@@ -155,6 +164,8 @@ struct Scene3DView: UIViewRepresentable {
     let key: String
     let cam: Cam3D
     var shot: Shot3D? = nil
+    /// A short tap with one finger (it opens a door), in points.
+    var onTap: ((CGPoint) -> Void)? = nil
 
     func makeCoordinator() -> Scene3DCoordinator { Scene3DCoordinator() }
 
@@ -167,7 +178,7 @@ struct Scene3DView: UIViewRepresentable {
         return v
     }
 
-    func updateUIView(_ v: Scene3DARView, context: Context) { context.coordinator.update(shell, key, cam, shot) }
+    func updateUIView(_ v: Scene3DARView, context: Context) { context.coordinator.onTap = onTap; context.coordinator.update(shell, key, cam, shot) }
 
     static func dismantleUIView(_ v: Scene3DARView, coordinator: Scene3DCoordinator) { coordinator.detach() }
 }
@@ -184,6 +195,7 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
     private var prims: [Prim] = []
     private var lines: [LineP] = []
     private var shell: Shell3D?
+    var onTap: ((CGPoint) -> Void)? = nil
 
     func attach(_ v: Scene3DARView) {
         view = v
@@ -197,7 +209,9 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         pan.maximumNumberOfTouches = 2; pan.delegate = self
         let pinch = UIPinchGestureRecognizer(target: self, action: #selector(onPinch(_:)))
         pinch.delegate = self
-        v.addGestureRecognizer(pan); v.addGestureRecognizer(pinch)
+        let tap = UITapGestureRecognizer(target: self, action: #selector(onTapped(_:)))
+        tap.delegate = self
+        v.addGestureRecognizer(pan); v.addGestureRecognizer(pinch); v.addGestureRecognizer(tap)
     }
 
     func detach() { cam?.onMove = nil; cam?.projector = nil; cam?.stop() }
@@ -343,7 +357,7 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         }
         for i in prims.indices {
             let p = prims[i], f = facing(p.group, p.wall)
-            let a: Double = p.role == .wall ? (f ? 0.14 : 1) : p.role == .opening ? (f ? min(0.12, p.op) : p.op) : p.op
+            let a: Double = p.role == .wall ? (f ? 0.14 : 1) : p.role == .opening ? (f ? min(0.12, p.op) : p.op) : p.role == .furn ? (f ? 0.1 : p.op) : p.op
             if a != p.alpha { prims[i].alpha = a; p.e.model?.materials = [mat(p.rgb, a)] }
         }
         for i in lines.indices {
@@ -365,6 +379,11 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         if g.numberOfTouches >= 2 { c.pan(t.x, t.y) } else { c.rotate(t.x, t.y) }
     }
 
+    @objc private func onTapped(_ g: UITapGestureRecognizer) {
+        guard let v = view, g.state == .ended else { return }
+        onTap?(g.location(in: v))
+    }
+
     @objc private func onPinch(_ g: UIPinchGestureRecognizer) {
         guard let c = cam, g.scale > 0 else { return }
         c.zoom(1 / Double(g.scale)); g.scale = 1
@@ -379,11 +398,12 @@ struct Scene3D<Overlay: View>: View {
     var shot: Shot3D? = nil
     var points: [V3] = []
     var label: (Int) -> AnyView = { _ in AnyView(EmptyView()) }
+    var onTap: ((CGPoint) -> Void)? = nil
     @ViewBuilder var overlay: Overlay
 
     var body: some View {
         ZStack {
-            Scene3DView(shell: shell, key: key, cam: cam, shot: shot)
+            Scene3DView(shell: shell, key: key, cam: cam, shot: shot, onTap: onTap)
             let _ = cam.tick
             ForEach(points.indices, id: \.self) { i in
                 if let p = cam.project(points[i]) { label(i).position(p) }

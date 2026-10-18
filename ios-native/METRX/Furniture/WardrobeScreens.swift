@@ -240,6 +240,7 @@ struct WardThumb: View {
 struct WardrobeScreen: View {
     let app: AppModel
     let pid: String, fid: String, step: Int, sec: Int
+    var d3 = false
     var body: some View {
         let kit = KitOps.shared
         let _ = kit.tick
@@ -263,7 +264,10 @@ struct WardrobeScreen: View {
                         GlassIconButton("more", "menu") { app.sheet = .fMenu(pid: p.id, fid: f.id) }.accessibilityIdentifier("kt.menu")
                     }
                     .padding(.horizontal, 16).frame(height: 64)
-                    if cx.room != nil {
+                    if let room = cx.room {
+                        HStack { DimSeg(d3: d3) { app.setTop(.wardrobe(pid: pid, fid: fid, step: step, sec: sel, d3: $0)) }; Spacer() }
+                            .padding(.horizontal, 16).padding(.bottom, 10)
+                        if d3 { Furniture3DPane(app: app, p: p, room: room) } else {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 12) {
                                 Steps(cur: step) { app.setTop(.wardrobe(pid: pid, fid: fid, step: $0, sec: sel)) }
@@ -284,6 +288,7 @@ struct WardrobeScreen: View {
                                 CostCard(p: p, f: f)
                             }
                             .padding(.horizontal, 16).padding(.bottom, 28)
+                        }
                         }
                     } else {
                         T(tr("kt.roomLost"), ui(15, 500, G.ink2, lh: 1.45)).padding(24)

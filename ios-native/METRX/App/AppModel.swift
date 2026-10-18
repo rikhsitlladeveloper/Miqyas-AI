@@ -33,17 +33,17 @@ enum Route: Hashable {
     /// The Measure page's live camera (prototype PAGES.liveCam).
     case liveCam
     /// Furniture makers: the kitchen designer on wall (nil: the first).
-    case kitchen(pid: String, fid: String, wall: String?)
+    case kitchen(pid: String, fid: String, wall: String?, d3: Bool = false)
     /// The wardrobe designer at step 1–5 (place, sizes, doors, inside, material), section sec picked.
-    case wardrobe(pid: String, fid: String, step: Int, sec: Int)
+    case wardrobe(pid: String, fid: String, step: Int, sec: Int, d3: Bool = false)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
         switch self {
         case .project(let id, _, _, _): return "project:" + id
         case .editor(let pid, let rid, _): return "editor:" + pid + ":" + rid
-        case .kitchen(let pid, let fid, _): return "kitchen:" + pid + ":" + fid
-        case .wardrobe(let pid, let fid, _, _): return "wardrobe:" + pid + ":" + fid
+        case .kitchen(let pid, let fid, _, _): return "kitchen:" + pid + ":" + fid
+        case .wardrobe(let pid, let fid, _, _, _): return "wardrobe:" + pid + ":" + fid
         default: return "\(self)"
         }
     }
@@ -149,7 +149,7 @@ final class AppModel {
                 case .markup(let pid, let iid):
                     return pid.map { store.get($0)?.floors.contains { w in w.items.contains { $0.id == iid } } == true } ?? AppSettings.shared.shots.contains { $0.id == iid }
                 case .report(let pid, let no): return store.get(pid).map { p in no == nil || p.quotes.contains { $0.no == no } } == true
-                case .kitchen(let pid, let fid, _), .wardrobe(let pid, let fid, _, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
+                case .kitchen(let pid, let fid, _, _), .wardrobe(let pid, let fid, _, _, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
                 default: return true
                 }
             }

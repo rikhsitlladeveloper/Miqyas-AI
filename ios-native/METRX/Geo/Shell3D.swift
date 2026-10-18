@@ -19,7 +19,17 @@ struct V3: Equatable {
 }
 
 /// What a piece is, which decides what happens to it when its wall faces the camera and is cut away.
-enum Role3 { case wall, opening, glass, floor }
+enum Role3 { case wall, opening, glass, floor, furn }
+
+/// A wall's own frame in the scene, metres: its start corner on the inside face (ox, oz), the direction along it (ux, uz)
+/// and the one into the room (nx, nz), its length. Furniture is placed in it.
+struct WallBasis: Equatable {
+    let ox: Double, oz: Double, ux: Double, uz: Double, nx: Double, nz: Double, len: Double
+    /// The scene point a along the wall, y up and n into the room, all in metres.
+    func at(_ a: Double, _ y: Double, _ n: Double) -> V3 { V3(ox + ux * a + nx * n, y, oz + uz * a + nz * n) }
+    /// A direction da along and dn into the room.
+    func dir(_ da: Double, _ dn: Double) -> V3 { V3(ux * da + nx * dn, 0, uz * da + nz * dn) }
+}
 
 /// A flat face: a convex polygon (tris nil, drawn as a fan) or a triangulated polygon (the floor of a drawn room).
 struct Face3 { let n: V3; let pts: [V3]; var tris: [Int]? = nil }
@@ -67,6 +77,17 @@ struct Shell3D {
     /// Towards the directional light.
     let light: V3
     let far: Double
+    /// One room only: each wall's frame, for the furniture of a furniture order.
+    var bases: [String: WallBasis] = [:]
+
+    /// The same scene with more parts and outlines (the furniture).
+    func plus(_ more: [Part3], _ moreEdges: [Edges3]) -> Shell3D {
+        var s = Shell3D(parts: parts + more, edges: edges + moreEdges, groups: groups, labels: labels, rooms3: rooms3, L: L, W: W, H: H, tgt: tgt, r: r,
+                        theta: theta, phi: phi, bounds: bounds, rMin: rMin, fit: fit, gridSize: gridSize, gridDiv: gridDiv, gridCx: gridCx, gridCz: gridCz,
+                        light: light, far: far)
+        s.bases = bases
+        return s
+    }
 }
 
 let FOV_HALF = Double.pi / 9      // half of the 40° camera
@@ -86,6 +107,7 @@ func v3Fit(_ w: Double, _ d: Double, _ h: Double, _ aspect: Double) -> Double {
 
 private final class Builder3 {
     var parts: [Part3] = [], edges: [Edges3] = [], groups: [Group3] = [], labels: [Label3] = []
+    var bases: [String: WallBasis] = [:]
     func part(_ group: Int, _ wall: String?, _ role: Role3, _ rgb: Int, _ op: Double = 1) -> Part3 { let p = Part3(group, wall, role, rgb, op); parts.append(p); return p }
     func edgesOf(_ group: Int, _ wall: String) -> Edges3 {
         if let e = edges.first(where: { $0.group == group && $0.wall == wall }) { return e }
@@ -152,6 +174,10 @@ private func rectRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
         for o in ops { openingModel(b, gi, w, o, T, L, W, X) }
     }
     for x in room.points { pointModel(b, gi, x, L, W, X) }
+    if gi == 0 {
+        b.bases["A"] = WallBasis(ox: X(0), oz: 0, ux: 1, uz: 0, nx: 0, nz: 1, len: L); b.bases["B"] = WallBasis(ox: X(L), oz: 0, ux: 0, uz: 1, nx: -1, nz: 0, len: W)
+        b.bases["C"] = WallBasis(ox: X(L), oz: W, ux: -1, uz: 0, nx: 0, nz: -1, len: L); b.bases["D"] = WallBasis(ox: X(0), oz: W, ux: 0, uz: -1, nx: 1, nz: 0, len: W)
+    }
     let fl = b.part(gi, nil, .floor, rgbOf(room.floorColor))
     fl.faces.append(Face3(n: V3(0, 1, 0), pts: [V3(X(0), 0.001, 0), V3(X(0), 0.001, W), V3(X(L), 0.001, W), V3(X(L), 0.001, 0)]))
     b.groups.append(Group3(cx: X(L / 2), cz: W / 2, normals: ["A": (0, -1), "B": (1, 0), "C": (0, 1), "D": (-1, 0)]))
@@ -336,6 +362,7 @@ private func polyRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
             prism(m, nil, [pt(off(at(c0 - s2), -dep)), pt(off(at(c0 + s2), -dep)), pt(at(c0 + s2)), pt(at(c0 - s2))], y - sh, y + sh)
         }
         normals[w.id] = q
+        if gi == 0 { let o = pt(a); b.bases[w.id] = WallBasis(ox: o.0, oz: o.1, ux: u.0, uz: u.1, nx: -q.0, nz: -q.1, len: len) }
         if single { let md = at(len / 2); b.labels.append(Label3(text: w.id, p: V3(X(md.0 + q.0 * T / 2), H + 0.25, Z(md.1 + q.1 * T / 2)))) }
     }
     let fl = b.part(gi, nil, .floor, rgbOf(room.floorColor))
@@ -373,7 +400,8 @@ func buildShell(_ rooms: [Room], single: Bool, snap: Bool = true, name: (Room) -
             tgt: V3(span / 2, maxH * 0.3, maxW / 2), r: max(span, maxW) * (single ? 2.2 : 1.7) + 2.5,
             theta: single ? nil : .pi / 2 + 0.45, phi: single ? nil : 0.9,
             bounds: Bounds3(x0: span * 0.15, x1: span * 0.85, z0: maxW * 0.15, z1: maxW * 0.85), rMin: 2.5, fit: [span, maxW, maxH, 1.25, 1.6],
-            gridSize: gs, gridDiv: kround(gs * 2), gridCx: span / 2, gridCz: maxW / 2, light: lightTowards(span, maxW, maxH), far: 300)
+            gridSize: gs, gridDiv: kround(gs * 2), gridCx: span / 2, gridCz: maxW / 2, light: lightTowards(span, maxW, maxH), far: 300,
+            bases: single ? b.bases : [:])
     }
     // several rooms stand in rows, like on a sheet of paper (ux module)
     let gap = 1.4
