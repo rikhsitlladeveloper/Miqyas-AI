@@ -39,14 +39,14 @@ class ScreenTestCase: XCTestCase {
     func tapOutside(_ app: XCUIApplication) { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).tap() }
 
     /// First start without an account, straight to Home.
-    func firstRun(_ app: XCUIApplication) {
+    func firstRun(_ app: XCUIApplication, _ industry: String = "ind.build") {
         XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 20))
         sleep(4)    // the launch animation (3.4 s) covers the welcome screen until it rises
         app.buttons["welcome.skip"].tap(); usleep(700_000)
         XCTAssertTrue(app.textFields.element(boundBy: 0).waitForExistence(timeout: 5))
         app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Sanjar Usta")
         app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
-        app.buttons["local.start"].tap(); pickIndustry(app)
+        app.buttons["local.start"].tap(); pickIndustry(app, industry)
         XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 10))
         usleep(800_000)
     }
@@ -83,6 +83,13 @@ class ScreenTestCase: XCTestCase {
         let f = app.textFields.element(boundBy: 0)
         XCTAssertTrue(f.waitForExistence(timeout: 4))
         f.tap(); f.typeText(v); usleep(300_000)
+    }
+
+    /// Replaces a field's text.
+    func retype(_ app: XCUIApplication, _ id: String, _ v: String) {
+        let f = app.textFields[id]
+        XCTAssertTrue(f.waitForExistence(timeout: 3))
+        f.tap(); f.typeText(String(repeating: XCUIKeyboardKey.delete.rawValue, count: 10) + v); usleep(300_000)
     }
 
     func typeIn(_ app: XCUIApplication, _ id: String, _ v: String) {
@@ -622,7 +629,45 @@ final class Furniture1Tests: ScreenTestCase {
         app.buttons["tab.profile"].tap(); usleep(900_000)
         btn(app, "Soha").tap(); usleep(800_000); shot("f1-13-industry-sheet")
         app.buttons["sheet.close"].tap(); usleep(600_000)
-        app.buttons["tab.home"].tap(); usleep(800_000)
+        // Home's tab still shows the order: a second tap goes back to Home
+        app.buttons["tab.home"].tap(); usleep(800_000); app.buttons["tab.home"].tap(); usleep(900_000)
         app.buttons["home.sheets"].tap(); sleep(1); shot("f1-14-sheets-tool")
+    }
+}
+
+/// Furniture makers, part 2: sockets, water, sewer and gas marked on the walls of a measured room; the plan and 3D show them.
+final class Furniture2Tests: ScreenTestCase {
+    func testSitePoints() {
+        let app = launch()
+        firstRun(app, "ind.furn")
+        newWorkspace(app, "Oshxona Chilonzor 9")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.create"].tap(); sleep(1)
+        app.buttons["tip.ok"].tap(); usleep(700_000)
+        measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
+        sleep(6)    // the last toast goes away
+        app.buttons["ed.walls"].tap(); usleep(900_000); shot("f2-01-wall-empty")
+        app.buttons["pt.add"].tap(); usleep(900_000); shot("f2-02-point-sheet")
+        app.buttons["pt.cold"].tap(); usleep(400_000)
+        retype(app, "pt.off", "1,3"); retype(app, "pt.h", "0,55"); shot("f2-03-cold-water")
+        app.buttons["pt.save"].tap(); sleep(1)
+        app.buttons["pt.add"].tap(); usleep(900_000)
+        app.buttons["pt.sewer"].tap(); usleep(400_000)
+        retype(app, "pt.off", "1,34"); app.buttons["pt.save"].tap(); sleep(1)
+        app.buttons["pt.add"].tap(); usleep(900_000)
+        retype(app, "pt.off", "0,52"); app.buttons["pt.save"].tap(); sleep(1)       // a socket at 300
+        app.buttons["pt.add"].tap(); usleep(900_000)
+        app.buttons["pt.cold"].tap(); usleep(400_000)
+        retype(app, "pt.off", "5"); app.buttons["pt.save"].tap(); usleep(800_000); shot("f2-04-past-the-wall")
+        app.buttons["sheet.close"].tap(); sleep(5); shot("f2-05-wall-A-points")
+        app.buttons["wv.next"].tap(); usleep(700_000)
+        app.buttons["wv.add"].tap(); usleep(800_000); shot("f2-06-wall-add")
+        app.buttons["wa.point"].tap(); usleep(900_000)
+        app.buttons["pt.gas"].tap(); usleep(400_000)
+        retype(app, "pt.off", "0,9"); app.buttons["pt.save"].tap(); sleep(5); shot("f2-07-wall-B-gas")
+        app.buttons["back"].tap(); usleep(900_000); shot("f2-08-plan")
+        app.buttons["ed.3d"].tap(); sleep(3); shot("f2-09-3d")
     }
 }

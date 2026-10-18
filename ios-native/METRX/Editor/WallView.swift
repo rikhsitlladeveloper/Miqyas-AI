@@ -84,6 +84,8 @@ struct WallViewScreen: View {
                         }
                         T(tr("wv.inside"), ui(12.5, 400, G.ink2))
                         Elevation(r: r, w: w, ops: wallOps, fr: fr, wallCount: ws.count,
+                                  pts: p.isFurniture ? r.points.filter { $0.wall == w.id } : [],
+                                  onPoint: { id in app.sheet = .pointForm(pid: p.id, rid: r.id, wall: w.id, id: id) },
                                   onSwipe: { go($0, ws, i) },
                                   onOpening: { id in app.sheet = .openingForm(pid: p.id, rid: r.id, oid: id, type: "door", wall: nil) },
                                   onLength: {
@@ -137,6 +139,8 @@ struct WallViewScreen: View {
                                 }
                                 .padding(.vertical, -14)
                             }
+                            // furniture orders: sockets, switches and pipes on this wall (furniture plan section 5)
+                            if p.isFurniture { PointsSection(app: app, p: p, r: r, wall: w.id) }
                             HStack(spacing: 6) { MIcon("plus", .white, 18, 2.4); T(tr("wv.add"), ui(15, 700, .white)) }
                                 .padding(.horizontal, 18).frame(minHeight: 48)
                                 .background(Capsule().fill(G.cobalt))
@@ -233,6 +237,8 @@ private struct Elevation: View {
     let ops: [Opening]
     let fr: WallFrame
     let wallCount: Int
+    let pts: [SitePoint]
+    let onPoint: (String) -> Void
     let onSwipe: (Int) -> Void
     let onOpening: (String) -> Void
     let onLength: () -> Void
@@ -242,7 +248,7 @@ private struct Elevation: View {
     @State private var live: Drag? = nil
     @State private var finger = CGPoint.zero
     @State private var g: Gest? = nil
-    private struct Gest { let hit: Opening?; var dragging = false; var axis: Character? = nil; var cur: Drag? = nil; var swiped = false }
+    private struct Gest { let hit: Opening?; var hitPt: SitePoint? = nil; var dragging = false; var axis: Character? = nil; var cur: Drag? = nil; var swiped = false }
 
     var body: some View {
         let unit = AppSettings.shared.unit, en = AppSettings.shared.lang == .en, st = AppSettings.shared
@@ -255,6 +261,7 @@ private struct Elevation: View {
                 let k = size.width / lay.VW
                 var c = ctx; c.scaleBy(x: k, y: k)
                 drawElevation(c, lay, r, w, shown, fr, wallCount, unit, en, live, issueOf)
+                for x in pts { drawSitePoint(c, x, CGPoint(x: lay.x(x.off), y: lay.y(x.h)), lay.s, 7) }
                 if let live, let o = shown.first(where: { $0.id == live.id }) {
                     let t = tr("wv.off", ["c": w.corner, "v": Geo.fmtLen(o.off, unit, en) + " " + unitName()])
                         + (o.type == "window" ? "\n" + tr("wv.sill", ["v": Geo.fmtLen(o.sill, unit, en) + " " + unitName()]) : "")
@@ -267,10 +274,12 @@ private struct Elevation: View {
                 let laySnap = ElevLayout(fr, ops)
                 if g == nil {
                     let sp = v.startLocation / k
-                    let hit = ops.last { o in
+                    // a site point is small: a tap near it opens it, before any door or window under it
+                    let hitPt = pts.last { x in abs(sp.x - laySnap.x(x.off)) < 14 && abs(sp.y - laySnap.y(x.h)) < 14 }
+                    let hit = hitPt != nil ? nil : ops.last { o in
                         sp.x >= laySnap.x(o.off) - 4 && sp.x <= laySnap.x(o.off + o.w) + 4 && sp.y >= laySnap.y(o.sill + o.h) - 4 && sp.y <= laySnap.y(o.sill) + 4
                     }
-                    g = Gest(hit: hit)
+                    g = Gest(hit: hit, hitPt: hitPt)
                 }
                 guard var s = g else { return }
                 let d = v.location - v.startLocation
@@ -303,6 +312,7 @@ private struct Elevation: View {
                 guard let s = g else { return }
                 if s.dragging, let o = s.hit, let c = s.cur { onDragEnd(o, c.off, c.sill); return }
                 if s.swiped { return }
+                if let x = s.hitPt { onPoint(x.id); return }
                 if let o = s.hit { onOpening(o.id); return }
                 let ly = ElevLayout(fr, ops), sp = v.startLocation / (geo.size.width / lay.VW)
                 if abs(sp.y - (ly.yFloor + ly.chainH + 30)) < 20 { onLength() }

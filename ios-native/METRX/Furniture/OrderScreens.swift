@@ -369,13 +369,14 @@ struct FurnitureSheet: View {
     let app: AppModel
     let sheet: Sheet
     static func handles(_ s: Sheet) -> Bool {
-        switch s { case .industry, .fApprove, .fPay: return true; default: return false }
+        switch s { case .industry, .fApprove, .fPay, .pointForm: return true; default: return false }
     }
     var body: some View {
         switch sheet {
         case .industry: IndustrySheet(app: app)
         case .fApprove(let pid): ApproveSheet(app: app, pid: pid)
         case .fPay(let pid): PaySheet(app: app, pid: pid)
+        case .pointForm(let pid, let rid, let wall, let id): PointSheet(app: app, pid: pid, rid: rid, wall0: wall, id: id)
         default: EmptyView()
         }
     }

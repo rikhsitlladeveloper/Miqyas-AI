@@ -76,3 +76,38 @@ final class FurnitureTests: XCTestCase {
         XCTAssertEqual(sheetsFor(1000 * 1000), 1)
     }
 }
+
+/// Site points on a furniture order's walls (Android SitePointsTest; design canvas screen 6).
+final class SitePointTests: XCTestCase {
+    private func pt(_ t: String, _ off: Int, _ h: Int, _ d: Int = 0, _ mh: Int = 0) -> SitePoint { SitePoint(id: "x", t: t, wall: "A", off: off, h: h, d: d, mh: mh) }
+
+    func testDefaultsFollowTheUsualHeights() {
+        XCTAssertEqual(pointDefaults("socket").h, 300)
+        XCTAssertTrue(pointDefaults("sewer") == (450, 50, 0))
+        XCTAssertTrue(pointDefaults("meter") == (1500, 300, 400))
+    }
+
+    func testSizesOnTheWall() {
+        XCTAssertTrue(pointSize(pt("socket", 0, 0)) == (86, 86))
+        XCTAssertTrue(pointSize(pt("sewer", 0, 0, 110)) == (110, 110))
+        XCTAssertTrue(pointSize(pt("meter", 0, 0, 300, 400)) == (300, 400))
+    }
+
+    func testAPointMustBeOnItsWall() {
+        XCTAssertNil(pointProblem(pt("cold", 1250, 550), 3400, 2700))
+        XCTAssertEqual(pointProblem(pt("cold", 3500, 550), 3400, 2700), "pt.offBig")
+        XCTAssertEqual(pointProblem(pt("gas", 100, 2800), 3400, 2700), "pt.hBig")
+        // not measured yet: nothing to check against
+        XCTAssertNil(pointProblem(pt("gas", 9000, 9000), nil, nil))
+    }
+
+    func testPointsTravelWithTheRoomAndShowIn3D() throws {
+        var r = Room(id: "r", floorId: "f", name: "Oshxona")
+        r.dims = ["A": Dim(v: 3400, src: "manual"), "B": Dim(v: 2600, src: "manual"), "H": Dim(v: 2700, src: "manual"), "T": Dim(v: 200, src: "default")]
+        r.points = [pt("cold", 1300, 550), pt("gas", 900, 1000)]
+        let back = try JSONDecoder().decode(Room.self, from: JSONEncoder().encode(r))
+        XCTAssertEqual(back.points, r.points)
+        let without = buildShell([Room(id: "q", floorId: "f", name: "x", created: 0)].map { var q = $0; q.dims = r.dims; return q }, single: true)
+        XCTAssertEqual(buildShell([r], single: true).parts.count, without.parts.count + 2)
+    }
+}

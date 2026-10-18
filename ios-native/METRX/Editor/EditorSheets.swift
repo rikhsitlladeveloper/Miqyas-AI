@@ -636,6 +636,13 @@ private struct WallAddSheet: View {
                 Hairline()
                 ActionRow(icon: "window", label: tr("op.window") + "  ·  " + Geo.fmtLen(st.winW, unit, en) + " × " + Geo.fmtLen(st.winH, unit, en),
                           action: { app.sheet = .openingForm(pid: pid, rid: rid, oid: nil, type: "window", wall: wall) }) { MIcon("chev", G.ink3, 18, 2) }
+                // furniture orders mark sockets and pipes too (furniture plan section 5)
+                if Store.shared.get(pid)?.isFurniture == true {
+                    Hairline()
+                    ActionRow(icon: "plus", label: tr("pt.add") + "  ·  " + tr("pt.addRow"),
+                              action: { app.sheet = .pointForm(pid: pid, rid: rid, wall: wall, id: nil) }) { MIcon("chev", G.ink3, 18, 2) }
+                        .accessibilityIdentifier("wa.point")
+                }
             }
         }
     }

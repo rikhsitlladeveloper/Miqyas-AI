@@ -249,6 +249,8 @@ struct Room: Codable, Equatable, Identifiable {
     var wallColor = "#ECE8E1"
     var floorColor = "#C49A6C"
     var created: Ms = 0
+    /// Furniture orders: sockets, switches, pipes and the gas meter on the walls (furniture plan section 5).
+    var points: [SitePoint] = []
 
     func dim(_ k: String) -> Dim { dims[k] ?? Dim() }
     var isPoly: Bool { shape == "poly" && (poly?.verts.count ?? 0) >= 3 }
@@ -261,6 +263,29 @@ struct Room: Codable, Equatable, Identifiable {
         dims = c.v(.dims, ["A": Dim(), "B": Dim(), "H": Dim(), "T": Dim(v: 200, src: "default")])
         openings = c.v(.openings, []); poly = c.v(.poly, nil); rot = c.v(.rot, 0); views = c.v(.views, [])
         wallColor = c.v(.wallColor, "#ECE8E1"); floorColor = c.v(.floorColor, "#C49A6C"); created = c.v(.created, 0)
+        points = c.v(.points, [])
+    }
+}
+
+/// Something on a wall the furniture must keep clear of: t socket, switch, cold, hot, sewer, gas or meter. off from
+/// the wall's start corner and h from the floor, both to its centre, mm. d a pipe's diameter or the meter's width,
+/// mh the meter's height; src "manual" or "sim" (the laser).
+struct SitePoint: Codable, Equatable, Identifiable {
+    var id: String
+    var t: String
+    var wall: String
+    var off: Int
+    var h: Int
+    var d = 0
+    var mh = 0
+    var src = "manual"
+    init(id: String, t: String, wall: String, off: Int, h: Int, d: Int = 0, mh: Int = 0, src: String = "manual") {
+        self.id = id; self.t = t; self.wall = wall; self.off = off; self.h = h; self.d = d; self.mh = mh; self.src = src
+    }
+    init(from dd: Decoder) throws {
+        let c = try dd.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id); t = c.v(.t, "socket"); wall = c.v(.wall, "A"); off = c.v(.off, 0); h = c.v(.h, 0)
+        d = c.v(.d, 0); mh = c.v(.mh, 0); src = c.v(.src, "manual")
     }
 }
 

@@ -23,7 +23,7 @@ final class RoomOps {
     var diagFirst: Int? = nil
     @ObservationIgnored private var simCount = 0
 
-    private struct Snap { let dims: [String: Dim]; let openings: [Opening]; let name: String; let poly: Poly?; let rot: Int }
+    private struct Snap { let dims: [String: Dim]; let openings: [Opening]; let name: String; let poly: Poly?; let rot: Int; let points: [SitePoint] }
     @ObservationIgnored private var undoH: [String: [Snap]] = [:]
     @ObservationIgnored private var redoH: [String: [Snap]] = [:]
     private(set) var histTick = 0
@@ -40,8 +40,8 @@ final class RoomOps {
         app.setTop(.editor(pid: pid, rid: rid, mode: m))
     }
 
-    private func snapOf(_ r: Room) -> Snap { Snap(dims: r.dims, openings: r.openings, name: r.name, poly: r.poly, rot: r.rot) }
-    private func restore(_ r: inout Room, _ s: Snap) { r.dims = s.dims; r.openings = s.openings; r.name = s.name; r.poly = s.poly; r.rot = s.rot }
+    private func snapOf(_ r: Room) -> Snap { Snap(dims: r.dims, openings: r.openings, name: r.name, poly: r.poly, rot: r.rot, points: r.points) }
+    private func restore(_ r: inout Room, _ s: Snap) { r.dims = s.dims; r.openings = s.openings; r.name = s.name; r.poly = s.poly; r.rot = s.rot; r.points = s.points }
 
     func canUndo(_ rid: String) -> Bool { _ = histTick; return !(undoH[rid] ?? []).isEmpty }
     func canRedo(_ rid: String) -> Bool { _ = histTick; return !(redoH[rid] ?? []).isEmpty }
@@ -181,6 +181,22 @@ final class RoomOps {
         change(pid, rid) { $0.openings.removeAll { $0.id == o.id } }
         app.sheet = nil
         app.say("op.deleted", ["o": opName(o)], action: "common.undo") { [weak self] in self?.undo(pid, rid) }
+    }
+
+    /* ---------------- site points (furniture orders) ---------------- */
+
+    func pointName(_ t: String) -> String { tr("pt." + t) }
+
+    func savePoint(_ pid: String, _ rid: String, _ x: SitePoint, isNew: Bool) {
+        change(pid, rid) { r in if isNew { r.points.append(x) } else if let i = r.points.firstIndex(where: { $0.id == x.id }) { r.points[i] = x } }
+        app.sheet = nil
+        app.say(isNew ? "pt.added" : "pt.saved", ["o": pointName(x.t)], action: "common.undo") { [weak self] in self?.undo(pid, rid) }
+    }
+
+    func deletePoint(_ pid: String, _ rid: String, _ x: SitePoint) {
+        change(pid, rid) { $0.points.removeAll { $0.id == x.id } }
+        app.sheet = nil
+        app.say("pt.deleted", ["o": pointName(x.t)], action: "common.undo") { [weak self] in self?.undo(pid, rid) }
     }
 
     /// The end of a drag: a position that doesn't fit goes back; a good one is kept and marked approximate.

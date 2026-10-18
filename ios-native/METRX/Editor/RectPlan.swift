@@ -157,6 +157,11 @@ func drawRectPlan(_ ctx: GraphicsContext, _ lay: RectLayout, _ r: Room, _ sel: S
 
     // doors and windows across the wall
     for o in r.openings { let bad = issueOf(o); drawOpening(ctx, lay, o, bad ? PC.red : o.id == selOp ? PC.cob : PC.ink, bad) }
+    // furniture orders: sockets, switches and pipes, just inside their wall (furniture plan section 5)
+    for x in r.points {
+        let w = lay.wall(x.wall), u = unitV(w.a, w.b)
+        drawSitePoint(ctx, x, w.a + u * (CGFloat(x.off) * lay.s) - w.n * 7, 0, 6.5, 1)
+    }
 
     // centre label: NAME and the floor area
     let a = Geo.areas(r)

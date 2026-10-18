@@ -151,6 +151,7 @@ private func rectRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
         }
         for o in ops { openingModel(b, gi, w, o, T, L, W, X) }
     }
+    for x in room.points { pointModel(b, gi, x, L, W, X) }
     let fl = b.part(gi, nil, .floor, rgbOf(room.floorColor))
     fl.faces.append(Face3(n: V3(0, 1, 0), pts: [V3(X(0), 0.001, 0), V3(X(0), 0.001, W), V3(X(L), 0.001, W), V3(X(L), 0.001, 0)]))
     b.groups.append(Group3(cx: X(L / 2), cz: W / 2, normals: ["A": (0, -1), "B": (1, 0), "C": (0, 1), "D": (-1, 0)]))
@@ -159,6 +160,24 @@ private func rectRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
         b.labels.append(Label3(text: "C", p: V3(X(L / 2), H + 0.25, W + T / 2))); b.labels.append(Label3(text: "D", p: V3(X(-T / 2), H + 0.25, W / 2)))
     } else { b.labels.append(Label3(text: name, p: V3(X(L / 2), H + 0.45, W / 2))) }
     return [L + 2 * T, W, H]
+}
+
+/* Furniture orders' site points: small boxes on the wall's inside face, in the colours of the plan (furniture plan section 5). */
+private let PT_RGB: [String: Int] = ["socket": 0xF1F5F9, "switch": 0xE2E8F0, "cold": 0x2563EB, "hot": 0xDC2626, "sewer": 0x64748B, "gas": 0xEAB308, "meter": 0xCA8A04]
+private func ptDepth(_ t: String) -> Double { t == "socket" || t == "switch" ? 0.012 : t == "meter" ? 0.12 : 0.05 }
+
+/// A site point in a rectangular room: centred off along its wall and h up, standing out of the wall's inside face.
+private func pointModel(_ b: Builder3, _ gi: Int, _ x: SitePoint, _ L: Double, _ W: Double, _ X: (Double) -> Double) {
+    let sz = pointSize(x); let sw = Double(sz.w) / 2000, sh = Double(sz.h) / 2000
+    let dep = ptDepth(x.t), c = Double(x.off) / 1000, y = Double(x.h) / 1000
+    let m = b.part(gi, x.wall, .opening, PT_RGB[x.t] ?? 0x64748B)
+    switch x.wall {
+    case "A": boxFaces(m, X(c - sw), X(c + sw), y - sh, y + sh, 0, dep)
+    case "B": boxFaces(m, X(L - dep), X(L), y - sh, y + sh, c - sw, c + sw)
+    case "C": boxFaces(m, X(L - c - sw), X(L - c + sw), y - sh, y + sh, W - dep, W)
+    case "D": boxFaces(m, X(0), X(dep), y - sh, y + sh, W - c - sw, W - c + sw)
+    default: break
+    }
 }
 
 /// A door or window in a rectangular room's wall (prototype opModel3D, the one standard style and finish).
@@ -308,6 +327,13 @@ private func polyRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
         for o in ops where o[4] == 0 {
             let g = b.part(gi, nil, .glass, GLASS, 0.5)
             prism(g, nil, [pt(off(at(o[0]), T / 2 - 0.01)), pt(off(at(o[1]), T / 2 - 0.01)), pt(off(at(o[1]), T / 2 + 0.01)), pt(off(at(o[0]), T / 2 + 0.01))], o[2], o[2] + o[3])
+        }
+        // site points of a furniture order, standing out of this wall's inside face
+        for x in room.points where x.wall == w.id {
+            let sz = pointSize(x); let s2 = Double(sz.w) / 2000, sh = Double(sz.h) / 2000
+            let dep = ptDepth(x.t), c0 = Double(x.off) / 1000, y = Double(x.h) / 1000
+            let m = b.part(gi, w.id, .opening, PT_RGB[x.t] ?? 0x64748B)
+            prism(m, nil, [pt(off(at(c0 - s2), -dep)), pt(off(at(c0 + s2), -dep)), pt(at(c0 + s2)), pt(at(c0 - s2))], y - sh, y + sh)
         }
         normals[w.id] = q
         if single { let md = at(len / 2); b.labels.append(Label3(text: w.id, p: V3(X(md.0 + q.0 * T / 2), H + 0.25, Z(md.1 + q.1 * T / 2)))) }

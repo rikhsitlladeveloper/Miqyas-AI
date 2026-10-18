@@ -285,6 +285,15 @@ private func drawPoly(_ ctx: GraphicsContext, _ lay: PolyLayout, _ r: Room, _ g:
             }
         }
     }
+    // furniture orders: sockets, switches and pipes, just inside their wall
+    if mode == "plan" {
+        for x in r.points {
+            guard let i = g.walls.firstIndex(where: { $0.id == x.wall }) else { continue }
+            let a = lay.inner[i], b = lay.inner[(i + 1) % n], u = norm(b - a)
+            let drawn = (b - a).len, real = g.walls[i].len ?? max(1, Int(drawn / lay.s)), kk = drawn / CGFloat(max(1, real))
+            drawSitePoint(ctx, x, a + u * (CGFloat(x.off) * kk) - lay.normals[i] * 7, 0, 6.5, 1)
+        }
+    }
     // name and floor area in the middle
     let a = Geo.areas(r, snap)
     let cx = lay.inner.map(\.x).reduce(0, +) / CGFloat(n), cy = lay.inner.map(\.y).reduce(0, +) / CGFloat(n)
