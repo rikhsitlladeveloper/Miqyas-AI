@@ -7,18 +7,25 @@ struct ProjectsList: View {
     @State private var seg = "active"
     @State private var q = ""
 
+    /// A paid furniture order counts as done in the chips.
+    private func stageOf(_ p: Project) -> String { p.isFurniture && p.stage == "paid" ? "done" : p.stage }
+
     var body: some View {
-        let ps = Store.shared.projects
+        let furniture = AppSettings.shared.furniture
+        let all = Store.shared.projects
+        // each industry sees its own projects; the others stay one chip away (furniture plan section 3)
+        let ps = all.filter { $0.isFurniture == furniture }
+        let others = all.filter { $0.isFurniture != furniture }
         VStack(alignment: .leading, spacing: 0) {
             GlassHeader { app.sheet = .device }
-            PageTitle(text: tr("tab.projects")).padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
-            if ps.isEmpty {
+            PageTitle(text: tr(furniture ? "fo.tab" : "tab.projects")).padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
+            if all.isEmpty {
                 ProjectsEmpty(app: app)
             } else {
-                let n = ["active": ps.filter { $0.stage != "done" }.count, "done": ps.filter { $0.stage == "done" }.count, "all": ps.count]
+                let n = ["active": ps.filter { stageOf($0) != "done" }.count, "done": ps.filter { stageOf($0) == "done" }.count, "all": ps.count, "other": others.count]
                 let needle = q.trimmingCharacters(in: .whitespaces).lowercased()
-                let list = ps.filter { p in
-                    let inSeg = seg == "all" || (seg == "done" ? p.stage == "done" : p.stage != "done")
+                let list = (seg == "other" ? others : ps).filter { p in
+                    let inSeg = seg == "all" || seg == "other" || (seg == "done" ? stageOf(p) == "done" : stageOf(p) != "done")
                     return inSeg && (needle.isEmpty || [dn(p.name), dn(p.customer), dn(p.address), p.phone].joined(separator: " ").lowercased().contains(needle))
                 }
                 ScrollView {
@@ -33,7 +40,7 @@ struct ProjectsList: View {
                         }
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                                ForEach([("active", "pl.active"), ("done", "pl.doneSeg"), ("all", "pl.allSeg")], id: \.0) { k, l in
+                                ForEach([("active", "pl.active"), ("done", "pl.doneSeg"), ("all", "pl.allSeg")] + (others.isEmpty ? [] : [("other", "fo.other")]), id: \.0) { k, l in
                                     let on = seg == k
                                     T("\(tr(l)) · \(n[k] ?? 0)", ui(14, on ? 700 : 600, on ? G.solid : G.slate))
                                         .padding(.horizontal, 16).padding(.vertical, 10).frame(minHeight: 40)
@@ -45,7 +52,10 @@ struct ProjectsList: View {
                             }
                         }
                         VStack(spacing: 10) {
-                            ForEach(list) { p in ProjectRow(p: p) { app.push(.project(id: p.id, tab: "rooms")) } }
+                            ForEach(list) { p in
+                                if p.isFurniture { OrderRow(p: p) { app.push(.project(id: p.id, tab: "rooms")) } }
+                                else { ProjectRow(p: p) { app.push(.project(id: p.id, tab: "rooms")) } }
+                            }
                             if list.isEmpty {
                                 T(tr(needle.isEmpty ? "pl.none" : "pl.noMatch"), ui(14.5, 400, G.ink2), align: .center).frame(maxWidth: .infinity).padding(.vertical, 24)
                             }
@@ -156,6 +166,8 @@ struct NewProjectScreen: View {
     @FocusState private var focus: NF?
 
     private var edit: Project? { editId.flatMap { Store.shared.get($0) } }
+    /// A furniture order (new for a furniture maker, or one being edited) says "order" instead of "project".
+    private var furn: Bool { edit?.isFurniture ?? AppSettings.shared.furniture }
 
     var body: some View {
         let nameErr = name.trimmingCharacters(in: .whitespaces).isEmpty ? tr("np.nameReq") : nil
@@ -166,14 +178,14 @@ struct NewProjectScreen: View {
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
                     GlassIconButton(edit != nil ? "back" : "x", tr(edit != nil ? "nt.back" : "common.close")) { app.pop() }.padding(.leading, 6)
-                    BarTitle(title: tr("np.editTitle"), eyebrow: edit == nil ? tr("np.title") : nil)
+                    BarTitle(title: tr(furn ? "fo.details" : "np.editTitle"), eyebrow: edit == nil ? tr(furn ? "fo.new" : "np.title") : nil)
                 }
                 .padding(.trailing, 12).frame(minHeight: 64)
                 .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
                 .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        GField(label: tr("np.name"), value: $name, placeholder: tr("smp.project"), error: nameErr, showError: show("name"), focus: $focus, me: .name,
+                        GField(label: tr(furn ? "fo.name" : "np.name"), value: $name, placeholder: tr(furn ? "fo.namePh" : "smp.project"), error: nameErr, showError: show("name"), focus: $focus, me: .name,
                                onSubmit: { focus = .cust }, onBlur: { touched.insert("name") })
                         GField(label: tr("np.customerName"), value: $customer, placeholder: tr("smp.customer"), error: custErr, showError: show("customer"), focus: $focus, me: .cust,
                                onSubmit: { focus = .phone }, onBlur: { touched.insert("customer") }, caps: .words)
@@ -201,7 +213,7 @@ struct NewProjectScreen: View {
                 .scrollDismissesKeyboard(.interactively)
             }
             FloatingFooter {
-                GBtn(tr(edit != nil ? "common.save" : "np.create"), enabled: ok) { save(ok) }.accessibilityIdentifier("np.save")
+                GBtn(tr(edit != nil ? "common.save" : furn ? "fo.create" : "np.create"), enabled: ok) { save(ok) }.accessibilityIdentifier("np.save")
             }
         }
         .onAppear {
@@ -227,7 +239,8 @@ struct NewProjectScreen: View {
             Store.shared.update(e.id) { p in p.name = keep(p.name, n); p.customer = keep(p.customer, c); p.phone = Phone.digits(phone); p.address = keep(p.address, a); p.location = loc }
             app.pop(); app.say("op.saved", ["o": n])
         } else {
-            let p = newProject(n, c, Phone.digits(phone), a, loc, AppSettings.shared.currency, AppSettings.shared.reportLang.code)
+            var p = newProject(n, c, Phone.digits(phone), a, loc, AppSettings.shared.currency, AppSettings.shared.reportLang.code)
+            if AppSettings.shared.furniture { p.industry = "furniture" }
             Store.shared.add(p)
             app.replaceTop(.project(id: p.id, tab: "rooms"))
             app.say("np.created", ["n": n])

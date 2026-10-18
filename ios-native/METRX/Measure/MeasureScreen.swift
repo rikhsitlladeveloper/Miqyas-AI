@@ -21,7 +21,7 @@ final class MeasureCalc {
     static let shared = MeasureCalc()
     var tool = "area"
     /// Per tool, the readings put into its slots, nil where still empty.
-    var vals: [String: [CalcVal?]] = ["area": [], "wall": [], "vol": [], "sum": [], "brick": []]
+    var vals: [String: [CalcVal?]] = ["area": [], "wall": [], "vol": [], "sum": [], "brick": [], "sheet": []]
     var act: Int? = nil
     var brickOpening = false
     var cont = false
@@ -84,6 +84,9 @@ struct MeasureScreen: View {
         let on = s.laser == .connected
         let rs = Array(s.readings.reversed())
         let last = on && c.cont && c.liveVal != nil ? c.liveVal : rs.first?.mm
+        // furniture makers have the sheets tool where builders have bricks
+        let _ = { if s.furniture && c.tool == "brick" { DispatchQueue.main.async { c.tool = "sheet" } }
+                  if !s.furniture && c.tool == "sheet" { DispatchQueue.main.async { c.tool = "area" } } }()
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
@@ -200,11 +203,12 @@ private struct Tools: View {
     let c: MeasureCalc
     var body: some View {
         HStack(spacing: 5) {
-            ForEach([("area", "room"), ("wall", "walls"), ("vol", "cube"), ("sum", "dim"), ("brick", "")], id: \.0) { k, ic in
+            // furniture makers have the sheets tool where builders have bricks
+            ForEach([("area", "room"), ("wall", "walls"), ("vol", "cube"), ("sum", "dim"), (AppSettings.shared.furniture ? "sheet" : "brick", "")], id: \.0) { k, ic in
                 let on = c.tool == k
                 let tint: Color = on ? .white : G.ink
                 VStack(spacing: 3) {
-                    if ic.isEmpty { PathIcon(BRICK_ICON, tint, 18, 2) } else { MIcon(ic, tint, 18, 2) }
+                    if ic.isEmpty { PathIcon(k == "sheet" ? SHEET_ICON : BRICK_ICON, tint, 18, 2) } else { MIcon(ic, tint, 18, 2) }
                     T(tr("qc." + k), ui(11.5, 600, tint), lines: 1)
                 }
                 .frame(maxWidth: .infinity).frame(height: 54)
@@ -287,7 +291,7 @@ private struct CalcCard: View {
             // the result
             let res = result()
             HStack(spacing: 8) {
-                T(tr(["area": "qc.rArea", "wall": "qc.rWall", "vol": "qc.rVol", "sum": "qc.rSum", "brick": "qc.rBrick"][c.tool] ?? ""), ui(13, 400, MUTED))
+                T(tr(["area": "qc.rArea", "wall": "qc.rWall", "vol": "qc.rVol", "sum": "qc.rSum", "brick": "qc.rBrick", "sheet": "qc.rSheet"][c.tool] ?? ""), ui(13, 400, MUTED))
                 Group {
                     if let err = res.err {
                         HStack(spacing: 6) { MIcon("alert", Color(argb: 0xFFFFB4A8), 16, 2); T(err, ui(13, 600, Color(argb: 0xFFFFB4A8))) }
@@ -301,6 +305,7 @@ private struct CalcCard: View {
             }
             .padding(.top, 8)
             .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.12)).frame(height: 1) }
+            if c.tool == "sheet", let sub = res.sub { HStack { T(sub.0, ui(12.5, 400, MUTED)).frame(maxWidth: .infinity, alignment: .leading); T(sub.1, ui(12.5, 400, MUTED)) } }
             if c.tool == "brick" {
                 let b = AppSettings.shared.brick
                 if let sub = res.sub { HStack { T(sub.0, ui(12.5, 400, MUTED)).frame(maxWidth: .infinity, alignment: .leading); T(sub.1, ui(12.5, 400, MUTED)) } }
@@ -331,6 +336,11 @@ private struct CalcCard: View {
             if let a = g(0), let b = g(1), let h = g(2) { return (dec(String(format: "%.2f", Double(a) * Double(b) * Double(h) / 1e9)) + " " + tr("u.m") + "³", nil, nil) }
         case "sum":
             if !c.cur.isEmpty { return (Geo.fmtLen(c.cur.reduce(0) { $0 + ($1?.mm ?? 0) }, u, en) + " " + m, nil, nil) }
+        case "sheet":
+            if let a = g(0), let b = g(1) {
+                let area = Int64(a) * Int64(b)
+                return ("\(sheetsFor(Double(area))) " + tr("u.sheet"), nil, (tr("qs.spec"), Geo.fmtArea(area, en) + " " + m2))
+            }
         case "brick":
             if let a = g(0), let b = g(1) {
                 let op = c.brickOpening ? (g(2).flatMap { w in g(3).map { Int64(w) * Int64($0) } } ?? 0) : 0

@@ -75,10 +75,12 @@ enum Sheet: Equatable {
     case mkDim(eid: String)
     case mkText(eid: String?, x: Double, y: Double)
     case mkCaption, shotMenu, shotDel, shotTo, cameraPick, lcManual
+    /// Profile → Soha; a furniture order: approving it (agreed price and prepayment), adding a payment.
+    case industry, fApprove(pid: String), fPay(pid: String)
 }
 
 /// Screens of the sign-in flow.
-enum AuthStep { case welcome, signUp, logIn, local }
+enum AuthStep { case welcome, signUp, logIn, local, industry }
 
 /// Everything the screens share: where each tab is, the open sheet, the toast, the sign-in flow.
 @Observable

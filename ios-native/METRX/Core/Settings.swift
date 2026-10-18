@@ -16,6 +16,10 @@ final class AppSettings {
     private(set) var builderName: String
     private(set) var builderPhone: String
     private(set) var dark: Bool
+    /// "build" or "furniture", chosen after sign-in (furniture plan section 3); nil until then. People who started the
+    /// app before industries existed are builders.
+    private(set) var industry: String?
+    var furniture: Bool { industry == "furniture" }
     /// Currency and report language that new projects start with.
     private(set) var currency: String
     private(set) var reportLang: Lang
@@ -61,6 +65,7 @@ final class AppSettings {
         builderName = d.string(forKey: "builderName") ?? ""
         builderPhone = d.string(forKey: "builderPhone") ?? ""
         dark = d.bool(forKey: "dark")
+        industry = d.string(forKey: "industry") ?? (d.bool(forKey: "firstRunDone") ? "build" : nil)
         currency = d.string(forKey: "currency") ?? "UZS"
         reportLang = Lang.of(d.string(forKey: "reportLang") ?? d.string(forKey: "lang"))
         unitCm = d.string(forKey: "unit") == "cm"
@@ -88,6 +93,7 @@ final class AppSettings {
     func setUnit(cm: Bool) { unitCm = cm; d.set(cm ? "cm" : "m", forKey: "unit") }
     func setSnap(_ on: Bool) { angleSnap = on; d.set(on, forKey: "angleSnap") }
     func setDarkMode(_ on: Bool) { dark = on; d.set(on, forKey: "dark") }
+    func setIndustryKind(_ v: String) { industry = v; d.set(v, forKey: "industry") }
     func setRoomLabel(_ v: String) { roomLabel = v; d.set(v, forKey: "roomLabel") }
     func setDefaults(_ dw: Int, _ dh: Int, _ ww: Int, _ wh: Int, _ ws: Int) {
         doorW = dw; doorH = dh; winW = ww; winH = wh; winSill = ws

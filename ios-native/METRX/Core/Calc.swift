@@ -31,4 +31,11 @@ func brickCount(_ faceMm2: Double, _ b: BrickSpec) -> (Int, Double) {
 }
 
 /// The slots each tool fills, in order (prototype QC_SLOTS); "sum" takes any number.
-let CALC_SLOTS: [String: [String]] = ["area": ["L", "W"], "wall": ["L", "H", "ow", "oh"], "vol": ["L", "W", "H"], "sum": [], "brick": ["L", "H", "ow", "oh"]]
+let CALC_SLOTS: [String: [String]] = ["area": ["L", "W"], "wall": ["L", "H", "ow", "oh"], "vol": ["L", "W", "H"], "sum": [], "brick": ["L", "H", "ow", "oh"],
+    "sheet": ["L", "W"]]
+
+/// Furniture makers' tool instead of bricks: whole sheets for a surface of areaMm2 with waste % added. The sheet is
+/// 2800 × 2070 mm until the workshop settings arrive (furniture plan section 6.2).
+func sheetsFor(_ areaMm2: Double, sheetL: Int = 2800, sheetW: Int = 2070, waste: Int = 15) -> Int {
+    Int((areaMm2 * Double(100 + waste) / 100 / (Double(sheetL) * Double(sheetW)) - 1e-9).rounded(.up))
+}

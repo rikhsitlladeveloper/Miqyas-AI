@@ -1,6 +1,8 @@
 import SwiftUI
 
 private let TABS = [("rooms", "pj.t.rooms"), ("estimate", "pr.estimate"), ("quotes", "pj.t.quotes"), ("info", "pj.info")]
+/// A furniture order: its price tab instead of the estimate (furniture plan section 4).
+private let F_TABS = [("rooms", "pj.t.rooms"), ("price", "fo.price"), ("quotes", "pj.t.quotes"), ("info", "pj.info")]
 
 /// Project page: name, customer and stage, three numbers, four tabs (prototype project.js + glass stage 2).
 struct ProjectScreen: View {
@@ -16,14 +18,17 @@ struct ProjectScreen: View {
             let withTotal = tab == "estimate" && !(p.estimate.materials.isEmpty && p.estimate.labor.isEmpty)
             ZStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack { BackPill(text: tr("tab.projects")) { app.pop() }; Spacer() }.padding(.leading, 8).frame(minHeight: 64)
+                    HStack { BackPill(text: tr(p.isFurniture ? "fo.tab" : "tab.projects")) { app.pop() }; Spacer() }.padding(.leading, 8).frame(minHeight: 64)
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
                             header(p)
                             switch tab {
-                            case "info": InfoTab(app: app, p: p, call: { call(p) }, map: { openMap(p) })
+                            case "info":
+                                if p.isFurniture { FurnitureInfo(app: app, p: p) }
+                                InfoTab(app: app, p: p, call: { call(p) }, map: { openMap(p) })
                             case "estimate": EstimateTab(app: app, p: p)
-                            case "quotes": QuotesTab(app: app, p: p)
+                            case "price": FLater()
+                            case "quotes": if p.isFurniture { FLater() } else { QuotesTab(app: app, p: p) }
                             default:
                                 if view != "list" && !p.rooms.isEmpty {
                                     VStack(alignment: .leading, spacing: 0) {
@@ -63,17 +68,17 @@ struct ProjectScreen: View {
                 }
                 HStack(spacing: 8) {
                     T(sub.isEmpty ? "—" : sub, ui(13.5, 400, G.ink2), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
-                    StageChip(stage: p.stage)
+                    if p.isFurniture { FStageChip(stage: p.stage) } else { StageChip(stage: p.stage) }
                 }
             }
             .padding(.horizontal, 4)
-            if tab == "rooms" { Nums(p: p) }
+            if tab == "rooms" { if p.isFurniture { FNums(p: p) } else { Nums(p: p) } }
             HStack(spacing: 2) {
-                ForEach(TABS, id: \.0) { k, l in
+                ForEach(p.isFurniture ? F_TABS : TABS, id: \.0) { k, l in
                     let on = tab == k
                     HStack(spacing: 4) {
                         T(tr(l), ui(12.5, on ? 700 : 600, on ? G.ink : G.slate), lines: 1)
-                        if k == "quotes" && !p.quotes.isEmpty {
+                        if k == "quotes" && !p.quotes.isEmpty && !p.isFurniture {
                             T("\(p.quotes.count)", ui(11, 700, .white)).padding(.horizontal, 6).padding(.vertical, 1).background(Capsule().fill(G.cobalt))
                         }
                     }

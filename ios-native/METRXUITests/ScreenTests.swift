@@ -30,6 +30,12 @@ class ScreenTestCase: XCTestCase {
         return b.exists ? b : app.switches.matching(p).firstMatch
     }
 
+    /// The question after sign-in (furniture plan section 3): which trade; builders unless the test says otherwise.
+    func pickIndustry(_ app: XCUIApplication, _ id: String = "ind.build") {
+        XCTAssertTrue(app.buttons["ind.go"].waitForExistence(timeout: 8))
+        app.buttons[id].tap(); usleep(400_000); app.buttons["ind.go"].tap(); usleep(600_000)
+    }
+
     func tapOutside(_ app: XCUIApplication) { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).tap() }
 
     /// First start without an account, straight to Home.
@@ -40,7 +46,7 @@ class ScreenTestCase: XCTestCase {
         XCTAssertTrue(app.textFields.element(boundBy: 0).waitForExistence(timeout: 5))
         app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Sanjar Usta")
         app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
-        app.buttons["local.start"].tap()
+        app.buttons["local.start"].tap(); pickIndustry(app)
         XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 10))
         usleep(800_000)
     }
@@ -111,7 +117,7 @@ final class Part1Tests: ScreenTestCase {
         app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Sanjar Usta")
         app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
         shot("07-local-filled")
-        app.buttons["local.start"].tap()
+        app.buttons["local.start"].tap(); pickIndustry(app)
         XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 5))
         sleep(1); shot("08-home")
 
@@ -142,7 +148,7 @@ final class Part1Tests: ScreenTestCase {
         app.buttons["welcome.skip"].tap(); usleep(700_000)
         app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Санжар Уста")
         app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
-        app.buttons["local.start"].tap()
+        app.buttons["local.start"].tap(); pickIndustry(app)
         XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 5))
         sleep(1); shot("31-ru-home")
         app.buttons["tab.profile"].tap(); usleep(700_000); shot("32-ru-profile")
@@ -291,7 +297,7 @@ final class Part3Tests: ScreenTestCase {
         app.buttons["welcome.skip"].tap(); usleep(700_000)
         app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Санжар Уста")
         app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
-        app.buttons["local.start"].tap()
+        app.buttons["local.start"].tap(); pickIndustry(app)
         XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 5)); usleep(800_000)
         newWorkspace(app, "Дом")
         app.buttons["space.add"].tap(); usleep(700_000)
@@ -576,5 +582,47 @@ final class Part7Tests: ScreenTestCase {
         app.buttons["mk.menu"].tap(); usleep(800_000)
         app.buttons["cm.toProj"].tap(); usleep(800_000); shot("190-move-to-project")
         app.buttons["cm.toWs"].firstMatch.tap(); usleep(900_000); shot("191-moved")
+    }
+}
+
+/// Furniture makers, part 1: the industry question, the furniture Home, a new order, its stages, approval with the
+/// prepayment, a payment, the Orders list, Profile → Soha and the sheets tool.
+final class Furniture1Tests: ScreenTestCase {
+    func testOrders() {
+        let app = launch()
+        XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 20)); sleep(4)
+        app.buttons["welcome.skip"].tap(); usleep(700_000)
+        app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Jasur Usta")
+        app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("932104455")
+        app.buttons["local.start"].tap()
+        XCTAssertTrue(app.buttons["ind.go"].waitForExistence(timeout: 8)); usleep(500_000); shot("f1-01-industry")
+        app.buttons["ind.furn"].tap(); usleep(500_000); shot("f1-02-industry-picked")
+        app.buttons["ind.go"].tap()
+        XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 8)); sleep(1); shot("f1-03-home")
+
+        app.buttons["home.new"].tap(); usleep(900_000)
+        app.textFields.element(boundBy: 0).typeText("Oshxona Chilonzor 9")
+        app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("Dilnoza Karimova")
+        shot("f1-04-new-order")
+        app.buttons["np.save"].tap(); sleep(1); shot("f1-05-order")
+
+        app.buttons["ptab.info"].tap(); usleep(800_000); shot("f1-06-stages")
+        app.buttons["fo.next"].tap(); usleep(700_000)          // measure → design
+        app.buttons["fo.next"].tap(); usleep(700_000)          // design → quote
+        app.buttons["fo.next"].tap(); usleep(900_000)          // quote → the approval sheet
+        let price = app.textFields.element(boundBy: 0)
+        XCTAssertTrue(price.waitForExistence(timeout: 4))
+        price.tap(); price.typeText("32067100"); usleep(500_000); shot("f1-07-approve")
+        app.buttons["fo.approve"].tap(); sleep(4); shot("f1-08-approved")
+        app.swipeUp(); usleep(600_000); shot("f1-09-payments")
+        app.buttons["fo.addPay"].tap(); usleep(900_000); shot("f1-10-add-payment")
+        app.buttons["fo.paySave"].tap(); sleep(4); shot("f1-11-paid-off")
+
+        app.buttons["tab.projects"].tap(); usleep(900_000); shot("f1-12-orders")
+        app.buttons["tab.profile"].tap(); usleep(900_000)
+        btn(app, "Soha").tap(); usleep(800_000); shot("f1-13-industry-sheet")
+        app.buttons["sheet.close"].tap(); usleep(600_000)
+        app.buttons["tab.home"].tap(); usleep(800_000)
+        app.buttons["home.sheets"].tap(); sleep(1); shot("f1-14-sheets-tool")
     }
 }

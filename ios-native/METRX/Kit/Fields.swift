@@ -21,6 +21,8 @@ struct GField<F: Hashable>: View {
     var caps: TextInputAutocapitalization = .sentences
     var done = false
     var labelRight: String? = nil
+    /// Digits only: the number keyboard.
+    var number = false
     @State private var phoneFocused = false
 
     var body: some View {
@@ -67,6 +69,7 @@ struct GField<F: Hashable>: View {
                 .strikethrough(done)
                 .lineLimit(multiline ? 4...40 : 1...1)
                 .textInputAutocapitalization(caps)
+                .keyboardType(number ? .numberPad : .default)
                 .focused(focus, equals: me)
                 .submitLabel(submit)
                 .onSubmit(onSubmit)

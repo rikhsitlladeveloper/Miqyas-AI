@@ -44,6 +44,13 @@ struct Project: Codable, Equatable, Identifiable {
     var reportNotes = ""                    // the report's own note (prototype p.report.notes)
     var created: Ms = 0
     var edited: Ms = 0
+    /// "build" (a builder's project) or "furniture" (a furniture order); older projects are builders'.
+    var industry = "build"
+    /// Furniture: the price agreed with the customer in the smallest unit, "" until the order is approved.
+    var agreed = ""
+    var payments: [Payment] = []
+
+    var isFurniture: Bool { industry == "furniture" }
 
     init(id: String, name: String, customer: String = "", phone: String = "", address: String = "", location: Location? = nil,
          currency: String = "UZS", reportLang: String = "uz", created: Ms = 0, edited: Ms = 0) {
@@ -59,8 +66,26 @@ struct Project: Codable, Equatable, Identifiable {
         floors = c.v(.floors, []); rooms = c.v(.rooms, []); estimate = c.v(.estimate, Estimate()); quotes = c.v(.quotes, [])
         reportRooms = c.v(.reportRooms, [:]); reportViews = c.v(.reportViews, [:]); reportNotes = c.v(.reportNotes, "")
         created = c.v(.created, 0); edited = c.v(.edited, 0)
+        industry = c.v(.industry, "build"); agreed = c.v(.agreed, ""); payments = c.v(.payments, [])
     }
 }
+
+/// Money received for a furniture order: amount in the smallest unit; pre marks the prepayment.
+struct Payment: Codable, Equatable, Identifiable {
+    var id: String
+    var amount: String
+    var ts: Ms
+    var note = ""
+    var pre = false
+    init(id: String, amount: String, ts: Ms, note: String = "", pre: Bool = false) { self.id = id; self.amount = amount; self.ts = ts; self.note = note; self.pre = pre }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id); amount = c.v(.amount, "0"); ts = c.v(.ts, 0); note = c.v(.note, ""); pre = c.v(.pre, false)
+    }
+}
+
+/// A furniture order's stages, in order (furniture plan section 4).
+let F_STAGES = ["measure", "design", "quote", "approved", "production", "installed", "paid"]
 
 /// A workspace: a place in the project (a floor, a room, a bathroom, the yard…). Stored in Project.floors like the prototype.
 struct Workspace: Codable, Equatable, Identifiable {

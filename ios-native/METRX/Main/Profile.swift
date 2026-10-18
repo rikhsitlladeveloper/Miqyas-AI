@@ -47,6 +47,7 @@ struct ProfileScreen: View {
                     ProCard { app.push(.subscription) }
                     Group1(text: tr("pf.gReport"))
                     Card {
+                        Row1(icon: "sliders", title: tr("ind.row"), value: tr(s.furniture ? "ind.furn" : "ind.build")) { app.sheet = .industry }
                         Row1(icon: "globe", title: tr("se.lang"), value: s.lang.longName) { app.sheet = .language }
                         Row1(icon: "doc", title: tr("se.reportLang"), value: s.reportLang.longName) { app.sheet = .reportLang }
                         Row1(icon: "layers", title: tr("se.pdf"), value: "\(pdfCount(s.pdf))/5") { app.sheet = .pdfParts }

@@ -11,7 +11,8 @@ struct GlassNav: View {
                 let on = t == cur
                 VStack(spacing: 3) {
                     MIcon(t.icon, on ? G.cobalt2 : G.slate, 22, 2)
-                    T(tr(t.label), ui(11, on ? 700 : 600, on ? G.cobalt2 : G.slate), lines: 1)
+                    // a furniture maker's projects are orders
+                    T(tr(t == .projects && AppSettings.shared.furniture ? "fo.tab" : t.label), ui(11, on ? 700 : 600, on ? G.cobalt2 : G.slate), lines: 1)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(on ? G.glass(0.85) : .clear)
@@ -42,6 +43,9 @@ private let CALC = "M8 2.5h8a3 3 0 0 1 3 3v13a3 3 0 0 1-3 3H8a3 3 0 0 1-3-3v-13a
 struct HomeScreen: View {
     let app: AppModel
     var body: some View {
+        if AppSettings.shared.furniture { FurnitureHome(app: app) } else { builder }
+    }
+    @ViewBuilder private var builder: some View {
         let s = AppSettings.shared
         let first = s.builderName.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? ""
         let lines = tr("gl.lines").split(separator: "|").map(String.init)

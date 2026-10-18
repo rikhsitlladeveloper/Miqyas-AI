@@ -55,6 +55,8 @@ struct RootView: View {
             },
             done: {
                 if app.editMe { withAnimation { app.editMe = false }; app.say("common.save"); return }
+                // the first run asks for the industry once, after sign-in (furniture plan section 3)
+                if settings.industry == nil { app.soon = false; push(.industry); return }
                 settings.finishFirstRun()
                 withAnimation(.easeOut(duration: 0.26)) { app.auth = []; app.authFromProfile = false; app.soon = false }
             },
@@ -74,6 +76,11 @@ struct RootView: View {
                     case .signUp: SignUpScreen(nav: authNav)
                     case .logIn: LogInScreen(nav: authNav)
                     case .local: LocalScreen(nav: authNav)
+                    case .industry:
+                        ZStack {
+                            Aurora()
+                            IndustryScreen(app: app, onBack: authNav.back) { k in settings.setIndustryKind(k); authNav.done() }
+                        }
                     }
                 }
                 .id(app.auth.count)
@@ -136,7 +143,8 @@ struct RootView: View {
         case .language: LanguageSheet(app: app)
         case .device: DeviceSheet(app: app)
         default:
-            if EditorSheet.handles(s) { EditorSheet(app: app, sheet: s) }
+            if FurnitureSheet.handles(s) { FurnitureSheet(app: app, sheet: s) }
+            else if EditorSheet.handles(s) { EditorSheet(app: app, sheet: s) }
             else if EstimateSheet.handles(s) { EstimateSheet(app: app, sheet: s) }
             else if ReportSheet.handles(s) { ReportSheet(app: app, sheet: s) }
             else if QuickSheet.handles(s) { QuickSheet(app: app, sheet: s) }
