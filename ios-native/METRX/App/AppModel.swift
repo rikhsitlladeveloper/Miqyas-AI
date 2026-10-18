@@ -34,6 +34,8 @@ enum Route: Hashable {
     case liveCam
     /// Furniture makers: the kitchen designer on wall (nil: the first).
     case kitchen(pid: String, fid: String, wall: String?)
+    /// The wardrobe designer at step 1–5 (place, sizes, doors, inside, material), section sec picked.
+    case wardrobe(pid: String, fid: String, step: Int, sec: Int)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -41,6 +43,7 @@ enum Route: Hashable {
         case .project(let id, _, _, _): return "project:" + id
         case .editor(let pid, let rid, _): return "editor:" + pid + ":" + rid
         case .kitchen(let pid, let fid, _): return "kitchen:" + pid + ":" + fid
+        case .wardrobe(let pid, let fid, _, _): return "wardrobe:" + pid + ":" + fid
         default: return "\(self)"
         }
     }
@@ -90,6 +93,8 @@ enum Sheet: Equatable {
     /// module, appl or space) for a wall.
     case newFurniture(pid: String, wid: String), fMenu(pid: String, fid: String), fRename(pid: String, fid: String), fMats(pid: String, fid: String)
     case fModule(pid: String, fid: String, mid: String), fLibrary(pid: String, fid: String, wall: String, group: String)
+    /// The wardrobe: one size (key w, h, d, x or secW of section sec), an insert, more inserts for a section.
+    case wField(pid: String, fid: String, key: String, sec: Int), wInsert(pid: String, fid: String, sec: Int, idx: Int), wMore(pid: String, fid: String, sec: Int)
 }
 
 /// Screens of the sign-in flow.
@@ -144,7 +149,7 @@ final class AppModel {
                 case .markup(let pid, let iid):
                     return pid.map { store.get($0)?.floors.contains { w in w.items.contains { $0.id == iid } } == true } ?? AppSettings.shared.shots.contains { $0.id == iid }
                 case .report(let pid, let no): return store.get(pid).map { p in no == nil || p.quotes.contains { $0.no == no } } == true
-                case .kitchen(let pid, let fid, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
+                case .kitchen(let pid, let fid, _), .wardrobe(let pid, let fid, _, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
                 default: return true
                 }
             }

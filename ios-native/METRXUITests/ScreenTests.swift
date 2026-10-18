@@ -767,3 +767,51 @@ final class Furniture4Tests: ScreenTestCase {
         XCTAssertTrue(app.buttons["furn.card"].exists || app.otherElements["furn.card"].exists)
     }
 }
+
+/// iPhone furniture part 5: the wardrobe designer on a measured room (A 3400, B 2600, height 2700): a built-in
+/// wardrobe on wall D, five sections with one 500 wide, doors, the inside of a section, the boards.
+final class Furniture5Tests: ScreenTestCase {
+    func testWardrobe() {
+        let app = launch()
+        firstRun(app, "ind.furn")
+        newWorkspace(app, "Shkaf Chilonzor")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.create"].tap(); sleep(1)
+        app.buttons["tip.ok"].tap(); usleep(700_000)
+        measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
+        sleep(6)    // the last toast goes away
+        app.buttons.matching(identifier: "back").allElementsBoundByIndex.last { $0.isHittable }?.tap(); sleep(2)
+        XCTAssertTrue(app.buttons["space.addTile"].waitForExistence(timeout: 4))
+        app.buttons["space.addTile"].tap(); usleep(900_000)
+        app.buttons["add.furn"].tap(); usleep(900_000)
+        app.buttons["nf.wardrobe"].tap(); usleep(600_000)
+        app.buttons["nf.c3"].tap(); usleep(500_000); shot("f5-01-new-wardrobe")
+        app.buttons["nf.start"].tap(); sleep(2); shot("f5-02-place")
+        sleep(4)
+        app.buttons["wd.step2"].tap(); usleep(800_000)
+        app.buttons["wd.secs.plus"].tap(); usleep(800_000); shot("f5-03-five-sections")
+        app.buttons["wd.secW1"].tap(); usleep(900_000)
+        retype(app, "wf.value", "500"); shot("f5-04-section-width")
+        app.buttons["wf.save"].tap(); usleep(900_000); shot("f5-05-sizes")
+        app.buttons["wd.step3"].tap(); usleep(800_000)
+        app.buttons["wd.sec2"].tap(); usleep(500_000)
+        btn(app, "1 eshik").tap(); usleep(700_000); shot("f5-06-doors")
+        app.buttons["wd.step4"].tap(); usleep(800_000)
+        app.buttons["wd.sec1"].tap(); usleep(500_000)
+        app.buttons["wd.add.drawer"].tap(); sleep(1)
+        app.buttons["wd.add.drawer"].tap(); sleep(1)
+        app.buttons["wd.more"].tap(); usleep(900_000); shot("f5-07-more")
+        app.buttons["wm.shoe"].tap(); sleep(1); shot("f5-08-inside")
+        sleep(4)
+        app.swipeUp(); usleep(700_000); shot("f5-09-checks")
+        app.swipeDown(); usleep(700_000)
+        app.buttons["wd.step5"].tap(); usleep(800_000); shot("f5-10-materials")
+        app.buttons["wd.mat.front"].tap(); usleep(900_000)
+        app.buttons["fmat.front.mdf18"].tap(); usleep(700_000)
+        app.buttons["sheet.close"].tap(); usleep(900_000); shot("f5-11-mdf-fronts")
+        app.buttons["back"].tap(); sleep(1); shot("f5-12-workspace-card")
+        XCTAssertTrue(app.buttons["furn.card"].exists || app.otherElements["furn.card"].exists)
+    }
+}

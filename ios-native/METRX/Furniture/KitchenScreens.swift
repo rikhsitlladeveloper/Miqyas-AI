@@ -411,13 +411,19 @@ private struct NewFurnitureSheet: View {
             let rooms = p.rooms.filter { $0.floorId == wid }
             let room = rooms.first { $0.id == rid } ?? rooms.first
             let ids = room.map { Geo.walls($0, snap).map(\.id) } ?? []
-            let list = combos(layout, ids)
+            let list = combos(kind == "wardrobe" ? "I" : layout, ids)
             let pick = combo < list.count ? list[combo] : list.first
+            let roomHt = room.flatMap { $0.dim("H").v ?? $0.dim("H").pending?.mm }
+            let wardH = roomHt.map { min(3000, max(1200, $0 - W_GAP_TOP)) } ?? 2500
+            /// The wardrobe on the picked wall: where it goes and how wide.
+            let wardPlace = { (wall: String) -> (x: Int, w: Int, builtIn: Bool)? in
+                room.flatMap { r in wallLen(r, snap, wall).map { placeOn($0, wall, r.openings, wardH) } }
+            }
             GlassSheet(tr("kt.addT"), onClose: { app.sheet = nil }) {
                 T(tr("kt.type"), ui(15, 700))
                 HStack(spacing: 8) {
                     ForEach([("kitchen", "kt.kitchen"), ("wardrobe", "kt.wardrobe"), ("living", "kt.living"), ("bedroom", "kt.bedroom")], id: \.0) { k, t in
-                        let on = k == kind, later = k != "kitchen"
+                        let on = k == kind, later = k == "living" || k == "bedroom"
                         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
                         VStack(spacing: 4) {
                             MIcon(k == "kitchen" ? "kitchen" : "board", on ? G.cobalt : G.ink3, 24, 2)
@@ -432,9 +438,8 @@ private struct NewFurnitureSheet: View {
                         .background(shape.fill(on ? G.cobalt.opacity(0.1) : G.glass(0.5)))
                         .overlay(shape.strokeBorder(on ? G.cobalt : G.rim, lineWidth: on ? 2 : 1))
                         .pressable(0.97) {
-                            // the wardrobe designer comes with the next part; living rooms and bedrooms in Stage 2
-                            if k == "wardrobe" { app.say("kt.wardLater", kind: .info) }
-                            else if later { app.say("kt.stage2", ["n": tr(t)], kind: .info) }
+                            // living rooms and bedrooms come in Stage 2
+                            if later { app.say("kt.stage2", ["n": tr(t)], kind: .info) }
                             else { kind = k; combo = 0 }
                         }
                         .accessibilityAddTraits(on ? .isSelected : [])
@@ -448,8 +453,8 @@ private struct NewFurnitureSheet: View {
                             HStack(spacing: 8) { ForEach(rooms) { r in FChip(label: dn(r.name), on: r.id == room.id) { rid = r.id; combo = 0 } } }
                         }
                     }
-                    T(tr("kt.layout"), ui(15, 700))
-                    HStack(spacing: 6) {
+                    if kind == "kitchen" { T(tr("kt.layout"), ui(15, 700)) }
+                    if kind == "kitchen" { HStack(spacing: 6) {
                         ForEach(["I", "L", "U", "O", "P"], id: \.self) { l in
                             let on = l == layout, shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
                             VStack(spacing: 6) {
@@ -464,20 +469,25 @@ private struct NewFurnitureSheet: View {
                             .accessibilityAddTraits(on ? .isSelected : [])
                             .accessibilityIdentifier("nf.l" + l)
                         }
-                    }
-                    T(tr("kt.walls"), ui(15, 700))
+                    } }
+                    T(tr(kind == "wardrobe" ? "wd.wall" : "kt.walls"), ui(15, 700))
                     if list.isEmpty { T(tr("kt.noRoom"), ui(13.5, 400, G.ink2, lh: 1.4)) }
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 8) {
                             ForEach(Array(list.enumerated()), id: \.offset) { i, c in
                                 let label = c.map { w in
-                                    w == ISLAND ? tr(layout == "P" ? "kt.peninsula" : "kt.island") : w + (layout == "I" ? wallLen(room, snap, w).map { " · \($0)" } ?? "" : "")
+                                    w == ISLAND ? tr(layout == "P" ? "kt.peninsula" : "kt.island") : w + (kind == "wardrobe" || layout == "I" ? wallLen(room, snap, w).map { " · \($0)" } ?? "" : "")
                                 }.joined(separator: " + ")
                                 FChip(label: label, on: c == pick) { combo = i }.accessibilityIdentifier("nf.c\(i)")
                             }
                         }
                     }
-                    if let pick {
+                    if let pick, kind == "wardrobe" {
+                        if let L = wallLen(room, snap, pick[0]), let pl = wardPlace(pick[0]) {
+                            T(tr(pl.builtIn ? "wd.newNiche" : "wd.newPart", ["w": pick[0], "l": L, "x": pl.x, "ww": pl.w, "h": wardH]), num(14.5, 700))
+                        }
+                        if !measured(room, snap, pick[0]) { T(tr("kt.noLen", ["w": pick[0]]), ui(12.5, 500, G.amberInk, lh: 1.4)) }
+                    } else if let pick {
                         let lens = pick.filter { $0 != ISLAND }.map { ($0, wallLen(room, snap, $0)) }
                         let total = lens.reduce(0) { $0 + ($1.1 ?? 0) }
                         T(lens.map { "\($0.0) \($0.1.map(String.init) ?? "?")" }.joined(separator: " + ") + " → " + metres1(total, en) + " " + tr("kt.pm"), num(15, 700))
@@ -486,12 +496,19 @@ private struct NewFurnitureSheet: View {
                     }
                     GBtn(tr("kt.start"), enabled: pick != nil) {
                         guard let walls = pick else { return }
-                        let n = p.furniture.filter { $0.kind == "kitchen" }.count + 1
-                        let f = Furniture(id: uid(), kind: "kitchen", name: tr("kt.nameN", ["n": n]), roomId: room.id, walls: walls, created: nowMs(), layout: layout, ws: wid)
+                        let n = p.furniture.filter { $0.kind == kind }.count + 1
+                        let f: Furniture
+                        if kind == "wardrobe" {
+                            guard let pl = wardPlace(walls[0]) else { return }
+                            f = Furniture(id: uid(), kind: "wardrobe", name: tr("wd.nameN", ["n": n]), roomId: room.id, walls: walls,
+                                          modules: [wardrobeTemplate(s.workshop, walls[0], pl.x, pl.w, wardH, builtIn: pl.builtIn)], created: nowMs(), ws: wid)
+                        } else {
+                            f = Furniture(id: uid(), kind: "kitchen", name: tr("kt.nameN", ["n": n]), roomId: room.id, walls: walls, created: nowMs(), layout: layout, ws: wid)
+                        }
                         let moved = p.stage == "measure"
                         Store.shared.update(p.id) { pr in pr.furniture.append(f); if pr.stage == "measure" { pr.stage = "design" } }
                         app.sheet = nil; KitOps.shared.sel = nil
-                        app.push(.kitchen(pid: p.id, fid: f.id, wall: nil))
+                        app.push(kind == "wardrobe" ? .wardrobe(pid: p.id, fid: f.id, step: 1, sec: 0) : .kitchen(pid: p.id, fid: f.id, wall: nil))
                         if moved { app.say("kt.stageTo", ["s": tr("fs.design")]) }
                     }
                     .accessibilityIdentifier("nf.start")
@@ -856,19 +873,28 @@ struct FurnitureCard: View {
     let f: Furniture
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        let ward = f.kind == "wardrobe"
         ZStack(alignment: .bottomTrailing) {
             VStack(alignment: .leading, spacing: 0) {
-                KitchenThumb(p: p, f: f).padding(8).frame(maxWidth: .infinity).frame(height: 129).background(PC.white)
+                Group { if ward { WardThumb(f: f) } else { KitchenThumb(p: p, f: f) } }
+                    .padding(8).frame(maxWidth: .infinity).frame(height: 129).background(PC.white)
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) { MIcon("kitchen", G.ink3, 15, 2); T(tr("kt.kitchen"), ui(12, 400, G.ink3), lines: 1) }
+                    HStack(spacing: 4) { MIcon(ward ? "board" : "kitchen", G.ink3, 15, 2); T(tr(ward ? "kt.wardrobe" : "kt.kitchen"), ui(12, 400, G.ink3), lines: 1) }
                     T(dn(f.name), ui(14.5, 600, G.ink, lh: 1.25), lines: 1)
-                    T(tr("kt.card", ["n": f.modules.count, "l": tr("kt.l" + f.layout)]), ui(12.5, 400, G.ink2), lines: 1)
+                    if ward, let wm = wardOf(f) {
+                        T(tr("wd.card", ["w": wm.w, "h": outerH(wm, AppSettings.shared.workshop), "n": wm.sections.count]), ui(12.5, 400, G.ink2), lines: 1)
+                    } else {
+                        T(tr("kt.card", ["n": f.modules.count, "l": tr("kt.l" + f.layout)]), ui(12.5, 400, G.ink2), lines: 1)
+                    }
                 }
                 .padding(.leading, 10).padding(.trailing, 42).padding(.top, 8).padding(.bottom, 10)
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .contentShape(Rectangle())
-            .onTapGesture { KitOps.shared.sel = nil; app.push(.kitchen(pid: p.id, fid: f.id, wall: nil)) }
+            .onTapGesture {
+                KitOps.shared.sel = nil
+                app.push(ward ? .wardrobe(pid: p.id, fid: f.id, step: 1, sec: 0) : .kitchen(pid: p.id, fid: f.id, wall: nil))
+            }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("furn.card")
