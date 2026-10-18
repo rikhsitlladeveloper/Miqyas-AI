@@ -10,6 +10,8 @@ enum Tab: CaseIterable { case home, projects, profile
 /// A page on a tab's stack (prototype: S.nav.stacks[tab] = [{s:'projects'}, {s:'project', id, tab}, …]).
 enum Route: Hashable {
     case root, settingsMore, subscription
+    /// Profile → the workshop's rules, and its boards and hardware (furniture makers).
+    case workshop, materials
     /// New project, or edit project editId.
     case newProject(editId: String?)
     /// A project page with its tab: "rooms", "estimate", "quotes" or "info"; the Workspaces tab's view "list", "2d" or
@@ -79,6 +81,8 @@ enum Sheet: Equatable {
     case industry, fApprove(pid: String), fPay(pid: String)
     /// A site point on a wall of a furniture order's room: a new one (id nil) on wall, or an existing one.
     case pointForm(pid: String, rid: String, wall: String, id: String?)
+    /// Profile → workshop: one rule's value; a board or banding (nil: a new one); a hardware item.
+    case wsField(key: String), matForm(id: String?), hwForm(id: String?)
 }
 
 /// Screens of the sign-in flow.

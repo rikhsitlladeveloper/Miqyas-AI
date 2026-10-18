@@ -671,3 +671,37 @@ final class Furniture2Tests: ScreenTestCase {
         app.buttons["ed.3d"].tap(); sleep(3); shot("f2-09-3d")
     }
 }
+
+/// iPhone furniture part 3: Profile → the workshop's rules (a value changes the sample unit's cost) and its boards and
+/// hardware (a new handle).
+final class Furniture3Tests: ScreenTestCase {
+    func testWorkshop() {
+        let app = launch()
+        firstRun(app, "ind.furn")
+        app.buttons["tab.profile"].tap(); usleep(900_000); shot("f3-01-profile")
+        app.buttons["pf.workshop"].tap(); usleep(900_000); shot("f3-02-workshop")
+        let before = app.staticTexts["wk.costV"].label
+        app.buttons["wk.gap"].tap(); usleep(800_000)
+        retype(app, "wk.value", "2"); shot("f3-03-gap-sheet")
+        app.buttons["wk.save"].tap(); usleep(900_000)
+        app.buttons["wk.margin"].tap(); usleep(800_000)
+        retype(app, "wk.value", "abc"); shot("f3-04-bad-value")
+        app.buttons["sheet.close"].tap(); usleep(700_000)
+        app.buttons["wk.rAsm"].tap(); usleep(800_000)
+        retype(app, "wk.value", "150000"); app.buttons["wk.save"].tap(); usleep(900_000)
+        app.swipeUp(); usleep(600_000); shot("f3-05-sample")
+        XCTAssertNotEqual(app.staticTexts["wk.costV"].label, before)
+        sleep(5)    // the toast over the back button goes away
+        app.buttons["back"].tap(); usleep(900_000)
+        app.buttons["pf.mats"].tap(); usleep(900_000); shot("f3-06-materials")
+        app.buttons["mt.ldsp16k"].tap(); usleep(900_000); shot("f3-07-board-sheet")
+        app.buttons["sheet.close"].tap(); usleep(700_000)
+        btn(app, "Furnitura").tap(); usleep(700_000); shot("f3-08-hardware")
+        app.buttons["mt.add"].tap(); usleep(900_000)
+        retype(app, "mt.name", "Tutqich GTV 160"); retype(app, "mt.price", "32000")
+        app.buttons["hk.handle"].tap(); usleep(400_000); shot("f3-09-new-handle")
+        app.buttons["mt.save"].tap(); usleep(900_000)
+        app.swipeUp(); usleep(600_000); shot("f3-10-hardware-list")
+        XCTAssertTrue(app.staticTexts["Tutqich GTV 160"].exists)
+    }
+}

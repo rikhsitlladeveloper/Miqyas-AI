@@ -45,6 +45,14 @@ struct ProfileScreen: View {
                     .glassCard(RoundedRectangle(cornerRadius: 18, style: .continuous), fill: G.glass(0.55))
                     .padding(.horizontal, 16)
                     ProCard { app.push(.subscription) }
+                    // furniture makers: how the workshop builds and prices, and its boards and hardware (furniture plan section 6)
+                    if s.furniture {
+                        Group1(text: tr("wk.group"))
+                        Card {
+                            Row1(icon: "sliders", title: tr("wk.title"), value: nil, sub: tr("wk.titleS")) { app.push(.workshop) }.accessibilityIdentifier("pf.workshop")
+                            Row1(icon: "layers", title: tr("wk.mats"), value: nil, sub: tr("wk.matsS", ["m": s.mats.count, "h": s.hws.count])) { app.push(.materials) }.accessibilityIdentifier("pf.mats")
+                        }
+                    }
                     Group1(text: tr("pf.gReport"))
                     Card {
                         Row1(icon: "sliders", title: tr("ind.row"), value: tr(s.furniture ? "ind.furn" : "ind.build")) { app.sheet = .industry }

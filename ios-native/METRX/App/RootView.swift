@@ -124,6 +124,8 @@ struct RootView: View {
             }
         case .settingsMore: SettingsMoreScreen(app: app)
         case .subscription: SubscriptionScreen(app: app)
+        case .workshop: WorkshopScreen(app: app)
+        case .materials: MaterialsScreen(app: app)
         case .newProject(let e): NewProjectScreen(app: app, editId: e)
         case .project(let id, let tab, let view, let floor): ProjectScreen(app: app, id: id, tab: tab, view: view, floor: floor)
         case .space(let pid, let wid): SpaceScreen(app: app, pid: pid, wid: wid)
@@ -144,6 +146,7 @@ struct RootView: View {
         case .device: DeviceSheet(app: app)
         default:
             if FurnitureSheet.handles(s) { FurnitureSheet(app: app, sheet: s) }
+            else if WorkshopSheet.handles(s) { WorkshopSheet(app: app, sheet: s) }
             else if EditorSheet.handles(s) { EditorSheet(app: app, sheet: s) }
             else if EstimateSheet.handles(s) { EstimateSheet(app: app, sheet: s) }
             else if ReportSheet.handles(s) { ReportSheet(app: app, sheet: s) }

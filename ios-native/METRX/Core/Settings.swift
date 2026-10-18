@@ -50,6 +50,11 @@ final class AppSettings {
     /// Estimate rows typed but not saved (prototype S.rowDrafts), by "project|mat or lab|row id or new": the sheet's
     /// fields, kept when the sheet is left without saving, brought back when it opens again.
     private(set) var rowDrafts: [String: [String: String]]
+    /// Furniture makers: how the workshop builds and prices, and its boards and hardware (furniture plan sections 6.2,
+    /// 6.6). Presets added in a later version join the saved lists.
+    private(set) var workshop: Workshop
+    private(set) var mats: [Mat]
+    private(set) var hws: [Hw]
     /// Simulated laser state; not saved, a new start begins disconnected like a real Bluetooth device.
     var laser: Laser = .disconnected
 
@@ -78,6 +83,11 @@ final class AppSettings {
         brick = d.data(forKey: "brick").flatMap { try? JSONDecoder().decode(BrickSpec.self, from: $0) } ?? BrickSpec()
         shots = d.data(forKey: "shots").flatMap { try? JSONDecoder().decode([Item].self, from: $0) } ?? []
         pdf = d.data(forKey: "pdf").flatMap { try? JSONDecoder().decode(PdfParts.self, from: $0) } ?? PdfParts()
+        workshop = d.data(forKey: "workshop").flatMap { try? JSONDecoder().decode(Workshop.self, from: $0) } ?? Workshop()
+        let sm = d.data(forKey: "mats").flatMap { try? JSONDecoder().decode([Mat].self, from: $0) } ?? []
+        mats = sm + MAT_PRESETS.filter { p in !sm.contains { $0.id == p.id } }
+        let sh = d.data(forKey: "hws").flatMap { try? JSONDecoder().decode([Hw].self, from: $0) } ?? []
+        hws = sh + HW_PRESETS.filter { p in !sh.contains { $0.id == p.id } }
         rowDrafts = (d.data(forKey: "rowDrafts")).flatMap { try? JSONDecoder().decode([String: [String: String]].self, from: $0) } ?? [:]
         visit = d.integer(forKey: "visit") + (d.object(forKey: "visit") == nil ? 0 : 1)
         d.set(visit, forKey: "visit")
@@ -94,6 +104,9 @@ final class AppSettings {
     func setSnap(_ on: Bool) { angleSnap = on; d.set(on, forKey: "angleSnap") }
     func setDarkMode(_ on: Bool) { dark = on; d.set(on, forKey: "dark") }
     func setIndustryKind(_ v: String) { industry = v; d.set(v, forKey: "industry") }
+    func setWorkshopRules(_ v: Workshop) { workshop = v; d.set(try? JSONEncoder().encode(v), forKey: "workshop") }
+    func setMatList(_ v: [Mat]) { mats = v; d.set(try? JSONEncoder().encode(v), forKey: "mats") }
+    func setHwList(_ v: [Hw]) { hws = v; d.set(try? JSONEncoder().encode(v), forKey: "hws") }
     func setRoomLabel(_ v: String) { roomLabel = v; d.set(v, forKey: "roomLabel") }
     func setDefaults(_ dw: Int, _ dh: Int, _ ww: Int, _ wh: Int, _ ws: Int) {
         doorW = dw; doorH = dh; winW = ww; winH = wh; winSill = ws

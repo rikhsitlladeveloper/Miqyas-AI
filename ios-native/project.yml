@@ -30,7 +30,11 @@ targets:
   METRXTests:
     type: bundle.unit-test
     platform: iOS
-    sources: [METRXTests]
+    sources:
+      - path: METRXTests
+      # the furniture core's test cases, shared with the Android unit tests
+      - path: ../android-native/app/src/test/resources/furniture-cases.json
+        buildPhase: resources
     dependencies:
       - target: METRX
     settings:

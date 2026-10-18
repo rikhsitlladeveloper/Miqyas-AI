@@ -49,6 +49,8 @@ struct Project: Codable, Equatable, Identifiable {
     /// Furniture: the price agreed with the customer in the smallest unit, "" until the order is approved.
     var agreed = ""
     var payments: [Payment] = []
+    /// Furniture orders: the kitchens, wardrobes… designed for it (furniture plan section 6.1).
+    var furniture: [Furniture] = []
 
     var isFurniture: Bool { industry == "furniture" }
 
@@ -67,6 +69,7 @@ struct Project: Codable, Equatable, Identifiable {
         reportRooms = c.v(.reportRooms, [:]); reportViews = c.v(.reportViews, [:]); reportNotes = c.v(.reportNotes, "")
         created = c.v(.created, 0); edited = c.v(.edited, 0)
         industry = c.v(.industry, "build"); agreed = c.v(.agreed, ""); payments = c.v(.payments, [])
+        furniture = c.v(.furniture, [])
     }
 }
 

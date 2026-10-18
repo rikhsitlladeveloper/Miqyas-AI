@@ -23,6 +23,10 @@ struct GField<F: Hashable>: View {
     var labelRight: String? = nil
     /// Digits only: the number keyboard.
     var number = false
+    /// A number with a decimal mark: the decimal keyboard.
+    var decimal = false
+    /// The text field's accessibility id (screen tests).
+    var id: String? = nil
     @State private var phoneFocused = false
 
     var body: some View {
@@ -69,11 +73,12 @@ struct GField<F: Hashable>: View {
                 .strikethrough(done)
                 .lineLimit(multiline ? 4...40 : 1...1)
                 .textInputAutocapitalization(caps)
-                .keyboardType(number ? .numberPad : .default)
+                .keyboardType(number ? .numberPad : decimal ? .decimalPad : .default)
                 .focused(focus, equals: me)
                 .submitLabel(submit)
                 .onSubmit(onSubmit)
                 .accessibilityLabel(label ?? placeholder)
+                .accessibilityIdentifier(id ?? "")
         }
     }
 }
