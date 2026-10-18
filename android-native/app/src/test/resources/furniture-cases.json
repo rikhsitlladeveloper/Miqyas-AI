@@ -1,0 +1,573 @@
+{
+  "about": "Furniture core test cases (design/furniture/FURNITURE_PLAN.md section 6), worked out by hand from the construction rules with the default workshop: LDSP 16, back nailed 2 mm in, fronts 1,5 mm at the edges and 3 mm apart. Shared by the Android and iPhone apps. Parts: key, L x W finished mm, qty, banding [long1, long2, short1, short2] (0 none, 1 thin, 2 thick).",
+  "cases": [
+    {
+      "name": "base 600 with two doors and a shelf (plan section 6.3)",
+      "module": {
+        "id": "m1",
+        "type": "base",
+        "w": 600,
+        "h": 720,
+        "d": 560,
+        "fronts": {
+          "kind": "door",
+          "n": 2
+        },
+        "inserts": [
+          {
+            "kind": "shelf",
+            "qty": 1
+          }
+        ]
+      },
+      "parts": [
+        [
+          "fp.bottom",
+          600,
+          560,
+          1,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.side",
+          704,
+          560,
+          2,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.rail",
+          568,
+          100,
+          2,
+          [
+            1,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.shelf",
+          566,
+          540,
+          1,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.back",
+          716,
+          596,
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.door",
+          717,
+          297,
+          2,
+          [
+            2,
+            2,
+            2,
+            2
+          ]
+        ]
+      ],
+      "hardware": {
+        "hingeSoft": 4,
+        "handle": 2,
+        "pin": 4,
+        "confirmat": 24,
+        "leg": 4
+      }
+    },
+    {
+      "name": "base 600 with three drawers",
+      "module": {
+        "id": "m2",
+        "type": "base",
+        "w": 600,
+        "h": 720,
+        "d": 560,
+        "fronts": {
+          "kind": "drawer",
+          "n": 3
+        }
+      },
+      "parts": [
+        [
+          "fp.bottom",
+          600,
+          560,
+          1,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.side",
+          704,
+          560,
+          2,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.rail",
+          568,
+          100,
+          2,
+          [
+            1,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.back",
+          716,
+          596,
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.dFace",
+          597,
+          237,
+          3,
+          [
+            2,
+            2,
+            2,
+            2
+          ]
+        ],
+        [
+          "fp.dSide",
+          550,
+          150,
+          6,
+          [
+            1,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.dFront",
+          510,
+          140,
+          6,
+          [
+            1,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.dBottom",
+          548,
+          542,
+          3,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ]
+      ],
+      "hardware": {
+        "runner": 3,
+        "handle": 3,
+        "confirmat": 24,
+        "leg": 4
+      }
+    },
+    {
+      "name": "wall 600 with two doors and two shelves",
+      "module": {
+        "id": "m3",
+        "type": "wall",
+        "w": 600,
+        "h": 720,
+        "d": 300,
+        "fronts": {
+          "kind": "door",
+          "n": 2
+        },
+        "inserts": [
+          {
+            "kind": "shelf",
+            "qty": 2
+          }
+        ]
+      },
+      "parts": [
+        [
+          "fp.side",
+          720,
+          300,
+          2,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.top",
+          568,
+          300,
+          2,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.shelf",
+          566,
+          280,
+          2,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.back",
+          716,
+          596,
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.door",
+          717,
+          297,
+          2,
+          [
+            2,
+            2,
+            2,
+            2
+          ]
+        ]
+      ],
+      "hardware": {
+        "hingeSoft": 4,
+        "handle": 2,
+        "pin": 8,
+        "confirmat": 16,
+        "hanger": 2
+      }
+    },
+    {
+      "name": "wardrobe 2400 x 2500 x 600 in four sections on a plinth (design canvas screen 11)",
+      "module": {
+        "id": "m4",
+        "type": "wardrobe",
+        "w": 2400,
+        "h": 2500,
+        "d": 600,
+        "legs": false,
+        "sections": [
+          {
+            "w": 700,
+            "fronts": {
+              "kind": "door",
+              "n": 2
+            },
+            "inserts": [
+              {
+                "kind": "shelf",
+                "qty": 2
+              },
+              {
+                "kind": "rail",
+                "pos": 1900
+              }
+            ]
+          },
+          {
+            "w": 450,
+            "fronts": {
+              "kind": "door",
+              "n": 1
+            },
+            "inserts": [
+              {
+                "kind": "shelf",
+                "qty": 6
+              }
+            ]
+          },
+          {
+            "w": 650,
+            "fronts": {
+              "kind": "door",
+              "n": 2
+            },
+            "inserts": [
+              {
+                "kind": "rail",
+                "pos": 1750
+              }
+            ]
+          },
+          {
+            "w": 600,
+            "fronts": {
+              "kind": "door",
+              "n": 2
+            },
+            "inserts": [
+              {
+                "kind": "shelf",
+                "qty": 5
+              }
+            ]
+          }
+        ]
+      },
+      "parts": [
+        [
+          "fp.side",
+          2500,
+          600,
+          2,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.top",
+          2368,
+          600,
+          2,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.divider",
+          2388,
+          600,
+          3,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.plinth",
+          2368,
+          80,
+          1,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.back",
+          2416,
+          696,
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.back",
+          2416,
+          446,
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.back",
+          2416,
+          646,
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.back",
+          2416,
+          596,
+          1,
+          [
+            0,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.shelf",
+          674,
+          580,
+          2,
+          [
+            2,
+            0,
+            0,
+            0
+          ]
+        ],
+        [
+          "fp.shelf",
+          580,
+          432,
+          6,
+          [
+            0,
+            0,
+            2,
+            0
+          ]
+        ],
+        [
+          "fp.shelf",
+          580,
+          574,
+          5,
+          [
+            0,
+            0,
+            2,
+            0
+          ]
+        ],
+        [
+          "fp.door",
+          2417,
+          347,
+          2,
+          [
+            2,
+            2,
+            2,
+            2
+          ]
+        ],
+        [
+          "fp.door",
+          2417,
+          447,
+          1,
+          [
+            2,
+            2,
+            2,
+            2
+          ]
+        ],
+        [
+          "fp.door",
+          2417,
+          322,
+          2,
+          [
+            2,
+            2,
+            2,
+            2
+          ]
+        ],
+        [
+          "fp.door",
+          2417,
+          297,
+          2,
+          [
+            2,
+            2,
+            2,
+            2
+          ]
+        ]
+      ],
+      "hardware": {
+        "hingeSoft": 35,
+        "handle": 7,
+        "pin": 52,
+        "rail": 1310,
+        "railEnd": 4,
+        "confirmat": 40
+      },
+      "note": "On the plinth the bottom panel sits 80 mm up: dividers 2500 - 80 - 2 × 16, backs and doors from the bottom panel up (design canvas: doors 2417)."
+    }
+  ]
+}
