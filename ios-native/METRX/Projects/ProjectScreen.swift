@@ -27,8 +27,8 @@ struct ProjectScreen: View {
                                 if p.isFurniture { FurnitureInfo(app: app, p: p) }
                                 InfoTab(app: app, p: p, call: { call(p) }, map: { openMap(p) })
                             case "estimate": EstimateTab(app: app, p: p)
-                            case "price": FLater()
-                            case "quotes": if p.isFurniture { FLater() } else { QuotesTab(app: app, p: p) }
+                            case "price": FPriceTab(app: app, p: p)
+                            case "quotes": QuotesTab(app: app, p: p)
                             default:
                                 if view != "list" && !p.rooms.isEmpty {
                                     VStack(alignment: .leading, spacing: 0) {
@@ -295,8 +295,8 @@ private struct QuotesTab: View {
             VStack(spacing: 10) {
                 MIcon("doc", G.cobalt, 26, 2).frame(width: 56, height: 56).background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.cobalt.opacity(0.12)))
                 T(tr("q.emptyTitle"), ui(18, 700), align: .center)
-                T(tr("q.emptyBody"), ui(14, 400, G.ink2, lh: 1.45), align: .center)
-                GBtn(tr("pr.estimate"), kind: .secondary, fill: false) { app.setProjectTab("estimate") }
+                T(tr(p.isFurniture ? "fd.qEmpty" : "q.emptyBody"), ui(14, 400, G.ink2, lh: 1.45), align: .center)
+                GBtn(tr(p.isFurniture ? "fo.price" : "pr.estimate"), kind: .secondary, fill: false) { app.setProjectTab(p.isFurniture ? "price" : "estimate") }
             }
             .padding(24).frame(maxWidth: .infinity)
             .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))

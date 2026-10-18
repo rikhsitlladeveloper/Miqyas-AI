@@ -420,7 +420,10 @@ private struct ApproveSheet: View {
     @FocusState private var focus: MF?
     init(app: AppModel, pid: String) {
         self.app = app; self.pid = pid
-        _price = State(initialValue: Store.shared.get(pid)?.agreed ?? "")
+        // the agreed price starts from the Narx tab's customer price
+        let p = Store.shared.get(pid), s = AppSettings.shared
+        let fromTab = p.map { priceOf($0.furniture.filter { !$0.modules.isEmpty }, $0.fprice, s.workshop, s.mats, s.hws).price } ?? 0
+        _price = State(initialValue: (p?.agreed).flatMap { $0.isEmpty ? nil : $0 } ?? (fromTab > 0 ? Money.digits(fromTab) : ""))
     }
     var body: some View {
         if let p = Store.shared.get(pid) {

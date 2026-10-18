@@ -146,7 +146,7 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
 }
 
 /// Widths under the floor and the height at the left; cuts in mm from the drawing's start.
-private func wardDims(_ c: GraphicsContext, _ lay: KLay, _ cuts: [Int], _ total: Int, _ h: Int, _ hx: Int) {
+func wardDims(_ c: GraphicsContext, _ lay: KLay, _ cuts: [Int], _ total: Int, _ h: Int, _ hx: Int) {
     guard let first = cuts.first, let lastCut = cuts.last else { return }
     let y = lay.yF + 12
     c.line(PC.ink3, CGPoint(x: lay.x(first), y: y), CGPoint(x: lay.x(lastCut), y: y), 0.8)

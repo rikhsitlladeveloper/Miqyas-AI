@@ -6,6 +6,25 @@ import Foundation
  * drawings, photos and notes chosen for the report; the builder, the estimate and the PDF parts.
  */
 func snapshotOf(_ p: Project, _ s: AppSettings = .shared, pdf: PdfParts? = nil) -> Snap {
+    let sn = baseSnapshot(p, s, pdf: pdf)
+    return p.isFurniture ? furnSnap(sn, p, s.workshop, s.mats, s.hws) : sn
+}
+
+/// A furniture order's part of the snapshot: the furniture, its materials, the price lines and the terms.
+func furnSnap(_ sn: Snap, _ p: Project, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw]) -> Snap {
+    let fs = p.furniture.filter { !$0.modules.isEmpty }
+    let pr = priceOf(fs, p.fprice, ws, mats, hws)
+    var used = Set(fs.flatMap { [$0.mats.carcass, $0.mats.front, $0.mats.back] })
+    if fs.contains(where: { $0.kind == "kitchen" }) { used.insert("wt38") }
+    var out = sn
+    out.furniture = fs; out.fmats = mats.filter { used.contains($0.id) }
+    out.flines = pr.lines.map { SnapLine(key: $0.key, amount: Money.digits($0.amount)) }
+    out.ftotal = Money.digits(pr.price); out.fprepay = ws.prepay; out.fdays = p.fprice.days; out.finst = p.fprice.inst
+    out.fhandles = hws.last { $0.kind == "handle" }?.name ?? ""; out.fws = ws
+    return out
+}
+
+private func baseSnapshot(_ p: Project, _ s: AppSettings, pdf: PdfParts?) -> Snap {
     let l = Lang.of(p.reportLang)
     let rooms: [SnapRoom] = p.rooms.filter { p.reportRooms[$0.id] != false }.map { r in
         var rr = r
@@ -32,6 +51,8 @@ func fingerprint(_ sn: Snap) -> String {
     struct F: Encodable {
         let name, customer, address, currency: String; let precision: Int; let lang, unit, notes: String
         let builder: [String]; let rooms: [FRoom]; let estimate: Estimate; let extras: [FExtra]
+        /// furniture orders only (a builder's fingerprint stays as it was)
+        var furniture: [Furniture]? = nil, ftotal: String? = nil, fdays: Int? = nil, finst: Int? = nil, fmats: [Mat]? = nil
     }
     let f = F(name: sn.name, customer: sn.customer, address: sn.address, currency: sn.currency, precision: sn.precision, lang: sn.lang,
               unit: sn.unit, notes: sn.notes, builder: [sn.builderName, sn.builderPhone],
@@ -41,8 +62,10 @@ func fingerprint(_ sn: Snap) -> String {
                                poly: r.poly, rot: r.rot, views: r.views.map(\.id))
               },
               estimate: sn.estimate, extras: sn.extras.map { FExtra(id: $0.id, edited: $0.edited, name: $0.name) })
+    var g = f
+    if !sn.furniture.isEmpty { g.furniture = sn.furniture; g.ftotal = sn.ftotal; g.fdays = sn.fdays; g.finst = sn.finst; g.fmats = sn.fmats }
     let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
-    return (try? enc.encode(f)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+    return (try? enc.encode(g)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
 }
 
 /// Grand total of a snapshot (for the quote's record and the dark strip).
@@ -83,7 +106,7 @@ func freezeQuote(_ p: Project, _ sn: Snap, _ no: Int, _ now: Ms) -> Quote {
         var x2 = x; x2.src = "\(dir)/ph-\(x.id).jpg"; copy(src, x2.src!)
         return x2
     }
-    return Quote(no: no, ts: now, sn: frozen, fp: fingerprint(sn), total: Money.digits(snapTotal(sn)))
+    return Quote(no: no, ts: now, sn: frozen, fp: fingerprint(sn), total: sn.furniture.isEmpty ? Money.digits(snapTotal(sn)) : sn.ftotal)
 }
 
 func fmtTime(_ ts: Ms) -> String {

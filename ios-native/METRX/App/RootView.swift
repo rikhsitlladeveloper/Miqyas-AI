@@ -139,6 +139,8 @@ struct RootView: View {
         case .liveCam: LiveCamScreen(app: app)
         case .kitchen(let pid, let fid, let wall, let d3): KitchenScreen(app: app, pid: pid, fid: fid, wall: wall, d3: d3)
         case .wardrobe(let pid, let fid, let step, let sec, let d3): WardrobeScreen(app: app, pid: pid, fid: fid, step: step, sec: sec, d3: d3)
+        case .fCut(let pid): CutScreen(app: app, pid: pid)
+        case .fPack(let pid): PackScreen(app: app, pid: pid)
         }
     }
 
@@ -151,6 +153,7 @@ struct RootView: View {
             else if WorkshopSheet.handles(s) { WorkshopSheet(app: app, sheet: s) }
             else if KitchenSheet.handles(s) { KitchenSheet(app: app, sheet: s) }
             else if WardrobeSheet.handles(s) { WardrobeSheet(app: app, sheet: s) }
+            else if PriceSheet.handles(s) { PriceSheet(app: app, sheet: s) }
             else if EditorSheet.handles(s) { EditorSheet(app: app, sheet: s) }
             else if EstimateSheet.handles(s) { EstimateSheet(app: app, sheet: s) }
             else if ReportSheet.handles(s) { ReportSheet(app: app, sheet: s) }

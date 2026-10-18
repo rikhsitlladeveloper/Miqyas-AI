@@ -51,6 +51,8 @@ struct Project: Codable, Equatable, Identifiable {
     var payments: [Payment] = []
     /// Furniture orders: the kitchens, wardrobes… designed for it (furniture plan section 6.1).
     var furniture: [Furniture] = []
+    /// Furniture orders: how the customer price is worked out, and the lead time (furniture plan section 6.7).
+    var fprice = FPrice()
 
     var isFurniture: Bool { industry == "furniture" }
 
@@ -69,7 +71,7 @@ struct Project: Codable, Equatable, Identifiable {
         reportRooms = c.v(.reportRooms, [:]); reportViews = c.v(.reportViews, [:]); reportNotes = c.v(.reportNotes, "")
         created = c.v(.created, 0); edited = c.v(.edited, 0)
         industry = c.v(.industry, "build"); agreed = c.v(.agreed, ""); payments = c.v(.payments, [])
-        furniture = c.v(.furniture, [])
+        furniture = c.v(.furniture, []); fprice = c.v(.fprice, FPrice())
     }
 }
 
@@ -356,7 +358,31 @@ struct Snap: Codable, Equatable {
     var rooms: [SnapRoom] = []
     var estimate = Estimate()
     var extras: [SnapExtra] = []
+    /// Furniture orders: the furniture, the materials it uses (names and colours), the price lines and terms.
+    var furniture: [Furniture] = []
+    var fmats: [Mat] = []
+    var flines: [SnapLine] = []
+    var ftotal = ""
+    var fprepay = 50, fdays = 0, finst = 0
+    var fhandles = ""
+    var fws: Workshop? = nil
 }
+
+extension Snap {
+    // quotes issued before furniture orders load with the furniture fields empty
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        name = c.v(.name, ""); customer = c.v(.customer, ""); phone = c.v(.phone, ""); address = c.v(.address, ""); location = c.v(.location, nil)
+        currency = c.v(.currency, "UZS"); precision = c.v(.precision, 0); unit = c.v(.unit, "m"); lang = c.v(.lang, "uz"); notes = c.v(.notes, "")
+        builderName = c.v(.builderName, ""); builderPhone = c.v(.builderPhone, ""); pdf = c.v(.pdf, PdfParts()); rooms = c.v(.rooms, [])
+        estimate = c.v(.estimate, Estimate()); extras = c.v(.extras, [])
+        furniture = c.v(.furniture, []); fmats = c.v(.fmats, []); flines = c.v(.flines, []); ftotal = c.v(.ftotal, "")
+        fprepay = c.v(.fprepay, 50); fdays = c.v(.fdays, 0); finst = c.v(.finst, 0); fhandles = c.v(.fhandles, ""); fws = c.v(.fws, nil)
+    }
+}
+
+/// A line of a furniture order's price in the customer's PDF: key a furniture id or "deliver".
+struct SnapLine: Codable, Equatable { var key: String; var amount: String }
 
 /// A reading on the Measure page: src "sim" (laser) or "manual"; used says where it went (a wall or the height).
 struct Reading: Codable, Equatable, Identifiable { var id: String; var n: Int; var mm: Int; var ts: Ms; var src: String; var used: String? = nil }

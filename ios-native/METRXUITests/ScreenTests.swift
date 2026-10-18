@@ -860,3 +860,62 @@ final class Furniture6Tests: ScreenTestCase {
         }
     }
 }
+
+/// iPhone furniture part 7: the Narx tab (cost, margin, running metre, profit, lead time), the parts and sheet layout,
+/// the workshop pack and the customer's quote, issued.
+final class Furniture7Tests: ScreenTestCase {
+    /// The page's own back button: "back", or the workspace's back link (labelled by its strings key).
+    func backVisible(_ app: XCUIApplication) {
+        let p = NSPredicate(format: "identifier == 'back' OR label == 'nt.back' OR label == 'Orqaga'")
+        app.buttons.matching(p).allElementsBoundByIndex.last { $0.isHittable }?.tap(); sleep(2)
+    }
+
+    func testPriceAndDocuments() {
+        let app = launch()
+        firstRun(app, "ind.furn")
+        newWorkspace(app, "Oshxona Sergeli")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.create"].tap(); sleep(1)
+        app.buttons["tip.ok"].tap(); usleep(700_000)
+        measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
+        sleep(6)
+        backVisible(app)
+        app.buttons["space.addTile"].tap(); usleep(900_000)
+        app.buttons["add.furn"].tap(); usleep(900_000)
+        app.buttons["nf.lL"].tap(); usleep(500_000)
+        app.buttons["nf.start"].tap(); sleep(6)
+        app.buttons["kt.auto"].tap(); sleep(5)
+        app.buttons["kt.wall.B"].tap(); usleep(900_000)
+        app.buttons["kt.auto"].tap(); sleep(6)
+        // back to the order's page (a toast or a sliding page can take a tap)
+        for _ in 0..<5 where !app.buttons["ptab.price"].exists { backVisible(app) }
+        app.buttons["ptab.price"].tap(); usleep(900_000); shot("f7-01-price-tab")
+        app.buttons["fp.g.hw"].tap(); usleep(500_000)
+        app.swipeUp(); usleep(600_000); shot("f7-02-price-how")
+        btn(app, "Pog").tap(); usleep(700_000)
+        app.swipeUp(); usleep(600_000); shot("f7-03-running-metre")
+        app.buttons["fp.days"].tap(); usleep(900_000)
+        retype(app, "pf.value", "21"); shot("f7-04-days-sheet")
+        app.buttons["pf.save"].tap(); usleep(900_000)
+        app.buttons["fp.cut"].tap(); sleep(2); shot("f7-05-cut-list")
+        btn(app, "Raskroy").tap(); usleep(900_000); shot("f7-06-sheet-layout")
+        app.buttons["fc.next"].tap(); usleep(700_000); shot("f7-07-sheet-2")
+        backVisible(app)
+        app.buttons["fp.pack"].tap(); sleep(5); shot("f7-08-pack")
+        app.swipeLeft(); sleep(1); shot("f7-09-pack-p2")
+        app.swipeLeft(); sleep(1); shot("f7-10-pack-p3")
+        backVisible(app)
+        app.buttons["fp.quote"].tap(); sleep(5); shot("f7-11-quote-draft")
+        app.swipeLeft(); sleep(1); shot("f7-12-quote-p2")
+        app.buttons["rp.issue"].tap(); usleep(900_000)
+        if app.textFields.firstMatch.exists && !app.buttons["iss.go"].exists {
+            typeName(app, "Sanjar Usta")
+            app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("901234567")
+            app.buttons["bd.save"].tap(); usleep(900_000)
+        }
+        shot("f7-13-issue-sheet")
+        app.buttons["iss.go"].tap(); sleep(2); shot("f7-14-quotes-tab")
+    }
+}

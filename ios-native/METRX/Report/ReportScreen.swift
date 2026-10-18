@@ -37,7 +37,7 @@ struct ReportScreen: View {
             let quote = no.flatMap { n in p.quotes.first { $0.no == n } }
             let sn = quote?.sn ?? snapshotOf(p)
             let key = quote.map { "q\($0.no)" } ?? fingerprint(sn) + "\(sn.pdf)" + sn.lang + sn.extras.map { $0.text + "\($0.checks)" }.joined()
-            let total = quote.flatMap { Decimal(string: $0.total) } ?? snapTotal(sn)
+            let total = quote.flatMap { Decimal(string: $0.total) } ?? (p.isFurniture ? Decimal(string: sn.ftotal) ?? 0 : snapTotal(sn))
             let lang = AppSettings.shared.lang
             GeometryReader { geo in
                 let w = geo.size.width - 32
@@ -120,7 +120,7 @@ struct ReportScreen: View {
                                 HStack(spacing: 10) {
                                     GBtn(tr("rp2.shareDraft"), kind: .secondary, icon: "share") { share(p, quote) }.accessibilityIdentifier("rp.shareDraft")
                                     GBtn(tr("rpt.issue"), icon: "lock") {
-                                        let n = rowsMissing(p)
+                                        let n = p.isFurniture ? 0 : rowsMissing(p)
                                         if n > 0 { app.say("et.block", ["n": n], kind: .error) } else { app.sheet = .issue(pid: p.id) }
                                     }
                                     .accessibilityIdentifier("rp.issue")
@@ -134,7 +134,10 @@ struct ReportScreen: View {
                 }
                 .task(id: key + "\(Int(w))") {
                     guard w > 0 else { return }
-                    let built = reportPages(sn, draft: quote == nil, meta: quote.map { QuoteMeta(no: $0.no, ts: $0.ts) }, image: viewLoader())
+                    let meta = quote.map { QuoteMeta(no: $0.no, ts: $0.ts) }
+                    // a furniture order's quote has its own pages (furniture plan section 10)
+                    let built = p.isFurniture ? furniturePages(sn, draft: quote == nil, meta: meta, image: viewLoader())
+                                              : reportPages(sn, draft: quote == nil, meta: meta, image: viewLoader())
                     pages = built
                     images = built.compactMap { pageImage($0, width: w) }
                     if page >= built.count { page = max(0, built.count - 1) }
@@ -200,7 +203,7 @@ private struct Banner: View {
 }
 
 /// All pages one under the other on a dark ground; + shows them at full size (prototype .viewer).
-private struct PageViewer: View {
+struct PageViewer: View {
     let pages: [RPage]
     let start: Int
     let onClose: () -> Void
@@ -397,11 +400,13 @@ private struct IssueSheet: View {
                 .onAppear { if !loaded { loaded = true; name = st.builderName; phone = Phone.groups(st.builderPhone) } }
             } else {
                 let tt = Money.totals(p)
-                let empty = p.estimate.materials.isEmpty && p.estimate.labor.isEmpty
+                let fsn = p.isFurniture ? snapshotOf(p) : nil
+                let empty = fsn.map { $0.furniture.isEmpty } ?? (p.estimate.materials.isEmpty && p.estimate.labor.isEmpty)
+                let grand = fsn.flatMap { Decimal(string: $0.ftotal) } ?? tt.g
                 GlassSheet(tr("iss.title", ["n": no]), onClose: { app.sheet = nil }) {
                     T(tr("iss.body"), ui(15, 400, G.ink2, lh: 1.45))
                     VStack(spacing: 0) {
-                        kv(tr("es.grand"), Money.of(tt.g, p, withCur: true), number: true)
+                        kv(tr("es.grand"), Money.of(grand, p, withCur: true), number: true)
                         Hairline(); kv(tr("rpt.lang"), Lang.of(p.reportLang).longName)
                         Hairline(); kv(tr("rpt.builder"), st.builderName)
                     }
@@ -409,7 +414,7 @@ private struct IssueSheet: View {
                     .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.glass(0.6)))
                     .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(G.rim, lineWidth: 1))
                     if empty {
-                        HStack(alignment: .top, spacing: 8) { MIcon("alert", G.err, 18, 2); T(tr("iss.empty"), ui(13.5, 500, G.err)) }
+                        HStack(alignment: .top, spacing: 8) { MIcon("alert", G.err, 18, 2); T(tr(p.isFurniture ? "fd.empty" : "iss.empty"), ui(13.5, 500, G.err)) }
                             .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.errWash))
                     }
@@ -432,16 +437,17 @@ private struct IssueSheet: View {
     }
 
     private func issue(_ p: Project, _ no: Int) {
-        guard !(p.estimate.materials.isEmpty && p.estimate.labor.isEmpty) else { return }
-        let q = freezeQuote(p, snapshotOf(p), no, nowMs())
+        let sn = snapshotOf(p)
+        guard p.isFurniture ? !sn.furniture.isEmpty : !(p.estimate.materials.isEmpty && p.estimate.labor.isEmpty) else { return }
+        let q = freezeQuote(p, sn, no, nowMs())
         Store.shared.update(p.id) { $0.quotes.append(q) }
         app.sheet = nil
         app.pop()
         app.setProjectTab("quotes")
-        let early = p.stage == "measure" || p.stage == "estimate"
+        let early = p.stage == "measure" || p.stage == "estimate" || p.stage == "design"
         let pid = p.id
         app.toast = early
-            ? ToastMsg(text: tr("iss.done", ["n": no]) + ". " + tr("bd.stage") + ": " + tr("stage.quote") + "?", kind: .ok, action: tr("bd.move"),
+            ? ToastMsg(text: tr("iss.done", ["n": no]) + ". " + tr("bd.stage") + ": " + tr(p.isFurniture ? "fs.quote" : "stage.quote") + "?", kind: .ok, action: tr("bd.move"),
                        onAction: { Store.shared.update(pid) { $0.stage = "quote" } })
             : ToastMsg(text: tr("iss.done", ["n": no]))
     }

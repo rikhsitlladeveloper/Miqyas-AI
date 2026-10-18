@@ -36,6 +36,8 @@ enum Route: Hashable {
     case kitchen(pid: String, fid: String, wall: String?, d3: Bool = false)
     /// The wardrobe designer at step 1–5 (place, sizes, doors, inside, material), section sec picked.
     case wardrobe(pid: String, fid: String, step: Int, sec: Int, d3: Bool = false)
+    /// Furniture orders: the parts and sheet layout, and the workshop pack.
+    case fCut(pid: String), fPack(pid: String)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -94,6 +96,8 @@ enum Sheet: Equatable {
     case newFurniture(pid: String, wid: String), fMenu(pid: String, fid: String), fRename(pid: String, fid: String), fMats(pid: String, fid: String)
     case fModule(pid: String, fid: String, mid: String), fLibrary(pid: String, fid: String, wall: String, group: String)
     /// The wardrobe: one size (key w, h, d, x or secW of section sec), an insert, more inserts for a section.
+    /// Narx tab: a price, a rate or the lead time (key fixed, rRun, rTall or days).
+    case fPriceField(pid: String, key: String)
     case wField(pid: String, fid: String, key: String, sec: Int), wInsert(pid: String, fid: String, sec: Int, idx: Int), wMore(pid: String, fid: String, sec: Int)
 }
 
@@ -150,6 +154,7 @@ final class AppModel {
                     return pid.map { store.get($0)?.floors.contains { w in w.items.contains { $0.id == iid } } == true } ?? AppSettings.shared.shots.contains { $0.id == iid }
                 case .report(let pid, let no): return store.get(pid).map { p in no == nil || p.quotes.contains { $0.no == no } } == true
                 case .kitchen(let pid, let fid, _, _), .wardrobe(let pid, let fid, _, _, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
+                case .fCut(let pid), .fPack(let pid): return store.get(pid) != nil
                 default: return true
                 }
             }

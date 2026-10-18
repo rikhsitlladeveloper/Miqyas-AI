@@ -11,10 +11,10 @@ import UIKit
 
 let PAGE_W: CGFloat = 595
 let PAGE_H: CGFloat = 842
-private let PX: CGFloat = 38
-private let PY: CGFloat = 36
-private let CW = PAGE_W - 2 * PX
-private let LIMIT = PAGE_H - PY - 6
+let PX: CGFloat = 38
+let PY: CGFloat = 36
+let CW = PAGE_W - 2 * PX
+let LIMIT = PAGE_H - PY - 6
 
 private let INK = UIColor(red: 0x0E / 255, green: 0x1C / 255, blue: 0x36 / 255, alpha: 1)
 private let INK3 = UIColor(red: 0x3E / 255, green: 0x4A / 255, blue: 0x61 / 255, alpha: 1)
@@ -46,7 +46,7 @@ func drawText(_ ctx: GraphicsContext, _ s: NSAttributedString, _ rect: CGRect) {
 }
 
 /// A text style of the page: the face (report language), size, weight, colour, italic, alignment.
-private struct Sty {
+struct Sty {
     var font: UIFont
     var color: UIColor = INK
     var italic = false
@@ -55,7 +55,7 @@ private struct Sty {
     var lineHeight: CGFloat
 }
 
-private final class Cell {
+final class Cell {
     let paras: [NSAttributedString]
     let span: Int, right: Bool, th: Bool, dbl: Bool
     init(_ paras: [NSAttributedString], span: Int = 1, right: Bool = false, th: Bool = false, dbl: Bool = false) {
@@ -63,12 +63,18 @@ private final class Cell {
     }
 }
 
-private final class Doc {
+/// The report's layout engine; the furniture documents (FurniturePages.swift) use it too.
+final class Doc {
     let sn: Snap, draft: Bool, meta: QuoteMeta?, image: (String) -> UIImage?, now: Ms
     let l: Lang, en: Bool, unit: LenUnit
     var pages: [[DrawStep]] = []
     var y: CGFloat = 0
-    private var pend: CGFloat = 0
+    var pend: CGFloat = 0
+    /// Furniture documents: another title for the draft and the issued one, and a line under it instead of the date.
+    var draftTitle = "r.draft", quoteTitle = "r.quote"
+    var subLine: String? = nil
+    /// Furniture orders name the maker's side "Ustaxona".
+    var makerKey = "rpt.builder"
 
     init(_ sn: Snap, _ draft: Bool, _ meta: QuoteMeta?, _ image: @escaping (String) -> UIImage?, _ now: Ms) {
         self.sn = sn; self.draft = draft; self.meta = meta; self.image = image; self.now = now
@@ -136,8 +142,8 @@ private final class Doc {
     /// A new page with the header (prototype .rh): the mark and METRX on the left, title and date on the right.
     func newPage() {
         pages.append([])
-        let title = a(t(draft ? "r.draft" : "r.quote"), ui(18, 600))
-        let date = a(draft ? t("r.draftDate", ["d": fmtDate(now)]) : t("r.no", ["n": meta!.no, "d": fmtDate(meta!.ts)]), ui(10, 400, INK3))
+        let title = a(t(draft ? draftTitle : quoteTitle), ui(18, 600))
+        let date = a(subLine ?? (draft ? t("r.draftDate", ["d": fmtDate(now)]) : t("r.no", ["n": meta!.no, "d": fmtDate(meta!.ts)])), ui(10, 400, INK3))
         var wst = num(14, 700); wst.tracking = 14 * 0.14; wst.lineHeight = 18.2
         let wm = a("METRX", wst)
         let h1 = measure(title), sm = measure(date), wmS = measure(wm)
@@ -280,7 +286,7 @@ private final class Doc {
             proj.append(a("\n", v)); proj.append(a(t("pr.location") + ":", ui(8.5, 400, INK3)))
             proj.append(a(String(format: " %.5f, %.5f", loc.lat, loc.lng), v))
         }
-        table([[party("rpt.builder", sn.builderName, sn.builderPhone), party("rpt.customer", sn.customer, sn.phone)],
+        table([[party(makerKey, sn.builderName, sn.builderPhone), party("rpt.customer", sn.customer, sn.phone)],
                [Cell([a(t("r.project"), lab), proj], span: 2)]], fixed: [CW / 2, CW / 2], breakable: false)
     }
 
