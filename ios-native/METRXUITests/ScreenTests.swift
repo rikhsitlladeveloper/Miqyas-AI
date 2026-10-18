@@ -705,3 +705,65 @@ final class Furniture3Tests: ScreenTestCase {
         XCTAssertTrue(app.staticTexts["Tutqich GTV 160"].exists)
     }
 }
+
+/// iPhone furniture part 4: the kitchen designer on a measured room (A 3400, B 2600, cold water on A at 1300): an
+/// L-kitchen, auto fill on both walls, a unit made narrower, a unit and a dishwasher from the library, the checks,
+/// the boards, undo.
+final class Furniture4Tests: ScreenTestCase {
+    func testKitchen() {
+        let app = launch()
+        firstRun(app, "ind.furn")
+        newWorkspace(app, "Oshxona Yunusobod")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.sketch"].tap(); usleep(700_000)
+        app.buttons["add.plan"].tap(); usleep(800_000)
+        app.buttons["nr.create"].tap(); sleep(1)
+        app.buttons["tip.ok"].tap(); usleep(700_000)
+        measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
+        sleep(6)    // the last toast goes away
+        app.buttons["ed.walls"].tap(); usleep(900_000)
+        app.buttons["pt.add"].tap(); usleep(900_000)
+        app.buttons["pt.cold"].tap(); usleep(400_000)
+        retype(app, "pt.off", "1,3"); app.buttons["pt.save"].tap(); sleep(5)
+        shot("f4-00a-wall"); app.buttons["back"].tap(); sleep(2); shot("f4-00b-after-back")
+        // the plan's own back button (another page's may still be in the tree)
+        app.buttons.matching(identifier: "back").allElementsBoundByIndex.last { $0.isHittable }?.tap(); sleep(2); shot("f4-01-workspace")
+        XCTAssertTrue(app.buttons["space.addTile"].waitForExistence(timeout: 4))
+        app.buttons["space.addTile"].tap(); usleep(900_000); shot("f4-02-add-sheet")
+        app.buttons["add.furn"].tap(); usleep(900_000); shot("f4-03-new-furniture")
+        app.buttons["nf.wardrobe"].tap(); usleep(500_000)
+        app.buttons["nf.lL"].tap(); usleep(500_000); shot("f4-04-L-layout")
+        app.buttons["nf.start"].tap(); sleep(2); shot("f4-05-empty-wall")
+        app.buttons["kt.auto"].tap(); sleep(1); shot("f4-06-auto-A")
+        sleep(4)
+        app.swipeUp(); usleep(700_000); shot("f4-07-checks-cost")
+        app.swipeDown(); usleep(700_000)
+        // pick the first lower unit: near the left end of the drawing, just above the floor line
+        let elev = app.otherElements["kt.elev"]
+        elev.coordinate(withNormalizedOffset: CGVector(dx: 0.12, dy: 0.62)).tap(); usleep(800_000); shot("f4-08-selected")
+        app.buttons["kt.setup"].tap(); usleep(900_000); shot("f4-09-unit-sheet")
+        app.buttons["km.w400"].tap(); usleep(400_000)
+        app.buttons["km.f1"].exists ? app.buttons["km.f1"].tap() : ()
+        shot("f4-10-unit-400")
+        app.buttons["km.save"].tap(); sleep(1); shot("f4-11-after-save")
+        sleep(4)
+        app.buttons["kt.lib.module"].tap(); usleep(900_000); shot("f4-12-library")
+        app.buttons["lib.drawers.450"].tap(); sleep(1); shot("f4-13-drawers-added")
+        sleep(4)
+        app.buttons["kt.lib.appl"].tap(); usleep(900_000); shot("f4-14-appliances")
+        app.buttons["lib.dishwasher"].tap(); sleep(1)
+        sleep(4)
+        app.swipeUp(); usleep(700_000); shot("f4-15-over-checks")
+        app.swipeDown(); usleep(700_000)
+        app.buttons["kt.undo"].tap(); usleep(800_000); shot("f4-16-undo")
+        app.buttons["kt.wall.B"].tap(); usleep(900_000)
+        app.buttons["kt.auto"].tap(); sleep(1); shot("f4-17-auto-B")
+        sleep(4)
+        app.buttons["kt.menu"].tap(); usleep(900_000)
+        app.buttons["fm.mats"].tap(); usleep(900_000)
+        app.buttons["fmat.front.ldsp18a"].tap(); usleep(700_000); shot("f4-18-mats")
+        app.buttons["sheet.close"].tap(); usleep(900_000); shot("f4-19-dark-fronts")
+        app.buttons["back"].tap(); usleep(900_000); shot("f4-20-workspace-card")
+        XCTAssertTrue(app.buttons["furn.card"].exists || app.otherElements["furn.card"].exists)
+    }
+}

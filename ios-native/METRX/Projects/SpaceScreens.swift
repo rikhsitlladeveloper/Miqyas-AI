@@ -11,7 +11,8 @@ struct SpaceScreen: View {
     var body: some View {
         if let p = Store.shared.get(pid), let w = p.floors.first(where: { $0.id == wid }) {
             let items = w.items.sorted { $0.created > $1.created }
-            let blank = items.isEmpty && !p.rooms.contains { $0.floorId == w.id }
+            let furn = p.furniture.filter { $0.ws == w.id }.sorted { $0.created > $1.created }
+            let blank = items.isEmpty && !p.rooms.contains { $0.floorId == w.id } && furn.isEmpty
             ZStack(alignment: .bottomTrailing) {
                 VStack(alignment: .leading, spacing: 0) {
                     HStack {
@@ -55,6 +56,19 @@ struct SpaceScreen: View {
                                                         if let rm = cells[i] { RoomCard(app: app, p: p, r: rm) }
                                                         else { AddTile { app.sheet = .addItem(pid: p.id, wid: w.id, step: "root") } }
                                                     } else { Color.clear.frame(maxWidth: .infinity) }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                // furniture orders: the kitchens and wardrobes designed here
+                                if !furn.isEmpty {
+                                    Section1(title: tr("kt.sec"), n: furn.count) {
+                                        ForEach(0..<((furn.count + 1) / 2), id: \.self) { r in
+                                            HStack(spacing: 12) {
+                                                ForEach(0..<2, id: \.self) { c in
+                                                    let i = r * 2 + c
+                                                    if i < furn.count { FurnitureCard(app: app, p: p, f: furn[i]) } else { Color.clear.frame(maxWidth: .infinity) }
                                                 }
                                             }
                                         }

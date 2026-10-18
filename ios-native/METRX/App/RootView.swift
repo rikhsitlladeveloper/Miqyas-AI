@@ -137,6 +137,7 @@ struct RootView: View {
         case .measure(let calc): MeasureScreen(app: app, calcTitle: calc)
         case .markup(let pid, let iid): MarkupScreen(app: app, pid: pid, iid: iid)
         case .liveCam: LiveCamScreen(app: app)
+        case .kitchen(let pid, let fid, let wall): KitchenScreen(app: app, pid: pid, fid: fid, wall: wall)
         }
     }
 
@@ -147,6 +148,7 @@ struct RootView: View {
         default:
             if FurnitureSheet.handles(s) { FurnitureSheet(app: app, sheet: s) }
             else if WorkshopSheet.handles(s) { WorkshopSheet(app: app, sheet: s) }
+            else if KitchenSheet.handles(s) { KitchenSheet(app: app, sheet: s) }
             else if EditorSheet.handles(s) { EditorSheet(app: app, sheet: s) }
             else if EstimateSheet.handles(s) { EstimateSheet(app: app, sheet: s) }
             else if ReportSheet.handles(s) { ReportSheet(app: app, sheet: s) }

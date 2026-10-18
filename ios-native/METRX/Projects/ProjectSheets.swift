@@ -205,6 +205,10 @@ private struct AddItem: View {
                 }
             } else {
                 GlassSheet(tr("add.title", ["n": floorName(w)]), onClose: { app.sheet = nil }) {
+                    // furniture orders: the kitchen (or wardrobe) for the measured room comes first
+                    if p.isFurniture {
+                        BigRow(icon: "kitchen", title: "kt.addRow", desc: "kt.addRowD") { app.sheet = .newFurniture(pid: pid, wid: wid) }.accessibilityIdentifier("add.furn")
+                    }
                     HStack(spacing: 10) {
                         ForEach([("sketch", "pen"), ("photo", "camera"), ("note", "note")], id: \.0) { k, icon in
                             VStack(spacing: 6) {

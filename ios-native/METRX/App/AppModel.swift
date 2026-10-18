@@ -32,12 +32,15 @@ enum Route: Hashable {
     case markup(pid: String?, iid: String)
     /// The Measure page's live camera (prototype PAGES.liveCam).
     case liveCam
+    /// Furniture makers: the kitchen designer on wall (nil: the first).
+    case kitchen(pid: String, fid: String, wall: String?)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
         switch self {
         case .project(let id, _, _, _): return "project:" + id
         case .editor(let pid, let rid, _): return "editor:" + pid + ":" + rid
+        case .kitchen(let pid, let fid, _): return "kitchen:" + pid + ":" + fid
         default: return "\(self)"
         }
     }
@@ -83,6 +86,10 @@ enum Sheet: Equatable {
     case pointForm(pid: String, rid: String, wall: String, id: String?)
     /// Profile → workshop: one rule's value; a board or banding (nil: a new one); a hardware item.
     case wsField(key: String), matForm(id: String?), hwForm(id: String?)
+    /// Furniture: new furniture in a workspace, its menu, name and boards; a unit's settings; the unit library (group
+    /// module, appl or space) for a wall.
+    case newFurniture(pid: String, wid: String), fMenu(pid: String, fid: String), fRename(pid: String, fid: String), fMats(pid: String, fid: String)
+    case fModule(pid: String, fid: String, mid: String), fLibrary(pid: String, fid: String, wall: String, group: String)
 }
 
 /// Screens of the sign-in flow.
@@ -137,6 +144,7 @@ final class AppModel {
                 case .markup(let pid, let iid):
                     return pid.map { store.get($0)?.floors.contains { w in w.items.contains { $0.id == iid } } == true } ?? AppSettings.shared.shots.contains { $0.id == iid }
                 case .report(let pid, let no): return store.get(pid).map { p in no == nil || p.quotes.contains { $0.no == no } } == true
+                case .kitchen(let pid, let fid, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
                 default: return true
                 }
             }
