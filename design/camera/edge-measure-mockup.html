@@ -1,0 +1,481 @@
+<title>Photo Edge Measuring</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: the app's photo editor in a phone frame on the left, the review notes beside it (stacked on a phone). */
+:root{
+  /* page around the phone */
+  --bg:#E9EDF5; --fg:#0F172A; --muted:#475569; --panel:#FFFFFF; --line:#D5DCE8; --accent:#3550E0;
+  /* the app itself (glass look, always light like the app) */
+  --app-paper:#EEF1F8; --app-ink:#0F172A; --app-ink2:#475569; --app-ink3:#64748B; --app-cobalt:#3550E0;
+  --app-red:#D92D20; --app-amber-wash:#FFF1DF; --app-amber-ink:#9A4D00; --app-err:#B42318; --app-toast:#0F1626;
+  --ui:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --num:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E121B;--fg:#E8ECF4;--muted:#A6B0C3;--panel:#161C28;--line:#2A3242;--accent:#7C8FFF;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E121B;--fg:#E8ECF4;--muted:#A6B0C3;--panel:#161C28;--line:#2A3242;--accent:#7C8FFF;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--ui);padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.wrap{max-width:1120px;margin:0 auto;display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap}
+.notes{flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:20px}
+h1{font-size:26px;line-height:1.2;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:15px;margin:0 0 8px;letter-spacing:.01em}
+.lede{margin:0;color:var(--muted);line-height:1.55;max-width:62ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.card ul,.card ol{margin:0;padding-left:20px;line-height:1.55;color:var(--muted)}
+.card li+li{margin-top:4px}
+.card b{color:var(--fg)}
+.samples{display:flex;flex-wrap:wrap;gap:8px}
+.samples button,.samples label{font:600 14px var(--ui);border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:999px;padding:9px 14px;cursor:pointer;min-height:40px;display:inline-flex;align-items:center}
+.samples button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:#fff}
+.samples input{position:absolute;width:1px;height:1px;opacity:0}
+.samples label:focus-within,.samples button:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stats{font:500 13px var(--num);color:var(--muted);font-variant-numeric:tabular-nums;margin-top:10px}
+
+/* ---------- the phone ---------- */
+.phone{flex:0 0 auto;width:min(390px,100%);height:800px;border-radius:44px;padding:10px;background:#0B0F18;box-shadow:0 30px 60px rgba(14,28,54,.28)}
+@media (max-width:760px){.phone{height:min(800px,calc(100svh - 40px));min-height:620px}}
+.screen{position:relative;width:100%;height:100%;border-radius:36px;overflow:hidden;background:var(--app-paper);color:var(--app-ink);display:flex;flex-direction:column;font-family:var(--ui)}
+.status{height:34px;flex:0 0 auto;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font:600 13px var(--ui)}
+.bar{display:flex;align-items:center;gap:6px;padding:4px 10px 8px;flex:0 0 auto}
+.ib{width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.8);background:rgba(255,255,255,.62);display:grid;place-items:center;cursor:pointer;color:var(--app-ink);box-shadow:0 6px 16px rgba(30,40,110,.08)}
+.ib:disabled{opacity:.35;cursor:default}
+.ib:focus-visible,.chip:focus-visible,.tool:focus-visible{outline:2px solid var(--app-cobalt);outline-offset:2px}
+.ttl{flex:1;min-width:0}
+.ttl b{display:block;font:700 17px var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ttl span{font:400 12.5px var(--ui);color:var(--app-ink2)}
+.chips{display:flex;gap:8px;padding:0 12px 8px;flex:0 0 auto}
+.chip{display:inline-flex;align-items:center;gap:8px;height:36px;padding:0 12px;border-radius:999px;border:1px solid rgba(15,23,42,.12);background:rgba(15,23,42,.05);font:700 13.5px var(--ui);color:var(--app-ink);cursor:pointer}
+.chip .sw{width:30px;height:18px;border-radius:9px;background:#C9D1DE;position:relative;transition:background .15s}
+.chip .sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left .15s}
+.chip[aria-pressed="true"] .sw{background:var(--app-cobalt)}
+.chip[aria-pressed="true"] .sw::after{left:14px}
+.chip.zoom{margin-left:auto;font-family:var(--num);font-variant-numeric:tabular-nums}
+.stage{position:relative;flex:1 1 auto;min-height:0;margin:0 12px;border-radius:22px;overflow:hidden;background:#161D30;touch-action:none;cursor:crosshair}
+.stage canvas{position:absolute;inset:0;width:100%;height:100%}
+#loupe{position:absolute;width:120px;height:120px;inset:auto;border-radius:50%;border:3px solid #fff;box-shadow:0 10px 24px rgba(0,0,0,.35);pointer-events:none}
+.busy{position:absolute;inset:0;display:grid;place-items:center;background:rgba(14,28,54,.35);color:#fff;font:600 14px var(--ui)}
+.offer{position:absolute;left:10px;right:10px;top:10px;display:flex;align-items:center;gap:8px;padding:8px 8px 8px 14px;border-radius:18px;background:rgba(255,255,255,.92);box-shadow:0 10px 24px rgba(14,28,54,.18);font:600 13.5px var(--ui);color:var(--app-ink)}
+.offer span{flex:1;min-width:0}
+.offer .go{height:38px;padding:0 14px;border-radius:12px;border:0;background:var(--app-cobalt);color:#fff;font:700 13.5px var(--ui);cursor:pointer;white-space:nowrap}
+.offer .x{width:38px;height:38px;border-radius:12px;border:0;background:rgba(15,23,42,.06);cursor:pointer;color:var(--app-ink2);display:grid;place-items:center}
+.hint{flex:0 0 auto;margin:10px 16px 0;min-height:20px;font:500 13.5px var(--ui);color:var(--app-ink2);display:flex;gap:8px;align-items:center}
+.hint i{width:8px;height:8px;border-radius:50%;background:#C9D1DE;flex:0 0 auto}
+.hint.on i{background:var(--app-cobalt)}
+.tools{flex:0 0 auto;display:flex;gap:6px;margin:10px 12px 14px;padding:6px;border-radius:24px;background:rgba(255,255,255,.62);border:1px solid rgba(255,255,255,.8);box-shadow:0 10px 24px rgba(30,40,110,.08)}
+.tool{flex:1;min-width:0;height:54px;border:0;border-radius:18px;background:transparent;color:var(--app-ink3);font:600 11px var(--ui);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:not-allowed}
+.tool.on{background:var(--app-cobalt);color:#fff;cursor:default}
+.toast{position:absolute;left:10px;right:10px;top:40px;z-index:30;display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:18px;background:var(--app-toast);color:#fff;font:600 14px/1.35 var(--ui);box-shadow:0 12px 32px rgba(0,0,0,.32);transition:opacity .2s,transform .2s}
+.toast[hidden]{display:flex!important;opacity:0;transform:translateY(-12px);pointer-events:none}
+.toast .dot{width:28px;height:28px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;background:rgba(157,177,255,.2);color:#9DB1FF}
+/* value sheet */
+.scrim{position:absolute;inset:0;z-index:20;background:rgba(14,28,54,.42);display:flex;align-items:flex-end}
+.sheet{width:100%;background:rgba(255,255,255,.97);border-radius:28px 28px 0 0;padding:8px 16px 18px;display:flex;flex-direction:column;gap:12px;box-shadow:0 -12px 40px rgba(30,40,110,.16)}
+.grab{width:36px;height:4px;border-radius:2px;background:#D5DCE8;margin:0 auto}
+.sh-h{display:flex;align-items:center}
+.sh-h b{flex:1;font:600 17px var(--ui)}
+.lbl{display:flex;justify-content:space-between;font:700 15px var(--ui)}
+.lbl span{font:500 13px var(--ui);color:var(--app-ink3)}
+.field{display:flex;align-items:center;height:56px;border-radius:16px;border:2px solid var(--app-cobalt);background:#fff;padding:0 16px;gap:8px}
+.field input{flex:1;min-width:0;border:0;outline:0;font:500 18px var(--num);color:var(--app-ink);background:transparent}
+.field em{font:500 15px var(--ui);font-style:normal;color:var(--app-ink3)}
+.field.bad{border-color:var(--app-err)}
+.err{color:var(--app-err);font:500 13px var(--ui);margin-top:-4px}
+.row{display:flex;gap:8px}
+.btn{flex:1;height:52px;border-radius:16px;border:0;font:700 15px var(--ui);cursor:pointer}
+.btn.p{background:var(--app-cobalt);color:#fff}
+.btn.s{background:rgba(15,23,42,.06);color:var(--app-ink)}
+.del{border:0;background:none;color:var(--app-err);font:600 14px var(--ui);cursor:pointer;align-self:center;padding:6px}
+.note{font:400 12.5px/1.45 var(--ui);color:var(--app-ink2);margin:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <div class="phone" aria-label="METRX photo editor mockup">
+    <div class="screen" id="screen">
+      <div class="status"><span>9:41</span><span>METRX</span></div>
+      <div class="bar">
+        <button class="ib" id="back" aria-label="Orqaga" title="Orqaga"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <div class="ttl"><b>Surat 1</b><span id="sub">Kamera · o‘lchamsiz</span></div>
+        <button class="ib" id="undo" aria-label="Bekor qilish" title="Bekor qilish" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></button>
+        <button class="ib" id="redo" aria-label="Qaytarish" title="Qaytarish" disabled><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></button>
+      </div>
+      <div class="chips">
+        <button class="chip" id="edgesBtn" aria-pressed="true"><span class="sw"></span>Qirralar</button>
+        <button class="chip zoom" id="zoomBtn" title="Asl o‘lcham">1,0×</button>
+      </div>
+      <div class="stage" id="stage">
+        <canvas id="view"></canvas>
+        <canvas id="loupe" hidden></canvas>
+        <div class="offer" id="offer" hidden>
+          <span>To‘rtburchak topildi</span>
+          <button class="go" id="offerGo">Tomonlarini ishlatish</button>
+          <button class="x" id="offerX" aria-label="Yopish"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+        </div>
+        <div class="busy" id="busy" hidden>Qirralar qidirilmoqda…</div>
+      </div>
+      <div class="hint" id="hint"><i></i><span id="hintT">Chiziqni qirradan qirraga torting</span></div>
+      <div class="tools" role="toolbar" aria-label="Asboblar">
+        <button class="tool on" aria-pressed="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 17L17 4M3 13l8 8M13 3l8 8"/></svg>O‘lcham</button>
+        <button class="tool" aria-disabled="true" title="Bu maketda faqat O‘lcham"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5M10 5h9v9"/></svg>Strelka</button>
+        <button class="tool" aria-disabled="true" title="Bu maketda faqat O‘lcham"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M5 6h14M12 6v13"/></svg>Matn</button>
+        <button class="tool" aria-disabled="true" title="Bu maketda faqat O‘lcham"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg>Qalam</button>
+        <button class="tool" aria-disabled="true" title="Bu maketda faqat O‘lcham"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20h12M5 14l7-9 7 7-6 8H9z"/></svg>O‘chirgich</button>
+      </div>
+      <div class="toast" id="toast" hidden role="status"><span class="dot"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg></span><span id="toastT"></span></div>
+      <div class="scrim" id="scrim" hidden>
+        <div class="sheet" role="dialog" aria-labelledby="shT">
+          <div class="grab"></div>
+          <div class="sh-h"><b id="shT">O‘lcham A</b><button class="ib" id="shX" aria-label="Yopish" style="box-shadow:none;background:transparent;border:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+          <div class="lbl">Uzunlik <span>m</span></div>
+          <div class="field" id="fieldBox"><input id="dimVal" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Uzunlik, metr"><em>m</em></div>
+          <div class="err" id="dimErr" hidden>Uzunlikni metrda kiriting, masalan 1,20</div>
+          <div class="row"><button class="btn s" id="laser">Lazer bilan o‘lchash</button><button class="btn p" id="save">Saqlash</button></div>
+          <p class="note">Suratdagi o‘lchamlar faqat ma’lumot uchun, xona rejasini o‘zgartirmaydi.</p>
+          <button class="del" id="delLine">Chiziqni o‘chirish</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div>
+      <h1>Photo edge measuring</h1>
+      <p class="lede">Part 0 mockup for builders and furniture makers. The photo editor finds straight edges and corners on the photo, line ends snap onto them, and each line still gets its value from the laser or by typing. The edge finder running here is a working prototype of the one planned for the app.</p>
+    </div>
+    <div class="card">
+      <h2>Photo</h2>
+      <div class="samples" role="group" aria-label="Photo">
+        <button id="sTable" aria-pressed="true">Table</button>
+        <button id="sDoor" aria-pressed="false">Door in a wall</button>
+        <button id="sWall" aria-pressed="false">Plain white wall</button>
+        <label for="own">Your own photo…<input type="file" id="own" accept="image/*"></label>
+      </div>
+      <div class="stats" id="stats">—</div>
+      <p class="lede" style="font-size:13px;margin-top:8px">The three samples are drawn pictures. Try one of your own photos too: a table, cabinet, door or window.</p>
+    </div>
+    <div class="card">
+      <h2>Try it</h2>
+      <ol>
+        <li>Drag from one corner of the table to the next. The end jumps onto the corner, and a loupe above your finger shows exactly where.</li>
+        <li>Start on an edge and slide along it: both ends on one edge lock the line to that edge.</li>
+        <li>Tap <b>Tomonlarini ishlatish</b> to get the length and width as lines A and B, then tap each <b>?</b> to measure it.</li>
+        <li>Pinch, or scroll the mouse wheel, to zoom up to 4×. Drag either end of a line to correct it.</li>
+        <li>Switch off <b>Qirralar</b> to draw freely on a messy photo. The plain white wall shows what happens when no edges are found.</li>
+      </ol>
+    </div>
+    <div class="card">
+      <h2>For your OK</h2>
+      <ul>
+        <li><b>Edge look:</b> faint white lines with a thin dark shadow, so they read on light and dark photos; the edge you snap to turns blue.</li>
+        <li><b>Snap distance:</b> about 6 mm from the finger for corners, 4 mm for edges.</li>
+        <li><b>Loupe:</b> above the finger, moving below it near the top of the photo.</li>
+        <li><b>Letters on the value pills</b> (A, B, C). Today pills show only the value.</li>
+        <li><b>A new line opens the value sheet</b> straight away, as it does today. Lines from the rectangle offer don't, so you can measure them in any order.</li>
+        <li>The laser button gives a sample value here, as the app does until the real meter is connected.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id);
+const stage=$("stage"), view=$("view"), vctx=view.getContext("2d"), loupe=$("loupe"), lctx=loupe.getContext("2d");
+const photo=document.createElement("canvas"), pctx=photo.getContext("2d");
+let W=1200,H=900;                 // photo size in its own pixels
+let det={segs:[],corners:[],rect:null};
+let edgesOn=true, offerOpen=false;
+let lines=[], undoS=[], redoS=[];
+let z=1, pan={x:0,y:0}, sw=0, sh=0, base=1;
+let drag=null;                    // {kind:'new'|'end', line, end, start}
+const pointers=new Map(); let pinch=null;
+let pillRects=[]; let dirty=true; let editing=null; let toastTimer=0;
+
+/* ---------- seeded noise for the drawn samples ---------- */
+function rng(seed){let s=seed>>>0;return()=>{s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
+function grain(amount,seed){const r=rng(seed),img=pctx.getImageData(0,0,W,H),d=img.data;for(let i=0;i<d.length;i+=4){const n=(r()-.5)*amount;d[i]+=n;d[i+1]+=n;d[i+2]+=n}pctx.putImageData(img,0,0)}
+function quad(c,pts,fill){c.beginPath();c.moveTo(pts[0][0],pts[0][1]);for(let i=1;i<pts.length;i++)c.lineTo(pts[i][0],pts[i][1]);c.closePath();c.fillStyle=fill;c.fill()}
+function lin(c,x0,y0,x1,y1,stops){const g=c.createLinearGradient(x0,y0,x1,y1);stops.forEach(([o,col])=>g.addColorStop(o,col));return g}
+
+function drawTable(){
+  W=1200;H=900;photo.width=W;photo.height=H;const c=pctx;
+  c.fillStyle=lin(c,0,0,0,560,[[0,"#D9D3C8"],[1,"#C9C2B5"]]);c.fillRect(0,0,W,560);
+  c.fillStyle=lin(c,0,560,0,H,[[0,"#8C6E52"],[1,"#6F5641"]]);c.fillRect(0,560,W,H-560);
+  c.fillStyle="#EFEBE4";c.fillRect(0,540,W,22);                                  // skirting
+  c.strokeStyle="rgba(60,40,25,.35)";c.lineWidth=2;for(let x=-200;x<W;x+=150){c.beginPath();c.moveTo(x+260,562);c.lineTo(x-60,H);c.stroke()} // planks
+  quad(c,[[880,110],[1100,110],[1100,330],[880,330]],"#B9B2A5");quad(c,[[896,126],[1084,126],[1084,314],[896,314]],"#7E9AB2"); // picture on the wall
+  c.fillStyle="rgba(30,20,10,.28)";c.beginPath();c.ellipse(610,770,430,60,0,0,Math.PI*2);c.fill();        // shadow
+  const top=[[250,470],[930,450],[1040,600],[170,630]];
+  quad(c,top,lin(c,0,450,0,630,[[0,"#D8B98F"],[1,"#C29E72"]]));
+  c.save();c.beginPath();top.forEach((p,i)=>i?c.lineTo(p[0],p[1]):c.moveTo(p[0],p[1]));c.closePath();c.clip();
+  c.strokeStyle="rgba(120,80,40,.18)";c.lineWidth=3;for(let y=440;y<640;y+=9){c.beginPath();c.moveTo(150,y);c.bezierCurveTo(400,y+6,700,y-6,1060,y+4);c.stroke()}c.restore();
+  quad(c,[[170,630],[1040,600],[1040,640],[170,672]],"#8F6B47");                 // apron
+  [[200,672,232],[990,640,1020],[300,628,322],[880,606,902]].forEach(([x,y,x2],i)=>quad(c,[[x,y],[x2,y-1],[x2,i<2?850:760],[x,i<2?850:760]],i<2?"#7A5A3C":"#6A4E35")); // legs
+  c.fillStyle="#F4F4F2";c.beginPath();c.ellipse(560,520,46,16,0,0,Math.PI*2);c.fill();c.fillRect(514,470,92,50);c.beginPath();c.ellipse(560,470,46,16,0,0,Math.PI*2);c.fillStyle="#E4E4E0";c.fill(); // a cup (round: no edges)
+  grain(14,7);
+}
+function drawDoor(){
+  W=900;H=1200;photo.width=W;photo.height=H;const c=pctx;
+  c.fillStyle=lin(c,0,0,W,0,[[0,"#D4D7D2"],[1,"#C5C9C3"]]);c.fillRect(0,0,W,H);
+  c.fillStyle="#9C8B78";c.fillRect(0,1020,W,180);c.fillStyle="#ECEDEA";c.fillRect(0,1000,W,22);
+  quad(c,[[250,160],[650,160],[650,1010],[250,1010]],"#F2F0EB");                 // frame
+  quad(c,[[282,192],[618,192],[618,1010],[282,1010]],lin(c,0,192,0,1010,[[0,"#8E6A48"],[1,"#7A583A"]])); // leaf
+  [[318,240,582,560],[318,610,582,950]].forEach(([a,b,cx,d])=>{quad(c,[[a,b],[cx,b],[cx,d],[a,d]],"rgba(0,0,0,.10)");quad(c,[[a+8,b+8],[cx-8,b+8],[cx-8,d-8],[a+8,d-8]],"rgba(255,255,255,.05)")});
+  c.fillStyle="#D9D9D6";c.fillRect(570,600,30,8);c.beginPath();c.arc(575,604,9,0,Math.PI*2);c.fill();   // handle
+  quad(c,[[720,560],[790,560],[790,640],[720,640]],"#F6F6F4");quad(c,[[742,584],[768,584],[768,616],[742,616]],"#E2E2DE"); // switch
+  grain(12,11);
+}
+function drawWall(){
+  W=1200;H=900;photo.width=W;photo.height=H;const c=pctx;
+  const g=c.createRadialGradient(400,300,50,600,450,900);g.addColorStop(0,"#F7F6F3");g.addColorStop(1,"#E6E4DF");
+  c.fillStyle=g;c.fillRect(0,0,W,H);grain(10,3);
+}
+
+/* ---------- the edge finder (prototype of the app's own small engine) ---------- */
+function detect(){
+  const t0=performance.now();
+  const S=Math.min(1,420/Math.max(W,H)),w=Math.round(W*S),h=Math.round(H*S);
+  const sm=document.createElement("canvas");sm.width=w;sm.height=h;const sc=sm.getContext("2d");sc.drawImage(photo,0,0,w,h);
+  const d=sc.getImageData(0,0,w,h).data,n=w*h,g=new Float32Array(n);
+  for(let i=0;i<n;i++)g[i]=.299*d[i*4]+.587*d[i*4+1]+.114*d[i*4+2];
+  // 5-tap blur, both directions
+  const k=[1,4,6,4,1],tmp=new Float32Array(n),bl=new Float32Array(n);
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){let s=0;for(let j=-2;j<=2;j++){const xx=Math.min(w-1,Math.max(0,x+j));s+=k[j+2]*g[y*w+xx]}tmp[y*w+x]=s/16}
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){let s=0;for(let j=-2;j<=2;j++){const yy=Math.min(h-1,Math.max(0,y+j));s+=k[j+2]*tmp[yy*w+x]}bl[y*w+x]=s/16}
+  // gradients
+  const gx=new Float32Array(n),gy=new Float32Array(n),mg=new Float32Array(n);
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x,
+    a=bl[i-w-1],b=bl[i-w],c=bl[i-w+1],dd=bl[i-1],f=bl[i+1],gg=bl[i+w-1],hh=bl[i+w],ii=bl[i+w+1];
+    const X=(c+2*f+ii)-(a+2*dd+gg),Y=(gg+2*hh+ii)-(a+2*b+c);gx[i]=X;gy[i]=Y;mg[i]=Math.hypot(X,Y)}
+  // thin to one pixel
+  const nm=new Float32Array(n),vals=[];
+  for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const i=y*w+x,m=mg[i];if(m<8)continue;
+    const dx=Math.round(gx[i]/m),dy=Math.round(gy[i]/m);if(m>=mg[i+dy*w+dx]&&m>=mg[i-dy*w-dx]){nm[i]=m;vals.push(m)}}
+  vals.sort((a,b)=>a-b);
+  // the bar follows the photo's strongest edges, so a white frame on a light wall still counts next to a dark door
+  const hi=Math.max(40,vals.length?vals[Math.floor(vals.length*.98)]*.18:999),lo=hi*.45;
+  const edge=new Uint8Array(n),st=[];
+  for(let i=0;i<n;i++)if(nm[i]>=hi){edge[i]=1;st.push(i)}
+  while(st.length){const i=st.pop();for(const o of[-w-1,-w,-w+1,-1,1,w-1,w,w+1]){const j=i+o;if(j>=0&&j<n&&!edge[j]&&nm[j]>=lo){edge[j]=1;st.push(j)}}}
+  // group edge pixels of one direction and fit straight segments
+  const idx=[];for(let i=0;i<n;i++)if(edge[i])idx.push(i);idx.sort((a,b)=>mg[b]-mg[a]);
+  const used=new Uint8Array(n),ang=i=>Math.atan2(gy[i],gx[i]),tol=Math.PI/8,minLen=Math.max(w,h)*.05;let segs=[];
+  for(const s0 of idx){if(used[s0])continue;used[s0]=1;const reg=[s0];let cs=Math.cos(2*ang(s0)),sn=Math.sin(2*ang(s0));
+    for(let q=0;q<reg.length;q++){const i=reg[q];for(const o of[-w-1,-w,-w+1,-1,1,w-1,w,w+1]){const j=i+o;if(j<0||j>=n||used[j]||!edge[j])continue;
+      const m=Math.atan2(sn,cs)/2;let df=Math.abs(ang(j)-m)%Math.PI;df=Math.min(df,Math.PI-df);if(df<tol){used[j]=1;reg.push(j);cs+=Math.cos(2*ang(j));sn+=Math.sin(2*ang(j))}}}
+    if(reg.length<10)continue;
+    let mx=0,my=0;for(const i of reg){mx+=i%w;my+=(i/w|0)}mx/=reg.length;my/=reg.length;
+    let sxx=0,syy=0,sxy=0;for(const i of reg){const x=i%w-mx,y=(i/w|0)-my;sxx+=x*x;syy+=y*y;sxy+=x*y}sxx/=reg.length;syy/=reg.length;sxy/=reg.length;
+    const tr=sxx+syy,dt=sxx*syy-sxy*sxy,l1=tr/2+Math.sqrt(Math.max(0,tr*tr/4-dt)),l2=tr/2-Math.sqrt(Math.max(0,tr*tr/4-dt));
+    if(Math.sqrt(Math.max(0,l2))>1.6)continue;
+    let ux=sxy,uy=l1-sxx;if(Math.abs(ux)+Math.abs(uy)<1e-6){ux=sxx>=syy?1:0;uy=sxx>=syy?0:1}const ul=Math.hypot(ux,uy);ux/=ul;uy/=ul;
+    let t0s=1e9,t1s=-1e9;for(const i of reg){const t=(i%w-mx)*ux+((i/w|0)-my)*uy;if(t<t0s)t0s=t;if(t>t1s)t1s=t}
+    const len=t1s-t0s;if(len<minLen||reg.length/len<.6)continue;
+    segs.push({x1:mx+ux*t0s,y1:my+uy*t0s,x2:mx+ux*t1s,y2:my+uy*t1s})}
+  // join pieces of one edge
+  const L=s=>Math.hypot(s.x2-s.x1,s.y2-s.y1),A=s=>Math.atan2(s.y2-s.y1,s.x2-s.x1);
+  let merged=true;
+  while(merged){merged=false;
+    outer:for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){const a=segs[i],b=segs[j];
+      let da=Math.abs(A(a)-A(b))%Math.PI;da=Math.min(da,Math.PI-da);if(da>.07)continue;
+      const la=L(a),ux=(a.x2-a.x1)/la,uy=(a.y2-a.y1)/la,dist=(x,y)=>Math.abs((x-a.x1)*uy-(y-a.y1)*ux);
+      if(dist(b.x1,b.y1)>3||dist(b.x2,b.y2)>3)continue;
+      const p=(x,y)=>(x-a.x1)*ux+(y-a.y1)*uy,tb=[p(b.x1,b.y1),p(b.x2,b.y2)].sort((m,q)=>m-q);
+      const gapT=Math.max(w,h)*.1;if(tb[0]>la+gapT||tb[1]<-gapT)continue;   // an edge broken by a cup or a shadow
+      const t0=Math.min(0,tb[0]),t1=Math.max(la,tb[1]);
+      segs[i]={x1:a.x1+ux*t0,y1:a.y1+uy*t0,x2:a.x1+ux*t1,y2:a.y1+uy*t1};segs.splice(j,1);merged=true;break outer}}
+  segs.sort((a,b)=>L(b)-L(a));segs=segs.slice(0,50).map(s=>({x1:s.x1/S,y1:s.y1/S,x2:s.x2/S,y2:s.y2/S}));
+  // corners: two edges meeting at their ends
+  const tolC=Math.max(W,H)*.03,corners=[],adj=segs.map(()=>new Map());
+  for(let i=0;i<segs.length;i++)for(let j=i+1;j<segs.length;j++){const a=segs[i],b=segs[j];
+    let da=Math.abs(A(a)-A(b))%Math.PI;da=Math.min(da,Math.PI-da);if(da<.44)continue;
+    const d1x=a.x2-a.x1,d1y=a.y2-a.y1,d2x=b.x2-b.x1,d2y=b.y2-b.y1,den=d1x*d2y-d1y*d2x;if(Math.abs(den)<1e-6)continue;
+    const t=((b.x1-a.x1)*d2y-(b.y1-a.y1)*d2x)/den,px=a.x1+t*d1x,py=a.y1+t*d1y;
+    const near=s=>Math.min(Math.hypot(px-s.x1,py-s.y1),Math.hypot(px-s.x2,py-s.y2));
+    if(px<-tolC||py<-tolC||px>W+tolC||py>H+tolC)continue;
+    const c={x:px,y:py,a:i,b:j},na=near(a),nb=near(b);
+    // a corner to snap to: both edges end there; for the rectangle a side may stop short of its corner (hidden by a leg or a shadow)
+    if(na<=Math.max(tolC,L(a))&&nb<=Math.max(tolC,L(b))){adj[i].set(j,c);adj[j].set(i,c)}
+    if(na>tolC||nb>tolC)continue;
+    if(!corners.some(o=>Math.hypot(o.x-px,o.y-py)<tolC/2))corners.push(c)}
+  // the best rectangle: four edges joined end to end
+  let rect=null,best=0;const area=q=>{let s=0;for(let i=0;i<4;i++){const p=q[i],r=q[(i+1)%4];s+=p.x*r.y-r.x*p.y}return s/2};
+  for(let i=0;i<segs.length;i++)for(const [j,c1] of adj[i]){if(j<=i)continue;for(const [k,c2] of adj[j]){if(k<=i||k===i)continue;for(const [l,c3] of adj[k]){if(l<=i||l===j||!adj[l].has(i))continue;
+    const q=[adj[l].get(i),c1,c2,c3];let sg=0,ok=true;for(let m=0;m<4;m++){const p=q[m],r=q[(m+1)%4],s=q[(m+2)%4],cr=(r.x-p.x)*(s.y-r.y)-(r.y-p.y)*(s.x-r.x);const sgn=Math.sign(cr);if(!sgn||(sg&&sgn!==sg)){ok=false;break}sg=sgn}
+    if(!ok)continue;const ar=Math.abs(area(q));if(ar<W*H*.03)continue;
+    // each side must be mostly seen as an edge: the quad's side m lies between corners q[m] and q[m+1], along segment [i,j,k,l][m]
+    const sides=[i,j,k,l].map((sgi,m)=>Math.min(1,L(segs[sgi])/Math.max(1,Math.hypot(q[(m+1)%4].x-q[m].x,q[(m+1)%4].y-q[m].y))));
+    const cov=Math.min(...sides);if(cov<.45)continue;const score=ar*cov;if(score>best){best=score;rect={pts:q.map(p=>({x:p.x,y:p.y})),segs:[i,j,k,l]}}}}}
+  return{segs,corners,rect,ms:performance.now()-t0}
+}
+
+/* ---------- view: fit, zoom and pan ---------- */
+function layout(){const r=stage.getBoundingClientRect(),dpr=window.devicePixelRatio||1;sw=r.width;sh=r.height;
+  view.width=Math.round(sw*dpr);view.height=Math.round(sh*dpr);base=Math.min(sw/W,sh/H);clampPan();dirty=true}
+function off(){return{x:(sw-W*base*z)/2+pan.x,y:(sh-H*base*z)/2+pan.y}}
+function toS(p){const o=off();return{x:o.x+p.x*base*z,y:o.y+p.y*base*z}}
+function toI(x,y){const o=off();return{x:(x-o.x)/(base*z),y:(y-o.y)/(base*z)}}
+function clampPan(){const mx=Math.max(0,(W*base*z-sw)/2),my=Math.max(0,(H*base*z-sh)/2);pan.x=Math.max(-mx,Math.min(mx,pan.x));pan.y=Math.max(-my,Math.min(my,pan.y))}
+function zoomAt(nz,sx,sy){const ip=toI(sx,sy);z=Math.max(1,Math.min(4,nz));const o0={x:(sw-W*base*z)/2,y:(sh-H*base*z)/2};pan.x=sx-o0.x-ip.x*base*z;pan.y=sy-o0.y-ip.y*base*z;clampPan();zoomLabel();dirty=true}
+function zoomLabel(){$("zoomBtn").textContent=z.toFixed(1).replace(".",",")+"×"}
+
+/* ---------- snapping ---------- */
+function segsOf(s){return !s?[]:s.kind==="corner"?[s.a,s.b]:s.kind==="edge"?[s.seg]:[]}
+function snap(p){
+  if(!edgesOn)return{x:p.x,y:p.y,snap:null};
+  const k=base*z,rc=24/k,re=16/k;let bc=null,bd=rc;
+  for(const c of det.corners){const dd=Math.hypot(c.x-p.x,c.y-p.y);if(dd<bd){bd=dd;bc=c}}
+  if(bc)return{x:bc.x,y:bc.y,snap:{kind:"corner",a:bc.a,b:bc.b}};
+  let bs=-1,be=re,bp=null;
+  det.segs.forEach((s,i)=>{const dx=s.x2-s.x1,dy=s.y2-s.y1,l2=dx*dx+dy*dy;let t=((p.x-s.x1)*dx+(p.y-s.y1)*dy)/l2;t=Math.max(0,Math.min(1,t));
+    const qx=s.x1+t*dx,qy=s.y1+t*dy,dd=Math.hypot(qx-p.x,qy-p.y);if(dd<be){be=dd;bs=i;bp={x:qx,y:qy}}});
+  if(bs>=0)return{x:bp.x,y:bp.y,snap:{kind:"edge",seg:bs}};
+  return{x:p.x,y:p.y,snap:null}
+}
+function lockOf(l){const a=segsOf(l.a.snap),b=segsOf(l.b.snap);return a.find(s=>b.includes(s))}
+function applyLock(l){const s=lockOf(l);if(s===undefined)return false;const g=det.segs[s],dx=g.x2-g.x1,dy=g.y2-g.y1,l2=dx*dx+dy*dy;
+  for(const e of[l.a,l.b]){const t=((e.x-g.x1)*dx+(e.y-g.y1)*dy)/l2;e.x=g.x1+t*dx;e.y=g.y1+t*dy}return true}
+
+/* ---------- drawing ---------- */
+const fmt=mm=>(mm/1000).toFixed(2).replace(".",",");
+function render(){
+  dirty=false;const dpr=window.devicePixelRatio||1,c=vctx;c.setTransform(dpr,0,0,dpr,0,0);c.clearRect(0,0,sw,sh);
+  const o=off();c.drawImage(photo,o.x,o.y,W*base*z,H*base*z);
+  const active=drag?drag.line:null,hl=new Set(active?[...segsOf(active.a.snap),...segsOf(active.b.snap)]:[]);
+  if(edgesOn){
+    if(offerOpen&&det.rect){const q=det.rect.pts.map(toS);c.beginPath();q.forEach((p,i)=>i?c.lineTo(p.x,p.y):c.moveTo(p.x,p.y));c.closePath();
+      c.fillStyle="rgba(53,80,224,.10)";c.fill();c.setLineDash([8,6]);c.lineWidth=2.5;c.strokeStyle="#3550E0";c.stroke();c.setLineDash([])}
+    c.lineCap="round";
+    det.segs.forEach((s,i)=>{const a=toS({x:s.x1,y:s.y1}),b=toS({x:s.x2,y:s.y2});c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);
+      if(hl.has(i)){c.strokeStyle="rgba(255,255,255,.9)";c.lineWidth=6;c.stroke();c.strokeStyle="#3550E0";c.lineWidth=3;c.stroke()}
+      else{c.strokeStyle="rgba(15,23,42,.30)";c.lineWidth=3;c.stroke();c.strokeStyle="rgba(255,255,255,.72)";c.lineWidth=1.5;c.stroke()}});
+    det.corners.forEach(k=>{const p=toS(k);c.beginPath();c.arc(p.x,p.y,4.5,0,Math.PI*2);c.fillStyle="rgba(255,255,255,.9)";c.fill();c.lineWidth=1.5;c.strokeStyle="rgba(15,23,42,.45)";c.stroke()})}
+  pillRects=[];
+  lines.forEach((l,i)=>drawLine(c,l,String.fromCharCode(65+i),l===active));
+  if(active){[active.a,active.b].forEach(e=>{if(e.snap&&e.snap.kind==="corner"){const p=toS(e);c.beginPath();c.arc(p.x,p.y,11,0,Math.PI*2);c.lineWidth=3;c.strokeStyle="#3550E0";c.stroke()}})}
+  if(drag&&drag.pt)drawLoupe(drag.pt)
+}
+function drawLine(c,l,letter,live){
+  const a=toS(l.a),b=toS(l.b),dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,nx=-dy/len*9,ny=dx/len*9;
+  c.lineCap="round";
+  const path=()=>{c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);[a,b].forEach(p=>{c.moveTo(p.x-nx,p.y-ny);c.lineTo(p.x+nx,p.y+ny)})};
+  path();c.strokeStyle="rgba(255,255,255,.85)";c.lineWidth=6.5;c.stroke();path();c.strokeStyle="#D92D20";c.lineWidth=3.5;c.stroke();
+  if(live&&len<30)return;
+  const has=l.v!=null,txt=has?fmt(l.v):"?";c.font="600 15px "+getComputedStyle(document.documentElement).getPropertyValue("--num");
+  const lw=c.measureText(letter).width,tw=c.measureText(txt).width,pw=lw+tw+28,ph=28,mx=(a.x+b.x)/2,my=(a.y+b.y)/2,r={x:mx-pw/2,y:my-ph/2,w:pw,h:ph};
+  c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,14);c.fillStyle=has?"#fff":"#FFF1DF";c.fill();c.lineWidth=1.5;c.strokeStyle=has?"#D92D20":"#9A4D00";if(!has)c.setLineDash([5,4]);c.stroke();c.setLineDash([]);
+  c.textBaseline="middle";c.fillStyle="#D92D20";c.font="700 15px "+getComputedStyle(document.documentElement).getPropertyValue("--num");c.fillText(letter,r.x+11,my+1);
+  c.font="600 15px "+getComputedStyle(document.documentElement).getPropertyValue("--num");c.fillStyle=has?"#0E1C36":"#9A4D00";c.fillText(txt,r.x+17+lw,my+1);
+  pillRects.push({r,line:l})
+}
+function drawLoupe(p){
+  const s=toS(p),size=120,mag=2.5,src=size/mag,dpr=window.devicePixelRatio||1;
+  loupe.hidden=false;loupe.width=size*dpr;loupe.height=size*dpr;
+  let ly=s.y-size-34;if(ly<6)ly=s.y+40;let lx=Math.max(6,Math.min(sw-size-6,s.x-size/2));
+  loupe.style.left=lx+"px";loupe.style.top=ly+"px";
+  const c=lctx;c.setTransform(1,0,0,1,0,0);c.fillStyle="#161D30";c.fillRect(0,0,loupe.width,loupe.height);
+  c.drawImage(view,(s.x-src/2)*dpr,(s.y-src/2)*dpr,src*dpr,src*dpr,0,0,size*dpr,size*dpr);
+  c.setTransform(dpr,0,0,dpr,0,0);c.strokeStyle="#fff";c.lineWidth=3;
+  const m=size/2,g=7,a=16;c.beginPath();[[m-a,m,m-g,m],[m+g,m,m+a,m],[m,m-a,m,m-g],[m,m+g,m,m+a]].forEach(([x1,y1,x2,y2])=>{c.moveTo(x1,y1);c.lineTo(x2,y2)});c.stroke();
+  c.strokeStyle="#D92D20";c.lineWidth=1.5;c.stroke()
+}
+function frame(){if(dirty)render();requestAnimationFrame(frame)}
+
+/* ---------- state, hint, undo ---------- */
+const clone=()=>JSON.parse(JSON.stringify(lines));
+function commit(prev){undoS.push(prev);if(undoS.length>60)undoS.shift();redoS=[];sync()}
+function sync(){$("undo").disabled=!undoS.length;$("redo").disabled=!redoS.length;
+  const done=lines.filter(l=>l.v!=null).length;$("sub").textContent=lines.length?`Kamera · ${lines.length} ta chiziq, ${done} tasi o‘lchangan`:"Kamera · o‘lchamsiz";
+  $("offer").hidden=!(offerOpen&&edgesOn&&det.rect);dirty=true;setHint()}
+function setHint(text,on){const h=$("hint");if(text===undefined){
+  text=!edgesOn?"Qirralar o‘chiq: chiziqni erkin torting":lines.some(l=>l.v==null)?"Qiymat kiritish uchun «?» ni bosing":"Chiziqni qirradan qirraga torting";on=false}
+  $("hintT").textContent=text;h.classList.toggle("on",!!on)}
+function toast(t){$("toastT").textContent=t;$("toast").hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$("toast").hidden=true,3400)}
+
+/* ---------- gestures ---------- */
+function local(e){const r=stage.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
+function hitEnd(sp){let best=null,bd=22;lines.forEach(l=>["a","b"].forEach(k=>{const p=toS(l[k]),d=Math.hypot(p.x-sp.x,p.y-sp.y);if(d<bd){bd=d;best={line:l,end:k}}}));return best}
+function hitPill(sp){return pillRects.find(p=>sp.x>=p.r.x&&sp.x<=p.r.x+p.r.w&&sp.y>=p.r.y&&sp.y<=p.r.y+p.r.h)}
+function snapHint(l){const lk=lockOf(l)!==undefined,e=drag.end==="a"?l.a:l.b;
+  if(lk)setHint("Qirra bo‘ylab",true);else if(e.snap&&e.snap.kind==="corner")setHint("Burchakka yopishdi",true);else if(e.snap)setHint("Qirraga yopishdi",true);else setHint(edgesOn?"Erkin: qirradan uzoqroq":"Qirralar o‘chiq",false)}
+stage.addEventListener("pointerdown",e=>{
+  if(e.target!==view&&e.target!==stage)return;
+  stage.setPointerCapture(e.pointerId);const sp=local(e);pointers.set(e.pointerId,sp);
+  if(pointers.size===2){if(drag&&drag.kind==="new"&&drag.line){lines.splice(lines.indexOf(drag.line),1)}else if(drag&&drag.kind==="end"){lines=drag.prev}
+    drag=null;loupe.hidden=true;const [p1,p2]=[...pointers.values()];pinch={d:Math.hypot(p1.x-p2.x,p1.y-p2.y),z0:z};dirty=true;setHint();return}
+  if(pointers.size>2)return;
+  const pill=hitPill(sp);if(pill){drag={kind:"pill",line:pill.line,start:sp};return}
+  const end=hitEnd(sp);
+  if(end){drag={kind:"end",line:end.line,end:end.end,start:sp,prev:clone(),pt:null};return}
+  const ip=toI(sp.x,sp.y);if(ip.x<0||ip.y<0||ip.x>W||ip.y>H)return;   // lines start on the photo
+  drag={kind:"new",start:sp,line:null,prev:clone(),end:"b"}
+});
+stage.addEventListener("pointermove",e=>{
+  if(!pointers.has(e.pointerId))return;const sp=local(e);pointers.set(e.pointerId,sp);
+  if(pinch&&pointers.size===2){const [p1,p2]=[...pointers.values()],d=Math.hypot(p1.x-p2.x,p1.y-p2.y);zoomAt(pinch.z0*d/pinch.d,(p1.x+p2.x)/2,(p1.y+p2.y)/2);return}
+  if(!drag)return;
+  if(drag.kind==="pill"){if(Math.hypot(sp.x-drag.start.x,sp.y-drag.start.y)>8)drag=null;return}
+  if(drag.kind==="new"&&!drag.line){if(Math.hypot(sp.x-drag.start.x,sp.y-drag.start.y)<6)return;
+    const a=snap(toI(drag.start.x,drag.start.y));drag.line={id:Math.random().toString(36).slice(2),a:{x:a.x,y:a.y,snap:a.snap},b:{x:a.x,y:a.y,snap:null},v:null,src:null};lines.push(drag.line);
+    if(offerOpen){offerOpen=false}}
+  const ip=toI(sp.x,sp.y);ip.x=Math.max(0,Math.min(W,ip.x));ip.y=Math.max(0,Math.min(H,ip.y));   // and stay on it
+  const l=drag.line,q=snap(ip),e2=l[drag.end];e2.x=q.x;e2.y=q.y;e2.snap=q.snap;
+  applyLock(l);drag.pt=e2;snapHint(l);sync()
+});
+function endPointer(e){
+  if(!pointers.has(e.pointerId))return;pointers.delete(e.pointerId);
+  if(pinch){if(pointers.size<2)pinch=null;return}
+  if(!drag)return;const d=drag;drag=null;loupe.hidden=true;
+  if(d.kind==="pill"){openSheet(d.line);return}
+  if(!d.line){setHint();return}
+  const a=toS(d.line.a),b=toS(d.line.b);
+  if(Math.hypot(a.x-b.x,a.y-b.y)<18){if(d.kind==="new")lines.splice(lines.indexOf(d.line),1);else lines=d.prev;sync();return}
+  commit(d.prev);if(d.kind==="new")openSheet(d.line)
+}
+stage.addEventListener("pointerup",endPointer);stage.addEventListener("pointercancel",endPointer);
+stage.addEventListener("wheel",e=>{e.preventDefault();const sp=local(e);zoomAt(z*Math.exp(-e.deltaY*.0015),sp.x,sp.y)},{passive:false});
+$("zoomBtn").onclick=()=>{z=1;pan={x:0,y:0};zoomLabel();dirty=true};
+$("edgesBtn").onclick=()=>{edgesOn=!edgesOn;$("edgesBtn").setAttribute("aria-pressed",edgesOn);sync()};
+$("undo").onclick=()=>{if(!undoS.length)return;redoS.push(clone());lines=undoS.pop();sync()};
+$("redo").onclick=()=>{if(!redoS.length)return;undoS.push(clone());lines=redoS.pop();sync()};
+$("offerX").onclick=()=>{offerOpen=false;sync()};
+$("offerGo").onclick=()=>{const r=det.rect;if(!r)return;const prev=clone(),p=r.pts,s=r.segs;
+  // the two sides meeting at the corner nearest the photo's bottom left: length along the front, width along the side
+  const mk=(i,j,seg)=>({id:Math.random().toString(36).slice(2),a:{x:p[i].x,y:p[i].y,snap:{kind:"edge",seg}},b:{x:p[j].x,y:p[j].y,snap:{kind:"edge",seg}},v:null,src:null});
+  lines.push(mk(0,1,s[0]),mk(1,2,s[1]));offerOpen=false;commit(prev);toast("A va B chiziqlar qo‘shildi. Har birini o‘lchang")};
+$("back").onclick=()=>toast("Maket: orqaga qaytish ilovada ishlaydi");
+
+/* ---------- value sheet ---------- */
+function openSheet(l){editing=l;$("shT").textContent="O‘lcham "+String.fromCharCode(65+lines.indexOf(l));
+  $("dimVal").value=l.v!=null?fmt(l.v):"";$("dimErr").hidden=true;$("fieldBox").classList.remove("bad");$("scrim").hidden=false;setTimeout(()=>$("dimVal").focus(),60)}
+function closeSheet(){$("scrim").hidden=true;editing=null;sync()}
+$("shX").onclick=closeSheet;$("scrim").addEventListener("pointerdown",e=>{if(e.target===$("scrim"))closeSheet()});
+$("laser").onclick=()=>{const mm=600+Math.floor(Math.random()*2600);$("dimVal").value=fmt(mm);$("dimVal").dataset.laser=$("dimVal").value};
+$("save").onclick=()=>{const raw=$("dimVal").value.trim().replace(/\s/g,"").replace(",","."),v=Number(raw);
+  if(!raw||!isFinite(v)||v<=0||v>=50){$("dimErr").hidden=false;$("fieldBox").classList.add("bad");return}
+  const prev=clone();editing.v=Math.round(v*1000);editing.src=$("dimVal").dataset.laser===$("dimVal").value?"laser":"manual";commit(prev);closeSheet()};
+$("dimVal").addEventListener("keydown",e=>{if(e.key==="Enter")$("save").click();if(e.key==="Escape")closeSheet()});
+$("delLine").onclick=()=>{const prev=clone();lines.splice(lines.indexOf(editing),1);commit(prev);closeSheet();toast("Chiziq o‘chirildi")};
+
+/* ---------- loading a photo ---------- */
+function load(drawFn,label){
+  $("busy").hidden=false;lines=[];undoS=[];redoS=[];z=1;pan={x:0,y:0};zoomLabel();
+  setTimeout(()=>{drawFn();layout();det=detect();offerOpen=!!det.rect;$("busy").hidden=true;
+    $("stats").textContent=`${label}: ${det.segs.length} edges, ${det.corners.length} corners, ${det.rect?"a rectangle":"no rectangle"} · ${Math.round(det.ms)} ms on this device`;
+    if(!det.segs.length&&edgesOn)toast("Qirralar topilmadi — chiziqni o‘zingiz torting");sync()},30)
+}
+function pick(id){["sTable","sDoor","sWall"].forEach(k=>$(k).setAttribute("aria-pressed",k===id))}
+$("sTable").onclick=()=>{pick("sTable");load(drawTable,"Table")};
+$("sDoor").onclick=()=>{pick("sDoor");load(drawDoor,"Door")};
+$("sWall").onclick=()=>{pick("sWall");load(drawWall,"Plain wall")};
+$("own").onchange=e=>{const f=e.target.files&&e.target.files[0];if(!f)return;const url=URL.createObjectURL(f),im=new Image();
+  im.onload=()=>{pick("");const k=Math.min(1,1600/Math.max(im.naturalWidth,im.naturalHeight));load(()=>{W=Math.round(im.naturalWidth*k);H=Math.round(im.naturalHeight*k);photo.width=W;photo.height=H;pctx.drawImage(im,0,0,W,H);URL.revokeObjectURL(url)},"Your photo")};
+  im.onerror=()=>toast("Bu faylni ochib bo‘lmadi");im.src=url;e.target.value=""};
+new ResizeObserver(layout).observe(stage);
+load(drawTable,"Table");requestAnimationFrame(frame);
+})();
+</script>

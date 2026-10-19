@@ -922,3 +922,22 @@ final class Furniture7Tests: ScreenTestCase {
         app.buttons["iss.go"].tap(); sleep(2); shot("f7-14-quotes-tab")
     }
 }
+
+/// Photo edge measuring, parts 1–3: a photo's edges, the rectangle offer used as lines A and B, a pinch zoom and its
+/// reset, and the "Qirralar" switch. The gallery gives the drawn sample picture (a wall with a doorway).
+final class EdgeMeasureTests: ScreenTestCase {
+    func testEdgesRectangleAndZoom() {
+        let app = launch(extra: ["-uiSamplePhoto"])
+        firstRun(app)
+        newWorkspace(app, "Uy 9")
+        app.buttons["space.add"].tap(); usleep(700_000)
+        app.buttons["add.photo"].tap(); usleep(700_000)
+        app.buttons["add.gallery"].tap(); sleep(3); shot("e1-edges")
+        if app.buttons["mk.rectUse"].waitForExistence(timeout: 3) { app.buttons["mk.rectUse"].tap(); sleep(1); shot("e2-rect-sides") }
+        let cv = app.descendants(matching: .any).matching(identifier: "mk.canvas").firstMatch
+        XCTAssertTrue(cv.waitForExistence(timeout: 3))
+        cv.pinch(withScale: 2.5, velocity: 1); usleep(900_000); shot("e3-zoomed")
+        if app.buttons["mk.zoomReset"].exists { app.buttons["mk.zoomReset"].tap(); usleep(600_000) }
+        app.buttons["mk.edges"].tap(); usleep(700_000); shot("e4-edges-off")
+    }
+}

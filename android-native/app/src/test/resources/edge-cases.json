@@ -1,0 +1,57 @@
+{
+  "about": "Photo edge measuring: what the edge finder must find on the shared test photos (edges/), in item units (1000 wide). Read by the Android and iPhone unit tests. Points within 'tol' units count as the same. Snap radii are [corner, edge]. 'sides' are the two rectangle sides offered as lines A and B.",
+  "photos": [
+    {
+      "file": "table.jpg",
+      "edges": [10, 50],
+      "corners": [[141, 524], [210, 388], [775, 375]],
+      "rect": [[141, 524], [866, 499], [775, 375], [210, 388]],
+      "tol": 15,
+      "snaps": [
+        {"at": [150, 530], "r": [30, 20], "kind": "corner", "to": [141, 524]},
+        {"at": [500, 505], "r": [10, 20], "kind": "edge", "to": [500, 512]},
+        {"at": [500, 250], "r": [30, 20], "kind": "free", "to": [500, 250]}
+      ],
+      "lock": {
+        "a": [141, 524],
+        "b": [866, 499],
+        "r": [30, 20]
+      },
+      "sides": [
+        [[141, 524], [866, 499]],
+        [[141, 524], [210, 388]]
+      ]
+    },
+    {
+      "file": "door.jpg",
+      "edges": [4, 30],
+      "corners": [[276, 176], [721, 177], [312, 211], [684, 211]],
+      "rect": [[276, 1135], [721, 1135], [721, 177], [276, 176]],
+      "tol": 15,
+      "snaps": [
+        {"at": [300, 200], "r": [30, 20], "kind": "corner", "to": [312, 211]}
+      ],
+      "sides": [
+        [[276, 1135], [721, 1135]],
+        [[276, 1135], [276, 176]]
+      ]
+    },
+    {
+      "file": "wall.jpg",
+      "edges": [0, 0],
+      "corners": [],
+      "rect": null,
+      "tol": 15,
+      "snaps": [
+        {"at": [500, 300], "r": [30, 20], "kind": "free", "to": [500, 300]}
+      ]
+    },
+    {
+      "file": "tvroom.jpg",
+      "edges": [10, 50],
+      "corners": [],
+      "tol": 15,
+      "snaps": []
+    }
+  ]
+}

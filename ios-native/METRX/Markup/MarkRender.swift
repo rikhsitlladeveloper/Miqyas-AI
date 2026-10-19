@@ -50,27 +50,82 @@ func mkFit(_ vb: CGRect, _ box: CGRect, slice: Bool = false) -> (CGFloat, CGFloa
 
 private func dimText(_ e: MkEl, _ f: MkFmt) -> String { e.v.map { Geo.fmtLen($0, f.unit, f.en) + " " + f.m } ?? "?" }
 
-/// A line's or dimension's value pill (prototype: width txt.length × 21 + 38, height 56, rounded 28).
-func mkPill(_ e: MkEl, _ f: MkFmt) -> CGRect {
+/// A photo's dimensions get letters in the order they were drawn (A, B, C …), shown on their pills.
+func mkLetters(_ it: Item) -> [String: String] {
+    var r: [String: String] = [:]
+    for (i, e) in it.els.filter({ $0.t == "dim" }).enumerated() { r[e.id] = i < 26 ? String(Character(UnicodeScalar(UInt8(65 + i)))) : "A\(i - 25)" }
+    return r
+}
+
+/// A line's or dimension's value pill (prototype: width txt.length × 21 + 38, height 56, rounded 28), with room for its
+/// letter. While the editor is zoomed in by zoom, pills and lines keep their size on the screen.
+func mkPill(_ e: MkEl, _ f: MkFmt, zoom: CGFloat = 1, letter: String? = nil) -> CGRect {
     let a = pt(e.pts[0]), b = pt(e.pts.count > 1 ? e.pts[1] : e.pts[0])
     let dx = b.x - a.x, dy = b.y - a.y, l0 = hypot(dx, dy), l = l0 > 0 ? l0 : 1
     let nx = -dy / l, ny = dx / l
     let txt = dimText(e, f)
-    let tw: CGFloat = e.v != nil ? CGFloat(txt.count) * 21 + 38 : 64, th: CGFloat = 56
-    let off: CGFloat = e.t == "line" ? 42 : 0, sg: CGFloat = ny > 0 ? -1 : 1
+    let tw: CGFloat = ((e.v != nil ? CGFloat(txt.count) * 21 + 38 : 64) + (letter.map { CGFloat($0.count) * 21 + 21 } ?? 0)) / zoom
+    let th: CGFloat = 56 / zoom
+    let off: CGFloat = (e.t == "line" ? 42 : 0) / zoom, sg: CGFloat = ny > 0 ? -1 : 1
     let mx = (a.x + b.x) / 2 + nx * off * sg, my = (a.y + b.y) / 2 + ny * off * sg
     return CGRect(x: mx - tw / 2, y: my - th / 2, width: tw, height: th)
 }
 
 /// The mark whose value pill or text is at q (item units), for opening it with a tap.
-func mkLabelAt(_ it: Item, _ q: CGPoint, _ f: MkFmt) -> MkEl? {
-    it.els.last { e in
+func mkLabelAt(_ it: Item, _ q: CGPoint, _ f: MkFmt, zoom: CGFloat = 1) -> MkEl? {
+    let letters = mkLetters(it)
+    return it.els.last { e in
         switch e.t {
         case "text": let p = pt(e.pts[0]); return abs(q.x - p.x) < max(70, CGFloat(e.txt?.count ?? 0) * 15) && abs(q.y - p.y) < 40
-        case "line", "dim": return mkPill(e, f).insetBy(dx: -8, dy: -8).contains(q)
+        case "line", "dim": return mkPill(e, f, zoom: zoom, letter: letters[e.id]).insetBy(dx: -8 / zoom, dy: -8 / zoom).contains(q)
         default: return false
         }
     }
+}
+
+/// The end of a line, dimension or arrow within tol of q (item units): the mark and which end (0 or 1).
+func mkEndAt(_ it: Item, _ q: CGPoint, _ tol: CGFloat) -> (MkEl, Int)? {
+    var best: (MkEl, Int)? = nil, bd = tol
+    for e in it.els where e.t == "line" || e.t == "dim" || e.t == "arrow" {
+        for (i, p) in e.pts.enumerated() { let d = hypot(q.x - pt(p).x, q.y - pt(p).y); if d <= bd { bd = d; best = (e, i) } }
+    }
+    return best
+}
+
+/* ---------- zoom and the loupe (photo edge measuring, part 1) ---------- */
+
+let MK_ZOOM_MAX: CGFloat = 4
+
+/// The editor's photo box at zoom z (1–4) moved by pan: the whole-photo box scaled about the view's centre.
+func mkZoomBox(_ box: CGRect, _ z: CGFloat, _ pan: CGPoint) -> CGRect {
+    CGRect(x: box.midX - box.width * z / 2 + pan.x, y: box.midY - box.height * z / 2 + pan.y, width: box.width * z, height: box.height * z)
+}
+
+/// pan limited so the zoomed photo never shows a gap where it could fill the view.
+func mkClampPan(_ it: Item, _ box: CGRect, _ z: CGFloat, _ pan: CGPoint) -> CGPoint {
+    let k = mkFit(mkViewBox(it, .edit), box).0
+    let mx = max(0, (CGFloat(it.W) * k * z - box.width) / 2), my = max(0, (CGFloat(it.hh) * k * z - box.height) / 2)
+    return CGPoint(x: min(max(pan.x, -mx), mx), y: min(max(pan.y, -my), my))
+}
+
+/// Zoom and pan after a pinch step: zoomBy about centroid plus the fingers' move; the new zoom and pan.
+func mkPinch(_ it: Item, _ box: CGRect, _ z: CGFloat, _ pan: CGPoint, _ zoomBy: CGFloat, _ centroid: CGPoint, _ move: CGPoint) -> (CGFloat, CGPoint) {
+    let nz = min(max(z * zoomBy, 1), MK_ZOOM_MAX)
+    let c = CGPoint(x: centroid.x - box.midX, y: centroid.y - box.midY)
+    // the photo point under the fingers stays under them
+    let np = CGPoint(x: c.x + move.x - (c.x - pan.x) * (nz / z), y: c.y + move.y - (c.y - pan.y) * (nz / z))
+    return (nz, mkClampPan(it, box, nz, np))
+}
+
+/// Where the loupe's centre goes for a finger at s in a view of size: above the finger, or below it near the top.
+func mkLoupeAt(_ s: CGPoint, _ size: CGSize, _ r: CGFloat, _ gap: CGFloat) -> CGPoint {
+    let y = s.y - gap - 2 * r < 0 ? s.y + gap + r : s.y - gap - r
+    return CGPoint(x: min(max(s.x, r), max(r, size.width - r)), y: y)
+}
+
+/// The photo box that shows the point at s of view in the loupe centred at l, mag times larger.
+func mkLoupeBox(_ view: CGRect, _ s: CGPoint, _ l: CGPoint, _ mag: CGFloat) -> CGRect {
+    CGRect(x: l.x + (view.minX - s.x) * mag, y: l.y + (view.minY - s.y) * mag, width: view.width * mag, height: view.height * mag)
 }
 
 private func segD(_ q: CGPoint, _ a: CGPoint, _ b: CGPoint) -> CGFloat {
@@ -99,8 +154,8 @@ private func face(_ l: Lang, _ w: Int) -> String {
     return (l.cyrillic ? "Manrope-" : "PlusJakartaSans-") + names[w]!
 }
 
-/// One mark, in item units (prototype mkElSVG).
-func drawMark(_ ctx: GraphicsContext, _ e: MkEl, _ f: MkFmt, alpha: Double = 1) {
+/// One mark, in item units (prototype mkElSVG); lines, arrows and pills are drawn zoom times thinner while zoomed.
+func drawMark(_ ctx: GraphicsContext, _ e: MkEl, _ f: MkFmt, alpha: Double = 1, zoom z: CGFloat = 1, letter: String? = nil) {
     let c = (MK_COL[e.c] ?? MK_COL["ink"]!).opacity(alpha)
     guard !e.pts.isEmpty else { return }
     switch e.t {
@@ -119,36 +174,43 @@ func drawMark(_ ctx: GraphicsContext, _ e: MkEl, _ f: MkFmt, alpha: Double = 1) 
     case "arrow":
         guard e.pts.count > 1 else { return }
         let a = pt(e.pts[0]), b = pt(e.pts[1]), dx = b.x - a.x, dy = b.y - a.y, l0 = hypot(dx, dy), l = l0 > 0 ? l0 : 1
-        let ux = dx / l, uy = dy / l, nx = -uy, ny = ux, s: CGFloat = 34, hx = b.x - ux * s, hy = b.y - uy * s
-        ctx.stroke(linePath(a, CGPoint(x: hx, y: hy)), with: .color(c), style: StrokeStyle(lineWidth: 8, lineCap: .round))
-        let head = polyPath([b, CGPoint(x: hx + nx * 16, y: hy + ny * 16), CGPoint(x: hx - nx * 16, y: hy - ny * 16)])
-        ctx.fill(head, with: .color(c)); ctx.stroke(head, with: .color(c), style: StrokeStyle(lineWidth: 4, lineJoin: .round))
+        let ux = dx / l, uy = dy / l, nx = -uy, ny = ux, s: CGFloat = 34 / z, hx = b.x - ux * s, hy = b.y - uy * s, hw: CGFloat = 16 / z
+        ctx.stroke(linePath(a, CGPoint(x: hx, y: hy)), with: .color(c), style: StrokeStyle(lineWidth: 8 / z, lineCap: .round))
+        let head = polyPath([b, CGPoint(x: hx + nx * hw, y: hy + ny * hw), CGPoint(x: hx - nx * hw, y: hy - ny * hw)])
+        ctx.fill(head, with: .color(c)); ctx.stroke(head, with: .color(c), style: StrokeStyle(lineWidth: 4 / z, lineJoin: .round))
     default:
         // line (drawing) and dim (photo): a dimension line with end marks and a value pill
         guard e.pts.count > 1 else { return }
         let a = pt(e.pts[0]), b = pt(e.pts[1]), dx = b.x - a.x, dy = b.y - a.y, l0 = hypot(dx, dy), l = l0 > 0 ? l0 : 1
         let ux = dx / l, uy = dy / l, nx = -uy, ny = ux
-        let tk = e.t == "dim" ? CGPoint(x: nx * 20, y: ny * 20) : CGPoint(x: (ux + nx) * 13, y: (uy + ny) * 13)
+        let tk = e.t == "dim" ? CGPoint(x: nx * 20 / z, y: ny * 20 / z) : CGPoint(x: (ux + nx) * 13 / z, y: (uy + ny) * 13 / z)
         var p = Path()
         p.move(to: a); p.addLine(to: b)
         for q in [a, b] { p.move(to: q - tk); p.addLine(to: q + tk) }
-        if e.t == "dim" { ctx.stroke(p, with: .color(Color.white.opacity(0.85 * alpha)), style: StrokeStyle(lineWidth: 13, lineCap: .round)) }
-        ctx.stroke(p, with: .color(c), style: StrokeStyle(lineWidth: e.t == "dim" ? 7 : 9, lineCap: .round))
-        let has = e.v != nil, r = mkPill(e, f)
-        let pill = Path(roundedRect: r, cornerRadius: 28)
+        if e.t == "dim" { ctx.stroke(p, with: .color(Color.white.opacity(0.85 * alpha)), style: StrokeStyle(lineWidth: 13 / z, lineCap: .round)) }
+        ctx.stroke(p, with: .color(c), style: StrokeStyle(lineWidth: (e.t == "dim" ? 7 : 9) / z, lineCap: .round))
+        let has = e.v != nil, r = mkPill(e, f, zoom: z, letter: letter)
+        let pill = Path(roundedRect: r, cornerRadius: 28 / z)
         ctx.fill(pill, with: .color((has ? Color.white : PILL_WAIT).opacity(alpha)))
-        ctx.stroke(pill, with: .color(has ? c : PILL_WAIT_INK.opacity(alpha)), style: StrokeStyle(lineWidth: 3, dash: has ? [] : [7, 5]))
-        let font = UIFont(name: "IBMPlexSansCond-SemiBold", size: 36) ?? .systemFont(ofSize: 36, weight: .semibold)
+        ctx.stroke(pill, with: .color(has ? c : PILL_WAIT_INK.opacity(alpha)), style: StrokeStyle(lineWidth: 3 / z, dash: has ? [] : [7 / z, 5 / z]))
+        let font = UIFont(name: "IBMPlexSansCond-SemiBold", size: 36 / z) ?? .systemFont(ofSize: 36 / z, weight: .semibold)
         let t = NSAttributedString(string: dimText(e, f), attributes: [.font: font, .foregroundColor: UIColor(has ? MK_COL["ink"]! : PILL_WAIT_INK).withAlphaComponent(alpha)])
-        let sz = t.size()
-        drawText(ctx, t, CGRect(x: r.midX - sz.width / 2, y: r.midY + 1 - sz.height / 2, width: sz.width + 2, height: sz.height))
+        // the letter in the line's colour, then the value
+        let lf = UIFont(name: "IBMPlexSansCond-Bold", size: 36 / z) ?? .systemFont(ofSize: 36 / z, weight: .bold)
+        let lt = letter.map { NSAttributedString(string: $0, attributes: [.font: lf, .foregroundColor: UIColor(c)]) }
+        let sz = t.size(), lsz = lt?.size() ?? .zero, gap: CGFloat = lt != nil ? 12 / z : 0
+        let x0 = r.midX - (lsz.width + gap + sz.width) / 2
+        if let lt { drawText(ctx, lt, CGRect(x: x0, y: r.midY + 1 / z - lsz.height / 2, width: lsz.width + 2, height: lsz.height)) }
+        drawText(ctx, t, CGRect(x: x0 + lsz.width + gap, y: r.midY + 1 / z - sz.height / 2, width: sz.width + 2, height: sz.height))
     }
 }
 
 /// The item fitted into box: the photo (or the white sheet, dotted while editing), then its marks. faded marks are shown
 /// faint (the eraser's touch before it lets go); live draws the mark being made, in item units.
 func drawMarkup(_ ctx: GraphicsContext, _ it: Item, _ photo: UIImage?, _ box: CGRect, _ f: MkFmt, _ mode: MkMode, slice: Bool = false,
-                faded: Set<String> = [], live: ((GraphicsContext) -> Void)? = nil) {
+                faded: Set<String> = [], hidden: Set<String> = [], zoom: CGFloat = 1,
+                under: ((GraphicsContext) -> Void)? = nil, live: ((GraphicsContext) -> Void)? = nil) {
+    let letters = mkLetters(it)
     let vb = mkViewBox(it, mode)
     let (k, ox, oy) = mkFit(vb, box, slice: slice)
     var c = ctx
@@ -168,7 +230,8 @@ func drawMarkup(_ ctx: GraphicsContext, _ it: Item, _ photo: UIImage?, _ box: CG
             }
         }
     }
-    for e in it.els { drawMark(c, e, f, alpha: faded.contains(e.id) ? 0.15 : 1) }
+    under?(c)   // the photo's edges, between the picture and the marks
+    for e in it.els where !hidden.contains(e.id) { drawMark(c, e, f, alpha: faded.contains(e.id) ? 0.15 : 1, zoom: zoom, letter: letters[e.id]) }
     live?(c)
 }
 

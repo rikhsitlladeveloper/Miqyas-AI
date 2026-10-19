@@ -35,6 +35,12 @@ targets:
       # the furniture core's test cases, shared with the Android unit tests
       - path: ../android-native/app/src/test/resources/furniture-cases.json
         buildPhase: resources
+      # photo edge measuring: the shared test photos and what must be found on them
+      - path: ../android-native/app/src/test/resources/edge-cases.json
+        buildPhase: resources
+      - path: ../android-native/app/src/test/resources/edges
+        type: folder
+        buildPhase: resources
     dependencies:
       - target: METRX
     settings:

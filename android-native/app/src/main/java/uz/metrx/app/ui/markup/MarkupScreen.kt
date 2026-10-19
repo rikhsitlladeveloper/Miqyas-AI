@@ -8,6 +8,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.calculateCentroid
+import androidx.compose.foundation.gestures.calculatePan
+import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -27,6 +30,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
@@ -39,6 +43,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.focus.FocusRequester
@@ -54,11 +59,15 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.clipPath
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextOverflow
@@ -77,7 +86,12 @@ import uz.metrx.app.data.PhotoFiles
 import uz.metrx.app.data.dn
 import uz.metrx.app.data.floorName
 import uz.metrx.app.data.uid
+import uz.metrx.app.geo.ESnap
+import uz.metrx.app.geo.ESnapped
 import uz.metrx.app.geo.Parsed
+import uz.metrx.app.geo.edgeSnap
+import uz.metrx.app.geo.lockAlong
+import uz.metrx.app.geo.sharedEdge
 import uz.metrx.app.geo.dimMax
 import uz.metrx.app.geo.fmtLen
 import uz.metrx.app.geo.lenErr
@@ -127,6 +141,20 @@ class MarkOps(private val app: App) {
     private val tool = mutableStateMapOf<String, String>()
     private val col = mutableStateMapOf<String, String>()
     var width by mutableIntStateOf(1)
+    /** Photo edges shown and snapped to ("Qirralar" switch), for the time the app runs. */
+    var edgesOn by mutableStateOf(true)
+    /** Photos whose rectangle offer was closed, for the time the app runs. */
+    val rectGone = mutableStateMapOf<String, Boolean>()
+
+    /** Adds the found rectangle's two sides as dimensions A and B (part 3); each is then measured like any line. */
+    fun useRect(r: Route.Markup, e: uz.metrx.app.geo.ERect) {
+        val it = item(r) ?: return; val c = colorOf(it)
+        fun q(v: Float) = (v * 10).roundToInt() / 10f
+        val add = uz.metrx.app.geo.rectSides(e).map { (a, b) -> MkEl(uid(), "dim", listOf(listOf(q(a.first), q(a.second)), listOf(q(b.first), q(b.second))), c) }
+        if (add.isEmpty()) return
+        change(r) { els -> els + add }   // the new dimensions hide the offer; undo brings it back
+        app.say("mk.rectAdded")
+    }
     var tick by mutableIntStateOf(0); private set
     private val undo = HashMap<String, ArrayList<List<MkEl>>>()
     private val redo = HashMap<String, ArrayList<List<MkEl>>>()
@@ -216,7 +244,31 @@ private class Live {
     var pen by mutableStateOf<List<List<Float>>?>(null)
     var line by mutableStateOf<Pair<List<Float>, List<Float>>?>(null)
     var faded by mutableStateOf<Set<String>>(emptySet())
+    /** A line whose end is being moved: drawn here while the stored one is hidden. */
+    var edit by mutableStateOf<MkEl?>(null)
+    /** Where the finger's point is on the screen while a line is drawn or an end moved: the loupe shows it. */
+    var loupe by mutableStateOf<Offset?>(null)
+    /** The photo edges and corners the line's ends are stuck to (drawn blue), and the hint saying so. */
+    var stuck by mutableStateOf<List<ESnap>>(emptyList())
+    var hint by mutableStateOf<String?>(null)
+    fun clear() { pen = null; line = null; faded = emptySet(); edit = null; loupe = null; stuck = emptyList(); hint = null }
 }
+
+/** What the hint says while a line's end is stuck: along an edge (both ends on it), to a corner, or to an edge. */
+private fun snapHint(a: ESnapped, b: ESnapped): String? = when {
+    sharedEdge(a.snap, b.snap) != null -> "mk.snapL"
+    b.snap?.corner == true -> "mk.snapC"
+    b.snap != null -> "mk.snapE"
+    else -> null
+}
+
+/** The editor's zoom (1–4) and pan, kept while the item is open. */
+private class MkZoom {
+    var z by mutableFloatStateOf(1f)
+    var pan by mutableStateOf(Offset.Zero)
+}
+
+private const val LOUPE_MAG = 2.5f
 
 @Composable
 fun MarkupScreen(r: Route.Markup) {
@@ -245,18 +297,64 @@ fun MarkupScreen(r: Route.Markup) {
             if (r.pid == null) GlassIconButton("share", tr("cm.share"), { shareShot(app, it) }, iconSize = 20.dp)
             GlassIconButton("more", "menu", { app.sheet = if (r.pid == null) Sheet.ShotMenu else Sheet.ItemMenu(r.pid, ops.wid(r) ?: "", it.id) }, iconSize = 20.dp)
         }
+        val zm = remember(it.id) { MkZoom() }
+        val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current
+        // the photo's edges (part 2): found once, shown and snapped to while "Qirralar" is on
+        val edges = if (ph) rememberPhotoEdges(it) else null
+        val edgesNow by rememberUpdatedState(if (ph && ops.edgesOn) edges else null)
+        // the rectangle offer: until the photo has a dimension, or it is used or closed
+        val rectOffer = ph && ops.edgesOn && edges?.rect != null && ops.rectGone[it.id] != true && it.els.none { e -> e.t == "dim" } && live.line == null && live.edit == null
+        LaunchedEffect(edges) { if (ph && ops.edgesOn && edges != null && edges.segs.isEmpty() && it.src != null) app.say("mk.noEdges", kind = uz.metrx.app.ui.components.ToastKind.INFO) }
         Box(Modifier.weight(1f).fillMaxWidth().background(if (ph) Color(0xFF0E1C36) else G.stage).padding(10.dp)) {
-            Canvas(Modifier.fillMaxSize().pointerInput(it.id) {
+            Canvas(Modifier.fillMaxSize().clipToBounds().pointerInput(it.id) {
                 awaitEachGesture {
                     val down = awaitFirstDown()
                     if (app.sheet != null) return@awaitEachGesture
                     val item = cur
                     val box = Rect(0f, 0f, size.width.toFloat(), size.height.toFloat())
-                    fun q(p: Offset): Offset { val o = mkToItem(item, box, p); return Offset(o.x.coerceIn(4f, item.W - 4f), o.y.coerceIn(4f, item.hh - 4f)) }
+                    fun view() = mkZoomBox(box, zm.z, zm.pan)
+                    fun q(p: Offset): Offset { val o = mkToItem(item, view(), p); return Offset(o.x.coerceIn(4f, item.W - 4f), o.y.coerceIn(4f, item.hh - 4f)) }
+                    fun onScreen(p: Offset): Offset { val (k, ox, oy) = mkFit(mkViewBox(item, MkMode.EDIT), view()); return Offset(ox + p.x * k, oy + p.y * k) }
                     fun r1(v: Float) = (v * 10).roundToInt() / 10f
                     val t = ops.toolOf(item); val c = ops.colorOf(item)
                     val p0 = q(down.position)
-                    val lab = if (t != "eraser" && t != "pen") mkLabelAt(item, p0, fmt) else null
+                    val lab = if (t != "eraser" && t != "pen") mkLabelAt(item, p0, fmt, zm.z) else null
+                    val perPx = mkFit(mkViewBox(item, MkMode.EDIT), view()).first
+                    val slop = viewConfiguration.touchSlop
+                    // snapping: a corner within about 6 mm of the finger first, else an edge within about 4 mm
+                    val ed = edgesNow
+                    val rC = 38f * density / perPx; val rE = 25f * density / perPx
+                    fun snapAt(p: Offset): ESnapped = if (ed == null) ESnapped(p.x, p.y, null) else edgeSnap(ed, p.x, p.y, rC, rE)
+                    fun stuckAt(p: List<Float>): ESnap? = ed?.let { e -> edgeSnap(e, p[0], p[1], 1.5f, 1.5f).snap }
+                    /** A line from [a] to the finger at [to]: the end snaps onto the edges (else to 45°); two ends on one edge lie along it. */
+                    fun place(a: ESnapped, to: Offset): Pair<ESnapped, ESnapped> {
+                        val s = snapAt(to)
+                        val e2 = if (s.snap != null) s else snapAngle(Offset(a.x, a.y), to, app.settings.angleSnap).let { f -> ESnapped(f.x, f.y, null) }
+                        return if (ed != null) lockAlong(ed, a, e2) else a to e2
+                    }
+
+                    // holding still on a line's end picks it up to move it; dragging straight away draws a new line from there
+                    var grab: Pair<MkEl, Int>? = null
+                    var early = 0   // 1: lifted, 2: moved on, 3: a second finger
+                    val endHere = if (lab == null && (t == "line" || t == "dim" || t == "arrow")) mkEndAt(item, p0, 24f * density / perPx) else null
+                    if (endHere != null) {
+                        val held = withTimeoutOrNull(320L) {
+                            while (true) {
+                                val ev = awaitPointerEvent()
+                                val ch = ev.changes.firstOrNull { x -> x.id == down.id }
+                                when {
+                                    ch == null || !ch.pressed -> { early = 1; break }
+                                    ev.changes.count { x -> x.pressed } >= 2 -> { early = 3; break }
+                                    (ch.position - down.position).getDistance() > slop -> { early = 2; break }
+                                }
+                            }
+                        }
+                        if (held == null) { grab = endHere; haptic.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.LongPress) }
+                    }
+                    if (early == 1) {
+                        if (lab != null) { if (lab.t == "text") openText(app, lab, null) else openDim(app, lab) }
+                        return@awaitEachGesture
+                    }
 
                     var moved = 0f
                     val pts = ArrayList<List<Float>>().apply { add(listOf(r1(p0.x), r1(p0.y))) }
@@ -264,51 +362,148 @@ fun MarkupScreen(r: Route.Markup) {
                     val hit = HashSet<String>()
                     var lastQ = p0
                     fun erase(x: Offset) { item.els.forEach { e -> if (e.id !in hit && mkNear(e, x)) hit.add(e.id) }; live.faded = hit.toSet() }
-                    when (t) { "pen" -> live.pen = pts.toList(); "eraser" -> erase(p0) }
+                    fun moveEnd(to: Offset): MkEl {
+                        val (e, i) = grab!!; val o = e.pts[1 - i]
+                        val (lo, ln) = place(ESnapped(o[0], o[1], stuckAt(o)), to); b = Offset(ln.x, ln.y)
+                        live.stuck = listOfNotNull(lo.snap, ln.snap); live.hint = snapHint(lo, ln)
+                        val np = listOf(r1(ln.x), r1(ln.y)); val op = listOf(r1(lo.x), r1(lo.y))
+                        return e.copy(pts = if (i == 0) listOf(np, op) else listOf(op, np))
+                    }
+                    // a new line starts on the corner or edge under the finger
+                    val a0 = if (grab == null && (t == "line" || t == "dim" || t == "arrow")) snapAt(p0) else ESnapped(p0.x, p0.y, null)
+                    var start = Offset(a0.x, a0.y)
+                    if (grab != null) { live.edit = moveEnd(p0); live.loupe = onScreen(b) }
+                    else when (t) { "pen" -> live.pen = pts.toList(); "eraser" -> erase(p0) }
                     var ended = false
+                    var pinched = early == 3
                     try {
                         while (true) {
                             val ev = awaitPointerEvent()
+                            val pressed = ev.changes.filter { x -> x.pressed }
+                            // two fingers zoom and move the photo; whatever was being drawn is dropped
+                            if (pinched || pressed.size >= 2) {
+                                if (!pinched || live.edit != null || live.line != null || live.pen != null) { pinched = true; live.clear() }
+                                if (pressed.isEmpty()) break
+                                if (pressed.size >= 2) {
+                                    val (nz, np) = mkPinch(item, box, zm.z, zm.pan, ev.calculateZoom(), ev.calculateCentroid(useCurrent = true), ev.calculatePan())
+                                    zm.z = nz; zm.pan = np
+                                }
+                                ev.changes.forEach { x -> x.consume() }
+                                continue
+                            }
                             val ch = ev.changes.firstOrNull { x -> x.id == down.id } ?: break
                             if (!ch.pressed) { ended = true; break }
                             ch.consume()
                             moved = maxOf(moved, (ch.position - down.position).getDistance())
 
-                            if (lab != null || t == "text") continue
                             val qq = q(ch.position)
+                            if (grab != null) { live.edit = moveEnd(qq); live.loupe = onScreen(b); continue }
+                            if (lab != null || t == "text") continue
                             when (t) {
                                 "pen" -> { val l = pts.last(); if (hypot(qq.x - l[0], qq.y - l[1]) > 4f) { pts.add(listOf(r1(qq.x), r1(qq.y))); live.pen = pts.toList() } }
-                                "line", "dim", "arrow" -> { b = snapAngle(p0, qq, app.settings.angleSnap); live.line = listOf(p0.x, p0.y) to listOf(b.x, b.y) }
+                                "line", "dim", "arrow" -> {
+                                    val (la, lb) = place(a0, qq); start = Offset(la.x, la.y); b = Offset(lb.x, lb.y)
+                                    live.line = listOf(start.x, start.y) to listOf(b.x, b.y)
+                                    live.stuck = listOfNotNull(la.snap, lb.snap); live.hint = snapHint(la, lb)
+                                    if (moved > 12f * density) live.loupe = onScreen(b)
+                                }
                                 "eraser" -> { val n = maxOf(1, (hypot(qq.x - lastQ.x, qq.y - lastQ.y) / 12f).toInt()); for (i in 1..n) erase(lastQ + (qq - lastQ) * (i / n.toFloat())); lastQ = qq }
                             }
                         }
                     } finally {
-                        live.pen = null; live.line = null; live.faded = emptySet()
+                        live.clear()
                     }
-                    if (!ended) return@awaitEachGesture
+                    if (!ended || pinched) return@awaitEachGesture
                     val tap = moved < 12f * density
+                    val g = grab
                     when {
+                        g != null -> {
+                            val moved2 = moveEnd(b); live.clear()
+                            if (hypot(moved2.pts[0][0] - moved2.pts[1][0], moved2.pts[0][1] - moved2.pts[1][1]) >= 30f && moved2.pts != g.first.pts)
+                                ops.change(r) { els -> els.map { e -> if (e.id == g.first.id) moved2 else e } }
+                        }
                         lab != null -> if (tap) { if (lab.t == "text") openText(app, lab, null) else openDim(app, lab) }
                         t == "text" -> if (tap) openText(app, null, p0)
                         t == "pen" -> ops.change(r) { it + MkEl(uid(), "pen", pts.toList(), c, ops.width) }
                         t == "eraser" -> if (hit.isNotEmpty()) ops.change(r) { it.filter { e -> e.id !in hit } }
-                        else -> if (hypot(b.x - p0.x, b.y - p0.y) >= 30f) {
-                            val el = MkEl(uid(), t, listOf(listOf(r1(p0.x), r1(p0.y)), listOf(r1(b.x), r1(b.y))), c)
+                        else -> if (hypot(b.x - start.x, b.y - start.y) >= 30f) {
+                            val el = MkEl(uid(), t, listOf(listOf(r1(start.x), r1(start.y)), listOf(r1(b.x), r1(b.y))), c)
                             ops.change(r) { it + el }
                             if (t != "arrow") openDim(app, el)
                         }
                     }
-                                }
+                }
             }) {
                 val box = Rect(Offset.Zero, size)
-                drawMarkup(it, photo, box, fmt, tm, MkMode.EDIT, faded = live.faded) {
+                val view = mkZoomBox(box, zm.z, zm.pan)
+                val hide = live.edit?.let { e -> setOf(e.id) } ?: emptySet()
+                val letters = mkLetters(it)
+                val liveMarks: DrawScope.(Float) -> Unit = { z ->
                     val cc = MK_COL[col] ?: MK_COL.getValue("ink")
                     live.pen?.let { ps ->
                         val path = Path().apply { (if (ps.size > 1) ps else listOf(ps[0], listOf(ps[0][0] + .1f, ps[0][1]))).forEachIndexed { i, q -> if (i == 0) moveTo(q[0], q[1]) else lineTo(q[0], q[1]) } }
                         drawPath(path, cc, style = Stroke(if (ops.width == 2) 18f else 8f, cap = StrokeCap.Round, join = StrokeJoin.Round))
                     }
-                    live.line?.let { (a, b) -> drawLine(cc, Offset(a[0], a[1]), Offset(b[0], b[1]), 7f, StrokeCap.Round, PathEffect.dashPathEffect(floatArrayOf(14f, 10f))) }
+                    live.line?.let { (a, b) -> drawLine(cc, Offset(a[0], a[1]), Offset(b[0], b[1]), 7f / z, StrokeCap.Round, PathEffect.dashPathEffect(floatArrayOf(14f / z, 10f / z))) }
+                    live.edit?.let { e -> drawMark(e, fmt, tm, zoom = z, letter = letters[e.id]) }
                 }
+                val ed = if (ph && ops.edgesOn) edges else null
+                val offerRect = ed?.rect?.takeIf { _ -> rectOffer }
+                val ppu = mkFit(mkViewBox(it, MkMode.EDIT), view).first
+                drawMarkup(it, photo, view, fmt, tm, MkMode.EDIT, faded = live.faded, hidden = hide, zoom = zm.z,
+                    under = { offerRect?.let { r0 -> drawRectOffer(r0, ppu) }; ed?.let { e -> drawPhotoEdges(e, ppu, live.stuck) } }) { liveMarks(zm.z) }
+                // the loupe: the photo around the finger, 2.5 times larger, above it (below it near the top)
+                live.loupe?.let { s ->
+                    val rad = 60.dp.toPx(); val l = mkLoupeAt(s, size, rad, 34.dp.toPx())
+                    val circle = Path().apply { addOval(Rect(l, rad)) }
+                    drawCircle(Color.Black.copy(alpha = .28f), rad + 4.dp.toPx(), l + Offset(0f, 6.dp.toPx()))
+                    clipPath(circle) {
+                        drawRect(Color(0xFF161D30), l - Offset(rad, rad), Size(rad * 2, rad * 2))
+                        drawMarkup(it, photo, mkLoupeBox(view, s, l, LOUPE_MAG), fmt, tm, MkMode.EDIT, faded = live.faded, hidden = hide, zoom = zm.z * LOUPE_MAG,
+                            under = { ed?.let { e -> drawPhotoEdges(e, ppu * LOUPE_MAG, live.stuck) } }) { liveMarks(zm.z * LOUPE_MAG) }
+                    }
+                    drawCircle(Color.White, rad, l, style = Stroke(3.dp.toPx()))
+                    val gap = 7.dp.toPx(); val arm = 16.dp.toPx()
+                    listOf(Offset(1f, 0f), Offset(-1f, 0f), Offset(0f, 1f), Offset(0f, -1f)).forEach { d ->
+                        drawLine(Color.White, l + d * gap, l + d * arm, 3.dp.toPx(), StrokeCap.Round)
+                        drawLine(MK_COL.getValue("red"), l + d * gap, l + d * arm, 1.5.dp.toPx(), StrokeCap.Round)
+                    }
+                }
+            }
+            // a clear rectangle (table top, door, cabinet front) on a photo with no dimensions yet: offer its sides as A and B
+            val er = edges?.rect
+            if (rectOffer && er != null) Row(
+                Modifier.align(Alignment.TopCenter).padding(start = 8.dp, end = 8.dp, top = 52.dp).fillMaxWidth()
+                    .clip(RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = .94f)).padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(tr("mk.rectT"), style = ui(13.5f, 600, MK_COL.getValue("ink"), 1.25f), modifier = Modifier.weight(1f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Box(Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(12.dp)).background(G.cobalt).clickable(role = Role.Button) { ops.useRect(r, er) }.padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.Center) { Text(tr("mk.rectUse"), style = ui(13.5f, 700, Color.White), maxLines = 1) }
+                Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(Color(0x0F0F172A)).clickable(role = Role.Button, onClickLabel = tr("common.close")) { ops.rectGone[it.id] = true },
+                    contentAlignment = Alignment.Center) { MIcon("x", Color(0xFF475569), 18.dp, 2.2f) }
+            }
+            // the "Qirralar" switch: shows the photo's edges and snaps line ends to them
+            if (ph) Row(
+                Modifier.align(Alignment.TopStart).padding(8.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xCC0F1626))
+                    .clickable(role = Role.Switch) { ops.edgesOn = !ops.edgesOn }.padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp)
+                    .semantics { stateDescription = if (ops.edgesOn) "on" else "off" },
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                val on = ops.edgesOn
+                Box(Modifier.size(30.dp, 18.dp).clip(RoundedCornerShape(9.dp)).background(if (on) G.cobalt else Color(0xFF5B6478))) {
+                    Box(Modifier.align(if (on) Alignment.CenterEnd else Alignment.CenterStart).padding(2.dp).size(14.dp).clip(CircleShape).background(Color.White))
+                }
+                Text(tr(if (on && edges == null) "mk.edgesBusy" else "mk.edges"), style = ui(13.5f, 700, Color.White))
+            }
+            // zoomed in: the zoom and a tap back to the whole photo
+            if (zm.z > 1.02f) Row(
+                Modifier.align(Alignment.TopEnd).padding(8.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xCC0F1626))
+                    .clickable(role = Role.Button, onClickLabel = tr("mk.zoomReset")) { zm.z = 1f; zm.pan = Offset.Zero }.padding(horizontal = 12.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                Text(String.format(java.util.Locale.ROOT, "%.1f", zm.z).replace('.', if (lang == Lang.EN) '.' else ',') + "×", style = uz.metrx.app.ui.theme.num(14f, 700, Color.White))
+                MIcon("x", Color.White.copy(alpha = .7f), 14.dp, 2.2f)
             }
         }
         if (ph) Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).background(G.sheet(.8f)).drawBehind { drawLine(G.ink.copy(alpha = .08f), Offset.Zero, Offset(size.width, 0f), 1.dp.toPx()) }
@@ -339,7 +534,9 @@ fun MarkupScreen(r: Route.Markup) {
                     }
                 }
             }
-            Text(tr("mk.h.$tool"), style = ui(12f, 400, G.ink3, 1.3f), modifier = Modifier.weight(1f), maxLines = 3, overflow = TextOverflow.Ellipsis)
+            // while a line's end is stuck the hint says to what (blue), otherwise what the tool does
+            val hk = live.hint
+            Text(if (hk != null) tr(hk) else tr("mk.h.$tool"), style = ui(12f, if (hk != null) 600 else 400, if (hk != null) G.cobalt2 else G.ink3, 1.3f), modifier = Modifier.weight(1f), maxLines = 3, overflow = TextOverflow.Ellipsis)
         }
         MkTools(it, tool)
     }
