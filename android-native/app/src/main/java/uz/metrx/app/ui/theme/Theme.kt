@@ -83,7 +83,18 @@ object G {
     val solid get() = pick(Color.White, Color(0xFF1A2030))
     /** Behind a drawing or photo while it is edited. */
     val stage get() = pick(Color(0xFFE9EDF3), Color(0xFF10141E))
+    /**
+     * An unselected chip or tile: see-through glass at [a] on the page, a faint grey on a sheet, where white glass
+     * on the near-white sheet would vanish (most visibly on Android 11 and older, which have no blur).
+     */
+    @Composable @ReadOnlyComposable
+    fun idle(a: Float) = if (LocalOnSheet.current && !Theme.dark) ink.copy(alpha = .06f) else glass(a)
+    /** The edge of an unselected chip or tile, as [idle]. */
+    val idleRim @Composable @ReadOnlyComposable get() = if (LocalOnSheet.current && !Theme.dark) ink.copy(alpha = .12f) else rim
 }
+
+/** True inside a [uz.metrx.app.ui.components.GlassSheet]. */
+val LocalOnSheet = staticCompositionLocalOf { false }
 
 /* Colours of the sign-in screens (prototype modules/auth.css, from the founder's Figma file). */
 object Au {

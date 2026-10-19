@@ -105,8 +105,17 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                 }
             }
             ProCard { app.push(Route.Subscription) }
+            // furniture makers: how the workshop builds and prices, and its boards and hardware (furniture plan section 6)
+            if (s.furniture) {
+                Group(tr("wk.group"))
+                Card {
+                    Row1("sliders", tr("wk.title"), null, sub = tr("wk.titleS")) { app.push(Route.Workshop) }
+                    Row1("layers", tr("wk.mats"), null, sub = tr("wk.matsS", "m" to s.mats.size, "h" to s.hws.size)) { app.push(Route.Materials) }
+                }
+            }
             Group(tr("pf.gReport"))
             Card {
+                Row1("sliders", tr("ind.row"), tr(if (s.furniture) "ind.furn" else "ind.build")) { app.sheet = Sheet.Industry }
                 Row1("globe", tr("se.lang"), s.lang.longName) { nav.languages() }
                 Row1("doc", tr("se.reportLang"), s.reportLang.longName) { app.sheet = Sheet.ReportLang }
                 val pdfN = listOf(s.pdf.plan, s.pdf.dims, s.pdf.views, s.pdf.estimate, s.pdf.sign).count { it }
@@ -286,8 +295,8 @@ private fun ProfileSheetUi(s: Sheet) {
 /** A choice in a list (prototype .optlist .opt): white, blue when chosen, with a check. */
 @Composable
 private fun Opt(title: String, on: Boolean, sub: String? = null, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(if (on) G.cobalt.copy(alpha = .1f) else G.glass(.6f))
-        .border(1.dp, if (on) G.cobalt.copy(alpha = .5f) else G.rim, RoundedCornerShape(16.dp)).clickable(role = Role.RadioButton, onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(if (on) G.cobalt.copy(alpha = .1f) else G.idle(.6f))
+        .border(1.dp, if (on) G.cobalt.copy(alpha = .5f) else G.idleRim, RoundedCornerShape(16.dp)).clickable(role = Role.RadioButton, onClick = onClick).padding(horizontal = 16.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, style = ui(16f, if (on) 700 else 500, if (on) G.cobalt2 else G.ink))

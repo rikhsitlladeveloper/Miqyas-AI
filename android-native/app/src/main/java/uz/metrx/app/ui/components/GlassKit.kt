@@ -1,5 +1,6 @@
 package uz.metrx.app.ui.components
 
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,6 +25,7 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -44,6 +46,7 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.semantics.Role
@@ -156,8 +159,10 @@ fun GBtn(label: String, onClick: () -> Unit, kind: Btn = Btn.PRIMARY, icon: Stri
     val fg = if (kind == Btn.SECONDARY) G.ink else Color.White
     Row(
         modifier.let { if (fill) it.fillMaxWidth() else it }.heightIn(min = height)
-            .let { if (kind == Btn.PRIMARY && enabled) it.dropShadow(shape, Shadow(18.dp, Color(0x38374FDD), offset = DpOffset(0.dp, 8.dp))) else it }
-            .clip(shape).background(bg).alpha(if (enabled) 1f else .42f)
+            // the shadow and the fade stay in the chain whatever [enabled] is: switching them in and out of a button already
+            // on screen made it lose its fill (the "Davom etish" / "Buyurtma yaratish" buttons turned pale when enabled)
+            .dropShadow(shape, Shadow(18.dp, if (kind == Btn.PRIMARY && enabled) Color(0x38374FDD) else Color.Transparent, offset = DpOffset(0.dp, 8.dp)))
+            .clip(shape).background(bg).graphicsLayer { alpha = if (enabled) 1f else .42f }
             .pressable({ if (enabled) onClick() }, .98f).padding(horizontal = if (height < 50.dp) 12.dp else 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically
     ) {
@@ -184,6 +189,26 @@ object PhoneGroups : VisualTransformation {
     }
 }
 
+/** Sums typed as digits show in groups of three ("28 921 620"), as everywhere else in the app; the value stays digits. */
+object DigitGroups : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val d = text.text
+        if (d.length < 4 || !d.all { it.isDigit() }) return TransformedText(text, OffsetMapping.Identity)
+        val first = d.length % 3
+        val sb = StringBuilder()
+        d.forEachIndexed { i, c -> if (i > 0 && (i - first) % 3 == 0) sb.append(' '); sb.append(c) }
+        val out = sb.toString()
+        // where each digit lands in the grouped text
+        val pos = IntArray(d.length + 1); var j = 0
+        for (i in d.indices) { if (i > 0 && (i - first) % 3 == 0) j++; pos[i] = j; j++ }
+        pos[d.length] = out.length
+        return TransformedText(AnnotatedString(out), object : OffsetMapping {
+            override fun originalToTransformed(offset: Int) = pos[offset.coerceIn(0, d.length)]
+            override fun transformedToOriginal(offset: Int): Int { var i = 0; while (i < d.length && pos[i] < offset) i++; return i }
+        })
+    }
+}
+
 fun phoneDigits(v: String): String {
     var d = v.filter { it.isDigit() }
     if (d.length > 9 && d.startsWith("998")) d = d.substring(3)
@@ -201,12 +226,16 @@ fun GField(
     imeAction: ImeAction = ImeAction.Next, onIme: () -> Unit = {}, onBlur: () -> Unit = {},
     focusRequester: FocusRequester = remember { FocusRequester() }, minLines: Int = 1, labelRight: String? = null,
     capitalization: KeyboardCapitalization = KeyboardCapitalization.Sentences, done: Boolean = false,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier, number: Boolean = false, money: Boolean = false
 ) {
     var focused by remember { mutableStateOf(false) }
     val bad = showError && error != null
     val shape = RoundedCornerShape(16.dp)
-    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    // on focus the whole field (label to error line) scrolls into view, not just the cursor, so a button
+    // above the keyboard never covers half of it
+    val whole = remember { androidx.compose.foundation.relocation.BringIntoViewRequester() }
+    LaunchedEffect(focused) { if (focused) { kotlinx.coroutines.delay(250); whole.bringIntoView() } }
+    Column(modifier.fillMaxWidth().bringIntoViewRequester(whole), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         if (label != null) Row(verticalAlignment = Alignment.CenterVertically) {
             Text(label, style = ui(15f, 700), modifier = Modifier.weight(1f))
             if (optional) Text(tr("common.optional").replaceFirstChar { it.uppercase() }, style = ui(13f, 500, G.ink3))
@@ -232,9 +261,9 @@ fun GField(
                 BasicTextField(
                     value = value, onValueChange = { onValue(if (phone) phoneDigits(it) else it) },
                     singleLine = minLines == 1, minLines = minLines, textStyle = style, cursorBrush = SolidColor(G.cobalt),
-                    visualTransformation = if (phone) PhoneGroups else VisualTransformation.None,
+                    visualTransformation = if (phone) PhoneGroups else if (money) DigitGroups else VisualTransformation.None,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = if (phone) KeyboardType.Phone else KeyboardType.Text,
+                        keyboardType = if (phone) KeyboardType.Phone else if (number) KeyboardType.Number else KeyboardType.Text,
                         capitalization = if (phone) KeyboardCapitalization.None else capitalization,
                         imeAction = if (minLines > 1) ImeAction.Default else imeAction
                     ),

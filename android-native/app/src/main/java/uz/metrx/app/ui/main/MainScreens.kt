@@ -93,8 +93,10 @@ fun GlassNav(cur: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifier) {
                 .border(1.dp, G.rim, shape).padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
+            val furniture = LocalSettings.current.furniture
             Tab.entries.forEach { t ->
                 val on = t == cur
+                val label = if (t == Tab.PROJECTS && furniture) "fo.tab" else t.label
                 val bg by animateColorAsState(if (on) G.glass(.85f) else Color.Transparent, label = "tab")
                 val bubble = RoundedCornerShape(28.dp)
                 Column(
@@ -106,7 +108,7 @@ fun GlassNav(cur: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifier) {
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
                 ) {
                     MIcon(t.icon, if (on) G.cobalt2 else G.slate, 22.dp, 2f)
-                    Text(tr(t.label), style = ui(11f, if (on) 700 else 600, if (on) G.cobalt2 else G.slate), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(tr(label), style = ui(11f, if (on) 700 else 600, if (on) G.cobalt2 else G.slate), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
         }
@@ -123,6 +125,7 @@ private const val CALC = "M8 2.5h8a3 3 0 0 1 3 3v13a3 3 0 0 1-3 3H8a3 3 0 0 1-3-
 @Composable
 fun HomeScreen(nav: MainNav) {
     val settings = LocalSettings.current
+    if (settings.furniture) { uz.metrx.app.ui.furniture.FurnitureHome(nav); return }
     val first = settings.builderName.trim().split(Regex("\\s+")).firstOrNull().orEmpty()
     val lines = tr("gl.lines").split('|')
     val line = lines[settings.visit % lines.size]
@@ -235,8 +238,8 @@ fun LanguageSheet(cur: Lang, onPick: (Lang) -> Unit, onClose: () -> Unit) {
             val on = l == cur
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp))
-                    .background(if (on) G.cobalt.copy(alpha = .1f) else G.glass(.6f))
-                    .border(1.dp, if (on) G.cobalt.copy(alpha = .5f) else G.rim, RoundedCornerShape(16.dp))
+                    .background(if (on) G.cobalt.copy(alpha = .1f) else G.idle(.6f))
+                    .border(1.dp, if (on) G.cobalt.copy(alpha = .5f) else G.idleRim, RoundedCornerShape(16.dp))
                     .clickable(role = Role.RadioButton) { onPick(l) }.padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

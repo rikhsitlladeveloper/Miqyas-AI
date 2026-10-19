@@ -88,6 +88,7 @@ import uz.metrx.app.ui.theme.G
 import uz.metrx.app.ui.theme.Jakarta
 import uz.metrx.app.ui.theme.LocalLang
 import uz.metrx.app.ui.theme.PlexCond
+import uz.metrx.app.ui.furniture.drawSitePoint
 import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
@@ -180,6 +181,8 @@ fun WallViewScreen(rt: Route.WallView) {
                 Text(tr("wv.inside"), style = ui(12.5f, 400, G.ink2))
                 Box(Modifier.fillMaxWidth().offset(x = slide.value.dp).alpha(1f - abs(slide.value) / 28f * .65f)) {
                     Elevation(r, w, wallOps, fr, unit, en, onSwipe = ::go,
+                        pts = if (p.isFurniture) r.points.filter { it.wall == w.id } else emptyList(),
+                        onPoint = { id -> app.sheet = Sheet.PointForm(p.id, r.id, w.id, id) },
                         onOpening = { id -> app.sheet = Sheet.OpeningForm(p.id, r.id, id) },
                         onLength = {
                             when {
@@ -219,6 +222,8 @@ fun WallViewScreen(rt: Route.WallView) {
                         }
                     }
                 }
+                // furniture orders: sockets, switches and pipes on this wall (furniture plan section 5)
+                if (p.isFurniture) uz.metrx.app.ui.furniture.PointsSection(p, r, w.id)
                 Row(
                     Modifier.heightIn(min = 48.dp).clip(CircleShape).background(G.cobalt).pressable({ app.sheet = Sheet.WallAdd(p.id, r.id, w.id) }, .97f).padding(horizontal = 18.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -280,7 +285,7 @@ private data class Drag(val id: String, val off: Int, val sill: Int, val snapTag
 @Composable
 private fun Elevation(
     r: Room, w: Wall, ops: List<Opening>, fr: WallFrame, unit: LenUnit, en: Boolean,
-    onSwipe: (Int) -> Unit, onOpening: (String) -> Unit, onLength: () -> Unit, onHeight: () -> Unit,
+    onSwipe: (Int) -> Unit, pts: List<uz.metrx.app.data.SitePoint>, onPoint: (String) -> Unit, onOpening: (String) -> Unit, onLength: () -> Unit, onHeight: () -> Unit,
     onDragEnd: (Opening, Int, Int) -> Unit
 ) {
     val app = LocalApp.current
@@ -293,14 +298,16 @@ private fun Elevation(
     val lay = ElevLayout(fr, shown)
     val st = app.settings
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(G.glass(.55f)).border(1.dp, G.rim, RoundedCornerShape(22.dp)).roomGrid()) {
-        Canvas(Modifier.fillMaxWidth().aspectRatio(lay.VW / lay.VH).pointerInput(r, w.id, fr) {
+        Canvas(Modifier.fillMaxWidth().aspectRatio(lay.VW / lay.VH).pointerInput(r, w.id, fr, pts) {
             awaitEachGesture {
                 val down = awaitFirstDown()
                 val k = size.width / lay.VW
                 fun vb(p: Offset) = Offset(p.x / k, p.y / k)
                 val start = down.position; val sp = vb(start)
                 val laySnap = ElevLayout(fr, ops)
-                val hitOp = ops.lastOrNull { o ->
+                // a site point is small: a tap near it opens it, before any door or window under it
+                val hitPt = pts.lastOrNull { x -> abs(sp.x - laySnap.x(x.off)) < 14f && abs(sp.y - laySnap.y(x.h)) < 14f }
+                val hitOp = if (hitPt != null) null else ops.lastOrNull { o ->
                     val x0 = laySnap.x(o.off) - 4; val x1 = laySnap.x(o.off + o.w) + 4
                     val y0 = laySnap.y(o.sill + o.h) - 4; val y1 = laySnap.y(o.sill) + 4
                     sp.x in x0..x1 && sp.y in y0..y1
@@ -341,7 +348,8 @@ private fun Elevation(
                 val c = cur
                 if (dragging && hitOp != null && c != null) onDragEnd(hitOp, c.off, c.sill)
                 else if (!swiped) {
-                    if (hitOp != null) onOpening(hitOp.id)
+                    if (hitPt != null) onPoint(hitPt.id)
+                    else if (hitOp != null) onOpening(hitOp.id)
                     else {
                         val ly = laySnap
                         if (abs(sp.y - (ly.yFloor + ly.chainH + 30f)) < 20f) onLength()
@@ -351,7 +359,10 @@ private fun Elevation(
             }
         }) {
             val k = size.width / lay.VW
-            withTransform({ scale(k, k, pivot = Offset.Zero) }) { drawElevation(lay, r, w, shown, fr, unit, en, live, tm, issueOf) }
+            withTransform({ scale(k, k, pivot = Offset.Zero) }) {
+                drawElevation(lay, r, w, shown, fr, unit, en, live, tm, issueOf)
+                pts.forEach { x -> drawSitePoint(x, Offset(lay.x(x.off), lay.y(x.h)), lay.s, 7f) }
+            }
             if (live != null) {
                 val o = shown.first { it.id == live.id }
                 val bad = app.ops.issue(r, o) != null

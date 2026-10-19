@@ -185,8 +185,8 @@ private fun NewRoomSheet(s: Sheet.NewRoom) {
 private fun ShapeRow(d: String, label: String, on: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Row(
-        Modifier.fillMaxWidth().heightIn(min = 49.dp).clip(shape).background(if (on) G.cobalt.copy(alpha = .12f) else G.glass(.55f))
-            .border(1.dp, if (on) G.cobalt else G.rim, shape).clickable(enabled = !on, role = Role.Button, onClick = onClick).padding(horizontal = 14.dp),
+        Modifier.fillMaxWidth().heightIn(min = 49.dp).clip(shape).background(if (on) G.cobalt.copy(alpha = .12f) else G.idle(.55f))
+            .border(1.dp, if (on) G.cobalt else G.idleRim, shape).clickable(enabled = !on, role = Role.Button, onClick = onClick).padding(horizontal = 14.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         uz.metrx.app.ui.icons.PathIcon(d, if (on) G.cobalt2 else G.ink, 30.dp, 2f, viewBox = 34f)
@@ -552,6 +552,12 @@ private fun WallAddSheet(s: Sheet.WallAdd) {
             Hairline()
             ActionRow("window", tr("op.window") + "  ·  " + fmtLen(st.winW, unit, en) + " × " + fmtLen(st.winH, unit, en), { app.sheet = Sheet.OpeningForm(s.pid, s.rid, null, "window", s.wall) },
                 trailing = { MIcon("chev", G.ink3, 18.dp, 2f) })
+            // furniture orders mark sockets and pipes too (furniture plan section 5)
+            if (app.store.get(s.pid)?.isFurniture == true) {
+                Hairline()
+                ActionRow("plus", tr("pt.add") + "  ·  " + tr("pt.addRow"), { app.sheet = Sheet.PointForm(s.pid, s.rid, s.wall) },
+                    trailing = { MIcon("chev", G.ink3, 18.dp, 2f) })
+            }
         }
     }
 }

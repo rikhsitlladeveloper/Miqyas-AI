@@ -79,13 +79,18 @@ fun Modifier.topHighlight(alpha: Float = .95f, width: Dp = 1.5.dp): Modifier = d
 }
 
 /**
- * Real glass for layers that content moves behind: blurs the page under it on Android 12+ (Haze),
- * and shows the same white tint, a little stronger, on older phones.
+ * Real glass for layers that content moves behind: blurs the page under it on Android 12+ (Haze). Older phones cannot
+ * blur: there the layer is a solid pale cool grey in the light look (not white), so the white glass fields, chips and
+ * buttons on it still show; on a plain white sheet they vanished (the founder's Mi 6X, Android 8.1).
  */
-fun Modifier.glassBlur(haze: HazeState?, tint: Color, blur: Dp = 26.dp): Modifier =
-    if (haze == null) background(tint) else hazeEffect(haze) {
+fun Modifier.glassBlur(haze: HazeState?, tint: Color, blur: Dp = 26.dp): Modifier {
+    val a = minOf(1f, tint.alpha + .35f)
+    val white = tint.red > .97f && tint.green > .97f && tint.blue > .97f
+    val fallback = if (white) Color(0xFFEDF0F6).copy(alpha = a) else tint.copy(alpha = a)
+    return if (haze == null) background(tint) else hazeEffect(haze) {
         blurRadius = blur
         tints = listOf(HazeTint(tint))
-        fallbackTint = HazeTint(tint.copy(alpha = minOf(1f, tint.alpha + .35f)))
+        fallbackTint = HazeTint(fallback)
         noiseFactor = 0f
     }
+}

@@ -68,7 +68,7 @@ import uz.metrx.app.ui.theme.LocalLang
 import uz.metrx.app.ui.theme.LocalSettings
 
 /** Screens of the sign-in flow. "Profile" means it was opened from Profile, so leaving it goes back there. */
-private enum class AuthStep { WELCOME, SIGNUP, LOGIN, LOCAL }
+private enum class AuthStep { WELCOME, SIGNUP, LOGIN, LOCAL, INDUSTRY }
 
 @Composable
 fun MetrxApp(settings: Settings, playIntro: Boolean) {
@@ -126,6 +126,8 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
         }
         override fun done() {
             if (editMe) { editMe = false; say("common.save", kind = ToastKind.OK); return }
+            // the first run asks for the industry once, after sign-in (furniture plan section 3)
+            if (settings.industry == null) { soon = false; authStack.add(AuthStep.INDUSTRY); return }
             settings.finishFirstRun(); authStack.clear(); authFromProfile = false; soon = false
         }
         override fun soon() { soon = true }
@@ -169,6 +171,11 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                             AuthStep.SIGNUP -> SignUpScreen(authNav)
                             AuthStep.LOGIN -> LogInScreen(authNav)
                             AuthStep.LOCAL -> LocalScreen(authNav)
+                            AuthStep.INDUSTRY -> AuroraBox(haze) {
+                                uz.metrx.app.ui.furniture.IndustryScreen(onBack = authNav::back) { kind ->
+                                    settings.setIndustryKind(kind); authNav.done()
+                                }
+                            }
                         }
                     }
                     else -> AuroraBox(haze) {
@@ -200,9 +207,15 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.WallView -> uz.metrx.app.ui.editor.WallViewScreen(route)
                                     is Route.Sketch -> uz.metrx.app.ui.editor.SketchScreen(route)
                                     Route.SettingsMore -> uz.metrx.app.ui.main.SettingsMoreScreen()
+                                    Route.Workshop -> uz.metrx.app.ui.furniture.WorkshopScreen()
+                                    Route.Materials -> uz.metrx.app.ui.furniture.MaterialsScreen()
                                     Route.Subscription -> uz.metrx.app.ui.main.SubscriptionScreen()
                                     is Route.Report -> uz.metrx.app.ui.report.ReportScreen(route.pid, null)
                                     is Route.Quote -> uz.metrx.app.ui.report.ReportScreen(route.pid, route.no)
+                                    is Route.Kitchen -> uz.metrx.app.ui.furniture.KitchenScreen(route)
+                                    is Route.Wardrobe -> uz.metrx.app.ui.furniture.WardrobeScreen(route)
+                                    is Route.FCut -> uz.metrx.app.ui.furniture.CutScreen(route)
+                                    is Route.FPack -> uz.metrx.app.ui.report.PackScreen(route.pid)
                                     is Route.Measure -> uz.metrx.app.ui.measure.MeasureScreen(route.calc)
                                     is Route.Markup -> uz.metrx.app.ui.markup.MarkupScreen(route)
                                     Route.LiveCam -> uz.metrx.app.ui.markup.LiveCamScreen()
@@ -223,7 +236,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                         onDisconnect = { settings.laser = Laser.DISCONNECTED; app.sheet = null }
                     )
                     null -> {}
-                    else -> if (!ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
+                    else -> if (!uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
                 }
                 if (soon) SoonSheet(onLocal = { soon = false; authNav.local() }, onClose = { soon = false })
                 ToastHost(app.toast) { app.toast = null }
@@ -252,6 +265,8 @@ private fun pageKey(r: Route): Any = when (r) {
     is Route.Editor -> "editor:" + r.pid + ":" + r.rid
     is Route.Measure -> "measure"
     is Route.Markup -> "markup:" + r.iid
+    is Route.Kitchen -> "kitchen:" + r.pid + ":" + r.fid
+    is Route.Wardrobe -> "wardrobe:" + r.pid + ":" + r.fid
     else -> r
 }
 

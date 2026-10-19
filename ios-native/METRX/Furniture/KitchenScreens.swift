@@ -87,7 +87,7 @@ struct KitchenScreen: View {
                                         T(tr("kt.emptyB"), ui(13.5, 400, G.ink2, lh: 1.45))
                                         GBtn(tr("kt.auto"), icon: "plus") {
                                             let before = f.modules.count
-                                            let n = kit.change(p.id, f.id) { x in autoFill(x, kRuns(x, room, snap).filter { $0.wall == run.wall }, ws, room.openings, room.points) }
+                                            let n = kit.change(p.id, f.id) { x in autoFill(x, kRuns(x, room, snap).filter { x.modules.isEmpty || $0.wall == run.wall }, ws, room.openings, room.points) }
                                             app.say("kt.autoDone", ["n": (n?.modules.count ?? before) - before])
                                         }
                                         .accessibilityIdentifier("kt.auto")
@@ -409,7 +409,7 @@ private struct NewFurnitureSheet: View {
     @State private var rid: String? = nil
     @State private var kind = "kitchen"
     @State private var layout = "L"
-    @State private var combo = 0
+    @State private var combo = -1   // -1: the first walls nothing stands on yet
     var body: some View {
         if let p = Store.shared.get(pid) {
             let s = AppSettings.shared, snap = s.angleSnap, en = s.lang == .en
@@ -417,7 +417,9 @@ private struct NewFurnitureSheet: View {
             let room = rooms.first { $0.id == rid } ?? rooms.first
             let ids = room.map { Geo.walls($0, snap).map(\.id) } ?? []
             let list = combos(kind == "wardrobe" ? "I" : layout, ids)
-            let pick = combo < list.count ? list[combo] : list.first
+            // walls this room's other kitchens and wardrobes already stand on
+            let taken = p.furniture.filter { $0.roomId == room?.id }.flatMap { f in f.walls.filter { $0 != ISLAND }.map { ($0, f) } }
+            let pick = combo >= 0 && combo < list.count ? list[combo] : (list.first { c in !c.contains { w in taken.contains { $0.0 == w } } } ?? list.first)
             let roomHt = room.flatMap { $0.dim("H").v ?? $0.dim("H").pending?.mm }
             let wardH = roomHt.map { min(3000, max(1200, $0 - W_GAP_TOP)) } ?? 2500
             /// The wardrobe on the picked wall: where it goes and how wide.
@@ -432,30 +434,32 @@ private struct NewFurnitureSheet: View {
                         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
                         VStack(spacing: 4) {
                             MIcon(k == "kitchen" ? "kitchen" : "board", on ? G.cobalt : G.ink3, 24, 2)
-                            T(tr(t), ui(11, on ? 700 : 600, later ? G.ink3 : G.ink), align: .center, lines: 2)
+                            // a one-word name shrinks to stay whole on one line (no "Mehmonxon-a"), longer ones take two
+                            T(tr(t), ui(11, on ? 700 : 600, later ? G.ink3 : G.ink), align: .center, lines: tr(t).contains(" ") ? 2 : 1).minimumScaleFactor(0.7)
                             if later {
                                 T(tr("kt.later"), ui(10.5, 700, G.ink2)).padding(.horizontal, 6).padding(.vertical, 2)
                                     .background(RoundedRectangle(cornerRadius: 8).fill(G.ink3.opacity(0.14)))
                             }
                         }
                         .padding(.horizontal, 2).padding(.vertical, 10)
-                        .frame(maxWidth: .infinity, minHeight: 84)
+                        .frame(maxWidth: .infinity, minHeight: 84, maxHeight: .infinity)
                         .background(shape.fill(on ? G.cobalt.opacity(0.1) : G.glass(0.5)))
                         .overlay(shape.strokeBorder(on ? G.cobalt : G.rim, lineWidth: on ? 2 : 1))
                         .pressable(0.97) {
                             // living rooms and bedrooms come in Stage 2
                             if later { app.say("kt.stage2", ["n": tr(t)], kind: .info) }
-                            else { kind = k; combo = 0 }
+                            else { kind = k; combo = -1 }
                         }
                         .accessibilityAddTraits(on ? .isSelected : [])
                         .accessibilityIdentifier("nf." + k)
                     }
                 }
+                .fixedSize(horizontal: false, vertical: true)   // tiles as tall as the tallest
                 if let room {
                     if rooms.count > 1 {
                         T(tr("kt.room"), ui(15, 700))
                         ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) { ForEach(rooms) { r in FChip(label: dn(r.name), on: r.id == room.id) { rid = r.id; combo = 0 } } }
+                            HStack(spacing: 8) { ForEach(rooms) { r in FChip(label: dn(r.name), on: r.id == room.id) { rid = r.id; combo = -1 } } }
                         }
                     }
                     if kind == "kitchen" { T(tr("kt.layout"), ui(15, 700)) }
@@ -470,7 +474,7 @@ private struct NewFurnitureSheet: View {
                             .frame(maxWidth: .infinity, minHeight: 72)
                             .background(shape.fill(on ? G.cobalt.opacity(0.1) : G.glass(0.5)))
                             .overlay(shape.strokeBorder(on ? G.cobalt : G.rim, lineWidth: on ? 2 : 1))
-                            .pressable(0.97) { layout = l; combo = 0 }
+                            .pressable(0.97) { layout = l; combo = -1 }
                             .accessibilityAddTraits(on ? .isSelected : [])
                             .accessibilityIdentifier("nf.l" + l)
                         }
@@ -487,6 +491,9 @@ private struct NewFurnitureSheet: View {
                             }
                         }
                     }
+                    if let t = taken.first(where: { t in pick?.contains(t.0) == true }) {
+                        T(tr("kt.wallTaken", ["w": t.0, "n": dn(t.1.name)]), ui(12.5, 500, G.amberInk, lh: 1.4))
+                    }
                     if let pick, kind == "wardrobe" {
                         if let L = wallLen(room, snap, pick[0]), let pl = wardPlace(pick[0]) {
                             T(tr(pl.builtIn ? "wd.newNiche" : "wd.newPart", ["w": pick[0], "l": L, "x": pl.x, "ww": pl.w, "h": wardH]), num(14.5, 700))
@@ -494,8 +501,11 @@ private struct NewFurnitureSheet: View {
                         if !measured(room, snap, pick[0]) { T(tr("kt.noLen", ["w": pick[0]]), ui(12.5, 500, G.amberInk, lh: 1.4)) }
                     } else if let pick {
                         let lens = pick.filter { $0 != ISLAND }.map { ($0, wallLen(room, snap, $0)) }
-                        let total = lens.reduce(0) { $0 + ($1.1 ?? 0) }
-                        T(lens.map { "\($0.0) \($0.1.map(String.init) ?? "?")" }.joined(separator: " + ") + " → " + metres1(total, en) + " " + tr("kt.pm"), num(15, 700))
+                        // the running metres as the price counts them: a wall after a corner starts past the first wall's units
+                        let corners = pick.indices.filter { $0 > 0 && pick[$0] != ISLAND && pick[$0 - 1] != ISLAND }.count
+                        let total = lens.reduce(0) { $0 + ($1.1 ?? 0) } - corners * K_CORNER
+                        T(lens.map { "\($0.0) \($0.1.map(String.init) ?? "?")" }.joined(separator: " + ") + (corners > 0 ? " − \(corners * K_CORNER) " + tr("kt.cornerCut") : "")
+                          + " → " + metres1(max(0, total), en) + " " + tr("kt.pm"), num(15, 700))
                         ForEach(pick.filter { $0 != ISLAND && !measured(room, snap, $0) }, id: \.self) { w in T(tr("kt.noLen", ["w": w]), ui(12.5, 500, G.amberInk, lh: 1.4)) }
                         if pick.contains(ISLAND) { T(tr("kt.islandNote"), ui(12.5, 400, G.ink2, lh: 1.4)) }
                     }

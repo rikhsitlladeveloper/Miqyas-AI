@@ -94,5 +94,5 @@ fun freezeQuote(ctx: Context, p: Project, sn: Snap, no: Int, now: Long): Quote {
         x.copy(src = "$dir/ph-${x.id}.jpg")
     }
     val frozen = sn.copy(rooms = rooms, extras = extras)
-    return Quote(no, now, frozen, fingerprint(sn), snapTotal(sn).toString())
+    return Quote(no, now, frozen, fingerprint(sn), if (sn.furniture.isNotEmpty()) sn.ftotal else snapTotal(sn).toString())
 }

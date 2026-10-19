@@ -44,9 +44,8 @@ struct IndustryScreen: View {
                             ForEach(pair, id: \.self) { k in
                                 let name = tr(k)
                                 HStack(spacing: 6) {
-                                    T(name, ui(13.5, 600, G.ink3), lines: 1).frame(maxWidth: .infinity, alignment: .leading)
-                                    T(tr("ind.soon"), ui(10.5, 700, G.ink2), lines: 1).padding(.horizontal, 7).padding(.vertical, 3)
-                                        .background(RoundedRectangle(cornerRadius: 10).fill(G.ink3.opacity(0.14)))
+                                    // the heading above says "coming soon" once; the chips keep the whole width for the trade's name
+                                    T(name, ui(13.5, 600, G.ink3), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
                                 }
                                 .padding(.horizontal, 12).padding(.vertical, 8).frame(minHeight: 48)
                                 .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(G.glass(0.25)))

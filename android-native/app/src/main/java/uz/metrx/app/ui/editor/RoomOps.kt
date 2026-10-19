@@ -37,7 +37,8 @@ class RoomOps(private val app: App) {
     var diagFirst by mutableStateOf<Int?>(null)
     private var simCount by mutableIntStateOf(0)
 
-    private data class Snap(val dims: Map<String, Dim>, val openings: List<Opening>, val name: String, val poly: uz.metrx.app.data.Poly?, val rot: Int)
+    private data class Snap(val dims: Map<String, Dim>, val openings: List<Opening>, val name: String, val poly: uz.metrx.app.data.Poly?, val rot: Int,
+                            val points: List<uz.metrx.app.data.SitePoint> = emptyList())
     private val undo = HashMap<String, ArrayDeque<Snap>>()
     private val redo = HashMap<String, ArrayDeque<Snap>>()
     var histTick by mutableIntStateOf(0)
@@ -49,8 +50,8 @@ class RoomOps(private val app: App) {
         app.setTop(uz.metrx.app.ui.Route.Editor(pid, rid, m))
     }
 
-    private fun snap(r: Room) = Snap(r.dims, r.openings, r.name, r.poly, r.rot)
-    private fun Room.restore(s: Snap) = copy(dims = s.dims, openings = s.openings, name = s.name, poly = s.poly, rot = s.rot)
+    private fun snap(r: Room) = Snap(r.dims, r.openings, r.name, r.poly, r.rot, r.points)
+    private fun Room.restore(s: Snap) = copy(dims = s.dims, openings = s.openings, name = s.name, poly = s.poly, rot = s.rot, points = s.points)
 
     fun canUndo(rid: String) = undo[rid]?.isNotEmpty() == true
     fun canRedo(rid: String) = redo[rid]?.isNotEmpty() == true
@@ -197,6 +198,22 @@ class RoomOps(private val app: App) {
         change(pid, rid) { rr -> rr.copy(openings = rr.openings.map {
             if (it.id == o.id) moved.copy(offDrag = it.offDrag || off != o.off, sillDrag = it.sillDrag || sill != o.sill) else it }) }
         app.say("op.moved", "o" to opName(o), action = "common.undo") { undo(pid, rid) }
+    }
+
+    /* ---------------- site points (furniture orders) ---------------- */
+
+    fun pointName(t: String) = app.t("pt.$t")
+
+    fun savePoint(pid: String, rid: String, x: uz.metrx.app.data.SitePoint, isNew: Boolean) {
+        change(pid, rid) { r -> r.copy(points = if (isNew) r.points + x else r.points.map { if (it.id == x.id) x else it }) }
+        app.sheet = null
+        app.say(if (isNew) "pt.added" else "pt.saved", "o" to pointName(x.t), action = "common.undo") { undo(pid, rid) }
+    }
+
+    fun deletePoint(pid: String, rid: String, x: uz.metrx.app.data.SitePoint) {
+        change(pid, rid) { r -> r.copy(points = r.points.filter { it.id != x.id }) }
+        app.sheet = null
+        app.say("pt.deleted", "o" to pointName(x.t), action = "common.undo") { undo(pid, rid) }
     }
 
     /* ---------------- the room ---------------- */

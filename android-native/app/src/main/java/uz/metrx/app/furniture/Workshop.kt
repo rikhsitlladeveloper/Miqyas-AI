@@ -1,0 +1,77 @@
+package uz.metrx.app.furniture
+
+import kotlinx.serialization.Serializable
+
+/*
+ * How this workshop builds and prices (Profile → Ustaxona sozlamalari; furniture plan sections 6.2, 6.7 and 12). Every
+ * number is a default for the founder's furniture makers to check.
+ */
+
+@Serializable
+data class Workshop(
+    /** Carcass board thickness, mm (16 or 18). */
+    val t: Int = 16,
+    /** Back panel "nail" (nailed on, 2 mm in from each edge) or "groove" (sits 8 mm into grooves). */
+    val back: String = "nail",
+    /** Gap between fronts and at the outer edges, tenths of a mm (3 mm, 1,5 mm). */
+    val gap10: Int = 30,
+    val edge10: Int = 15,
+    /** Thick (visible) edge banding, tenths of a mm; cut sizes are the finished size less this on each thick edge. */
+    val band10: Int = 20,
+    val bandOff: Boolean = true,
+    /** Sheet, saw cut and the trimmed strip on each sheet edge, mm. */
+    val sheetL: Int = 2800,
+    val sheetW: Int = 2070,
+    val kerf: Int = 4,
+    val trim: Int = 10,
+    /** Legs under base and tall units, mm. */
+    val legH: Int = 100,
+    /** Customer price: margin %, prepayment %. */
+    val margin: Int = 30,
+    val prepay: Int = 50,
+    /** Labour rates in the smallest money unit: per sheet cut, per metre banded, per module assembled; installation and delivery per order. */
+    val rCut: String = "45000",
+    val rBand: String = "3000",
+    val rAsm: String = "120000",
+    val rInstall: String = "1500000",
+    val rDeliver: String = "300000"
+)
+
+/**
+ * A board or banding in the workshop's list. [kind] board (carcass/fronts), back, worktop (priced by the running metre), band; [t] thickness, mm (banding:
+ * tenths, 20 = 2 mm); a sheet's [l] × [w]; [price] per sheet, or per metre for banding and worktops, smallest unit; [grain] keeps parts
+ * along the sheet's length; [rgb] for drawings and 3D.
+ */
+@Serializable
+data class Mat(val id: String, val kind: String, val name: String, val t: Int, val l: Int = 2800, val w: Int = 2070,
+               val price: String = "", val grain: Boolean = false, val rgb: String = "#F5F5F2", val preset: Boolean = false)
+
+/** A hardware item: [kind] says what the core counts it as; [price] per piece (per metre for rails, per pair for runners). */
+@Serializable
+data class Hw(val id: String, val kind: String, val name: String, val price: String = "", val preset: Boolean = false)
+
+/** The lists a new workshop starts with (design canvas screen 13); prices are samples for the makers to replace. */
+val MAT_PRESETS = listOf(
+    Mat("ldsp16w", "board", "LDSP 16 · Oq", 16, price = "620000", rgb = "#F5F5F2", preset = true),
+    Mat("ldsp16k", "board", "LDSP 16 · Kashmir", 16, price = "690000", grain = true, rgb = "#CDBFAE", preset = true),
+    Mat("ldsp18a", "board", "LDSP 18 · Antratsit", 18, price = "720000", rgb = "#4B4F58", preset = true),
+    Mat("mdf18", "board", "MDF 18 · bo‘yalgan", 18, price = "980000", rgb = "#E8E4DC", preset = true),
+    Mat("hdf3", "back", "DVP 3,2 · Oq", 3, price = "210000", rgb = "#FFFFFF", preset = true),
+    Mat("wt38", "worktop", "Stoleshnitsa 38 · Antratsit", 38, 4100, 600, price = "360000", rgb = "#4B4F58", preset = true),
+    Mat("band2", "band", "Kromka PVX 2 mm", 20, 0, 0, price = "4500", preset = true),
+    Mat("band04", "band", "Kromka PVX 0,4 mm", 4, 0, 0, price = "1500", preset = true)
+)
+
+val HW_PRESETS = listOf(
+    Hw("hingeSoft", "hingeSoft", "Petlya, yumshoq yopilish", "18000", true),
+    Hw("hinge", "hinge", "Petlya, oddiy", "9000", true),
+    Hw("runner", "runner", "Yo‘naltiruvchi 300–600", "95000", true),
+    Hw("handle", "handle", "Tutqich skoba 128", "25000", true),
+    Hw("leg", "leg", "Oyoq 100 mm", "6000", true),
+    Hw("pin", "pin", "Polka ushlagich", "300", true),
+    Hw("rail", "rail", "Shtanga (metr)", "35000", true),
+    Hw("railEnd", "railEnd", "Shtanga ushlagich", "4000", true),
+    Hw("confirmat", "confirmat", "Konfirmat 7 × 50", "250", true),
+    Hw("hanger", "hanger", "Osma (yuqori modul)", "12000", true),
+    Hw("lift", "lift", "Lift (pantograf)", "450000", true)
+)

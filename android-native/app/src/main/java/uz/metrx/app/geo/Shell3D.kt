@@ -28,7 +28,18 @@ data class V3(val x: Double, val y: Double, val z: Double) {
 }
 
 /** What a piece is, which decides what happens to it when its wall faces the camera and is cut away. */
-enum class Role { WALL, OPENING, GLASS, FLOOR }
+enum class Role { WALL, OPENING, GLASS, FLOOR, FURN }
+
+/**
+ * A wall's own frame in the scene, metres: its start corner on the inside face ([ox], [oz]), the direction along it
+ * ([ux], [uz]) and the one into the room ([nx], [nz]), its length. Furniture is placed in it.
+ */
+class WallBasis(val ox: Double, val oz: Double, val ux: Double, val uz: Double, val nx: Double, val nz: Double, val len: Double) {
+    /** The scene point [a] along the wall, [y] up and [n] into the room, all in metres. */
+    fun at(a: Double, y: Double, n: Double) = V3(ox + ux * a + nx * n, y, oz + uz * a + nz * n)
+    /** A direction [da] along and [dn] into the room. */
+    fun dir(da: Double, dn: Double) = V3(ux * da + nx * dn, 0.0, uz * da + nz * dn)
+}
 
 /** A flat face: a convex polygon ([tris] null, drawn as a fan) or a triangulated polygon (the floor of a drawn room). */
 class Face(val n: V3, val pts: List<V3>, val tris: List<Int>? = null)
@@ -67,8 +78,14 @@ class Shell3D(
     val gridSize: Double, val gridDiv: Int, val gridCx: Double, val gridCz: Double,
     /** Towards the directional light. */
     val light: V3,
-    val far: Double
-)
+    val far: Double,
+    /** One room only: each wall's frame, for the furniture of a furniture order. */
+    val bases: Map<String, WallBasis> = emptyMap()
+) {
+    /** The same scene with more parts and outlines (the furniture). */
+    fun plus(more: List<Part>, moreEdges: List<Edges>) = Shell3D(parts + more, edges + moreEdges, groups, labels, rooms3, L, W, H, tgt, r, theta, phi, bounds, rMin, fit,
+        gridSize, gridDiv, gridCx, gridCz, light, far, bases)
+}
 
 const val FOV_HALF = PI / 9      // half of the 40° camera
 const val WALL_INK = 0x0E1C36
@@ -89,6 +106,7 @@ fun v3Fit(w: Double, d: Double, h: Double, aspect: Double): Double {
 
 private class Builder {
     val parts = ArrayList<Part>(); val edges = ArrayList<Edges>(); val groups = ArrayList<Group>(); val labels = ArrayList<Label>()
+    val bases = HashMap<String, WallBasis>()
     fun part(group: Int, wall: String?, role: Role, rgb: Int, op: Float = 1f) = Part(group, wall, role, rgb, op).also { parts += it }
     fun edgesOf(group: Int, wall: String) = edges.firstOrNull { it.group == group && it.wall == wall } ?: Edges(group, wall).also { edges += it }
 }
@@ -148,6 +166,11 @@ private fun rectRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
         }
         ops.forEach { openingModel(b, gi, w, it, T, L, W, ::X) }
     }
+    room.points.forEach { pointModel(b, gi, it, L, W, ::X) }
+    if (gi == 0) {
+        b.bases["A"] = WallBasis(X(0.0), 0.0, 1.0, 0.0, 0.0, 1.0, L); b.bases["B"] = WallBasis(X(L), 0.0, 0.0, 1.0, -1.0, 0.0, W)
+        b.bases["C"] = WallBasis(X(L), W, -1.0, 0.0, 0.0, -1.0, L); b.bases["D"] = WallBasis(X(0.0), W, 0.0, -1.0, 1.0, 0.0, W)
+    }
     val fl = b.part(gi, null, Role.FLOOR, rgbOf(room.floorColor))
     fl.faces += Face(V3(0.0, 1.0, 0.0), listOf(V3(X(0.0), .001, 0.0), V3(X(0.0), .001, W), V3(X(L), .001, W), V3(X(L), .001, 0.0)))
     b.groups += Group(X(L / 2), W / 2, mapOf("A" to (0.0 to -1.0), "B" to (1.0 to 0.0), "C" to (0.0 to 1.0), "D" to (-1.0 to 0.0)))
@@ -156,6 +179,23 @@ private fun rectRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
         b.labels += Label("C", V3(X(L / 2), H + .25, W + T / 2)); b.labels += Label("D", V3(X(-T / 2), H + .25, W / 2))
     } else b.labels += Label(name, V3(X(L / 2), H + .45, W / 2))
     return doubleArrayOf(L + 2 * T, W, H)
+}
+
+/* Furniture orders' site points: small boxes on the wall's inside face, in the colours of the plan (furniture plan section 5). */
+private val PT_RGB = mapOf("socket" to 0xF1F5F9, "switch" to 0xE2E8F0, "cold" to 0x2563EB, "hot" to 0xDC2626, "sewer" to 0x64748B, "gas" to 0xEAB308, "meter" to 0xCA8A04)
+private fun ptDepth(t: String) = when (t) { "socket", "switch" -> .012; "meter" -> .12; else -> .05 }
+
+/** A site point in a rectangular room: centred [off] along its wall and [h] up, standing out of the wall's inside face. */
+private fun pointModel(b: Builder, gi: Int, x: uz.metrx.app.data.SitePoint, L: Double, W: Double, X: (Double) -> Double) {
+    val (wmm, hmm) = uz.metrx.app.data.pointSize(x); val sw = wmm / 2000.0; val sh = hmm / 2000.0
+    val dep = ptDepth(x.t); val c = x.off / 1000.0; val y = x.h / 1000.0
+    val m = b.part(gi, x.wall, Role.OPENING, PT_RGB[x.t] ?: 0x64748B)
+    when (x.wall) {
+        "A" -> boxFaces(m, X(c - sw), X(c + sw), y - sh, y + sh, 0.0, dep)
+        "B" -> boxFaces(m, X(L - dep), X(L), y - sh, y + sh, c - sw, c + sw)
+        "C" -> boxFaces(m, X(L - c - sw), X(L - c + sw), y - sh, y + sh, W - dep, W)
+        "D" -> boxFaces(m, X(0.0), X(dep), y - sh, y + sh, W - c - sw, W - c + sw)
+    }
 }
 
 /** A door or window in a rectangular room's wall (prototype opModel3D, the one standard style and finish). */
@@ -289,7 +329,15 @@ private fun polyRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
             val g = b.part(gi, null, Role.GLASS, GLASS, .5f)
             prism(g, null, listOf(pt(off(at(o[0]), T / 2 - .01)), pt(off(at(o[1]), T / 2 - .01)), pt(off(at(o[1]), T / 2 + .01)), pt(off(at(o[0]), T / 2 + .01))), o[2], o[2] + o[3])
         }
+        // site points of a furniture order, standing out of this wall's inside face
+        room.points.filter { it.wall == w.id }.forEach { x ->
+            val (wmm, hmm) = uz.metrx.app.data.pointSize(x); val s2 = wmm / 2000.0; val sh = hmm / 2000.0
+            val dep = ptDepth(x.t); val c = x.off / 1000.0; val y = x.h / 1000.0
+            val m = b.part(gi, w.id, Role.OPENING, PT_RGB[x.t] ?: 0x64748B)
+            prism(m, null, listOf(pt(off(at(c - s2), -dep)), pt(off(at(c + s2), -dep)), pt(at(c + s2)), pt(at(c - s2))), y - sh, y + sh)
+        }
         normals[w.id] = q
+        if (gi == 0) { val o = pt(a); b.bases[w.id] = WallBasis(o.first, o.second, u.first, u.second, -q.first, -q.second, len) }
         if (single) { val md = at(len / 2); b.labels += Label(w.id, V3(X(md.first + q.first * T / 2), H + .25, Z(md.second + q.second * T / 2))) }
     }
     val fl = b.part(gi, null, Role.FLOOR, rgbOf(room.floorColor))
@@ -327,7 +375,7 @@ fun buildShell(rooms: List<Room>, single: Boolean, snap: Boolean = true, name: (
             V3(span / 2, maxH * .3, maxW / 2), max(span, maxW) * (if (single) 2.2 else 1.7) + 2.5,
             if (single) null else PI / 2 + .45, if (single) null else .9,
             Bounds(span * .15, span * .85, maxW * .15, maxW * .85), 2.5, doubleArrayOf(span, maxW, maxH, 1.25, 1.6),
-            gs, (gs * 2).roundToInt(), span / 2, maxW / 2, lightTowards(span, maxW, maxH), 300.0
+            gs, (gs * 2).roundToInt(), span / 2, maxW / 2, lightTowards(span, maxW, maxH), 300.0, if (single) b.bases else emptyMap()
         )
     }
     // several rooms stand in rows, like on a sheet of paper (ux module)

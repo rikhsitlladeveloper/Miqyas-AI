@@ -31,11 +31,13 @@ private struct ProjectMenu: View {
     let app: AppModel
     let pid: String
     var body: some View {
-        GlassSheet(tr("pr.menuEdit"), onClose: { app.sheet = nil }) {
+        // a furniture maker's project is an order
+        let fu = Store.shared.get(pid)?.isFurniture == true
+        GlassSheet(tr(fu ? "fo.details" : "pr.menuEdit"), onClose: { app.sheet = nil }) {
             ListBox {
-                ActionRow(icon: "edit", label: tr("pr.menuEdit")) { app.sheet = nil; app.push(.newProject(editId: pid)) }
+                ActionRow(icon: "edit", label: tr(fu ? "fo.details" : "pr.menuEdit")) { app.sheet = nil; app.push(.newProject(editId: pid)) }
                 Hairline()
-                ActionRow(icon: "trash", label: tr("pr.menuDelete"), danger: true) { app.sheet = .projectDelete(pid: pid) }
+                ActionRow(icon: "trash", label: tr(fu ? "fo.menuDelete" : "pr.menuDelete"), danger: true) { app.sheet = .projectDelete(pid: pid) }
             }
         }
     }
@@ -47,7 +49,7 @@ private struct ProjectDelete: View {
     var body: some View {
         if let p = Store.shared.get(pid) {
             GlassSheet(tr("pj.delQ", ["n": dn(p.name)]), onClose: { app.sheet = nil }) {
-                T(p.quotes.isEmpty ? tr("pj.delB0") : tr("pj.delB", ["q": p.quotes.count]), ui(15, 400, G.ink2, lh: 1.45))
+                T(p.quotes.isEmpty ? tr(p.isFurniture ? "fo.delB0" : "pj.delB0") : tr(p.isFurniture ? "fo.delB" : "pj.delB", ["q": p.quotes.count]), ui(15, 400, G.ink2, lh: 1.45))
             } footer: {
                 HStack(spacing: 8) {
                     GBtn(tr("common.cancel"), kind: .secondary) { app.sheet = nil }

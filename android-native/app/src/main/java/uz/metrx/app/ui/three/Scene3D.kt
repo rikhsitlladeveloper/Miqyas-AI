@@ -184,6 +184,16 @@ class Cam3D {
         return Offset(((nx + 1) / 2 * w).toFloat(), ((1 - ny) / 2 * h).toFloat())
     }
 
+    /** The ray from the eye through pixel ([x], [y]): its start and direction (the inverse of [project]). */
+    fun ray(x: Float, y: Float): Pair<V3, V3> {
+        val e = eye(); val f = (tgt - e).unit()
+        val s = cross(f, V3(0.0, 1.0, 0.0)).unit()
+        val u = cross(s, f)
+        val k = tan(FOV_HALF)
+        val nx = 2.0 * x / max(1, w) - 1; val ny = 1 - 2.0 * y / max(1, h)
+        return e to (f + s * (nx * k * aspect) + u * (ny * k)).unit()
+    }
+
     private fun cross(a: V3, b: V3) = V3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
 }
 
@@ -289,7 +299,7 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader) {
         }
         prims.forEach { p ->
             val f = facing(p.group, p.wall)
-            val a = when (p.role) { Role.WALL -> if (f) .14f else 1f; Role.OPENING -> if (f) min(.12f, p.op) else p.op; else -> p.op }
+            val a = when (p.role) { Role.WALL -> if (f) .14f else 1f; Role.OPENING -> if (f) min(.12f, p.op) else p.op; Role.FURN -> if (f) .1f else p.op; else -> p.op }
             if (a != p.alpha) { p.alpha = a; p.node.setMaterialInstanceAt(p.index, mat(p.rgb, a)) }
         }
         lines.forEach { l ->
@@ -310,7 +320,7 @@ class Shot3D {
  * [overlay] draws on top (labels are positioned with [Cam3D.project]).
  */
 @Composable
-fun Scene3D(shell: Shell3D, cam: Cam3D, modifier: Modifier = Modifier, shot: Shot3D? = null, overlay: @Composable BoxScope.() -> Unit = {}) {
+fun Scene3D(shell: Shell3D, cam: Cam3D, modifier: Modifier = Modifier, shot: Shot3D? = null, onTap: ((Offset) -> Unit)? = null, overlay: @Composable BoxScope.() -> Unit = {}) {
     val engine = Engine3D.engine
     val ml = rememberMaterialLoader(engine)
     val el = rememberEnvironmentLoader(engine)
@@ -334,8 +344,7 @@ fun Scene3D(shell: Shell3D, cam: Cam3D, modifier: Modifier = Modifier, shot: Sho
 
     Box(modifier.background(Color(0xFF000000.toInt() or BG3D)).onSizeChanged { cam.resize(it.width, it.height) }) {
         SceneView(
-            Modifier.fillMaxSize(), surfaceType = SurfaceType.Surface, engine = engine, materialLoader = ml, environmentLoader = el,
-            // a SurfaceView: on the emulator the TextureView path crashed the PC's graphics driver after a few openings
+            Modifier.fillMaxSize(), surfaceType = SURFACE, engine = engine, materialLoader = ml, environmentLoader = el,
             view = view, isOpaque = true, frameRatePolicy = FrameRatePolicy.OnDemand(), renderInvalidator = inv, renderQuality = RenderQuality.Default,
             autoCenterContent = false, environment = env, mainLightNode = null, fillLightNode = null, cameraNode = lens,
             cameraManipulator = null, onGestureListener = null
@@ -374,8 +383,10 @@ fun Scene3D(shell: Shell3D, cam: Cam3D, modifier: Modifier = Modifier, shot: Sho
         DisposableEffect(Unit) { onDispose { cam.onMove = null; cam.anim?.cancel(); root?.let { nodes.clear(it) } } }
         if (shot != null) DisposableEffect(shot) {
             shot.grab = { done ->
+                val tv = findTexture(host.rootView)
                 val sv = findSurface(host.rootView)
-                if (sv == null || sv.width == 0 || sv.height == 0) done(null)
+                if (tv != null) done(runCatching { tv.bitmap }.getOrNull())
+                else if (sv == null || sv.width == 0 || sv.height == 0) done(null)
                 else {
                     val bmp = Bitmap.createBitmap(sv.width, sv.height, Bitmap.Config.ARGB_8888)
                     runCatching {
@@ -386,15 +397,24 @@ fun Scene3D(shell: Shell3D, cam: Cam3D, modifier: Modifier = Modifier, shot: Sho
             onDispose { shot.grab = { it(null) } }
         }
         // fingers
-        Box(Modifier.fillMaxSize().pointerInput(cam) {
+        Box(Modifier.fillMaxSize().pointerInput(cam, onTap) {
             awaitEachGesture {
                 val first = awaitFirstDown(requireUnconsumed = false)
                 cam.anim?.cancel()
                 val last = HashMap<Long, Offset>(); last[first.id.value] = first.position
+                // a short touch that hardly moves with one finger is a tap (it opens a door)
+                var moved = 0f; var fingers = 1
+                val t0 = first.uptimeMillis
                 while (true) {
                     val ev = awaitPointerEvent()
                     val down = ev.changes.filter { it.pressed }
-                    if (down.isEmpty()) break
+                    fingers = max(fingers, down.size)
+                    ev.changes.firstOrNull { it.id == first.id }?.let { moved = max(moved, (it.position - first.position).getDistance()) }
+                    if (down.isEmpty()) {
+                        val up = ev.changes.firstOrNull()?.uptimeMillis ?: t0
+                        if (onTap != null && fingers == 1 && moved < 12 * density && up - t0 < 450) onTap(first.position)
+                        break
+                    }
                     if (down.size >= 2) {
                         val a = down[0]; val b = down[1]
                         val pa = last[a.id.value] ?: a.position; val pb = last[b.id.value] ?: b.position
@@ -412,6 +432,24 @@ fun Scene3D(shell: Shell3D, cam: Cam3D, modifier: Modifier = Modifier, shot: Sho
         })
         overlay()
     }
+}
+
+/**
+ * Where the 3D is drawn. A SurfaceView on the emulator (the TextureView path crashed the PC's graphics driver after a
+ * few openings) and on Android 10 and newer. Older phones get a TextureView: there a SurfaceView ignores the page's
+ * clipping, and on the founder's Mi 6X (Android 8.1) the order page's header went black above the 3D view.
+ */
+private val SURFACE: SurfaceType = run {
+    val emu = android.os.Build.FINGERPRINT.startsWith("generic") || android.os.Build.FINGERPRINT.contains("emulator") ||
+        android.os.Build.HARDWARE.contains("ranchu") || android.os.Build.HARDWARE.contains("goldfish") || android.os.Build.PRODUCT.contains("sdk_gphone")
+    if (!emu && android.os.Build.VERSION.SDK_INT < 29) SurfaceType.TextureSurface else SurfaceType.Surface
+}
+
+/** The 3D picture on screen when it is a TextureView (older phones). */
+private fun findTexture(v: android.view.View): android.view.TextureView? {
+    if (v is android.view.TextureView && v.isShown) return v
+    if (v is ViewGroup) for (i in 0 until v.childCount) findTexture(v.getChildAt(i))?.let { return it }
+    return null
 }
 
 /** The 3D surface on screen (the only SurfaceView in the app). */

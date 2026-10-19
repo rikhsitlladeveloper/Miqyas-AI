@@ -756,7 +756,8 @@ final class Furniture4Tests: ScreenTestCase {
         app.swipeDown(); usleep(700_000)
         app.buttons["kt.undo"].tap(); usleep(800_000); shot("f4-16-undo")
         app.buttons["kt.wall.B"].tap(); usleep(900_000)
-        app.buttons["kt.auto"].tap(); sleep(1); shot("f4-17-auto-B")
+        // the first fill covers every wall of a new kitchen; B has its own button only when still empty
+        if app.buttons["kt.auto"].exists { app.buttons["kt.auto"].tap() }; sleep(1); shot("f4-17-auto-B")
         sleep(4)
         app.buttons["kt.menu"].tap(); usleep(900_000)
         app.buttons["fm.mats"].tap(); usleep(900_000)
@@ -837,7 +838,8 @@ final class Furniture6Tests: ScreenTestCase {
         app.buttons["nf.start"].tap(); sleep(6)
         app.buttons["kt.auto"].tap(); sleep(5)
         app.buttons["kt.wall.B"].tap(); usleep(900_000)
-        app.buttons["kt.auto"].tap(); sleep(5)
+        // the first fill covers every wall of a new kitchen; B has its own button only when still empty
+        if app.buttons["kt.auto"].exists { app.buttons["kt.auto"].tap() }; sleep(5)
         app.buttons["dim.3D"].tap(); sleep(4); shot("f6-01-kitchen-3d")
         app.buttons["f3.openAll"].tap(); sleep(3); shot("f6-02-open-all")
         app.buttons["3d.top"].tap(); sleep(2); shot("f6-03-from-above")
@@ -888,7 +890,8 @@ final class Furniture7Tests: ScreenTestCase {
         app.buttons["nf.start"].tap(); sleep(6)
         app.buttons["kt.auto"].tap(); sleep(5)
         app.buttons["kt.wall.B"].tap(); usleep(900_000)
-        app.buttons["kt.auto"].tap(); sleep(6)
+        // the first fill covers every wall of a new kitchen; B has its own button only when still empty
+        if app.buttons["kt.auto"].exists { app.buttons["kt.auto"].tap() }; sleep(6)
         // back to the order's page (a toast or a sliding page can take a tap)
         for _ in 0..<5 where !app.buttons["ptab.price"].exists { backVisible(app) }
         app.buttons["ptab.price"].tap(); usleep(900_000); shot("f7-01-price-tab")

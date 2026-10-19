@@ -133,12 +133,14 @@ fun ReportScreen(pid: String, no: Int?) {
         // the pages are laid out and drawn away from the screen's thread, again whenever the report changes
         val built by produceState<Pair<List<RPage>, List<ImageBitmap>>?>(null, key, wPx) {
             value = withContext(Dispatchers.Default) {
-                val pages = reportPages(tm, sn, quote == null, quote?.let { QuoteMeta(it.no, it.ts) }, loader)
+                val meta = quote?.let { QuoteMeta(it.no, it.ts) }
+                // a furniture order's quote has its own pages (furniture plan section 10)
+                val pages = if (p.isFurniture) uz.metrx.app.report.furniturePages(tm, sn, quote == null, meta, loader) else reportPages(tm, sn, quote == null, meta, loader)
                 pages to pages.map { pageBitmap(it, wPx) }
             }
         }
         val pages = built?.first.orEmpty(); val bmps = built?.second.orEmpty()
-        val total = quote?.total?.let { BigInteger(it) } ?: snapTotal(sn)
+        val total = quote?.total?.let { BigInteger(it) } ?: if (p.isFurniture) (sn.ftotal.toBigIntegerOrNull() ?: BigInteger.ZERO) else snapTotal(sn)
         val rl = Lang.of(sn.lang)
         fun share() {
             val pg = built?.first ?: return
@@ -202,7 +204,7 @@ fun ReportScreen(pid: String, no: Int?) {
                 if (quote == null) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     GBtn(tr("rp2.shareDraft"), { share() }, Btn.SECONDARY, icon = "share", modifier = Modifier.weight(1f), maxLines = 2)
                     GBtn(tr("rpt.issue"), {
-                        val n = rowsMissing(p)
+                        val n = if (p.isFurniture) 0 else rowsMissing(p)
                         if (n > 0) app.say("et.block", "n" to n, kind = ToastKind.ERROR) else app.sheet = Sheet.Issue(p.id)
                     }, icon = "lock", modifier = Modifier.weight(1f), maxLines = 2)
                 } else GBtn(tr("rpt.share"), { share() }, icon = "share")
@@ -226,9 +228,9 @@ private fun NavIb(forward: Boolean, on: Boolean, label: String, onClick: () -> U
 /** A notice above the pages (prototype .banner warn / lock). */
 @Composable
 private fun Banner(icon: String, text: String, amber: Boolean, action: String? = null, boldTail: Boolean = false, onAction: () -> Unit = {}) {
-    val bg = if (amber) G.amberWash else G.glass(.6f)
+    val bg = if (amber) G.amberWash else G.idle(.6f)
     val fg = if (amber) G.amberInk else G.ink
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(bg).border(1.dp, if (amber) Color(0x33EA8C00) else G.rim, RoundedCornerShape(14.dp))
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(bg).border(1.dp, if (amber) Color(0x33EA8C00) else G.idleRim, RoundedCornerShape(14.dp))
         .padding(start = 12.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         MIcon(icon, fg, 18.dp, 2f)
         if (boldTail && text.contains('\n')) Column(Modifier.weight(1f)) {
@@ -240,7 +242,7 @@ private fun Banner(icon: String, text: String, amber: Boolean, action: String? =
 
 /** All pages one under the other on a dark ground; + shows them at full size (prototype .viewer). */
 @Composable
-private fun PageViewer(pages: List<RPage>, start: Int, onClose: () -> Unit) {
+internal fun PageViewer(pages: List<RPage>, start: Int, onClose: () -> Unit) {
     var zoom by rememberSaveable { mutableStateOf(false) }
     Dialog(onDismissRequest = onClose, properties = DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
         BoxWithConstraints(Modifier.fillMaxSize().background(Color(0xF00E1C36))) {
@@ -275,7 +277,7 @@ private fun PageViewer(pages: List<RPage>, start: Int, onClose: () -> Unit) {
 @Composable
 private fun Chip(on: Boolean, onClick: () -> Unit, content: @Composable () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
-    Row(Modifier.heightIn(min = 40.dp).clip(shape).background(if (on) G.cobalt else G.glass(.6f)).border(1.dp, if (on) G.cobalt else G.rim, shape)
+    Row(Modifier.heightIn(min = 40.dp).clip(shape).background(if (on) G.cobalt else G.idle(.6f)).border(1.dp, if (on) G.cobalt else G.idleRim, shape)
         .clickable(role = Role.Checkbox, onClick = onClick).padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { content() }
 }
 
@@ -374,7 +376,9 @@ fun IssueSheet(s: Sheet.Issue) {
         return
     }
     val tt = totals(p)
-    val empty = p.estimate.materials.isEmpty() && p.estimate.labor.isEmpty()
+    val fsn = if (p.isFurniture) snapshotOf(p, app.settings) else null
+    val empty = if (fsn != null) fsn.furniture.isEmpty() else p.estimate.materials.isEmpty() && p.estimate.labor.isEmpty()
+    val grand = fsn?.ftotal?.toBigIntegerOrNull() ?: tt.g
     fun issue() {
         if (empty) return
         val now = System.currentTimeMillis()
@@ -383,8 +387,8 @@ fun IssueSheet(s: Sheet.Issue) {
         app.sheet = null
         app.pop()
         if (app.top is Route.Project) app.setProjectTab("quotes")
-        val early = p.stage == "measure" || p.stage == "estimate"
-        app.toast = if (early) ToastMsg(app.t("iss.done", "n" to no) + ". " + app.t("bd.stage") + ": " + app.t("stage.quote") + "?", ToastKind.OK, app.t("bd.move"), onAction = {
+        val early = p.stage == "measure" || p.stage == "estimate" || p.stage == "design"
+        app.toast = if (early) ToastMsg(app.t("iss.done", "n" to no) + ". " + app.t("bd.stage") + ": " + app.t(if (p.isFurniture) "fs.quote" else "stage.quote") + "?", ToastKind.OK, app.t("bd.move"), onAction = {
             app.store.update(p.id) { it.copy(stage = "quote") }
         }) else ToastMsg(app.t("iss.done", "n" to no))
     }
@@ -396,12 +400,12 @@ fun IssueSheet(s: Sheet.Issue) {
     }) {
         Text(tr("iss.body"), style = ui(15f, 400, G.ink2, 1.45f))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).border(1.dp, G.rim, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp)) {
-            Kv(tr("es.grand"), moneyStr(tt.g, p.precision, lang == Lang.EN) + " " + curSuffix(p.currency, lang), true)
+            Kv(tr("es.grand"), moneyStr(grand, p.precision, lang == Lang.EN) + " " + curSuffix(p.currency, lang), true)
             uz.metrx.app.ui.components.Hairline(); Kv(tr("rpt.lang"), Lang.of(p.reportLang).longName)
             uz.metrx.app.ui.components.Hairline(); Kv(tr("rpt.builder"), app.settings.builderName)
         }
         if (empty) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.errWash).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MIcon("alert", G.err, 18.dp, 2f); Text(tr("iss.empty"), style = ui(13.5f, 500, G.err), modifier = Modifier.weight(1f))
+            MIcon("alert", G.err, 18.dp, 2f); Text(tr(if (p.isFurniture) "fd.empty" else "iss.empty"), style = ui(13.5f, 500, G.err), modifier = Modifier.weight(1f))
         }
     }
 }

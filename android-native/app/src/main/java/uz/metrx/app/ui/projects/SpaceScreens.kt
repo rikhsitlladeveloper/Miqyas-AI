@@ -114,7 +114,8 @@ fun SpaceScreen(r: Route.Space) {
             }
             val wsRooms = p.rooms.filter { it.floorId == w.id }
             if (wsRooms.isNotEmpty()) WsNums(wsRooms)
-            if (items.isEmpty() && wsRooms.isEmpty()) {
+            val furn = p.furniture.filter { it.ws == w.id }.sortedByDescending { it.created }
+            if (items.isEmpty() && wsRooms.isEmpty() && furn.isEmpty()) {
                 Column(Modifier.weight(1f).fillMaxWidth().padding(start = 32.dp, end = 32.dp, top = 64.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     BlankSheet()
                     Spacer(Modifier.height(6.dp))
@@ -131,6 +132,15 @@ fun SpaceScreen(r: Route.Space) {
                         cells.chunked(2).forEach { row ->
                             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 row.forEach { rm -> if (rm != null) RoomCard(p, rm, lang, Modifier.weight(1f)) else AddTile(Modifier.weight(1f)) { app.sheet = Sheet.AddItem(p.id, w.id) } }
+                                if (row.size == 1) Spacer(Modifier.weight(1f))
+                            }
+                        }
+                    }
+                    // furniture orders: the kitchens and wardrobes designed here
+                    if (furn.isNotEmpty()) Section(tr("kt.sec"), furn.size) {
+                        furn.chunked(2).forEach { row ->
+                            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                row.forEach { f -> uz.metrx.app.ui.furniture.FurnitureCard(p, f, Modifier.weight(1f)) }
                                 if (row.size == 1) Spacer(Modifier.weight(1f))
                             }
                         }
@@ -214,7 +224,7 @@ private fun RoomCard(p: Project, r: uz.metrx.app.data.Room, lang: Lang, modifier
     val shape = RoundedCornerShape(16.dp)
     val nx = app.ops.next(r)
     val c = when (nx.cls) { "ok" -> if (Theme.dark) G.green else Color(0xFF15803D); "recv" -> G.amberInk; "bad" -> G.err; else -> G.ink2 }
-    Box(modifier.height(205.dp).glassCard(shape, shadowRadius = 24.dp, shadowY = 10.dp, shadowAlpha = .1f)) {
+    Box(modifier.height(cardHeight()).glassCard(shape, shadowRadius = 24.dp, shadowY = 10.dp, shadowAlpha = .1f)) {
         Column(Modifier.fillMaxSize().clickable { app.push(Route.Editor(p.id, r.id)) }) {
             Box(Modifier.fillMaxWidth().height(129.dp).background(Color.White)) {
                 uz.metrx.app.ui.editor.RoomThumb(r, dn(r.name, lang), app.settings.unit, lang == uz.metrx.app.core.Lang.EN, app.settings.angleSnap, true, Modifier.fillMaxSize().padding(top = 8.dp))
@@ -256,7 +266,7 @@ private fun BlankSheet() {
 private fun ItemCard(p: Project, w: Workspace, it: Item, lang: Lang, modifier: Modifier) {
     val app = LocalApp.current
     val shape = RoundedCornerShape(16.dp)
-    Box(modifier.height(205.dp).glassCard(shape, shadowRadius = 24.dp, shadowY = 10.dp, shadowAlpha = .1f)) {
+    Box(modifier.height(cardHeight()).glassCard(shape, shadowRadius = 24.dp, shadowY = 10.dp, shadowAlpha = .1f)) {
         Column(Modifier.fillMaxSize().clickable { if (it.kind == "note") app.push(Route.Note(p.id, w.id, it.id)) else app.push(Route.Markup(p.id, it.id)) }) {
             if (it.kind != "note") uz.metrx.app.ui.markup.MarkThumb(it, Modifier.fillMaxWidth().height(129.dp).background(if (it.kind == "photo") Color(0xFF0E1C36) else Color.White))
             else Column(
@@ -287,10 +297,17 @@ private fun ItemCard(p: Project, w: Workspace, it: Item, lang: Lang, modifier: M
     }
 }
 
+/**
+ * Rooms, items and furniture cards: a 129 dp picture over three lines of text. The text part grows with the phone's
+ * font size, so a large system font (MIUI's 115 %) does not squeeze the last line and cut off its commas.
+ */
+@Composable
+internal fun cardHeight(): androidx.compose.ui.unit.Dp = 129.dp + 76.dp * maxOf(1f, androidx.compose.ui.platform.LocalDensity.current.fontScale)
+
 @Composable
 private fun AddTile(modifier: Modifier, onClick: () -> Unit) {
     Column(
-        modifier.height(205.dp).dashedGlass(24.dp).pressable(onClick, .98f),
+        modifier.height(cardHeight()).dashedGlass(24.dp).pressable(onClick, .98f),
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)
     ) {
         Box(Modifier.size(52.dp).dropShadow(CircleShape, Shadow(22.dp, G.cobalt.copy(alpha = .35f), offset = DpOffset(0.dp, 10.dp))).clip(CircleShape).background(G.cobalt),

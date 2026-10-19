@@ -297,8 +297,9 @@ struct CutScreen: View {
                 T("№", ui(11.5, 700, G.ink2)).frame(width: 24, alignment: .leading)
                 T(tr("fw.c.part"), ui(11.5, 700, G.ink2)).frame(maxWidth: .infinity, alignment: .leading)
                 T(tr("fw.c.size"), ui(11.5, 700, G.ink2))
-                T(tr("fw.c.qty"), ui(11.5, 700, G.ink2)).frame(width: 30, alignment: .leading)
-                T(tr("fw.c.band"), ui(11.5, 700, G.ink2), lines: 1).frame(width: 48, alignment: .leading)
+                // narrow columns: the heading shrinks rather than being cut off with a large text size
+                T(tr("fw.c.qty"), ui(11.5, 700, G.ink2), lines: 1).minimumScaleFactor(0.7).frame(width: 34, alignment: .leading)
+                T(tr("fw.c.band"), ui(11.5, 700, G.ink2), lines: 1).minimumScaleFactor(0.7).frame(width: 52, alignment: .leading)
             }
             .padding(.bottom, 4)
             ForEach(idx, id: \.offset) { i, r in
@@ -311,8 +312,8 @@ struct CutScreen: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     T("\(r.p.L) × \(r.p.W)", num(13.5, 700))
-                    T("× \(r.p.qty)", num(13, 600, G.ink2)).frame(width: 30, alignment: .leading)
-                    BandGlyph(r: r).frame(width: 48, alignment: .leading)
+                    T("× \(r.p.qty)", num(13, 600, G.ink2), lines: 1).frame(width: 34, alignment: .leading)
+                    BandGlyph(r: r).frame(width: 52, alignment: .leading)
                 }
                 .frame(minHeight: 40)
             }

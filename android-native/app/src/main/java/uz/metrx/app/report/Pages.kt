@@ -67,10 +67,10 @@ import kotlin.math.min
 
 const val PAGE_W = 595f
 const val PAGE_H = 842f
-private const val PX = 38f
-private const val PY = 36f
-private const val CW = PAGE_W - 2 * PX
-private const val LIMIT = PAGE_H - PY - 6f
+internal const val PX = 38f
+internal const val PY = 36f
+internal const val CW = PAGE_W - 2 * PX
+internal const val LIMIT = PAGE_H - PY - 6f
 
 private val INK = Color(0xFF0E1C36)
 private val INK3 = Color(0xFF3E4A61)
@@ -90,9 +90,9 @@ class RPage(val draw: DrawScope.() -> Unit)
 /** For an issued quote: its number and when it was issued. */
 data class QuoteMeta(val no: Int, val ts: Long)
 
-private class Cell(val paras: List<Pair<AnnotatedString, TextStyle>>, val span: Int = 1, val right: Boolean = false, val th: Boolean = false, val dbl: Boolean = false)
+internal class Cell(val paras: List<Pair<AnnotatedString, TextStyle>>, val span: Int = 1, val right: Boolean = false, val th: Boolean = false, val dbl: Boolean = false)
 
-private class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val meta: QuoteMeta?, val image: (String) -> ImageBitmap?, val now: Long) {
+internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val meta: QuoteMeta?, val image: (String) -> ImageBitmap?, val now: Long) {
     val l = Lang.of(sn.lang)
     val en = l == Lang.EN
     val face = if (l.cyrillic) Manrope else Jakarta
@@ -129,10 +129,15 @@ private class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val me
     fun fits(h: Float) = y + max(pend, 0f) + h <= LIMIT
 
     /** A new page with the header (prototype .rh): the mark and METRX on the left, title and date on the right. */
+    /** Furniture documents: another title for the draft and the issued one, and a line under it instead of the date. */
+    var draftTitle = "r.draft"; var quoteTitle = "r.quote"; var subLine: String? = null
+    /** Furniture orders name the maker's side "Ustaxona". */
+    var makerKey = "rpt.builder"
+
     fun newPage() {
         ops = ArrayList(); pages += ops
-        val title = t(if (draft) "r.draft" else "r.quote")
-        val date = if (draft) t("r.draftDate", "d" to fmtDate(now)) else t("r.no", "n" to meta!!.no, "d" to fmtDate(meta.ts))
+        val title = t(if (draft) draftTitle else quoteTitle)
+        val date = subLine ?: if (draft) t("r.draftDate", "d" to fmtDate(now)) else t("r.no", "n" to meta!!.no, "d" to fmtDate(meta.ts))
         val h1 = measure(title, ui(18f, 600)); val sm = measure(date, ui(10f, 400, INK3))
         val wm = measure("METRX", num(14f, 700).copy(letterSpacing = .14.em, lineHeight = 18.2.sp))
         val rh = max(18.2f, h1.size.height + sm.size.height.toFloat())
@@ -240,7 +245,7 @@ private class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val me
             sn.location?.let { append("\n"); withStyle(SpanStyle(color = INK3, fontSize = 8.5.sp)) { append(t("pr.location") + ":") }; append(" %.5f, %.5f".format(java.util.Locale.ROOT, it.lat, it.lng)) }
         }
         table(listOf(
-            listOf(party("rpt.builder", sn.builderName, sn.builderPhone), party("rpt.customer", sn.customer, sn.phone)),
+            listOf(party(makerKey, sn.builderName, sn.builderPhone), party("rpt.customer", sn.customer, sn.phone)),
             listOf(Cell(listOf(AnnotatedString(t("r.project")) to lab, proj to v), span = 2))
         ), fixed = floatArrayOf(CW / 2, CW / 2), breakable = false)
     }

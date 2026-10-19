@@ -315,8 +315,8 @@ fun Project3D(p: Project, route: Route.Project, lang: Lang) {
         p.floors.forEach { f ->
             val on = f.id == fid
             Box(
-                Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(12.dp)).background(if (on) G.cobalt else G.glass(.55f))
-                    .border(1.dp, if (on) G.cobalt else G.rim, RoundedCornerShape(12.dp))
+                Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(12.dp)).background(if (on) G.cobalt else G.idle(.55f))
+                    .border(1.dp, if (on) G.cobalt else G.idleRim, RoundedCornerShape(12.dp))
                     .clickable(role = Role.Tab) { app.setTop(route.copy(floor = f.id)) }.padding(horizontal = 14.dp),
                 contentAlignment = Alignment.Center
             ) { Text(floorName(f, lang), style = ui(14f, 600, if (on) Color.White else G.ink), maxLines = 1) }

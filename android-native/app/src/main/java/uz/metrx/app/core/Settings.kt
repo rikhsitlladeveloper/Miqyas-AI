@@ -28,6 +28,31 @@ class Settings(context: Context) {
         private set
     var dark by mutableStateOf(p.getBoolean("dark", false))
         private set
+    /**
+     * "build" or "furniture", chosen after sign-in (furniture plan section 3); null until then. People who started
+     * the app before industries existed are builders.
+     */
+    var industry by mutableStateOf(p.getString("industry", null) ?: if (p.getBoolean("firstRunDone", false)) "build" else null)
+        private set
+    val furniture get() = industry == "furniture"
+    fun setIndustryKind(v: String) { industry = v; p.edit().putString("industry", v).apply() }
+
+    /** Furniture makers: how the workshop builds and prices, and its boards and hardware (furniture plan sections 6.2, 6.6). */
+    private val js = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
+    var workshop by mutableStateOf(runCatching { js.decodeFromString(uz.metrx.app.furniture.Workshop.serializer(), p.getString("workshop", null) ?: "{}") }.getOrDefault(uz.metrx.app.furniture.Workshop()))
+        private set
+    fun setWorkshopRules(v: uz.metrx.app.furniture.Workshop) { workshop = v; p.edit().putString("workshop", js.encodeToString(uz.metrx.app.furniture.Workshop.serializer(), v)).apply() }
+    private val matSer = kotlinx.serialization.builtins.ListSerializer(uz.metrx.app.furniture.Mat.serializer())
+    private val hwSer = kotlinx.serialization.builtins.ListSerializer(uz.metrx.app.furniture.Hw.serializer())
+    // a saved list gets the presets added since it was saved (the worktop came with part 4)
+    var mats: List<uz.metrx.app.furniture.Mat> by mutableStateOf((p.getString("mats", null)?.let { runCatching { js.decodeFromString(matSer, it) }.getOrNull() } ?: emptyList())
+        .let { saved -> saved + uz.metrx.app.furniture.MAT_PRESETS.filter { pr -> saved.none { it.id == pr.id } } })
+        private set
+    var hws: List<uz.metrx.app.furniture.Hw> by mutableStateOf((p.getString("hws", null)?.let { runCatching { js.decodeFromString(hwSer, it) }.getOrNull() } ?: emptyList())
+        .let { saved -> saved + uz.metrx.app.furniture.HW_PRESETS.filter { pr -> saved.none { it.id == pr.id } } })
+        private set
+    fun setMatList(v: List<uz.metrx.app.furniture.Mat>) { mats = v; p.edit().putString("mats", js.encodeToString(matSer, v)).apply() }
+    fun setHwList(v: List<uz.metrx.app.furniture.Hw>) { hws = v; p.edit().putString("hws", js.encodeToString(hwSer, v)).apply() }
     /** Currency and report language that new projects start with (Profile settings in the prototype). */
     var currency by mutableStateOf(p.getString("currency", "UZS") ?: "UZS")
         private set

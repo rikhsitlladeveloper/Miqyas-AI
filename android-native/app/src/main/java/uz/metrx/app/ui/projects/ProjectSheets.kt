@@ -92,11 +92,13 @@ private fun App.close() { sheet = null }
 @Composable
 private fun ProjectMenu(s: Sheet.ProjectMenu) {
     val app = LocalApp.current
-    GlassSheet(tr("pr.menuEdit"), { app.close() }) {
+    // a furniture maker's project is an order
+    val fu = app.store.get(s.pid)?.isFurniture == true
+    GlassSheet(tr(if (fu) "fo.details" else "pr.menuEdit"), { app.close() }) {
         ListBox {
-            ActionRow("edit", tr("pr.menuEdit"), { app.close(); app.push(Route.NewProject(s.pid)) })
+            ActionRow("edit", tr(if (fu) "fo.details" else "pr.menuEdit"), { app.close(); app.push(Route.NewProject(s.pid)) })
             Hairline()
-            ActionRow("trash", tr("pr.menuDelete"), { app.sheet = Sheet.ProjectDelete(s.pid) }, danger = true)
+            ActionRow("trash", tr(if (fu) "fo.menuDelete" else "pr.menuDelete"), { app.sheet = Sheet.ProjectDelete(s.pid) }, danger = true)
         }
     }
 }
@@ -117,7 +119,8 @@ private fun ProjectDelete(s: Sheet.ProjectDelete) {
             }, Btn.DANGER, icon = "trash", modifier = Modifier.weight(1f))
         }
     }) {
-        Text(if (p.quotes.isNotEmpty()) tr("pj.delB", "q" to p.quotes.size) else tr("pj.delB0"), style = ui(15f, 400, G.ink2, 1.45f))
+        val pre = if (p.isFurniture) "fo" else "pj"
+        Text(if (p.quotes.isNotEmpty()) tr("$pre.delB", "q" to p.quotes.size) else tr("$pre.delB0"), style = ui(15f, 400, G.ink2, 1.45f))
     }
 }
 
@@ -235,6 +238,8 @@ private fun AddItem(s: Sheet.AddItem) {
             }
         }
         else -> GlassSheet(tr("add.title", "n" to floorName(w, lang)), { app.close() }) {
+            // furniture orders: the kitchen (or wardrobe) for the measured room comes first
+            if (p.isFurniture) BigRow("kitchen", "kt.addRow", "kt.addRowD") { app.sheet = Sheet.NewFurniture(p.id, w.id) }
             Row(Modifier.padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf("sketch" to "pen", "photo" to "camera", "note" to "note").forEach { (k, icon) ->
                     Column(
@@ -372,8 +377,8 @@ private fun CurrencySheet() {
             val on = app.settings.currency == c
             Row(
                 Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp))
-                    .background(if (on) G.cobalt.copy(alpha = .1f) else G.glass(.6f))
-                    .border(1.dp, if (on) G.cobalt.copy(alpha = .5f) else G.rim, RoundedCornerShape(16.dp))
+                    .background(if (on) G.cobalt.copy(alpha = .1f) else G.idle(.6f))
+                    .border(1.dp, if (on) G.cobalt.copy(alpha = .5f) else G.idleRim, RoundedCornerShape(16.dp))
                     .clickable(role = Role.RadioButton) { app.settings.setCurrencyDefault(c); app.close() }.padding(horizontal = 16.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {

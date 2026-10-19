@@ -30,6 +30,16 @@ sealed interface Route {
     data object SettingsMore : Route
     /** Profile → METRX Pro (prototype PAGES.sub). */
     data object Subscription : Route
+    /** Profile → Ustaxona sozlamalari, Materiallar va furnitura (furniture makers). */
+    data object Workshop : Route
+    data object Materials : Route
+    /** A furniture order's kitchen designer: [wall] the run shown (null: the first). */
+    data class Kitchen(val pid: String, val fid: String, val wall: String? = null, val d3: Boolean = false) : Route
+    /** A furniture order's wardrobe designer: [step] 1–5 (place, sizes, doors, inside, material), [sec] the selected section. */
+    data class Wardrobe(val pid: String, val fid: String, val step: Int = 1, val sec: Int = 0, val d3: Boolean = false) : Route
+    /** A furniture order's parts and sheet layout, and its workshop pack. */
+    data class FCut(val pid: String) : Route
+    data class FPack(val pid: String) : Route
     /** The draft report (prototype PAGES.report). */
     data class Report(val pid: String) : Route
     /** An issued quote, frozen (prototype PAGES.quote). */
@@ -99,6 +109,31 @@ sealed interface Sheet {
     data object ShotDel : Sheet
     data object ShotTo : Sheet
     data object LcManual : Sheet
+    /** Profile → Soha: builder or furniture maker. */
+    data object Industry : Sheet
+    /** A furniture order: approving it (agreed price and prepayment), adding a payment. */
+    data class FApprove(val pid: String) : Sheet
+    data class FPay(val pid: String) : Sheet
+    /** A site point on a wall of a furniture order's room: a new one ([id] null) on [wall], or an existing one. */
+    data class PointForm(val pid: String, val rid: String, val wall: String, val id: String? = null) : Sheet
+    /** The workshop's settings and lists: one value, a material, a hardware item ([id] null: a new one). */
+    data class WsField(val key: String) : Sheet
+    data class MatForm(val id: String?) : Sheet
+    data class HwForm(val id: String?) : Sheet
+    /** New furniture in a workspace of a furniture order; a piece of furniture's menu and rename. */
+    data class NewFurniture(val pid: String, val wid: String) : Sheet
+    data class FMenu(val pid: String, val fid: String) : Sheet
+    data class FRename(val pid: String, val fid: String) : Sheet
+    /** The kitchen designer: a unit's settings; the library of units ([group] module, appl or space) for [wall]. */
+    data class FModule(val pid: String, val fid: String, val mid: String) : Sheet
+    data class FLibrary(val pid: String, val fid: String, val wall: String, val group: String) : Sheet
+    /** The wardrobe designer: one size ([key] w, h, d, x or secW of section [sec]), an insert, more inserts; materials of any furniture. */
+    data class WField(val pid: String, val fid: String, val key: String, val sec: Int = 0) : Sheet
+    data class WInsert(val pid: String, val fid: String, val sec: Int, val idx: Int) : Sheet
+    data class WMore(val pid: String, val fid: String, val sec: Int) : Sheet
+    data class FMats(val pid: String, val fid: String) : Sheet
+    /** The Narx tab: a rate, the fixed price or the lead time ([key] rRun, rTall, fixed, days). */
+    data class FPriceField(val pid: String, val key: String) : Sheet
 }
 
 /** Everything the screens share: settings, the projects, where each tab is, the open sheet and the toast. */
@@ -116,6 +151,8 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     /** Drawings and photos: tools, colours, undo, the photo pickers; the live camera's line. */
     val mk = uz.metrx.app.ui.markup.MarkOps(this)
     val live = uz.metrx.app.ui.markup.LiveLine()
+    /** The kitchen designer's undo history and selected unit. */
+    val kit = uz.metrx.app.ui.furniture.KitOps()
 
     val stack get() = stacks.getValue(tab)
     val top get() = stack.last()
@@ -153,7 +190,11 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.Report -> store.get(r.pid) != null
                     is Route.Markup -> if (r.pid == null) settings.shots.any { it.id == r.iid } else store.get(r.pid)?.floors?.any { w -> w.items.any { it.id == r.iid } } == true
                     is Route.Quote -> store.get(r.pid)?.quotes?.any { it.no == r.no } == true
-                    Route.Root, Route.SettingsMore, Route.Subscription, is Route.Measure, Route.LiveCam -> true
+                    is Route.Kitchen -> store.get(r.pid)?.furniture?.any { it.id == r.fid } == true
+                    is Route.Wardrobe -> store.get(r.pid)?.furniture?.any { it.id == r.fid } == true
+                    is Route.FCut -> store.get(r.pid) != null
+                    is Route.FPack -> store.get(r.pid) != null
+                    Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, is Route.Measure, Route.LiveCam -> true
                 }
             }
             if (keep.size != st.size) { st.clear(); st.addAll(keep) }

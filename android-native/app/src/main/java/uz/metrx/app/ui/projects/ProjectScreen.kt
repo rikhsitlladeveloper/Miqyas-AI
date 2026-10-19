@@ -47,6 +47,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import uz.metrx.app.core.Lang
 import uz.metrx.app.core.Phone
 import uz.metrx.app.data.Project
@@ -78,6 +79,8 @@ import uz.metrx.app.ui.theme.ui
 import uz.metrx.app.ui.theme.num
 
 private val TABS = listOf("rooms" to "pj.t.rooms", "estimate" to "pr.estimate", "quotes" to "pj.t.quotes", "info" to "pj.info")
+/** A furniture order: its price tab instead of the estimate (furniture plan section 4). */
+private val F_TABS = listOf("rooms" to "pj.t.rooms", "price" to "fo.price", "quotes" to "pj.t.quotes", "info" to "pj.info")
 
 /** Project page: name, customer and stage, three numbers, four tabs (prototype project.js + glass stage 2). */
 @Composable
@@ -86,14 +89,17 @@ fun ProjectScreen(r: Route.Project) {
     val lang = LocalLang.current
     val p = app.store.get(r.id) ?: return
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        PageBar { BackPill(tr("tab.projects"), { app.pop() }) }
+        // the pill names the page underneath: the orders list on that tab, or Home or Profile when opened from there
+        val under = app.tab.takeIf { app.stack.size >= 2 && app.stack[app.stack.size - 2] == uz.metrx.app.ui.Route.Root && it != uz.metrx.app.ui.main.Tab.PROJECTS }
+        PageBar { BackPill(tr(under?.label ?: if (p.isFurniture) "fo.tab" else "tab.projects"), { app.pop() }) }
         val withTotal = r.tab == "estimate" && (p.estimate.materials.isNotEmpty() || p.estimate.labor.isNotEmpty())
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = if (withTotal) 0.dp else 24.dp + NAV_SPACE).let { if (withTotal) it else it.navigationBarsPadding() }) {
             Header(p, r.tab, lang)
             when (r.tab) {
-                "info" -> InfoTab(p, lang)
-                "estimate" -> EstimateTab(p, lang)
+                "info" -> { if (p.isFurniture) uz.metrx.app.ui.furniture.FurnitureInfo(p); InfoTab(p, lang) }
+                "price" -> uz.metrx.app.ui.furniture.FPriceTab(p)
                 "quotes" -> QuotesTab(p, lang)
+                "estimate" -> EstimateTab(p, lang)
                 else -> if (r.view != "list" && p.rooms.isNotEmpty()) Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp)) {
                     ViewSeg(r.view) { app.setTop(r.copy(view = it)) }
                     if (r.view == "2d") Plans2D(p, lang) else Project3D(p, r, lang)
@@ -126,15 +132,15 @@ private fun Header(p: Project, tab: String, lang: Lang) {
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(sub, style = ui(13.5f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                StageChip(p.stage)
+                if (p.isFurniture) uz.metrx.app.ui.furniture.FStageChip(p.stage) else StageChip(p.stage)
             }
         }
-        if (tab == "rooms") Nums(p)
+        if (tab == "rooms") { if (p.isFurniture) uz.metrx.app.ui.furniture.FNums(p) else Nums(p) }
         Row(
             Modifier.padding(top = 12.dp).fillMaxWidth().height(44.dp).clip(RoundedCornerShape(22.dp)).background(G.ink.copy(alpha = .06f)).padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            TABS.forEach { (k, l) ->
+            (if (p.isFurniture) F_TABS else TABS).forEach { (k, l) ->
                 val on = tab == k
                 val bubble = RoundedCornerShape(18.dp)
                 Box(
@@ -145,8 +151,10 @@ private fun Header(p: Project, tab: String, lang: Lang) {
                     contentAlignment = Alignment.Center
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(tr(l), style = ui(12.5f, if (on) 700 else 600, if (on) G.ink else G.slate), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        if (k == "quotes" && p.quotes.isNotEmpty()) Text("${p.quotes.size}", style = ui(11f, 700, Color.White),
+                        // the name shrinks so the quotes count always has room (it was cut off with a large system font)
+                        androidx.compose.foundation.text.BasicText(tr(l), Modifier.weight(1f, fill = false), style = ui(12.5f, if (on) 700 else 600, if (on) G.ink else G.slate), maxLines = 1,
+                            autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 9.sp, maxFontSize = 12.5.sp, stepSize = .5.sp))
+                        if (k == "quotes" && p.quotes.isNotEmpty()) Text("${p.quotes.size}", style = ui(11f, 700, Color.White), maxLines = 1, softWrap = false,
                             modifier = Modifier.clip(CircleShape).background(G.cobalt).padding(horizontal = 6.dp, vertical = 1.dp))
                     }
                 }
@@ -336,8 +344,8 @@ private fun QuotesTab(p: Project, lang: Lang) {
         ) {
             Box(Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(G.cobalt.copy(alpha = .12f)), contentAlignment = Alignment.Center) { MIcon("doc", G.cobalt, 26.dp, 2f) }
             Text(tr("q.emptyTitle"), style = ui(18f, 700), textAlign = TextAlign.Center)
-            Text(tr("q.emptyBody"), style = ui(14f, 400, G.ink2, 1.45f), textAlign = TextAlign.Center)
-            GBtn(tr("pr.estimate"), { app.setProjectTab("estimate") }, Btn.SECONDARY, fill = false)
+            Text(tr(if (p.isFurniture) "fd.qEmpty" else "q.emptyBody"), style = ui(14f, 400, G.ink2, 1.45f), textAlign = TextAlign.Center)
+            GBtn(tr(if (p.isFurniture) "fo.price" else "pr.estimate"), { app.setProjectTab(if (p.isFurniture) "price" else "estimate") }, Btn.SECONDARY, fill = false)
         }
         return
     }
@@ -351,7 +359,7 @@ private fun QuotesTab(p: Project, lang: Lang) {
                     MIcon("lock", G.ink2, 14.dp, 2f); Text(" " + tr("q.issued"), style = ui(13.5f, 400, G.ink2))
                 }
                 Text(uz.metrx.app.data.fmtDate(q.ts) + ", " + uz.metrx.app.ui.report.fmtTime(q.ts) + ". " + tr("q.lang", "l" to Lang.of(q.sn.lang).longName), style = ui(13.5f, 400, G.ink2, 1.35f))
-                Text(tr("q.rooms", "n" to q.sn.rooms.size), style = ui(13.5f, 400, G.ink2))
+                Text(if (q.sn.furniture.isNotEmpty()) q.sn.furniture.joinToString(" + ") { uz.metrx.app.data.dn(it.name, lang) } else tr("q.rooms", "n" to q.sn.rooms.size), style = ui(13.5f, 400, G.ink2))
                 Column(Modifier.padding(top = 6.dp)) {
                     Hairline()
                     Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {

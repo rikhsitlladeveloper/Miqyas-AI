@@ -481,7 +481,7 @@ fun RowSheet(s0: Sheet.Row) {
                         val shape = RoundedCornerShape(20.dp)
                         Text(tr(u), style = ui(14f, if (on) 700 else 600, if (on) Color.White else G.ink), maxLines = 1,
                             modifier = Modifier.let { if (on) it.dropShadow(shape, Shadow(14.dp, G.cobalt.copy(alpha = .3f), offset = DpOffset(0.dp, 6.dp))) else it }
-                                .height(40.dp).clip(shape).background(if (on) G.cobalt else G.glass(.85f))
+                                .height(40.dp).clip(shape).background(if (on) G.cobalt else G.idle(.85f))
                                 .border(.67.dp, if (on) G.cobalt else G.ink.copy(alpha = .1f), shape).clickable(role = Role.RadioButton) { set("eunit", "@$u") }
                                 .padding(horizontal = 16.dp, vertical = 10.dp))
                     }
@@ -548,7 +548,7 @@ private fun FromChip(label: String, onClick: () -> Unit) {
 private fun ReserveChip(on: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(19.dp)
     Box(Modifier.dropShadow(shape, Shadow(8.dp, G.shade.copy(alpha = .06f), offset = DpOffset(0.dp, 2.dp))).height(38.dp).clip(shape)
-        .background(if (on) G.cobalt.copy(alpha = .1f) else G.glass(.8f))
+        .background(if (on) G.cobalt.copy(alpha = .1f) else G.idle(.8f))
         .drawBehind {
             val w = .67.dp.toPx()
             drawRoundRect(if (on) G.cobalt else G.ink.copy(alpha = .2f), Offset(w / 2, w / 2), androidx.compose.ui.geometry.Size(size.width - w, size.height - w), androidx.compose.ui.geometry.CornerRadius(19.dp.toPx()),

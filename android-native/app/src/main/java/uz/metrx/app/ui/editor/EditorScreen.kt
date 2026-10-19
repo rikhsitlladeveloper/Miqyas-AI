@@ -334,7 +334,7 @@ internal fun CardBtn(label: String, icon: String, primary: Boolean, modifier: Mo
     Row(
         modifier.heightIn(min = 52.dp)
             .dropShadow(shape, Shadow(if (primary) 18.dp else 16.dp, if (primary) Color(0x38374FDD) else G.shade.copy(alpha = .08f), offset = DpOffset(0.dp, if (primary) 8.dp else 6.dp)))
-            .clip(shape).background(if (primary) G.cobalt else G.glass(.65f))
+            .clip(shape).background(if (primary) G.cobalt else G.idle(.65f))
             .let { if (primary) it else it.topHighlight(1f, 1.dp).border(1.dp, G.rim, shape) }
             .pressable(onClick, .98f).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically

@@ -74,7 +74,7 @@ fun GlassSheet(title: String, onClose: () -> Unit, footer: (@Composable ColumnSc
             Modifier.fillMaxWidth()
                 .graphicsLayer { translationY = size.height * enter.value }
                 .dropShadow(shape, Shadow(40.dp, G.shade.copy(alpha = .16f), offset = DpOffset(0.dp, (-12).dp)))
-                .clip(shape).glassBlur(haze, G.sheet(.84f), 30.dp).topHighlight(1f)
+                .clip(shape).glassBlur(haze, G.sheet(.92f), 30.dp).topHighlight(1f)
                 .border(1.dp, G.rim, shape)
                 .clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) {}
                 .navigationBarsPadding()
@@ -85,10 +85,12 @@ fun GlassSheet(title: String, onClose: () -> Unit, footer: (@Composable ColumnSc
                 Text(title, style = ui(17f, 600, lineHeight = 1.25f), modifier = Modifier.weight(1f))
                 Box(Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button, onClick = onClose), contentAlignment = Alignment.Center) { MIcon("x", G.ink2, 22.dp, 2f) }
             }
+            androidx.compose.runtime.CompositionLocalProvider(uz.metrx.app.ui.theme.LocalOnSheet provides true) {
             Column(Modifier.weight(1f, fill = false).verticalScroll(rememberScrollState()).fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp), content = body)
             if (footer != null) {
                 Box(Modifier.fillMaxWidth().height(1.dp).background(G.ink.copy(alpha = .08f)))
                 Column(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = footer)
+            }
             }
         }
         }
@@ -101,8 +103,8 @@ fun GlassButton(label: String, onClick: () -> Unit, primary: Boolean = true, ico
     val shape = RoundedCornerShape(16.dp)
     Row(
         modifier.fillMaxWidth().heightIn(min = 52.dp)
-            .let { if (primary && enabled) it.dropShadow(shape, Shadow(22.dp, G.cobalt.copy(alpha = .3f), offset = DpOffset(0.dp, 10.dp))) else it }
-            .clip(shape).background(if (primary) G.cobalt else G.glass(.6f))
+            .dropShadow(shape, Shadow(22.dp, if (primary && enabled) G.cobalt.copy(alpha = .3f) else Color.Transparent, offset = DpOffset(0.dp, 10.dp)))
+            .clip(shape).background(if (primary) G.cobalt else G.idle(.6f))
             .let { if (primary) it else it.border(1.dp, G.rim, shape) }
             .pressable({ if (enabled) onClick() }, .98f).padding(horizontal = 16.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically
@@ -148,12 +150,20 @@ fun ToastHost(msg: ToastMsg?, onGone: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 Box(Modifier.size(32.dp).clip(CircleShape).background(tc.copy(alpha = .2f)), contentAlignment = Alignment.Center) { MIcon(icon, tc, 18.dp, 2.4f) }
-                Text(m.text, style = ui(14.5f, 600, Color.White, 1.35f), modifier = Modifier.weight(1f))
-                if (m.action != null) Row(
-                    Modifier.heightIn(min = 42.dp).clip(RoundedCornerShape(13.dp)).background(Color.White.copy(alpha = .12f))
-                        .clickable(role = Role.Button) { m.onAction?.invoke(); visible = false }.padding(horizontal = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)
-                ) { MIcon("undo", Color.White, 16.dp, 2.2f); Text(m.action, style = ui(14f, 700, Color.White)) }
+                val action: (@Composable () -> Unit)? = m.action?.let { label -> {
+                    Row(
+                        Modifier.heightIn(min = 42.dp).clip(RoundedCornerShape(13.dp)).background(Color.White.copy(alpha = .12f))
+                            .clickable(role = Role.Button) { m.onAction?.invoke(); visible = false }.padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) { MIcon("undo", Color.White, 16.dp, 2.2f); Text(label, style = ui(14f, 700, Color.White), maxLines = 1) }
+                } }
+                // a long message keeps the full width and puts its button underneath, instead of a narrow column beside it
+                val below = action != null && m.text.length + m.action!!.length > 24
+                Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(m.text, style = ui(14.5f, 600, Color.White, 1.35f))
+                    if (below) action!!()
+                }
+                if (action != null && !below) action()
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button) { visible = false }, contentAlignment = Alignment.Center) {
                     MIcon("x", Color.White.copy(alpha = .62f), 18.dp, 2f)
                 }

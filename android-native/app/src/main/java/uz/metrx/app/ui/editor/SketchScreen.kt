@@ -119,8 +119,8 @@ fun SketchScreen(rt: Route.Sketch) {
                 uz.metrx.app.ui.icons.MIcon("undo", G.ink, 20.dp, 2f)
             }
             Text("90°/45°", style = ui(13.5f, 700, if (snap) Color.White else G.ink),
-                modifier = Modifier.heightIn(min = 44.dp).clip(CircleShape).background(if (snap) G.cobalt else G.glass(.7f))
-                    .border(1.dp, if (snap) G.cobalt else G.rim, CircleShape).clickable(role = Role.Switch) { app.settings.setSnap(!snap) }.padding(horizontal = 14.dp, vertical = 12.dp))
+                modifier = Modifier.heightIn(min = 44.dp).clip(CircleShape).background(if (snap) G.cobalt else G.idle(.7f))
+                    .border(1.dp, if (snap) G.cobalt else G.idleRim, CircleShape).clickable(role = Role.Switch) { app.settings.setSnap(!snap) }.padding(horizontal = 14.dp, vertical = 12.dp))
         }
         // the pad
         Box(Modifier.weight(1f).fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(22.dp)).background(G.glass(.5f)).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {

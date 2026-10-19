@@ -260,12 +260,24 @@ struct WorkshopSheet: View {
 }
 
 /// A typed workshop value: digits, and for tenths of a mm one decimal; nil when it is not a sensible number.
-private func parseField(_ kind: WKind, _ text: String) -> String? {
+/// Sizes that keep the sheet layout working: a board of 300 to 5000 mm, a saw cut under 10 mm, a trim under 100 mm.
+private func mmRange(_ key: String) -> ClosedRange<Int> {
+    switch key {
+    case "sheetL", "sheetW": return 300...5000
+    case "kerf": return 0...10
+    case "trim": return 0...100
+    case "legH": return 0...300
+    default: return 0...10000
+    }
+}
+
+private func parseField(_ kind: WKind, _ text: String, _ key: String = "") -> String? {
     let t = text.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ",", with: ".")
     switch kind {
     case .mm10: return Double(t).flatMap { $0 >= 0 && $0 <= 50 ? String(Int(($0 * 10).rounded())) : nil }
-    case .mm: return Int(t).flatMap { (0...10000).contains($0) ? String($0) : nil }
-    case .pct: return Int(t).flatMap { (0...500).contains($0) ? String($0) : nil }
+    case .mm: return Int(t).flatMap { mmRange(key).contains($0) ? String($0) : nil }
+    // a prepayment is part of the price; the markup may be more than the cost
+    case .pct: return Int(t).flatMap { (key == "prepay" ? 0...100 : 0...500).contains($0) ? String($0) : nil }
     case .money: return !t.isEmpty && t.allSatisfy(\.isASCIIDigitChar) ? Money.digits(Decimal(string: t) ?? 0) : nil
     }
 }
@@ -285,7 +297,7 @@ private struct FieldSheet: View {
         _v = State(initialValue: f.kind == .mm10 ? tenths(Int(raw) ?? 0, AppSettings.shared.lang == .en) : raw)
     }
     var body: some View {
-        let s = AppSettings.shared, f = field(key), parsed = parseField(f.kind, v)
+        let s = AppSettings.shared, f = field(key), parsed = parseField(f.kind, v, f.key)
         let unit: String = { switch f.kind { case .mm, .mm10: return "mm"; case .pct: return "%"; case .money: return Money.cur(s.currency) } }()
         func save() {
             guard let parsed else { return }

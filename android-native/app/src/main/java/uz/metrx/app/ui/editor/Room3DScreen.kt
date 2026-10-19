@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
@@ -111,11 +113,16 @@ fun Room3DScreen(r0: Route.Editor) {
             }
             return@Column
         }
-        val shell = remember(r.dims, r.openings, r.poly, r.wallColor, r.floorColor, snap) { buildShell(listOf(r), true, snap) }
+        val base = remember(r.dims, r.openings, r.poly, r.points, r.wallColor, r.floorColor, snap) { buildShell(listOf(r), true, snap) }
+        // a furniture order's furniture stands in its room; a tap opens a door or a drawer
+        var open by remember(r.id) { mutableStateOf(setOf<String>()) }
+        val (shell, fur) = if (p.isFurniture) uz.metrx.app.ui.furniture.rememberFurnShell(p, r, base, open) else base to null
         val cam = remember(r.id) { Cam3D() }
         val shot = remember { Shot3D() }
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            Scene3D(shell, cam, Modifier.fillMaxSize(), shot) {
+            Scene3D(shell, cam, Modifier.fillMaxSize(), shot, onTap = fur?.let { fr -> { pos: Offset ->
+                uz.metrx.app.ui.furniture.pickOf(fr, cam, pos)?.let { k -> open = if (k in open) open - k else open + k }
+            } }) {
                 Labels3D(cam, shell.labels.map { it.p }) { i -> Lbl3D(shell.labels[i].text) }
                 ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
                     if (r.views.size >= 4) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }

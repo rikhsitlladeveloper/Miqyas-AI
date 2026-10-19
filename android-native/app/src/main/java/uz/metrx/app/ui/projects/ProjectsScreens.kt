@@ -24,6 +24,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -94,24 +96,29 @@ import uz.metrx.app.ui.theme.Theme
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
 
-private fun stageOf(p: Project) = p.stage
+/** A paid furniture order counts as done in the list's chips. */
+private fun stageOf(p: Project) = if (p.isFurniture && p.stage == "paid") "done" else p.stage
 
 /** Projects: search with a round +, three chips, compact rows (prototype glass PAGES.projects). */
 @Composable
 fun ProjectsList() {
     val app = LocalApp.current
     val lang = LocalLang.current
-    val ps = app.store.projects
+    val furniture = app.settings.furniture
+    val all = app.store.projects
+    // each industry sees its own projects; the others stay one chip away (furniture plan section 3)
+    val ps = all.filter { it.isFurniture == furniture }
+    val others = all.filter { it.isFurniture != furniture }
     var seg by rememberSaveable { mutableStateOf("active") }
     var q by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         GlassHeader({ app.sheet = Sheet.Device })
-        PageTitle(tr("tab.projects"), Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp))
-        if (ps.isEmpty()) { ProjectsEmpty { app.push(Route.NewProject()) }; return@Column }
+        PageTitle(tr(if (furniture) "fo.tab" else "tab.projects"), Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp))
+        if (all.isEmpty()) { ProjectsEmpty { app.push(Route.NewProject()) }; return@Column }
         val n = mapOf("active" to ps.count { stageOf(it) != "done" }, "done" to ps.count { stageOf(it) == "done" }, "all" to ps.size)
         val needle = q.trim().lowercase()
-        val list = ps.filter { p ->
-            val inSeg = seg == "all" || (if (seg == "done") stageOf(p) == "done" else stageOf(p) != "done")
+        val list = (if (seg == "other") others else ps).filter { p ->
+            val inSeg = seg == "all" || seg == "other" || (if (seg == "done") stageOf(p) == "done" else stageOf(p) != "done")
             inSeg && (needle.isEmpty() || listOf(dn(p.name, lang), dn(p.customer, lang), dn(p.address, lang), p.phone).joinToString(" ").lowercase().contains(needle))
         }
         Column(
@@ -127,17 +134,17 @@ fun ProjectsList() {
                 ) { MIcon("plus", Color.White, 24.dp, 2.4f) }
             }
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf("active" to "pl.active", "done" to "pl.doneSeg", "all" to "pl.allSeg").forEach { (k, l) ->
+                (listOf("active" to "pl.active", "done" to "pl.doneSeg", "all" to "pl.allSeg") + (if (others.isNotEmpty()) listOf("other" to "fo.other") else emptyList())).forEach { (k, l) ->
                     val on = seg == k
-                    Text("${tr(l)} · ${n[k]}", style = ui(14f, if (on) 700 else 600, if (on) G.solid else G.slate),
+                    Text("${tr(l)} · ${if (k == "other") others.size else n[k]}", style = ui(14f, if (on) 700 else 600, if (on) G.solid else G.slate),
                         modifier = Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp))
-                            .background(if (on) G.ink else G.glass(.45f))
-                            .border(1.dp, if (on) G.ink else G.rim, RoundedCornerShape(20.dp))
+                            .background(if (on) G.ink else G.idle(.45f))
+                            .border(1.dp, if (on) G.ink else G.idleRim, RoundedCornerShape(20.dp))
                             .clickable(role = Role.Tab) { seg = k }.padding(horizontal = 16.dp, vertical = 10.dp))
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                list.forEach { p -> ProjectRow(p) { app.push(Route.Project(p.id)) } }
+                list.forEach { p -> if (p.isFurniture) uz.metrx.app.ui.furniture.OrderRow(p) { app.push(Route.Project(p.id)) } else ProjectRow(p) { app.push(Route.Project(p.id)) } }
                 if (list.isEmpty()) Text(tr(if (needle.isNotEmpty()) "pl.noMatch" else "pl.none"), style = ui(14.5f, 400, G.ink2),
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
@@ -253,24 +260,34 @@ fun NewProjectScreen(editId: String?) {
             app.pop(); app.say("op.saved", "o" to name.trim())
         } else {
             val p = newProject(name.trim(), customer.trim(), Phone.digits(phone), address.trim(), loc, app.settings.currency, app.settings.reportLang.code)
+                .let { if (app.settings.furniture) it.copy(industry = "furniture") else it }
             app.store.add(p)
             app.replaceTop(Route.Project(p.id))
             app.say("np.created", "n" to name.trim())
         }
     }
 
+    // with the keyboard up the button sits in the page under the form (not floating over it), so the field being typed
+    // in scrolls above the button instead of hiding behind it
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    val imeOn = WindowInsets.isImeVisible
+    val footer: @Composable (Modifier) -> Unit = { m ->
+        FloatingFooter(m) { GBtn(tr(if (edit != null) "common.save" else if (app.settings.furniture) "fo.create" else "np.create"), ::save, enabled = ok) }
+    }
     Box(Modifier.fillMaxSize().imePadding()) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             PageBar(frosted = true) {
                 GlassIconButton(if (edit != null) "back" else "x", tr(if (edit != null) "nt.back" else "common.close"), { app.pop() }, Modifier.padding(start = 6.dp))
                 Spacer(Modifier.width(6.dp))
-                BarTitle(tr("np.editTitle"), eyebrow = if (edit == null) tr("np.title") else null)
+                val fu = if (edit != null) edit.isFurniture else app.settings.furniture
+                BarTitle(tr(if (fu) "fo.details" else "np.editTitle"), eyebrow = if (edit == null) tr(if (fu) "fo.new" else "np.title") else null)
             }
             Column(
-                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 120.dp),
+                Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = if (imeOn) 16.dp else 120.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
-                GField(tr("np.name"), name, { name = it }, tr("smp.project"), error = nameErr, showError = show("name"), onBlur = { touch("name") }, onIme = { fCust.requestFocus() }, focusRequester = fName,
+                val furn = if (edit != null) edit.isFurniture else app.settings.furniture
+                GField(tr(if (furn) "fo.name" else "np.name"), name, { name = it }, tr(if (furn) "fo.namePh" else "smp.project"), error = nameErr, showError = show("name"), onBlur = { touch("name") }, onIme = { fCust.requestFocus() }, focusRequester = fName,
                     capitalization = KeyboardCapitalization.Sentences)
                 GField(tr("np.customerName"), customer, { customer = it }, tr("smp.customer"), error = custErr, showError = show("customer"), onBlur = { touch("customer") },
                     onIme = { fPhone.requestFocus() }, focusRequester = fCust, capitalization = KeyboardCapitalization.Words)
@@ -293,10 +310,9 @@ fun NewProjectScreen(editId: String?) {
                     if (edit == null) Text(tr("np.change"), style = ui(13.5f, 700, G.cobalt), modifier = Modifier.clickable(role = Role.Button) { app.sheet = Sheet.Currency }.padding(horizontal = 4.dp, vertical = 2.dp))
                 }
             }
+            if (imeOn) footer(Modifier)
         }
-        FloatingFooter(Modifier.align(Alignment.BottomCenter)) {
-            GBtn(tr(if (edit != null) "common.save" else "np.create"), ::save, enabled = ok)
-        }
+        if (!imeOn) footer(Modifier.align(Alignment.BottomCenter))
     }
 }
 

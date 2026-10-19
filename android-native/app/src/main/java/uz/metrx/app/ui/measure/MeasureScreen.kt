@@ -110,7 +110,8 @@ private const val BRICK_ICON = "M3 6h8v5H3zM13 6h8v5h-8zM7 13h10v5H7z"
 class MeasureCalc {
     var tool by mutableStateOf("area")
     /** Per tool, the readings put into its slots (reading id and mm), null where still empty. */
-    val vals = mapOf("area" to mutableStateListOf<Pair<String, Int>?>(), "wall" to mutableStateListOf(), "vol" to mutableStateListOf(), "sum" to mutableStateListOf(), "brick" to mutableStateListOf())
+    val vals = mapOf("area" to mutableStateListOf<Pair<String, Int>?>(), "wall" to mutableStateListOf(), "vol" to mutableStateListOf(), "sum" to mutableStateListOf(), "brick" to mutableStateListOf(),
+        "sheet" to mutableStateListOf())
     var act by mutableStateOf<Int?>(null)
     var brickOpening by mutableStateOf(false)
     var cont by mutableStateOf(false)
@@ -151,6 +152,11 @@ fun MeasureScreen(calcTitle: Boolean) {
     val rs = s.readings.reversed()
     val last = if (on && c.cont && c.liveVal != null) c.liveVal else rs.firstOrNull()?.mm
     fun add(mm: Int, src: String) { val r = s.addReading(mm, src); c.fill(r) }
+    // furniture makers have the sheets tool where builders have bricks
+    LaunchedEffect(s.furniture) {
+        if (s.furniture && c.tool == "brick") c.tool = "sheet"
+        if (!s.furniture && c.tool == "sheet") c.tool = "area"
+    }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -188,9 +194,10 @@ fun MeasureScreen(calcTitle: Boolean) {
                     MIcon("kbd", G.cobalt, 18.dp, 2f); Text(tr("ed2.manual"), style = ui(16f, 700, G.cobalt), maxLines = 1)
                 }
                 when {
-                    !on -> GBtn(tr("qc.connect"), { app.sheet = Sheet.Device }, icon = "bt", modifier = Modifier.weight(1f))
-                    c.cont -> GBtn(tr("qc.saveLive"), { c.liveVal?.let { add(it, "sim"); app.say("qm.saved") } }, icon = "save", enabled = c.liveVal != null, modifier = Modifier.weight(1f))
-                    else -> GBtn(tr("qc.measure"), { add(Random.nextInt(600, 8200), "sim") }, icon = "laser", modifier = Modifier.weight(1f))
+                    // two lines rather than "Lazerni …" when the phone's font is set large
+                    !on -> GBtn(tr("qc.connect"), { app.sheet = Sheet.Device }, icon = "bt", modifier = Modifier.weight(1f), maxLines = 2)
+                    c.cont -> GBtn(tr("qc.saveLive"), { c.liveVal?.let { add(it, "sim"); app.say("qm.saved") } }, icon = "save", enabled = c.liveVal != null, modifier = Modifier.weight(1f), maxLines = 2)
+                    else -> GBtn(tr("qc.measure"), { add(Random.nextInt(600, 8200), "sim") }, icon = "laser", modifier = Modifier.weight(1f), maxLines = 2)
                 }
             }
         }
@@ -231,15 +238,16 @@ private fun Meter(on: Boolean, c: MeasureCalc, last: Int?, u: LenUnit, en: Boole
 
 @Composable
 private fun Tools(c: MeasureCalc) {
+    val furniture = LocalApp.current.settings.furniture
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        listOf("area" to "room", "wall" to "walls", "vol" to "cube", "sum" to "dim", "brick" to "").forEach { (k, ic) ->
+        listOf("area" to "room", "wall" to "walls", "vol" to "cube", "sum" to "dim", (if (furniture) "sheet" else "brick") to "").forEach { (k, ic) ->
             val on = c.tool == k; val sh = RoundedCornerShape(12.dp)
             Column(Modifier.weight(1f).height(54.dp).let { if (on) it.dropShadow(sh, Shadow(12.dp, Color(0x401C4BD1), offset = DpOffset(0.dp, 4.dp))) else it }.clip(sh)
-                .background(if (on) G.cobalt else G.glass(.55f)).border(if (on) 0.dp else 1.dp, if (on) Color.Transparent else G.rim, sh)
+                .background(if (on) G.cobalt else G.idle(.55f)).border(if (on) 0.dp else 1.dp, if (on) Color.Transparent else G.idleRim, sh)
                 .clickable(role = Role.Tab) { c.tool = k; c.act = null }.padding(vertical = 8.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 val tint = if (on) Color.White else G.ink
-                if (ic.isEmpty()) PathIcon(BRICK_ICON, tint, 18.dp, 2f) else MIcon(ic, tint, 18.dp, 2f)
+                if (ic.isEmpty()) PathIcon(if (k == "sheet") uz.metrx.app.ui.furniture.SHEET_ICON else BRICK_ICON, tint, 18.dp, 2f) else MIcon(ic, tint, 18.dp, 2f)
                 Text(tr("qc.$k"), style = ui(11.5f, 600, tint), maxLines = 1)
             }
         }
@@ -305,16 +313,22 @@ private fun CalcCard(c: MeasureCalc, u: LenUnit, en: Boolean, m: String) {
                     txt = b.toString().replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), if (en) "," else " ") + " " + tr("u.pcs")
                     sub = (tr("qb.mortar") + " " + "%.2f".format(java.util.Locale.ROOT, mo).replace('.', if (en) '.' else ',') + " " + tr("u.m") + "³") to (fmtArea(net, en) + " " + m2) }
             }
+            "sheet" -> if (g(0) != null && g(1) != null) {
+                val a = g(0)!!.toLong() * g(1)!!
+                txt = uz.metrx.app.core.sheetsFor(a.toDouble()).toString() + " " + tr("u.sheet")
+                sub = tr("qs.spec") to (fmtArea(a, en) + " " + m2)
+            }
         }
         Row(Modifier.fillMaxWidth().drawBehind { drawLine(Color.White.copy(alpha = .12f), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }.padding(top = 8.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(tr(mapOf("area" to "qc.rArea", "wall" to "qc.rWall", "vol" to "qc.rVol", "sum" to "qc.rSum", "brick" to "qc.rBrick").getValue(c.tool)), style = ui(13f, 400, MUTED))
+            Text(tr(mapOf("area" to "qc.rArea", "wall" to "qc.rWall", "vol" to "qc.rVol", "sum" to "qc.rSum", "brick" to "qc.rBrick", "sheet" to "qc.rSheet").getValue(c.tool)), style = ui(13f, 400, MUTED))
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 if (err != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { MIcon("alert", Color(0xFFFFB4A8), 16.dp, 2f); Text(err, style = ui(13f, 600, Color(0xFFFFB4A8))) }
                 else Text(txt ?: "—", style = ui(30f, 700, if (txt != null) Color.White else MUTED, 1f).copy(fontFamily = PlexCond), maxLines = 1)
             }
             Text(tr("qc.clear"), style = ui(13f, 400, MUTED), modifier = Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(10.dp)).clickable { v.clear(); c.act = null }.padding(horizontal = 4.dp, vertical = 12.dp))
         }
+        if (c.tool == "sheet") sub?.let { (a, z) -> Row(Modifier.fillMaxWidth()) { Text(a, style = ui(12.5f, 400, MUTED), modifier = Modifier.weight(1f)); Text(z, style = ui(12.5f, 400, MUTED)) } }
         if (c.tool == "brick") {
             val b = app.settings.brick
             sub?.let { (a, z) -> Row(Modifier.fillMaxWidth()) { Text(a, style = ui(12.5f, 400, MUTED), modifier = Modifier.weight(1f)); Text(z, style = ui(12.5f, 400, MUTED)) } }
@@ -338,8 +352,8 @@ private fun Chips(rs: List<Reading>, c: MeasureCalc, u: LenUnit, en: Boolean) {
     FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         rs.take(12).forEach { x ->
             val inUse = x.id in used
-            Box(Modifier.height(44.dp).clip(RoundedCornerShape(12.dp)).background(if (inUse) G.cobalt.copy(alpha = .14f) else G.glass(.55f))
-                .border(1.dp, if (inUse) G.cobalt.copy(alpha = .4f) else G.rim, RoundedCornerShape(12.dp)).clickable(role = Role.Button) { c.fill(x) }.padding(horizontal = 12.dp),
+            Box(Modifier.height(44.dp).clip(RoundedCornerShape(12.dp)).background(if (inUse) G.cobalt.copy(alpha = .14f) else G.idle(.55f))
+                .border(1.dp, if (inUse) G.cobalt.copy(alpha = .4f) else G.idleRim, RoundedCornerShape(12.dp)).clickable(role = Role.Button) { c.fill(x) }.padding(horizontal = 12.dp),
                 contentAlignment = Alignment.Center) { Text(fmtLen(x.mm, u, en, full = true), style = ui(15f, 600, if (inUse) G.cobalt2 else G.ink).copy(fontFamily = PlexCond)) }
         }
     }
@@ -438,7 +452,7 @@ private fun BrickSheet() {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             BRICK_PRESETS.forEach { (l, w, h) ->
                 val on = f[0] == "$l" && f[1] == "$w" && f[2] == "$h"
-                Box(Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(12.dp)).background(if (on) G.cobalt else G.glass(.6f)).border(1.dp, if (on) G.cobalt else G.rim, RoundedCornerShape(12.dp))
+                Box(Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(12.dp)).background(if (on) G.cobalt else G.idle(.6f)).border(1.dp, if (on) G.cobalt else G.idleRim, RoundedCornerShape(12.dp))
                     .clickable { f[0] = "$l"; f[1] = "$w"; f[2] = "$h" }.padding(horizontal = 14.dp), contentAlignment = Alignment.Center) {
                     Text("$l×$w×$h", style = ui(14f, 600, if (on) Color.White else G.ink).copy(fontFamily = PlexCond))
                 }

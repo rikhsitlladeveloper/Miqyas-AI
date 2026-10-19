@@ -35,8 +35,26 @@ data class Project(
     val reportViews: Map<String, Boolean> = emptyMap(), // 3D view id -> in the report (default yes)
     val reportNotes: String = "",                       // the report's own note (prototype p.report.notes)
     val created: Long = 0,
-    val edited: Long = 0
-)
+    val edited: Long = 0,
+    /** "build" (a builder's project) or "furniture" (a furniture order); older projects are builders'. */
+    val industry: String = "build",
+    /** Furniture: the price agreed with the customer in the smallest unit, "" until the order is approved. */
+    val agreed: String = "",
+    val payments: List<Payment> = emptyList(),
+    /** Furniture orders: the kitchens, wardrobes… designed for it (furniture plan section 6.1). */
+    val furniture: List<uz.metrx.app.furniture.Furniture> = emptyList(),
+    /** Furniture orders: how the customer price is worked out, and the lead time (furniture plan section 6.7). */
+    val fprice: uz.metrx.app.furniture.FPrice = uz.metrx.app.furniture.FPrice()
+) {
+    val isFurniture get() = industry == "furniture"
+}
+
+/** Money received for a furniture order: [amount] in the smallest unit; [pre] marks the prepayment. */
+@Serializable
+data class Payment(val id: String, val amount: String, val ts: Long, val note: String = "", val pre: Boolean = false)
+
+/** A furniture order's stages, in order (furniture plan section 4). */
+val F_STAGES = listOf("measure", "design", "quote", "approved", "production", "installed", "paid")
 
 /** A workspace: a place in the project (a floor, a room, a bathroom, the yard…). Stored in Project.floors like the prototype. */
 @Serializable
@@ -108,6 +126,14 @@ data class Opening(
     val sillDrag: Boolean = false
 ) { val approx get() = offDrag || sillDrag }
 
+/**
+ * Something on a wall the furniture must keep clear of: [t] socket, switch, cold, hot, sewer, gas or meter. [off] from
+ * the wall's start corner and [h] from the floor, both to its centre, mm. [d] a pipe's diameter or the meter's width,
+ * [mh] the meter's height; [src] "manual" or "sim" (the laser).
+ */
+@Serializable
+data class SitePoint(val id: String, val t: String, val wall: String, val off: Int, val h: Int, val d: Int = 0, val mh: Int = 0, val src: String = "manual")
+
 @Serializable
 data class Pt(val x: Double, val y: Double)
 
@@ -139,7 +165,9 @@ data class Room(
     val views: List<View3D> = emptyList(),
     val wallColor: String = "#ECE8E1",
     val floorColor: String = "#C49A6C",
-    val created: Long = 0
+    val created: Long = 0,
+    /** Furniture orders: sockets, switches, pipes and the gas meter on the walls (furniture plan section 5). */
+    val points: List<SitePoint> = emptyList()
 ) {
     fun dim(k: String) = dims[k] ?: Dim()
     val isPoly get() = shape == "poly" && (poly?.verts?.size ?: 0) >= 3
@@ -180,8 +208,16 @@ data class Snap(
     val name: String, val customer: String = "", val phone: String = "", val address: String = "", val location: Location? = null,
     val currency: String = "UZS", val precision: Int = 0, val unit: String = "m", val lang: String = "uz", val notes: String = "",
     val builderName: String = "", val builderPhone: String = "", val pdf: PdfParts = PdfParts(),
-    val rooms: List<SnapRoom> = emptyList(), val estimate: Estimate = Estimate(), val extras: List<SnapExtra> = emptyList()
+    val rooms: List<SnapRoom> = emptyList(), val estimate: Estimate = Estimate(), val extras: List<SnapExtra> = emptyList(),
+    /** Furniture orders: the furniture, the materials it uses (names and colours), the price lines and terms. */
+    val furniture: List<uz.metrx.app.furniture.Furniture> = emptyList(), val fmats: List<uz.metrx.app.furniture.Mat> = emptyList(),
+    val flines: List<SnapLine> = emptyList(), val ftotal: String = "", val fprepay: Int = 50, val fdays: Int = 0, val finst: Int = 0,
+    val fhandles: String = "", val fws: uz.metrx.app.furniture.Workshop? = null
 )
+
+/** A line of a furniture order's price in the customer's PDF: [key] a furniture id or "deliver". */
+@Serializable
+data class SnapLine(val key: String, val amount: String)
 
 /** A reading on the Measure page: [src] "sim" (laser) or "manual"; [used] says where it went (a wall or the height). */
 @Serializable

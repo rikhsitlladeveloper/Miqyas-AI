@@ -13,12 +13,19 @@ struct ProjectScreen: View {
     var floor: String? = nil
     @Environment(\.openURL) private var openURL
 
+    /// The pill names the page underneath: the orders list on that tab, or Home or Profile when opened from there.
+    private func backLabel(_ p: Project) -> String {
+        let st = app.stack
+        if app.tab != .projects, st.count >= 2, st[st.count - 2] == .root { return app.tab.label }
+        return p.isFurniture ? "fo.tab" : "tab.projects"
+    }
+
     var body: some View {
         if let p = Store.shared.get(id) {
             let withTotal = tab == "estimate" && !(p.estimate.materials.isEmpty && p.estimate.labor.isEmpty)
             ZStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 0) {
-                    HStack { BackPill(text: tr(p.isFurniture ? "fo.tab" : "tab.projects")) { app.pop() }; Spacer() }.padding(.leading, 8).frame(minHeight: 64)
+                    HStack { BackPill(text: tr(backLabel(p))) { app.pop() }; Spacer() }.padding(.leading, 8).frame(minHeight: 64)
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
                             header(p)

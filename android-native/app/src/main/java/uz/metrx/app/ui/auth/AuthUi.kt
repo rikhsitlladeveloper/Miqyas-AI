@@ -87,7 +87,9 @@ fun AuButton(label: String, onClick: () -> Unit, kind: BtnKind = BtnKind.PRIMARY
     val shape = RoundedCornerShape(12.dp)
     val base = modifier.fillMaxWidth().heightIn(min = 52.dp)
     val styled = when (kind) {
-        BtnKind.PRIMARY -> base.let { if (enabled) it.dropShadow(shape, Shadow(14.dp, Au.cobalt.copy(alpha = .22f), offset = DpOffset(0.dp, 6.dp))) else it }
+        // the shadow stays in the chain whatever [enabled] is: adding it to a button already on screen made the button lose
+        // its fill ("Boshlash" looked disabled while it worked), as GBtn did before
+        BtnKind.PRIMARY -> base.dropShadow(shape, Shadow(14.dp, if (enabled) Au.cobalt.copy(alpha = .22f) else Color.Transparent, offset = DpOffset(0.dp, 6.dp)))
             .clip(shape).background(Au.cobalt)
         BtnKind.OUTLINE -> base.clip(shape).background(Color.White).border(1.5.dp, Au.line, shape)
     }

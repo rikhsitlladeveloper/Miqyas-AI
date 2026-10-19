@@ -21,7 +21,18 @@ import uz.metrx.app.geo.LenUnit
  * in the report, with the 3D views kept, each with its workspace's name in the report language; the drawings, photos
  * and notes chosen for the report; the builder, the estimate and the PDF parts.
  */
-fun snapshotOf(p: Project, s: Settings, pdf: PdfParts = s.pdf): Snap = snapshotOf(p, s.unit, s.builderName, s.builderPhone, pdf)
+fun snapshotOf(p: Project, s: Settings, pdf: PdfParts = s.pdf): Snap =
+    snapshotOf(p, s.unit, s.builderName, s.builderPhone, pdf).let { if (p.isFurniture) furnSnap(it, p, s.workshop, s.mats, s.hws) else it }
+
+/** A furniture order's part of the snapshot: the furniture, its materials, the price lines and the terms. */
+fun furnSnap(sn: Snap, p: Project, ws: uz.metrx.app.furniture.Workshop, mats: List<uz.metrx.app.furniture.Mat>, hws: List<uz.metrx.app.furniture.Hw>): Snap {
+    val fs = p.furniture.filter { it.modules.isNotEmpty() }
+    val pr = uz.metrx.app.furniture.priceOf(fs, p.fprice, ws, mats, hws)
+    val used = fs.flatMap { listOf(it.mats.carcass, it.mats.front, it.mats.back) }.toSet() + (if (fs.any { it.kind == "kitchen" }) setOf("wt38") else emptySet())
+    return sn.copy(furniture = fs, fmats = mats.filter { it.id in used }, flines = pr.lines.map { uz.metrx.app.data.SnapLine(it.key, it.amount.toString()) },
+        ftotal = pr.price.toString(), fprepay = ws.prepay, fdays = p.fprice.days, finst = p.fprice.inst,
+        fhandles = hws.lastOrNull { it.kind == "handle" }?.name ?: "", fws = ws)
+}
 
 fun snapshotOf(p: Project, unit: LenUnit, builderName: String, builderPhone: String, pdf: PdfParts): Snap {
     val l = Lang.of(p.reportLang)
@@ -64,6 +75,7 @@ fun fingerprint(sn: Snap): String {
         str(sn.name), str(sn.customer), str(sn.address), str(sn.currency), JsonPrimitive(sn.precision), str(sn.lang), str(sn.unit), str(sn.notes),
         JsonArray(listOf(str(sn.builderName), str(sn.builderPhone))), rooms, json.encodeToJsonElement(sn.estimate),
         JsonArray(sn.extras.map { x -> JsonArray(listOf(str(x.id), JsonPrimitive(x.edited), str(x.name))) })
-    )
+    ) + if (sn.furniture.isEmpty()) emptyList() else listOf(json.encodeToJsonElement(sn.furniture), str(sn.ftotal), JsonPrimitive(sn.fdays), JsonPrimitive(sn.finst),
+        json.encodeToJsonElement(sn.fmats))
     return JsonArray(all).toString()
 }

@@ -37,6 +37,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import uz.metrx.app.ui.furniture.drawSitePoint
 import uz.metrx.app.data.Opening
 import uz.metrx.app.data.Room
 import uz.metrx.app.geo.LenUnit
@@ -259,6 +260,11 @@ private fun DrawScope.drawRectPlan(lay: RectLayout, r: Room, sel: String?, selOp
 
     // doors and windows across the wall
     r.openings.forEach { o -> drawOpening(lay, o, if (issueOf(o)) RED else if (o.id == selOp) COB else INK, issueOf(o)) }
+    // furniture orders: sockets, switches and pipes, just inside their wall (furniture plan section 5)
+    r.points.forEach { x ->
+        val w = lay.wall(x.wall); val u = unitV(w.a, w.b)
+        drawSitePoint(x, w.a + u * (x.off * lay.s) - w.n * 7f, 0f, 6.5f, 1f)
+    }
 
     // centre label: NAME and the floor area
     val a = areas(r)

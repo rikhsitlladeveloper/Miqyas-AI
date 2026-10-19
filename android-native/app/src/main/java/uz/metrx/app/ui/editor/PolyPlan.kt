@@ -49,6 +49,7 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
+import uz.metrx.app.ui.furniture.drawSitePoint
 import uz.metrx.app.data.Diag
 import uz.metrx.app.data.Dim
 import uz.metrx.app.data.Pt
@@ -359,6 +360,13 @@ private fun DrawScope.drawPoly(lay: PolyLayout, r: Room, g: PolyGeo, mode: Strin
             drawPath(quad, PLAN_W); drawPath(quad, c, style = Stroke(1.2f))
             drawLine(c, p0 + nn * (lay.tw / 3), p1 + nn * (lay.tw / 3), 1f); drawLine(c, p0 + nn * (2 * lay.tw / 3), p1 + nn * (2 * lay.tw / 3), 1f)
         }
+    }
+    // furniture orders: sockets, switches and pipes, just inside their wall
+    if (mode == "plan") r.points.forEach { x ->
+        val i = g.walls.indexOfFirst { it.id == x.wall }; if (i < 0) return@forEach
+        val a = lay.inner[i]; val b = lay.inner[(i + 1) % n]; val u = norm(b - a)
+        val drawn = hypot(b.x - a.x, b.y - a.y); val real = g.walls[i].len ?: max(1, (drawn / lay.s).toInt()); val kk = drawn / max(1, real)
+        drawSitePoint(x, a + u * (x.off * kk) - lay.normals[i] * 7f, 0f, 6.5f, 1f)
     }
     // name and floor area in the middle
     val a = areas(r)
