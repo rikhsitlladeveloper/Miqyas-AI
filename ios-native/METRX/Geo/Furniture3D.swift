@@ -71,6 +71,14 @@ private func obbEdges(_ e: Edges3, _ x: Obb) {
 
 /// The furniture fs of a room whose walls are bases. rgb gives a material's colour; open holds the keys of open doors
 /// and drawers.
+/// The frame of a piece standing at p (Pose: along and out from wall p.ref, turned): len m long.
+func poseBasis(_ w: WallBasis, _ p: Pose, _ len: Double) -> WallBasis {
+    let o = w.at(Double(p.a) / 1000, 0, Double(p.n) / 1000)
+    let r = Double(p.deg) * .pi / 180, c = cos(r), s = sin(r)
+    // turned about the vertical: along u·c + n·s, into the room n·c − u·s
+    return WallBasis(ox: o.x, oz: o.z, ux: w.ux * c + w.nx * s, uz: w.uz * c + w.nz * s, nx: w.nx * c - w.ux * s, nz: w.nz * c - w.uz * s, len: len)
+}
+
 func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop, _ rgb: (String) -> Int, _ open: Set<String>) -> Furn3D {
     let st = FStore()
     for f in fs {
@@ -79,19 +87,25 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
                       "metal": METAL, "dark": DARK, "handle": HANDLE, "white": WHITE]
         let B = FBuilder(ws, colors, st, open)
         let lens = { (id: String) in bases[id].map { Int(($0.len * 1000).rounded(.towardZero)) } }
-        // the island (or peninsula) stands 900 mm out from the front of the first wall's units, its fronts facing them
+        // the island (or peninsula) stands where it was dragged, else 900 mm out from the front of the first wall's
+        // units, its fronts facing them
         let island: WallBasis? = f.walls.first { $0 != ISLAND }.flatMap { bases[$0] }.map { w in
             let r = runsOf(f, lens).first { $0.wall == ISLAND }
             let len = r.map { fillOf(f, $0, false).used } ?? 0
-            let s = (w.len - Double(len) / 1000) / 2
-            let back = Double(K_BASE_D + 900 + K_BASE_D) / 1000
-            let o = w.at(s + Double(len) / 1000, 0, back)
-            return WallBasis(ox: o.x, oz: o.z, ux: -w.ux, uz: -w.uz, nx: -w.nx, nz: -w.nz, len: Double(len) / 1000)
+            let p = f.kind == "kitchen" ? f.pose ?? islandPose(f, Int((w.len * 1000).rounded())) : islandPose(f, Int((w.len * 1000).rounded()))
+            return poseBasis(bases[p.ref] ?? w, p, Double(len) / 1000)
         }
         for m in f.modules {
-            guard let b = m.wall == ISLAND ? island : bases[m.wall ?? ""] else { continue }
+            // a piece standing free (a desk in the middle of the room) has its own frame, its box from its start
+            let free: WallBasis? = f.kind == "wardrobe" && m.type == "wardrobe" ? f.pose.flatMap { p in bases[p.ref].map { poseBasis($0, p, Double(m.w) / 1000) } } : nil
+            guard let b = free ?? (m.wall == ISLAND ? island : bases[m.wall ?? ""]) else { continue }
             B.wall = m.wall
-            if m.type == "wardrobe" { B.wardrobe(b, m) } else { B.kitchenUnit(b, m) }
+            if m.type == "wardrobe" {
+                var mm = m; if free != nil { mm.x = 0 }
+                B.wardrobe(b, mm)
+                // a bathroom vanity carries its basin and tap on top
+                if f.type == "vanity" { B.basin(b, mm) }
+            } else { B.kitchenUnit(b, m) }
         }
         // the worktop over the lower row of each wall (and over the corner it turns into)
         if f.kind == "kitchen" {
@@ -99,9 +113,31 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
             for r in runsOf(f, lens) {
                 guard let b = r.wall == ISLAND ? island : bases[r.wall] else { continue }
                 B.wall = r.wall
-                let low = f.modules.filter { $0.wall == r.wall && !isUpper($0) && ($0.type == "base" || $0.type == "filler" || $0.app == "dishwasher") }
-                for m in low { B.box(b, B.p("top"), m.x, m.x + m.w, wt - K_TOP, wt, 0, 600, true) }
-                if r.lowStart > 0 && !low.isEmpty { B.box(b, B.p("top"), 0, r.lowStart, wt - K_TOP, wt, 0, 600, true) }
+                let low = f.modules.filter { $0.wall == r.wall && !isUpper($0) && ($0.type == "base" || $0.type == "filler" || $0.app == "dishwasher") }.sorted { $0.x < $1.x }
+                let isl = r.wall == ISLAND
+                // one worktop over each stretch of touching units, no joint every unit; the corner square is the first
+                // side's. An island's is 900+ deep: it reaches 300 past its back for sitting at, and its back is finished.
+                let n0 = isl ? -318 : 0
+                var a0 = -1, a1 = -1
+                func piece() {
+                    guard a1 > a0 else { return }
+                    B.box(b, B.p("top"), a0, a1, wt - K_TOP, wt, n0, 600, true)
+                    if isl { B.box(b, B.p("front"), a0, a1, 0, wt - K_TOP, -18, 0, true) }
+                }
+                for m in low { if a0 >= 0 && m.x <= a1 + 1 { a1 = max(a1, m.x + m.w) } else { piece(); a0 = m.x; a1 = m.x + m.w } }
+                piece()
+                // end panels where a row ends in the open room (not against a wall): the lower row's, the wall units'
+                if let kx0 = f.kx, let lo = low.first?.x, let hi = low.map({ $0.x + $0.w }).max() {
+                    let wl: Int? = isl ? nil : Int((b.len * 1000).rounded())
+                    let ends: [(Int, Bool)] = isl ? [(lo, f.layout != "P"), (hi, true)] : [(lo, lo > 20), (hi, wl.map { hi < $0 - 20 } ?? false)]
+                    if kx0.ends > 0 { for (a, open) in ends where open { B.box(b, B.p("front"), a == lo ? a - 18 : a, a == lo ? a : a + 18, 0, wt - K_TOP, 0, 600, true) } }
+                    let up = f.modules.filter { $0.wall == r.wall && $0.type == "wall" }
+                    if kx0.endsUp > 0, let wl, let u0 = up.map(\.x).min(), let u1 = up.map({ $0.x + $0.w }).max() {
+                        let y0 = up.map(\.elev).min() ?? 0, y1 = up.map { $0.elev + $0.h }.max() ?? 0, dd = up.map(\.d).max() ?? 300
+                        if u0 > 20 { B.box(b, B.p("front"), u0 - 18, u0, y0, y1, 0, dd, true) }
+                        if u1 < wl - 20 { B.box(b, B.p("front"), u1, u1 + 18, y0, y1, 0, dd, true) }
+                    }
+                }
                 // extras: the backsplash panel on the wall over the worktop, the cornice on the wall units
                 if let kx = f.kx, r.wall != ISLAND {
                     let a0 = r.lowStart > 0 ? 0 : low.map(\.x).min() ?? 0
@@ -207,7 +243,8 @@ private final class FBuilder {
         let x0 = d(m.x), x1 = x0 + d(m.w), y0 = d(m.elev), y1 = y0 + d(m.h), dd = d(m.d), T = d(t)
         let carcass = p("carcass"), front = p("front"), metal = p("metal"), handle = p("handle")
         switch m.type {
-        case "filler": box(w, front, x0, x1, y0, y1, dd - 20, dd, true); return
+        // a strip of front board flush with the row's fronts
+        case "filler": let fn = d(isUpper(m) ? K_WALL_D : K_BASE_D); box(w, front, x0, x1, y0, y1, fn, fn + T, true); return
         case "gap":
             switch m.app {
             case "fridge":
@@ -231,7 +268,8 @@ private final class FBuilder {
         box(w, carcass, x0 + T, x1 - T, y0, y0 + T, 0, dd, true)
         if m.type == "base" { box(w, carcass, x0 + T, x1 - T, y1 - T, y1, dd - 100, dd, true); box(w, carcass, x0 + T, x1 - T, y1 - T, y1, 0, 100, true) }
         else { box(w, carcass, x0 + T, x1 - T, y1 - T, y1, 0, dd, true) }
-        box(w, p("back"), x0 + 2, x1 - 2, y0 + 2, y1 - 2, 0, 3)
+        // the back sits in grooves between the sides, the bottom and the top (Parts backPanel)
+        box(w, p("back"), x0 + T, x1 - T, y0 + T, y1 - T, 0, 3)
         let shelves = m.inserts.filter { $0.kind == "shelf" }.reduce(0) { $0 + $1.qty }
         if m.fronts.kind != "drawer" && shelves > 0 {
             for k in 1...shelves { let y = y0 + (d(m.h) - T) * Double(k) / Double(shelves + 1); box(w, carcass, x0 + T, x1 - T, y, y + T, 20, dd - 20, true) }
@@ -240,7 +278,13 @@ private final class FBuilder {
         if m.legs && m.type != "wall" && y0 > 0 { box(w, metal, x0, x1, 0, y0 - 2, dd - 70, dd - 54) }
         // fronts
         let fs = frontSizes(m.fronts, m.w, m.h, ws)
+        // an oven housing: the oven in its niche (800 to 1395 from the floor), a door under it and one over it
+        let ovenNiche = m.app == "oven" && m.fronts.kind == "door" && fs.count == 1
         switch m.fronts.kind {
+        case "door" where ovenNiche:
+            let fw = d(fs[0].1), lo = 800 - g / 2 - (y0 + edge), y2 = 1395 + g / 2
+            door(w, "\(m.id):f0", x0 + edge, dd, y0 + edge, lo, fw, 1, m.handles, lo - 90)
+            door(w, "\(m.id):f1", x0 + edge, dd, y2, y1 - edge - y2, fw, 1, m.handles, 90)
         case "door":
             for (j, (fh, fw)) in fs.enumerated() {
                 let a = x0 + edge + Double(j) * (d(fw) + g)
@@ -264,19 +308,34 @@ private final class FBuilder {
         let cx = (x0 + x1) / 2, wt = d(worktopTop(ws)), dark = p("dark")
         switch m.app {
         case "sink":
-            box(w, metal, cx - d(m.w) * 0.36, cx + d(m.w) * 0.36, wt - 1, wt + 1, 80, 520)
+            box(w, metal, cx - d(m.w) * 0.36, cx + d(m.w) * 0.36, wt, wt + 2, 80, 520)
             box(w, metal, cx - 15, cx + 15, wt, wt + 300, 40, 70); box(w, metal, cx - 12, cx + 12, wt + 280, wt + 300, 70, 260)
         case "hob":
             box(w, dark, cx - 290, cx + 290, wt, wt + 6, 40, 560)
             for (dx, dn) in [(-140.0, 160.0), (140.0, 160.0), (-140.0, 420.0), (140.0, 420.0)] { box(w, metal, cx + dx - 45, cx + dx + 45, wt + 6, wt + 9, dn - 45, dn + 45) }
+        case "oven" where ovenNiche:
+            box(w, dark, x0 + edge, x1 - edge, 800 + g / 2, 1395 - g / 2, dd, dd + T, true)
+            box(w, metal, x0 + edge + 40, x1 - edge - 40, 1395 - 60, 1395 - 48, dd + T, dd + T + 25)
         case "oven": box(w, dark, x0 + edge + 20, x1 - edge - 20, 800, 1380, dd + T, dd + T + 2)
-        case "micro": box(w, dark, x0 + T + 10, x0 + d(m.w) * 0.72, y0 + 60, y1 - 60, 40, dd - 10, true)
+        case "micro": box(w, dark, x0 + T + 10, x0 + d(m.w) * 0.72, y0 + T, y0 + T + 290, 40, dd - 10, true)
         case "hood": box(w, metal, x0 + 10, x1 - 10, y0 - 60, y0, 30, dd + 40, true)
         default: break
         }
     }
 
     /// A wardrobe: sides (none at a wall), top and bottom, plinth, dividers, backs, inside, doors.
+    /// A vanity's basin on its top, the tap behind it.
+    func basin(_ w: WallBasis, _ m: Module) {
+        let top = Double((m.legs ? ws.legH : 0) + m.h)
+        let mid = Double(m.x) + Double(m.w) / 2, bw = min(500, Double(m.w) - 120), bd = min(380, Double(m.d) - 80)
+        guard bw >= 200, bd >= 200 else { return }
+        let n0 = (Double(m.d) - bd) / 2 + 20
+        let white = p("white"), metal = p("metal")
+        box(w, white, mid - bw / 2, mid + bw / 2, top, top + 130, n0, n0 + bd, true)
+        box(w, metal, mid - 15, mid + 15, top, top + 230, n0 - 45, n0 - 15, true)
+        box(w, metal, mid - 12, mid + 12, top + 200, top + 225, n0 - 15, n0 + 90, true)
+    }
+
     func wardrobe(_ w: WallBasis, _ m: Module) {
         let x0 = d(m.x), x1 = x0 + d(m.w), dd = d(m.d), T = d(t)
         // sliding doors take the front of the depth: the inside is shallower
@@ -296,45 +355,54 @@ private final class FBuilder {
         }
         box(w, carcass, x0 + sl, x1 - sr, yt - T, yt, 0, dd, true)
         if !m.legs { box(w, carcass, x0 + sl, x1 - sr, 0, d(PLINTH), dd - 60, dd - 44, true) }
+        else {
+            // on legs: a pair under each side and each divider, as the hardware list counts them
+            var xs = [x0 + 20], a = x0
+            for s in m.sections.dropLast() { a += d(s.w); xs.append(a - 18) }
+            xs.append(x1 - 56)
+            for q in xs { box(w, metal, q, q + 36, 0, z0, 40, 76); box(w, metal, q, q + 36, 0, z0, dd - 76, dd - 40) }
+        }
         var acc = x0
         let secs = m.sections
         for (i, s) in secs.enumerated() {
             let a0 = acc, a1 = acc + d(s.w)
             if i > 0 {
-                // beside a knee space the divider stands on the floor like a side
+                // beside a knee space the divider stands on the floor (or the legs) like a side
                 let toFloor = s.knee || secs[i - 1].knee
-                box(w, carcass, a0 - T / 2, a0 + T / 2, toFloor ? 0 : yb + T, yt - T, 0, toFloor ? dd : di, true)
+                box(w, carcass, a0 - T / 2, a0 + T / 2, toFloor ? z0 : yb + T, yt - T, 0, toFloor ? dd : di, true)
             }
             if s.knee { acc = a1; continue }
             let iw = d(wardInner(m, secs, i, t))
             let il = i == 0 ? a0 + sl : a0 + T / 2
-            box(w, p("back"), a0 + 2, a1 - 2, yb + 2, yt - 2, 0, 3)
+            // the back sits in grooves between the sides (or dividers), the bottom and the top
+            box(w, p("back"), il, il + iw, yb + T, yt - T, 0, 3)
             let floor = yb + T
             for x in s.inserts {
                 let y = floor + d(x.pos)
                 switch x.kind {
-                case "shelf": box(w, carcass, il, il + iw, y, y + T, 0, di - 20, true)
+                case "shelf": box(w, carcass, il, il + iw, y, y + T, 3, di - 17, true)
                 case "rail": box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, di / 2 - 12, di / 2 + 12)
                 case "lift":
                     box(w, metal, il + 20, il + iw - 20, y + 30, y + 54, di / 2 - 12, di / 2 + 12)
                     box(w, metal, il + 5, il + 25, y + 54, y + d(blockH(x)), di / 2 - 15, di / 2 + 15)
                 case "drawer":
                     // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
-                    if s.fronts.kind == "open" { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), di - T, di - 60, m.handles, p("front")) }
+                    if s.fronts.kind == "open" { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 2, iw - 4, y, d(blockH(x)), di - T, di - 60, m.handles, p("front")) }
                     else { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), di - 40 - T, di - 60, m.handles, carcass) }
                 default:
                     // trouser and shoe racks: a frame that pulls out
                     let key = "\(m.id):s\(i):r\(x.pos)"
                     st.keys.append(key)
-                    let out = open.contains(key) ? dd * 0.7 : 0
+                    // within the inside's depth: in a sliding wardrobe the doors run in front of it
+                    let out = open.contains(key) ? di * 0.7 : 0
                     let h = d(blockH(x))
                     let o = w.at((il + 13) / 1000, y / 1000, (20 + out) / 1000)
-                    let bx = Obb(o: o, a: w.dir((iw - 26) / 1000, 0), b: V3(0, h / 1000, 0), c: w.dir(0, (dd - 60) / 1000))
+                    let bx = Obb(o: o, a: w.dir((iw - 26) / 1000, 0), b: V3(0, h / 1000, 0), c: w.dir(0, (di - 60) / 1000))
                     obbEdges(edges, bx); st.picks.append(Pick(key: key, box: bx))
-                    box(w, metal, il + 13, il + iw - 13, y, y + 10, 20 + out, dd - 40 + out)
+                    box(w, metal, il + 13, il + iw - 13, y, y + 10, 20 + out, di - 40 + out)
                     for k in 1...4 {
                         let yy = x.kind == "shoe" ? y + h * Double(k) / 5 : y + h - 12
-                        let nn = 20 + out + (dd - 60) * Double(k) / 5
+                        let nn = 20 + out + (di - 60) * Double(k) / 5
                         box(w, metal, il + 13, il + iw - 13, yy, yy + 8, nn - 6, nn)
                     }
                 }
@@ -344,7 +412,8 @@ private final class FBuilder {
             if s.fronts.kind == "door" && m.slide == nil {
                 for (j, (fh, fw)) in fs.enumerated() {
                     let a = a0 + edge + Double(j) * (d(fw) + g)
-                    let right = fs.count == 2 ? j == 1 : i % 2 == 1
+                    // a pair hinges on its outer edges; single doors pair up two by two, the last one hinged on the wardrobe's end
+                    let right = fs.count == 2 ? j == 1 : i % 2 == 1 || (i > 0 && i == secs.count - 1)
                     door(w, "\(m.id):s\(i):f\(j)", right ? a + d(fw) : a, dd, yb + edge, d(fh), d(fw), right ? -1 : 1, m.handles,
                          min(max(1000 - yb, 150), d(fh) - 150))
                 }

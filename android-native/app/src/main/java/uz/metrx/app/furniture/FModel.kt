@@ -32,8 +32,17 @@ data class Furniture(
     /** Kitchens: the worktop joints and cut-outs, backsplash, plinth, cornice, LED and end panels (KitchenExtras.kt). */
     val kx: KExtras? = null,
     /** A cabinet on the wardrobe's engine ([kind] "wardrobe"): "" a wardrobe, or a Stage 2 type (Cabinets.kt CASE_TYPES). */
-    val type: String = ""
+    val type: String = "",
+    /** Standing away from the walls, dragged on the room's plan: a kitchen's island, or the whole piece (a desk…); null: the usual place. */
+    val pose: Pose? = null
 )
+
+/**
+ * A place in the room: [a] mm along wall [ref] from its start and [n] mm into the room is the back's left end; the
+ * piece is turned [deg] from standing with its back to that wall. A piece on a wall is Pose(wall, x, 0, 0).
+ */
+@Serializable
+data class Pose(val ref: String, val a: Int, val n: Int, val deg: Int = 0)
 
 /** Material ids (from the workshop's list) for the carcass, the fronts and the back panel. */
 @Serializable

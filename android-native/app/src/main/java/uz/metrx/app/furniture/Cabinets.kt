@@ -31,12 +31,15 @@ fun typeSize(type: String) = when (type) {
     else -> TypeSize(1000, 2200, W_DEPTH, false)
 }
 
-/** [n] drawers filling a section [ih] high inside, from the bottom, 20 mm apart. */
-private fun drawers(n0: Int, ih: Int): List<Insert> {
-    // a low cabinet takes fewer drawers: each keeps 80 mm and a 20 mm gap, all inside
+/**
+ * [n] drawers filling a section [ih] high inside. Their faces are seen, set in the carcass: [g] apart and [g] from the
+ * bottom and the top, as the doors' gap.
+ */
+private fun drawers(n0: Int, ih: Int, g: Int): List<Insert> {
+    // a low cabinet takes fewer drawers: each keeps about 100 mm, all inside
     val n = min(n0, max(1, (ih + 20) / 100))
-    val h = ((ih - 20 * (n - 1)) / n).coerceAtLeast(80)
-    return List(n) { i -> Insert("drawer", pos = i * (h + 20), h = h) }
+    val h = ((ih - g * (n + 1)) / n).coerceAtLeast(80)
+    return List(n) { i -> Insert("drawer", pos = g + i * (h + g), h = h) }
 }
 
 /**
@@ -47,19 +50,21 @@ fun cabinetTemplate(type: String, ws: Workshop, wall: String, x: Int, w: Int, h:
     val sz = typeSize(type)
     val base = Module(uid(), "wardrobe", w, if (sz.legs) h - ws.legH else h, d, x = x, wall = wall, legs = sz.legs, label = "")
     val ih = wardInnerH(base, ws.t)
+    val g = ws.gap10 / 10
     val open = Fronts("open", 0)
     fun door(sw: Int) = Fronts("door", if (sw >= 600) 2 else 1)
     fun shelves(n: Int) = List(n) { Insert("shelf") }
     val secs: List<Section> = when (type) {
-        "tv" -> listOf(Section(w / 3, open, drawers(2, ih)), Section(w / 3, open, listOf(Insert("shelf", pos = ih / 2))), Section(w - 2 * (w / 3), Fronts("door", 1)))
+        "tv" -> listOf(Section(w / 3, open, drawers(2, ih, g)), Section(w / 3, open, listOf(Insert("shelf", pos = ih / 2))), Section(w - 2 * (w / 3), Fronts("door", 1)))
         "shelving" -> List(maxOf(1, (w + 300) / 600)) { Section(0, open, shelves(4)) }
-        "sideboard" -> listOf(Section(w / 2, door(w / 2), listOf(Insert("shelf", pos = ih / 2))), Section(w - w / 2, open, drawers(3, ih)))
-        "dresser" -> listOf(Section(w, open, drawers(4, ih)))
-        "nightstand" -> listOf(Section(w, open, drawers(2, ih)))
+        "sideboard" -> listOf(Section(w / 2, door(w / 2), listOf(Insert("shelf", pos = ih / 2))), Section(w - w / 2, open, drawers(3, ih, g)))
+        "dresser" -> listOf(Section(w, open, drawers(4, ih, g)))
+        "nightstand" -> listOf(Section(w, open, drawers(2, ih, g)))
         "vanity" -> listOf(Section(w, door(w)))
         "hallway" -> listOf(Section(w / 2, Fronts("door", 1), listOf(Insert("shoe", pos = 0)) + shelves(3)),
-            Section(w - w / 2, open, listOf(Insert("shoe", pos = 0), Insert("rail", pos = ih - 120))))
-        "desk" -> listOf(Section(minOf(450, w / 3), open, drawers(3, ih)), Section(w - minOf(450, w / 3), open, emptyList(), knee = true))
+            // the open side: a bench to sit on over the shoe rack (its top about 480 from the floor), coats on a rail above
+            Section(w - w / 2, open, listOf(Insert("shoe", pos = 0), Insert("shelf", pos = 480 - PLINTH - 2 * ws.t), Insert("rail", pos = ih - 120))))
+        "desk" -> listOf(Section(minOf(450, w / 3), open, drawers(3, ih, g)), Section(w - minOf(450, w / 3), open, emptyList(), knee = true))
         else -> listOf(Section(w, door(w)))
     }
     val split = splitSections(w, secs.map { if (it.w > 0) it.copy(lock = true) else it }).map { it.copy(lock = false) }

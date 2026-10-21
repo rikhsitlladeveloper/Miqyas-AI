@@ -773,7 +773,10 @@ private fun FMenuSheet(s: Sheet.FMenu) {
         if (f.roomId == null) {
             MenuRow("room", tr("fz.toRoom"), G.ink) { app.sheet = Sheet.FPickRoom(p.id, f.id) }
             MenuRow("ruler", tr("fz.editSizes"), G.ink) { app.sheet = null; app.push(Route.FSteps(p.id, uz.metrx.app.furniture.modelOf(f).id, f.id)) }
-        } else MenuRow("room", tr("fz.takeOut"), G.ink) { app.sheet = null; app.takeOut(p.id, f.id) }
+        } else {
+            MenuRow("room", tr("fz.move"), G.ink) { app.sheet = null; app.push(Route.FPlace(p.id, f.id, f.roomId)) }
+            MenuRow("room", tr("fz.takeOut"), G.ink) { app.sheet = null; app.takeOut(p.id, f.id) }
+        }
         MenuRow("trash", tr("kt.del"), G.err) {
             val i = p.furniture.indexOfFirst { it.id == f.id }
             app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.filter { it.id != f.id }) }

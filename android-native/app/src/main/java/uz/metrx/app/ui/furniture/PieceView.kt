@@ -61,13 +61,26 @@ class SFace(val pts: List<V3>, val n: V3, val rgb: Int, val op: Float, val tag: 
 /** A size shown on the piece: from [a] to [b], with end ticks along [tick]. */
 class DimLine(val a: V3, val b: V3, val tick: V3)
 
+/** One board: its six faces, as furniture3D makes them for each box, with its corners and face planes for the drawing order. */
+class SBox(val faces: List<SFace>) {
+    /** The eight corners, x y z one after another (the first two faces hold them all). */
+    val pts = DoubleArray(24).also { a -> (faces[0].pts + faces[1].pts).forEachIndexed { i, q -> a[3 * i] = q.x; a[3 * i + 1] = q.y; a[3 * i + 2] = q.z } }
+    /** Each face's plane: its outward normal and n·p, four numbers a face. */
+    val planes = DoubleArray(24).also { a -> faces.forEachIndexed { i, f -> a[4 * i] = f.n.x; a[4 * i + 1] = f.n.y; a[4 * i + 2] = f.n.z; a[4 * i + 3] = f.n.dot(f.pts[0]) } }
+}
+
 /**
  * The faces of a piece ([env]: floor and walls, drawn first; [furn]: the boards), its middle and size for the camera,
  * the dimension line of each step key and what each step tints ([tint]: a wall id, ISLAND or "wall").
  */
-class PieceScene(val env: List<SFace>, val furn: List<SFace>, val center: V3, val radius: Double, val dims: Map<String, DimLine>, val tint: Map<String, String>, val az0: Double,
+class PieceScene(val env: List<SFace>, val furn: List<SBox>, val center: V3, val radius: Double, val dims: Map<String, DimLine>, val tint: Map<String, String>, val az0: Double,
     /** The middle and size with the dimension lines in, for a step that shows one. */
-    val dimCenter: V3 = center, val dimRadius: Double = radius)
+    val dimCenter: V3 = center, val dimRadius: Double = radius,
+    /** The corners of the boards' bounds, and of the bounds with the dimension lines in: what the camera fits in. */
+    val ext: List<V3> = emptyList(), val dimExt: List<V3> = ext)
+
+private fun corners(x0: Double, y0: Double, z0: Double, x1: Double, y1: Double, z1: Double) =
+    listOf(x0, x1).flatMap { x -> listOf(y0, y1).flatMap { y -> listOf(V3(x, y, z0), V3(x, y, z1)) } }
 
 private val UP = V3(0.0, 1.0, 0.0)
 private const val WALL_RGB = 0xEEF1F7
@@ -80,7 +93,8 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
     val shell = buildShell(listOf(room), true, true)
     val b = shell.bases
     val fur = furniture3D(listOf(f), b, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet())
-    val furn = fur.parts.flatMap { p -> p.faces.map { SFace(it.pts, it.n, p.rgb, p.op, p.wall) } }
+    // every box of furniture3D adds its six faces to its part one after another
+    val furn = fur.parts.flatMap { p -> p.faces.chunked(6).filter { it.size == 6 }.map { b -> SBox(b.map { SFace(it.pts, it.n, p.rgb, p.op, p.wall) }) } }
     val env = ArrayList<SFace>()
     shell.parts.filter { it.role == Role.FLOOR }.forEach { p -> p.faces.forEach { env += SFace(it.pts, it.n, FLOOR_RGB, 1f, "floor") } }
     val H = (room.dim("H").v ?: 2700) / 1000.0
@@ -88,7 +102,7 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
     onWalls.forEach { w -> b[w]?.let { bas -> env += SFace(listOf(bas.at(0.0, 0.0, 0.0), bas.at(bas.len, 0.0, 0.0), bas.at(bas.len, H, 0.0), bas.at(0.0, H, 0.0)), V3(bas.nx, 0.0, bas.nz), WALL_RGB, .95f, "wall") } }
     // the middle and size of the boards alone
     var x0 = Double.MAX_VALUE; var y0 = Double.MAX_VALUE; var z0 = Double.MAX_VALUE; var x1 = -Double.MAX_VALUE; var y1 = -Double.MAX_VALUE; var z1 = -Double.MAX_VALUE
-    furn.forEach { fc -> fc.pts.forEach { q -> x0 = min(x0, q.x); y0 = min(y0, q.y); z0 = min(z0, q.z); x1 = max(x1, q.x); y1 = max(y1, q.y); z1 = max(z1, q.z) } }
+    furn.forEach { bx -> (bx.faces[0].pts + bx.faces[1].pts).forEach { q -> x0 = min(x0, q.x); y0 = min(y0, q.y); z0 = min(z0, q.z); x1 = max(x1, q.x); y1 = max(y1, q.y); z1 = max(z1, q.z) } }
     if (furn.isEmpty()) { x0 = 0.0; y0 = 0.0; z0 = 0.0; x1 = 1.0; y1 = 1.0; z1 = 1.0 }
     val dims = HashMap<String, DimLine>(); val tint = HashMap<String, String>()
     if (f.kind == "kitchen") {
@@ -115,13 +129,14 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
     }
     val center = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     val radius = max(.45, V3(x1 - x0, y1 - y0, z1 - z0).len() / 2)
+    val ext = corners(x0, y0, z0, x1, y1, z1)
     // a step's camera takes in the dimension lines too, so a size in front of the piece stays in the picture
     dims.values.forEach { d -> listOf(d.a, d.b).forEach { q -> x0 = min(x0, q.x); y0 = min(y0, q.y); z0 = min(z0, q.z); x1 = max(x1, q.x); y1 = max(y1, q.y); z1 = max(z1, q.z) } }
     val dimCenter = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     val dimRadius = max(.45, V3(x1 - x0, y1 - y0, z1 - z0).len() / 2)
     // an L turns into the right-hand wall: seen from the left so both runs show from inside
     val az0 = when (f.layout.takeIf { f.kind == "kitchen" }) { "L" -> -.6; "U" -> .15; null -> .55; else -> .6 }
-    return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter, dimRadius)
+    return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter, dimRadius, ext, corners(x0, y0, z0, x1, y1, z1))
 }
 
 private fun cross(a: V3, b: V3) = V3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
@@ -133,10 +148,24 @@ private class PCam(s: PieceScene, w: Float, h: Float, az: Double, withDims: Bool
     init {
         val fit = min(half, atan(tan(half) * w / h))
         val c = if (withDims) s.dimCenter else s.center
-        val dist = (if (withDims) s.dimRadius else s.radius) / sin(fit) * .9
         val a = s.az0 + az; val el = .5
-        e = c + V3(sin(a) * cos(el), sin(el), cos(a) * cos(el)) * dist
-        f = (c - e).unit(); r = cross(f, UP).unit(); u = cross(r, f)
+        val back = V3(sin(a) * cos(el), sin(el), cos(a) * cos(el))
+        f = back * -1.0; r = cross(f, UP).unit(); u = cross(r, f)
+        // near enough that every corner of the bounds is in the picture with a little room round it (a tall piece's
+        // top and bottom too), else round its bounding sphere
+        val tv = tan(half); val th = tv * w / h
+        val ext = if (withDims) s.dimExt else s.ext
+        fun fitAt(m: V3) = ext.maxOf { q -> val v = q - m; 1.08 * max(kotlin.math.abs(v.dot(r)) / th, kotlin.math.abs(v.dot(u)) / tv) - v.dot(f) }
+        var m = c
+        // the bounds' picture centred: the camera slides across until it is
+        if (ext.isNotEmpty()) repeat(3) {
+            val dist = fitAt(m)
+            var lx = Double.MAX_VALUE; var hx = -Double.MAX_VALUE; var ly = Double.MAX_VALUE; var hy = -Double.MAX_VALUE
+            ext.forEach { q -> val v = q - m; val z = dist + v.dot(f); lx = min(lx, v.dot(r) / z); hx = max(hx, v.dot(r) / z); ly = min(ly, v.dot(u) / z); hy = max(hy, v.dot(u) / z) }
+            m = m + r * ((lx + hx) / 2 * dist) + u * ((ly + hy) / 2 * dist)
+        }
+        val dist = if (ext.isEmpty()) (if (withDims) s.dimRadius else s.radius) / sin(fit) else fitAt(m)
+        e = m + back * dist
         foc = (h / 2) / tan(half)
     }
     fun p(q: V3): Offset? {
@@ -161,6 +190,62 @@ private fun shade(rgb: Int, n: V3, op: Float, env: Boolean = false): Color {
     return Color(c(16), c(8), c(0), (op * 255).toInt().coerceIn(0, 255))
 }
 
+/** Whether every corner of [q] is on the outer side of face [i] of [b]. */
+private fun outside(b: SBox, i: Int, q: SBox): Boolean {
+    val p = b.planes; val nx = p[4 * i]; val ny = p[4 * i + 1]; val nz = p[4 * i + 2]; val d = p[4 * i + 3] - 1e-6
+    for (k in 0 until 8) if (nx * q.pts[3 * k] + ny * q.pts[3 * k + 1] + nz * q.pts[3 * k + 2] < d) return false
+    return true
+}
+
+/**
+ * 1 when [a] goes before [b] (only [b] can hide [a]), -1 the other way, 0 when either may go first (neither hides the
+ * other) or no face plane of either parts them. A face plane with one box beyond it and the camera on that side says the
+ * other box cannot hide it.
+ */
+private fun before(a: SBox, b: SBox, e: V3): Int {
+    var aFirst = false; var bFirst = false
+    for (i in 0 until 6) if (outside(a, i, b)) { if (a.faces[i].n.dot(e) > a.planes[4 * i + 3]) aFirst = true else bFirst = true }
+    for (i in 0 until 6) if (outside(b, i, a)) { if (b.faces[i].n.dot(e) > b.planes[4 * i + 3]) bFirst = true else aFirst = true }
+    return if (aFirst == bFirst) 0 else if (aFirst) 1 else -1
+}
+
+/**
+ * The boards back to front. Sorting faces by their middles shows a shelf through its door and hides a handle behind
+ * it, so whole boxes go in order: of two whose pictures overlap, the one beyond a face plane of the other, from the
+ * camera, goes first; the rest (and any loop) by their distance.
+ */
+private fun drawOrder(bs: List<SBox>, cam: PCam): List<SBox> {
+    val n = bs.size
+    val rect = Array(n) { i ->
+        var x0 = Float.MAX_VALUE; var y0 = Float.MAX_VALUE; var x1 = -Float.MAX_VALUE; var y1 = -Float.MAX_VALUE
+        val p = bs[i].pts
+        for (k in 0 until 8) {
+            // a corner behind the camera: it may overlap anything
+            val o = cam.p(V3(p[3 * k], p[3 * k + 1], p[3 * k + 2])) ?: return@Array floatArrayOf(-Float.MAX_VALUE, -Float.MAX_VALUE, Float.MAX_VALUE, Float.MAX_VALUE)
+            x0 = min(x0, o.x); y0 = min(y0, o.y); x1 = max(x1, o.x); y1 = max(y1, o.y)
+        }
+        floatArrayOf(x0, y0, x1, y1)
+    }
+    val dist = DoubleArray(n) { i -> val p = bs[i].pts; (0 until 8).sumOf { k -> cam.depth(V3(p[3 * k], p[3 * k + 1], p[3 * k + 2])) } / 8 }
+    val after = Array(n) { ArrayList<Int>() }; val need = IntArray(n)
+    for (i in 0 until n) for (j in i + 1 until n) {
+        val a = rect[i]; val b = rect[j]
+        if (a[0] >= b[2] || b[0] >= a[2] || a[1] >= b[3] || b[1] >= a[3]) continue
+        when (before(bs[i], bs[j], cam.e)) { 1 -> { after[i] += j; need[j]++ }; -1 -> { after[j] += i; need[i]++ } }
+    }
+    val ready = java.util.PriorityQueue<Int>(n.coerceAtLeast(1), compareByDescending { dist[it] })
+    for (i in 0 until n) if (need[i] == 0) ready += i
+    val done = BooleanArray(n); val out = ArrayList<SBox>(n)
+    while (out.size < n) {
+        // a loop (boxes that cut into each other): the farthest one left goes next
+        val k = ready.poll() ?: (0 until n).filter { !done[it] }.maxBy { dist[it] }
+        if (done[k]) continue
+        done[k] = true; out += bs[k]
+        for (j in after[k]) if (--need[j] == 0 && !done[j]) ready += j
+    }
+    return out
+}
+
 /** Draws the piece: walls facing the camera and the floor first, then the boards back to front; [hi] a step key to show. */
 fun DrawScope.drawPiece(s: PieceScene, hi: String?, az: Float, label: String? = null, tm: TextMeasurer? = null) {
     drawRect(Color(0xFFF6F8FC))
@@ -179,7 +264,7 @@ fun DrawScope.drawPiece(s: PieceScene, hi: String?, az: Float, label: String? = 
         if (fc.tag != "floor") drawPath(path, edge, style = Stroke(1f))
     }
     s.env.forEach { face(it, it.tag == "wall") }
-    s.furn.map { fc -> fc to fc.pts.sumOf { cam.depth(it) } / fc.pts.size }.sortedByDescending { it.second }.forEach { face(it.first, true) }
+    drawOrder(s.furn, cam).forEach { bx -> bx.faces.forEach { face(it, true) } }
     val d = hi?.let { s.dims[it] } ?: return
     val a = cam.p(d.a) ?: return; val b = cam.p(d.b) ?: return
     val t0 = cam.p(d.a + d.tick * .09); val t1 = cam.p(d.a - d.tick * .09); val t2 = cam.p(d.b + d.tick * .09); val t3 = cam.p(d.b - d.tick * .09)

@@ -136,9 +136,27 @@ fun newFreeKitchen(name: String, model: String, layout: String, sides: List<Int>
     var f = Furniture(uid(), "kitchen", name, null, walls, created = now, layout = layout, free = FreeSize(sides.take(sidesOf(layout)), if (ISLAND in walls) island else 0, h), model = model,
         kx = kExtrasFor(layout))
     val runs = runsOf(f) { freeLen(f, it) }
-    f = autoFill(f, runs, ws, emptyList(), emptyList())
+    f = autoFill(f, runs, ws, emptyList(), usualPoints(runs))
     if (ISLAND in walls && island > 0) f = f.copy(modules = f.modules + slots(island).map { w -> template(if (w < 300) "fillerLow" else "base", ws, ISLAND, w) })
     return pack(f, runs)
+}
+
+/**
+ * Where the water and the gas usually are in a kitchen without a room, so it gets a sink and a hob like a real one:
+ * one side, the sink at its second unit and the hob two units from its end; a corner kitchen, the sink in the middle
+ * of the first side (a U's back wall) and the hob in the middle of the next.
+ */
+private fun usualPoints(runs: List<Run>): List<uz.metrx.app.data.SitePoint> {
+    val rs = runs.filter { it.wall != ISLAND && it.len != null }
+    if (rs.isEmpty()) return emptyList()
+    fun mid(r: Run) = r.lowStart + (r.len!! - r.lowStart) / 2
+    fun pt(t: String, r: Run, off: Int) = uz.metrx.app.data.SitePoint("$t-${r.wall}", t, r.wall, off, 500)
+    if (rs.size == 1) {
+        val r = rs[0]; val l = r.len!! - r.lowStart
+        return listOf(pt("cold", r, r.lowStart + 900)) + if (l >= 2400) listOf(pt("gas", r, r.lowStart + l - 900)) else emptyList()
+    }
+    val sink = if (rs.size >= 3) rs[1] else rs[0]; val hob = if (rs.size >= 3) rs[2] else rs[1]
+    return listOf(pt("cold", sink, mid(sink)), pt("gas", hob, mid(hob)))
 }
 
 /** A new room-less wardrobe [w] × [h] × [d]: doors as the model has them, or open shelves. */
@@ -178,7 +196,7 @@ data class FitIssue(val key: String, val vars: Map<String, Any>)
  * What does not fit when [f] goes on [walls] of a room ([len] each wall's length, [roomH] its height); a wardrobe
  * stands [off] mm from the wall's start corner (null: in the corner).
  */
-fun fitIssues(f: Furniture, walls: List<String>, len: (String) -> Int?, roomH: Int?, ws: Workshop, off: Int? = null): List<FitIssue> {
+fun fitIssues(f: Furniture, walls: List<String>, len: (String) -> Int?, roomH: Int?, ws: Workshop, off: Int? = null, start: Int? = null): List<FitIssue> {
     val out = ArrayList<FitIssue>()
     if (f.kind == "wardrobe") {
         val m = wardOfF(f) ?: return out
@@ -192,7 +210,8 @@ fun fitIssues(f: Furniture, walls: List<String>, len: (String) -> Int?, roomH: I
     walls.forEachIndexed { i, w ->
         if (w == ISLAND) return@forEachIndexed
         val r = runs.getOrNull(i) ?: return@forEachIndexed
-        val need = f.free?.sides?.getOrNull(i)?.takeIf { f.roomId == null }?.let { max(it, runEnd(f, r)) } ?: runEnd(f, r)
+        // a one-wall kitchen slid along its wall needs its distance from the corner too
+        val need = (f.free?.sides?.getOrNull(i)?.takeIf { f.roomId == null }?.let { max(it, runEnd(f, r)) } ?: runEnd(f, r)) + if (i == 0) start ?: 0 else 0
         val L = len(w) ?: return@forEachIndexed
         if (need > L) out += FitIssue("fz.long", mapOf("i" to i + 1, "v" to need, "w" to w, "d" to need - L, "l" to L))
     }
@@ -239,15 +258,53 @@ fun firstStart(f: Furniture, wallLen: Int?): Int {
     return max(0, wallLen - runEnd(f, r))
 }
 
+/** Pieces that may stand away from the walls, turned any way (a kitchen's island always may): a desk, shelving as a divider. */
+val FREE_TYPES = setOf("desk", "shelving")
+
+fun canStandFree(f: Furniture) = f.kind == "wardrobe" && f.type in FREE_TYPES
+
+/** The empty stretch a kitchen's first side starts with (its leading space gaps) taken off: what is left to place again. */
+fun withoutLead(f: Furniture, len: (String) -> Int? = { null }): Furniture {
+    if (f.kind != "kitchen") return f
+    val w0 = f.walls.firstOrNull()
+    val lead = f.modules.filter { it.wall == w0 && it.type == "gap" && it.x == 0 && (it.app == "space" || isUpper(it)) }.map { it.id }.toSet()
+    return if (lead.isEmpty()) f else f.copy(modules = f.modules.filter { it.id !in lead }).let { pack(it, runsOf(it) { len(it) }) }
+}
+
+/** How far a one-wall kitchen starts from its wall's corner: the width of its leading empty stretch. */
+fun leadOf(f: Furniture): Int {
+    val w0 = f.walls.firstOrNull()
+    return f.modules.firstOrNull { it.wall == w0 && it.type == "gap" && it.x == 0 && it.app == "space" && !isUpper(it) }?.w ?: 0
+}
+
+/** The island's (or peninsula's) length along its row. */
+fun islandLen(f: Furniture): Int = runsOf(f) { null }.firstOrNull { it.wall == ISLAND }?.let { fillOf(f, it, false).used } ?: 0
+
+/**
+ * Where an island stands unless dragged: centred on the first side, 900 mm out from its units, its fronts facing them.
+ * A peninsula joins the side's end at a right angle, going out into the room, its fronts towards the kitchen.
+ */
+fun islandPose(f: Furniture, wallLen: Int): Pose {
+    val len = islandLen(f)
+    val first = f.walls.first { it != ISLAND }
+    if (f.layout == "P") {
+        val end = runsOf(f) { null }.firstOrNull { it.wall != ISLAND }?.let { runEnd(f, it) } ?: wallLen
+        return Pose(first, min(end, wallLen), 600, 90)
+    }
+    return Pose(first, (wallLen - len) / 2 + len, K_BASE_D + 900 + K_BASE_D, 180)
+}
+
 /**
  * The piece standing in room [roomId] (workspace [wsId]) on [walls] ([len] each wall's length); a wardrobe [off] from
  * the corner; [keep] its size kept. A corner kitchen's first side shorter than its wall gets an empty stretch at the
- * wall's start, so its last unit stands in the corner where the next side turns.
+ * wall's start, so its last unit stands in the corner where the next side turns; a one-wall kitchen starts [start]
+ * from the corner. [pose]: an island or a free-standing piece where it was dragged.
  */
-fun placed(f: Furniture, walls: List<String>, roomId: String, wsId: String, off: Int? = null, keep: Boolean = false, len: (String) -> Int? = { null }, ws: Workshop = Workshop()): Furniture {
-    var g = onWalls(f, walls).copy(roomId = roomId, ws = wsId, keep = keep)
+fun placed(f: Furniture, walls: List<String>, roomId: String, wsId: String, off: Int? = null, keep: Boolean = false, len: (String) -> Int? = { null }, ws: Workshop = Workshop(),
+           start: Int? = null, pose: Pose? = null): Furniture {
+    var g = onWalls(withoutLead(f, len), walls).copy(roomId = roomId, ws = wsId, keep = keep, pose = pose)
     if (g.kind == "wardrobe") return g.copy(modules = g.modules.map { if (it.type == "wardrobe") it.copy(x = off ?: W_GAP_SIDE) else it })
-    val gap = firstStart(g, len(walls[0]))
+    val gap = if (walls.count { it != ISLAND } == 1) start ?: 0 else firstStart(g, len(walls[0]))
     if (gap > 0) {
         val w0 = walls[0]
         // the empty stretch goes first in the module list, so it packs at the wall's start
@@ -261,13 +318,11 @@ fun placed(f: Furniture, walls: List<String>, roomId: String, wsId: String, off:
 /** The piece taken out of its room: sizes from what is on each wall now, back on the made-up room's walls. */
 fun takenOut(f: Furniture, len: (String) -> Int?, roomH: Int?): Furniture {
     if (f.kind == "wardrobe") {
-        val g = onWalls(f, listOf("A")).copy(roomId = null, ws = "", keep = false)
+        val g = onWalls(f, listOf("A")).copy(roomId = null, ws = "", keep = false, pose = null)
         return g.copy(modules = g.modules.map { if (it.type == "wardrobe") it.copy(x = W_GAP_SIDE) else it })
     }
-    // the empty stretch before a corner kitchen's first side stays with the room
-    val w0 = f.walls.firstOrNull()
-    val lead = f.modules.filter { it.wall == w0 && it.type == "gap" && it.x == 0 && (it.app == "space" || isUpper(it)) }.map { it.id }.toSet()
-    val f = f.copy(modules = f.modules.filter { it.id !in lead }).let { if (lead.isEmpty()) it else pack(it, runsOf(it) { len(it) }) }
+    // the empty stretch before a corner kitchen's first side stays with the room, and so does where its island stood
+    val f = withoutLead(f, len).copy(pose = null)
     val runs = runsOf(f) { len(it) }
     val sides = runs.filter { it.wall != ISLAND }.map { r -> max(runEnd(f, r), 600) }
     val island = runs.firstOrNull { it.wall == ISLAND }?.let { fillOf(f, it, false).used } ?: 0

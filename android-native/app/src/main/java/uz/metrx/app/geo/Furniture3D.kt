@@ -4,6 +4,7 @@ import uz.metrx.app.furniture.Furniture
 import uz.metrx.app.furniture.ISLAND
 import uz.metrx.app.furniture.K_BASE_D
 import uz.metrx.app.furniture.K_TOP
+import uz.metrx.app.furniture.K_WALL_D
 import uz.metrx.app.furniture.Module
 import uz.metrx.app.furniture.PLINTH
 import uz.metrx.app.furniture.Workshop
@@ -83,6 +84,14 @@ private fun obbEdges(e: Edges, x: Obb) {
  * The furniture [fs] of a room whose walls are [bases]. [rgb] gives a material's colour; [open] holds the keys of open
  * doors and drawers.
  */
+/** The frame of a piece standing at [p] (Pose: along and out from wall [p].ref, turned): [len] m long. */
+fun poseBasis(w: WallBasis, p: uz.metrx.app.furniture.Pose, len: Double): WallBasis {
+    val o = w.at(p.a / 1000.0, 0.0, p.n / 1000.0)
+    val r = Math.toRadians(p.deg.toDouble()); val c = kotlin.math.cos(r); val s = kotlin.math.sin(r)
+    // turned about the vertical: along u·c + n·s, into the room n·c − u·s
+    return WallBasis(o.x, o.z, w.ux * c + w.nx * s, w.uz * c + w.nz * s, w.nx * c - w.ux * s, w.nz * c - w.uz * s, len)
+}
+
 fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop, rgb: (String) -> Int, open: Set<String>): Furn3D {
     val parts = LinkedHashMap<Pair<String?, Int>, Part>(); val edges = LinkedHashMap<String?, Edges>()
     val picks = ArrayList<Pick>(); val keys = ArrayList<String>()
@@ -92,19 +101,22 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             "metal" to METAL, "dark" to DARK, "handle" to HANDLE, "white" to WHITE)
         val B = Builder3(ws, colors, parts, edges, picks, keys, open)
         val first = f.walls.firstOrNull { it != ISLAND }
-        // the island (or peninsula) stands 900 mm out from the front of the first wall's units, its fronts facing them
+        // the island (or peninsula) stands where it was dragged, else 900 mm out from the front of the first wall's
+        // units, its fronts facing them
         val island: WallBasis? = first?.let { bases[it] }?.let { w ->
             val r = runsOf(f) { id -> bases[id]?.let { (it.len * 1000).toInt() } }.firstOrNull { it.wall == ISLAND }
             val len = r?.let { fillOf(f, it, false).used } ?: 0
-            val s = (w.len - len / 1000.0) / 2
-            val back = (K_BASE_D + 900 + K_BASE_D) / 1000.0
-            val o = w.at(s + len / 1000.0, 0.0, back)
-            WallBasis(o.x, o.z, -w.ux, -w.uz, -w.nx, -w.nz, len / 1000.0)
+            val p = f.pose?.takeIf { f.kind == "kitchen" } ?: uz.metrx.app.furniture.islandPose(f, (w.len * 1000).toInt())
+            (bases[p.ref] ?: w).let { poseBasis(it, p, len / 1000.0) }
         }
         f.modules.forEach { m ->
-            val b = (if (m.wall == ISLAND) island else bases[m.wall ?: ""]) ?: return@forEach
+            // a piece standing free (a desk in the middle of the room) has its own frame, its box from its start
+            val free = f.pose?.takeIf { f.kind == "wardrobe" && m.type == "wardrobe" }?.let { p -> bases[p.ref]?.let { poseBasis(it, p, m.w / 1000.0) } }
+            val b = free ?: (if (m.wall == ISLAND) island else bases[m.wall ?: ""]) ?: return@forEach
             B.wall = m.wall
-            if (m.type == "wardrobe") B.wardrobe(b, m) else B.kitchenUnit(b, m)
+            if (m.type == "wardrobe") B.wardrobe(b, if (free != null) m.copy(x = 0) else m) else B.kitchenUnit(b, m)
+            // a bathroom vanity carries its basin and tap on top
+            if (f.type == "vanity" && m.type == "wardrobe") B.basin(b, if (free != null) m.copy(x = 0) else m)
         }
         // the worktop over the lower row of each wall (and over the corner it turns into)
         if (f.kind == "kitchen") {
@@ -113,9 +125,29 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             rs.forEach { r ->
                 val b = (if (r.wall == ISLAND) island else bases[r.wall]) ?: return@forEach
                 B.wall = r.wall
-                val low = f.modules.filter { it.wall == r.wall && !isUpper(it) && (it.type == "base" || it.type == "filler" || it.app == "dishwasher") }
-                low.forEach { m -> B.box(b, B.top, m.x, m.x + m.w, wt - K_TOP, wt, 0, 600, true) }
-                if (r.lowStart > 0 && low.isNotEmpty()) B.box(b, B.top, 0, r.lowStart, wt - K_TOP, wt, 0, 600, true)
+                val low = f.modules.filter { it.wall == r.wall && !isUpper(it) && (it.type == "base" || it.type == "filler" || it.app == "dishwasher") }.sortedBy { it.x }
+                val isl = r.wall == ISLAND
+                // one worktop over each stretch of touching units, no joint every unit; the corner square is the first
+                // side's. An island's is 900+ deep: it reaches 300 past its back for sitting at, and its back is finished.
+                val n0 = if (isl) -318 else 0
+                var a0 = -1; var a1 = -1
+                fun piece() { if (a1 > a0) { B.box(b, B.top, a0, a1, wt - K_TOP, wt, n0, 600, true); if (isl) B.box(b, B.front, a0, a1, 0, wt - K_TOP, -18, 0, true) } }
+                low.forEach { m -> if (a0 >= 0 && m.x <= a1 + 1) a1 = maxOf(a1, m.x + m.w) else { piece(); a0 = m.x; a1 = m.x + m.w } }
+                piece()
+                // end panels where a row ends in the open room (not against a wall): the lower row's, the wall units'
+                val kx0 = f.kx
+                if (kx0 != null && low.isNotEmpty()) {
+                    val lo = low.first().x; val hi = low.maxOf { it.x + it.w }
+                    val wl = if (isl) null else (b.len * 1000).toInt()
+                    val ends = if (isl) listOf(lo to (f.layout != "P"), hi to true) else listOf(lo to (lo > 20), hi to (wl != null && hi < wl - 20))
+                    if (kx0.ends > 0) ends.forEach { (a, free) -> if (free) B.box(b, B.front, if (a == lo) a - 18 else a, if (a == lo) a else a + 18, 0, wt - K_TOP, 0, 600, true) }
+                    val up = f.modules.filter { it.wall == r.wall && it.type == "wall" }
+                    if (kx0.endsUp > 0 && up.isNotEmpty() && wl != null) {
+                        val u0 = up.minOf { it.x }; val u1 = up.maxOf { it.x + it.w }; val y0 = up.minOf { it.elev }; val y1 = up.maxOf { it.elev + it.h }; val d = up.maxOf { it.d }
+                        if (u0 > 20) B.box(b, B.front, u0 - 18, u0, y0, y1, 0, d, true)
+                        if (u1 < wl - 20) B.box(b, B.front, u1, u1 + 18, y0, y1, 0, d, true)
+                    }
+                }
                 // extras: the backsplash panel on the wall over the worktop, the cornice on the wall units
                 val kx = f.kx
                 if (kx != null && r.wall != ISLAND) {
@@ -205,7 +237,8 @@ private class Builder3(
     fun kitchenUnit(w: WallBasis, m: Module) {
         val x0 = m.x.toDouble(); val x1 = x0 + m.w; val y0 = m.elev.toDouble(); val y1 = y0 + m.h; val d = m.d.toDouble()
         when (m.type) {
-            "filler" -> { box(w, front, x0, x1, y0, y1, d - 20, d, true); return }
+            // a strip of front board flush with the row's fronts
+            "filler" -> { val fn = if (isUpper(m)) K_WALL_D.toDouble() else K_BASE_D.toDouble(); box(w, front, x0, x1, y0, y1, fn, fn + t, true); return }
             "gap" -> {
                 when (m.app) {
                     "fridge" -> {
@@ -230,15 +263,22 @@ private class Builder3(
         box(w, carcass, x0 + t, x1 - t, y0, y0 + t, 0, d, true)
         if (m.type == "base") { box(w, carcass, x0 + t, x1 - t, y1 - t, y1, d - 100, d, true); box(w, carcass, x0 + t, x1 - t, y1 - t, y1, 0, 100, true) }
         else box(w, carcass, x0 + t, x1 - t, y1 - t, y1, 0, d, true)
-        box(w, back, x0 + 2, x1 - 2, y0 + 2, y1 - 2, 0, 3)
+        // the back sits in grooves between the sides, the bottom and the top (Parts.kt backPanel)
+        box(w, back, x0 + t, x1 - t, y0 + t, y1 - t, 0, 3)
         val shelves = m.inserts.filter { it.kind == "shelf" }.sumOf { it.qty }
         if (m.fronts.kind != "drawer") for (k in 1..shelves) { val y = y0 + (m.h - t) * k / (shelves + 1.0); box(w, carcass, x0 + t, x1 - t, y, y + t, 20, d - 20, true) }
         // a plinth under base and tall units on legs
         if (m.legs && m.type != "wall" && y0 > 0) box(w, metal, x0, x1, 0, y0 - 2, d - 70, d - 54)
         // fronts
         val fs = frontSizes(m.fronts, m.w, m.h, ws)
+        // an oven housing: the oven in its niche (800 to 1395 from the floor), a door under it and one over it
+        val ovenNiche = m.app == "oven" && m.fronts.kind == "door" && fs.size == 1
         when (m.fronts.kind) {
-            "door" -> fs.forEachIndexed { j, (fh, fw) ->
+            "door" -> if (ovenNiche) {
+                val fw = fs[0].second.toDouble(); val lo = 800 - g / 2 - (y0 + edge); val y2 = 1395 + g / 2
+                door(w, "${m.id}:f0", x0 + edge, d, y0 + edge, lo, fw, 1, m.handles, lo - 90)
+                door(w, "${m.id}:f1", x0 + edge, d, y2, y1 - edge - y2, fw, 1, m.handles, 90.0)
+            } else fs.forEachIndexed { j, (fh, fw) ->
                 val n = fs.size
                 val a = x0 + edge + j * (fw + g)
                 // single doors hinge on the left; pairs on the outer edges
@@ -261,20 +301,34 @@ private class Builder3(
         val cx = (x0 + x1) / 2; val wt = worktopTop(ws).toDouble()
         when (m.app) {
             "sink" -> {
-                box(w, metal, cx - m.w * .36, cx + m.w * .36, wt - 1, wt + 1, 80, 520)
+                box(w, metal, cx - m.w * .36, cx + m.w * .36, wt, wt + 2, 80, 520)
                 box(w, metal, cx - 15, cx + 15, wt, wt + 300, 40, 70); box(w, metal, cx - 12, cx + 12, wt + 280, wt + 300, 70, 260)
             }
             "hob" -> {
                 box(w, dark, cx - 290, cx + 290, wt, wt + 6, 40, 560)
                 listOf(-140.0 to 160.0, 140.0 to 160.0, -140.0 to 420.0, 140.0 to 420.0).forEach { (dx, dn) -> box(w, metal, cx + dx - 45, cx + dx + 45, wt + 6, wt + 9, dn - 45, dn + 45) }
             }
-            "oven" -> box(w, dark, x0 + edge + 20, x1 - edge - 20, 800, 1380, d + t, d + t + 2)
-            "micro" -> box(w, dark, x0 + t + 10, x0 + m.w * .72, y0 + 60, y1 - 60, 40, d - 10, true)
+            "oven" -> if (ovenNiche) {
+                box(w, dark, x0 + edge, x1 - edge, 800 + g / 2, 1395 - g / 2, d, d + t, true)
+                box(w, metal, x0 + edge + 40, x1 - edge - 40, 1395 - 60, 1395 - 48, d + t, d + t + 25)
+            } else box(w, dark, x0 + edge + 20, x1 - edge - 20, 800, 1380, d + t, d + t + 2)
+            "micro" -> box(w, dark, x0 + t + 10, x0 + m.w * .72, y0 + t, y0 + t + 290, 40, d - 10, true)
             "hood" -> box(w, metal, x0 + 10, x1 - 10, y0 - 60, y0, 30, d + 40, true)
         }
     }
 
     /** A wardrobe: sides (none at a wall), top and bottom, plinth, dividers, backs, inside, doors. */
+    /** A vanity's basin on its top, the tap behind it. */
+    fun basin(w: WallBasis, m: Module) {
+        val top = (if (m.legs) ws.legH else 0) + m.h
+        val mid = m.x + m.w / 2.0; val bw = minOf(500.0, m.w - 120.0); val bd = minOf(380.0, m.d - 80.0)
+        if (bw < 200 || bd < 200) return
+        val n0 = (m.d - bd) / 2 + 20
+        box(w, white, mid - bw / 2, mid + bw / 2, top, top + 130, n0, n0 + bd, true)
+        box(w, metal, mid - 15, mid + 15, top, top + 230, n0 - 45, n0 - 15, true)
+        box(w, metal, mid - 12, mid + 12, top + 200, top + 225, n0 - 15, n0 + 90, true)
+    }
+
     fun wardrobe(w: WallBasis, m: Module) {
         val x0 = m.x.toDouble(); val x1 = x0 + m.w; val d = m.d.toDouble()
         // sliding doors take the front of the depth: the inside is shallower
@@ -290,39 +344,45 @@ private class Builder3(
         else { var a = x0; m.sections.forEach { s -> if (!s.knee) box(w, carcass, maxOf(a, x0 + sl), minOf(a + s.w, x1 - sr), yb, yb + t, 0, d, true); a += s.w } }
         box(w, carcass, x0 + sl, x1 - sr, yt - t, yt, 0, d, true)
         if (!m.legs) box(w, carcass, x0 + sl, x1 - sr, 0, PLINTH, d - 60, d - 44, true)
+        // on legs: a pair under each side and each divider, as the hardware list counts them
+        else (listOf(x0 + 20) + m.sections.runningFold(x0) { a, s -> a + s.w }.drop(1).dropLast(1).map { it - 18 } + listOf(x1 - 56)).forEach { a ->
+            box(w, metal, a, a + 36, 0, z0, 40, 76); box(w, metal, a, a + 36, 0, z0, d - 76, d - 40)
+        }
         var acc = x0
         val secs = m.sections
         secs.forEachIndexed { i, s ->
             val a0 = acc; val a1 = acc + s.w
             if (i > 0) {
-                // beside a knee space the divider stands on the floor like a side
+                // beside a knee space the divider stands on the floor (or the legs) like a side
                 val toFloor = s.knee || secs[i - 1].knee
-                box(w, carcass, a0 - t / 2.0, a0 + t / 2.0, if (toFloor) 0.0 else yb + t, yt - t, 0, if (toFloor) d else di, true)
+                box(w, carcass, a0 - t / 2.0, a0 + t / 2.0, if (toFloor) z0 else yb + t, yt - t, 0, if (toFloor) d else di, true)
             }
             if (s.knee) { acc = a1; return@forEachIndexed }
             val iw = wardInner(m, secs, i, t)
             val il = if (i == 0) a0 + sl else a0 + t / 2.0
-            box(w, back, a0 + 2, a1 - 2, yb + 2, yt - 2, 0, 3)
+            // the back sits in grooves between the sides (or dividers), the bottom and the top
+            box(w, back, il, il + iw, yb + t, yt - t, 0, 3)
             val floor = yb + t
             s.inserts.forEach { x ->
                 val y = floor + x.pos
                 when (x.kind) {
-                    "shelf" -> box(w, carcass, il, il + iw, y, y + t, 0, di - 20, true)
+                    "shelf" -> box(w, carcass, il, il + iw, y, y + t, 3, di - 17, true)
                     "rail" -> box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, di / 2 - 12, di / 2 + 12)
                     "lift" -> { box(w, metal, il + 20, il + iw - 20, y + 30, y + 54, di / 2 - 12, di / 2 + 12); box(w, metal, il + 5, il + 25, y + 54, y + blockH(x), di / 2 - 15, di / 2 + 15) }
                     // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
-                    "drawer" -> if (s.fronts.kind == "open") drawer(w, "${m.id}:s$i:d${x.pos}", il + 4, iw - 8.0, y, blockH(x).toDouble(), di - t, di - 60, m.handles, front)
+                    "drawer" -> if (s.fronts.kind == "open") drawer(w, "${m.id}:s$i:d${x.pos}", il + 2, iw - 4.0, y, blockH(x).toDouble(), di - t, di - 60, m.handles, front)
                         else drawer(w, "${m.id}:s$i:d${x.pos}", il + 4, iw - 8.0, y, blockH(x).toDouble(), di - 40 - t, di - 60, m.handles, carcass)
                     else -> {
                         // trouser and shoe racks: a frame that pulls out
                         keys += "${m.id}:s$i:r${x.pos}"
-                        val out = if ("${m.id}:s$i:r${x.pos}" in open) d * .7 else 0.0
+                        // within the inside's depth: in a sliding wardrobe the doors run in front of it
+                        val out = if ("${m.id}:s$i:r${x.pos}" in open) di * .7 else 0.0
                         val h = blockH(x).toDouble()
                         val o = w.at((il + 13) / 1000, y / 1000, (20 + out) / 1000)
-                        val bx = Obb(o, w.dir((iw - 26) / 1000.0, 0.0), V3(0.0, h / 1000, 0.0), w.dir(0.0, (d - 60) / 1000))
+                        val bx = Obb(o, w.dir((iw - 26) / 1000.0, 0.0), V3(0.0, h / 1000, 0.0), w.dir(0.0, (di - 60) / 1000))
                         obbEdges(edges, bx); picks += Pick("${m.id}:s$i:r${x.pos}", bx)
-                        box(w, metal, il + 13, il + iw - 13, y, y + 10, 20 + out, d - 40 + out)
-                        for (k in 1..4) { val yy = if (x.kind == "shoe") y + h * k / 5 else y + h - 12; val nn = if (x.kind == "shoe") 20 + out + (d - 60) * k / 5 else 20 + out + (d - 60) * k / 5
+                        box(w, metal, il + 13, il + iw - 13, y, y + 10, 20 + out, di - 40 + out)
+                        for (k in 1..4) { val yy = if (x.kind == "shoe") y + h * k / 5 else y + h - 12; val nn = 20 + out + (di - 60) * k / 5
                             box(w, metal, il + 13, il + iw - 13, yy, yy + 8, nn - 6, nn) }
                     }
                 }
@@ -331,7 +391,8 @@ private class Builder3(
             val fs = frontSizes(s.fronts, s.w, m.h - wardBase(m), ws)
             if (s.fronts.kind == "door" && m.slide == null) fs.forEachIndexed { j, (fh, fw) ->
                 val a = a0 + edge + j * (fw + g)
-                val right = if (fs.size == 2) j == 1 else i % 2 == 1
+                // a pair hinges on its outer edges; single doors pair up two by two, the last one hinged on the wardrobe's end
+                val right = if (fs.size == 2) j == 1 else i % 2 == 1 || (i > 0 && i == secs.lastIndex)
                 door(w, "${m.id}:s$i:f$j", if (right) a + fw else a, d, yb + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, m.handles,
                     (1000 - yb).coerceIn(150.0, fh - 150.0))
             }

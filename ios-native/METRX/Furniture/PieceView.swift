@@ -15,20 +15,42 @@ struct SFace { let pts: [V3]; let n: V3; let rgb: Int; let op: Double; let tag: 
 /// A size shown on the piece: from a to b, with end ticks along tick.
 struct DimLine { let a: V3; let b: V3; let tick: V3 }
 
+/// One board: its six faces, as furniture3D makes them for each box, with its corners and face planes for the drawing
+/// order.
+struct SBox {
+    let faces: [SFace]
+    /// The eight corners, x y z one after another (the first two faces hold them all).
+    let pts: [Double]
+    /// Each face's plane: its outward normal and n·p, four numbers a face.
+    let planes: [Double]
+    init(_ faces: [SFace]) {
+        self.faces = faces
+        pts = (faces[0].pts + faces[1].pts).flatMap { [$0.x, $0.y, $0.z] }
+        planes = faces.flatMap { [$0.n.x, $0.n.y, $0.n.z, $0.n.dot($0.pts[0])] }
+    }
+}
+
 /// The faces of a piece (env: floor and walls, drawn first; furn: the boards), its middle and size for the camera, the
 /// dimension line of each step key and what each step tints (tint: a wall id, ISLAND or "wall").
 final class PieceScene {
-    let env: [SFace], furn: [SFace]
+    let env: [SFace], furn: [SBox]
     let center: V3, radius: Double
     let dims: [String: DimLine], tint: [String: String]
     let az0: Double
     /// The middle and size with the dimension lines in, for a step that shows one.
     let dimCenter: V3, dimRadius: Double
-    init(_ env: [SFace], _ furn: [SFace], _ center: V3, _ radius: Double, _ dims: [String: DimLine], _ tint: [String: String], _ az0: Double,
-         dimCenter: V3? = nil, dimRadius: Double? = nil) {
+    /// The corners of the boards' bounds, and of the bounds with the dimension lines in: what the camera fits in.
+    let ext: [V3], dimExt: [V3]
+    init(_ env: [SFace], _ furn: [SBox], _ center: V3, _ radius: Double, _ dims: [String: DimLine], _ tint: [String: String], _ az0: Double,
+         dimCenter: V3? = nil, dimRadius: Double? = nil, ext: [V3] = [], dimExt: [V3]? = nil) {
         self.env = env; self.furn = furn; self.center = center; self.radius = radius; self.dims = dims; self.tint = tint; self.az0 = az0
         self.dimCenter = dimCenter ?? center; self.dimRadius = dimRadius ?? radius
+        self.ext = ext; self.dimExt = dimExt ?? ext
     }
+}
+
+private func pvCorners(_ x0: Double, _ y0: Double, _ z0: Double, _ x1: Double, _ y1: Double, _ z1: Double) -> [V3] {
+    [x0, x1].flatMap { x in [y0, y1].flatMap { y in [V3(x, y, z0), V3(x, y, z1)] } }
 }
 
 private let PV_UP = V3(0, 1, 0)
@@ -44,7 +66,10 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> PieceScene {
     let shell = buildShell([room], single: true, snap: true)
     let b = shell.bases
     let fur = furniture3D([f], b, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [])
-    let furn = fur.parts.flatMap { p in p.faces.map { SFace(pts: $0.pts, n: $0.n, rgb: p.rgb, op: p.op, tag: p.wall) } }
+    // every box of furniture3D adds its six faces to its part one after another
+    let furn: [SBox] = fur.parts.flatMap { p in
+        stride(from: 0, to: p.faces.count - 5, by: 6).map { k in SBox(p.faces[k..<k + 6].map { SFace(pts: $0.pts, n: $0.n, rgb: p.rgb, op: p.op, tag: p.wall) }) }
+    }
     var env: [SFace] = []
     for p in shell.parts where p.role == .floor { for fc in p.faces { env.append(SFace(pts: fc.pts, n: fc.n, rgb: PV_FLOOR, op: 1, tag: "floor")) } }
     let H = Double(room.dim("H").v ?? 2700) / 1000
@@ -57,7 +82,7 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> PieceScene {
     var x0 = Double.greatestFiniteMagnitude, y0 = Double.greatestFiniteMagnitude, z0 = Double.greatestFiniteMagnitude
     var x1 = -Double.greatestFiniteMagnitude, y1 = -Double.greatestFiniteMagnitude, z1 = -Double.greatestFiniteMagnitude
     func take(_ q: V3) { x0 = min(x0, q.x); y0 = min(y0, q.y); z0 = min(z0, q.z); x1 = max(x1, q.x); y1 = max(y1, q.y); z1 = max(z1, q.z) }
-    for fc in furn { for q in fc.pts { take(q) } }
+    for bx in furn { for q in bx.faces[0].pts + bx.faces[1].pts { take(q) } }
     if furn.isEmpty { x0 = 0; y0 = 0; z0 = 0; x1 = 1; y1 = 1; z1 = 1 }
     var dims: [String: DimLine] = [:], tint: [String: String] = [:]
     if f.kind == "kitchen" {
@@ -84,13 +109,14 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> PieceScene {
     }
     let center = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     let radius = max(0.45, V3(x1 - x0, y1 - y0, z1 - z0).len / 2)
+    let ext = pvCorners(x0, y0, z0, x1, y1, z1)
     // a step's camera takes in the dimension lines too, so a size in front of the piece stays in the picture
     for d in dims.values { take(d.a); take(d.b) }
     let dimCenter = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     let dimRadius = max(0.45, V3(x1 - x0, y1 - y0, z1 - z0).len / 2)
     // an L turns into the right-hand wall: seen from the left so both runs show from inside
     let az0 = f.kind != "kitchen" ? 0.55 : f.layout == "L" ? -0.6 : f.layout == "U" ? 0.15 : 0.6
-    return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter: dimCenter, dimRadius: dimRadius)
+    return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter: dimCenter, dimRadius: dimRadius, ext: ext, dimExt: pvCorners(x0, y0, z0, x1, y1, z1))
 }
 
 /// A camera round the piece: az turns it from the scene's own angle, the piece filling the picture.
@@ -100,11 +126,29 @@ private struct PCam {
         let half = 16.0 * Double.pi / 180
         let fit = min(half, atan(tan(half) * w / h))
         let c = withDims ? s.dimCenter : s.center
-        let dist = (withDims ? s.dimRadius : s.radius) / sin(fit) * 0.9
         let a = s.az0 + az, el = 0.5
-        let eye = c + V3(sin(a) * cos(el), sin(el), cos(a) * cos(el)) * dist
-        let fw = (c - eye).unit, rt = fw.cross(PV_UP).unit
-        e = eye; f = fw; r = rt; u = rt.cross(fw)
+        let back = V3(sin(a) * cos(el), sin(el), cos(a) * cos(el))
+        let fw = back * -1, rt = fw.cross(PV_UP).unit, up = rt.cross(fw)
+        // near enough that every corner of the bounds is in the picture with a little room round it (a tall piece's
+        // top and bottom too), else round its bounding sphere
+        let tv = tan(half), th = tv * w / h
+        let ext = withDims ? s.dimExt : s.ext
+        func fitAt(_ m: V3) -> Double { ext.map { q in let v = q - m; return 1.08 * max(abs(v.dot(rt)) / th, abs(v.dot(up)) / tv) - v.dot(fw) }.max() ?? 0 }
+        var m = c
+        // the bounds' picture centred: the camera slides across until it is
+        if !ext.isEmpty {
+            for _ in 0..<3 {
+                let dist = fitAt(m)
+                var lx = Double.greatestFiniteMagnitude, hx = -Double.greatestFiniteMagnitude, ly = Double.greatestFiniteMagnitude, hy = -Double.greatestFiniteMagnitude
+                for q in ext {
+                    let v = q - m, z = dist + v.dot(fw)
+                    lx = min(lx, v.dot(rt) / z); hx = max(hx, v.dot(rt) / z); ly = min(ly, v.dot(up) / z); hy = max(hy, v.dot(up) / z)
+                }
+                m = m + rt * ((lx + hx) / 2 * dist) + up * ((ly + hy) / 2 * dist)
+            }
+        }
+        let dist = ext.isEmpty ? (withDims ? s.dimRadius : s.radius) / sin(fit) : fitAt(m)
+        e = m + back * dist; f = fw; r = rt; u = up
         foc = (h / 2) / tan(half); cx = w / 2; cy = h / 2
     }
     func p(_ q: V3) -> CGPoint? {
@@ -140,6 +184,69 @@ private func pvLine(_ cg: CGContext, _ a: CGPoint, _ b: CGPoint, _ w: CGFloat) {
     cg.move(to: a); cg.addLine(to: b); cg.strokePath()
 }
 
+/// Whether every corner of q is on the outer side of face i of b.
+private func pvOutside(_ b: SBox, _ i: Int, _ q: SBox) -> Bool {
+    let nx = b.planes[4 * i], ny = b.planes[4 * i + 1], nz = b.planes[4 * i + 2], dd = b.planes[4 * i + 3] - 1e-6
+    for k in 0..<8 where nx * q.pts[3 * k] + ny * q.pts[3 * k + 1] + nz * q.pts[3 * k + 2] < dd { return false }
+    return true
+}
+
+/// 1 when a goes before b (only b can hide a), -1 the other way, 0 when either may go first (neither hides the other) or
+/// no face plane of either parts them. A face plane with one box beyond it and the camera on that side says the other
+/// box cannot hide it.
+private func pvBefore(_ a: SBox, _ b: SBox, _ e: V3) -> Int {
+    var aFirst = false, bFirst = false
+    for i in 0..<6 where pvOutside(a, i, b) { if a.faces[i].n.dot(e) > a.planes[4 * i + 3] { aFirst = true } else { bFirst = true } }
+    for i in 0..<6 where pvOutside(b, i, a) { if b.faces[i].n.dot(e) > b.planes[4 * i + 3] { bFirst = true } else { aFirst = true } }
+    return aFirst == bFirst ? 0 : aFirst ? 1 : -1
+}
+
+/// The boards back to front. Sorting faces by their middles shows a shelf through its door and hides a handle behind it,
+/// so whole boxes go in order: of two whose pictures overlap, the one beyond a face plane of the other, from the camera,
+/// goes first; the rest (and any loop) by their distance.
+private func pvDrawOrder(_ bs: [SBox], _ cam: PCam) -> [SBox] {
+    let n = bs.count
+    let big = Double.greatestFiniteMagnitude
+    let rect: [(Double, Double, Double, Double)] = bs.map { b in
+        var x0 = big, y0 = big, x1 = -big, y1 = -big
+        for k in 0..<8 {
+            // a corner behind the camera: it may overlap anything
+            guard let o = cam.p(V3(b.pts[3 * k], b.pts[3 * k + 1], b.pts[3 * k + 2])) else { return (-big, -big, big, big) }
+            x0 = min(x0, Double(o.x)); y0 = min(y0, Double(o.y)); x1 = max(x1, Double(o.x)); y1 = max(y1, Double(o.y))
+        }
+        return (x0, y0, x1, y1)
+    }
+    let dist: [Double] = bs.map { b in (0..<8).reduce(0.0) { $0 + cam.depth(V3(b.pts[3 * $1], b.pts[3 * $1 + 1], b.pts[3 * $1 + 2])) } / 8 }
+    var after = [[Int]](repeating: [], count: n), need = [Int](repeating: 0, count: n)
+    for i in 0..<n {
+        for j in (i + 1)..<max(i + 1, n) {
+            let a = rect[i], b = rect[j]
+            if a.0 >= b.2 || b.0 >= a.2 || a.1 >= b.3 || b.1 >= a.3 { continue }
+            switch pvBefore(bs[i], bs[j], cam.e) {
+            case 1: after[i].append(j); need[j] += 1
+            case -1: after[j].append(i); need[i] += 1
+            default: break
+            }
+        }
+    }
+    // the boxes ready to draw, nearest first: the farthest is taken from the end
+    var ready = (0..<n).filter { need[$0] == 0 }.sorted { dist[$0] < dist[$1] }
+    var done = [Bool](repeating: false, count: n), out: [SBox] = []
+    out.reserveCapacity(n)
+    while out.count < n {
+        // a loop (boxes that cut into each other): the farthest one left goes next
+        let k: Int
+        if let r = ready.popLast() { k = r } else { k = (0..<n).filter { !done[$0] }.max { dist[$0] < dist[$1] }! }
+        if done[k] { continue }
+        done[k] = true; out.append(bs[k])
+        for j in after[k] {
+            need[j] -= 1
+            if need[j] == 0 && !done[j] { ready.insert(j, at: ready.firstIndex { dist[$0] >= dist[j] } ?? ready.count) }
+        }
+    }
+    return out
+}
+
 /// Draws the piece into a context of size points: walls facing the camera and the floor first, then the boards back to
 /// front; hi a step key to show, az an extra turn in radians, label the value on the line ("?" none yet; nil no pill).
 func drawPiece(_ cg: CGContext, _ size: CGSize, _ s: PieceScene, hi: String?, az: Double, label: String?) {
@@ -173,14 +280,7 @@ func drawPiece(_ cg: CGContext, _ size: CGSize, _ s: PieceScene, hi: String?, az
         }
     }
     for fc in s.env { face(fc, fc.tag == "wall") }
-    var order: [(SFace, Double)] = []
-    order.reserveCapacity(s.furn.count)
-    for fc in s.furn {
-        var dz = 0.0
-        for q in fc.pts { dz += cam.depth(q) }
-        order.append((fc, dz / Double(max(1, fc.pts.count))))
-    }
-    for (fc, _) in order.sorted(by: { $0.1 > $1.1 }) { face(fc, true) }
+    for bx in pvDrawOrder(s.furn, cam) { for fc in bx.faces { face(fc, true) } }
     guard let hi, let d = s.dims[hi], let a = cam.p(d.a), let b = cam.p(d.b) else { return }
     let t0 = cam.p(d.a + d.tick * 0.09), t1 = cam.p(d.a - d.tick * 0.09), t2 = cam.p(d.b + d.tick * 0.09), t3 = cam.p(d.b - d.tick * 0.09)
     let w: CGFloat = 3.2

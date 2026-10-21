@@ -10,6 +10,7 @@ import uz.metrx.app.data.Room
 import uz.metrx.app.furniture.Furniture
 import uz.metrx.app.furniture.Workshop
 import uz.metrx.app.furniture.autoFill
+import uz.metrx.app.furniture.cabinetTemplate
 import uz.metrx.app.furniture.runsOf
 import uz.metrx.app.furniture.wardrobeTemplate
 import kotlin.math.abs
@@ -55,5 +56,15 @@ class Furniture3DTest {
         // everything stands between the walls A and C (z 0 … 2.6) and inside wall B (x ≤ 3.6)
         val pts = fr.parts.flatMap { p -> p.faces.flatMap { it.pts } }
         assertTrue(pts.all { it.z >= -1e-6 && it.z <= 2.6 + 1e-6 && it.x <= 3.6 + 1e-6 })
+    }
+
+    @Test fun aCabinetOnLegsStandsOnThem() {
+        val m = cabinetTemplate("desk", ws, "A", 10, 1200, 750, 600)
+        val fr = furniture3D(listOf(Furniture("d", "wardrobe", walls = listOf("A"), modules = listOf(m), type = "desk")), shell.bases, ws, { 0xF5F5F2 }, emptySet())
+        // a pair of legs under each side and the divider, as the hardware list counts them; the boards above them
+        val legs = fr.parts.filter { it.rgb == 0xC5CBD4 }.flatMap { it.faces }
+        assertEquals(6 * 6, legs.size)
+        assertTrue(legs.flatMap { it.pts }.all { it.y in -1e-9..ws.legH / 1000.0 + 1e-9 })
+        assertTrue(fr.parts.filter { it.rgb != 0xC5CBD4 }.flatMap { p -> p.faces.flatMap { it.pts } }.all { it.y >= ws.legH / 1000.0 - 1e-9 })
     }
 }

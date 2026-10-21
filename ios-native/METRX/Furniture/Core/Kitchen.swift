@@ -14,7 +14,6 @@ let K_BASE_D = 560
 let K_TOP = 38
 let K_WALL_H = 720
 let K_WALL_D = 300
-let K_TALL_H = 2100
 /// Worktop to the underside of the wall units.
 let K_SPLASH = 600
 /// Where the next wall's lower and upper rows start, past the corner unit of the wall before.
@@ -81,8 +80,9 @@ func template(_ kind: String, _ ws: Workshop, _ wall: String, _ w: Int? = nil) -
     func wallU(_ width: Int, _ h: Int, _ el: Int, _ f: Fronts, _ ins: [Insert], _ app: String = "") -> Module {
         Module(id: uid(), type: "wall", w: width, h: h, d: K_WALL_D, wall: wall, elev: el, fronts: f, inserts: ins, legs: false, app: app)
     }
+    // tall units end level with the wall units' tops
     func tall(_ width: Int, _ f: Fronts, _ ins: [Insert], _ app: String = "") -> Module {
-        Module(id: uid(), type: "tall", w: width, h: K_TALL_H, d: K_BASE_D, wall: wall, elev: low, fronts: f, inserts: ins, app: app)
+        Module(id: uid(), type: "tall", w: width, h: up + K_WALL_H - low, d: K_BASE_D, wall: wall, elev: low, fronts: f, inserts: ins, app: app)
     }
     func plain(_ type: String, _ width: Int, _ h: Int, _ d: Int, _ el: Int, _ f: Fronts, _ app: String = "") -> Module {
         Module(id: uid(), type: type, w: width, h: h, d: d, wall: wall, elev: el, fronts: f, legs: false, app: app)
@@ -94,8 +94,10 @@ func template(_ kind: String, _ ws: Workshop, _ wall: String, _ w: Int? = nil) -
     case "hob": return base(w ?? 600, Fronts("drawer", 3), [], "hob")
     case "wall": let x = w ?? 600; return wallU(x, K_WALL_H, up, doors(x), [Insert("shelf", qty: 2)])
     case "open": return wallU(w ?? 600, K_WALL_H, up, Fronts("open", 0), [Insert("shelf", qty: 1)])
-    case "hood": return wallU(w ?? 600, 400, worktopTop(ws) + 750, Fronts("door", 1), [], "hood")
-    case "micro": return wallU(w ?? 600, 400, up, Fronts("open", 0), [], "micro")
+    // the hood's cabinet ends level with the wall units, its visor 750 over the worktop
+    case "hood": return wallU(w ?? 600, K_SPLASH + K_WALL_H - 750, worktopTop(ws) + 750, Fronts("door", 1), [], "hood")
+    // the microwave's niche at the bottom of a wall unit of the usual height, a shelf over it
+    case "micro": return wallU(w ?? 600, K_WALL_H, up, Fronts("open", 0), [Insert("shelf", qty: 1)], "micro")
     case "pantry": let x = w ?? 600; return tall(x, doors(x), [Insert("shelf", qty: 5)])
     case "oven": return tall(w ?? 600, Fronts("door", 1), [Insert("shelf", qty: 2)], "oven")
     case "fridgeB": return tall(w ?? 600, Fronts("panel", 2), [], "fridgeB")

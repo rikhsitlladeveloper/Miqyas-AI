@@ -29,12 +29,13 @@ func typeSize(_ type: String) -> TypeSize {
     }
 }
 
-/// n drawers filling a section ih high inside, from the bottom, 20 mm apart.
-private func drawers(_ n0: Int, _ ih: Int) -> [Insert] {
-    // a low cabinet takes fewer drawers: each keeps 80 mm and a 20 mm gap, all inside
+/// n drawers filling a section ih high inside. Their faces are seen, set in the carcass: g apart and g from the bottom
+/// and the top, as the doors' gap.
+private func drawers(_ n0: Int, _ ih: Int, _ g: Int) -> [Insert] {
+    // a low cabinet takes fewer drawers: each keeps about 100 mm, all inside
     let n = min(n0, max(1, (ih + 20) / 100))
-    let h = max(80, (ih - 20 * (n - 1)) / n)
-    return (0..<n).map { Insert("drawer", pos: $0 * (h + 20), h: h) }
+    let h = max(80, (ih - g * (n + 1)) / n)
+    return (0..<n).map { Insert("drawer", pos: g + $0 * (h + g), h: h) }
 }
 
 /// A new cabinet of type, w × h × d on wall at x; h is the whole height, legs included. Its sections follow the type:
@@ -43,21 +44,23 @@ func cabinetTemplate(_ type: String, _ ws: Workshop, _ wall: String, _ x: Int, _
     let sz = typeSize(type)
     var base = Module(id: uid(), type: "wardrobe", w: w, h: sz.legs ? h - ws.legH : h, d: d, x: x, wall: wall, legs: sz.legs)
     let ih = wardInnerH(base, ws.t)
+    let g = ws.gap10 / 10
     let open = Fronts("open", 0)
     func door(_ sw: Int) -> Fronts { Fronts("door", sw >= 600 ? 2 : 1) }
     func shelves(_ n: Int) -> [Insert] { Array(repeating: Insert("shelf"), count: n) }
     let secs: [Section]
     switch type {
-    case "tv": secs = [Section(w / 3, fronts: open, inserts: drawers(2, ih)), Section(w / 3, fronts: open, inserts: [Insert("shelf", pos: ih / 2)]),
+    case "tv": secs = [Section(w / 3, fronts: open, inserts: drawers(2, ih, g)), Section(w / 3, fronts: open, inserts: [Insert("shelf", pos: ih / 2)]),
                        Section(w - 2 * (w / 3), fronts: Fronts("door", 1))]
     case "shelving": secs = Array(repeating: Section(0, fronts: open, inserts: shelves(4)), count: max(1, (w + 300) / 600))
-    case "sideboard": secs = [Section(w / 2, fronts: door(w / 2), inserts: [Insert("shelf", pos: ih / 2)]), Section(w - w / 2, fronts: open, inserts: drawers(3, ih))]
-    case "dresser": secs = [Section(w, fronts: open, inserts: drawers(4, ih))]
-    case "nightstand": secs = [Section(w, fronts: open, inserts: drawers(2, ih))]
+    case "sideboard": secs = [Section(w / 2, fronts: door(w / 2), inserts: [Insert("shelf", pos: ih / 2)]), Section(w - w / 2, fronts: open, inserts: drawers(3, ih, g))]
+    case "dresser": secs = [Section(w, fronts: open, inserts: drawers(4, ih, g))]
+    case "nightstand": secs = [Section(w, fronts: open, inserts: drawers(2, ih, g))]
     case "vanity": secs = [Section(w, fronts: door(w))]
     case "hallway": secs = [Section(w / 2, fronts: Fronts("door", 1), inserts: [Insert("shoe", pos: 0)] + shelves(3)),
-                            Section(w - w / 2, fronts: open, inserts: [Insert("shoe", pos: 0), Insert("rail", pos: ih - 120)])]
-    case "desk": secs = [Section(min(450, w / 3), fronts: open, inserts: drawers(3, ih)), Section(w - min(450, w / 3), fronts: open, inserts: [], knee: true)]
+                            // the open side: a bench to sit on over the shoe rack (its top about 480 from the floor), coats on a rail above
+                            Section(w - w / 2, fronts: open, inserts: [Insert("shoe", pos: 0), Insert("shelf", pos: 480 - PLINTH - 2 * ws.t), Insert("rail", pos: ih - 120)])]
+    case "desk": secs = [Section(min(450, w / 3), fronts: open, inserts: drawers(3, ih, g)), Section(w - min(450, w / 3), fronts: open, inserts: [], knee: true)]
     default: secs = [Section(w, fronts: door(w))]
     }
     let split = splitSections(w, secs.map { var s = $0; if s.w > 0 { s.lock = true }; return s }).map { var s = $0; s.lock = false; return s }

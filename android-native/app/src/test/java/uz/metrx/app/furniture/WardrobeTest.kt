@@ -72,4 +72,13 @@ class WardrobeTest {
         assertEquals(0 to 1500, freeSpan(2600, "D", door, 2500))
         assertEquals(Triple(10, 1440, false), placeOn(2600, "D", door, 2500))
     }
+
+    @Test fun theRailStaysWithinReach() {
+        // at most 1800 from the floor however tall the wardrobe; a tall one keeps a shelf more over the hat shelf
+        listOf(2200, 2500, 2700).forEach { h ->
+            val ins = wardrobeTemplate(ws, "D", 10, 1200, h, builtIn = false).sections[0].inserts
+            assertTrue("$h", PLINTH + ws.t + ins.single { it.kind == "rail" }.pos <= 1800)
+            assertEquals("$h", if (h > 2200) 2 else 1, ins.count { it.kind == "shelf" })
+        }
+    }
 }

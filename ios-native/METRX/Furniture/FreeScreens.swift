@@ -249,6 +249,8 @@ struct FPlaceScreen: View {
     @State private var keep = false
     @State private var fitted: Furniture? = nil
     @State private var name: String
+    @State private var start = 0            // a one-wall kitchen's distance from the corner
+    @State private var pose: Pose? = nil    // dragged off the walls: a desk, the island
     @FocusState private var focus: PF?
 
     init(app: AppModel, pid: String, fid: String?, rid: String, model: String? = nil, vals: String? = nil) {
@@ -257,8 +259,13 @@ struct FPlaceScreen: View {
         let room = p?.rooms.first { $0.id == rid }
         let ids = room.map { Geo.walls($0, AppSettings.shared.angleSnap).map(\.id) } ?? []
         let taken = p?.furniture.filter { $0.roomId == rid && $0.id != fid }.flatMap(\.walls).filter { $0 != ISLAND } ?? []
-        _first = State(initialValue: ids.first { !taken.contains($0) } ?? ids.first ?? "A")
         let existing = fid.flatMap { id in p?.furniture.first { $0.id == id } }
+        // a piece already in this room starts where it stands
+        let here = existing.flatMap { $0.roomId == rid ? $0 : nil }
+        _first = State(initialValue: here?.walls.first { $0 != ISLAND && ids.contains($0) } ?? ids.first { !taken.contains($0) } ?? ids.first ?? "A")
+        _off = State(initialValue: here.flatMap(wardOfF).map(\.x).flatMap { $0 == W_GAP_SIDE ? nil : String($0) } ?? "")
+        _start = State(initialValue: here.map { $0.walls.filter { $0 != ISLAND }.count == 1 ? leadOf($0) : 0 } ?? 0)
+        _pose = State(initialValue: here?.pose)
         _name = State(initialValue: existing?.name ?? (p.flatMap { pp in model.flatMap { fModel($0) }.map { pieceName(pp, $0) } } ?? ""))
     }
 
@@ -274,7 +281,7 @@ struct FPlaceScreen: View {
             let known = fid == nil && vals == nil && m != nil
             let existing = fid.flatMap { id in p.furniture.first { $0.id == id } }
             let base: Furniture? = {
-                if let existing { return existing }
+                if let existing { return withoutLead(existing, len) }
                 guard let m else { return nil }
                 let now = nowMs()
                 if known && m.kind == "kitchen" { return roomKitchen(m, ids, first, len, roomH, ws, name, now: now) }
@@ -291,15 +298,50 @@ struct FPlaceScreen: View {
                 let offMm: Int? = { let v = mm(off); return v > 0 ? v : nil }()
                 let f = fitted ?? base
                 let on = placeWalls(f, ids, first)
-                let issues = fitIssues(f, on, len, roomH, ws, off: offMm)
+                let issues = fitIssues(f, on, len, roomH, ws, off: offMm, start: start)
+                // where it would stand, and what it would be in the way of there
+                let pw = planWalls(room, snap)
+                let g = placed(f, on, room.id, room.floorId, off: offMm, keep: !issues.isEmpty, len: len, ws: ws, start: start, pose: pose)
+                let warns = placeWarnings(g, others, room, pw, ws)
                 let roomName = p.floors.first { $0.id == room.floorId }.map { floorName($0) } ?? dn(room.name)
                 let clash = on.first { taken.contains($0) }
                 FPage(eyebrow: dn(f.name) + " → " + roomName, title: tr("fz.toRoom"), back: { app.pop() }) {
-                    PlacePlan(room: room, f: f, on: on, off: offMm, snap: snap)
+                    PlacePlan(room: room, walls: pw, g: g, others: others, ws: ws, red: !warns.isEmpty || !issues.isEmpty, label: tr("fz.planLabel"),
+                              onSlide: { w, x in
+                                  if w != first { first = w; reset() }
+                                  if ward { off = x == W_GAP_SIDE ? "" : String(x); pose = nil } else { start = x }
+                              },
+                              onCorner: { w in if w != first { first = w; pose = nil; reset() } },
+                              onPose: { pose = $0 }, onIsland: { pose = $0 })
+                    T(tr("fz.dragHint"), ui(12.5, 400, G.ink2, lh: 1.4))
+                    // a desk or the island turns, 15° a tap, about its middle
+                    if canStandFree(f) || f.walls.contains(ISLAND) {
+                        HStack(spacing: 8) {
+                            ForEach([(-15, "fz.turnL"), (15, "fz.turnR")], id: \.0) { d, k in
+                                GBtn(tr(k), kind: .secondary, icon: d < 0 ? "undo" : "redo", height: 44, corner: 14, fontSize: 14) {
+                                    if f.walls.contains(ISLAND) {
+                                        if let ip = islandPoseIn(g, pw), let fr = frameOf(pw, ip) { pose = poseOf(pw, first, turned(fr, Double(islandLen(g)), 600, d)) }
+                                    } else if let m = wardOfF(g), let fr = mainFrame(g, pw) {
+                                        pose = poseOf(pw, pose?.ref ?? first, turned(fr, Double(m.w), Double(m.d), d))
+                                    }
+                                }
+                                .accessibilityIdentifier(k)
+                            }
+                        }
+                    }
+                    if !warns.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(Array(warns.enumerated()), id: \.offset) { _, i in
+                                HStack(alignment: .top, spacing: 8) { MIcon("alert", G.amberInk, 16, 2); T(issueText(i), ui(13, 600, G.amberInk, lh: 1.35)) }
+                            }
+                        }
+                        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
+                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.amberWash))
+                    }
                     T(tr(ward ? "fz.wallQ" : "fz.first"), ui(15, 700))
                     FlowLayout(spacing: 8) {
                         ForEach(wl, id: \.id) { w in
-                            FChip(label: tr("kt.wallN", ["w": w.id]) + (len(w.id).map { " · \($0)" } ?? ""), on: w.id == first) { if w.id != first { first = w.id; reset() } }
+                            FChip(label: tr("kt.wallN", ["w": w.id]) + (len(w.id).map { " · \($0)" } ?? ""), on: w.id == first) { if w.id != first { first = w.id; start = 0; pose = nil; reset() } }
                                 .accessibilityIdentifier("fz.wall." + w.id)
                         }
                     }
@@ -319,12 +361,13 @@ struct FPlaceScreen: View {
                                    placeholder: wardOfF(base).map { Geo.fmtLen($0.w, unit, en, full: $0.w % 10 != 0) } ?? "", focus: $focus, me: .w, onSubmit: { focus = .off },
                                    labelRight: unitWord(unit), decimal: true, id: "fz.width")
                         }
-                        T(tr("fz.offset"), ui(15, 700))
-                        HStack(spacing: 8) {
-                            FChip(label: tr("fz.corner"), on: offMm == nil) { off = ""; reset() }
+                        // standing free it has no distance from a corner
+                        if pose == nil { T(tr("fz.offset"), ui(15, 700)) }
+                        if pose == nil { HStack(spacing: 8) {
+                            FChip(label: tr("fz.corner"), on: offMm == nil) { off = ""; pose = nil; reset() }
                             GField(label: nil, value: Binding(get: { off }, set: { off = String($0.filter { $0.isASCII && $0.isNumber }.prefix(5)); reset() }), placeholder: "0",
                                    focus: $focus, me: .off, submit: .done, onSubmit: { focus = nil }, labelRight: "mm", number: true)
-                        }
+                        } }
                     }
                     if !issues.isEmpty {
                         VStack(alignment: .leading, spacing: 6) {
@@ -355,7 +398,6 @@ struct FPlaceScreen: View {
                     GBtn(tr("fz.placeHere"), enabled: issues.isEmpty || keep) {
                         if !issues.isEmpty && !keep { app.say("fz.pickFirst", kind: .error); return }
                         guard app.once() else { return }
-                        let g = placed(f, on, room.id, room.floorId, off: offMm, keep: !issues.isEmpty, len: len, ws: ws)
                         if existing != nil {
                             Store.shared.update(pid) { pr in
                                 pr.furniture = pr.furniture.map { $0.id == g.id ? g : $0 }
@@ -374,81 +416,4 @@ struct FPlaceScreen: View {
     }
 
     private func reset() { fitted = nil; keep = false }
-}
-
-/// The room from above with the piece's place: each side along its wall (red past the wall's end), the wardrobe at its distance.
-private struct PlacePlan: View {
-    let room: Room
-    let f: Furniture
-    let on: [String]
-    let off: Int?
-    let snap: Bool
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
-        Canvas { ctx, size in
-            let wl = Geo.walls(room, snap)
-            guard !wl.isEmpty else { return }
-            let runs = runsOf(f) { _ in nil }
-            let xs = wl.flatMap { [$0.p0.x, $0.p1.x] }, ys = wl.flatMap { [$0.p0.y, $0.p1.y] }
-            let x0 = xs.min()!, y0 = ys.min()!
-            let spanX = max(xs.max()! - x0, 1), spanY = max(ys.max()! - y0, 1)
-            let pad: CGFloat = 34
-            let k = min((size.width - 2 * pad) / spanX, (size.height - 2 * pad) / spanY)
-            let ox = (size.width - spanX * k) / 2, oy = (size.height - spanY * k) / 2
-            func P(_ x: Double, _ y: Double) -> CGPoint { CGPoint(x: ox + (x - x0) * k, y: oy + (y - y0) * k) }
-            var outline = Path()
-            for (i, w) in wl.enumerated() { let a = P(w.p0.x, w.p0.y); if i == 0 { outline.move(to: a) } else { outline.addLine(to: a) } }
-            outline.closeSubpath()
-            ctx.fill(outline, with: .color(Color(argb: 0xFFF3F6FB)))
-            ctx.stroke(outline, with: .color(Color(argb: 0xFF0F172A)), lineWidth: 5)
-            func quad(_ q: [CGPoint], _ c: Color) {
-                var pp = Path(); pp.move(to: q[0]); q.dropFirst().forEach { pp.addLine(to: $0) }; pp.closeSubpath()
-                ctx.fill(pp, with: .color(c.opacity(0.22))); ctx.stroke(pp, with: .color(c), lineWidth: 2)
-            }
-            let blue = Color(argb: 0xFF3550E0), red = Color(argb: 0xFFDC2626)
-            let sidesOn = on.filter { $0 != ISLAND }.count
-            for w in wl {
-                let dx = w.p1.x - w.p0.x, dy = w.p1.y - w.p0.y, l = max(hypot(dx, dy), 1)
-                let ux = dx / l, uy = dy / l, nx = -uy, ny = ux              // into the room
-                let mid = P(w.p0.x + dx / 2, w.p0.y + dy / 2)
-                ctx.draw(Text(w.id).font(.system(size: 12)).foregroundColor(Color(argb: 0xFF475569)), at: CGPoint(x: mid.x - nx * 20, y: mid.y - ny * 20))
-                // the piece along this wall
-                func bar(_ a: Double, _ b: Double, _ depth: Double, _ over: Bool) {
-                    quad([P(w.p0.x + ux * a, w.p0.y + uy * a), P(w.p0.x + ux * b, w.p0.y + uy * b),
-                          P(w.p0.x + ux * b + nx * depth, w.p0.y + uy * b + ny * depth), P(w.p0.x + ux * a + nx * depth, w.p0.y + uy * a + ny * depth)], over ? red : blue)
-                }
-                guard let i = on.firstIndex(of: w.id) else { continue }
-                if f.kind == "wardrobe" {
-                    guard let m = wardOfF(f) else { continue }
-                    let a = Double(off ?? W_GAP_SIDE)
-                    bar(a, a + Double(m.w), Double(m.d), a + Double(m.w) > l + 1)
-                } else {
-                    guard i < runs.count else { continue }
-                    let r = runs[i]
-                    var need = runEnd(f, r)
-                    if f.roomId == nil, let s = f.free?.sides, i < s.count { need = max(s[i], need) }
-                    // a corner kitchen's first side ends in the corner
-                    let a = i == 0 && sidesOn > 1 ? max(0, l - Double(need)) : 0
-                    bar(a, a + Double(need), 600, Double(need) > l + 1)
-                }
-            }
-            // the island or peninsula, 900 out in front of the first side
-            if on.contains(ISLAND) && f.kind == "kitchen", let w = wl.first(where: { $0.id == on[0] }) {
-                let isl = Double(f.modules.filter { $0.wall == ISLAND && !isUpper($0) }.reduce(0) { $0 + $1.w })
-                if isl > 0 {
-                    let dx = w.p1.x - w.p0.x, dy = w.p1.y - w.p0.y, l = max(hypot(dx, dy), 1)
-                    let ux = dx / l, uy = dy / l, nx = -uy, ny = ux
-                    let a = (l - isl) / 2, b = a + isl, d0 = 1500.0, d1 = 2100.0
-                    quad([P(w.p0.x + ux * a + nx * d0, w.p0.y + uy * a + ny * d0), P(w.p0.x + ux * b + nx * d0, w.p0.y + uy * b + ny * d0),
-                          P(w.p0.x + ux * b + nx * d1, w.p0.y + uy * b + ny * d1), P(w.p0.x + ux * a + nx * d1, w.p0.y + uy * a + ny * d1)], blue)
-                }
-            }
-        }
-        .aspectRatio(1.5, contentMode: .fit)
-        .frame(maxWidth: .infinity)
-        .background(shape.fill(G.glass(0.6)))
-        .clipShape(shape)
-        .overlay(shape.strokeBorder(G.rim, lineWidth: 1))
-        .accessibilityHidden(true)
-    }
 }

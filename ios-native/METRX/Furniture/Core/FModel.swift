@@ -31,10 +31,14 @@ struct Furniture: Codable, Equatable, Identifiable {
     var kx: KExtras? = nil
     /// A cabinet on the wardrobe's engine (kind "wardrobe"): "" a wardrobe, or a Stage 2 type (Cabinets.swift CASE_TYPES).
     var type = ""
+    /// Standing away from the walls, dragged on the room's plan: a kitchen's island, or the whole piece (a desk…); nil: the usual place.
+    var pose: Pose? = nil
     init(id: String, kind: String, name: String = "", roomId: String? = nil, walls: [String] = [], modules: [Module] = [], mats: FMats = FMats(),
-         created: Ms = 0, layout: String = "I", ws: String = "", free: FreeSize? = nil, model: String = "", keep: Bool = false, kx: KExtras? = nil, type: String = "") {
+         created: Ms = 0, layout: String = "I", ws: String = "", free: FreeSize? = nil, model: String = "", keep: Bool = false, kx: KExtras? = nil, type: String = "",
+         pose: Pose? = nil) {
         self.id = id; self.kind = kind; self.name = name; self.roomId = roomId; self.walls = walls; self.modules = modules; self.mats = mats
         self.created = created; self.layout = layout; self.ws = ws; self.free = free; self.model = model; self.keep = keep; self.kx = kx; self.type = type
+        self.pose = pose
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -42,6 +46,21 @@ struct Furniture: Codable, Equatable, Identifiable {
         walls = c.v(.walls, []); modules = c.v(.modules, []); mats = c.v(.mats, FMats()); created = c.v(.created, 0)
         layout = c.v(.layout, "I"); ws = c.v(.ws, "")
         free = c.v(.free, nil); model = c.v(.model, ""); keep = c.v(.keep, false); kx = c.v(.kx, nil); type = c.v(.type, "")
+        pose = c.v(.pose, nil)
+    }
+}
+
+/// A place in the room: a mm along wall ref from its start and n mm into the room is the back's left end; the piece is
+/// turned deg from standing with its back to that wall. A piece on a wall is Pose(wall, x, 0, 0).
+struct Pose: Codable, Equatable, Hashable {
+    var ref: String
+    var a: Int
+    var n: Int
+    var deg = 0
+    init(_ ref: String, _ a: Int, _ n: Int, _ deg: Int = 0) { self.ref = ref; self.a = a; self.n = n; self.deg = deg }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        ref = c.v(.ref, "A"); a = c.v(.a, 0); n = c.v(.n, 0); deg = c.v(.deg, 0)
     }
 }
 

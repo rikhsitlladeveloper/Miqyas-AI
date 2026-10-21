@@ -123,9 +123,13 @@ func wardrobeTemplate(_ ws: Workshop, _ wall: String, _ x: Int, _ w: Int, _ h: I
     let n = sectionsFor(w)
     var base = Module(id: uid(), type: "wardrobe", w: w, h: h, d: d, x: x, wall: wall, legs: false, sideL: !builtIn, sideR: !builtIn)
     let ih = wardInnerH(base, ws.t)
+    // the rail within reach, at most 1800 from the floor, the hat shelf over it; a tall wardrobe keeps a shelf more above
+    let rail = min(ih - 420, 1800 - wardBase(base) - ws.t)
+    let top = ih - (rail + 70 + ws.t)
+    let hang = [Insert("rail", pos: rail), Insert("shelf", pos: rail + 70)] + (top > 500 ? [Insert("shelf", pos: rail + 70 + ws.t + top / 2)] : [])
     base.sections = splitSections(w, Array(repeating: Section(0), count: n)).enumerated().map { i, s in
         var n = s; n.fronts = Fronts("door", s.w >= 600 ? 2 : 1)
-        if i % 2 == 0 { n.inserts = [Insert("rail", pos: ih - 420), Insert("shelf", pos: ih - 350)]; return n }
+        if i % 2 == 0 { n.inserts = hang; return n }
         n.inserts = Array(repeating: Insert("shelf"), count: 5)
         return spreadShelves(n, ih, ws.t)
     }

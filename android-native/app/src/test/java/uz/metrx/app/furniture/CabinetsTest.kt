@@ -28,6 +28,14 @@ class CabinetsTest {
         assertEquals(4, hw["runner"]); assertEquals(4, hw["handle"]); assertEquals(null, hw["hinge"])
     }
 
+    @Test fun drawerFacesKeepTheDoorsGap() {
+        val m = cabinetTemplate("dresser", ws, "A", 10, 1000, 850, 450)
+        val ds = m.sections[0].inserts
+        assertEquals(3, ds.first().pos)                                  // 3 mm over the bottom, 3 mm apart, inside the top
+        ds.zipWithNext().forEach { (a, b) -> assertEquals(3, b.pos - (a.pos + a.h)) }
+        assertTrue(ds.last().pos + ds.last().h <= wardInnerH(m, ws.t) - 3)
+    }
+
     @Test fun aDeskHasNoBottomOrBackUnderItsKneeSpace() {
         val m = cabinetTemplate("desk", ws, "A", 10, 1200, 750, 600)
         assertTrue(hasKnee(m))

@@ -19,7 +19,6 @@ const val K_BASE_D = 560
 const val K_TOP = 38
 const val K_WALL_H = 720
 const val K_WALL_D = 300
-const val K_TALL_H = 2100
 /** Worktop to the underside of the wall units. */
 const val K_SPLASH = 600
 /** Where the next wall's lower and upper rows start, past the corner unit of the wall before. */
@@ -79,7 +78,8 @@ fun template(kind: String, ws: Workshop, wall: String, w: Int? = null): Module {
     val low = ws.legH; val up = wallElev(ws)
     fun base(width: Int, f: Fronts, ins: List<Insert>, app: String = "") = Module(uid(), "base", width, K_BASE_H, K_BASE_D, wall = wall, elev = low, fronts = f, inserts = ins, app = app)
     fun wallU(width: Int, h: Int, el: Int, f: Fronts, ins: List<Insert>, app: String = "") = Module(uid(), "wall", width, h, K_WALL_D, wall = wall, elev = el, fronts = f, inserts = ins, legs = false, app = app)
-    fun tall(width: Int, f: Fronts, ins: List<Insert>, app: String = "") = Module(uid(), "tall", width, K_TALL_H, K_BASE_D, wall = wall, elev = low, fronts = f, inserts = ins, app = app)
+    // tall units end level with the wall units' tops
+    fun tall(width: Int, f: Fronts, ins: List<Insert>, app: String = "") = Module(uid(), "tall", width, up + K_WALL_H - low, K_BASE_D, wall = wall, elev = low, fronts = f, inserts = ins, app = app)
     fun doors(width: Int) = Fronts("door", if (width >= 500) 2 else 1)
     return when (kind) {
         "drawers" -> base(w ?: 600, Fronts("drawer", 3), emptyList())
@@ -87,8 +87,10 @@ fun template(kind: String, ws: Workshop, wall: String, w: Int? = null): Module {
         "hob" -> base(w ?: 600, Fronts("drawer", 3), emptyList(), "hob")
         "wall" -> (w ?: 600).let { wallU(it, K_WALL_H, up, doors(it), listOf(Insert("shelf", qty = 2))) }
         "open" -> wallU(w ?: 600, K_WALL_H, up, Fronts("open", 0), listOf(Insert("shelf", qty = 1)))
-        "hood" -> wallU(w ?: 600, 400, worktopTop(ws) + 750, Fronts("door", 1), emptyList(), "hood")
-        "micro" -> wallU(w ?: 600, 400, up, Fronts("open", 0), emptyList(), "micro")
+        // the hood's cabinet ends level with the wall units, its visor 750 over the worktop
+        "hood" -> wallU(w ?: 600, K_SPLASH + K_WALL_H - 750, worktopTop(ws) + 750, Fronts("door", 1), emptyList(), "hood")
+        // the microwave's niche at the bottom of a wall unit of the usual height, a shelf over it
+        "micro" -> wallU(w ?: 600, K_WALL_H, up, Fronts("open", 0), listOf(Insert("shelf", qty = 1)), "micro")
         "pantry" -> (w ?: 600).let { tall(it, doors(it), listOf(Insert("shelf", qty = 5))) }
         "oven" -> tall(w ?: 600, Fronts("door", 1), listOf(Insert("shelf", qty = 2)), "oven")
         "fridgeB" -> tall(w ?: 600, Fronts("panel", 2), emptyList(), "fridgeB")

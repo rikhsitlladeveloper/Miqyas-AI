@@ -119,9 +119,13 @@ fun wardrobeTemplate(ws: Workshop, wall: String, x: Int, w: Int, h: Int, builtIn
     val n = sectionsFor(w)
     val base = Module(uid(), "wardrobe", w, h, d, x = x, wall = wall, legs = false, sideL = !builtIn, sideR = !builtIn)
     val ih = wardInnerH(base, ws.t)
+    // the rail within reach, at most 1800 from the floor, the hat shelf over it; a tall wardrobe keeps a shelf more above
+    val rail = minOf(ih - 420, 1800 - wardBase(base) - ws.t)
+    val top = ih - (rail + 70 + ws.t)
+    val hang = listOf(Insert("rail", pos = rail), Insert("shelf", pos = rail + 70)) + if (top > 500) listOf(Insert("shelf", pos = rail + 70 + ws.t + top / 2)) else emptyList()
     val secs = splitSections(w, List(n) { Section(0) }).mapIndexed { i, s ->
         val doors = Fronts("door", if (s.w >= 600) 2 else 1)
-        if (i % 2 == 0) s.copy(fronts = doors, inserts = listOf(Insert("rail", pos = ih - 420), Insert("shelf", pos = ih - 350)))
+        if (i % 2 == 0) s.copy(fronts = doors, inserts = hang)
         else spreadShelves(s.copy(fronts = doors, inserts = List(5) { Insert("shelf") }), ih, ws.t)
     }
     return base.copy(sections = secs)

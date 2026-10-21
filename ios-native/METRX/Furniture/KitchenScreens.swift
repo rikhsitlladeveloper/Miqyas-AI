@@ -447,6 +447,9 @@ private struct FMenuSheet: View {
                         }
                         .accessibilityIdentifier("fm.sizes")
                     } else {
+                        if let rid = f.roomId {
+                            FMenuRow(icon: "room", label: tr("fz.move"), color: G.ink) { app.sheet = nil; app.push(.fPlace(pid: p.id, fid: f.id, rid: rid)) }.accessibilityIdentifier("fm.move")
+                        }
                         FMenuRow(icon: "room", label: tr("fz.takeOut"), color: G.ink) { app.sheet = nil; takeOut(app, p.id, f.id) }.accessibilityIdentifier("fm.takeOut")
                     }
                     FMenuRow(icon: "trash", label: tr("kt.del"), color: G.err) {

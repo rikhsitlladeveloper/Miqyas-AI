@@ -138,9 +138,25 @@ func newFreeKitchen(_ name: String, _ model: String, _ layout: String, _ sides: 
                       free: FreeSize(Array(sides.prefix(sidesOf(layout))), walls.contains(ISLAND) ? island : 0, h), model: model, kx: kExtrasFor(layout))
     let ff = f
     let runs = runsOf(f) { freeLen(ff, $0) }
-    f = autoFill(f, runs, ws, [], [])
+    f = autoFill(f, runs, ws, [], usualPoints(runs))
     if walls.contains(ISLAND) && island > 0 { f.modules += slots(island).map { template($0 < 300 ? "fillerLow" : "base", ws, ISLAND, $0) } }
     return pack(f, runs)
+}
+
+/// Where the water and the gas usually are in a kitchen without a room, so it gets a sink and a hob like a real one: one
+/// side, the sink at its second unit and the hob two units from its end; a corner kitchen, the sink in the middle of the
+/// first side (a U's back wall) and the hob in the middle of the next.
+private func usualPoints(_ runs: [Run]) -> [SitePoint] {
+    let rs = runs.filter { $0.wall != ISLAND && $0.len != nil }
+    guard let r0 = rs.first else { return [] }
+    func mid(_ r: Run) -> Int { r.lowStart + ((r.len ?? 0) - r.lowStart) / 2 }
+    func pt(_ t: String, _ r: Run, _ off: Int) -> SitePoint { SitePoint(id: t + "-" + r.wall, t: t, wall: r.wall, off: off, h: 500) }
+    if rs.count == 1 {
+        let l = (r0.len ?? 0) - r0.lowStart
+        return [pt("cold", r0, r0.lowStart + 900)] + (l >= 2400 ? [pt("gas", r0, r0.lowStart + l - 900)] : [])
+    }
+    let sink = rs.count >= 3 ? rs[1] : rs[0], hob = rs.count >= 3 ? rs[2] : rs[1]
+    return [pt("cold", sink, mid(sink)), pt("gas", hob, mid(hob))]
 }
 
 /// A new room-less wardrobe w × h × d: doors as the model has them (hinged, sliding or none).
@@ -185,7 +201,7 @@ struct FitIssue: Equatable { let key: String; let vars: [String: String] }
 
 /// What does not fit when f goes on walls of a room (len each wall's length, roomH its height); a wardrobe stands off
 /// mm from the wall's start corner (nil: in the corner).
-func fitIssues(_ f: Furniture, _ walls: [String], _ len: (String) -> Int?, _ roomH: Int?, _ ws: Workshop, off: Int? = nil) -> [FitIssue] {
+func fitIssues(_ f: Furniture, _ walls: [String], _ len: (String) -> Int?, _ roomH: Int?, _ ws: Workshop, off: Int? = nil, start: Int? = nil) -> [FitIssue] {
     var out: [FitIssue] = []
     if f.kind == "wardrobe" {
         guard let m = wardOfF(f) else { return out }
@@ -200,6 +216,8 @@ func fitIssues(_ f: Furniture, _ walls: [String], _ len: (String) -> Int?, _ roo
         let r = runs[i]
         var need = runEnd(f, r)
         if f.roomId == nil, let s = f.free?.sides, i < s.count { need = max(s[i], need) }
+        // a one-wall kitchen slid along its wall needs its distance from the corner too
+        if i == 0 { need += start ?? 0 }
         guard let L = len(w) else { continue }
         if need > L { out.append(FitIssue(key: "fz.long", vars: ["i": "\(i + 1)", "v": "\(need)", "w": w, "d": "\(need - L)", "l": "\(L)"])) }
     }
@@ -249,13 +267,52 @@ func firstStart(_ f: Furniture, _ wallLen: Int?) -> Int {
 /// The piece standing in room roomId (workspace wsId) on walls (len each wall's length); a wardrobe off from the
 /// corner; keep its size kept. A corner kitchen's first side shorter than its wall gets an empty stretch at the wall's
 /// start, so its last unit stands in the corner where the next side turns.
-func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String, off: Int? = nil, keep: Bool = false, len: (String) -> Int? = { _ in nil }, ws: Workshop = Workshop()) -> Furniture {
-    var g = onWalls(f, walls); g.roomId = roomId; g.ws = wsId; g.keep = keep
+/// Pieces that may stand away from the walls, turned any way (a kitchen's island always may): a desk, shelving as a divider.
+let FREE_TYPES: Set<String> = ["desk", "shelving"]
+
+func canStandFree(_ f: Furniture) -> Bool { f.kind == "wardrobe" && FREE_TYPES.contains(f.type) }
+
+/// The empty stretch a kitchen's first side starts with (its leading space gaps) taken off: what is left to place again.
+func withoutLead(_ f: Furniture, _ len: (String) -> Int? = { _ in nil }) -> Furniture {
+    guard f.kind == "kitchen" else { return f }
+    let w0 = f.walls.first
+    let lead = Set(f.modules.filter { $0.wall == w0 && $0.type == "gap" && $0.x == 0 && ($0.app == "space" || isUpper($0)) }.map(\.id))
+    if lead.isEmpty { return f }
+    var g = f; g.modules = f.modules.filter { !lead.contains($0.id) }
+    return pack(g, runsOf(g, len))
+}
+
+/// How far a one-wall kitchen starts from its wall's corner: the width of its leading empty stretch.
+func leadOf(_ f: Furniture) -> Int {
+    let w0 = f.walls.first
+    return f.modules.first { $0.wall == w0 && $0.type == "gap" && $0.x == 0 && $0.app == "space" && !isUpper($0) }?.w ?? 0
+}
+
+/// The island's (or peninsula's) length along its row.
+func islandLen(_ f: Furniture) -> Int { runsOf(f) { _ in nil }.first { $0.wall == ISLAND }.map { fillOf(f, $0, false).used } ?? 0 }
+
+/// Where an island stands unless dragged: centred on the first side, 900 mm out from its units, its fronts facing them.
+/// A peninsula joins the side's end at a right angle, going out into the room, its fronts towards the kitchen.
+func islandPose(_ f: Furniture, _ wallLen: Int) -> Pose {
+    let len = islandLen(f)
+    let first = f.walls.first { $0 != ISLAND } ?? "A"
+    if f.layout == "P" {
+        let end = runsOf(f) { _ in nil }.first { $0.wall != ISLAND }.map { runEnd(f, $0) } ?? wallLen
+        return Pose(first, min(end, wallLen), 600, 90)
+    }
+    return Pose(first, (wallLen - len) / 2 + len, K_BASE_D + 900 + K_BASE_D, 180)
+}
+
+/// The piece standing in room roomId (workspace wsId) on walls; a wardrobe off from the corner; a one-wall kitchen start
+/// from it; pose: an island or a free-standing piece where it was dragged.
+func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String, off: Int? = nil, keep: Bool = false, len: (String) -> Int? = { _ in nil }, ws: Workshop = Workshop(),
+            start: Int? = nil, pose: Pose? = nil) -> Furniture {
+    var g = onWalls(withoutLead(f, len), walls); g.roomId = roomId; g.ws = wsId; g.keep = keep; g.pose = pose
     if g.kind == "wardrobe" {
         g.modules = g.modules.map { m in var x = m; if m.type == "wardrobe" { x.x = off ?? W_GAP_SIDE }; return x }
         return g
     }
-    let gap = firstStart(g, len(walls[0]))
+    let gap = walls.filter { $0 != ISLAND }.count == 1 ? start ?? 0 : firstStart(g, len(walls[0]))
     if gap > 0 {
         let w0 = walls[0]
         var low = template("spaceLow", ws, w0, gap); low.elev = g.modules.first { $0.wall == w0 && !isUpper($0) }?.elev ?? ws.legH
@@ -270,15 +327,12 @@ func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String,
 /// The piece taken out of its room: sizes from what is on each wall now, back on the made-up room's walls.
 func takenOut(_ f0: Furniture, _ len: (String) -> Int?, _ roomH: Int?) -> Furniture {
     if f0.kind == "wardrobe" {
-        var g = onWalls(f0, ["A"]); g.roomId = nil; g.ws = ""; g.keep = false
+        var g = onWalls(f0, ["A"]); g.roomId = nil; g.ws = ""; g.keep = false; g.pose = nil
         g.modules = g.modules.map { m in var x = m; if m.type == "wardrobe" { x.x = W_GAP_SIDE }; return x }
         return g
     }
-    // the empty stretch before a corner kitchen's first side stays with the room
-    let w0 = f0.walls.first
-    let lead = Set(f0.modules.filter { $0.wall == w0 && $0.type == "gap" && $0.x == 0 && ($0.app == "space" || isUpper($0)) }.map(\.id))
-    var f = f0; f.modules = f0.modules.filter { !lead.contains($0.id) }
-    if !lead.isEmpty { f = pack(f, runsOf(f, len)) }
+    // the empty stretch before a corner kitchen's first side stays with the room, and so does where its island stood
+    var f = withoutLead(f0, len); f.pose = nil
     let runs = runsOf(f, len)
     let sides = runs.filter { $0.wall != ISLAND }.map { max(runEnd(f, $0), 600) }
     let island = runs.first { $0.wall == ISLAND }.map { fillOf(f, $0, false).used } ?? 0
