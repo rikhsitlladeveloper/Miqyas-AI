@@ -202,7 +202,7 @@ fun FGalleryScreen(rt: Route.FGallery) {
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             groups.forEach { (g, _) ->
                 val on = g == cur
-                Text(groupName(g), style = ui(14f, 700, if (on) Color.White else G.ink), maxLines = 1,
+                Text(groupName(g), style = ui(14f, 700, if (on) G.solid else G.ink), maxLines = 1,
                     modifier = Modifier.heightIn(min = 40.dp).clip(CircleShape).background(if (on) G.ink else G.glass(.55f)).semantics { selected = on }
                         .clickable(role = Role.Tab) { scope.launch { scroll.animateScrollTo(tops[g] ?: 0) } }.padding(horizontal = 16.dp, vertical = 10.dp))
             }

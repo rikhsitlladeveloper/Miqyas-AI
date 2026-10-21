@@ -80,7 +80,7 @@ struct FGalleryScreen: View {
                         HStack(spacing: 6) {
                             ForEach(groups, id: \.0) { g, _ in
                                 let sel = g == on
-                                T(groupName(g), ui(14, 700, sel ? .white : G.ink), lines: 1)
+                                T(groupName(g), ui(14, 700, sel ? G.solid : G.ink), lines: 1)
                                     .padding(.horizontal, 16).frame(minHeight: 40)
                                     .background(Capsule().fill(sel ? G.ink : G.glass(0.55)))
                                     .pressable(0.97) {
