@@ -204,7 +204,7 @@ private struct StepCard: View {
                 } else if addFurn, let pr {
                     let kind = roomKind(pr.floors.first { $0.id == r.floorId })
                     GBtn(tr(kind == "kitchen" ? "fo.addK" : "fo.addW"), icon: kind == "kitchen" ? "kitchen" : "board", height: 50, fontSize: 15.5) {
-                        app.sheet = .newFurniture(pid: pid, wid: r.floorId, rid: r.id, kind: kind)
+                        app.push(.fGallery(pid: pid, rid: r.id))
                     }
                     .accessibilityIdentifier("ed.addFurn")
                 }

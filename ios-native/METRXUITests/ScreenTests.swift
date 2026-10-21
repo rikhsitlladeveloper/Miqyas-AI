@@ -62,17 +62,47 @@ class ScreenTestCase: XCTestCase {
         app.buttons["ws.save"].tap(); usleep(1_000_000)
     }
 
-    /// A furniture order for who with one room, opened in the editor (furniture orders UX: the three-field order,
-    /// "Nima kerak?" need, the room).
+    /// A furniture order for who with one room, opened in the editor (the three-field order, then the gallery's
+    /// "Avval xonani o‘lchash" card and the room sheet). need picks the room type: the kitchen is the sheet's default,
+    /// a wardrobe goes in a bedroom.
     func newFurnitureRoom(_ app: XCUIApplication, _ who: String, _ need: String) {
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText(who)
         app.buttons["no.create"].tap(); usleep(1_200_000)
-        XCTAssertTrue(app.buttons["need." + need].waitForExistence(timeout: 4))
-        app.buttons["need." + need].tap(); usleep(900_000)
-        app.buttons["how.room"].tap(); usleep(900_000)
+        XCTAssertTrue(app.buttons["fg.measure"].waitForExistence(timeout: 4))
+        app.buttons["fg.measure"].tap(); usleep(900_000)
+        let roomType = ["wardrobe": "Yotoqxona"][need]
+        if let roomType {
+            let chip = btn(app, roomType)
+            if chip.waitForExistence(timeout: 3) { chip.tap(); usleep(400_000) }
+        }
+        XCTAssertTrue(app.buttons["fr.create"].waitForExistence(timeout: 4))
         app.buttons["fr.create"].tap(); sleep(1)
         if app.buttons["tip.ok"].waitForExistence(timeout: 2) { app.buttons["tip.ok"].tap(); usleep(700_000) }
+    }
+
+    /// In a measured room's editor: the gallery for the room (ed.addFurn), a model, then the walls step's place button,
+    /// which opens the designer.
+    func placeFromEditor(_ app: XCUIApplication, _ model: String) {
+        XCTAssertTrue(app.buttons["ed.addFurn"].waitForExistence(timeout: 4))
+        app.buttons["ed.addFurn"].tap(); usleep(900_000)
+        tapModel(app, model)
+        XCTAssertTrue(app.buttons["fz.place"].waitForExistence(timeout: 4))
+        app.buttons["fz.place"].tap(); sleep(2)
+    }
+
+    /// A gallery's model card (model.<id>), scrolled to when it is below the fold.
+    func tapModel(_ app: XCUIApplication, _ model: String) {
+        let m = app.buttons["model." + model]
+        XCTAssertTrue(m.waitForExistence(timeout: 4))
+        if !m.isHittable { app.swipeUp(); usleep(600_000) }
+        m.tap(); usleep(900_000)
+    }
+
+    /// The page's own back button: "back", or the workspace's back link (labelled by its strings key).
+    func backVisible(_ app: XCUIApplication) {
+        let p = NSPredicate(format: "identifier == 'back' OR label == 'nt.back' OR label == 'Orqaga'")
+        app.buttons.matching(p).allElementsBoundByIndex.last { $0.isHittable }?.tap(); sleep(2)
     }
 
     func typeValue(_ app: XCUIApplication, _ v: String) {
@@ -623,8 +653,11 @@ final class Furniture1Tests: ScreenTestCase {
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText("Dilnoza Karimova")
         shot("f1-04-new-order")
-        app.buttons["no.create"].tap(); sleep(1); shot("f1-04b-what")
-        app.buttons["need.later"].tap(); sleep(1); shot("f1-05-order")
+        app.buttons["no.create"].tap(); sleep(1); shot("f1-04b-gallery")
+        // the gallery's "Keyin hal qilaman" link goes to the order page
+        XCTAssertTrue(app.buttons["fg.later"].waitForExistence(timeout: 4))
+        if !app.buttons["fg.later"].isHittable { app.swipeUp(); usleep(600_000) }
+        app.buttons["fg.later"].tap(); sleep(1); shot("f1-05-order")
 
         app.buttons["ptab.info"].tap(); usleep(800_000); shot("f1-06-stages")
         app.buttons["fo.next"].tap(); usleep(700_000)          // measure → design
@@ -715,8 +748,8 @@ final class Furniture3Tests: ScreenTestCase {
 }
 
 /// iPhone furniture part 4: the kitchen designer on a measured room (A 3400, B 2600, cold water on A at 1300): an
-/// L-kitchen, auto fill on both walls, a unit made narrower, a unit and a dishwasher from the library, the checks,
-/// the boards, undo.
+/// L-kitchen from the gallery placed on the walls (it comes already filled), a unit made narrower, a unit and a
+/// dishwasher from the library, the checks, the boards, undo.
 final class Furniture4Tests: ScreenTestCase {
     func testKitchen() {
         let app = launch()
@@ -729,12 +762,14 @@ final class Furniture4Tests: ScreenTestCase {
         app.buttons["pt.cold"].tap(); usleep(400_000)
         retype(app, "pt.off", "1,3"); app.buttons["pt.save"].tap(); sleep(5)
         shot("f4-00a-wall"); app.buttons["back"].tap(); sleep(2); shot("f4-00b-after-back")
-        // the measured room offers its kitchen
+        // the measured room opens the gallery for its own group; the L-kitchen takes the walls whole
         XCTAssertTrue(app.buttons["ed.addFurn"].waitForExistence(timeout: 4))
-        app.buttons["ed.addFurn"].tap(); usleep(900_000); shot("f4-03-new-furniture")
-        app.buttons["nf.lL"].tap(); usleep(500_000); shot("f4-04-L-layout")
-        app.buttons["nf.start"].tap(); sleep(2); shot("f4-05-empty-wall")
-        app.buttons["kt.auto"].tap(); sleep(1); shot("f4-06-auto-A")
+        app.buttons["ed.addFurn"].tap(); usleep(900_000); shot("f4-03-gallery")
+        tapModel(app, "L"); shot("f4-04-walls-step")
+        XCTAssertTrue(app.buttons["fz.place"].waitForExistence(timeout: 4))
+        app.buttons["fz.place"].tap(); sleep(2); shot("f4-05-designer")
+        // a new kitchen comes filled; the button is there only when a wall is still empty
+        if app.buttons["kt.auto"].exists { app.buttons["kt.auto"].tap() }; sleep(1); shot("f4-06-auto-A")
         sleep(4)
         app.swipeUp(); usleep(700_000); shot("f4-07-checks-cost")
         app.swipeDown(); usleep(700_000)
@@ -778,13 +813,15 @@ final class Furniture5Tests: ScreenTestCase {
         newFurnitureRoom(app, "Nodira Aliyeva", "wardrobe")
         measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
         sleep(6)    // the last toast goes away
+        // the bedroom's gallery: a 3-section built-in wardrobe, placed on the walls step
         XCTAssertTrue(app.buttons["ed.addFurn"].waitForExistence(timeout: 4))
-        app.buttons["ed.addFurn"].tap(); usleep(900_000)
-        app.buttons["nf.wardrobe"].tap(); usleep(600_000)
-        app.buttons["nf.c3"].tap(); usleep(500_000); shot("f5-01-new-wardrobe")
-        app.buttons["nf.start"].tap(); sleep(2); shot("f5-02-place")
+        app.buttons["ed.addFurn"].tap(); usleep(900_000); shot("f5-01-gallery")
+        tapModel(app, "h3"); shot("f5-02-place")
+        XCTAssertTrue(app.buttons["fz.place"].waitForExistence(timeout: 4))
+        app.buttons["fz.place"].tap(); sleep(2)
         sleep(4)
-        app.buttons["wd.step2"].tap(); usleep(800_000)
+        // the designer opens at step 2 (sizes); a tap on it again is harmless
+        if app.buttons["wd.step2"].exists { app.buttons["wd.step2"].tap(); usleep(800_000) }
         app.buttons["wd.secs.plus"].tap(); usleep(800_000); shot("f5-03-five-sections")
         app.buttons["wd.secW1"].tap(); usleep(900_000)
         retype(app, "wf.value", "500"); shot("f5-04-section-width")
@@ -819,11 +856,8 @@ final class Furniture6Tests: ScreenTestCase {
         measuredRoom(app, "3,4", "2,6", "2,7", openings: true)
         sleep(6)
         // an L-kitchen on A and B, filled
-        XCTAssertTrue(app.buttons["ed.addFurn"].waitForExistence(timeout: 4))
-        app.buttons["ed.addFurn"].tap(); usleep(900_000)
-        app.buttons["nf.lL"].tap(); usleep(500_000)
-        app.buttons["nf.start"].tap(); sleep(6)
-        app.buttons["kt.auto"].tap(); sleep(5)
+        placeFromEditor(app, "L"); sleep(4)
+        if app.buttons["kt.auto"].exists { app.buttons["kt.auto"].tap(); sleep(5) }
         app.buttons["kt.wall.B"].tap(); usleep(900_000)
         // the first fill covers every wall of a new kitchen; B has its own button only when still empty
         if app.buttons["kt.auto"].exists { app.buttons["kt.auto"].tap() }; sleep(5)
@@ -836,15 +870,29 @@ final class Furniture6Tests: ScreenTestCase {
         app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap(); sleep(2); shot("f6-04-tap")
         app.buttons["dim.2D"].tap(); sleep(2)
         app.buttons["back"].tap(); sleep(2)
-        // a wardrobe on wall D next to it
-        if app.buttons["space.addTile"].exists { app.buttons["space.addTile"].tap(); usleep(900_000) }
-        if app.buttons["add.furn"].waitForExistence(timeout: 3) {
-            app.buttons["add.furn"].tap(); usleep(900_000)
-            app.buttons["nf.wardrobe"].tap(); usleep(600_000)
-            app.buttons["nf.c3"].tap(); usleep(500_000)
-            app.buttons["nf.start"].tap(); sleep(6)
-            app.buttons["dim.3D"].tap(); sleep(4); shot("f6-05-room-3d")
-            app.buttons["f3.openAll"].tap(); sleep(3); shot("f6-06-wardrobe-open")
+        XCTAssertTrue(app.buttons["ptab.rooms"].waitForExistence(timeout: 4))
+        // a wardrobe in the same room: the room already has furniture, so it comes from the order page's dashed button,
+        // through the size steps (no room is known there) and "Qaysi xonaga?"
+        let more = app.buttons["fz.addMore"]
+        if more.waitForExistence(timeout: 4) {
+            if !more.isHittable { app.swipeUp(); usleep(600_000) }
+            more.tap(); usleep(900_000)
+            if app.buttons["fg.chip.bedroom"].waitForExistence(timeout: 3) { app.buttons["fg.chip.bedroom"].tap(); usleep(700_000) }
+            if app.buttons["model.h3"].waitForExistence(timeout: 3) {
+                tapModel(app, "h3")
+                for v in ["1,5", "2,2", "0,6"] {          // width, height, depth in metres
+                    guard app.textFields["fx.value"].waitForExistence(timeout: 3) else { break }
+                    retype(app, "fx.value", v); app.buttons["fx.next"].tap(); usleep(800_000)
+                }
+                if app.buttons["fx.go"].waitForExistence(timeout: 3) { app.buttons["fx.go"].tap(); usleep(900_000) }
+                let room = app.buttons.matching(identifier: "fq.room").firstMatch
+                if room.waitForExistence(timeout: 3) { room.tap(); usleep(900_000) }
+                if app.buttons["fz.place"].waitForExistence(timeout: 4) { app.buttons["fz.place"].tap(); sleep(6) }
+                if app.buttons["dim.3D"].waitForExistence(timeout: 4) {
+                    app.buttons["dim.3D"].tap(); sleep(4); shot("f6-05-room-3d")
+                    if app.buttons["f3.openAll"].exists { app.buttons["f3.openAll"].tap(); sleep(3); shot("f6-06-wardrobe-open") }
+                }
+            }
         }
     }
 }
@@ -852,22 +900,14 @@ final class Furniture6Tests: ScreenTestCase {
 /// iPhone furniture part 7: the Narx tab (cost, margin, running metre, profit, lead time), the parts and sheet layout,
 /// the workshop pack and the customer's quote, issued.
 final class Furniture7Tests: ScreenTestCase {
-    /// The page's own back button: "back", or the workspace's back link (labelled by its strings key).
-    func backVisible(_ app: XCUIApplication) {
-        let p = NSPredicate(format: "identifier == 'back' OR label == 'nt.back' OR label == 'Orqaga'")
-        app.buttons.matching(p).allElementsBoundByIndex.last { $0.isHittable }?.tap(); sleep(2)
-    }
-
     func testPriceAndDocuments() {
         let app = launch()
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Kamola Tursunova", "kitchen")
         measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
         sleep(6)
-        app.buttons["ed.addFurn"].tap(); usleep(900_000)
-        app.buttons["nf.lL"].tap(); usleep(500_000)
-        app.buttons["nf.start"].tap(); sleep(6)
-        app.buttons["kt.auto"].tap(); sleep(5)
+        placeFromEditor(app, "L"); sleep(4)
+        if app.buttons["kt.auto"].exists { app.buttons["kt.auto"].tap(); sleep(5) }
         app.buttons["kt.wall.B"].tap(); usleep(900_000)
         // the first fill covers every wall of a new kitchen; B has its own button only when still empty
         if app.buttons["kt.auto"].exists { app.buttons["kt.auto"].tap() }; sleep(6)
@@ -899,6 +939,30 @@ final class Furniture7Tests: ScreenTestCase {
         }
         shot("f7-13-issue-sheet")
         app.buttons["iss.go"].tap(); sleep(2); shot("f7-14-quotes-tab")
+    }
+}
+
+/// iPhone furniture part 8: a new order's gallery, a model with no room known — its three size steps (in metres), the
+/// summary, "Qaysi xonaga?" left without a room — the designer, and back to the order.
+final class Furniture8Tests: ScreenTestCase {
+    func testGalleryAndSizeSteps() {
+        let app = launch()
+        firstRun(app, "ind.furn")
+        app.buttons["home.new"].tap(); usleep(900_000)
+        app.textFields.element(boundBy: 0).typeText("Dilnoza Karimova")
+        app.buttons["no.create"].tap(); usleep(1_200_000)
+        XCTAssertTrue(app.buttons["model.L"].waitForExistence(timeout: 4)); shot("f8-01-gallery")
+        tapModel(app, "L"); shot("f8-02-step1")
+        retype(app, "fx.value", "3,4"); app.buttons["fx.next"].tap(); usleep(800_000); shot("f8-03-step2")
+        retype(app, "fx.value", "2,6"); app.buttons["fx.next"].tap(); usleep(800_000)
+        retype(app, "fx.value", "2,7"); app.buttons["fx.next"].tap(); usleep(800_000); shot("f8-04-summary")
+        XCTAssertTrue(app.buttons["fx.go"].waitForExistence(timeout: 3))
+        app.buttons["fx.go"].tap(); usleep(900_000); shot("f8-05-where")
+        XCTAssertTrue(app.buttons["fq.none"].waitForExistence(timeout: 3))
+        app.buttons["fq.none"].tap(); sleep(2); shot("f8-06-designer")
+        // back to the order's page (a toast or a sliding page can take a tap)
+        for _ in 0..<5 where !app.buttons["ptab.rooms"].exists { backVisible(app) }
+        XCTAssertTrue(app.buttons["ptab.rooms"].waitForExistence(timeout: 4)); shot("f8-07-order")
     }
 }
 

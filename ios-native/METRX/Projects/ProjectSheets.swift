@@ -209,7 +209,11 @@ private struct AddItem: View {
                 GlassSheet(tr("add.title", ["n": floorName(w)]), onClose: { app.sheet = nil }) {
                     // furniture orders: the kitchen (or wardrobe) for the measured room comes first
                     if p.isFurniture {
-                        BigRow(icon: "kitchen", title: "kt.addRow", desc: "kt.addRowD") { app.sheet = .newFurniture(pid: pid, wid: wid) }.accessibilityIdentifier("add.furn")
+                        BigRow(icon: "kitchen", title: "kt.addRow", desc: "kt.addRowD") {
+                            // the gallery, for the workspace's room when it is measured
+                            let rid = p.rooms.first { $0.floorId == wid && measuredRoom($0, AppSettings.shared.angleSnap) }?.id
+                            app.sheet = nil; app.push(.fGallery(pid: pid, rid: rid))
+                        }.accessibilityIdentifier("add.furn")
                     }
                     HStack(spacing: 10) {
                         ForEach([("sketch", "pen"), ("photo", "camera"), ("note", "note")], id: \.0) { k, icon in

@@ -417,199 +417,16 @@ struct KitchenSheet: View {
     let app: AppModel
     let sheet: Sheet
     static func handles(_ s: Sheet) -> Bool {
-        switch s { case .newFurniture, .fMenu, .fRename, .fMats, .fModule, .fLibrary: return true; default: return false }
+        switch s { case .fMenu, .fRename, .fMats, .fModule, .fLibrary: return true; default: return false }
     }
     var body: some View {
         switch sheet {
-        case .newFurniture(let pid, let wid, let rid, let kind): NewFurnitureSheet(app: app, pid: pid, wid: wid, rid: rid, kind: kind)
         case .fMenu(let pid, let fid): FMenuSheet(app: app, pid: pid, fid: fid)
         case .fRename(let pid, let fid): FRenameSheet(app: app, pid: pid, fid: fid)
         case .fMats(let pid, let fid): FMatsSheet(app: app, pid: pid, fid: fid)
         case .fModule(let pid, let fid, let mid): ModuleSheet(app: app, pid: pid, fid: fid, mid: mid)
         case .fLibrary(let pid, let fid, let wall, let group): LibrarySheet(app: app, pid: pid, fid: fid, wall: wall, group: group)
         default: EmptyView()
-        }
-    }
-}
-
-private let LAYOUT_ICON = ["I": "M3 9h18", "L": "M3 6h18v13", "U": "M3 19V6h18v13", "O": "M3 6h18 M8 16h8", "P": "M3 6h18v4 M12 6v12"]
-
-/// The wall combinations a layout can take in a room with walls ids: consecutive walls, or a wall and the island.
-private func combos(_ layout: String, _ ids: [String]) -> [[String]] {
-    let n = ids.count
-    switch layout {
-    case "L": return n >= 2 ? ids.indices.map { [ids[$0], ids[($0 + 1) % n]] } : []
-    case "U": return n >= 3 ? ids.indices.map { [ids[$0], ids[($0 + 1) % n], ids[($0 + 2) % n]] } : []
-    case "O", "P": return ids.map { [$0, ISLAND] }
-    default: return ids.map { [$0] }
-    }
-}
-
-private struct NewFurnitureSheet: View {
-    let app: AppModel
-    let pid: String, wid: String
-    @State private var rid: String?
-    @State private var kind: String
-    @State private var layout = "L"
-    @State private var combo = -1   // -1: the first walls nothing stands on yet
-    // living room and bedroom pieces (Stage 2): which one
-    @State private var ptype: String
-    /// rid and kind: where the sheet starts (the room just measured, the piece asked for); else the first room, a kitchen.
-    init(app: AppModel, pid: String, wid: String, rid: String? = nil, kind: String? = nil) {
-        self.app = app; self.pid = pid; self.wid = wid
-        _rid = State(initialValue: rid ?? Store.shared.get(pid)?.rooms.first(where: { $0.floorId == wid })?.id)
-        _kind = State(initialValue: kind ?? "kitchen")
-        _ptype = State(initialValue: kind == "bedroom" ? "dresser" : "tv")
-    }
-    var body: some View {
-        if let p = Store.shared.get(pid) {
-            let s = AppSettings.shared, snap = s.angleSnap, en = s.lang == .en
-            let rooms = p.rooms.filter { $0.floorId == wid }
-            let room = rooms.first { $0.id == rid } ?? rooms.first
-            let ids = room.map { Geo.walls($0, snap).map(\.id) } ?? []
-            let isCase = kind == "living" || kind == "bedroom"
-            let list = combos(kind != "kitchen" ? "I" : layout, ids)
-            // walls this room's other kitchens and wardrobes already stand on
-            let taken = p.furniture.filter { $0.roomId == room?.id }.flatMap { f in f.walls.filter { $0 != ISLAND }.map { ($0, f) } }
-            let pick = combo >= 0 && combo < list.count ? list[combo] : (list.first { c in !c.contains { w in taken.contains { $0.0 == w } } } ?? list.first)
-            let roomHt = room.flatMap { $0.dim("H").v ?? $0.dim("H").pending?.mm }
-            let wardH = roomHt.map { min(3000, max(1200, $0 - W_GAP_TOP)) } ?? 2500
-            /// The wardrobe on the picked wall: where it goes and how wide.
-            let wardPlace = { (wall: String) -> (x: Int, w: Int, builtIn: Bool)? in
-                room.flatMap { r in wallLen(r, snap, wall).map { placeOn($0, wall, r.openings, wardH) } }
-            }
-            let tsz = typeSize(ptype)
-            /// A piece on the picked wall: at the start of its longest stretch clear of doors (and windows lower than the piece), its usual width or less.
-            let casePlace = { (wall: String) -> (x: Int, w: Int)? in
-                guard let r = room, let L = wallLen(r, snap, wall) else { return nil }
-                let (a, n) = freeSpan(L, wall, r.openings, tsz.h)
-                let g0 = a == 0 ? W_GAP_SIDE : 50
-                let w = min(tsz.w, n - g0 - 10)
-                return w < 300 ? nil : (a + g0, w)
-            }
-            GlassSheet(tr("kt.addT"), onClose: { app.sheet = nil }) {
-                T(tr("kt.type"), ui(15, 700))
-                HStack(spacing: 8) {
-                    ForEach([("kitchen", "kt.kitchen"), ("wardrobe", "kt.wardrobe"), ("living", "kt.living"), ("bedroom", "kt.bedroom")], id: \.0) { k, t in
-                        let on = k == kind
-                        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        VStack(spacing: 4) {
-                            MIcon(k == "kitchen" ? "kitchen" : k == "wardrobe" ? "board" : "box", on ? G.cobalt : G.ink3, 24, 2)
-                            // a one-word name shrinks to stay whole on one line (no "Mehmonxon-a"), longer ones take two
-                            T(tr(t), ui(11, on ? 700 : 600, G.ink), align: .center, lines: tr(t).contains(" ") ? 2 : 1).minimumScaleFactor(0.7)
-                        }
-                        .padding(.horizontal, 2).padding(.vertical, 10)
-                        .frame(maxWidth: .infinity, minHeight: 84, maxHeight: .infinity)
-                        .background(shape.fill(on ? G.cobalt.opacity(0.1) : G.glass(0.5)))
-                        .overlay(shape.strokeBorder(on ? G.cobalt : G.rim, lineWidth: on ? 2 : 1))
-                        .pressable(0.97) {
-                            kind = k; combo = -1
-                            if k == "living" { ptype = "tv" }
-                            if k == "bedroom" { ptype = "dresser" }
-                        }
-                        .accessibilityAddTraits(on ? .isSelected : [])
-                        .accessibilityIdentifier("nf." + k)
-                    }
-                }
-                .fixedSize(horizontal: false, vertical: true)   // tiles as tall as the tallest
-                if let room {
-                    if rooms.count > 1 {
-                        T(tr("kt.room"), ui(15, 700))
-                        ScrollView(.horizontal, showsIndicators: false) {
-                            HStack(spacing: 8) { ForEach(rooms) { r in FChip(label: dn(r.name), on: r.id == room.id) { rid = r.id; combo = -1 } } }
-                        }
-                    }
-                    if isCase {
-                        T(tr("kt.which"), ui(15, 700))
-                        FlowLayout(spacing: 8) {
-                            ForEach(kind == "living" ? LIVING_TYPES : BEDROOM_TYPES, id: \.self) { t in
-                                FChip(label: tr("ft." + t), on: t == ptype) { ptype = t }.accessibilityIdentifier("nf.t." + t)
-                            }
-                        }
-                    }
-                    if kind == "kitchen" { T(tr("kt.layout"), ui(15, 700)) }
-                    if kind == "kitchen" { HStack(spacing: 6) {
-                        ForEach(["I", "L", "U", "O", "P"], id: \.self) { l in
-                            let on = l == layout, shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            VStack(spacing: 6) {
-                                PathIcon(LAYOUT_ICON[l]!, on ? G.cobalt : G.ink, 26, 2.4)
-                                // "L-shaped" stays whole
-                                T(tr("kt.l" + l), ui(11.5, on ? 700 : 500, on ? G.cobalt2 : G.ink), align: .center, lines: tr("kt.l" + l).contains(" ") ? 2 : 1).minimumScaleFactor(0.7)
-                            }
-                            .padding(.vertical, 8).padding(.horizontal, 2)
-                            .frame(maxWidth: .infinity, minHeight: 72)
-                            .background(shape.fill(on ? G.cobalt.opacity(0.1) : G.glass(0.5)))
-                            .overlay(shape.strokeBorder(on ? G.cobalt : G.rim, lineWidth: on ? 2 : 1))
-                            .pressable(0.97) { layout = l; combo = -1 }
-                            .accessibilityAddTraits(on ? .isSelected : [])
-                            .accessibilityIdentifier("nf.l" + l)
-                        }
-                    } }
-                    T(tr(kind != "kitchen" ? "wd.wall" : "kt.walls"), ui(15, 700))
-                    if list.isEmpty { T(tr("kt.noRoom"), ui(13.5, 400, G.ink2, lh: 1.4)) }
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        HStack(spacing: 8) {
-                            ForEach(Array(list.enumerated()), id: \.offset) { i, c in
-                                let label = c.map { w in
-                                    w == ISLAND ? tr(layout == "P" ? "kt.peninsula" : "kt.island") : w + (kind != "kitchen" || layout == "I" ? wallLen(room, snap, w).map { " · \($0)" } ?? "" : "")
-                                }.joined(separator: " + ")
-                                FChip(label: label, on: c == pick) { combo = i }.accessibilityIdentifier("nf.c\(i)")
-                            }
-                        }
-                    }
-                    if let t = taken.first(where: { t in pick?.contains(t.0) == true }) {
-                        T(tr("kt.wallTaken", ["w": t.0, "n": dn(t.1.name)]), ui(12.5, 500, G.amberInk, lh: 1.4))
-                    }
-                    if let pick, isCase {
-                        if let pl = casePlace(pick[0]) {
-                            T(tr("wd.newPart", ["w": pick[0], "l": wallLen(room, snap, pick[0]) ?? 0, "x": pl.x, "ww": pl.w, "h": tsz.h]), num(14.5, 700))
-                        } else {
-                            T(tr("kt.noSpace"), ui(12.5, 500, G.amberInk, lh: 1.4))
-                        }
-                    } else if let pick, kind == "wardrobe" {
-                        if let L = wallLen(room, snap, pick[0]), let pl = wardPlace(pick[0]) {
-                            T(tr(pl.builtIn ? "wd.newNiche" : "wd.newPart", ["w": pick[0], "l": L, "x": pl.x, "ww": pl.w, "h": wardH]), num(14.5, 700))
-                        }
-                        if !measured(room, snap, pick[0]) { T(tr("kt.noLen", ["w": pick[0]]), ui(12.5, 500, G.amberInk, lh: 1.4)) }
-                    } else if let pick {
-                        let lens = pick.filter { $0 != ISLAND }.map { ($0, wallLen(room, snap, $0)) }
-                        // the running metres as the price counts them: a wall after a corner starts past the first wall's units
-                        let corners = pick.indices.filter { $0 > 0 && pick[$0] != ISLAND && pick[$0 - 1] != ISLAND }.count
-                        let total = lens.reduce(0) { $0 + ($1.1 ?? 0) } - corners * K_CORNER
-                        T(lens.map { "\($0.0) \($0.1.map(String.init) ?? "?")" }.joined(separator: " + ") + (corners > 0 ? " − \(corners * K_CORNER) " + tr("kt.cornerCut") : "")
-                          + " → " + metres1(max(0, total), en) + " " + tr("kt.pm"), num(15, 700))
-                        ForEach(pick.filter { $0 != ISLAND && !measured(room, snap, $0) }, id: \.self) { w in T(tr("kt.noLen", ["w": w]), ui(12.5, 500, G.amberInk, lh: 1.4)) }
-                        if pick.contains(ISLAND) { T(tr("kt.islandNote"), ui(12.5, 400, G.ink2, lh: 1.4)) }
-                    }
-                    GBtn(tr("kt.start"), enabled: pick != nil) {
-                        guard let walls = pick else { return }
-                        let n = p.furniture.filter { isCase ? $0.type == ptype : $0.kind == kind && $0.type.isEmpty }.count + 1
-                        let f: Furniture
-                        if isCase {
-                            guard let pl = casePlace(walls[0]) else { app.say("kt.noSpace", kind: .error); return }
-                            f = Furniture(id: uid(), kind: "wardrobe", name: tr("ft." + ptype) + " \(n)", roomId: room.id, walls: walls,
-                                          modules: [cabinetTemplate(ptype, s.workshop, walls[0], pl.x, pl.w, tsz.h, tsz.d)], created: nowMs(), ws: wid, model: ptype, type: ptype)
-                        } else if kind == "wardrobe" {
-                            guard let pl = wardPlace(walls[0]) else { return }
-                            f = Furniture(id: uid(), kind: "wardrobe", name: tr("wd.nameN", ["n": n]), roomId: room.id, walls: walls,
-                                          modules: [wardrobeTemplate(s.workshop, walls[0], pl.x, pl.w, wardH, builtIn: pl.builtIn)], created: nowMs(), ws: wid)
-                        } else {
-                            f = Furniture(id: uid(), kind: "kitchen", name: tr("kt.nameN", ["n": n]), roomId: room.id, walls: walls, created: nowMs(), layout: layout, ws: wid,
-                                          kx: kExtrasFor(layout))
-                        }
-                        let moved = p.stage == "measure"
-                        Store.shared.update(p.id) { pr in pr.furniture.append(f); if pr.stage == "measure" { pr.stage = "design" } }
-                        app.sheet = nil; KitOps.shared.sel = nil
-                        // started from the room just measured: the designer takes its place, so back goes to the order
-                        if case .editor = app.top { app.replaceTop(designer(p.id, f)) } else { app.push(designer(p.id, f)) }
-                        if moved { app.say("kt.stageTo", ["s": tr("fs.design")]) }
-                    }
-                    .accessibilityIdentifier("nf.start")
-                } else {
-                    T(tr("kt.noRoom"), ui(14, 400, G.ink2, lh: 1.45))
-                    GBtn(tr("kt.drawRoom"), icon: "room") { app.sheet = .newRoom(pid: p.id, wid: wid) }
-                }
-            }
         }
     }
 }
@@ -625,12 +442,10 @@ private struct FMenuSheet: View {
                     FMenuRow(icon: "layers", label: tr("wd.mats"), color: G.ink) { app.sheet = .fMats(pid: p.id, fid: f.id) }.accessibilityIdentifier("fm.mats")
                     if f.roomId == nil {
                         FMenuRow(icon: "room", label: tr("fz.toRoom"), color: G.ink) { app.sheet = .fPickRoom(pid: p.id, fid: f.id) }.accessibilityIdentifier("fm.toRoom")
-                        if f.kind == "kitchen" {
-                            FMenuRow(icon: "ruler", label: tr("fz.editSizes"), color: G.ink) {
-                                app.sheet = nil; app.push(.fSizes(pid: p.id, kind: f.kind, model: f.model.isEmpty ? f.layout : f.model, fid: f.id))
-                            }
-                            .accessibilityIdentifier("fm.sizes")
+                        FMenuRow(icon: "ruler", label: tr("fz.editSizes"), color: G.ink) {
+                            app.sheet = nil; app.push(.fSteps(pid: p.id, model: modelOf(f).id, fid: f.id))
                         }
+                        .accessibilityIdentifier("fm.sizes")
                     } else {
                         FMenuRow(icon: "room", label: tr("fz.takeOut"), color: G.ink) { app.sheet = nil; takeOut(app, p.id, f.id) }.accessibilityIdentifier("fm.takeOut")
                     }

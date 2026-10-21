@@ -167,7 +167,7 @@ struct NewOrderScreen: View {
         p.industry = "furniture"; p.autoName = true
         Store.shared.add(p)
         app.replaceTop(.project(id: p.id, tab: "rooms"))
-        app.push(.fNeed(pid: p.id))
+        app.push(.fGallery(pid: p.id, fromNew: true))
         app.say("np.created", ["n": name])
     }
 }
@@ -196,7 +196,7 @@ struct FRoomsTab: View {
             HStack(spacing: 8) { MIcon("plus", G.cobalt2, 22, 2.2); T(tr("fz.addMore"), ui(16, 700, G.cobalt2)) }
                 .frame(maxWidth: .infinity).frame(height: 60)
                 .dashedGlass(22)
-                .pressable(0.98) { app.push(.fNeed(pid: p.id)) }
+                .pressable(0.98) { app.push(.fGallery(pid: p.id)) }
                 .accessibilityIdentifier("fz.addMore")
         }
         .padding(.horizontal, 16).padding(.top, 12)
@@ -275,7 +275,7 @@ struct FRoomsTab: View {
                 if let loose = p.furniture.first(where: { $0.roomId == nil && $0.kind == kind }) {
                     TodoRow(label: tr("fz.placeN", ["n": dn(loose.name)])) { app.push(.fPlace(pid: p.id, fid: loose.id, rid: room.id)) }
                 } else {
-                    TodoRow(label: tr(kind == "kitchen" ? "fo.addK" : "fo.addW")) { app.sheet = .newFurniture(pid: p.id, wid: w.id, rid: room.id, kind: kind) }
+                    TodoRow(label: tr(kind == "kitchen" ? "fo.addK" : "fo.addW")) { app.push(.fGallery(pid: p.id, rid: room.id)) }
                 }
             }
         } else {
@@ -443,7 +443,7 @@ struct NextStep: View {
             return Step(title: tr("ns.approveT"), sub: sub, button: tr("fo.approve")) { app.sheet = .fApprove(pid: pid) }
         }
         if p.want == nil && p.floors.isEmpty && p.furniture.isEmpty {
-            return Step(title: tr("ns.needT"), sub: tr("ns.needS"), button: tr("ns.needB")) { app.push(.fNeed(pid: pid)) }
+            return Step(title: tr("ns.needT"), sub: tr("ns.needS"), button: tr("ns.needB")) { app.push(.fGallery(pid: pid)) }
         }
         if let undrawn { return Step(title: tr("ns.measureT"), sub: floorName(undrawn), button: tr("fo.drawRoom")) { drawRoomIn(app, pid, undrawn) } }
         if let u = unmeasured {
@@ -459,16 +459,16 @@ struct NextStep: View {
             let (w, r) = b
             let kind = roomKind(w)
             return Step(title: tr(kind == "kitchen" ? "ns.designK" : "ns.designW"), sub: tr("ns.designS", ["r": floorName(w)]), button: tr(kind == "kitchen" ? "fo.addK" : "fo.addW")) {
-                app.sheet = .newFurniture(pid: pid, wid: w.id, rid: r.id, kind: kind)
+                app.push(.fGallery(pid: pid, rid: r.id))
             }
         }
         if let pend {
             return Step(title: tr(pend == "kitchen" ? "ns.designK" : pend == "other" ? "ns.designO" : "ns.designW"), sub: tr("ns.pendS"), button: tr("ns.pendB")) {
-                app.push(.fHow(pid: pid, kind: pend))
+                app.push(.fGallery(pid: pid))
             }
         }
         if p.floors.isEmpty && p.furniture.isEmpty {
-            return Step(title: tr("ns.needT"), sub: tr("ns.needS"), button: tr("ns.needB")) { app.push(.fNeed(pid: pid)) }
+            return Step(title: tr("ns.needT"), sub: tr("ns.needS"), button: tr("ns.needB")) { app.push(.fGallery(pid: pid)) }
         }
         let price = priceOf(p.furniture.filter { !$0.modules.isEmpty }, p.fprice, s.workshop, s.mats, s.hws).price
         return Step(title: tr("ns.quoteT"), sub: price > 0 ? tr("ns.quoteS", ["v": shortStr(p, price)]) : nil, button: tr("ns.quoteB")) { app.sheet = .issue(pid: pid) }

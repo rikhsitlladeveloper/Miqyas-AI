@@ -143,11 +143,10 @@ struct RootView: View {
         case .wardrobe(let pid, let fid, let step, let sec, let d3): WardrobeScreen(app: app, pid: pid, fid: fid, step: step, sec: sec, d3: d3)
         case .fCut(let pid): CutScreen(app: app, pid: pid)
         case .fPack(let pid): PackScreen(app: app, pid: pid)
-        case .fNeed(let pid): FNeedScreen(app: app, pid: pid)
-        case .fHow(let pid, let kind): FHowScreen(app: app, pid: pid, kind: kind)
-        case .fModels(let pid, let kind): FModelsScreen(app: app, pid: pid, kind: kind)
-        case .fSizes(let pid, let kind, let model, let fid): FSizesScreen(app: app, pid: pid, kind: kind, model: model, fid: fid)
-        case .fPlace(let pid, let fid, let rid): FPlaceScreen(app: app, pid: pid, fid: fid, rid: rid)
+        case .fGallery(let pid, let rid, let fromNew): FGalleryScreen(app: app, pid: pid, rid: rid, fromNew: fromNew)
+        case .fSteps(let pid, let model, let fid): FStepsScreen(app: app, pid: pid, model: model, fid: fid)
+        case .fWhere(let pid, let model, let vals): FWhereScreen(app: app, pid: pid, model: model, vals: vals)
+        case .fPlace(let pid, let fid, let rid, let model, let vals): FPlaceScreen(app: app, pid: pid, fid: fid, rid: rid, model: model, vals: vals)
         }
     }
 
