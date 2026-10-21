@@ -104,20 +104,41 @@ fun partsOf(m: Module, ws: Workshop): List<FPart> {
             val sides = (if (m.sideL) 1 else 0) + (if (m.sideR) 1 else 0)
             val inW = m.w - sides * t
             if (sides > 0) out += part("fp.side", id, "carcass", m.h, m.d, sides, THICK)
-            out += part("fp.top", id, "carcass", inW, m.d, 2, THICK)
-            if (secs.size > 1) out += part("fp.divider", id, "carcass", m.h - base - 2 * t, m.d, secs.size - 1, THICK)
+            val dIn = innerD(m)
+            if (secs.none { it.knee }) {
+                out += part("fp.top", id, "carcass", inW, m.d, 2, THICK)
+                if (secs.size > 1) out += part("fp.divider", id, "carcass", m.h - base - 2 * t, dIn, secs.size - 1, THICK)
+            } else {
+                // a desk: the top over everything, a bottom under each section but the knee space; a divider beside the knee
+                // space goes down to the floor like a side
+                out += part("fp.top", id, "carcass", inW, m.d, 1, THICK)
+                secs.forEachIndexed { i, s -> if (!s.knee) out += part("fp.bottom", id, "carcass", wardInner(m, secs, i, t), m.d, 1, THICK) }
+                for (i in 1 until secs.size) {
+                    val toFloor = secs[i].knee || secs[i - 1].knee
+                    out += part("fp.divider", id, "carcass", if (toFloor) m.h - t else m.h - base - 2 * t, if (toFloor) m.d else dIn, 1, THICK)
+                }
+            }
             if (!m.legs) out += part("fp.plinth", id, "carcass", inW, PLINTH, 1, THICK)
             secs.forEachIndexed { i, s ->
                 val iw = wardInner(m, secs, i, t)
                 val sid = "$id/${i + 1}"
+                if (s.knee) return@forEachIndexed
                 out += backPanel(sid, s.w, m.h - base, ws)
-                s.inserts.filter { it.kind == "shelf" }.sumOf { it.qty }.let { n -> if (n > 0) out += part("fp.shelf", sid, "carcass", iw - 2, m.d - 20, n, THICK) }
+                s.inserts.filter { it.kind == "shelf" }.sumOf { it.qty }.let { n -> if (n > 0) out += part("fp.shelf", sid, "carcass", iw - 2, dIn - 20, n, THICK) }
                 s.inserts.filter { it.kind == "drawer" }.forEach { dr ->
                     val fh = if (dr.h > 0) dr.h else 200
-                    out += part("fp.dFace", sid, "carcass", iw - 4, fh, 1, ALL, ALL)
-                    out += drawerBox(sid, iw, m.d, fh, t)
+                    // behind doors a drawer's face is carcass board; in an open section it is seen, so front board
+                    out += part("fp.dFace", sid, if (s.fronts.kind == "open") "front" else "carcass", iw - 4, fh, 1, ALL, ALL, grain = s.fronts.kind == "open")
+                    out += drawerBox(sid, iw, dIn, fh, t)
                 }
-                out += fronts(sid, s.fronts, s.w, m.h - base, ws)
+                // sliding doors close the whole front; the sections have none of their own
+                if (m.slide == null) out += fronts(sid, s.fronts, s.w, m.h - base, ws)
+            }
+            // the board fillings of the sliding doors (mirror and glass are bought by the m², in the hardware list)
+            m.slide?.let { sl ->
+                val (pw, ph) = slidePanel(m, t)
+                val boards = (0 until sl.n.coerceIn(2, 4)).count { sl.panel(it) == "ldsp" }
+                if (boards > 0) out += part("fp.slidePanel", id, "front", ph, pw, boards, grain = true)
             }
         }
         "base" -> {

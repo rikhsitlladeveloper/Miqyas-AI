@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Modul sozlamalari</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B47D9}a:hover{color:#1E36B0}
+button{font:inherit}
+.seg{cursor:pointer;height:40px;border-radius:12px;font-size:12.5px;font-weight:700}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #C9CEDC; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A">
+  <div aria-hidden="true" style="position: absolute; left: 16px; right: 16px; top: 60px; height: 120px; border-radius: 22px; background: rgba(255,255,255,0.55)"></div>
+
+  <div role="dialog" aria-label="Moyka osti modul" style="position: absolute; left: 0; right: 0; bottom: 0; top: 96px; background: #fff; border-radius: 28px 28px 0 0; padding: 10px 18px 22px; box-sizing: border-box; display: flex; flex-direction: column; box-shadow: 0 -10px 30px rgba(15,23,42,0.18)">
+    <div aria-hidden="true" style="width: 40px; height: 5px; border-radius: 3px; background: #CBD5E1; margin: 0 auto 10px"></div>
+    <div style="display: flex; justify-content: space-between; align-items: center">
+      <div><h2 style="margin: 0; font-size: 19px; font-weight: 800">Moyka osti</h2><div style="font-size: 12.5px; color: #475569">Pastki modul · Devor A · 1100 mm dan</div></div>
+      <a href="Kitchen.dc.html" aria-label="Yopish" style="width: 36px; height: 36px; border-radius: 50%; background: #F1F5F9; color: #0F172A; text-decoration: none; display: flex; align-items: center; justify-content: center; font-size: 18px">×</a>
+    </div>
+
+    <div style="margin-top: 12px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+      <div style="border-radius: 14px; border: 1.5px solid #3550E0; padding: 6px 10px"><div style="font-size: 11px; font-weight: 700; color: #475569">Eni</div><div style="font-size: 17px; font-weight: 800">{{W}} <span style="font-size: 11.5px; color: #475569">mm</span></div></div>
+      <div style="border-radius: 14px; border: 1.5px solid #E2E8F0; padding: 6px 10px"><div style="font-size: 11px; font-weight: 700; color: #475569">Balandligi</div><div style="font-size: 17px; font-weight: 800">720 <span style="font-size: 11.5px; color: #475569">mm</span></div></div>
+      <div style="border-radius: 14px; border: 1.5px solid #E2E8F0; padding: 6px 10px"><div style="font-size: 11px; font-weight: 700; color: #475569">Chuqurligi</div><div style="font-size: 17px; font-weight: 800">560 <span style="font-size: 11.5px; color: #475569">mm</span></div></div>
+    </div>
+    <div style="margin-top: 8px; display: flex; gap: 6px">
+      <sc-for list="{{widths}}" as="w" hint-placeholder-count="4">
+        <button type="button" class="seg" onClick="{{w.pick}}" aria-pressed="{{w.on}}" style="flex: 1; border: {{w.border}}; background: {{w.bg}}; color: {{w.fg}}">{{w.v}}</button>
+      </sc-for>
+    </div>
+    <div style="margin-top: 4px; font-size: 12px; color: {{runFg}}">{{runNote}}</div>
+
+    <h3 style="margin: 12px 0 0; font-size: 14px; font-weight: 800">Fasad</h3>
+    <div style="margin-top: 6px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+      <sc-for list="{{fronts}}" as="f" hint-placeholder-count="4">
+        <button type="button" class="seg" onClick="{{f.pick}}" aria-pressed="{{f.on}}" style="border: {{f.border}}; background: {{f.bg}}; color: {{f.fg}}">{{f.v}}</button>
+      </sc-for>
+    </div>
+
+    <div style="margin-top: 10px; display: flex; gap: 10px">
+      <div style="flex: 1"><h3 style="margin: 0; font-size: 14px; font-weight: 800">Tutqich</h3>
+        <div style="margin-top: 6px; height: 40px; border-radius: 12px; background: #F1F5F9; display: flex; align-items: center; padding: 0 12px; font-size: 13px; font-weight: 700">Skoba 128 mm</div></div>
+      <div style="flex: 1"><h3 style="margin: 0; font-size: 14px; font-weight: 800">Yumshoq yopilish</h3>
+        <button type="button" onClick="{{toggleSoft}}" role="switch" aria-checked="{{soft}}" style="cursor: pointer; margin-top: 6px; width: 100%; height: 40px; border-radius: 12px; border: 0; background: #F1F5F9; display: flex; align-items: center; justify-content: space-between; padding: 0 10px 0 12px; font-size: 13px; font-weight: 700">{{softLabel}}<span style="width: 40px; height: 24px; border-radius: 12px; background: {{softBg}}; position: relative"><span style="position: absolute; top: 3px; left: {{softKnob}}; width: 18px; height: 18px; border-radius: 50%; background: #fff"></span></span></button></div>
+    </div>
+
+    <h3 style="margin: 14px 0 0; font-size: 14px; font-weight: 800">Bu modul detallari <span style="font-weight: 600; color: #475569">· LDSP 16</span></h3>
+    <div style="margin-top: 6px; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden">
+      <sc-for list="{{parts}}" as="p" hint-placeholder-count="5">
+        <div style="display: flex; justify-content: space-between; gap: 8px; padding: 7px 12px; border-top: 1px solid #F1F5F9; font-size: 12.5px; font-variant-numeric: tabular-nums">
+          <span style="font-weight: 700">{{p.name}}</span><span style="color: #334155">{{p.size}} × {{p.q}}</span>
+        </div>
+      </sc-for>
+    </div>
+    <div style="margin-top: 8px; font-size: 12.5px; color: #334155; line-height: 1.45">{{hw}}</div>
+
+    <div style="flex: 1"></div>
+    <div style="display: flex; gap: 10px">
+      <span style="flex: 1; height: 50px; border-radius: 16px; background: #FEE2E2; color: #B91C1C; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">Oʻchirish</span>
+      <a href="Kitchen.dc.html" style="flex: 2; text-decoration: none; height: 50px; border-radius: 16px; background: #3550E0; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700">Saqlash</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var s = this.state || {};
+    var self = this;
+    var W = s.W || 800, F = s.F || '2';
+    var soft = s.soft === undefined ? true : s.soft;
+    function seg(on) { return { border: on ? '1.5px solid #3550E0' : '1px solid #E2E8F0', bg: on ? 'rgba(53,80,224,0.08)' : '#fff', fg: on ? '#2B47D9' : '#0F172A' }; }
+    var n = F === '1' ? 1 : F === '2' ? 2 : 0;
+    var parts = [
+      { name: 'Tagi (yonlar ustida turadi)', size: W + ' × 560', q: 1 },
+      { name: 'Yon devor', size: '704 × 560', q: 2 },
+      { name: 'Planka', size: (W - 32) + ' × 100', q: 2 },
+      { name: 'Orqa (DVP 3,2)', size: '716 × ' + (W - 4), q: 1 }
+    ];
+    if (n > 0) parts.push({ name: 'Eshik (fasad)', size: '717 × ' + Math.floor((W - 3 - (n - 1) * 3) / n), q: n });
+    if (F === 'd') { parts.push({ name: 'Tortma fasadi', size: '237 × ' + (W - 3), q: 3 }); parts.push({ name: 'Tortma yon/old/orqa', size: 'yoʻnaltiruvchi 500', q: 3 }); }
+    var hinges = n * 2;
+    var hw = F === 'd'
+      ? 'Furnitura: yoʻnaltiruvchi 500 mm × 3 juft, tutqich × 3, oyoq × 4, konfirmat × 16'
+      : F === 'o' ? 'Furnitura: oyoq × 4, konfirmat × 16 (fasadsiz)'
+      : 'Furnitura: petlya' + (soft ? ' (yumshoq)' : '') + ' × ' + hinges + ', tutqich × ' + n + ', oyoq × 4, konfirmat × 16';
+    var diff = W - 800;
+    return {
+      W: W,
+      widths: [600, 800, 900, 1000].map(function (v) { var x = seg(v === W); return Object.assign(x, { v: v, on: v === W, pick: function () { self.setState({ W: v }); } }); }),
+      runNote: diff === 0 ? 'Devor A: 3400 / 3400 · toʻla' : diff > 0 ? 'Devor A ' + diff + ' mm oshib ketdi — qoʻshni modul toraytiriladi' : 'Devor A da ' + (-diff) + ' mm boʻsh joy qoladi — toʻldiruvchi taklif qilinadi',
+      runFg: diff === 0 ? '#166534' : '#B45309',
+      fronts: [['1', '1 eshik'], ['2', '2 eshik'], ['d', 'Tortmalar'], ['o', 'Ochiq']].map(function (f) { var x = seg(F === f[0]); return Object.assign(x, { v: f[1], on: F === f[0], pick: function () { self.setState({ F: f[0] }); } }); }),
+      soft: soft, softLabel: soft ? 'Ha' : 'Yoʻq', softBg: soft ? '#3550E0' : '#CBD5E1', softKnob: soft ? '19px' : '3px',
+      toggleSoft: function () { self.setState({ soft: !soft }); },
+      parts: parts, hw: hw
+    };
+  }
+}
+</script>
+</body>
+</html>

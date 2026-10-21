@@ -1,6 +1,10 @@
 package uz.metrx.app.data
 
 import java.math.BigInteger
+import java.time.DayOfWeek
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
 
 /*
  * A furniture order's stages and money (furniture plan section 4): measured → designed → quote sent → approved with
@@ -38,7 +42,7 @@ fun settle(p: Project): Project =
 
 /** Approving: the agreed price, the prepayment as the first payment (when there is one), stage "approved". */
 fun approve(p: Project, agreed: BigInteger, pre: BigInteger, now: Long): Project = p.copy(
-    agreed = agreed.toString(), stage = "approved",
+    agreed = agreed.toString(), stage = "approved", approvedAt = now,
     payments = if (pre.signum() > 0) p.payments + Payment(uid(), pre.toString(), now, pre = true) else p.payments
 )
 
@@ -63,3 +67,28 @@ fun removePayment(p: Project, id: String): Project {
 
 /** Half the price, rounded half up: the usual prepayment. */
 fun halfOf(v: BigInteger): BigInteger = (v + BigInteger.ONE).divide(BigInteger.valueOf(2))
+
+/* ---------------- the install date (furniture orders UX, 20 Oct 2026) ---------------- */
+
+/** [d] plus [n] working days: Monday to Saturday, Sunday off. */
+fun addWorkDays(d: LocalDate, n: Int): LocalDate {
+    var x = d; var left = n
+    while (left > 0) { x = x.plusDays(1); if (x.dayOfWeek != DayOfWeek.SUNDAY) left-- }
+    return x
+}
+
+fun dayOf(ms: Long, zone: ZoneId = ZoneId.systemDefault()): LocalDate = Instant.ofEpochMilli(ms).atZone(zone).toLocalDate()
+
+/** When the order is to be installed: the date set by hand, else the approval day plus the Narx tab's making and
+ * installing days; null until the order is approved. Older approved orders take the prepayment's day. */
+fun installDate(p: Project, zone: ZoneId = ZoneId.systemDefault()): LocalDate? {
+    if (p.install > 0) return dayOf(p.install, zone)
+    val at = p.approvedAt.takeIf { it > 0 } ?: p.payments.firstOrNull { it.pre }?.ts?.takeIf { fStage(p) >= APPROVED } ?: return null
+    return addWorkDays(dayOf(at, zone), p.fprice.days + p.fprice.inst)
+}
+
+/** Active orders with the soonest install first (late ones on top), the ones without a date after them, newest first. */
+fun sortOrders(ps: List<Project>, zone: ZoneId = ZoneId.systemDefault()): List<Project> {
+    val (dated, undated) = ps.partition { installDate(it, zone) != null && fStage(it) < INSTALLED }
+    return dated.sortedBy { installDate(it, zone) } + undated.sortedByDescending { it.created }
+}

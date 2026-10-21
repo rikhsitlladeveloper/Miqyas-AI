@@ -1,0 +1,603 @@
+<title>Furniture Order Flow</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=IBM+Plex+Sans+Condensed:wght@500;600;700&display=swap">
+<style>
+/* Layout: the app in a phone frame on the left (always the app's light glass look), the review notes beside it, stacked on a phone. */
+:root{
+  --bg:#E9EDF5; --fg:#0F172A; --muted:#475569; --panel:#FFFFFF; --line:#D5DCE8; --accent:#3550E0;
+  --paper:#EEF1F8; --ink:#0F172A; --ink2:#475569; --ink3:#64748B; --cobalt:#3550E0; --cobalt2:#2B47D9;
+  --amber:#9A4D00; --amberW:#FFF1DF; --red:#B42318; --redW:#FDEDEB; --green:#15803D; --greenW:#E8F6EE; --blueW:#E7EEFD;
+  --ui:"Plus Jakarta Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --num:"IBM Plex Sans Condensed","Arial Narrow",system-ui,sans-serif;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#0E121B;--fg:#E8ECF4;--muted:#A6B0C3;--panel:#161C28;--line:#2A3242;--accent:#7C8FFF;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#0E121B;--fg:#E8ECF4;--muted:#A6B0C3;--panel:#161C28;--line:#2A3242;--accent:#7C8FFF;color-scheme:dark}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+body{background:var(--bg);color:var(--fg);font-family:var(--ui);padding-block:24px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));margin:0}
+.wrap{max-width:1120px;margin:0 auto;display:flex;gap:32px;align-items:flex-start;flex-wrap:wrap}
+.notes{flex:1 1 380px;min-width:0;display:flex;flex-direction:column;gap:20px}
+h1{font-size:26px;line-height:1.2;margin:0;text-wrap:balance;letter-spacing:-.01em}
+h2{font-size:15px;margin:0 0 8px}
+.lede{margin:0;color:var(--muted);line-height:1.55;max-width:62ch}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px}
+.card ul,.card ol{margin:0;padding-left:20px;line-height:1.55;color:var(--muted)}
+.card li+li{margin-top:4px}
+.card b{color:var(--fg)}
+.reset{font:600 14px var(--ui);border:1px solid var(--line);background:transparent;color:var(--fg);border-radius:999px;padding:9px 14px;cursor:pointer;min-height:40px}
+
+/* ---------- the phone ---------- */
+.phone{flex:0 0 auto;width:min(390px,100%);height:800px;border-radius:44px;padding:10px;background:#0B0F18;box-shadow:0 30px 60px rgba(14,28,54,.28)}
+@media (max-width:760px){.phone{height:min(800px,calc(100svh - 40px));min-height:640px}}
+.screen{position:relative;width:100%;height:100%;border-radius:36px;overflow:hidden;color:var(--ink);font-family:var(--ui);
+  background:radial-gradient(120% 60% at 0% 0%,rgba(91,123,255,.30),transparent 60%),radial-gradient(90% 50% at 100% 20%,rgba(176,124,255,.22),transparent 60%),radial-gradient(90% 60% at 0% 80%,rgba(63,216,242,.22),transparent 60%),var(--paper)}
+.status{height:34px;display:flex;align-items:center;justify-content:space-between;padding:0 24px;font:600 13px var(--ui)}
+.page{position:absolute;inset:34px 0 0 0;display:flex;flex-direction:column}
+.scroll{flex:1;min-height:0;overflow:auto;padding:0 14px 110px}
+.glass{background:rgba(255,255,255,.62);border:1px solid rgba(255,255,255,.85);border-radius:22px;box-shadow:0 10px 24px rgba(30,40,110,.08)}
+.ib{width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.85);background:rgba(255,255,255,.62);display:grid;place-items:center;cursor:pointer;color:var(--ink);flex:0 0 auto}
+button{font-family:var(--ui)}
+button:focus-visible{outline:2px solid var(--cobalt);outline-offset:2px}
+.bar{display:flex;align-items:center;gap:10px;padding:6px 14px 10px}
+.bar .t{flex:1;min-width:0}
+.bar .t small{display:block;font:600 12.5px var(--ui);color:var(--cobalt)}
+.bar .t b{display:block;font:800 18px/1.2 var(--ui);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.big{font:800 30px/1.1 var(--ui);letter-spacing:-.02em;margin:6px 4px 12px}
+.row{display:flex;gap:8px;align-items:center}
+.search{flex:1;height:52px;border-radius:26px;display:flex;align-items:center;gap:10px;padding:0 16px;color:var(--ink3);font:500 15px var(--ui)}
+.fab{width:52px;height:52px;border-radius:50%;border:0;background:var(--cobalt);color:#fff;display:grid;place-items:center;cursor:pointer;box-shadow:0 10px 20px rgba(53,80,224,.35)}
+.chips{display:flex;gap:6px;margin:12px 0;overflow-x:auto;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;height:38px;padding:0 14px;border-radius:19px;border:1px solid rgba(15,23,42,.1);background:rgba(255,255,255,.55);font:700 14px var(--ui);color:var(--ink);cursor:pointer;white-space:nowrap}
+.chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.ocard{padding:14px 14px 12px;margin-bottom:10px;cursor:pointer;display:flex;gap:10px}
+.ocard .main{flex:1;min-width:0}
+.ocard h3{margin:0;font:800 16px/1.25 var(--ui);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.ocard .who{font:500 13px var(--ui);color:var(--ink2);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pill{display:inline-flex;align-items:center;height:26px;padding:0 10px;border-radius:13px;font:700 12px var(--ui);white-space:nowrap}
+.p-measure{background:var(--amberW);color:var(--amber)}
+.p-design,.p-quote{background:var(--blueW);color:var(--cobalt2)}
+.p-approved,.p-production{background:var(--greenW);color:var(--green)}
+.segs{display:flex;gap:3px;margin:10px 0 8px}
+.segs i{flex:1;height:4px;border-radius:2px;background:rgba(15,23,42,.12)}
+.segs i.on{background:var(--cobalt)}
+.meta{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.date{display:inline-flex;align-items:center;gap:6px;height:28px;padding:0 10px;border-radius:9px;font:700 12.5px var(--ui);background:rgba(15,23,42,.06);color:var(--ink2)}
+.date.soon{background:var(--amberW);color:var(--amber)}
+.date.late{background:var(--redW);color:var(--red)}
+.date.none{background:transparent;color:var(--ink3);padding:0;font-weight:600}
+.call{width:46px;height:46px;border-radius:50%;border:0;background:var(--greenW);color:var(--green);display:grid;place-items:center;cursor:pointer;align-self:center;flex:0 0 auto}
+.tabbar{position:absolute;left:50%;transform:translateX(-50%);bottom:16px;display:flex;gap:4px;padding:6px;border-radius:30px}
+.tab{width:96px;height:52px;border-radius:24px;border:0;background:transparent;font:600 12px var(--ui);color:var(--ink2);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;cursor:default}
+.tab.on{background:rgba(255,255,255,.95);color:var(--cobalt2);box-shadow:0 4px 10px rgba(30,40,110,.12)}
+/* forms */
+.lbl{display:flex;justify-content:space-between;font:700 15px var(--ui);margin:16px 2px 6px}
+.lbl span{font:500 13px var(--ui);color:var(--ink3)}
+.in{width:100%;height:56px;border-radius:16px;border:1px solid rgba(255,255,255,.9);background:rgba(255,255,255,.75);padding:0 16px;font:500 16px var(--ui);color:var(--ink)}
+.in:focus{outline:2px solid var(--cobalt);outline-offset:0;border-color:transparent}
+.phone-in{display:flex;align-items:center;gap:8px}
+.phone-in span{font:600 16px var(--ui);color:var(--ink3)}
+.types{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.type{min-height:76px;border-radius:16px;border:1px solid rgba(15,23,42,.1);background:rgba(15,23,42,.04);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;font:700 14px var(--ui);color:var(--ink);cursor:pointer;position:relative}
+.type[aria-pressed="true"]{border:2px solid var(--cobalt);background:rgba(53,80,224,.1);color:var(--cobalt2)}
+.type .tick{position:absolute;top:8px;right:8px;width:20px;height:20px;border-radius:50%;background:var(--cobalt);color:#fff;display:none;place-items:center}
+.type[aria-pressed="true"] .tick{display:grid}
+.auto{margin-top:14px;padding:12px 14px;border-radius:16px;background:rgba(255,255,255,.55);font:500 13.5px/1.4 var(--ui);color:var(--ink2)}
+.auto b{color:var(--ink);font-weight:700}
+.footer{position:absolute;left:12px;right:12px;bottom:12px;padding:12px 16px 14px;border-radius:30px}
+.btn{width:100%;height:54px;border-radius:18px;border:0;background:var(--cobalt);color:#fff;font:700 16px var(--ui);cursor:pointer}
+.btn:disabled{opacity:.45;cursor:default}
+.btn.s{background:rgba(15,23,42,.06);color:var(--ink)}
+.err{color:var(--red);font:500 13px var(--ui);margin:6px 2px 0}
+/* room editor */
+.plan{margin:4px 0 10px;padding:12px;border-radius:22px;background:#fff;border:1px solid rgba(15,23,42,.06)}
+.plan svg{width:100%;height:auto;display:block}
+.walls{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.wall{border-radius:14px;padding:10px 10px 8px;background:rgba(255,255,255,.62);border:1px solid rgba(255,255,255,.85);cursor:pointer;text-align:left}
+.wall small{display:block;font:600 12px var(--ui);color:var(--ink3)}
+.wall b{display:block;font:700 18px var(--num);margin-top:2px;color:var(--ink)}
+.wall.wait{border:2px solid var(--cobalt);background:rgba(53,80,224,.08)}
+.wall.wait b{color:var(--cobalt2)}
+.wall.todo b{color:var(--amber)}
+.laser{display:flex;align-items:center;gap:10px;margin-top:12px;padding:10px 10px 10px 14px;border-radius:20px}
+.laser .led{width:10px;height:10px;border-radius:50%;background:#16A34A;box-shadow:0 0 0 3px rgba(22,163,74,.18);flex:0 0 auto}
+.laser .st{flex:1;min-width:0;font:700 13.5px/1.3 var(--ui)}
+.laser .st small{display:block;font:500 12px var(--ui);color:var(--ink2)}
+.sbtn{height:44px;padding:0 14px;border-radius:14px;border:0;background:var(--cobalt);color:#fff;font:700 13.5px var(--ui);cursor:pointer;white-space:nowrap}
+.sbtn.s{background:rgba(15,23,42,.07);color:var(--ink)}
+.typein{display:flex;gap:8px;margin-top:10px}
+.typein .in{height:48px}
+.ready{position:absolute;left:12px;right:12px;bottom:12px;padding:12px 12px 12px 16px;border-radius:24px;background:var(--ink);color:#fff;display:flex;align-items:center;gap:12px;box-shadow:0 14px 30px rgba(14,28,54,.35);animation:up .28s cubic-bezier(.3,.7,.2,1)}
+.ready .t{flex:1;font:600 14px/1.35 var(--ui)}
+.ready .t small{display:block;color:rgba(255,255,255,.7);font-weight:500;font-size:12.5px}
+.ready button{height:46px;padding:0 16px;border-radius:15px;border:0;background:#fff;color:var(--ink);font:800 14px var(--ui);cursor:pointer;white-space:nowrap}
+@keyframes up{from{transform:translateY(30px);opacity:0}to{transform:none;opacity:1}}
+/* order page */
+.head{padding:16px 16px 12px}
+.head h2{font:800 24px/1.15 var(--ui);margin:0;letter-spacing:-.01em}
+.head .who{font:500 14px var(--ui);color:var(--ink2);margin-top:4px}
+.stats{display:grid;grid-template-columns:.8fr 1.3fr 1fr;gap:8px;margin-top:12px;padding-top:12px;border-top:1px solid rgba(15,23,42,.08)}
+.stats small{display:block;font:500 12.5px var(--ui);color:var(--ink2)}
+.stats b{display:block;font:700 17px var(--num);margin-top:2px}
+.stats b.est{color:var(--ink3);font-weight:600}
+.stats em{display:block;font:500 11.5px var(--ui);color:var(--ink3);font-style:normal}
+.stats .dbtn{border:0;background:none;padding:0;text-align:left;cursor:pointer;color:inherit}
+.otabs{display:flex;gap:2px;margin-top:12px;padding:4px;border-radius:22px;background:rgba(15,23,42,.06)}
+.otab{flex:1;height:36px;border:0;border-radius:18px;background:transparent;font:600 12.5px var(--ui);color:#334155;cursor:pointer;white-space:nowrap}
+.otab.on{background:rgba(255,255,255,.95);color:var(--ink);font-weight:700;box-shadow:0 3px 10px rgba(30,40,110,.12)}
+.rcard{margin-top:12px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.rtop{display:flex;align-items:center;gap:12px}
+.thumb{width:64px;height:52px;border-radius:12px;background:#fff;display:grid;place-items:center;flex:0 0 auto}
+.rtop .t{flex:1;min-width:0}
+.rtop .t b{display:block;font:700 16px var(--ui)}
+.rtop .t small{font:500 12.5px var(--ui);color:var(--ink2)}
+.furn{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(255,255,255,.75);cursor:pointer;border:1px solid rgba(15,23,42,.05)}
+.furn .t{flex:1;min-width:0;font:700 14px var(--ui)}
+.furn .t small{display:block;font:500 12.5px var(--num);color:var(--ink2);letter-spacing:.01em}
+.furn .p{font:700 14px var(--num);white-space:nowrap}
+.todo{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;border:1.5px dashed rgba(53,80,224,.45);color:var(--cobalt2);font:700 14px var(--ui);cursor:pointer;background:transparent;width:100%;text-align:left}
+.addroom{margin-top:12px;width:100%;min-height:58px;border-radius:20px;border:1.5px dashed rgba(53,80,224,.45);background:rgba(255,255,255,.35);color:var(--cobalt2);font:700 15px var(--ui);cursor:pointer}
+.ph{margin-top:14px;padding:22px;text-align:center;font:500 14px/1.5 var(--ui);color:var(--ink2)}
+.approve{margin-top:10px;display:flex;gap:8px;align-items:center;font:500 12.5px var(--ui);color:var(--ink3)}
+.approve button{height:34px;padding:0 12px;border-radius:11px;border:1px dashed rgba(15,23,42,.25);background:transparent;font:700 12.5px var(--ui);color:var(--ink2);cursor:pointer}
+/* sheets and toast */
+.scrim{position:absolute;inset:0;background:rgba(14,28,54,.42);display:flex;align-items:flex-end;z-index:20}
+.sheet{width:100%;max-height:88%;overflow:auto;background:rgba(255,255,255,.97);border-radius:28px 28px 0 0;padding:8px 16px 18px;display:flex;flex-direction:column;gap:12px}
+.grab{width:36px;height:4px;border-radius:2px;background:#D5DCE8;margin:0 auto}
+.sh-h{display:flex;align-items:center}
+.sh-h b{flex:1;font:700 17px var(--ui)}
+.x{width:40px;height:40px;border-radius:50%;border:0;background:transparent;cursor:pointer;color:var(--ink2);display:grid;place-items:center}
+.opts{display:flex;flex-wrap:wrap;gap:8px}
+.opt{min-height:44px;padding:0 14px;border-radius:14px;border:1px solid rgba(15,23,42,.12);background:rgba(15,23,42,.04);font:700 14px var(--ui);color:var(--ink);cursor:pointer}
+.opt[aria-pressed="true"]{border:2px solid var(--cobalt);background:rgba(53,80,224,.1);color:var(--cobalt2)}
+.sum{font:700 15px var(--num);color:var(--ink);padding:10px 12px;border-radius:12px;background:rgba(53,80,224,.06)}
+.note{font:500 12.5px/1.45 var(--ui);color:var(--ink2);margin:0}
+.toast{position:absolute;left:10px;right:10px;top:40px;z-index:30;display:flex;gap:12px;align-items:center;padding:12px 14px;border-radius:18px;background:#0F1626;color:#fff;font:600 14px/1.35 var(--ui);box-shadow:0 12px 32px rgba(0,0,0,.32);transition:opacity .2s,transform .2s}
+.toast.hide{opacity:0;transform:translateY(-12px);pointer-events:none}
+.toast .dot{width:28px;height:28px;border-radius:50%;flex:0 0 auto;display:grid;place-items:center;background:rgba(91,228,155,.2);color:#5BE49B}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+.choice{display:flex;align-items:center;gap:14px;width:100%;min-height:76px;padding:12px 14px;border-radius:20px;cursor:pointer;text-align:left;color:var(--ink);font-family:var(--ui)}
+.choice svg:first-child{color:var(--cobalt);flex:0 0 auto}
+.choice span{flex:1;min-width:0}
+.choice b{display:block;font:800 16px var(--ui)}
+.choice small{display:block;font:500 12.5px/1.35 var(--ui);color:var(--ink2);margin-top:2px}
+.next{margin-top:12px;display:flex;align-items:center;gap:12px;padding:12px 10px 12px 16px;border-radius:22px;background:#0F1626;color:#fff}
+.next .t{flex:1;min-width:0}
+.next small{display:block;font:600 11.5px var(--ui);color:rgba(255,255,255,.62)}
+.next b{display:block;font:800 15.5px/1.25 var(--ui)}
+.next span{display:block;font:500 12.5px var(--ui);color:rgba(255,255,255,.75)}
+.next button{min-height:46px;max-width:150px;padding:0 14px;border-radius:15px;border:0;background:#fff;color:#0F1626;font:800 14px var(--ui);cursor:pointer}
+.warn{margin-top:10px;display:flex;gap:8px;align-items:flex-start;padding:12px;border-radius:14px;background:var(--redW);color:var(--red);font:600 13px/1.4 var(--ui)}
+.warn svg{flex:0 0 auto;margin-top:1px}
+.seg3{display:inline-flex;gap:2px;padding:3px;border-radius:14px;background:rgba(15,23,42,.06);margin-bottom:8px}
+.seg3 span{padding:7px 16px;border-radius:11px;font:700 13px var(--ui);color:var(--ink2)}
+.seg3 .on{background:#fff;color:var(--ink)}
+.btn[aria-disabled="true"]{opacity:.45}
+.models{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.model{display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 8px 12px;border-radius:20px;cursor:pointer;text-align:left;color:var(--ink);font-family:var(--ui)}
+.model .pic{width:100%;border-radius:14px;overflow:hidden;margin-bottom:6px;background:#F6F8FC}
+.model .pic svg{display:block;width:100%;height:auto}
+.model .tx{display:flex;flex-direction:column;gap:2px;min-width:0}
+.model:last-child:nth-child(odd){grid-column:1/-1;flex-direction:row;align-items:center;gap:10px}
+.model:last-child:nth-child(odd) .pic{width:calc(50% - 5px);margin:0;flex:0 0 auto}
+.model b{font:800 14px var(--ui);padding:0 4px}
+.model small{font:500 12px/1.3 var(--ui);color:var(--ink2);padding:0 4px}
+.chosen{display:flex;align-items:center;gap:10px;padding:8px;border-radius:18px;margin-bottom:4px}
+.chosen .pic{width:84px;flex:0 0 auto;border-radius:12px;overflow:hidden}
+.chosen .pic svg{display:block;width:100%;height:auto}
+.chosen .t{flex:1;min-width:0}
+.chosen b{display:block;font:800 15px var(--ui)}
+.chosen small{display:block;font:500 12px var(--ui);color:var(--ink2)}
+</style>
+
+<div class="wrap">
+  <div class="phone" aria-label="METRX furniture order flow mockup">
+    <div class="screen" id="screen">
+      <div class="status"><span>9:41</span><span>METRX</span></div>
+      <div id="app"></div>
+      <div class="toast hide" id="toast" role="status"><span class="dot"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><span id="toastT"></span></div>
+    </div>
+  </div>
+
+  <div class="notes">
+    <div>
+      <h1>Furniture order flow</h1>
+      <p class="lede">Version 2: a three-field new order, “What do they need?”, furniture designed from sizes alone, and putting it into a room later. Everything in the phone is clickable; the designer itself and the laser are simulated.</p>
+    </div>
+    <div class="card">
+      <h2>Try it</h2>
+      <ol>
+        <li>Tap <b>+</b>. Only name, phone and address. <b>Buyurtma yaratish</b>.</li>
+        <li><b>Nima kerak?</b> → pick <b>Shkaf</b> (or Ikkalasi). The order renames itself.</li>
+        <li><b>Faqat mebel o‘lchamlari</b> → a gallery of ready models with 3D pictures (kitchens: straight, L, U, island, peninsula; wardrobes: 2- and 3-door hinged, 2- and 3-door sliding, open shelves). Pick one, its sizes are filled in to start; change them → <b>Loyihalashni boshlash</b>.</li>
+        <li>Back on the order: the <b>Xonasiz mebel</b> card. Tap <b>Xonaga qo‘yish</b> → <b>Yangi xonani o‘lchash</b>, press the laser for A, B and the height, then pick the wall. Try a wall that is too short to see the red notice.</li>
+        <li>Open the wardrobe again and tap <b>Xonadan chiqarish</b> to take it back out.</li>
+        <li>For a kitchen, pick <b>Xonani o‘lchash</b> to see the full room-first path.</li>
+      </ol>
+      <p style="margin:12px 0 0"><button class="reset" id="reset">Start again</button></p>
+    </div>
+    <div class="card">
+      <h2>For your OK</h2>
+      <ul>
+        <li><b>Order name</b> starts as the customer's name and becomes “Shkaf — Akmal” when the type is chosen (unless you renamed it).</li>
+        <li><b>Room or sizes</b> is asked for each piece; with Ikkalasi the kitchen comes first and the wardrobe waits in the next-step card.</li>
+        <li><b>Placing</b>: a kitchen's first side goes on the wall you pick, starting in its left corner, the next side on the next wall round; a wardrobe goes on one wall, in the corner or a typed distance from it.</li>
+        <li><b>Doesn't fit</b>: “Devorga moslash” shrinks it to the wall (or ceiling); “O‘lchamni saqlash” keeps it and marks it.</li>
+        <li><b>Prices</b> here are simple samples (3,3 mln per running metre, 2,6 mln per metre of wardrobe); the app uses the Narx tab.</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<script>
+(()=>{
+"use strict";
+const $=id=>document.getElementById(id), app=$("app");
+const TODAY=new Date(2026,9,20), MON=["yan","fev","mar","apr","may","iyun","iyul","avg","sen","okt","noy","dek"];
+const STAGES=[["measure","O‘lchash"],["design","Dizayn"],["quote","Taklif yuborildi"],["approved","Tasdiqlandi"],["production","Ishlab chiqarishda"],["installed","O‘rnatildi"],["paid","To‘liq to‘landi"]];
+const RATE=3300000, WRATE=2600000, MAKE=18, INST=1;
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const m2=mm=>(mm/1000).toFixed(2).replace(".",",");
+const mln=v=>(v/1e6).toFixed(1).replace(".",",")+" mln";
+const fmtD=d=>d.getDate()+"-"+MON[d.getMonth()];
+const daysTo=d=>Math.round((d-TODAY)/864e5);
+function addWork(d,n){const x=new Date(d);while(n>0){x.setDate(x.getDate()+1);if(x.getDay()!==0)n--}return x}
+const KN={kitchen:"Oshxona",wardrobe:"Shkaf"}, RN={kitchen:"Oshxona",wardrobe:"Yotoqxona"};
+
+function samples(){return[
+  {id:"o1",name:"Oshxona — Dilnoza Karimova",who:"Dilnoza Karimova",addr:"Yunusobod",phone:"90 123 45 67",stage:4,install:new Date(2026,9,23),rooms:[],furn:[],agreed:21400000,auto:false},
+  {id:"o2",name:"Shkaf — Rustam Aliyev",who:"Rustam Aliyev",addr:"Chilonzor",phone:"93 555 12 00",stage:3,install:new Date(2026,9,17),rooms:[],furn:[],agreed:9800000,auto:false},
+  {id:"o3",name:"Oshxona — Akbar Aka",who:"Akbar Aka",addr:"Shayhontoxur",phone:"97 700 40 40",stage:1,install:null,rooms:[],furn:[],agreed:null,auto:false,created:2},
+]}
+let S;
+function reset(){S={orders:samples(),screen:"orders",oid:null,rid:null,fid:null,kind:null,sheet:null,form:{who:"",phone:"",addr:""},tried:false,seq:0,placeAfter:null};render()}
+
+const I={
+  back:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg>',
+  x:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  plus:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  search:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>',
+  call:'<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2"/></svg>',
+  cal:'<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3v4M16 3v4M4 10h16"/></svg>',
+  kitchen:'<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M4 9h16M8 6h2M8 13v4"/></svg>',
+  ward:'<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M12 3v18M10 11v2M14 11v2"/></svg>',
+  both:'<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="2.5" y="6" width="9" height="15" rx="1.5"/><rect x="12.5" y="3" width="9" height="18" rx="1.5"/><path d="M17 3v18"/></svg>',
+  later:'<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg>',
+  room:'<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M3.5 4.5h17v15h-17z"/><path d="M3.5 12h5v7.5"/></svg>',
+  ruler:'<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M3 16L16 3l5 5L8 21z"/><path d="M7 12l2 2M10 9l2 2M13 6l2 2"/></svg>',
+  chev:'<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 6l6 6-6 6"/></svg>',
+  home:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 11l8-7 8 7v9H4z"/><path d="M10 20v-6h4v6"/></svg>',
+  folder:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 6h7l2 2h9v11H3z"/></svg>',
+  user:'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
+  alert:'<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 3l9.5 17h-19z"/><path d="M12 10v4M12 17v.5"/></svg>',
+};
+function toast(t){$("toastT").textContent=t;$("toast").classList.remove("hide");clearTimeout(toast.t);toast.t=setTimeout(()=>$("toast").classList.add("hide"),3400)}
+const order=()=>S.orders.find(o=>o.id===S.oid);
+const room=()=>order()?.rooms.find(r=>r.id===S.rid);
+const furn=()=>order()?.furn.find(f=>f.id===S.fid);
+const measured=r=>r&&r.dims.A&&r.dims.B&&r.dims.H;
+const wallLen=(r,w)=>(w==="A"||w==="C")?r.dims.A:r.dims.B;
+const WALLS=["A","B","C","D"], nextWall=w=>WALLS[(WALLS.indexOf(w)+1)%4];
+/** Ready models to start from (the furniture plan's layouts and door kinds), with typical sizes in mm. */
+const MODELS={
+  kitchen:[
+    {id:"I",name:"To‘g‘ri oshxona",sub:"Bitta devor bo‘ylab",layout:"I",sides:[3000],h:2700},
+    {id:"L",name:"Burchakli (L)",sub:"Ikki devor, burchakda",layout:"L",sides:[3000,2000],h:2700},
+    {id:"U",name:"U shakl",sub:"Uch devor",layout:"U",sides:[2200,3000,2200],h:2700},
+    {id:"O",name:"Orolli",sub:"Devor bo‘ylab + orol",layout:"O",sides:[3000],island:1800,h:2700},
+    {id:"P",name:"Yarim orol",sub:"Devordan chiqib turgan stol",layout:"P",sides:[3000,1600],h:2700},
+  ],
+  wardrobe:[
+    {id:"h2",name:"Ikki eshikli",sub:"Ochiladigan eshiklar",doors:"hinged",n:2,w:1000,h:2200,d:600,built:false},
+    {id:"h3",name:"Uch eshikli",sub:"Ochiladigan eshiklar",doors:"hinged",n:3,w:1500,h:2200,d:600,built:false},
+    {id:"s2",name:"Kupe, 2 eshik",sub:"Suriladigan eshiklar",doors:"sliding",n:2,w:1800,h:2500,d:600,built:true},
+    {id:"s3",name:"Kupe, 3 eshik",sub:"Suriladigan eshiklar",doors:"sliding",n:3,w:2400,h:2500,d:600,built:true},
+    {id:"op",name:"Ochiq javon",sub:"Eshiksiz, tokchalar",doors:"open",n:0,w:1200,h:2000,d:400,built:false},
+  ]};
+const SIDES={I:1,L:2,U:3,O:1,P:2};
+function runOf(f){return f.sides.reduce((a,b)=>a+b,0)-(f.sides.length-1)*600+(f.island||0)}
+function priceOf(f){return f.kind==="kitchen"?Math.round(runOf(f)/1000*RATE/1e5)*1e5:Math.round(f.w/1000*WRATE/1e5)*1e5}
+function subOf(f){return f.kind==="kitchen"?`${f.model||f.layout} · ${f.sides.join(" + ")}${f.island?" + orol "+f.island:""} · ${(runOf(f)/1000).toFixed(1).replace(".",",")} pog. m`:`${f.model?f.model+" · ":""}${m2(f.w)} × ${m2(f.h)} × ${m2(f.d)} m · ${f.built?"o‘rnatma":"alohida"}`}
+function estimate(o){return o.furn.reduce((a,f)=>a+priceOf(f),0)||null}
+function rename(o){if(!o.auto)return;const ks=[...new Set(o.furn.map(f=>f.kind).concat(o.want||[]))];
+  const t=ks.includes("kitchen")&&ks.includes("wardrobe")?"Oshxona va shkaf":ks.includes("wardrobe")?"Shkaf":ks.includes("kitchen")?"Oshxona":null;o.name=t?t+" — "+o.who:o.who}
+function dateChip(o){if(!o.install)return`<span class="date none">Sana — tasdiqlangach</span>`;
+  const d=daysTo(o.install),late=d<0&&o.stage<5,soon=!late&&d<=3&&o.stage<5;
+  return`<span class="date ${late?"late":soon?"soon":""}">${I.cal}O‘rnatish ${fmtD(o.install)}${late?` · ${-d} kun kechikdi`:soon?` · ${d} kun`:""}</span>`}
+const pill=o=>`<span class="pill p-${STAGES[o.stage][0]}">${STAGES[o.stage][1]}</span>`;
+const tabs=()=>`<div class="tabbar glass"><button class="tab">${I.home}Asosiy</button><button class="tab on">${I.folder}Buyurtmalar</button><button class="tab">${I.user}Profil</button></div>`;
+
+/* ---------- Orders ---------- */
+function vOrders(){
+  const list=[...S.orders].sort((a,b)=>a.install&&b.install?a.install-b.install:a.install?-1:b.install?1:(b.created||0)-(a.created||0));
+  return`<div class="page"><div class="scroll" style="padding-top:10px">
+    <div class="big">Buyurtmalar</div>
+    <div class="row"><div class="search glass">${I.search}Qidirish</div><button class="fab" data-go="new" aria-label="Yangi buyurtma">${I.plus}</button></div>
+    <div class="chips"><button class="chip on">Faol · ${list.length}</button><button class="chip">Tugagan · 0</button><button class="chip">Hammasi · ${list.length}</button></div>
+    ${list.map(o=>`<div class="ocard glass" data-open="${o.id}"><div class="main"><h3>${esc(o.name)}</h3>
+      <div class="who">${esc(o.name.endsWith(o.who)?(o.addr||"+998 "+o.phone):o.who)}</div>
+      <div class="segs">${STAGES.map((_,i)=>`<i class="${i<=o.stage?"on":""}"></i>`).join("")}</div>
+      <div class="meta">${pill(o)}${dateChip(o)}</div></div>
+      <button class="call" data-call="${o.id}" aria-label="Qo‘ng‘iroq">${I.call}</button></div>`).join("")}
+  </div>${tabs()}</div>`}
+
+/* ---------- New order: three fields ---------- */
+function vNew(){const f=S.form;
+  return`<div class="page">
+    <div class="bar"><button class="ib" data-go="orders" aria-label="Yopish">${I.x}</button><div class="t"><small>Yangi buyurtma</small><b>Buyurtmachi</b></div></div>
+    <div class="scroll">
+      <div class="lbl">Buyurtmachi ismi</div><input class="in" id="fWho" placeholder="Akmal Yusupov" value="${esc(f.who)}" autocomplete="off">
+      ${S.tried&&f.who.trim().length<2?'<div class="err">Buyurtmachining ismini yozing</div>':""}
+      <div class="lbl">Telefon <span>Ixtiyoriy</span></div><div class="phone-in"><span>+998</span><input class="in" id="fPhone" inputmode="tel" placeholder="90 123 45 67" value="${esc(f.phone)}"></div>
+      <div class="lbl">Manzil <span>Ixtiyoriy</span></div><input class="in" id="fAddr" placeholder="Chilonzor 9" value="${esc(f.addr)}">
+      <p class="note" style="margin-top:14px">Nima kerakligini keyingi qadamda tanlaysiz.</p>
+    </div>
+    <div class="footer glass"><button class="btn" id="create">Buyurtma yaratish</button></div>
+  </div>`}
+
+/* ---------- What do they need? ---------- */
+function vNeed(){const o=order();
+  const opt=(k,ic,t,sub)=>`<button class="choice glass" data-need="${k}">${ic}<span><b>${t}</b><small>${sub}</small></span>${I.chev}</button>`;
+  return`<div class="page">
+    <div class="bar"><button class="ib" data-go="order" aria-label="Orqaga">${I.back}</button><div class="t"><small>${esc(o.name)}</small><b>Nima kerak?</b></div></div>
+    <div class="scroll" style="display:flex;flex-direction:column;gap:10px;padding-top:6px">
+      ${opt("kitchen",I.kitchen,"Oshxona","Oshxona mebeli")}
+      ${opt("wardrobe",I.ward,"Shkaf","Kiyim shkafi, kupe")}
+      ${opt("both",I.both,"Ikkalasi","Oshxona va shkaf — avval oshxona")}
+      ${opt("later",I.later,"Keyin hal qilaman","Buyurtma sahifasiga o‘tish")}
+    </div></div>`}
+
+/* ---------- Room or just sizes? ---------- */
+function vHow(){const o=order(),k=S.kind;
+  const opt=(id,ic,t,sub)=>`<button class="choice glass" id="${id}">${ic}<span><b>${t}</b><small>${sub}</small></span>${I.chev}</button>`;
+  return`<div class="page">
+    <div class="bar"><button class="ib" data-go="order" aria-label="Orqaga">${I.back}</button><div class="t"><small>${esc(o.name)}</small><b>${k==="kitchen"?"Oshxona":"Shkaf"}: qanday boshlaymiz?</b></div></div>
+    <div class="scroll" style="display:flex;flex-direction:column;gap:10px;padding-top:6px">
+      ${opt("howRoom",I.room,"Xonani o‘lchash","Devorlar, deraza, rozetkalar — mebel xonaga quriladi")}
+      ${opt("howSize",I.ruler,"Faqat mebel o‘lchamlari","Tez narx uchun: o‘lchamlarni yozing, xonani keyin qo‘shasiz")}
+    </div></div>`}
+
+/* ---------- sizes without a room ---------- */
+function vModels(){const o=order(),k=S.kind;
+  return`<div class="page">
+    <div class="bar"><button class="ib" data-go="how" aria-label="Orqaga">${I.back}</button><div class="t"><small>${esc(o.name)}</small><b>${k==="kitchen"?"Qaysi oshxona?":"Qaysi shkaf?"}</b></div></div>
+    <div class="scroll"><p class="note" style="margin:2px 2px 10px">Modelni tanlang — keyin o‘lchamlarini yozasiz.</p>
+      <div class="models">${MODELS[k].map(m=>`<button class="model glass" data-model="${m.id}"><div class="pic">${scene(sample(k,m),null,true)}</div><span class="tx"><b>${m.name}</b><small>${m.sub}</small></span></button>`).join("")}</div>
+    </div></div>`}
+function sample(k,m){return k==="kitchen"?{kind:k,layout:m.layout,sides:m.sides,island:m.island||0,h:m.h}:{kind:k,w:m.w,h:m.h,d:m.d,doors:m.doors,n:m.n,built:m.built}}
+function vSizes(){const o=order(),k=S.kind,z=S.sz;
+  const num=(id,label,v,ph)=>`<div class="lbl">${label} <span>mm</span></div><input class="in" id="${id}" inputmode="numeric" value="${v??""}" placeholder="${ph}">`;
+  let body;
+  const md=MODELS[k].find(m=>m.id===S.model);
+  const head=`<div class="chosen glass"><div class="pic">${scene(sample(k,md),null,true)}</div><div class="t"><b>${md.name}</b><small>${md.sub}</small></div><button class="opt" data-go="models" style="min-height:38px">O‘zgartirish</button></div>`;
+  if(k==="kitchen"){const L=z.layout,n=SIDES[L];
+    const sideName=i=>L==="U"?["Chap tomon","O‘rta devor","O‘ng tomon"][i]:L==="P"?["Devor bo‘ylab","Yarim orol"][i]:L==="L"?["1-devor","2-devor"][i]:"Uzunligi";
+    body=head+`${Array.from({length:n},(_,i)=>num("side"+i,sideName(i),z.sides[i],"2000")).join("")}
+      ${L==="O"?num("isl","Orol uzunligi",z.island,"1800"):""}
+      ${num("sh","Shift balandligi",z.h,"2700")}
+      <div class="sum" style="margin-top:14px">${sumText(z)}</div>`}
+  else body=head+`${num("ww","Eni",z.w,"2400")}${num("wh","Balandligi",z.h,"2600")}${num("wd","Chuqurligi",z.d,"600")}
+      <div class="lbl">Turi</div><div class="opts"><button class="opt" data-built="1" aria-pressed="${z.built}">O‘rnatma (nishada, yonsiz)</button><button class="opt" data-built="0" aria-pressed="${!z.built}">Alohida turadigan</button></div>
+      ${md.doors!=="open"?`<p class="note" style="margin-top:10px">${md.doors==="sliding"?"Suriladigan":"Ochiladigan"} eshiklar: ${md.n} ta — dizaynerda o‘zgartirasiz.</p>`:""}`;
+  return`<div class="page">
+    <div class="bar"><button class="ib" data-go="models" aria-label="Orqaga">${I.back}</button><div class="t"><small>${esc(o.name)}</small><b>${k==="kitchen"?"Oshxona o‘lchamlari":"Shkaf o‘lchamlari"}</b></div></div>
+    <div class="scroll">${body}<p class="note" style="margin-top:12px">Xona kerak emas. Keyin «Xonaga qo‘yish» bilan xonada ko‘rasiz.</p></div>
+    <div class="footer glass"><button class="btn" id="startSz">Loyihalashni boshlash</button></div></div>`}
+
+function sumText(z){const n=SIDES[z.layout],v=z.sides.slice(0,n).map(x=>+x||0),c=n-1,isl=z.layout==="O"?(+z.island||0):0;
+  return `${v.join(" + ")}${isl?" + orol "+isl:""}${c?` − ${c*600} burchak`:""} → ${((v.reduce((a,b)=>a+b,0)-c*600+isl)/1000).toFixed(1).replace(".",",")} pog. m`}
+/* ---------- 3D pictures (simple, for the mockup) ---------- */
+function iso(x,y,z){return[130+(x-y)*0.62,150+(x+y)*0.33-z]}
+function box(x,y,w,d,h,fill,line,z0=0){const p=[[x,y,z0],[x+w,y,z0],[x+w,y+d,z0],[x,y+d,z0],[x,y,z0+h],[x+w,y,z0+h],[x+w,y+d,z0+h],[x,y+d,z0+h]].map(q=>iso(...q));
+  const poly=ix=>`<polygon points="${ix.map(i=>p[i].join(",")).join(" ")}" fill="${fill}" stroke="${line}" stroke-width="1"/>`;
+  return poly([3,2,6,7])+poly([1,2,6,5])+poly([4,5,6,7])}
+function scene(f,r,thumb){const kit=f.kind==="kitchen",L=f.layout,main=kit?(L==="U"?f.sides[1]:f.sides[0]):f.w;
+  // smaller furniture is drawn larger, so every model fills its picture
+  const k=thumb?Math.min(0.05,(kit?140:105)/Math.max(main,kit&&(L==="L"||L==="U"||L==="P"||L==="O")?main+900:main)):0.04;
+  let s=`<svg viewBox="0 0 260 230" role="img" aria-label="3D"><rect width="260" height="230" fill="#F6F8FC"/>`;
+  const deep=kit?(L==="L"?f.sides[1]:L==="U"?Math.max(f.sides[0],f.sides[2]):L==="P"?f.sides[1]:L==="O"?2400:600):f.d;
+  const W=r?r.dims.A*k:main*k+30, D=r?r.dims.B*k:Math.max(deep*k+30,90), H=(r?r.dims.H:(kit?f.h:Math.max(f.h+150,2500)))*k;
+  const fl=[[0,0,0],[W,0,0],[W,D,0],[0,D,0]].map(q=>iso(...q));
+  s+=`<polygon points="${fl.map(q=>q.join(",")).join(" ")}" fill="${r?"#E9DCCB":"#E8ECF3"}" stroke="#C9D1DE"/>`;
+  const bw=[[0,0,0],[W,0,0],[W,0,H],[0,0,H]].map(q=>iso(...q)), lw=[[0,0,0],[0,D,0],[0,D,H],[0,0,H]].map(q=>iso(...q));
+  s+=`<polygon points="${bw.map(q=>q.join(",")).join(" ")}" fill="${r?"#F1ECE4":"rgba(53,80,224,.05)"}" stroke="${r?"#D6CFC4":"rgba(53,80,224,.18)"}" ${r?"":'stroke-dasharray="4 3"'}/>`;
+  // the left wall: the room's, or a faint one when an L kitchen turns along it
+  if(r)s+=`<polygon points="${lw.map(q=>q.join(",")).join(" ")}" fill="#ECE6DC" stroke="#D6CFC4"/>`;
+  else if(kit&&(L==="L"||L==="U"))s+=`<polygon points="${lw.map(q=>q.join(",")).join(" ")}" fill="rgba(53,80,224,.04)" stroke="rgba(53,80,224,.18)" stroke-dasharray="4 3"/>`;
+  const ox=f.roomId&&f.offset?f.offset*k:0;
+  const vline=(x,y,z0,z1,c)=>{const p=iso(x,y,z0),q=iso(x,y,z1);return `<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}" stroke="${c}"/>`};
+  if(kit){const d=600*k,lo=870*k,up0=1450*k,up=720*k,ud=350*k,LO="#D9E2EF",SI="#C9D5E6",TOP="#4B4F58",UP="#E4EAF3",LN="#7A8BA6";
+    const run=(x,y,w,dd,uppers)=>box(x,y,w,dd,lo,LO,LN)+box(x,y,w,dd,40*k,TOP,"#333",lo)+(uppers?box(x,y,w,ud,up,UP,LN,up0):"");
+    const side=(x,y,len,uppers)=>box(x,y,d,len,lo,SI,LN)+box(x,y,d,len,40*k,TOP,"#333",lo)+(uppers?box(x,y,ud,len,up,UP,LN,up0):"");
+    const a=main*k;
+    if(L==="L")s+=side(0,d,f.sides[1]*k-d,true);
+    if(L==="U")s+=side(0,d,f.sides[0]*k-d,true);
+    s+=run(ox,0,a,d,true);
+    const n=Math.max(1,Math.round(main/600));for(let i=1;i<n;i++)s+=vline(ox+a*i/n,d,0,lo,LN);
+    if(L==="U")s+=side(a-d,d,f.sides[2]*k-d,false);
+    if(L==="P")s+=side(a-d,d,f.sides[1]*k-d,false);
+    if(L==="O"){const il=(f.island||1800)*k;s+=box((a-il)/2,d+900*k,il,900*k,lo,LO,LN)+box((a-il)/2,d+900*k,il,900*k,40*k,TOP,"#333",lo)}
+  } else {const w=f.w*k,dd=f.d*k,h=f.h*k,C="#8C7A62";
+    s+=box(ox,0,w,dd,h,f.doors==="open"?"#F3EEE6":"#E8E0D3",C);
+    if(f.doors==="open"){for(let i=1;i<5;i++){const z=h*i/5,p=iso(ox,dd,z),q=iso(ox+w,dd,z);s+=`<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}" stroke="${C}" stroke-width="1.6"/>`}}
+    else if(f.doors==="sliding"){const n=f.n||2,pw=w/n;for(let i=0;i<n;i++)s+=box(ox+i*pw,dd+(i%2?2:0)*k*30,pw,1*k*20,h*0.98,i%2?"#DCD2C2":"#EDE6DA",C)}
+    else {const n=f.n||Math.max(2,Math.round(f.w/600));for(let i=1;i<n;i++)s+=vline(ox+w*i/n,dd,0,h,C);
+      for(let i=0;i<n;i++){const x=ox+w*(i+(i%2?0.12:0.88))/n,p=iso(x,dd,h*0.45),q=iso(x,dd,h*0.55);s+=`<line x1="${p[0]}" y1="${p[1]}" x2="${q[0]}" y2="${q[1]}" stroke="#333" stroke-width="2"/>`}}}
+  return s+`</svg>`}
+
+/* ---------- the designer (simulated) ---------- */
+function vDesign(){const o=order(),f=furn(),r=o.rooms.find(x=>x.id===f.roomId);
+  const warn=f.over?`<div class="warn">${I.alert}<span>${esc(f.over)}</span></div>`:"";
+  return`<div class="page">
+    <div class="bar"><button class="ib" data-go="order" aria-label="Orqaga">${I.back}</button><div class="t"><small>${esc(o.name)}</small><b>${esc(f.name)}</b></div></div>
+    <div class="scroll">
+      <div class="seg3"><span class="on">3D</span><span>2D</span></div>
+      <div class="plan" style="padding:0;overflow:hidden">${scene(f,r)}</div>
+      <div class="glass" style="padding:12px 14px;border-radius:18px;margin-top:10px"><b style="font:700 15px var(--ui)">${esc(subOf(f))}</b>
+        <div class="note" style="margin-top:4px">${r?`Xonada: ${esc(r.name)}, devor ${f.walls.join(" + ")}`:"Xonasiz — tasavvurdagi devorlar bo‘yicha"} · ${mln(priceOf(f))}</div></div>
+      ${warn}
+      <p class="note" style="margin:12px 2px">Maketda: modullar, eshiklar va ichki qism ilovadagi dizaynerdagidek ishlaydi.</p>
+      ${r?`<button class="btn s" id="takeOut">Xonadan chiqarish</button>`:`<button class="btn" id="toRoom">Xonaga qo‘yish</button>`}
+    </div></div>`}
+
+/* ---------- the room editor (simulated laser) ---------- */
+const WK=["A","B","H"], WN={A:"A devor",B:"B devor",H:"Balandlik"};
+function planSvg(r,f,mini){const d=r.dims,w=d.A||3400,h=d.B||2600,k=Math.min(170/w,130/h),W=w*k,H=h*k,x=(260-W)/2,y=28+(130-H)/2;   // room for the side labels
+  let s=`<svg viewBox="0 0 260 190" role="img" aria-label="Xona rejasi"><rect x="${x}" y="${y}" width="${W}" height="${H}" fill="#F3F6FB" stroke="#0F172A" stroke-width="6"/>`;
+  const wl={A:[x,y,x+W,y],B:[x+W,y,x+W,y+H],C:[x+W,y+H,x,y+H],D:[x,y+H,x,y]};
+  if(!mini&&r.wait&&wl[r.wait])s+=`<line x1="${wl[r.wait][0]}" y1="${wl[r.wait][1]}" x2="${wl[r.wait][2]}" y2="${wl[r.wait][3]}" stroke="#3550E0" stroke-width="6"/>`;
+  WALLS.forEach(n=>{const [a,b,c,e]=wl[n],mx=(a+c)/2,my=(b+e)/2,ox=n==="B"?22:n==="D"?-22:0,oy=n==="A"?-12:n==="C"?14:4;s+=`<text x="${mx+ox}" y="${my+oy}" text-anchor="middle" font-family="Plus Jakarta Sans,sans-serif" font-weight="700" font-size="11" fill="#475569">${n}${d.A&&d.B?" "+m2(wallLen(r,n)):""}</text>`});
+  if(f&&f.walls){const dd=(f.kind==="kitchen"?600:f.d)*k;let first=true;
+    f.walls.forEach((wn,i)=>{const len=(f.kind==="kitchen"?f.sides[i]:f.w)*k,off=(f.kind==="wardrobe"?(f.offset||0)*k:0)+(i>0?0:0);const[a,b,c,e]=wl[wn],L=Math.hypot(c-a,e-b),ux=(c-a)/L,uy=(e-b)/L,nx=-uy,ny=ux,start=off+(i>0?dd:0),len2=Math.min(len-(i>0?dd:0),L*1.3);
+      const p=[[a+ux*start,b+uy*start],[a+ux*(start+len2),b+uy*(start+len2)]];const q=[[p[1][0]+nx*dd,p[1][1]+ny*dd],[p[0][0]+nx*dd,p[0][1]+ny*dd]];
+      const over=len>L+0.5;s+=`<polygon points="${[...p,...q].map(z=>z.join(",")).join(" ")}" fill="${over?"rgba(180,35,24,.25)":"rgba(53,80,224,.25)"}" stroke="${over?"#B42318":"#3550E0"}" stroke-width="2"/>`})}
+  return s+`</svg>`}
+function vRoom(){const o=order(),r=room(),done=WK.every(k=>r.dims[k]),pf=S.placeAfter&&o.furn.find(f=>f.id===S.placeAfter);
+  return`<div class="page">
+    <div class="bar"><button class="ib" data-go="order" aria-label="Orqaga">${I.back}</button><div class="t"><small>${esc(o.name)}</small><b>${esc(r.name)}</b></div></div>
+    <div class="scroll" style="padding-bottom:${done?120:24}px">
+      <div class="plan">${planSvg(r)}</div>
+      <div class="walls">${WK.map(k=>`<button class="wall ${r.wait===k?"wait":r.dims[k]?"":"todo"}" data-wait="${k}"><small>${WN[k]}</small><b>${r.dims[k]?m2(r.dims[k])+" m":"?"}</b></button>`).join("")}</div>
+      ${done?"":`<div class="laser glass"><span class="led"></span><div class="st">Lazer ulangan<small>${WN[r.wait]} kutilmoqda</small></div><button class="sbtn" id="shoot">Lazer tugmasi</button></div>`}
+    </div>
+    ${done?`<div class="ready"><div class="t">Xona tayyor<small>${esc(r.name)} · ${m2(r.dims.A)} × ${m2(r.dims.B)} m</small></div><button id="roomNext">${pf?esc(pf.name)+"ni qo‘yish":(r.kind==="wardrobe"?"Shkaf qo‘shish":"Oshxona qo‘shish")}</button></div>`:""}
+  </div>`}
+
+/* ---------- put in a room ---------- */
+function vPlace(){const o=order(),f=furn(),r=room(),P=S.pl;
+  const tmp={...f,walls:f.kind==="kitchen"?f.sides.slice(0,f.layout==="P"?1:f.sides.length).map((_,i)=>{let w=P.wall;for(let j=0;j<i;j++)w=nextWall(w);return w}):[P.wall],offset:P.offset,roomId:r.id};
+  const issues=[];tmp.walls.forEach((w,i)=>{const len=f.kind==="kitchen"?f.sides[i]:f.w+(P.offset||0),L=wallLen(r,w);if(len>L)issues.push(`${f.kind==="kitchen"?(i+1)+"-tomon":f.name} ${len} — ${w} devordan ${len-L} mm uzun (${w} = ${L})`)});
+  if(f.kind==="wardrobe"&&f.h>r.dims.H)issues.push(`${f.name} ${f.h} — shiftdan ${f.h-r.dims.H} mm baland (${r.dims.H})`);
+  return`<div class="page">
+    <div class="bar"><button class="ib" data-go="design" aria-label="Orqaga">${I.back}</button><div class="t"><small>${esc(f.name)}</small><b>${esc(r.name)}ga qo‘yish</b></div></div>
+    <div class="scroll" style="padding-bottom:110px">
+      <div class="plan">${planSvg(r,tmp,true)}</div>
+      <div class="lbl" style="margin-top:6px">${f.kind==="kitchen"?"1-tomon qaysi devorda?":"Qaysi devorga?"}</div>
+      <div class="opts">${WALLS.map(w=>`<button class="opt" data-pw="${w}" aria-pressed="${P.wall===w}">${w} · ${wallLen(r,w)}</button>`).join("")}</div>
+      ${f.kind==="kitchen"&&f.sides.length>1?`<p class="note" style="margin-top:6px">Keyingi tomon: ${tmp.walls.slice(1).join(", ")} devor (burchakdan aylanib).</p>`:""}
+      ${f.kind==="wardrobe"?`<div class="lbl">Burchakdan masofa <span>mm</span></div><div class="row"><button class="opt" id="inCorner" aria-pressed="${!P.offset}">Burchakda</button><input class="in" id="poff" inputmode="numeric" style="height:44px" placeholder="0" value="${P.offset||""}"></div>`:""}
+      ${issues.length?`<div class="warn">${I.alert}<span>${issues.map(esc).join("<br>")}</span></div>
+        <div class="row" style="margin-top:8px"><button class="btn s" id="fitIt" style="height:46px;font-size:14px">${f.kind==="wardrobe"&&f.h>r.dims.H&&tmp.walls.every((w,i)=>f.w+(P.offset||0)<=wallLen(r,w))?"Shiftga moslash":"Devorga moslash"}</button><button class="btn s" id="keepIt" style="height:46px;font-size:14px">O‘lchamni saqlash</button></div>`:""}
+    </div>
+    <div class="footer glass"><button class="btn" id="placeOk" ${issues.length&&!P.keep?'aria-disabled="true"':""}>Shu yerga qo‘yish</button></div></div>`}
+function vPickRoom(){const o=order(),f=furn(),ms=o.rooms.filter(measured);
+  return`<div class="scrim" data-close><div class="sheet" role="dialog" aria-label="Xonaga qo‘yish"><div class="grab"></div>
+    <div class="sh-h"><b>${esc(f.name)}: qaysi xonaga?</b><button class="x" data-closebtn aria-label="Yopish">${I.x}</button></div>
+    ${ms.map(r=>`<button class="furn" data-pick="${r.id}" style="width:100%;text-align:left"><div class="t">${esc(r.name)}<small>${m2(r.dims.A)} × ${m2(r.dims.B)} m · h ${m2(r.dims.H)}</small></div>${I.chev}</button>`).join("")||`<p class="note">Bu buyurtmada hali o‘lchangan xona yo‘q.</p>`}
+    <button class="todo" id="newRoomFor">${I.plus} Yangi xonani o‘lchash</button></div></div>`}
+
+/* ---------- the order page ---------- */
+function nextStep(o){
+  if(o.stage>=6)return null;
+  if(o.want==null)return["Nima kerakligini tanlang","Oshxona, shkaf yoki ikkalasi","Tanlash",()=>{S.screen="need"}];
+  const pend=o.want.find(k=>!o.furn.some(f=>f.kind===k)&&!o.rooms.some(r=>r.kind===k));
+  const unm=o.rooms.find(r=>!measured(r));
+  if(unm)return["Xonani o‘lchang",unm.name,"Xonani ochish",()=>{S.rid=unm.id;S.screen="room"}];
+  const bare=o.rooms.find(r=>!o.furn.some(f=>f.roomId===r.id)&&!(S.placeAfter));
+  const loose=bare&&o.furn.find(f=>!f.roomId&&f.kind===bare.kind);
+  if(loose)return[`${loose.name}ni ${bare.name}ga qo‘ying`,`${bare.name} o‘lchandi, ${loose.name} hali xonasiz`,"Xonaga qo‘yish",()=>{S.fid=loose.id;S.rid=bare.id;S.pl={wall:"A",offset:0,keep:false};S.screen="place"}];
+  if(bare)return[bare.kind==="wardrobe"?"Shkafni loyihalang":"Oshxonani loyihalang",bare.name+" tayyor",bare.kind==="wardrobe"?"Shkaf qo‘shish":"Oshxona qo‘shish",()=>{S.rid=bare.id;addInRoom()}];
+  if(pend)return[pend==="wardrobe"?"Shkafni loyihalang":"Oshxonani loyihalang","Xona yoki faqat o‘lchamlar","Boshlash",()=>{S.kind=pend;S.screen="how"}];
+  if(o.stage<2)return["Mijozga taklif yuboring","Narx: "+mln(estimate(o)||0)+" · PDF tayyor","Taklif berish",()=>{o.stage=2;toast("Taklif №1 chiqarildi · bosqich: Taklif yuborildi")}];
+  if(o.stage===2)return["Mijoz rozimi?","Taklif №1 · "+mln(estimate(o)||0),"Tasdiqlash",()=>{o.stage=3;o.agreed=estimate(o);o.install=addWork(TODAY,MAKE+INST);toast("Tasdiqlandi · o‘rnatish "+fmtD(o.install))}];
+  return["Ishlab chiqarishni boshlang","O‘rnatish "+fmtD(o.install),"Davom etish",()=>{o.stage=Math.min(6,o.stage+1)}];
+}
+function vOrder(){const o=order(),est=estimate(o),ns=nextStep(o),free=o.furn.filter(f=>!f.roomId);
+  return`<div class="page"><div class="scroll" style="padding-top:6px">
+    <div class="bar" style="padding:0 0 8px"><button class="ib" data-go="orders" aria-label="Buyurtmalar">${I.back}</button><div class="t"><b style="font-size:15px">Buyurtmalar</b></div></div>
+    <div class="glass head">
+      <div class="row" style="align-items:flex-start"><div style="flex:1;min-width:0"><h2 style="font-size:21px">${esc(o.name)}</h2>${o.name.endsWith(o.who)?"":`<div class="who">${esc(o.who)}</div>`}</div><button class="call" data-call="${o.id}" aria-label="Qo‘ng‘iroq">${I.call}</button></div>
+      <div style="margin-top:8px">${pill(o)}</div>
+      <div class="stats"><div><small>Bosqich</small><b>${o.stage+1}/7</b></div>
+        <div><small>Kelishilgan narx</small>${o.agreed?`<b>${mln(o.agreed)}</b>`:est?`<b class="est">≈ ${mln(est)}</b><em>taxminiy</em>`:"<b>—</b>"}</div>
+        <div><small>O‘rnatish</small><b>${o.install?fmtD(o.install):"—"}</b>${o.install?"":"<em>tasdiqlangach</em>"}</div></div>
+      <div class="otabs"><button class="otab on">Xonalar</button><button class="otab" data-na>Narx</button><button class="otab" data-na>Takliflar</button><button class="otab" data-na>Ma’lumot</button></div>
+    </div>
+    ${ns?`<div class="next"><div class="t"><small>Keyingi qadam</small><b>${ns[0]}</b><span>${esc(ns[1])}</span></div><button id="nsGo">${ns[2]}</button></div>`:""}
+    ${free.length?`<div class="rcard glass"><div class="rtop"><div class="t"><b>Xonasiz mebel</b><small>Faqat o‘lchamlar bo‘yicha</small></div></div>
+      ${free.map(f=>`<div class="furn" data-f="${f.id}"><div class="t">${esc(f.name)}<small>${esc(subOf(f))}</small></div><div class="p">${mln(priceOf(f))}</div>${I.chev}</div>
+        <button class="todo" data-place="${f.id}">${I.plus} Xonaga qo‘yish</button>`).join("")}</div>`:""}
+    ${o.rooms.map(r=>{const fs=o.furn.filter(f=>f.roomId===r.id);return`<div class="rcard glass">
+      <div class="rtop"><div class="thumb">${measured(r)?`<svg viewBox="0 0 260 190" width="64" height="48"><rect x="40" y="30" width="180" height="130" fill="#F3F6FB" stroke="#0F172A" stroke-width="12"/></svg>`:""}</div>
+        <div class="t"><b>${esc(r.name)}</b><small>${measured(r)?`${m2(r.dims.A)} × ${m2(r.dims.B)} m · h ${m2(r.dims.H)}`:"Devorlar hali o‘lchanmagan"}</small></div></div>
+      ${fs.map(f=>`<div class="furn" data-f="${f.id}"><div class="t">${esc(f.name)}${f.over?' <span class="pill" style="background:var(--redW);color:var(--red);height:20px;font-size:11px">o‘lcham katta</span>':""}<small>${esc(subOf(f))}</small></div><div class="p">${mln(priceOf(f))}</div>${I.chev}</div>`).join("")}
+      ${!measured(r)?`<button class="todo" data-room="${r.id}">${I.plus} Xonani o‘lchash</button>`:fs.length?"":`<button class="todo" data-addf="${r.id}">${I.plus} ${r.kind==="wardrobe"?"Shkaf qo‘shish":"Oshxona qo‘shish"}</button>`}
+    </div>`}).join("")}
+    ${!o.rooms.length&&!free.length?`<div class="ph glass">Hali mebel yoki xona yo‘q.</div>`:""}
+    <button class="addroom" id="addMore">+ Mebel yoki xona qo‘shish</button>
+  </div>${tabs()}</div>`}
+
+/* ---------- actions ---------- */
+function newFurn(kind,base){const o=order(),n=o.furn.filter(f=>f.kind===kind).length+1;return{id:o.id+"f"+(++S.seq),kind,name:KN[kind]+" "+n,...base}}
+function addInRoom(){const o=order(),r=room();
+  const f=r.kind==="wardrobe"?newFurn("wardrobe",{w:r.dims.A-20,h:r.dims.H-100,d:600,built:true,roomId:r.id,walls:["A"],offset:0})
+    :newFurn("kitchen",{layout:"L",sides:[r.dims.A,r.dims.B],h:r.dims.H,roomId:r.id,walls:["A","B"]});
+  o.furn.push(f);if(o.stage===0)o.stage=1;rename(o);S.fid=f.id;S.screen="design";toast(f.name+" qo‘shildi — dizayner ochildi")}
+function render(){
+  const v={orders:vOrders,new:vNew,need:vNeed,how:vHow,models:vModels,sizes:vSizes,design:vDesign,room:vRoom,place:vPlace}[S.screen]||vOrder;
+  app.innerHTML=v()+(S.sheet==="pick"?vPickRoom():"");
+  if(S.screen==="new"&&!S.form.who){const n=$("fWho");n&&n.focus()}
+}
+app.addEventListener("input",e=>{const t=e.target,z=S.sz;
+  if(t.id==="fWho")S.form.who=t.value;if(t.id==="fPhone")S.form.phone=t.value;if(t.id==="fAddr")S.form.addr=t.value;
+  if(z){if(t.id.startsWith("side")||t.id==="isl"){if(t.id==="isl")z.island=t.value.replace(/\D/g,"");else z.sides[+t.id.slice(4)]=t.value.replace(/\D/g,"");const sm=app.querySelector(".sum");if(sm)sm.textContent=sumText(z)}
+    if(t.id==="sh")z.h=t.value.replace(/\D/g,"");
+    if(t.id==="ww")z.w=t.value.replace(/\D/g,"");if(t.id==="wh")z.h=t.value.replace(/\D/g,"");if(t.id==="wd")z.d=t.value.replace(/\D/g,"")}
+  if(t.id==="poff"){S.pl.offset=+t.value.replace(/\D/g,"")||0;S.pl.keep=false;const pos=t.selectionStart;render();const n=$("poff");if(n){n.focus();n.setSelectionRange(pos,pos)}}
+});
+app.addEventListener("click",e=>{
+  const t=e.target.closest("button,[data-open],[data-close],[data-f],[data-na]");if(!t)return;
+  if(t.matches("[data-close]")&&e.target!==t)return;
+  if(t.dataset.close!==undefined||t.dataset.closebtn!==undefined){S.sheet=null;render();return}
+  if(t.dataset.call){e.stopPropagation();const o=S.orders.find(x=>x.id===t.dataset.call);toast(`Qo‘ng‘iroq: +998 ${o.phone||"—"} (namuna)`);return}
+  if(t.dataset.na!==undefined){toast("Bu qism maketda yo‘q — ilovadagidek qoladi");return}
+  if(t.dataset.go){S.screen=t.dataset.go;S.sheet=null;if(t.dataset.go==="new"){S.form={who:"",phone:"",addr:""};S.tried=false}render();return}
+  if(t.dataset.open){S.oid=t.dataset.open;S.screen="order";render();return}
+  if(t.id==="create"){const f=S.form;if(f.who.trim().length<2){S.tried=true;render();return}
+    const o={id:"n"+(++S.seq),name:f.who.trim(),who:f.who.trim(),addr:f.addr.trim(),phone:f.phone||"",stage:0,install:null,rooms:[],furn:[],agreed:null,auto:true,want:null,created:100+S.seq};
+    S.orders.push(o);S.oid=o.id;S.screen="need";render();toast(`“${o.name}” yaratildi`);return}
+  if(t.dataset.need){const o=order(),k=t.dataset.need;
+    if(k==="later"){o.want=null;S.screen="order";render();return}
+    o.want=k==="both"?["kitchen","wardrobe"]:[k];rename(o);S.kind=o.want[0];S.screen="how";render();return}
+  if(t.id==="howRoom"){const o=order(),r={id:o.id+"r"+(++S.seq),name:RN[S.kind]+(o.rooms.some(x=>x.name.startsWith(RN[S.kind]))?" 2":""),kind:S.kind,dims:{},wait:"A"};o.rooms.push(r);S.rid=r.id;S.placeAfter=null;S.screen="room";render();return}
+  if(t.id==="howSize"){S.screen="models";render();return}
+  if(t.dataset.model){const m=MODELS[S.kind].find(x=>x.id===t.dataset.model);S.model=m.id;
+    S.sz=S.kind==="kitchen"?{layout:m.layout,sides:m.sides.map(String),h:String(m.h),island:m.island?String(m.island):""}:{w:String(m.w),h:String(m.h),d:String(m.d),built:m.built};
+    S.screen="sizes";render();return}
+  if(t.dataset.built){S.sz.built=t.dataset.built==="1";render();return}
+  if(t.id==="startSz"){const z=S.sz,o=order();let f;
+    const md=MODELS[S.kind].find(m=>m.id===S.model);
+    if(S.kind==="kitchen"){const n=SIDES[z.layout],sides=z.sides.slice(0,n).map(v=>+v||0);if(sides.some(v=>v<600)){toast("Har bir tomon kamida 600 mm");return}
+      f=newFurn("kitchen",{layout:z.layout,model:md.name,sides,island:z.layout==="O"?(+z.island||1800):0,h:+z.h||2700,roomId:null,walls:null})}
+    else{const w=+z.w,h=+z.h,d=+z.d||600;if(!(w>=400&&h>=1200)){toast("Eni va balandligini kiriting");return}
+      f=newFurn("wardrobe",{w,h,d,built:z.built,doors:md.doors,n:md.n,model:md.name,roomId:null,walls:null,offset:0})}
+    o.furn.push(f);if(o.stage===0)o.stage=1;rename(o);S.fid=f.id;S.screen="design";render();toast(f.name+" — xonasiz, o‘lchamlar bo‘yicha");return}
+  if(t.dataset.f){S.fid=t.dataset.f;S.screen="design";render();return}
+  if(t.id==="toRoom"||t.dataset.place){if(t.dataset.place)S.fid=t.dataset.place;S.sheet="pick";render();return}
+  if(t.dataset.pick){S.rid=t.dataset.pick;S.sheet=null;startPlace();return}
+  if(t.id==="newRoomFor"){const o=order(),f=furn(),r={id:o.id+"r"+(++S.seq),name:RN[f.kind]+(o.rooms.some(x=>x.name.startsWith(RN[f.kind]))?" 2":""),kind:f.kind,dims:{},wait:"A"};o.rooms.push(r);S.rid=r.id;S.placeAfter=f.id;S.sheet=null;S.screen="room";render();return}
+  if(t.dataset.wait){room().wait=t.dataset.wait;render();return}
+  if(t.id==="shoot"){const r=room();r.dims[r.wait]={A:3400,B:2200,H:2500}[r.wait];const nx=WK.find(k=>!r.dims[k]);toast(`${WN[r.wait]} ${m2(r.dims[r.wait])} m${nx?" · keyingisi "+WN[nx]:""}`);r.wait=nx||null;render();return}
+  if(t.id==="roomNext"){if(S.placeAfter){S.fid=S.placeAfter;S.placeAfter=null;startPlace();return}addInRoom();render();return}
+  if(t.dataset.room){S.rid=t.dataset.room;S.screen="room";render();return}
+  if(t.dataset.addf){S.rid=t.dataset.addf;addInRoom();render();return}
+  if(t.dataset.pw){S.pl.wall=t.dataset.pw;S.pl.keep=false;render();return}
+  if(t.id==="inCorner"){S.pl.offset=0;S.pl.keep=false;render();return}
+  if(t.id==="fitIt"){const f=furn(),r=room(),P=S.pl;
+    if(f.kind==="wardrobe"){f.w=Math.min(f.w,wallLen(r,P.wall)-(P.offset||0)-20);f.h=Math.min(f.h,r.dims.H-100)}
+    else{let w=P.wall;f.sides=f.sides.map(v=>{const L=wallLen(r,w);w=nextWall(w);return Math.min(v,L)})}
+    P.keep=false;render();toast("Devorga moslandi");return}
+  if(t.id==="keepIt"){S.pl.keep=true;render();return}
+  if(t.id==="placeOk"){if(t.getAttribute("aria-disabled")){toast("Avval «Devorga moslash» yoki «O‘lchamni saqlash» ni tanlang");return}
+    const f=furn(),r=room(),P=S.pl,o=order();f.roomId=r.id;f.walls=f.kind==="kitchen"?f.sides.map((_,i)=>{let w=P.wall;for(let j=0;j<i;j++)w=nextWall(w);return w}):[P.wall];f.offset=P.offset||0;
+    f.over=P.keep?`${f.name} devordan yoki shiftdan katta — o‘lcham saqlandi`:null;S.screen="design";render();toast(`${f.name} ${r.name}ga qo‘yildi`);return}
+  if(t.id==="takeOut"){const f=furn();f.roomId=null;f.walls=null;f.over=null;render();toast(`${f.name} xonadan chiqarildi — o‘lchamlari saqlandi`);return}
+  if(t.id==="nsGo"){const ns=nextStep(order());if(ns){ns[3]();render()}return}
+  if(t.id==="addMore"){S.screen="need";render();return}
+});
+function startPlace(){const f=furn(),r=room();S.pl={wall:"A",offset:0,keep:false};S.screen="place";render()}
+$("reset").onclick=reset;
+reset();
+})();
+</script>

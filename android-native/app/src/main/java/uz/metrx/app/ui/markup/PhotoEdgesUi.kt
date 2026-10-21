@@ -44,7 +44,10 @@ fun findEdges(ctx: Context, src: String, outW: Float, outH: Float): PhotoEdges =
     val b = if (k < 1f) Bitmap.createScaledBitmap(b0, (b0.width * k).roundToInt().coerceAtLeast(1), (b0.height * k).roundToInt().coerceAtLeast(1), true) else b0
     val px = IntArray(b.width * b.height); b.getPixels(px, 0, b.width, 0, 0, b.width, b.height)
     val g = FloatArray(px.size) { EdgeFinder.grey(px[it]) }
-    EdgeFinder.find(g, b.width, b.height, outW, outH)
+    val t0 = android.os.SystemClock.elapsedRealtime()
+    EdgeFinder.find(g, b.width, b.height, outW, outH).also { e ->
+        android.util.Log.i("MetrxEdges", "${b.width}x${b.height}: ${e.segs.size} edges, ${e.corners.size} corners in ${android.os.SystemClock.elapsedRealtime() - t0} ms")
+    }
 }.getOrDefault(PhotoEdges.NONE)
 
 /** The found rectangle while its offer is open (part 3): a light blue fill and a dashed blue outline. */

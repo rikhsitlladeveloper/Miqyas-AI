@@ -195,7 +195,14 @@ enum EdgeFinder {
                 }
             }
         }
-        return PhotoEdges(segs: segs, corners: corners, rect: rect)
+        // the rectangle's corners can be snapped to too, also where a side stops short of one (a table's far leg, a shadow)
+        var all4 = corners
+        if let r = rect {
+            for (m, p) in r.pts.enumerated() where !all4.contains(where: { hypotf($0.x - p.0, $0.y - p.1) < tolC / 2 }) {
+                all4.append(ECorner(x: p.0, y: p.1, a: r.segs[(m + 3) % 4], b: r.segs[m]))
+            }
+        }
+        return PhotoEdges(segs: segs, corners: all4, rect: rect)
     }
 }
 

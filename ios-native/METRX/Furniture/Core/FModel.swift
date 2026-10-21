@@ -19,18 +19,29 @@ struct Furniture: Codable, Equatable, Identifiable {
     var created: Ms = 0
     /// Kitchens: I (one wall), L, U, O (a wall and an island), P (a wall and a peninsula).
     var layout = "I"
-    /// The workspace it belongs to.
+    /// The workspace it belongs to ("" for furniture without a room).
     var ws = ""
+    /// Without a room (roomId nil): the typed sizes (Free.swift).
+    var free: FreeSize? = nil
+    /// The gallery model it started from (Free.swift F_MODELS), "" when made in a room.
+    var model = ""
+    /// Put in a room although bigger than its wall or ceiling ("O‘lchamni saqlash").
+    var keep = false
+    /// Kitchens: the worktop joints and cut-outs, backsplash, plinth, cornice, LED and end panels (KitchenExtras.swift).
+    var kx: KExtras? = nil
+    /// A cabinet on the wardrobe's engine (kind "wardrobe"): "" a wardrobe, or a Stage 2 type (Cabinets.swift CASE_TYPES).
+    var type = ""
     init(id: String, kind: String, name: String = "", roomId: String? = nil, walls: [String] = [], modules: [Module] = [], mats: FMats = FMats(),
-         created: Ms = 0, layout: String = "I", ws: String = "") {
+         created: Ms = 0, layout: String = "I", ws: String = "", free: FreeSize? = nil, model: String = "", keep: Bool = false, kx: KExtras? = nil, type: String = "") {
         self.id = id; self.kind = kind; self.name = name; self.roomId = roomId; self.walls = walls; self.modules = modules; self.mats = mats
-        self.created = created; self.layout = layout; self.ws = ws
+        self.created = created; self.layout = layout; self.ws = ws; self.free = free; self.model = model; self.keep = keep; self.kx = kx; self.type = type
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id); kind = c.v(.kind, "kitchen"); name = c.v(.name, ""); roomId = c.v(.roomId, nil)
         walls = c.v(.walls, []); modules = c.v(.modules, []); mats = c.v(.mats, FMats()); created = c.v(.created, 0)
         layout = c.v(.layout, "I"); ws = c.v(.ws, "")
+        free = c.v(.free, nil); model = c.v(.model, ""); keep = c.v(.keep, false); kx = c.v(.kx, nil); type = c.v(.type, "")
     }
 }
 
@@ -67,19 +78,32 @@ struct Module: Codable, Equatable, Identifiable {
     /// Wardrobes: a side panel at the left and right end; a built-in wardrobe has none where it meets a wall.
     var sideL = true
     var sideR = true
+    /// Wardrobes: sliding (купе) doors over the whole front instead of each section's doors (plan 1b-2); nil: hinged.
+    var slide: Slide? = nil
     init(id: String, type: String, w: Int, h: Int, d: Int, x: Int = 0, wall: String? = nil, elev: Int = 0, fronts: Fronts = Fronts(), inserts: [Insert] = [],
-         sections: [Section] = [], legs: Bool = true, soft: Bool = true, handles: Bool = true, label: String = "", app: String = "", sideL: Bool = true, sideR: Bool = true) {
+         sections: [Section] = [], legs: Bool = true, soft: Bool = true, handles: Bool = true, label: String = "", app: String = "", sideL: Bool = true, sideR: Bool = true,
+         slide: Slide? = nil) {
         self.id = id; self.type = type; self.w = w; self.h = h; self.d = d; self.x = x; self.wall = wall; self.elev = elev; self.fronts = fronts
         self.inserts = inserts; self.sections = sections; self.legs = legs; self.soft = soft; self.handles = handles; self.label = label; self.app = app
-        self.sideL = sideL; self.sideR = sideR
+        self.sideL = sideL; self.sideR = sideR; self.slide = slide
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id); type = c.v(.type, "base"); w = c.v(.w, 600); h = c.v(.h, 720); self.d = c.v(.d, 560)
         x = c.v(.x, 0); wall = c.v(.wall, nil); elev = c.v(.elev, 0); fronts = c.v(.fronts, Fronts()); inserts = c.v(.inserts, [])
         sections = c.v(.sections, []); legs = c.v(.legs, true); soft = c.v(.soft, true); handles = c.v(.handles, true); label = c.v(.label, "")
-        app = c.v(.app, ""); sideL = c.v(.sideL, true); sideR = c.v(.sideR, true)
+        app = c.v(.app, ""); sideL = c.v(.sideL, true); sideR = c.v(.sideR, true); slide = c.v(.slide, nil)
     }
+}
+
+/// Sliding doors (furniture plan section 8, Stage 1b): n doors (2–4) in two tracks, each overlapping the next; each
+/// door's filling in panels: "ldsp" (the front board), "mirror" or "glass" (lacobel), in a profile frame.
+struct Slide: Codable, Equatable {
+    var n = 2
+    var panels: [String] = []
+    init(_ n: Int = 2, _ panels: [String] = []) { self.n = n; self.panels = panels }
+    init(from d: Decoder) throws { let c = try d.container(keyedBy: CodingKeys.self); n = c.v(.n, 2); panels = c.v(.panels, []) }
+    func panel(_ i: Int) -> String { i < panels.count ? panels[i] : "ldsp" }
 }
 
 /// What closes a box or a section: kind door, drawer, open or panel (an appliance's front); n how many.
@@ -107,9 +131,13 @@ struct Section: Codable, Equatable, Hashable {
     var fronts = Fronts("door", 2)
     var inserts: [Insert] = []
     var lock = false
-    init(_ w: Int, fronts: Fronts = Fronts("door", 2), inserts: [Insert] = [], lock: Bool = false) { self.w = w; self.fronts = fronts; self.inserts = inserts; self.lock = lock }
+    /// A desk's knee space: no bottom, back or inside (Cabinets.swift).
+    var knee = false
+    init(_ w: Int, fronts: Fronts = Fronts("door", 2), inserts: [Insert] = [], lock: Bool = false, knee: Bool = false) {
+        self.w = w; self.fronts = fronts; self.inserts = inserts; self.lock = lock; self.knee = knee
+    }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
-        w = c.v(.w, 600); fronts = c.v(.fronts, Fronts("door", 2)); inserts = c.v(.inserts, []); lock = c.v(.lock, false)
+        w = c.v(.w, 600); fronts = c.v(.fronts, Fronts("door", 2)); inserts = c.v(.inserts, []); lock = c.v(.lock, false); knee = c.v(.knee, false)
     }
 }

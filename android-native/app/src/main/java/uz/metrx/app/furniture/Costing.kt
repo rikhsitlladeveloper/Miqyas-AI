@@ -45,6 +45,14 @@ fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, or
         lines += CostLine("mat", "wt38", wtMm / 1000.0, "m", p ?: BigInteger.ZERO,
             java.math.BigDecimal(p ?: BigInteger.ZERO).multiply(java.math.BigDecimal(wtMm)).divide(java.math.BigDecimal(1000), 0, RoundingMode.HALF_UP).toBigInteger(), p == null)
     }
+    // the backsplash panel, by the running metre like the worktop
+    val spMm = fs.filter { it.kind == "kitchen" && (it.kx?.splash ?: 0) > 0 }.sumOf { splashMm(it) }
+    if (spMm > 0) {
+        val sp = mats.firstOrNull { it.kind == "splash" }
+        val p = money(sp?.price)
+        lines += CostLine("mat", sp?.id ?: "splash6", spMm / 1000.0, "m", p ?: BigInteger.ZERO,
+            java.math.BigDecimal(p ?: BigInteger.ZERO).multiply(java.math.BigDecimal(spMm)).divide(java.math.BigDecimal(1000), 0, RoundingMode.HALF_UP).toBigInteger(), p == null)
+    }
     val (thick, thin) = bandMetres(rows)
     listOf("band2" to thick, "band04" to thin).filter { it.second > 0 }.forEach { (id, m) ->
         val q = metres(m); val p = money(mat(id)?.price)
@@ -54,9 +62,12 @@ fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, or
         // the last item of a kind counts: the workshop's own item added after the preset takes over
         val hw = hws.lastOrNull { it.kind == k }
         val p = money(hw?.price)
-        val q = if (k == "rail") metres(v / 1000.0) else v.toDouble()
-        lines += CostLine("hw", hw?.id ?: k, q, if (k == "rail") "m" else "pcs", p ?: BigInteger.ZERO,
-            (p ?: BigInteger.ZERO) * java.math.BigDecimal(q).setScale(0, RoundingMode.UP).toBigInteger(), p == null)
+        // rails and profiles by the whole metre, mirror and glass by the m² (to 0,01), the rest by the piece
+        val area = k in AREA_KINDS
+        val q = when { k in METRE_KINDS -> metres(v / 1000.0); area -> Math.ceil(v / 10000.0 - 1e-9) / 100.0; else -> v.toDouble() }
+        val amount = if (area) java.math.BigDecimal(p ?: BigInteger.ZERO).multiply(java.math.BigDecimal.valueOf(q)).setScale(0, RoundingMode.HALF_UP).toBigInteger()
+            else (p ?: BigInteger.ZERO) * java.math.BigDecimal(q).setScale(0, RoundingMode.UP).toBigInteger()
+        lines += CostLine("hw", hw?.id ?: k, q, when { k in METRE_KINDS -> "m"; area -> "m2"; else -> "pcs" }, p ?: BigInteger.ZERO, amount, p == null)
     }
     val sheets = lays.sumOf { it.sheets.size }
     val modules = fs.sumOf { f -> f.modules.sumOf { m -> if (m.type == "wardrobe") maxOf(1, m.sections.size) else 1 } }

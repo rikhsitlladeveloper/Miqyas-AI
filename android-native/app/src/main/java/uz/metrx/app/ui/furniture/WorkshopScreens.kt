@@ -223,7 +223,7 @@ fun MaterialsScreen() {
         if (tab == "m") s.mats.forEach { m ->
             ItemRow(Color(android.graphics.Color.parseColor(m.rgb)), m.name, matSub(m), priceOf(m.price, en), unitOf(m)) { app.sheet = Sheet.MatForm(m.id) }
         } else s.hws.forEach { h ->
-            ItemRow(null, h.name, tr("hk.${h.kind}"), priceOf(h.price, en), tr(if (h.kind == "rail") "mt.perM" else "mt.perPc")) { app.sheet = Sheet.HwForm(h.id) }
+            ItemRow(null, h.name, tr("hk.${h.kind}"), priceOf(h.price, en), tr(perKey(h.kind))) { app.sheet = Sheet.HwForm(h.id) }
         }
         Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(18.dp)).border(2.dp, G.cobalt.copy(alpha = .45f), RoundedCornerShape(18.dp))
             .clickable(role = Role.Button) { app.sheet = if (tab == "m") Sheet.MatForm(null) else Sheet.HwForm(null) },
@@ -238,11 +238,12 @@ private fun matSub(m: Mat): String = when (m.kind) {
     "band" -> tr("mt.bandK") + " · " + tenths(m.t, LocalLang.current == Lang.EN) + " mm"
     "back" -> tr("mt.backK") + " · ${m.l} × ${m.w}"
     "worktop" -> tr("mt.wtK") + " · ${m.t} mm · ${m.l} × ${m.w}"
+    "splash" -> tr("mt.splashK") + " · ${m.t} mm · ${m.l} × ${m.w}"
     else -> tr("mt.board") + " · ${m.t} mm · ${m.l} × ${m.w}" + if (m.grain) " · ↕" else ""
 }
 
 @Composable
-private fun unitOf(m: Mat) = tr(if (m.kind == "band" || m.kind == "worktop") "mt.perM" else "mt.perSheet")
+private fun unitOf(m: Mat) = tr(if (m.kind == "band" || m.kind == "worktop" || m.kind == "splash") "mt.perM" else "mt.perSheet")
 
 @Composable
 private fun priceOf(p: String, en: Boolean) = p.toBigIntegerOrNull()?.let { moneyStr(it, 0, en) } ?: tr("mt.noPrice")
@@ -351,7 +352,7 @@ private fun MatSheet(id: String?) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GField(tr("mt.t"), t, { t = it.filter(Char::isDigit) }, "16", number = true, labelRight = if (band) "0,1 mm" else "mm", modifier = Modifier.weight(1f))
             GField(tr("mt.price"), price, { price = it.filter { c -> c.isDigit() } }, "0", number = true, money = true,
-                labelRight = tr(if (band || kind == "worktop") "mt.perM" else "mt.perSheet"), modifier = Modifier.weight(1f))
+                labelRight = tr(if (band || kind == "worktop" || kind == "splash") "mt.perM" else "mt.perSheet"), modifier = Modifier.weight(1f))
         }
         if (!band) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GField(tr("mt.l"), l, { l = it.filter(Char::isDigit) }, "2800", number = true, labelRight = "mm", modifier = Modifier.weight(1f))
@@ -374,7 +375,12 @@ private fun MatSheet(id: String?) {
     }
 }
 
-private val HW_KINDS = listOf("hingeSoft", "hinge", "runner", "handle", "leg", "pin", "rail", "railEnd", "confirmat", "hanger", "lift")
+private val HW_KINDS = listOf("hingeSoft", "hinge", "runner", "handle", "leg", "pin", "rail", "railEnd", "confirmat", "hanger", "lift",
+    "slideTrack", "slideV", "slideH", "slideRoller", "mirror", "glass",
+    "wtJoint", "wtMitre", "wtCut", "wtEnd", "plinthK", "plinthCorner", "cornice", "led", "ledPsu")
+
+/** "so‘m / m", "so‘m / m²" or "so‘m / dona" for a hardware kind. */
+private fun perKey(kind: String) = when (uz.metrx.app.furniture.hwUnit(kind)) { "m" -> "mt.perM"; "m2" -> "mt.perM2"; else -> "mt.perPc" }
 
 @Composable
 private fun HwSheet(id: String?) {
@@ -400,7 +406,7 @@ private fun HwSheet(id: String?) {
     }) {
         GField(tr("mt.name"), name, { name = it }, "GTV, Blum, Boyard…")
         GField(tr("mt.price"), price, { price = it.filter(Char::isDigit) }, "0", number = true, money = true,
-            labelRight = tr(if (kind == "rail") "mt.perM" else "mt.perPc"), imeAction = ImeAction.Done)
+            labelRight = tr(perKey(kind)), imeAction = ImeAction.Done)
         if (edit == null) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(tr("mt.hwKind"), style = ui(15f, 700))
             HW_KINDS.chunked(2).forEach { pair ->

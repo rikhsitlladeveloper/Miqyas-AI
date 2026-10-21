@@ -98,6 +98,7 @@ fun EditorSheet(s: Sheet): Boolean {
         is Sheet.Measure -> MeasureSheet(s)
         is Sheet.AddOpening -> AddOpeningSheet(s)
         is Sheet.OpeningForm -> OpeningSheet(s)
+        is Sheet.FeatureForm -> FeatureSheet(s)
         is Sheet.RoomInfo -> RoomInfoSheet(s)
         is Sheet.RoomRename -> RenameSheet(s)
         is Sheet.Tray -> TraySheet(s)
@@ -245,10 +246,21 @@ private fun AddOpeningSheet(s: Sheet.AddOpening) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             BigOpt("door", tr("op.door"), null, Modifier.weight(1f)) { app.sheet = Sheet.OpeningForm(s.pid, s.rid, null, "door") }
             BigOpt("window", tr("op.window"), null, Modifier.weight(1f)) { app.sheet = Sheet.OpeningForm(s.pid, s.rid, null, "window") }
-            BigOpt("column", tr("ao.col"), tr("nr.later"), Modifier.weight(1f)) { app.say("nr.later", kind = ToastKind.INFO) }
+            BigOpt("column", tr("ao.col"), null, Modifier.weight(1f)) { app.sheet = Sheet.FeatureForm(s.pid, s.rid, null) }
         }
         Text(tr("ao.here"), style = ui(13f, 500, G.ink2), modifier = Modifier.padding(top = 8.dp))
-        if (r.openings.isEmpty()) Text(tr("ao.none"), style = ui(13f, 400, G.ink2))
+        if (r.features.isNotEmpty()) ListBox {
+            r.features.forEachIndexed { i, f ->
+                if (i > 0) Hairline()
+                Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable { app.sheet = Sheet.FeatureForm(s.pid, s.rid, f.id) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MIcon("column", G.cobalt, 20.dp, 2f)
+                    Text(tr(if (f.type == "column") "ft.column" else "ft.niche") + ", " + tr("op.wall") + " " + f.wall, style = ui(15f, 600), modifier = Modifier.weight(1f))
+                    Text(fmtLen(f.w, unit, en) + " × " + fmtLen(f.d, unit, en) + " " + app.unitName(), style = num(14.5f, 600, G.ink2))
+                    MIcon("chev", G.ink3, 16.dp, 2f)
+                }
+            }
+        }
+        if (r.openings.isEmpty() && r.features.isEmpty()) Text(tr("ao.none"), style = ui(13f, 400, G.ink2))
         else ListBox {
             r.openings.forEachIndexed { i, o ->
                 if (i > 0) Hairline()
@@ -270,6 +282,72 @@ private fun BigOpt(icon: String, label: String, sub: String?, modifier: Modifier
         MIcon(icon, G.cobalt, 30.dp, 2f)
         Text(label, style = ui(14f, 600), textAlign = TextAlign.Center)
         if (sub != null) Text(sub, style = ui(11.5f, 400, G.ink2))
+    }
+}
+
+/** A column against a wall or a niche into it: type, wall, width, depth, offset, and a niche's sill and height. */
+@Composable
+private fun FeatureSheet(s: Sheet.FeatureForm) {
+    val app = LocalApp.current
+    val ops = app.ops
+    val r = ops.room(s.pid, s.rid) ?: run { app.close(); return }
+    val unit = app.settings.unit; val en = app.english(); val dec = unitDecimals(unit)
+    val snap = app.settings.angleSnap
+    val edit = s.fid?.let { id -> r.features.firstOrNull { it.id == id } }
+    val ws = walls(r, snap)
+    var type by rememberSaveable { mutableStateOf(edit?.type ?: s.type) }
+    var wall by rememberSaveable { mutableStateOf(edit?.wall ?: "A") }
+    var wv by rememberSaveable { mutableStateOf(fmtField(edit?.w ?: 400, unit, en)) }
+    var dv by rememberSaveable { mutableStateOf(fmtField(edit?.d ?: 300, unit, en)) }
+    var offv by rememberSaveable { mutableStateOf(fmtField(edit?.off ?: 0, unit, en)) }
+    var sillv by rememberSaveable { mutableStateOf(fmtField(edit?.sill ?: 900, unit, en)) }
+    var hv by rememberSaveable { mutableStateOf(fmtField(edit?.h ?: 600, unit, en)) }
+    var tried by remember { mutableStateOf(false) }
+    val pw = lenErr(wv, dimMax("A"), unit, en); val pd = lenErr(dv, dimMax("A"), unit, en)
+    val po = parseDec(offv, dec)
+    val niche = type == "niche"
+    val psl = if (niche) parseDec(sillv, dec) else Parsed.Ok(0); val ph = if (niche) parseDec(hv, dec) else Parsed.Ok(0)
+    val ok = pw is Parsed.Ok && pd is Parsed.Ok && po is Parsed.Ok && psl is Parsed.Ok && ph is Parsed.Ok
+    val f = if (ok) uz.metrx.app.data.Feature(edit?.id ?: uid(), type, wall, (po as Parsed.Ok).value.toInt(), (pw as Parsed.Ok).value.toInt(), (pd as Parsed.Ok).value.toInt(),
+        (psl as Parsed.Ok).value.toInt(), (ph as Parsed.Ok).value.toInt()) else null
+    val iss = f?.let { uz.metrx.app.geo.featureIssue(r, it, snap) }
+    fun save() {
+        tried = true
+        if (f == null || iss != null) return
+        app.store.update(s.pid) { p -> p.copy(rooms = p.rooms.map { rm -> if (rm.id != r.id) rm else rm.copy(features = if (edit == null) rm.features + f else rm.features.map { if (it.id == f.id) f else it }) }) }
+        app.close(); app.say("ft.saved")
+    }
+    GlassSheet(tr(if (edit != null) (if (niche) "ft.niche" else "ft.column") else "ao.col"), { app.close() }, footer = {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (edit != null) GBtn(tr("common.delete"), {
+                app.store.update(s.pid) { p -> p.copy(rooms = p.rooms.map { rm -> if (rm.id != r.id) rm else rm.copy(features = rm.features.filter { it.id != edit.id }) }) }
+                app.close()
+            }, Btn.DANGER, icon = "trash", height = 44.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1f))
+            else GBtn(tr("common.cancel"), { app.close() }, Btn.SECONDARY, height = 44.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1f))
+            GBtn(tr("common.save"), ::save, enabled = ok && iss == null, height = 44.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1f))
+        }
+    }) {
+        Seg(listOf("column" to tr("ft.column"), "niche" to tr("ft.niche")), type) { type = it }
+        Text(tr(if (niche) "ft.nicheB" else "ft.columnB"), style = ui(13f, 400, G.ink2, 1.4f))
+        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(tr("op.wall"), style = ui(15f, 700))
+            Seg(ws.map { it.id to it.id }, wall, subs = ws.associate { it.id to fmtLen(it.len, unit, en) }) { wall = it }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            NumField(tr("op.width"), wv, { wv = it }, app.unitName(), errText(pw), tried, modifier = Modifier.weight(1f))
+            NumField(tr(if (niche) "ft.dIn" else "ft.dOut"), dv, { dv = it }, app.unitName(), errText(pd), tried, modifier = Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            NumField(tr("op.offset", "c" to wallCorner(r, wall, snap)), offv, { offv = it }, app.unitName(), errText(po), tried, modifier = Modifier.weight(1f))
+            Spacer(Modifier.weight(1f))
+        }
+        if (niche) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            NumField(tr("op.sill"), sillv, { sillv = it }, app.unitName(), errText(psl), tried, modifier = Modifier.weight(1f))
+            NumField(tr("ft.h"), hv, { hv = it }, app.unitName(), errText(ph), tried, modifier = Modifier.weight(1f))
+        }
+        if (ok && iss != null) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.errWash).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MIcon("alert", G.err, 18.dp, 2f); Text(tr(iss), style = ui(13.5f, 500, G.err, 1.35f))
+        }
     }
 }
 

@@ -14,6 +14,23 @@ struct Counts: Equatable {
     var pairs: [(String, Int)] { keys.map { ($0, n[$0]!) } }
 }
 
+/// Kinds counted in millimetres and bought by the metre.
+let METRE_KINDS: Set<String> = ["rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK"]
+/// Kinds counted in square millimetres and bought by the m².
+let AREA_KINDS: Set<String> = ["mirror", "glass"]
+
+/// How a kind is bought: "m", "m2" or "pcs" (the strings key fu.*).
+func hwUnit(_ kind: String) -> String { METRE_KINDS.contains(kind) ? "m" : AREA_KINDS.contains(kind) ? "m2" : "pcs" }
+
+/// A counted amount as people read it: millimetres as metres, square millimetres as m².
+func hwAmount(_ kind: String, _ v: Int, _ en: Bool) -> String {
+    let s: String
+    if METRE_KINDS.contains(kind) { s = String(format: "%.2f m", Double(v) / 1000) }
+    else if AREA_KINDS.contains(kind) { s = String(format: "%.2f m²", Double(v) / 1e6) }
+    else { s = "\(v)" }
+    return en ? s : s.replacingOccurrences(of: ".", with: ",")
+}
+
 func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
     var n = Counts()
     let hinge = m.soft ? "hingeSoft" : "hinge"
@@ -40,7 +57,21 @@ func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
     if m.type == "gap" || m.type == "filler" { return n }
     if m.type == "wardrobe" {
         let secs = m.sections.isEmpty ? [Section(m.w)] : m.sections
-        for (i, s) in secs.enumerated() { fronts(s.fronts, s.w, m.h - wardBase(m)); inside(s.inserts, wardInner(m, secs, i, t)) }
+        for (i, s) in secs.enumerated() {
+            if m.slide == nil { fronts(s.fronts, s.w, m.h - wardBase(m)) }
+            inside(s.inserts, wardInner(m, secs, i, t))
+            // drawers in an open section are pulled by a handle of their own
+            if s.fronts.kind == "open" && m.handles { n.add("handle", s.inserts.filter { $0.kind == "drawer" }.count) }
+        }
+        if let sl = m.slide {
+            let n2 = min(4, max(2, sl.n))
+            let (ow, _) = slideOpening(m, t), (dw, dh) = slideDoor(m, t), (pw, ph) = slidePanel(m, t)
+            n.add("slideTrack", 2 * ow)            // the top and the bottom track
+            n.add("slideV", 2 * dh * n2)           // two upright profiles a door
+            n.add("slideH", 2 * dw * n2)           // the frame's top and bottom
+            n.add("slideRoller", n2)               // one roller set a door
+            for i in 0..<n2 where sl.panel(i) != "ldsp" { n.add(sl.panel(i), pw * ph) }
+        }
         n.add("confirmat", 4 * (4 + 2 * (secs.count - 1)))
         if m.legs { n.add("leg", 2 * (secs.count + 1)) }
     } else {
@@ -55,6 +86,9 @@ func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
 /// An order's hardware, all modules added up.
 func hardware(_ fs: [Furniture], _ ws: Workshop) -> Counts {
     var n = Counts()
-    for f in fs { for m in f.modules { for (k, v) in hardwareOf(m, ws).pairs { n.add(k, v) } } }
+    for f in fs {
+        for m in f.modules { for (k, v) in hardwareOf(m, ws).pairs { n.add(k, v) } }
+        for (k, v) in extrasHardware(f).pairs { n.add(k, v) }
+    }
     return n
 }

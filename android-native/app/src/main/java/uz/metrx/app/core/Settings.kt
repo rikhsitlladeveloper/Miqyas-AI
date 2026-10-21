@@ -37,6 +37,11 @@ class Settings(context: Context) {
     val furniture get() = industry == "furniture"
     fun setIndustryKind(v: String) { industry = v; p.edit().putString("industry", v).apply() }
 
+    /** The trades' calculator: options and prices (trades/Trades.kt), one set for all. */
+    var trade by mutableStateOf(runCatching { js.decodeFromString(uz.metrx.app.trades.TradeSet.serializer(), p.getString("tradeSet", null) ?: "{}") }.getOrDefault(uz.metrx.app.trades.TradeSet()))
+        private set
+    fun setTradeSet(v: uz.metrx.app.trades.TradeSet) { trade = v; p.edit().putString("tradeSet", js.encodeToString(uz.metrx.app.trades.TradeSet.serializer(), v)).apply() }
+
     /** Furniture makers: how the workshop builds and prices, and its boards and hardware (furniture plan sections 6.2, 6.6). */
     private val js = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
     var workshop by mutableStateOf(runCatching { js.decodeFromString(uz.metrx.app.furniture.Workshop.serializer(), p.getString("workshop", null) ?: "{}") }.getOrDefault(uz.metrx.app.furniture.Workshop()))

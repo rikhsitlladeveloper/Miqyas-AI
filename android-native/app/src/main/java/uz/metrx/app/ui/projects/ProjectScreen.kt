@@ -80,7 +80,7 @@ import uz.metrx.app.ui.theme.num
 
 private val TABS = listOf("rooms" to "pj.t.rooms", "estimate" to "pr.estimate", "quotes" to "pj.t.quotes", "info" to "pj.info")
 /** A furniture order: its price tab instead of the estimate (furniture plan section 4). */
-private val F_TABS = listOf("rooms" to "pj.t.rooms", "price" to "fo.price", "quotes" to "pj.t.quotes", "info" to "pj.info")
+private val F_TABS = listOf("rooms" to "fo.rooms", "price" to "fo.price", "quotes" to "pj.t.quotes", "info" to "pj.info")
 
 /** Project page: name, customer and stage, three numbers, four tabs (prototype project.js + glass stage 2). */
 @Composable
@@ -95,6 +95,8 @@ fun ProjectScreen(r: Route.Project) {
         val withTotal = r.tab == "estimate" && (p.estimate.materials.isNotEmpty() || p.estimate.labor.isNotEmpty())
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = if (withTotal) 0.dp else 24.dp + NAV_SPACE).let { if (withTotal) it else it.navigationBarsPadding() }) {
             Header(p, r.tab, lang)
+            // a furniture order: what to do now, with the one button that does it
+            if (p.isFurniture) uz.metrx.app.ui.furniture.NextStep(p)
             when (r.tab) {
                 "info" -> { if (p.isFurniture) uz.metrx.app.ui.furniture.FurnitureInfo(p); InfoTab(p, lang) }
                 "price" -> uz.metrx.app.ui.furniture.FPriceTab(p)
@@ -103,7 +105,7 @@ fun ProjectScreen(r: Route.Project) {
                 else -> if (r.view != "list" && p.rooms.isNotEmpty()) Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp)) {
                     ViewSeg(r.view) { app.setTop(r.copy(view = it)) }
                     if (r.view == "2d") Plans2D(p, lang) else Project3D(p, r, lang)
-                } else WorkspacesTab(p, lang, r)
+                } else if (p.isFurniture) uz.metrx.app.ui.furniture.FRoomsTab(p, lang, r) else WorkspacesTab(p, lang, r)
             }
         }
         // the total floats over the tab bar, the rows scroll above it (prototype .footer.gs-tot)
@@ -115,7 +117,7 @@ fun ProjectScreen(r: Route.Project) {
 private fun Header(p: Project, tab: String, lang: Lang) {
     val app = LocalApp.current
     val context = LocalContext.current
-    val sub = listOf(dn(p.customer, lang), dn(p.address, lang)).filter { it.isNotBlank() }.joinToString(", ").ifEmpty { "—" }
+    val sub = (if (p.isFurniture) uz.metrx.app.ui.furniture.orderSub(p, lang, ", ") else listOf(dn(p.customer, lang), dn(p.address, lang)).filter { it.isNotBlank() }.joinToString(", ")).ifEmpty { "—" }
     val shape = RoundedCornerShape(30.dp)
     Column(
         Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp).fillMaxWidth()
@@ -123,15 +125,23 @@ private fun Header(p: Project, tab: String, lang: Lang) {
             .clip(shape).background(G.glass(.4f)).topHighlight().border(1.dp, G.rim, shape)
             .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 14.dp)
     ) {
-        Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        // a furniture order's other tabs: one line, so the tab's own content starts higher
+        if (p.isFurniture && tab != "rooms") Row(Modifier.padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(dn(p.name, lang), style = ui(17f, 800, G.ink, 1.2f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            uz.metrx.app.ui.furniture.FStageChip(p.stage)
+            RoundIc("more", "menu") { app.sheet = Sheet.ProjectMenu(p.id) }
+        } else Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(dn(p.name, lang), style = ui(28f, 800, G.ink, 1.15f, -.02f), modifier = Modifier.weight(1f).padding(top = 2.dp))
-                if (p.phone.isNotEmpty()) RoundIc("phone", tr("pl.call")) { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+998" + Phone.digits(p.phone)))) }
+                // a furniture order's name is often long ("Kitchen and wardrobe — Akmal Yusupov"): a bit smaller, two lines
+                Text(dn(p.name, lang), style = ui(if (p.isFurniture) 23f else 28f, 800, G.ink, 1.15f, -.02f), maxLines = if (p.isFurniture) 2 else Int.MAX_VALUE,
+                    overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(top = 2.dp))
+                if (p.isFurniture) uz.metrx.app.ui.furniture.CallButton(p)
+                else if (p.phone.isNotEmpty()) RoundIc("phone", tr("pl.call")) { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+998" + Phone.digits(p.phone)))) }
                 if (p.location != null) RoundIc("pin", tr("loc.open")) { openMap(context, p) }
                 RoundIc("more", "menu") { app.sheet = Sheet.ProjectMenu(p.id) }
             }
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(sub, style = ui(13.5f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                Text(if (p.isFurniture && sub == "—") "" else sub, style = ui(13.5f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 if (p.isFurniture) uz.metrx.app.ui.furniture.FStageChip(p.stage) else StageChip(p.stage)
             }
         }
@@ -337,6 +347,8 @@ private fun Kv(label: String, value: String, extra: (@Composable () -> Unit)? = 
 @Composable
 private fun QuotesTab(p: Project, lang: Lang) {
     val app = LocalApp.current
+    if (p.isFurniture) FIssueBar(p, lang)
+    if (p.quotes.isEmpty() && p.isFurniture) return
     if (p.quotes.isEmpty()) {
         Column(
             Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp).fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(24.dp),
@@ -397,3 +409,24 @@ fun openMap(context: android.content.Context, p: Project) {
     runCatching { context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://www.google.com/maps/search/?api=1&query=${l.lat},${l.lng}"))) }
 }
 
+/** A furniture order's Quotes tab starts with issuing the next quote at today's price, and looking at the PDF first. */
+@Composable
+private fun FIssueBar(p: Project, lang: Lang) {
+    val app = LocalApp.current
+    val st = app.settings
+    val fs = p.furniture.filter { it.modules.isNotEmpty() }
+    val price = androidx.compose.runtime.remember(p.furniture, p.fprice, st.workshop, st.mats, st.hws) { uz.metrx.app.furniture.priceOf(fs, p.fprice, st.workshop, st.mats, st.hws).price }
+    Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (fs.isEmpty()) {
+            Text(tr("fp.empty"), style = ui(14f, 400, G.ink2, 1.45f), textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(20.dp))
+            return@Column
+        }
+        val (v, u) = uz.metrx.app.core.shortMoney(p, price, lang == Lang.EN, tr("pl.mln"))
+        // a new quote only when something changed since the last one: otherwise it would be the same quote again
+        val last = p.quotes.lastOrNull()
+        val changed = last == null || last.fp != uz.metrx.app.report.fingerprint(uz.metrx.app.report.snapshotOf(p, app.settings))
+        if (changed) GBtn(tr("fo.issueN", "n" to p.quotes.size + 1, "v" to v + (u?.let { " $it" } ?: "")), { app.sheet = Sheet.Issue(p.id) }, icon = "lock", maxLines = 2)
+        GBtn(tr("fo.preview"), { app.push(Route.Report(p.id)) }, Btn.SECONDARY, icon = "doc", height = 46.dp, fontSize = 14.5f)
+    }
+}

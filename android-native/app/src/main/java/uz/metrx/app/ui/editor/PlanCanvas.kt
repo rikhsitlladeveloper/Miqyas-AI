@@ -260,6 +260,8 @@ private fun DrawScope.drawRectPlan(lay: RectLayout, r: Room, sel: String?, selOp
 
     // doors and windows across the wall
     r.openings.forEach { o -> drawOpening(lay, o, if (issueOf(o)) RED else if (o.id == selOp) COB else INK, issueOf(o)) }
+    // columns stand inside against the wall, hatched like walls; niches are cut into the wall (dashed when above the floor)
+    r.features.forEach { f -> drawFeature(lay, f) }
     // furniture orders: sockets, switches and pipes, just inside their wall (furniture plan section 5)
     r.points.forEach { x ->
         val w = lay.wall(x.wall); val u = unitV(w.a, w.b)
@@ -302,6 +304,25 @@ fun DrawScope.drawReportPlan(r: Room, unit: LenUnit, english: Boolean, label: St
 
 /** The height of a room's plan drawing in the 360-wide units. */
 fun reportPlanHeight(r: Room, snap: Boolean): Float = if (r.isPoly) reportPolyHeight(r, snap) else RectLayout(r).VH
+
+private fun DrawScope.drawFeature(lay: RectLayout, f: uz.metrx.app.data.Feature) {
+    val w = lay.wall(f.wall); val u = unitV(w.a, w.b); val s = lay.s
+    val a = w.a + u * (f.off * s); val b = w.a + u * ((f.off + f.w) * s)
+    val depth = f.d * s * (if (f.type == "column") -1f else 1f)
+    val q = listOf(a, b, b + w.n * depth, a + w.n * depth)
+    val path = Path().apply { moveTo(q[0].x, q[0].y); q.drop(1).forEach { lineTo(it.x, it.y) }; close() }
+    if (f.type == "column") {
+        drawPath(path, PLAN_W)
+        clipPath(path) {
+            val bx = path.getBounds(); var x = bx.left - bx.height
+            while (x < bx.right + bx.height) { drawLine(INK, Offset(x, bx.bottom), Offset(x + bx.height, bx.top), 1.1f); x += 4f * 1.4142f }
+        }
+        drawPath(path, INK, style = Stroke(1.2f))
+    } else {
+        drawPath(path, PAPER)
+        drawPath(path, INK, style = Stroke(1.1f, pathEffect = if (f.sill > 0) PathEffect.dashPathEffect(floatArrayOf(3f, 3f)) else null))
+    }
+}
 
 private fun DrawScope.drawWallBand(w: SideWall, tw: Float, pad: Float, fill: Color, edge: Color?) {
     val u = unitV(w.a, w.b)

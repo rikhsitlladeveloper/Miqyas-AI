@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Mijoz uchun taklif — A4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B47D9}a:hover{color:#1E36B0}
+.k{font-size:8px;font-weight:700;letter-spacing:0.06em;color:#475569}
+.t td{padding:3px 0;font-size:9.5px;vertical-align:top}
+</style>
+</helmet>
+<div style="width: 595px; height: 842px; box-sizing: border-box; padding: 36px 40px 30px; background: #fff; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A; display: flex; flex-direction: column; gap: 14px; position: relative">
+  <header style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0F172A; padding-bottom: 10px">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <svg width="26" height="26" viewBox="0 0 38 38" aria-hidden="true"><rect width="38" height="38" rx="11" fill="#3550E0"></rect><path d="M10 27V11l9 10 9-10v16" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      <div><div style="font-size: 16px; font-weight: 800">Taklif №1</div><div style="font-size: 9.5px; color: #475569">Oshxona va shkaf · 17.10.2026</div></div>
+    </div>
+    <div style="text-align: right; font-size: 9.5px; line-height: 1.5"><b style="font-weight: 800">Jasur usta · Mebel ustaxonasi</b><br>+998 93 210 44 55</div>
+  </header>
+
+  <table class="t" style="width: 100%; border-collapse: collapse">
+    <tr><td class="k" style="width: 90px">MIJOZ</td><td><b style="font-weight: 700">Dilnoza Karimova</b> · +998 90 456 12 34</td><td class="k" style="width: 70px">MANZIL</td><td>Toshkent, Chilonzor 9-mavze</td></tr>
+  </table>
+
+  <div style="display: flex; gap: 14px">
+    <figure style="margin: 0; flex: 1; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px">
+      <svg width="250" height="200" viewBox="0 0 250 200" role="img" aria-label="Oshxona 3D koʻrinishi">
+        <sc-for list="{{polys}}" as="p" hint-placeholder-count="20">
+          <polygon points="{{p.pts}}" fill="{{p.fill}}" stroke="#334155" stroke-width="0.6"></polygon>
+        </sc-for>
+        <sc-for list="{{lines}}" as="l" hint-placeholder-count="8">
+          <line x1="{{l.x1}}" y1="{{l.y1}}" x2="{{l.x2}}" y2="{{l.y2}}" stroke="#334155" stroke-width="0.6"></line>
+        </sc-for>
+      </svg>
+      <figcaption style="font-size: 8.5px; color: #475569">3D koʻrinish · L-oshxona</figcaption>
+    </figure>
+    <div style="width: 210px; display: flex; flex-direction: column; gap: 6px">
+      <div class="k">MATERIAL VA RANGLAR</div>
+      <sc-for list="{{mats}}" as="m" hint-placeholder-count="5">
+        <div style="display: flex; align-items: center; gap: 8px; font-size: 9.5px"><span style="width: 22px; height: 22px; border-radius: 4px; background: {{m.c}}; border: 1px solid rgba(15,23,42,0.25)"></span><span><b style="font-weight: 700">{{m.part}}</b><br><span style="color: #475569">{{m.name}}</span></span></div>
+      </sc-for>
+    </div>
+  </div>
+
+  <figure style="margin: 0; border: 1px solid #E2E8F0; border-radius: 8px; padding: 8px 10px">
+    <div class="k" style="margin-bottom: 6px">DEVOR A · OLD KOʻRINISH · mm</div>
+    <div style="position: relative; width: 500px; height: 150px">
+      <sc-for list="{{front}}" as="f" hint-placeholder-count="10">
+        <span style="position: absolute; left: {{f.l}}px; top: {{f.t}}px; width: {{f.w}}px; height: {{f.h}}px; box-sizing: border-box; border: 0.8px solid #0F172A; background: {{f.bg}}"></span>
+      </sc-for>
+      <span style="position: absolute; left: 0; top: 70px; width: 500px; height: 3px; background: #4B4F58"></span>
+      <sc-for list="{{fdims}}" as="d" hint-placeholder-count="5">
+        <span style="position: absolute; left: {{d.l}}px; top: 136px; width: {{d.w}}px; border-left: 0.8px solid #0F172A; box-sizing: border-box; text-align: center; font-size: 8px; font-weight: 700">{{d.v}}</span>
+      </sc-for>
+    </div>
+  </figure>
+
+  <section>
+    <div class="k">NARX</div>
+    <table class="t" style="width: 100%; border-collapse: collapse; margin-top: 4px; font-variant-numeric: tabular-nums">
+      <tr style="border-bottom: 1px solid #E2E8F0"><td>Oshxona (L, 5,4 pog. m): korpus, fasadlar, stoleshnitsa, furnitura</td><td style="text-align: right">23 272 600</td></tr>
+      <tr style="border-bottom: 1px solid #E2E8F0"><td>Shkaf (2400 × 2500, 4 boʻlim, 7 eshik)</td><td style="text-align: right">8 794 500</td></tr>
+      <tr><td style="font-size: 9px; color: #475569">Narxga yetkazish va oʻrnatish kiradi. Maishiy texnika (moyka, plita, muzlatkich) kirmaydi.</td><td></td></tr>
+    </table>
+    <div style="margin-top: 8px; border-top: 3px double #0F172A; padding-top: 6px; display: flex; justify-content: space-between; align-items: baseline; font-variant-numeric: tabular-nums">
+      <span style="font-size: 12px; font-weight: 800">JAMI</span><span style="font-size: 18px; font-weight: 800">32 067 100 soʻm</span>
+    </div>
+    <div style="margin-top: 6px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; font-size: 9.5px; font-variant-numeric: tabular-nums">
+      <div style="background: #F1F5F9; border-radius: 6px; padding: 6px 8px"><div class="k">OLDINDAN TOʻLOV 50 %</div><b style="font-size: 11px">16 033 550</b></div>
+      <div style="background: #F1F5F9; border-radius: 6px; padding: 6px 8px"><div class="k">OʻRNATILGANDA</div><b style="font-size: 11px">16 033 550</b></div>
+      <div style="background: #F1F5F9; border-radius: 6px; padding: 6px 8px"><div class="k">MUDDAT</div><b style="font-size: 11px">18 ish kuni + 1 kun</b></div>
+    </div>
+  </section>
+
+  <footer style="position: absolute; left: 40px; right: 40px; bottom: 20px; display: flex; justify-content: space-between; font-size: 8px; color: #64748B"><span>METRX · Taklif №1 · narx 30 kun amal qiladi</span><span>1 / 3</span></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":595,"height":842}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var S = 0.042, U0 = 22, V0 = 152;
+    function pr(x, y, z) { var u = (x + z) / 1.4142, v = (x + 2 * y - z) / 2.4495; return [Math.round((U0 + u * S) * 10) / 10, Math.round((V0 - v * S) * 10) / 10]; }
+    function pts(a) { return a.map(function (p) { var q = pr(p[0], p[1], p[2]); return q[0] + ',' + q[1]; }).join(' '); }
+    var FRONT = '#CDBFAE', SIDE = '#F5F5F2', TOP = '#4B4F58', APPL = '#CBD5E1';
+    var polys = [];
+    polys.push({ pts: pts([[0, 0, 0], [3400, 0, 0], [3400, 0, 2600], [0, 0, 2600]]), fill: '#E2E8F0' });
+    polys.push({ pts: pts([[0, 0, 0], [3400, 0, 0], [3400, 2500, 0], [0, 2500, 0]]), fill: '#F1F5F9' });
+    polys.push({ pts: pts([[3400, 0, 0], [3400, 0, 2600], [3400, 2500, 2600], [3400, 2500, 0]]), fill: '#E8ECF2' });
+    var boxes = [
+      [0, 3400, 1458, 2178, 0, 318, 'z', FRONT, SIDE],
+      [3082, 3400, 1458, 2228, 600, 1600, 'x', FRONT, SIDE],
+      [0, 3400, 100, 820, 0, 578, 'z', FRONT, SIDE],
+      [0, 3400, 820, 858, 0, 600, 'n', TOP, TOP],
+      [2822, 3400, 100, 820, 600, 1600, 'x', FRONT, SIDE],
+      [2800, 3400, 820, 858, 600, 1600, 'n', TOP, TOP],
+      [2822, 3400, 100, 2200, 1600, 2200, 'x', APPL, SIDE],
+      [2822, 3400, 100, 2200, 2200, 2600, 'x', FRONT, SIDE]
+    ];
+    boxes.forEach(function (b) {
+      var x0 = b[0], x1 = b[1], y0 = b[2], y1 = b[3], z0 = b[4], z1 = b[5];
+      var fz = b[6] === 'z' ? b[7] : b[8], fx = b[6] === 'x' ? b[7] : b[8];
+      if (b[6] === 'n') { fz = b[7]; fx = b[7]; }
+      polys.push({ pts: pts([[x0, y0, z0], [x0, y0, z1], [x0, y1, z1], [x0, y1, z0]]), fill: fx });
+      polys.push({ pts: pts([[x0, y0, z1], [x1, y0, z1], [x1, y1, z1], [x0, y1, z1]]), fill: fz });
+      polys.push({ pts: pts([[x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1]]), fill: b[6] === 'n' ? TOP : SIDE });
+    });
+    var lines = [];
+    [500, 1100, 1900, 2500].forEach(function (x) {
+      var a = pr(x, 100, 578), b = pr(x, 820, 578); lines.push({ x1: a[0], y1: a[1], x2: b[0], y2: b[1] });
+      var c = pr(x, 1458, 318), d = pr(x, 2178, 318); lines.push({ x1: c[0], y1: c[1], x2: d[0], y2: d[1] });
+    });
+    [1200, 2200].forEach(function (z) {
+      var a = pr(2822, 100, z), b = pr(2822, z === 2200 ? 2200 : 820, z); lines.push({ x1: a[0], y1: a[1], x2: b[0], y2: b[1] });
+    });
+    var K = 500 / 3400, FL = 133;
+    function fr(x, w, y, h, bg) { return { l: Math.round(x * K * 10) / 10, t: Math.round((FL - (y + h) * K) * 10) / 10, w: Math.round(w * K * 10) / 10, h: Math.round(h * K * 10) / 10, bg: bg }; }
+    var front = [];
+    [[0, 500], [500, 600], [1100, 800], [1900, 600], [2500, 900]].forEach(function (m, i) {
+      front.push(fr(m[0], m[1], 100, 720, i === 3 ? APPL : FRONT));
+      front.push(fr(m[0], m[1], 1458, 720, FRONT));
+    });
+    return {
+      polys: polys, lines: lines, front: front,
+      fdims: [[0, 500], [500, 600], [1100, 800], [1900, 600], [2500, 900]].map(function (m) { return { l: Math.round(m[0] * K * 10) / 10, w: Math.round(m[1] * K * 10) / 10, v: m[1] }; }),
+      mats: [
+        { part: 'Korpus', name: 'LDSP 16 · Oq', c: '#F5F5F2' },
+        { part: 'Fasadlar', name: 'LDSP 16 · Kashmir', c: '#CDBFAE' },
+        { part: 'Stoleshnitsa', name: '38 mm · Antratsit', c: '#4B4F58' },
+        { part: 'Tutqichlar', name: 'Skoba 128 · qora mat', c: '#1E293B' },
+        { part: 'Yopilish', name: 'Yumshoq yopiladigan petlyalar', c: '#CBD5E1' }
+      ]
+    };
+  }
+}
+</script>
+</body>
+</html>

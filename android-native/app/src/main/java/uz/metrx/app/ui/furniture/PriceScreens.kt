@@ -129,33 +129,20 @@ fun FPriceTab(p: Project) {
     val cost = pr.cost
     val cur = curSuffix(p.currency, lang)
     fun setFp(f: (FPrice) -> FPrice) { app.store.update(p.id) { it.copy(fprice = f(it.fprice)) } }
-    var open by rememberSaveable { mutableStateOf("mat") }
+    var open by rememberSaveable { mutableStateOf("") }   // the cost groups start folded
     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        // the cost, by group
-        Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(tr("fp.cost"), style = ui(12.5f, 600, G.ink2))
-            Text(money(p, cost.total) + " " + cur, style = num(26f, 800))
-            Text(fs.joinToString(" + ") { dn(it.name, lang) } + " · " + tr("fp.onlyYou"), style = ui(12.5f, 400, G.ink2), maxLines = 2)
-            listOf("mat" to "fw.g.mat", "hw" to "fw.g.hw", "lab" to "fw.g.lab").forEach { (g, k) ->
-                Hairline()
-                val on = open == g
-                Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(role = Role.Button) { open = if (on) "" else g }, verticalAlignment = Alignment.CenterVertically) {
-                    Text((if (on) "▾ " else "▸ ") + tr(k), style = ui(15f, 700), modifier = Modifier.weight(1f))
-                    Text(money(p, cost.sum(g)), style = num(15f, 700))
-                }
-                if (on) cost.lines.filter { it.group == g }.forEach { l ->
-                    Row(Modifier.fillMaxWidth().padding(start = 14.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(lineText(p, l), style = ui(13f, 400, if (l.missing) G.amberInk else G.ink2, 1.35f), modifier = Modifier.weight(1f))
-                        Text(money(p, l.amount), style = num(13.5f, 600))
-                    }
-                }
+        // the customer price and the profit
+        val neg = pr.profit.signum() < 0
+        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(DARK).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(tr("fp.price"), style = ui(12.5f, 400, Color(0xFFB7C3D9)))
+            Text(money(p, pr.price) + " " + cur, style = ui(26f, 800, Color.White).copy(fontFamily = PlexCond), maxLines = 1)
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                Text(tr("fw.profit"), style = ui(13f, 400, Color(0xFFB7C3D9)), modifier = Modifier.weight(1f))
+                val pc = pr.profitPct10
+                Text(money(p, pr.profit) + " · ${pc / 10}${if (lang == Lang.EN) "." else ","}${kotlin.math.abs(pc % 10)} %",
+                    style = ui(15f, 700, if (neg) Color(0xFFFCA5A5) else Color(0xFF86EFAC)).copy(fontFamily = PlexCond))
             }
-            if (cost.missing > 0) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.amberWash).clickable(role = Role.Button) { app.push(Route.Materials) }.padding(12.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MIcon("alert", G.amberInk, 18.dp, 2f)
-                Text(tr("kt.noPrice", "n" to cost.missing), style = ui(13.5f, 500, G.amberInk), modifier = Modifier.weight(1f))
-                Text(tr("fp.setPrices"), style = ui(13.5f, 700, G.amberInk))
-            }
+            if (neg) Text(tr("fp.loss"), style = ui(12.5f, 600, Color(0xFFFCA5A5)))
         }
         // how the customer price is worked out
         Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -193,26 +180,40 @@ fun FPriceTab(p: Project) {
                 }
             }
         }
-        // the customer price and the profit
-        val neg = pr.profit.signum() < 0
-        Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(DARK).padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(tr("fp.price"), style = ui(12.5f, 400, Color(0xFFB7C3D9)))
-            Text(money(p, pr.price) + " " + cur, style = ui(26f, 800, Color.White).copy(fontFamily = PlexCond), maxLines = 1)
-            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(tr("fw.profit"), style = ui(13f, 400, Color(0xFFB7C3D9)), modifier = Modifier.weight(1f))
-                val pc = pr.profitPct10
-                Text(money(p, pr.profit) + " · ${pc / 10}${if (lang == Lang.EN) "." else ","}${kotlin.math.abs(pc % 10)} %",
-                    style = ui(15f, 700, if (neg) Color(0xFFFCA5A5) else Color(0xFF86EFAC)).copy(fontFamily = PlexCond))
-            }
-            if (neg) Text(tr("fp.loss"), style = ui(12.5f, 600, Color(0xFFFCA5A5)))
-        }
-        PriceRow(tr("fp.days"), tr("fd.days", "d" to fp.days, "i" to fp.inst)) { app.sheet = Sheet.FPriceField(p.id, "days") }
-        GBtn(tr("fc.title"), { app.push(Route.FCut(p.id)) }, Btn.SECONDARY, icon = "board", height = 48.dp, corner = 16.dp, fontSize = 15f)
+        // the documents: the customer's PDF first, then the workshop's pack and the parts with their sheet layout
+        GBtn(tr("fd.btn"), { app.push(Route.Report(p.id)) }, icon = "share", height = 52.dp, corner = 16.dp, fontSize = 15.5f)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GBtn(tr("fw.btn"), { app.push(Route.FPack(p.id)) }, Btn.SECONDARY, icon = "doc", height = 52.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1f), maxLines = 2)
-            GBtn(tr("fd.btn"), { app.push(Route.Report(p.id)) }, icon = "share", height = 52.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1f), maxLines = 2)
+            GBtn(tr("fw.btn"), { app.push(Route.FPack(p.id)) }, Btn.SECONDARY, icon = "doc", height = 50.dp, corner = 16.dp, fontSize = 14.5f, modifier = Modifier.weight(1f), maxLines = 2)
+            GBtn(tr("fc.title"), { app.push(Route.FCut(p.id)) }, Btn.SECONDARY, icon = "board", height = 50.dp, corner = 16.dp, fontSize = 14.5f, modifier = Modifier.weight(1f), maxLines = 2)
         }
         Text(tr("fp.docsNote"), style = ui(12.5f, 400, G.ink2, 1.4f))
+        PriceRow(tr("fp.days"), tr("fd.days", "d" to fp.days, "i" to fp.inst)) { app.sheet = Sheet.FPriceField(p.id, "days") }
+        // the cost, by group
+        Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(tr("fp.cost"), style = ui(12.5f, 600, G.ink2))
+            Text(money(p, cost.total) + " " + cur, style = num(26f, 800))
+            Text(fs.joinToString(" + ") { dn(it.name, lang) } + " · " + tr("fp.onlyYou"), style = ui(12.5f, 400, G.ink2), maxLines = 2)
+            listOf("mat" to "fw.g.mat", "hw" to "fw.g.hw", "lab" to "fw.g.lab").forEach { (g, k) ->
+                Hairline()
+                val on = open == g
+                Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clickable(role = Role.Button) { open = if (on) "" else g }, verticalAlignment = Alignment.CenterVertically) {
+                    Text((if (on) "▾ " else "▸ ") + tr(k), style = ui(15f, 700), modifier = Modifier.weight(1f))
+                    Text(money(p, cost.sum(g)), style = num(15f, 700))
+                }
+                if (on) cost.lines.filter { it.group == g }.forEach { l ->
+                    Row(Modifier.fillMaxWidth().padding(start = 14.dp), verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(lineText(p, l), style = ui(13f, 400, if (l.missing) G.amberInk else G.ink2, 1.35f), modifier = Modifier.weight(1f))
+                        Text(money(p, l.amount), style = num(13.5f, 600))
+                    }
+                }
+            }
+            if (cost.missing > 0) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.amberWash).clickable(role = Role.Button) { app.push(Route.Materials) }.padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MIcon("alert", G.amberInk, 18.dp, 2f)
+                Text(tr("kt.noPrice", "n" to cost.missing), style = ui(13.5f, 500, G.amberInk), modifier = Modifier.weight(1f))
+                Text(tr("fp.setPrices"), style = ui(13.5f, 700, G.amberInk))
+            }
+        }
     }
 }
 

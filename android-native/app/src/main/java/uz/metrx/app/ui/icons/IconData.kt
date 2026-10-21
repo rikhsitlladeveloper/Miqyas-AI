@@ -17,6 +17,7 @@ val ICONS: Map<String, IconDef> = mapOf(
     "bt" to IconDef(24f, 24f, listOf(IconPart("M7 7l10 10-5 5V2l5 5L7 17"))),
     "btoff" to IconDef(24f, 24f, listOf(IconPart("M7 7l10 10-5 5V2l5 5-2.5 2.5"), IconPart("M3 3l18 18"))),
     "check" to IconDef(24f, 24f, listOf(IconPart("M5 12.5l4.5 4.5L19 7"))),
+    "calendar" to IconDef(24f, 24f, listOf(IconPart("M5 5.5h14a1.5 1.5 0 0 1 1.5 1.5v12a1.5 1.5 0 0 1-1.5 1.5H5A1.5 1.5 0 0 1 3.5 19V7A1.5 1.5 0 0 1 5 5.5z"), IconPart("M8 3.5v4M16 3.5v4M3.5 10.5h17"))),
     "clock" to IconDef(24f, 24f, listOf(IconPart("M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0 -17 0z"), IconPart("M12 7.5V12l3 2"))),
     "alert" to IconDef(24f, 24f, listOf(IconPart("M12 3.5L2.5 20h19L12 3.5z"), IconPart("M12 10v4.5"), IconPart("M12 17.3v.2"))),
     "info" to IconDef(24f, 24f, listOf(IconPart("M3.5 12a8.5 8.5 0 1 0 17 0a8.5 8.5 0 1 0 -17 0z"), IconPart("M12 11v5.5M12 7.8v.2"))),

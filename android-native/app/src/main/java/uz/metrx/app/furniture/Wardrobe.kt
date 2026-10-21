@@ -79,6 +79,38 @@ fun nextPos(kind: String, s: Section, ih: Int, t: Int): Int {
     return pos.coerceIn(0, max(0, ih - max(blockH(Insert(kind)), t)))
 }
 
+/* ---------------- sliding doors (plan 1b-2) ---------------- */
+
+/** How far one sliding door overlaps the next, mm. */
+const val SLIDE_OV = 30
+/** The depth the two tracks take in front of the shelves, mm: shelves, dividers and drawers are this much shallower. */
+const val SLIDE_D = 100
+/** The profile frame round a door's filling: each side, and top plus bottom together, mm. */
+const val SLIDE_FRAME_W = 20
+const val SLIDE_FRAME_H = 70
+/** Room for the rollers and the top track: a door is this much lower than the opening, mm. */
+const val SLIDE_CLEAR = 40
+
+/** Doors for a front [w] wide: 2 up to 1600, 3 up to 2600, then 4. */
+fun slideDoorsFor(w: Int) = when { w <= 1600 -> 2; w <= 2600 -> 3; else -> 4 }
+
+/** The opening the doors close: between the sides (or the walls) and between the bottom and top panels. */
+fun slideOpening(m: Module, t: Int): Pair<Int, Int> =
+    (m.w - (if (m.sideL) t else 0) - (if (m.sideR) t else 0)) to (m.h - wardBase(m) - 2 * t)
+
+/** One sliding door, width × height: the opening shared out with the overlaps, less the clearance. */
+fun slideDoor(m: Module, t: Int): Pair<Int, Int> {
+    val n = (m.slide?.n ?: 2).coerceIn(2, 4)
+    val (ow, oh) = slideOpening(m, t)
+    return (ow + (n - 1) * SLIDE_OV) / n to (oh - SLIDE_CLEAR)
+}
+
+/** A door's filling inside its frame, width × height. */
+fun slidePanel(m: Module, t: Int): Pair<Int, Int> = slideDoor(m, t).let { (w, h) -> (w - 2 * SLIDE_FRAME_W) to (h - SLIDE_FRAME_H) }
+
+/** How deep a sliding wardrobe's shelves, dividers and drawers are. */
+fun innerD(m: Module) = if (m.slide != null) m.d - SLIDE_D else m.d
+
 /** A new wardrobe [w] × [h] on [wall] at [x]: built in (no sides at the walls) or free-standing, on a plinth. */
 fun wardrobeTemplate(ws: Workshop, wall: String, x: Int, w: Int, h: Int, builtIn: Boolean, d: Int = W_DEPTH): Module {
     val n = sectionsFor(w)
@@ -118,11 +150,18 @@ fun wardrobeChecks(m: Module, wallL: Int?, roomH: Int?, ws: Workshop, openings: 
         }
     }
     val ih = wardInnerH(m, t)
+    // sliding doors: a door wider than 1100 or narrower than 500 runs badly
+    m.slide?.let { sl ->
+        val (dw, _) = slideDoor(m, t)
+        if (dw > 1100) out += FCheck("warn", "wc.slideWide", mapOf("v" to dw, "n" to sl.n), m.id)
+        if (dw < 500) out += FCheck("warn", "wc.slideNarrow", mapOf("v" to dw, "n" to sl.n), m.id)
+        if (m.d < 450 + SLIDE_D) out += FCheck("warn", "wc.slideShallow", mapOf("v" to m.d - SLIDE_D), m.id)
+    }
     m.sections.forEachIndexed { i, s ->
         val n = i + 1
         val iw = wardInner(m, m.sections, i, t)
         if (iw > 1000 && s.inserts.any { it.kind == "shelf" }) out += FCheck("warn", "wc.shelfWide", mapOf("s" to n, "v" to iw), m.id)
-        frontSizes(s.fronts, s.w, m.h - wardBase(m), ws).maxOfOrNull { it.second }?.let { fw ->
+        if (m.slide == null) frontSizes(s.fronts, s.w, m.h - wardBase(m), ws).maxOfOrNull { it.second }?.let { fw ->
             if (s.fronts.kind == "door" && fw > 600) out += FCheck("warn", "wc.doorWide", mapOf("s" to n, "v" to fw), m.id)
         }
         // inside: everything within the section, blocks apart, room under the rails to hang clothes

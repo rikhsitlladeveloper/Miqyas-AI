@@ -53,6 +53,13 @@ struct Project: Codable, Equatable, Identifiable {
     var furniture: [Furniture] = []
     /// Furniture orders: how the customer price is worked out, and the lead time (furniture plan section 6.7).
     var fprice = FPrice()
+    /// Furniture orders: when the order was approved (0: not yet), and an install date set by hand (0: worked out).
+    var approvedAt: Ms = 0
+    var install: Ms = 0
+    /// Furniture orders: what the customer wants (kitchen, wardrobe, other), nil until chosen ("Nima kerak?").
+    var want: [String]? = nil
+    /// Furniture orders: the name follows the furniture ("Oshxona — Akmal") until the maker renames it.
+    var autoName = false
 
     var isFurniture: Bool { industry == "furniture" }
 
@@ -72,6 +79,7 @@ struct Project: Codable, Equatable, Identifiable {
         created = c.v(.created, 0); edited = c.v(.edited, 0)
         industry = c.v(.industry, "build"); agreed = c.v(.agreed, ""); payments = c.v(.payments, [])
         furniture = c.v(.furniture, []); fprice = c.v(.fprice, FPrice())
+        approvedAt = c.v(.approvedAt, 0); install = c.v(.install, 0); want = c.v(.want, nil); autoName = c.v(.autoName, false)
     }
 }
 
@@ -256,6 +264,8 @@ struct Room: Codable, Equatable, Identifiable {
     var created: Ms = 0
     /// Furniture orders: sockets, switches, pipes and the gas meter on the walls (furniture plan section 5).
     var points: [SitePoint] = []
+    /// Columns and niches (room editor).
+    var features: [Feature] = []
 
     func dim(_ k: String) -> Dim { dims[k] ?? Dim() }
     var isPoly: Bool { shape == "poly" && (poly?.verts.count ?? 0) >= 3 }
@@ -268,7 +278,24 @@ struct Room: Codable, Equatable, Identifiable {
         dims = c.v(.dims, ["A": Dim(), "B": Dim(), "H": Dim(), "T": Dim(v: 200, src: "default")])
         openings = c.v(.openings, []); poly = c.v(.poly, nil); rot = c.v(.rot, 0); views = c.v(.views, [])
         wallColor = c.v(.wallColor, "#ECE8E1"); floorColor = c.v(.floorColor, "#C49A6C"); created = c.v(.created, 0)
-        points = c.v(.points, [])
+        points = c.v(.points, []); features = c.v(.features, [])
+    }
+}
+
+/// A column against a wall or a niche into it (room editor "Ustun / nisha"; Android data/Model.kt Feature): type column
+/// or niche; off from the wall's start corner to its near edge; w along the wall; d into the room (column) or into the
+/// wall (niche); a niche's sill from the floor and h height (0: up to the ceiling). Columns are full height.
+struct Feature: Codable, Equatable, Identifiable {
+    var id: String, type: String, wall: String
+    var off: Int, w: Int, d: Int
+    var sill = 0, h = 0
+    init(id: String, type: String, wall: String, off: Int, w: Int, d: Int, sill: Int = 0, h: Int = 0) {
+        self.id = id; self.type = type; self.wall = wall; self.off = off; self.w = w; self.d = d; self.sill = sill; self.h = h
+    }
+    init(from dec: Decoder) throws {
+        let c = try dec.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id); type = c.v(.type, "column"); wall = c.v(.wall, "A")
+        off = c.v(.off, 0); w = c.v(.w, 400); d = c.v(.d, 300); sill = c.v(.sill, 0); h = c.v(.h, 0)
     }
 }
 

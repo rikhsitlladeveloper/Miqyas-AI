@@ -37,6 +37,12 @@ sealed interface Route {
     data class Kitchen(val pid: String, val fid: String, val wall: String? = null, val d3: Boolean = false) : Route
     /** A furniture order's wardrobe designer: [step] 1–5 (place, sizes, doors, inside, material), [sec] the selected section. */
     data class Wardrobe(val pid: String, val fid: String, val step: Int = 1, val sec: Int = 0, val d3: Boolean = false) : Route
+    /** Furniture without a room: what the customer needs, room or sizes, the models, their sizes ([fid]: changing a piece's), into a room. */
+    data class FNeed(val pid: String) : Route
+    data class FHow(val pid: String, val kind: String) : Route
+    data class FModels(val pid: String, val kind: String) : Route
+    data class FSizes(val pid: String, val kind: String, val model: String, val fid: String? = null) : Route
+    data class FPlace(val pid: String, val fid: String, val rid: String) : Route
     /** A furniture order's parts and sheet layout, and its workshop pack. */
     data class FCut(val pid: String) : Route
     data class FPack(val pid: String) : Route
@@ -72,6 +78,10 @@ sealed interface Sheet {
     data class AddOpening(val pid: String, val rid: String) : Sheet
     /** A door or window: a new one ([oid] null, with [type] and [wall]) or an existing one. */
     data class OpeningForm(val pid: String, val rid: String, val oid: String?, val type: String = "door", val wall: String? = null) : Sheet
+    /** A trade's calculator settings (tiler, electrician, plumber, windows). */
+    data class TradeCalc(val pid: String) : Sheet
+    /** A column or a niche: [fid] null for a new one. */
+    data class FeatureForm(val pid: String, val rid: String, val fid: String?, val type: String = "column") : Sheet
     data class RoomInfo(val pid: String, val rid: String) : Sheet
     data class RoomRename(val pid: String, val rid: String) : Sheet
     data class Tray(val pid: String, val rid: String) : Sheet
@@ -121,7 +131,13 @@ sealed interface Sheet {
     data class MatForm(val id: String?) : Sheet
     data class HwForm(val id: String?) : Sheet
     /** New furniture in a workspace of a furniture order; a piece of furniture's menu and rename. */
-    data class NewFurniture(val pid: String, val wid: String) : Sheet
+    data class NewFurniture(val pid: String, val wid: String, val rid: String? = null, val kind: String? = null) : Sheet
+    /** A furniture order: a new room (made with its workspace and opened), the install date. */
+    /** A new room of a furniture order: [kind] the furniture it is for; [fid] a room-less piece that goes in once it is measured. */
+    data class FNewRoom(val pid: String, val kind: String? = null, val fid: String? = null) : Sheet
+    /** Which room a room-less piece goes into. */
+    data class FPickRoom(val pid: String, val fid: String) : Sheet
+    data class FInstall(val pid: String) : Sheet
     data class FMenu(val pid: String, val fid: String) : Sheet
     data class FRename(val pid: String, val fid: String) : Sheet
     /** The kitchen designer: a unit's settings; the library of units ([group] module, appl or space) for [wall]. */
@@ -153,6 +169,8 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     val live = uz.metrx.app.ui.markup.LiveLine()
     /** The kitchen designer's undo history and selected unit. */
     val kit = uz.metrx.app.ui.furniture.KitOps()
+    /** A room being measured for a room-less piece (room id to furniture id): when it is done, the piece goes in. */
+    var placeAfter by mutableStateOf<Pair<String, String>?>(null)
 
     val stack get() = stacks.getValue(tab)
     val top get() = stack.last()
@@ -192,6 +210,11 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.Quote -> store.get(r.pid)?.quotes?.any { it.no == r.no } == true
                     is Route.Kitchen -> store.get(r.pid)?.furniture?.any { it.id == r.fid } == true
                     is Route.Wardrobe -> store.get(r.pid)?.furniture?.any { it.id == r.fid } == true
+                    is Route.FNeed -> store.get(r.pid) != null
+                    is Route.FHow -> store.get(r.pid) != null
+                    is Route.FModels -> store.get(r.pid) != null
+                    is Route.FSizes -> store.get(r.pid)?.let { p -> r.fid == null || p.furniture.any { it.id == r.fid } } == true
+                    is Route.FPlace -> store.get(r.pid)?.let { p -> p.furniture.any { it.id == r.fid } && p.rooms.any { it.id == r.rid } } == true
                     is Route.FCut -> store.get(r.pid) != null
                     is Route.FPack -> store.get(r.pid) != null
                     Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, is Route.Measure, Route.LiveCam -> true

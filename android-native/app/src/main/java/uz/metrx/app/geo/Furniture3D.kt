@@ -56,6 +56,8 @@ private const val DARK = 0x1E293B
 private const val HANDLE = 0x4B5563
 private const val WHITE = 0xE8EAEE
 private const val OPEN_DEG = 100.0
+private const val MIRROR = 0xC9D3DD
+private const val GLASS_P = 0x8FA9C4
 
 /** The faces of a box, each facing out. */
 private fun obbFaces(p: Part, x: Obb) {
@@ -86,6 +88,7 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
     val picks = ArrayList<Pick>(); val keys = ArrayList<String>()
     fs.forEach { f ->
         val colors = mapOf("carcass" to rgb(f.mats.carcass), "front" to rgb(f.mats.front), "back" to rgb(f.mats.back), "top" to rgb("wt38"),
+            "mirror" to MIRROR, "glass" to GLASS_P, "splash" to rgb("splash6"),
             "metal" to METAL, "dark" to DARK, "handle" to HANDLE, "white" to WHITE)
         val B = Builder3(ws, colors, parts, edges, picks, keys, open)
         val first = f.walls.firstOrNull { it != ISLAND }
@@ -113,6 +116,16 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
                 val low = f.modules.filter { it.wall == r.wall && !isUpper(it) && (it.type == "base" || it.type == "filler" || it.app == "dishwasher") }
                 low.forEach { m -> B.box(b, B.top, m.x, m.x + m.w, wt - K_TOP, wt, 0, 600, true) }
                 if (r.lowStart > 0 && low.isNotEmpty()) B.box(b, B.top, 0, r.lowStart, wt - K_TOP, wt, 0, 600, true)
+                // extras: the backsplash panel on the wall over the worktop, the cornice on the wall units
+                val kx = f.kx
+                if (kx != null && r.wall != ISLAND) {
+                    val a0 = if (r.lowStart > 0) 0 else low.minOfOrNull { it.x } ?: 0
+                    val a1 = low.maxOfOrNull { it.x + it.w } ?: 0
+                    if (kx.splash > 0 && a1 > a0) B.box(b, B.splash, a0, a1, wt, wt + kx.splash, 0, 6, true)
+                    if (kx.cornice) f.modules.filter { it.wall == r.wall && it.type == "wall" }.forEach { m ->
+                        B.box(b, B.front, m.x, m.x + m.w, m.elev + m.h, m.elev + m.h + 60, 0, m.d + 30, true)
+                    }
+                }
             }
         }
     }
@@ -135,6 +148,7 @@ private class Builder3(
     }
     val carcass get() = p("carcass"); val front get() = p("front"); val back get() = p("back"); val top get() = p("top")
     val metal get() = p("metal"); val dark get() = p("dark"); val handle get() = p("handle"); val white get() = p("white")
+    val splash get() = p("splash")
     val edges get() = (if (wall == ISLAND) null else wall).let { w -> edgeMap.getOrPut(w) { Edges(0, w ?: "island") } }
 
     val t = ws.t
@@ -263,20 +277,29 @@ private class Builder3(
     /** A wardrobe: sides (none at a wall), top and bottom, plinth, dividers, backs, inside, doors. */
     fun wardrobe(w: WallBasis, m: Module) {
         val x0 = m.x.toDouble(); val x1 = x0 + m.w; val d = m.d.toDouble()
+        // sliding doors take the front of the depth: the inside is shallower
+        val di = uz.metrx.app.furniture.innerD(m).toDouble()
         val z0 = if (m.legs) ws.legH.toDouble() else 0.0
         val base = wardBase(m).toDouble()
         val yb = z0 + base; val yt = z0 + m.h
         val sl = if (m.sideL) t else 0; val sr = if (m.sideR) t else 0
         if (m.sideL) box(w, carcass, x0, x0 + t, z0, yt, 0, d, true)
         if (m.sideR) box(w, carcass, x1 - t, x1, z0, yt, 0, d, true)
-        box(w, carcass, x0 + sl, x1 - sr, yb, yb + t, 0, d, true)
+        // the bottom under every section but a desk's knee space
+        if (m.sections.none { it.knee }) box(w, carcass, x0 + sl, x1 - sr, yb, yb + t, 0, d, true)
+        else { var a = x0; m.sections.forEach { s -> if (!s.knee) box(w, carcass, maxOf(a, x0 + sl), minOf(a + s.w, x1 - sr), yb, yb + t, 0, d, true); a += s.w } }
         box(w, carcass, x0 + sl, x1 - sr, yt - t, yt, 0, d, true)
         if (!m.legs) box(w, carcass, x0 + sl, x1 - sr, 0, PLINTH, d - 60, d - 44, true)
         var acc = x0
         val secs = m.sections
         secs.forEachIndexed { i, s ->
             val a0 = acc; val a1 = acc + s.w
-            if (i > 0) box(w, carcass, a0 - t / 2.0, a0 + t / 2.0, yb + t, yt - t, 0, d, true)
+            if (i > 0) {
+                // beside a knee space the divider stands on the floor like a side
+                val toFloor = s.knee || secs[i - 1].knee
+                box(w, carcass, a0 - t / 2.0, a0 + t / 2.0, if (toFloor) 0.0 else yb + t, yt - t, 0, if (toFloor) d else di, true)
+            }
+            if (s.knee) { acc = a1; return@forEachIndexed }
             val iw = wardInner(m, secs, i, t)
             val il = if (i == 0) a0 + sl else a0 + t / 2.0
             box(w, back, a0 + 2, a1 - 2, yb + 2, yt - 2, 0, 3)
@@ -284,10 +307,12 @@ private class Builder3(
             s.inserts.forEach { x ->
                 val y = floor + x.pos
                 when (x.kind) {
-                    "shelf" -> box(w, carcass, il, il + iw, y, y + t, 0, d - 20, true)
-                    "rail" -> box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, d / 2 - 12, d / 2 + 12)
-                    "lift" -> { box(w, metal, il + 20, il + iw - 20, y + 30, y + 54, d / 2 - 12, d / 2 + 12); box(w, metal, il + 5, il + 25, y + 54, y + blockH(x), d / 2 - 15, d / 2 + 15) }
-                    "drawer" -> drawer(w, "${m.id}:s$i:d${x.pos}", il + 4, iw - 8.0, y, blockH(x).toDouble(), d - 40 - t, d - 60, m.handles, carcass)
+                    "shelf" -> box(w, carcass, il, il + iw, y, y + t, 0, di - 20, true)
+                    "rail" -> box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, di / 2 - 12, di / 2 + 12)
+                    "lift" -> { box(w, metal, il + 20, il + iw - 20, y + 30, y + 54, di / 2 - 12, di / 2 + 12); box(w, metal, il + 5, il + 25, y + 54, y + blockH(x), di / 2 - 15, di / 2 + 15) }
+                    // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
+                    "drawer" -> if (s.fronts.kind == "open") drawer(w, "${m.id}:s$i:d${x.pos}", il + 4, iw - 8.0, y, blockH(x).toDouble(), di - t, di - 60, m.handles, front)
+                        else drawer(w, "${m.id}:s$i:d${x.pos}", il + 4, iw - 8.0, y, blockH(x).toDouble(), di - 40 - t, di - 60, m.handles, carcass)
                     else -> {
                         // trouser and shoe racks: a frame that pulls out
                         keys += "${m.id}:s$i:r${x.pos}"
@@ -304,13 +329,43 @@ private class Builder3(
             }
             // the section's doors over its width, from the bottom panel up
             val fs = frontSizes(s.fronts, s.w, m.h - wardBase(m), ws)
-            if (s.fronts.kind == "door") fs.forEachIndexed { j, (fh, fw) ->
+            if (s.fronts.kind == "door" && m.slide == null) fs.forEachIndexed { j, (fh, fw) ->
                 val a = a0 + edge + j * (fw + g)
                 val right = if (fs.size == 2) j == 1 else i % 2 == 1
                 door(w, "${m.id}:s$i:f$j", if (right) a + fw else a, d, yb + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, m.handles,
                     (1000 - yb).coerceIn(150.0, fh - 150.0))
             }
             acc = a1
+        }
+        m.slide?.let { sl -> slidingDoors(w, m, sl, x0 + sl0(m), yb + t, d) }
+    }
+
+    private fun sl0(m: Module) = if (m.sideL) t else 0
+
+    /**
+     * Sliding doors: [n] in two tracks at the front, each overlapping the next; a frame of profiles round its filling
+     * (board, mirror or glass). A tapped door slides over its neighbour.
+     */
+    fun slidingDoors(w: WallBasis, m: Module, sl: uz.metrx.app.furniture.Slide, ax: Double, y0: Double, d: Double) {
+        val n = sl.n.coerceIn(2, 4)
+        val (dw, dh) = uz.metrx.app.furniture.slideDoor(m, t)
+        val step = (dw - uz.metrx.app.furniture.SLIDE_OV).toDouble()
+        for (j in 0 until n) {
+            val key = "${m.id}:slide$j"
+            keys += key
+            // a door slides one step towards the middle: the last one left, the others right
+            val shift = if (key in open) (if (j == n - 1) -step else step) else 0.0
+            val a = ax + j * step + shift
+            val n0 = d - 95 + (j % 2) * 45; val n1 = n0 + 22
+            val y = y0 + uz.metrx.app.furniture.SLIDE_CLEAR / 2.0
+            val fill = when (sl.panel(j)) { "mirror" -> p("mirror"); "glass" -> p("glass"); else -> front }
+            val fw = uz.metrx.app.furniture.SLIDE_FRAME_W.toDouble(); val fh = uz.metrx.app.furniture.SLIDE_FRAME_H / 2.0
+            box(w, fill, a + fw, a + dw - fw, y + fh, y + dh - fh, n0 + 6, n1 - 6, true)
+            // the frame: two uprights, the top and the bottom
+            box(w, metal, a, a + fw, y, y + dh, n0, n1, true); box(w, metal, a + dw - fw, a + dw, y, y + dh, n0, n1, true)
+            box(w, metal, a + fw, a + dw - fw, y, y + fh, n0, n1, true); box(w, metal, a + fw, a + dw - fw, y + dh - fh, y + dh, n0, n1, true)
+            val o = w.at(a / 1000, y / 1000, n0 / 1000)
+            picks += Pick(key, Obb(o, w.dir(dw / 1000.0, 0.0), V3(0.0, dh / 1000.0, 0.0), w.dir(0.0, (n1 - n0) / 1000.0)))
         }
     }
 }

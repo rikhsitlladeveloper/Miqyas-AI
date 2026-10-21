@@ -201,7 +201,12 @@ object EdgeFinder {
                 }
             }
         }
-        return PhotoEdges(segs, corners, rect)
+        // the rectangle's corners can be snapped to too, also where a side stops short of one (a table's far leg, a shadow)
+        val all4 = corners.toMutableList()
+        rect?.let { r -> r.pts.forEachIndexed { m, (x, y) ->
+            if (all4.none { hypot(it.x - x, it.y - y) < tolC / 2 }) all4 += ECorner(x, y, r.segs[(m + 3) % 4], r.segs[m])
+        } }
+        return PhotoEdges(segs, all4, rect)
     }
 
     /** The grey value of an ARGB pixel. */

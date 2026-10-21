@@ -104,12 +104,15 @@ func template(_ kind: String, _ ws: Workshop, _ wall: String, _ w: Int? = nil) -
     case "fillerLow": return plain("filler", w ?? 50, K_BASE_H, 20, low, Fronts("open", 0))
     case "fillerUp": return plain("filler", w ?? 50, K_WALL_H, 20, up, Fronts("open", 0))
     case "spaceUp": return plain("gap", w ?? 600, K_WALL_H, K_WALL_D, up, Fronts("open", 0))
+    // an empty stretch of the lower row: no boards, no worktop, not in the running metres
+    case "spaceLow": return plain("gap", w ?? 600, K_BASE_H, K_BASE_D, low, Fronts("open", 0), "space")
     default: let x = w ?? 600; return base(x, doors(x), [Insert("shelf", qty: 1)])
     }
 }
 
 /// The library kind a module was made from, for its name.
 func kindOf(_ m: Module) -> String {
+    if m.app == "space" { return "spaceLow" }
     if !m.app.isEmpty { return m.app }
     if m.type == "base" && m.fronts.kind == "drawer" { return "drawers" }
     if m.type == "wall" && m.fronts.kind == "open" { return "open" }

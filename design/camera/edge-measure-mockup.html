@@ -64,6 +64,19 @@ h2{font-size:15px;margin:0 0 8px;letter-spacing:.01em}
 .hint{flex:0 0 auto;margin:10px 16px 0;min-height:20px;font:500 13.5px var(--ui);color:var(--app-ink2);display:flex;gap:8px;align-items:center}
 .hint i{width:8px;height:8px;border-radius:50%;background:#C9D1DE;flex:0 0 auto}
 .hint.on i{background:var(--app-cobalt)}
+.laser{flex:0 0 auto;display:flex;align-items:center;gap:10px;margin:8px 12px 0;padding:8px 8px 8px 12px;border-radius:18px;background:rgba(255,255,255,.7);border:1px solid rgba(255,255,255,.85)}
+.laser .st{flex:1;min-width:0;font:600 13px/1.3 var(--ui);color:var(--app-ink)}
+.laser .st small{display:block;font:500 12px var(--ui);color:var(--app-ink2)}
+.laser .led{width:10px;height:10px;border-radius:50%;background:#16A34A;flex:0 0 auto;box-shadow:0 0 0 3px rgba(22,163,74,.18)}
+.laser.off .led{background:#C9D1DE;box-shadow:none}
+.laser .shoot{height:44px;padding:0 14px;border-radius:14px;border:0;background:var(--app-cobalt);color:#fff;font:700 13.5px var(--ui);cursor:pointer;white-space:nowrap}
+.laser .shoot:disabled{opacity:.4;cursor:default}
+.laser .tog{height:44px;padding:0 10px;border-radius:14px;border:1px solid rgba(15,23,42,.12);background:transparent;font:600 12px var(--ui);color:var(--app-ink2);cursor:pointer}
+.toast .act{margin-left:auto;height:36px;padding:0 12px;border-radius:12px;border:0;background:rgba(255,255,255,.14);color:#fff;font:700 13px var(--ui);cursor:pointer}
+.names{display:flex;flex-wrap:wrap;gap:6px}
+.names button{height:36px;padding:0 12px;border-radius:999px;border:1px solid rgba(15,23,42,.14);background:rgba(15,23,42,.04);font:600 13px var(--ui);color:var(--app-ink);cursor:pointer}
+.names button[aria-pressed="true"]{background:var(--app-cobalt);border-color:var(--app-cobalt);color:#fff}
+.nameIn{height:44px;border-radius:12px;border:1px solid rgba(15,23,42,.16);padding:0 12px;font:500 15px var(--ui);color:var(--app-ink);background:#fff}
 .tools{flex:0 0 auto;display:flex;gap:6px;margin:10px 12px 14px;padding:6px;border-radius:24px;background:rgba(255,255,255,.62);border:1px solid rgba(255,255,255,.8);box-shadow:0 10px 24px rgba(30,40,110,.08)}
 .tool{flex:1;min-width:0;height:54px;border:0;border-radius:18px;background:transparent;color:var(--app-ink3);font:600 11px var(--ui);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:not-allowed}
 .tool.on{background:var(--app-cobalt);color:#fff;cursor:default}
@@ -117,6 +130,12 @@ h2{font-size:15px;margin:0 0 8px;letter-spacing:.01em}
         <div class="busy" id="busy" hidden>Qirralar qidirilmoqda…</div>
       </div>
       <div class="hint" id="hint"><i></i><span id="hintT">Chiziqni qirradan qirraga torting</span></div>
+      <div class="laser" id="laserBar">
+        <span class="led" aria-hidden="true"></span>
+        <div class="st" id="laserSt">Lazer ulangan<small id="laserSub">A tanlangan — lazer tugmasini bosing</small></div>
+        <button class="tog" id="laserTog" title="Namuna: lazerni ulash yoki uzish">Uzish</button>
+        <button class="shoot" id="shoot" title="Namuna: lazerdagi o‘lchash tugmasi">Lazer tugmasi</button>
+      </div>
       <div class="tools" role="toolbar" aria-label="Asboblar">
         <button class="tool on" aria-pressed="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 17L17 4M3 13l8 8M13 3l8 8"/></svg>O‘lcham</button>
         <button class="tool" aria-disabled="true" title="Bu maketda faqat O‘lcham"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19L19 5M10 5h9v9"/></svg>Strelka</button>
@@ -124,11 +143,16 @@ h2{font-size:15px;margin:0 0 8px;letter-spacing:.01em}
         <button class="tool" aria-disabled="true" title="Bu maketda faqat O‘lcham"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20l4-1 11-11-3-3L5 16z"/></svg>Qalam</button>
         <button class="tool" aria-disabled="true" title="Bu maketda faqat O‘lcham"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 20h12M5 14l7-9 7 7-6 8H9z"/></svg>O‘chirgich</button>
       </div>
-      <div class="toast" id="toast" hidden role="status"><span class="dot"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg></span><span id="toastT"></span></div>
+      <div class="toast" id="toast" hidden role="status"><span class="dot"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 8v5M12 16.5v.5"/><circle cx="12" cy="12" r="9"/></svg></span><span id="toastT"></span><button class="act" id="toastAct" hidden>Bekor qilish</button></div>
       <div class="scrim" id="scrim" hidden>
         <div class="sheet" role="dialog" aria-labelledby="shT">
           <div class="grab"></div>
           <div class="sh-h"><b id="shT">O‘lcham A</b><button class="ib" id="shX" aria-label="Yopish" style="box-shadow:none;background:transparent;border:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+          <div class="lbl">Nomi <span>ixtiyoriy</span></div>
+          <div class="names" id="names" role="group" aria-label="Nomi">
+            <button>Eni</button><button>Bo‘yi</button><button>Chuqurligi</button><button>Balandligi</button>
+          </div>
+          <input class="nameIn" id="nameIn" placeholder="Yoki o‘zingiz yozing" aria-label="Chiziq nomi" maxlength="24">
           <div class="lbl">Uzunlik <span>m</span></div>
           <div class="field" id="fieldBox"><input id="dimVal" inputmode="decimal" autocomplete="off" placeholder="0,00" aria-label="Uzunlik, metr"><em>m</em></div>
           <div class="err" id="dimErr" hidden>Uzunlikni metrda kiriting, masalan 1,20</div>
@@ -161,7 +185,9 @@ h2{font-size:15px;margin:0 0 8px;letter-spacing:.01em}
       <ol>
         <li>Drag from one corner of the table to the next. The end jumps onto the corner, and a loupe above your finger shows exactly where.</li>
         <li>Start on an edge and slide along it: both ends on one edge lock the line to that edge.</li>
-        <li>Tap <b>Tomonlarini ishlatish</b> to get the length and width as lines A and B, then tap each <b>?</b> to measure it.</li>
+        <li>Tap <b>Tomonlarini ishlatish</b> to get lines A and B. A is selected: press <b>Lazer tugmasi</b> (it stands in for the button on the real laser). The reading lands on A, then B is selected; press it again.</li>
+        <li>Tap a line or its tag to select it. Tap the selected tag again to type a value or give the line a name.</li>
+        <li>Press <b>Uzish</b> to see the editor without a laser: a new line opens the sheet for typing, as today.</li>
         <li>Pinch, or scroll the mouse wheel, to zoom up to 4×. Drag either end of a line to correct it.</li>
         <li>Switch off <b>Qirralar</b> to draw freely on a messy photo. The plain white wall shows what happens when no edges are found.</li>
       </ol>
@@ -172,9 +198,11 @@ h2{font-size:15px;margin:0 0 8px;letter-spacing:.01em}
         <li><b>Edge look:</b> faint white lines with a thin dark shadow, so they read on light and dark photos; the edge you snap to turns blue.</li>
         <li><b>Snap distance:</b> about 6 mm from the finger for corners, 4 mm for edges.</li>
         <li><b>Loupe:</b> above the finger, moving below it near the top of the photo.</li>
-        <li><b>Letters on the value pills</b> (A, B, C). Today pills show only the value.</li>
-        <li><b>A new line opens the value sheet</b> straight away, as it does today. Lines from the rectangle offer don't, so you can measure them in any order.</li>
-        <li>The laser button gives a sample value here, as the app does until the real meter is connected.</li>
+        <li><b>Laser readings go straight onto the selected line</b>, with a toast and Undo, and the next line without a value is selected (as in the Reekon video). No sheet to confirm.</li>
+        <li><b>Tags:</b> a solid tag in the line's colour with a big white number, the letter and the name under it; lines still waiting are amber with “?”. The selected line has a white ring.</li>
+        <li><b>Names are optional:</b> Eni, Bo‘yi, Chuqurligi, Balandligi or your own; shown on the tag and in the PDF.</li>
+        <li>With the laser connected a new line is selected for measuring; without it the sheet opens for typing.</li>
+        <li>The laser here gives sample values, as the app does until the real meter is connected.</li>
       </ul>
     </div>
   </div>
@@ -194,6 +222,7 @@ let z=1, pan={x:0,y:0}, sw=0, sh=0, base=1;
 let drag=null;                    // {kind:'new'|'end', line, end, start}
 const pointers=new Map(); let pinch=null;
 let pillRects=[]; let dirty=true; let editing=null; let toastTimer=0;
+let sel=null, laserOn=true, toastUndo=null;
 
 /* ---------- seeded noise for the drawn samples ---------- */
 function rng(seed){let s=seed>>>0;return()=>{s=(s+0x6D2B79F5)>>>0;let t=s;t=Math.imul(t^t>>>15,t|1);t^=t+Math.imul(t^t>>>7,t|61);return((t^t>>>14)>>>0)/4294967296}}
@@ -361,15 +390,24 @@ function render(){
 }
 function drawLine(c,l,letter,live){
   const a=toS(l.a),b=toS(l.b),dx=b.x-a.x,dy=b.y-a.y,len=Math.hypot(dx,dy)||1,nx=-dy/len*9,ny=dx/len*9;
+  const on=sel===l.id, RED="#D92D20", NUM=getComputedStyle(document.documentElement).getPropertyValue("--num"), UI=getComputedStyle(document.documentElement).getPropertyValue("--ui");
   c.lineCap="round";
   const path=()=>{c.beginPath();c.moveTo(a.x,a.y);c.lineTo(b.x,b.y);[a,b].forEach(p=>{c.moveTo(p.x-nx,p.y-ny);c.lineTo(p.x+nx,p.y+ny)})};
-  path();c.strokeStyle="rgba(255,255,255,.85)";c.lineWidth=6.5;c.stroke();path();c.strokeStyle="#D92D20";c.lineWidth=3.5;c.stroke();
+  path();c.strokeStyle="rgba(255,255,255,.9)";c.lineWidth=on?10:6.5;c.stroke();path();c.strokeStyle=RED;c.lineWidth=on?5:3.5;c.stroke();
   if(live&&len<30)return;
-  const has=l.v!=null,txt=has?fmt(l.v):"?";c.font="600 15px "+getComputedStyle(document.documentElement).getPropertyValue("--num");
-  const lw=c.measureText(letter).width,tw=c.measureText(txt).width,pw=lw+tw+28,ph=28,mx=(a.x+b.x)/2,my=(a.y+b.y)/2,r={x:mx-pw/2,y:my-ph/2,w:pw,h:ph};
-  c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,14);c.fillStyle=has?"#fff":"#FFF1DF";c.fill();c.lineWidth=1.5;c.strokeStyle=has?"#D92D20":"#9A4D00";if(!has)c.setLineDash([5,4]);c.stroke();c.setLineDash([]);
-  c.textBaseline="middle";c.fillStyle="#D92D20";c.font="700 15px "+getComputedStyle(document.documentElement).getPropertyValue("--num");c.fillText(letter,r.x+11,my+1);
-  c.font="600 15px "+getComputedStyle(document.documentElement).getPropertyValue("--num");c.fillStyle=has?"#0E1C36":"#9A4D00";c.fillText(txt,r.x+17+lw,my+1);
+  // the tag: a big number in a solid tag of the line's colour, the letter and the name under it; amber with "?" while waiting
+  const has=l.v!=null, big=has?fmt(l.v):"?", sub=letter+(l.name?" · "+l.name:"");
+  c.font="700 20px "+NUM; const bw=c.measureText(big).width+(has?c.measureText(" m").width*0:0);
+  c.font="600 11px "+UI; const sw2=c.measureText(sub).width;
+  const pw=Math.max(bw+(has?18:0),sw2)+20, ph=44, mx=(a.x+b.x)/2, my=(a.y+b.y)/2, r={x:mx-pw/2,y:my-ph/2,w:pw,h:ph};
+  if(on){c.beginPath();c.roundRect(r.x-4,r.y-4,r.w+8,r.h+8,12);c.fillStyle="#fff";c.fill();c.lineWidth=2;c.strokeStyle="#3550E0";c.stroke()}
+  c.beginPath();c.roundRect(r.x,r.y,r.w,r.h,9);c.fillStyle=has?RED:"#FFF1DF";c.fill();
+  if(!has){c.lineWidth=1.5;c.strokeStyle="#9A4D00";c.setLineDash([5,4]);c.stroke();c.setLineDash([])}
+  c.textBaseline="alphabetic";c.textAlign="center";
+  c.fillStyle=has?"#fff":"#9A4D00";c.font="700 20px "+NUM;c.fillText(big,mx-(has?6:0),r.y+24);
+  if(has){c.font="600 12px "+NUM;c.fillText("m",mx+bw/2+4,r.y+24)}
+  c.font="600 11px "+UI;c.fillStyle=has?"rgba(255,255,255,.88)":"#9A4D00";c.fillText(sub,mx,r.y+38);
+  c.textAlign="start";
   pillRects.push({r,line:l})
 }
 function drawLoupe(p){
@@ -392,9 +430,21 @@ function sync(){$("undo").disabled=!undoS.length;$("redo").disabled=!redoS.lengt
   const done=lines.filter(l=>l.v!=null).length;$("sub").textContent=lines.length?`Kamera · ${lines.length} ta chiziq, ${done} tasi o‘lchangan`:"Kamera · o‘lchamsiz";
   $("offer").hidden=!(offerOpen&&edgesOn&&det.rect);dirty=true;setHint()}
 function setHint(text,on){const h=$("hint");if(text===undefined){
-  text=!edgesOn?"Qirralar o‘chiq: chiziqni erkin torting":lines.some(l=>l.v==null)?"Qiymat kiritish uchun «?» ni bosing":"Chiziqni qirradan qirraga torting";on=false}
-  $("hintT").textContent=text;h.classList.toggle("on",!!on)}
-function toast(t){$("toastT").textContent=t;$("toast").hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$("toast").hidden=true,3400)}
+  text=!edgesOn?"Qirralar o‘chiq: chiziqni erkin torting":sel&&laserOn?"Lazer tugmasini bosing — qiymat tanlangan chiziqqa tushadi":lines.some(l=>l.v==null)?"Chiziqni tanlang yoki «?» ni bosib yozing":"Chiziqni qirradan qirraga torting";on=false}
+  $("hintT").textContent=text;h.classList.toggle("on",!!on);laserBar()}
+const letterOf=l=>String.fromCharCode(65+lines.indexOf(l));
+function laserBar(){
+  const l=lines.find(x=>x.id===sel);
+  $("laserBar").classList.toggle("off",!laserOn);$("laserTog").textContent=laserOn?"Uzish":"Ulash";
+  $("laserSt").firstChild.textContent=laserOn?"Lazer ulangan":"Lazer ulanmagan";
+  $("laserSub").textContent=!laserOn?"Chiziq qo‘shsangiz, qiymatni yozasiz":l?`${letterOf(l)}${l.name?" ("+l.name+")":""} tanlangan — lazer tugmasini bosing`:lines.length?"Chiziqni bosib tanlang":"Avval chiziq torting";
+  $("shoot").disabled=!laserOn||!l}
+/** The next line after l without a value, in order (wrapping round), or null. */
+function nextOpen(l){const i=lines.indexOf(l);for(let k=1;k<=lines.length;k++){const m=lines[(i+k)%lines.length];if(m.v==null&&m!==l)return m}return null}
+function toast(t,undo){$("toastT").textContent=t;$("toast").hidden=false;toastUndo=undo||null;$("toastAct").hidden=!undo;clearTimeout(toastTimer);toastTimer=setTimeout(()=>{$("toast").hidden=true;toastUndo=null},undo?5200:3400)}
+$("toastAct").onclick=()=>{const u=toastUndo;$("toast").hidden=true;toastUndo=null;if(u)u()};
+function hitLine(sp){let best=null,bd=16;lines.forEach(l=>{const a=toS(l.a),b=toS(l.b),dx=b.x-a.x,dy=b.y-a.y,l2=dx*dx+dy*dy||1;
+  const t=Math.max(0,Math.min(1,((sp.x-a.x)*dx+(sp.y-a.y)*dy)/l2)),d=Math.hypot(sp.x-a.x-t*dx,sp.y-a.y-t*dy);if(d<bd){bd=d;best=l}});return best}
 
 /* ---------- gestures ---------- */
 function local(e){const r=stage.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}}
@@ -412,13 +462,14 @@ stage.addEventListener("pointerdown",e=>{
   const end=hitEnd(sp);
   if(end){drag={kind:"end",line:end.line,end:end.end,start:sp,prev:clone(),pt:null};return}
   const ip=toI(sp.x,sp.y);if(ip.x<0||ip.y<0||ip.x>W||ip.y>H)return;   // lines start on the photo
+  const ln=hitLine(sp);if(ln){drag={kind:"tapLine",line:ln,start:sp};return}
   drag={kind:"new",start:sp,line:null,prev:clone(),end:"b"}
 });
 stage.addEventListener("pointermove",e=>{
   if(!pointers.has(e.pointerId))return;const sp=local(e);pointers.set(e.pointerId,sp);
   if(pinch&&pointers.size===2){const [p1,p2]=[...pointers.values()],d=Math.hypot(p1.x-p2.x,p1.y-p2.y);zoomAt(pinch.z0*d/pinch.d,(p1.x+p2.x)/2,(p1.y+p2.y)/2);return}
   if(!drag)return;
-  if(drag.kind==="pill"){if(Math.hypot(sp.x-drag.start.x,sp.y-drag.start.y)>8)drag=null;return}
+  if(drag.kind==="pill"||drag.kind==="tapLine"){if(Math.hypot(sp.x-drag.start.x,sp.y-drag.start.y)>8){if(drag.kind==="tapLine"){drag={kind:"new",start:drag.start,line:null,prev:clone(),end:"b"}}else{drag=null;return}}else return}
   if(drag.kind==="new"&&!drag.line){if(Math.hypot(sp.x-drag.start.x,sp.y-drag.start.y)<6)return;
     const a=snap(toI(drag.start.x,drag.start.y));drag.line={id:Math.random().toString(36).slice(2),a:{x:a.x,y:a.y,snap:a.snap},b:{x:a.x,y:a.y,snap:null},v:null,src:null};lines.push(drag.line);
     if(offerOpen){offerOpen=false}}
@@ -430,11 +481,12 @@ function endPointer(e){
   if(!pointers.has(e.pointerId))return;pointers.delete(e.pointerId);
   if(pinch){if(pointers.size<2)pinch=null;return}
   if(!drag)return;const d=drag;drag=null;loupe.hidden=true;
-  if(d.kind==="pill"){openSheet(d.line);return}
+  if(d.kind==="pill"){if(sel===d.line.id||!laserOn)openSheet(d.line);else{sel=d.line.id;sync()}return}
+  if(d.kind==="tapLine"){sel=d.line.id;sync();return}
   if(!d.line){setHint();return}
   const a=toS(d.line.a),b=toS(d.line.b);
   if(Math.hypot(a.x-b.x,a.y-b.y)<18){if(d.kind==="new")lines.splice(lines.indexOf(d.line),1);else lines=d.prev;sync();return}
-  commit(d.prev);if(d.kind==="new")openSheet(d.line)
+  commit(d.prev);if(d.kind==="new"){sel=d.line.id;if(!laserOn)openSheet(d.line);else sync()}
 }
 stage.addEventListener("pointerup",endPointer);stage.addEventListener("pointercancel",endPointer);
 stage.addEventListener("wheel",e=>{e.preventDefault();const sp=local(e);zoomAt(z*Math.exp(-e.deltaY*.0015),sp.x,sp.y)},{passive:false});
@@ -446,24 +498,33 @@ $("offerX").onclick=()=>{offerOpen=false;sync()};
 $("offerGo").onclick=()=>{const r=det.rect;if(!r)return;const prev=clone(),p=r.pts,s=r.segs;
   // the two sides meeting at the corner nearest the photo's bottom left: length along the front, width along the side
   const mk=(i,j,seg)=>({id:Math.random().toString(36).slice(2),a:{x:p[i].x,y:p[i].y,snap:{kind:"edge",seg}},b:{x:p[j].x,y:p[j].y,snap:{kind:"edge",seg}},v:null,src:null});
-  lines.push(mk(0,1,s[0]),mk(1,2,s[1]));offerOpen=false;commit(prev);toast("A va B chiziqlar qo‘shildi. Har birini o‘lchang")};
+  const A=mk(0,1,s[0]),B=mk(1,2,s[1]);lines.push(A,B);offerOpen=false;sel=A.id;commit(prev);toast(laserOn?"A va B qo‘shildi. A tanlangan — lazer tugmasini bosing":"A va B chiziqlar qo‘shildi. Har birini o‘lchang")};
+// the laser's measure button (simulated): the reading lands on the selected line, then the next open line is selected
+$("shoot").onclick=()=>{const l=lines.find(x=>x.id===sel);if(!l||!laserOn)return;const prev=clone(),prevSel=sel;
+  l.v=600+Math.floor(Math.random()*2600);l.src="laser";const nx=nextOpen(l);sel=nx?nx.id:null;commit(prev);
+  toast(`${letterOf(l)} ${fmt(l.v)} m`+(nx?` · keyingisi ${letterOf(nx)}`:" · hammasi o‘lchandi"),()=>{lines=prev;sel=prevSel;undoS.pop();sync()})};
+$("laserTog").onclick=()=>{laserOn=!laserOn;sync()};
 $("back").onclick=()=>toast("Maket: orqaga qaytish ilovada ishlaydi");
 
 /* ---------- value sheet ---------- */
-function openSheet(l){editing=l;$("shT").textContent="O‘lcham "+String.fromCharCode(65+lines.indexOf(l));
+function nameChips(){[...$("names").children].forEach(b=>b.setAttribute("aria-pressed",String(b.textContent===$("nameIn").value.trim())))}
+[...$("names").children].forEach(b=>b.onclick=()=>{$("nameIn").value=$("nameIn").value.trim()===b.textContent?"":b.textContent;nameChips()});
+$("nameIn").addEventListener("input",nameChips);
+function openSheet(l){editing=l;$("shT").textContent="O‘lcham "+letterOf(l);$("nameIn").value=l.name||"";nameChips();
   $("dimVal").value=l.v!=null?fmt(l.v):"";$("dimErr").hidden=true;$("fieldBox").classList.remove("bad");$("scrim").hidden=false;setTimeout(()=>$("dimVal").focus(),60)}
 function closeSheet(){$("scrim").hidden=true;editing=null;sync()}
 $("shX").onclick=closeSheet;$("scrim").addEventListener("pointerdown",e=>{if(e.target===$("scrim"))closeSheet()});
 $("laser").onclick=()=>{const mm=600+Math.floor(Math.random()*2600);$("dimVal").value=fmt(mm);$("dimVal").dataset.laser=$("dimVal").value};
 $("save").onclick=()=>{const raw=$("dimVal").value.trim().replace(/\s/g,"").replace(",","."),v=Number(raw);
   if(!raw||!isFinite(v)||v<=0||v>=50){$("dimErr").hidden=false;$("fieldBox").classList.add("bad");return}
-  const prev=clone();editing.v=Math.round(v*1000);editing.src=$("dimVal").dataset.laser===$("dimVal").value?"laser":"manual";commit(prev);closeSheet()};
+  const prev=clone();editing.v=Math.round(v*1000);editing.src=$("dimVal").dataset.laser===$("dimVal").value?"laser":"manual";editing.name=$("nameIn").value.trim()||null;
+  const nx=nextOpen(editing);sel=nx?nx.id:null;commit(prev);closeSheet()};
 $("dimVal").addEventListener("keydown",e=>{if(e.key==="Enter")$("save").click();if(e.key==="Escape")closeSheet()});
 $("delLine").onclick=()=>{const prev=clone();lines.splice(lines.indexOf(editing),1);commit(prev);closeSheet();toast("Chiziq o‘chirildi")};
 
 /* ---------- loading a photo ---------- */
 function load(drawFn,label){
-  $("busy").hidden=false;lines=[];undoS=[];redoS=[];z=1;pan={x:0,y:0};zoomLabel();
+  $("busy").hidden=false;lines=[];undoS=[];redoS=[];sel=null;z=1;pan={x:0,y:0};zoomLabel();
   setTimeout(()=>{drawFn();layout();det=detect();offerOpen=!!det.rect;$("busy").hidden=true;
     $("stats").textContent=`${label}: ${det.segs.length} edges, ${det.corners.length} corners, ${det.rect?"a rectangle":"no rectangle"} · ${Math.round(det.ms)} ms on this device`;
     if(!det.segs.length&&edgesOn)toast("Qirralar topilmadi — chiziqni o‘zingiz torting");sync()},30)

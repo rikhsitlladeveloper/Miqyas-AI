@@ -15,11 +15,9 @@ fun matFor(role: String, m: FMats) = when (role) { "front" -> m.front; "back" ->
 fun cutList(fs: List<Furniture>, ws: Workshop): List<CutRow> {
     val rows = LinkedHashMap<Pair<String, FPart>, Int>()
     fs.forEach { f ->
-        f.modules.forEach { m ->
-            partsOf(m, ws).forEach { p ->
-                val k = matFor(p.role, f.mats) to p.copy(mod = "", qty = 0)
-                rows[k] = (rows[k] ?: 0) + p.qty
-            }
+        (f.modules.flatMap { m -> partsOf(m, ws) } + extrasParts(f, ws)).forEach { p ->
+            val k = matFor(p.role, f.mats) to p.copy(mod = "", qty = 0)
+            rows[k] = (rows[k] ?: 0) + p.qty
         }
     }
     return rows.map { (k, n) ->

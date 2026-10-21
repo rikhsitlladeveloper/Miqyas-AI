@@ -222,9 +222,24 @@ private fun StepCard(pid: String, r: Room, f: RoomOps.Focus) {
                     }
                     AllPill()
                 }
+                // a furniture order's room is ready: the next step is its kitchen or wardrobe, for this room
+                val pr = app.store.get(pid)
+                val addFurn = pr?.isFurniture == true && pr.furniture.none { it.roomId == r.id || it.ws == r.floorId }
+                // measured for a room-less piece: it goes in now
+                val waiting = app.placeAfter?.takeIf { it.first == r.id }?.let { pa -> pr?.furniture?.firstOrNull { it.id == pa.second && it.roomId == null } }
+                if (pr != null && waiting != null) {
+                    uz.metrx.app.ui.components.GBtn(tr("fz.placeN", "n" to uz.metrx.app.data.dn(waiting.name, app.settings.lang)), {
+                        app.placeAfter = null; app.replaceTop(Route.FPlace(pid, waiting.id, r.id))
+                    }, icon = if (waiting.kind == "kitchen") "kitchen" else "board", height = 50.dp, fontSize = 15.5f)
+                } else if (pr != null && addFurn) {
+                    val kind = uz.metrx.app.ui.furniture.roomKind(pr.floors.firstOrNull { it.id == r.floorId })
+                    uz.metrx.app.ui.components.GBtn(tr(if (kind == "kitchen") "fo.addK" else "fo.addW"), { app.sheet = Sheet.NewFurniture(pid, r.floorId, r.id, kind) },
+                        icon = if (kind == "kitchen") "kitchen" else "board", height = 50.dp, fontSize = 15.5f)
+                }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     CardBtn(tr("ed.tb.walls"), "walls", false, Modifier.weight(1f)) { app.push(Route.WallView(pid, r.id, walls(r, app.settings.angleSnap).first().id)) }
-                    CardBtn(tr("gs.3d"), "cube", true, Modifier.weight(1f)) { ops.mode(pid, r.id, "3d") }
+                    // with the furniture button above, 3D steps back so there is one main button
+                    CardBtn(tr("gs.3d"), "cube", !addFurn, Modifier.weight(1f)) { ops.mode(pid, r.id, "3d") }
                 }
                 return@Column
             }

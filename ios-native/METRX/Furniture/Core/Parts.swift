@@ -116,21 +116,43 @@ func partsOf(_ m: Module, _ ws: Workshop) -> [FPart] {
         let sides = (m.sideL ? 1 : 0) + (m.sideR ? 1 : 0)
         let inW = m.w - sides * t
         if sides > 0 { out.append(part("fp.side", id, "carcass", m.h, m.d, sides, THICK)) }
-        out.append(part("fp.top", id, "carcass", inW, m.d, 2, THICK))
-        if secs.count > 1 { out.append(part("fp.divider", id, "carcass", m.h - base - 2 * t, m.d, secs.count - 1, THICK)) }
+        let dIn = innerD(m)
+        if !secs.contains(where: \.knee) {
+            out.append(part("fp.top", id, "carcass", inW, m.d, 2, THICK))
+            if secs.count > 1 { out.append(part("fp.divider", id, "carcass", m.h - base - 2 * t, dIn, secs.count - 1, THICK)) }
+        } else {
+            // a desk: the top over everything, a bottom under each section but the knee space; a divider beside the knee
+            // space goes down to the floor like a side
+            out.append(part("fp.top", id, "carcass", inW, m.d, 1, THICK))
+            for (i, s) in secs.enumerated() where !s.knee { out.append(part("fp.bottom", id, "carcass", wardInner(m, secs, i, t), m.d, 1, THICK)) }
+            for i in 1..<max(1, secs.count) {
+                let toFloor = secs[i].knee || secs[i - 1].knee
+                out.append(part("fp.divider", id, "carcass", toFloor ? m.h - t : m.h - base - 2 * t, toFloor ? m.d : dIn, 1, THICK))
+            }
+        }
         if !m.legs { out.append(part("fp.plinth", id, "carcass", inW, PLINTH, 1, THICK)) }
         for (i, s) in secs.enumerated() {
             let iw = wardInner(m, secs, i, t)
             let sid = "\(id)/\(i + 1)"
+            if s.knee { continue }
             out.append(backPanel(sid, s.w, m.h - base, ws))
             let n = s.inserts.filter { $0.kind == "shelf" }.reduce(0) { $0 + $1.qty }
-            if n > 0 { out.append(part("fp.shelf", sid, "carcass", iw - 2, m.d - 20, n, THICK)) }
+            if n > 0 { out.append(part("fp.shelf", sid, "carcass", iw - 2, dIn - 20, n, THICK)) }
             for dr in s.inserts where dr.kind == "drawer" {
                 let fh = dr.h > 0 ? dr.h : 200
-                out.append(part("fp.dFace", sid, "carcass", iw - 4, fh, 1, ALL, ALL))
-                out += drawerBox(sid, iw, m.d, fh, t)
+                // behind doors a drawer's face is carcass board; in an open section it is seen, so front board
+                let open = s.fronts.kind == "open"
+                out.append(part("fp.dFace", sid, open ? "front" : "carcass", iw - 4, fh, 1, ALL, ALL, grain: open))
+                out += drawerBox(sid, iw, dIn, fh, t)
             }
-            out += fronts(sid, s.fronts, s.w, m.h - base, ws)
+            // sliding doors close the whole front; the sections have none of their own
+            if m.slide == nil { out += fronts(sid, s.fronts, s.w, m.h - base, ws) }
+        }
+        // the board fillings of the sliding doors (mirror and glass are bought by the m², in the hardware list)
+        if let sl = m.slide {
+            let (pw, ph) = slidePanel(m, t)
+            let boards = (0..<min(4, max(2, sl.n))).filter { sl.panel($0) == "ldsp" }.count
+            if boards > 0 { out.append(part("fp.slidePanel", id, "front", ph, pw, boards, grain: true)) }
         }
     case "base":
         out.append(part("fp.bottom", id, "carcass", m.w, m.d, 1, THICK))

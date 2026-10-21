@@ -82,6 +82,37 @@ func nextPos(_ kind: String, _ s: Section, _ ih: Int, _ t: Int) -> Int {
     return min(max(pos, 0), max(0, ih - max(blockH(Insert(kind)), t)))
 }
 
+/* ---------------- sliding doors (plan 1b-2) ---------------- */
+
+/// How far one sliding door overlaps the next, mm.
+let SLIDE_OV = 30
+/// The depth the two tracks take in front of the shelves, mm: shelves, dividers and drawers are this much shallower.
+let SLIDE_D = 100
+/// The profile frame round a door's filling: each side, and top plus bottom together, mm.
+let SLIDE_FRAME_W = 20
+let SLIDE_FRAME_H = 70
+/// Room for the rollers and the top track: a door is this much lower than the opening, mm.
+let SLIDE_CLEAR = 40
+
+/// Doors for a front w wide: 2 up to 1600, 3 up to 2600, then 4.
+func slideDoorsFor(_ w: Int) -> Int { w <= 1600 ? 2 : w <= 2600 ? 3 : 4 }
+
+/// The opening the doors close: between the sides (or the walls) and between the bottom and top panels.
+func slideOpening(_ m: Module, _ t: Int) -> (Int, Int) { (m.w - (m.sideL ? t : 0) - (m.sideR ? t : 0), m.h - wardBase(m) - 2 * t) }
+
+/// One sliding door, width × height: the opening shared out with the overlaps, less the clearance.
+func slideDoor(_ m: Module, _ t: Int) -> (Int, Int) {
+    let n = min(4, max(2, m.slide?.n ?? 2))
+    let (ow, oh) = slideOpening(m, t)
+    return ((ow + (n - 1) * SLIDE_OV) / n, oh - SLIDE_CLEAR)
+}
+
+/// A door's filling inside its frame, width × height.
+func slidePanel(_ m: Module, _ t: Int) -> (Int, Int) { let (w, h) = slideDoor(m, t); return (w - 2 * SLIDE_FRAME_W, h - SLIDE_FRAME_H) }
+
+/// How deep a sliding wardrobe's shelves, dividers and drawers are.
+func innerD(_ m: Module) -> Int { m.slide != nil ? m.d - SLIDE_D : m.d }
+
 /// A new wardrobe w × h on wall at x: built in (no sides at the walls) or free-standing, on a plinth.
 func wardrobeTemplate(_ ws: Workshop, _ wall: String, _ x: Int, _ w: Int, _ h: Int, builtIn: Bool, d: Int = W_DEPTH) -> Module {
     let n = sectionsFor(w)
@@ -121,11 +152,18 @@ func wardrobeChecks(_ m: Module, _ wallL: Int?, _ roomH: Int?, _ ws: Workshop, _
         }
     }
     let ih = wardInnerH(m, t)
+    // sliding doors: a door wider than 1100 or narrower than 500 runs badly
+    if let sl = m.slide {
+        let (dw, _) = slideDoor(m, t)
+        if dw > 1100 { out.append(FCheck(level: "warn", key: "wc.slideWide", vars: ["v": dw, "n": sl.n], mid: m.id)) }
+        if dw < 500 { out.append(FCheck(level: "warn", key: "wc.slideNarrow", vars: ["v": dw, "n": sl.n], mid: m.id)) }
+        if m.d < 450 + SLIDE_D { out.append(FCheck(level: "warn", key: "wc.slideShallow", vars: ["v": m.d - SLIDE_D], mid: m.id)) }
+    }
     for (i, s) in m.sections.enumerated() {
         let n = i + 1
         let iw = wardInner(m, m.sections, i, t)
         if iw > 1000 && s.inserts.contains(where: { $0.kind == "shelf" }) { out.append(FCheck(level: "warn", key: "wc.shelfWide", vars: ["s": n, "v": iw], mid: m.id)) }
-        if s.fronts.kind == "door", let fw = frontSizes(s.fronts, s.w, m.h - wardBase(m), ws).map(\.1).max(), fw > 600 {
+        if m.slide == nil, s.fronts.kind == "door", let fw = frontSizes(s.fronts, s.w, m.h - wardBase(m), ws).map(\.1).max(), fw > 600 {
             out.append(FCheck(level: "warn", key: "wc.doorWide", vars: ["s": n, "v": fw], mid: m.id))
         }
         // inside: everything within the section, blocks apart, room under the rails to hang clothes

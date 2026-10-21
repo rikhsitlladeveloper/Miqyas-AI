@@ -93,6 +93,13 @@ import java.math.BigInteger
 
 private const val BUILD_ICON = "M6 8h28v24H6z M6 20h12v12 M24 8v10h10"
 private const val FURN_ICON = "M4 6h32v9H4z M4 22h32v14H4z M3 20h34 M20 6v9 M15 22v14 M27 22v14"
+/** The trades on the picker, with their pictures (40-unit box). */
+private val TRADE_CARDS = listOf(
+    "tiler" to "M6 6h13v13H6z M21 6h13v13H21z M6 21h13v13H6z M21 21h13v13H21z",
+    "elec" to "M22 4L10 22h9l-2 14 13-19h-9l1-13z",
+    "plumb" to "M8 8h14v8h8v16 M22 16v-4 M30 32h4 M4 8h4",
+    "win" to "M8 4h24v32H8z M20 4v32 M8 20h24"
+)
 private const val RULER = "M4 8h16a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2z M6 8v3M10 8v4M14 8v3M18 8v4"
 const val SHEET_ICON = "M3 3h18v18H3z M3 12h11v9 M14 3v9 M14 8h7"
 private const val ARROW = "M7 17L17 7M9 7h8v8"
@@ -121,24 +128,8 @@ fun IndustryScreen(onBack: () -> Unit, onPick: (String) -> Unit) {
             Text(tr("ind.lead"), style = ui(15f, 400, G.ink2, 1.45f), modifier = Modifier.padding(bottom = 8.dp))
             IndustryCard(BUILD_ICON, tr("ind.build"), tr("ind.buildS"), pick == "build") { pick = "build" }
             IndustryCard(FURN_ICON, tr("ind.furn"), tr("ind.furnS"), pick == "furniture") { pick = "furniture" }
-            Text(tr("ind.soon"), style = ui(13f, 700, G.ink2), modifier = Modifier.padding(top = 8.dp))
-            listOf(listOf("ind.tiler", "ind.elec"), listOf("ind.plumb", "ind.win")).forEach { pair ->
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    pair.forEach { k ->
-                        val name = tr(k)
-                        Row(
-                            Modifier.weight(1f).heightIn(min = 48.dp).clip(RoundedCornerShape(18.dp)).background(G.glass(.25f))
-                                .border(1.dp, G.ink3.copy(alpha = .35f), RoundedCornerShape(18.dp))
-                                .clickable(role = Role.Button) { app.say("ind.soonToast", "n" to name, kind = ToastKind.INFO) }
-                                .padding(horizontal = 12.dp, vertical = 8.dp),
-                            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            // the heading above says "coming soon" once; the chips keep the whole width for the trade's name
-                            Text(name, style = ui(13.5f, 600, G.ink3), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                        }
-                    }
-                }
-            }
+            // the other trades: builders' projects with their own calculator (trades/Trades.kt)
+            TRADE_CARDS.forEach { (k, icon) -> IndustryCard(icon, tr("ind.$k"), tr("ind.${k}S"), pick == k) { pick = k } }
         }
         GBtn(tr("ind.go"), { pick?.let(onPick) }, enabled = pick != null, modifier = Modifier.padding(top = 12.dp))
     }
@@ -172,7 +163,8 @@ fun FurnitureHome(nav: MainNav) {
     val lang = LocalLang.current
     val first = s.builderName.trim().split(Regex("\\s+")).firstOrNull().orEmpty()
     val lines = tr("fo.lines").split('|')
-    val orders = app.store.projects.filter { it.isFurniture }
+    // the soonest install first (late ones on top), then the undated ones, newest first; paid orders last
+    val orders = app.store.projects.filter { it.isFurniture }.let { all -> uz.metrx.app.data.sortOrders(all.filter { it.stage != "paid" }) + all.filter { it.stage == "paid" } }
     val (debt, nDebt) = owed(orders)
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         GlassHeader(nav::laser)
@@ -227,15 +219,13 @@ private fun Tile(icon: String, title: String, sub: String, onClick: () -> Unit, 
 @Composable
 private fun OrderLine(p: Project, onClick: () -> Unit) {
     val lang = LocalLang.current
-    val m = orderMoney(p)
-    val sub = listOfNotNull(dn(p.customer, lang).takeIf { it.isNotBlank() }, m.left?.takeIf { it.signum() > 0 && fStage(p) >= 3 }?.let { tr("fo.leftV", "v" to money(p, it)) }).joinToString(" · ")
     Row(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(20.dp)).pressable(onClick).padding(horizontal = 14.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        Column(Modifier.weight(1f)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(dn(p.name, lang), style = ui(15f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (sub.isNotEmpty()) Text(sub, style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { FStageChip(p.stage); InstallChip(p) }
         }
-        FStageChip(p.stage)
+        CallButton(p)
     }
 }
 
@@ -250,28 +240,32 @@ fun FStageChip(stage: String) {
     Text(tr("fs.$stage"), style = ui(12f, 600, fg), maxLines = 1, modifier = Modifier.clip(CircleShape).background(bg).padding(horizontal = 10.dp, vertical = 4.dp))
 }
 
-/** One order in the Orders list: name and stage, customer, the 7 stages as a bar, the price and what is left. */
+/** One order in the Orders list: name, who, the 7 stages as a bar, the stage and install date, what is left; the call button. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun OrderRow(p: Project, onClick: () -> Unit) {
     val lang = LocalLang.current
     val m = orderMoney(p)
     val k = fStage(p)
-    Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(24.dp)).pressable(onClick).padding(14.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(dn(p.name, lang), style = ui(15.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-            FStageChip(p.stage)
+    Row(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(24.dp)).pressable(onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(dn(p.name, lang), style = ui(15.5f, 700, G.ink, 1.25f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                val sub = orderSub(p, lang, " · ")
+                if (sub.isNotEmpty()) Text(sub, style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                F_STAGES.indices.forEach { i -> Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(if (i <= k) G.cobalt else G.ink.copy(alpha = .12f))) }
+            }
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                FStageChip(p.stage)
+                InstallChip(p)
+                val left = m.left
+                if (left != null && k >= 3 && left.signum() > 0) Text(tr("fo.leftV", "v" to money(p, left)), style = ui(12.5f, 700, G.amberInk), modifier = Modifier.padding(vertical = 4.dp))
+            }
         }
-        val sub = listOf(dn(p.customer, lang), dn(p.address, lang)).filter { it.isNotBlank() }.joinToString(" · ")
-        if (sub.isNotEmpty()) Text(sub, style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-            F_STAGES.indices.forEach { i -> Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(if (i <= k) G.cobalt else G.ink.copy(alpha = .12f))) }
-        }
-        Row {
-            Text(if (m.agreed != null) money(p, m.agreed) else "${k + 1}/${F_STAGES.size}", style = ui(12.5f, 400, G.ink2), modifier = Modifier.weight(1f))
-            val left = m.left
-            if (left != null && k >= 3) Text(if (left.signum() == 0) tr("fs.paid") else tr("fo.leftV", "v" to money(p, left)),
-                style = ui(12.5f, 700, if (left.signum() == 0) G.green else G.amberInk))
-        }
+        CallButton(p)
     }
 }
 
@@ -283,35 +277,37 @@ fun FNums(p: Project) {
     Column(Modifier.padding(top = 11.dp)) {
         Hairline()
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 10.dp), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Cell(tr("fo.stage"), "${fStage(p) + 1}/${F_STAGES.size}", null, Modifier.weight(1f))
-            val (a, au) = if (m.agreed != null) shortMoney(p, m.agreed, lang == Lang.EN, tr("pl.mln")) else "—" to null
-            Cell(tr("fo.agreed"), a, au, Modifier.weight(1f))
-            val (pd, pu) = shortMoney(p, m.paid, lang == Lang.EN, tr("pl.mln"))
-            Cell(tr("fo.paid"), pd, pu, Modifier.weight(1f))
+            Cell(tr("fo.stage"), "${fStage(p) + 1}/${F_STAGES.size}", null, Modifier.weight(.8f))
+            // until the price is agreed: the Narx tab's estimate, grey
+            val app = uz.metrx.app.ui.LocalApp.current
+            val st = app.settings
+            val est = if (m.agreed != null) null else androidx.compose.runtime.remember(p.furniture, p.fprice, st.workshop, st.mats, st.hws) {
+                uz.metrx.app.furniture.priceOf(p.furniture.filter { it.modules.isNotEmpty() }, p.fprice, st.workshop, st.mats, st.hws).price.takeIf { it.signum() > 0 } }
+            val (a, au) = when {
+                m.agreed != null -> shortMoney(p, m.agreed, lang == Lang.EN, tr("pl.mln"))
+                est != null -> shortMoney(p, est, lang == Lang.EN, tr("pl.mln")).let { "≈ " + it.first to it.second }
+                else -> "—" to null
+            }
+            Cell(tr("fo.agreed"), a, au, Modifier.weight(1.3f), grey = est != null, note = if (est != null) tr("fo.est") else null)
+            // the install date: worked out once approved; tap to change it
+            val d = uz.metrx.app.data.installDate(p)
+            val late = d != null && fStage(p) < 5 && d.isBefore(java.time.LocalDate.now())
+            Cell(tr("fo.install"), d?.let { fmtDay(it, app) } ?: "—", null,
+                Modifier.weight(1f).clip(RoundedCornerShape(8.dp)).clickable(enabled = d != null, role = Role.Button) { app.sheet = uz.metrx.app.ui.Sheet.FInstall(p.id) },
+                color = if (late) G.err else null, note = if (d == null) tr("fo.afterOk") else null)
         }
     }
 }
 
 @Composable
-private fun Cell(label: String, value: String, unit: String?, modifier: Modifier) {
+private fun Cell(label: String, value: String, unit: String?, modifier: Modifier, grey: Boolean = false, note: String? = null, color: Color? = null) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(label, style = ui(11.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Row(verticalAlignment = Alignment.Bottom) {
-            Text(value, style = num(17f, 800), maxLines = 1)
+            Text(value, style = num(17f, if (grey) 600 else 800, color ?: if (grey) G.ink3 else G.ink), maxLines = 1)
             if (unit != null) Text(" $unit", style = ui(10.5f, 600, G.ink2), modifier = Modifier.padding(bottom = 2.dp))
         }
-    }
-}
-
-/** The Price and Quotes tabs of an order arrive with the furniture core: they say so. */
-@Composable
-fun FLater() {
-    Column(
-        Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp).fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        Box(Modifier.size(56.dp).clip(RoundedCornerShape(16.dp)).background(G.cobalt.copy(alpha = .12f)), contentAlignment = Alignment.Center) { PathIcon(SHEET_ICON, G.cobalt, 26.dp, 2f) }
-        Text(tr("fo.later"), style = ui(15f, 600, G.ink2, 1.4f), textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.widthIn(max = 300.dp))
+        if (note != null) Text(note, style = ui(11f, 500, G.ink3), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -396,7 +392,8 @@ private fun IndustrySheet() {
     val app = LocalApp.current
     val cur = app.settings.industry
     GlassSheet(tr("ind.row"), { app.sheet = null }) {
-        listOf(Triple("build", "ind.build", "ind.buildS"), Triple("furniture", "ind.furn", "ind.furnS")).forEach { (k, t, sub) ->
+        (listOf(Triple("build", "ind.build", "ind.buildS"), Triple("furniture", "ind.furn", "ind.furnS")) +
+            uz.metrx.app.trades.TRADES.map { Triple(it, "ind.$it", "ind.${it}S") }).forEach { (k, t, sub) ->
             val on = cur == k
             val name = tr(t)
             Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(RoundedCornerShape(16.dp)).background(if (on) G.cobalt.copy(alpha = .1f) else G.idle(.6f))
@@ -482,8 +479,8 @@ private fun PaySheet(pid: String) {
         }, enabled = aErr == null)
     }) {
         if (left != null) Text(tr("fo.leftV", "v" to money(p, left)), style = ui(14f, 600, G.ink2))
-        GField(tr("fo.amount"), amount, { amount = it.filter { c -> c.isDigit() || c == ' ' } }, "0", error = aErr?.let { tr(it) }, showError = amount.isNotEmpty(),
-            number = true, labelRight = curSuffix(p.currency, lang))
+        GField(tr("fo.amount"), amount, { amount = it.filter { c -> c.isDigit() } }, "0", error = aErr?.let { tr(it) }, showError = amount.isNotEmpty(),
+            number = true, money = true, labelRight = curSuffix(p.currency, lang))
         GField(tr("fo.note"), note, { note = it }, "", optional = true, imeAction = androidx.compose.ui.text.input.ImeAction.Done)
     }
 }

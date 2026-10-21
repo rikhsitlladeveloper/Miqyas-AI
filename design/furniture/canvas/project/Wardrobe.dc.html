@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Shkaf dizayneri</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B47D9}a:hover{color:#1E36B0}
+button{font:inherit}
+.g{border:1px solid rgba(255,255,255,0.8);background:rgba(255,255,255,0.45);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.95),0 14px 30px rgba(30,40,110,0.13)}
+.chip{cursor:pointer;height:36px;padding:0 12px;border-radius:12px;font-size:12.5px;font-weight:700}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #EEF1F8; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A">
+  <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none">
+    <div style="position: absolute; width: 300px; height: 300px; left: -120px; top: -110px; border-radius: 50%; background: #5B7BFF; filter: blur(70px); opacity: 0.5"></div>
+    <div style="position: absolute; width: 260px; height: 260px; right: -90px; bottom: 60px; border-radius: 50%; background: #B07CFF; filter: blur(80px); opacity: 0.35"></div>
+  </div>
+
+  <div style="position: relative; height: 100%; box-sizing: border-box; padding: 56px 16px 20px; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <a href="Order.dc.html" aria-label="Orqaga" class="g" style="width: 42px; height: 42px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #0F172A">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+      </a>
+      <div style="flex: 1; min-width: 0"><div style="font-size: 18px; font-weight: 800">Shkaf — dahliz</div><div style="font-size: 12px; color: #475569">2400 × 2500 × 600 · 4 boʻlim</div></div>
+    </div>
+
+    <div role="tablist" aria-label="Qadamlar" style="margin-top: 12px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 16px; background: rgba(15,23,42,0.06)">
+      <sc-for list="{{steps}}" as="t" hint-placeholder-count="5">
+        <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="cursor: pointer; height: 44px; border: 0; border-radius: 12px; background: {{t.bg}}; color: {{t.fg}}; font-size: 10.5px; font-weight: 700; line-height: 1.15; display: flex; flex-direction: column; align-items: center; justify-content: center; box-shadow: {{t.sh}}"><span style="font-size: 12px; font-weight: 800">{{t.n}}</span>{{t.name}}</button>
+      </sc-for>
+    </div>
+
+    <figure style="margin: 10px 0 0; background: #fff; border-radius: 22px; padding: 10px; box-shadow: 0 10px 26px rgba(30,40,110,0.12)">
+      <div style="position: relative; width: 300px; height: 318px; margin: 0 auto">
+        <div style="position: absolute; left: 6px; top: 0; width: 288px; height: 300px; box-sizing: border-box; border: 2px solid #0F172A; background: {{body}}"></div>
+        <div style="position: absolute; left: 8px; top: 290px; width: 284px; height: 8px; background: #94A3B8"></div>
+        <sc-for list="{{secs}}" as="c" hint-placeholder-count="4">
+          <button type="button" onClick="{{c.pick}}" aria-label="{{c.label}}" aria-pressed="{{c.on}}" style="position: absolute; left: {{c.l}}px; top: 2px; width: {{c.w}}px; height: 288px; padding: 0; margin: 0; border: 0; border-right: 1.6px solid #0F172A; background: {{c.bg}}; cursor: pointer; outline: {{c.ring}}; outline-offset: -3px"></button>
+        </sc-for>
+        <sc-for list="{{fills}}" as="f" hint-placeholder-count="20">
+          <span aria-hidden="true" style="position: absolute; left: {{f.l}}px; top: {{f.t}}px; width: {{f.w}}px; height: {{f.h}}px; background: {{f.bg}}; border: {{f.bd}}; border-radius: {{f.r}}; box-sizing: border-box; pointer-events: none"></span>
+        </sc-for>
+        <sc-for list="{{doors}}" as="d" hint-placeholder-count="7">
+          <span aria-hidden="true" style="position: absolute; left: {{d.l}}px; top: 3px; width: {{d.w}}px; height: 286px; background: {{front}}; border: 1px solid rgba(15,23,42,0.5); box-sizing: border-box; pointer-events: none; display: flex; align-items: center; justify-content: {{d.hj}}"><span style="width: 2px; height: 26px; margin: 0 4px; background: #1E293B"></span></span>
+        </sc-for>
+        <sc-for list="{{dims}}" as="m" hint-placeholder-count="4">
+          <span style="position: absolute; left: {{m.l}}px; top: 302px; width: {{m.w}}px; text-align: center; font-size: 10px; font-weight: 700; border-left: 1px solid #0F172A; box-sizing: border-box; line-height: 14px">{{m.v}}</span>
+        </sc-for>
+      </div>
+    </figure>
+
+    <div class="g" style="margin-top: 10px; border-radius: 22px; padding: 12px 14px; flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 8px">
+      <sc-if value="{{s1}}" hint-placeholder-val="{{false}}">
+        <div style="font-size: 15px; font-weight: 800">Joy: devor D, tokcha</div>
+        <div style="font-size: 13px; line-height: 1.5; color: #334155">Tokcha 2420 × 2520 mm (oʻlchangan). Yonlarda 10 mm, tepada 20 mm boʻshliq qoldiriladi → shkaf 2400 × 2500.</div>
+        <div style="display: flex; gap: 6px"><span class="chip" style="display: flex; align-items: center; background: #0F172A; color: #fff">Oʻrnatilgan (yonsiz)</span><span class="chip" style="display: flex; align-items: center; background: #fff; border: 1px solid #E2E8F0">Alohida turadi</span></div>
+      </sc-if>
+      <sc-if value="{{s2}}" hint-placeholder-val="{{false}}">
+        <div style="font-size: 15px; font-weight: 800">Oʻlchamlar va boʻlimlar</div>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; font-variant-numeric: tabular-nums">
+          <sc-for list="{{secW}}" as="w" hint-placeholder-count="4"><div style="border-radius: 12px; border: 1px solid #E2E8F0; background: #fff; padding: 6px 8px; font-size: 14px; font-weight: 800">{{w.v}}<div style="font-size: 10.5px; font-weight: 600; color: #475569">{{w.lock}}</div></div></sc-for>
+        </div>
+        <div style="font-size: 12.5px; color: #475569">Chuqurlik 600 · tsokol 80 · korpus LDSP 16. Qulflanmagan boʻlimlar eni teng boʻlinadi.</div>
+      </sc-if>
+      <sc-if value="{{s3}}" hint-placeholder-val="{{false}}">
+        <div style="font-size: 15px; font-weight: 800">Eshiklar · {{selName}}</div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap">
+          <sc-for list="{{doorOpts}}" as="o" hint-placeholder-count="4"><button type="button" class="chip" onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="border: {{o.border}}; background: {{o.bg}}; color: {{o.fg}}">{{o.v}}</button></sc-for>
+          <span class="chip" style="display: flex; align-items: center; border: 1px dashed #94A3B8; color: #64748B">Kupe · 1b bosqich</span>
+        </div>
+        <div style="font-size: 12.5px; color: #475569">Boʻlimni rasmda tanlang. Petlya soni eshik balandligiga qarab: 2417 mm → 5 ta.</div>
+      </sc-if>
+      <sc-if value="{{s4}}" hint-placeholder-val="{{true}}">
+        <div style="font-size: 15px; font-weight: 800">Ichki qism · {{selName}}</div>
+        <div style="display: flex; flex-direction: column; gap: 4px">
+          <sc-for list="{{selFill}}" as="x" hint-placeholder-count="3"><div style="display: flex; justify-content: space-between; font-size: 13px; font-variant-numeric: tabular-nums"><span style="font-weight: 700">{{x.n}}</span><span style="color: #334155">{{x.v}}</span></div></sc-for>
+        </div>
+        <div style="display: flex; gap: 6px; flex-wrap: wrap">
+          <span class="chip" style="display: flex; align-items: center; background: #fff; border: 1px solid #E2E8F0">+ Polka</span>
+          <span class="chip" style="display: flex; align-items: center; background: #fff; border: 1px solid #E2E8F0">+ Tortma</span>
+          <span class="chip" style="display: flex; align-items: center; background: #fff; border: 1px solid #E2E8F0">+ Shtanga</span>
+          <span class="chip" style="display: flex; align-items: center; background: #fff; border: 1px solid #E2E8F0">Boshqa…</span>
+        </div>
+      </sc-if>
+      <sc-if value="{{s5}}" hint-placeholder-val="{{false}}">
+        <div style="font-size: 15px; font-weight: 800">Material</div>
+        <div style="display: flex; flex-direction: column; gap: 6px">
+          <sc-for list="{{mats}}" as="m" hint-placeholder-count="3">
+            <div style="display: flex; align-items: center; gap: 10px; font-size: 13px"><span style="width: 26px; height: 26px; border-radius: 8px; background: {{m.c}}; border: 1px solid rgba(15,23,42,0.2)"></span><span style="flex: 1; font-weight: 700">{{m.part}}</span><span style="color: #334155">{{m.name}}</span></div>
+          </sc-for>
+        </div>
+      </sc-if>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var s = this.state || {};
+    var self = this;
+    var step = s.step || 4;
+    var sel = s.sel === undefined ? 0 : s.sel;
+    var K = 0.12, L0 = 8, FLOOR = 290;
+    var widths = [700, 450, 650, 600];
+    var doorMode = s.dm || ['2', '1', '2', '2'];
+    var names = ['1-boʻlim (700)', '2-boʻlim (450)', '3-boʻlim (650)', '4-boʻlim (600)'];
+    var fillData = [
+      [['rail', 1900], ['shelf', 2100], ['drawer', 80, 200], ['drawer', 280, 200], ['drawer', 480, 200]],
+      [['shelf', 380], ['shelf', 680], ['shelf', 980], ['shelf', 1280], ['shelf', 1580], ['shelf', 1880], ['shelf', 2180]],
+      [['shelf', 1950], ['rail', 1750], ['trouser', 850, 120], ['shoe', 260, 140]],
+      [['shelf', 500], ['shelf', 900], ['shelf', 1300], ['shelf', 1700], ['shelf', 2100]]
+    ];
+    var label = { rail: 'Shtanga', shelf: 'Polka', drawer: 'Tortma', trouser: 'Shim tortmasi', shoe: 'Poyabzal tokchasi' };
+    var x = 0, secs = [], fills = [], doors = [], dims = [];
+    widths.forEach(function (w, i) {
+      var l = L0 + x * K, pw = w * K;
+      secs.push({ l: Math.round(l), w: Math.round(pw), label: names[i], on: i === sel, ring: i === sel && step >= 3 ? '3px solid #3550E0' : 'none',
+        bg: i === sel && step >= 3 ? 'rgba(53,80,224,0.06)' : 'transparent', pick: function () { self.setState({ sel: i }); } });
+      dims.push({ l: Math.round(l - 2), w: Math.round(pw), v: String(w) });
+      fillData[i].forEach(function (f) {
+        var t = f[0], y = f[1];
+        if (t === 'shelf') fills.push({ l: l + 1, t: FLOOR - y * K, w: pw - 3, h: 2.5, bg: '#0F172A', bd: '0', r: '0' });
+        if (t === 'rail') fills.push({ l: l + 4, t: FLOOR - y * K, w: pw - 9, h: 3, bg: '#64748B', bd: '0', r: '2px' });
+        if (t === 'drawer' || t === 'trouser' || t === 'shoe') fills.push({ l: l + 3, t: FLOOR - (y + f[2]) * K, w: pw - 7, h: f[2] * K - 2, bg: t === 'drawer' ? '#E7E5E4' : '#F1F5F9', bd: '1px solid #0F172A', r: '2px' });
+      });
+      if (step === 3 || step === 5 || step === 1) {
+        var n = doorMode[i] === '2' ? 2 : doorMode[i] === '1' ? 1 : 0;
+        for (var j = 0; j < n; j++) doors.push({ l: Math.round(l + j * pw / n + 1), w: Math.round(pw / n - 2), hj: n === 2 ? (j === 0 ? 'flex-end' : 'flex-start') : 'flex-end' });
+      }
+      x += w;
+    });
+    var stepNames = ['Joy', 'Oʻlcham', 'Eshik', 'Ichki', 'Material'];
+    var front = '#D9D2C5';
+    function seg(on) { return { border: on ? '1.5px solid #3550E0' : '1px solid #E2E8F0', bg: on ? 'rgba(53,80,224,0.08)' : '#fff', fg: on ? '#2B47D9' : '#0F172A' }; }
+    return {
+      steps: stepNames.map(function (n, i) {
+        var on = step === i + 1;
+        return { n: i + 1, name: n, on: on, pick: function () { self.setState({ step: i + 1 }); },
+          bg: on ? '#fff' : 'transparent', fg: on ? '#0F172A' : '#475569', sh: on ? '0 2px 6px rgba(30,40,110,0.14)' : 'none' };
+      }),
+      s1: step === 1, s2: step === 2, s3: step === 3, s4: step === 4, s5: step === 5,
+      body: '#F5F5F2', front: front,
+      secs: secs, fills: step === 3 || step === 5 || step === 1 ? [] : fills, doors: doors, dims: dims,
+      selName: names[sel],
+      secW: widths.map(function (w, i) { return { v: w, lock: i === 1 ? 'qulflangan' : 'teng' }; }),
+      doorOpts: [['2', '2 eshik'], ['1', '1 eshik'], ['0', 'Ochiq']].map(function (o) {
+        var on = doorMode[sel] === o[0];
+        return Object.assign(seg(on), { v: o[1], on: on, pick: function () { var d = doorMode.slice(); d[sel] = o[0]; self.setState({ dm: d }); } });
+      }),
+      selFill: fillData[sel].slice().sort(function (a, b) { return b[1] - a[1]; }).map(function (f) { return { n: label[f[0]], v: f[1] + ' mm' + (f[2] ? ' · ' + f[2] + ' baland' : '') }; }),
+      mats: [{ part: 'Korpus', name: 'LDSP 16 · Oq', c: '#F5F5F2' }, { part: 'Fasad', name: 'LDSP 16 · Kashmir', c: front }, { part: 'Orqa', name: 'DVP 3,2 · Oq', c: '#FFFFFF' }]
+    };
+  }
+}
+</script>
+</body>
+</html>

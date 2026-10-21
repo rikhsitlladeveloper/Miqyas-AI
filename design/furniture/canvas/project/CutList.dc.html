@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Detallar va raskroy</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B47D9}a:hover{color:#1E36B0}
+button{font:inherit}
+.g{border:1px solid rgba(255,255,255,0.8);background:rgba(255,255,255,0.45);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.95),0 14px 30px rgba(30,40,110,0.13)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #EEF1F8; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A">
+  <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none">
+    <div style="position: absolute; width: 320px; height: 320px; left: -120px; top: -100px; border-radius: 50%; background: #5B7BFF; filter: blur(70px); opacity: 0.5"></div>
+    <div style="position: absolute; width: 260px; height: 260px; right: -90px; bottom: 60px; border-radius: 50%; background: #3FD8F2; filter: blur(80px); opacity: 0.35"></div>
+  </div>
+
+  <div style="position: relative; height: 100%; box-sizing: border-box; padding: 56px 16px 18px; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <a href="Price.dc.html" aria-label="Orqaga" class="g" style="width: 42px; height: 42px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #0F172A">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+      </a>
+      <div style="flex: 1"><div style="font-size: 19px; font-weight: 800">Ustaxona uchun</div><div style="font-size: 12.5px; color: #475569">148 detal · 18 list · mijozga koʻrsatilmaydi</div></div>
+    </div>
+
+    <div role="tablist" aria-label="Boʻlim" style="margin-top: 12px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 16px; background: rgba(15,23,42,0.06)">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+        <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="cursor: pointer; height: 38px; border: 0; border-radius: 12px; background: {{t.bg}}; color: {{t.fg}}; font-size: 13.5px; font-weight: 700; box-shadow: {{t.sh}}">{{t.name}}</button>
+      </sc-for>
+    </div>
+
+    <div style="margin-top: 10px; display: flex; gap: 6px; flex-wrap: wrap">
+      <sc-for list="{{mats}}" as="m" hint-placeholder-count="3">
+        <button type="button" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="cursor: pointer; height: 34px; padding: 0 10px; border-radius: 12px; border: {{m.border}}; background: {{m.bg}}; color: {{m.fg}}; font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px"><span style="width: 12px; height: 12px; border-radius: 4px; background: {{m.c}}; border: 1px solid rgba(15,23,42,0.25)"></span>{{m.v}}</button>
+      </sc-for>
+    </div>
+
+    <sc-if value="{{isList}}" hint-placeholder-val="{{true}}">
+      <div class="g" style="margin-top: 10px; border-radius: 20px; overflow: hidden">
+        <div style="display: grid; grid-template-columns: 24px 1fr 92px 30px 44px; gap: 6px; padding: 8px 12px; font-size: 11px; font-weight: 800; color: #475569"><span>№</span><span>Detal</span><span>Oʻlcham</span><span>Soni</span><span>Kromka</span></div>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+          <div style="display: grid; grid-template-columns: 24px 1fr 92px 30px 44px; gap: 6px; align-items: center; padding: 7px 12px; border-top: 1px solid rgba(15,23,42,0.07); font-size: 12.5px; font-variant-numeric: tabular-nums">
+            <span style="color: #475569; font-weight: 700">{{r.no}}</span>
+            <span style="font-weight: 700; min-width: 0">{{r.name}}</span>
+            <span>{{r.size}}</span>
+            <span style="font-weight: 800">{{r.q}}</span>
+            <span aria-label="{{r.edgeLabel}}" style="width: 30px; height: 18px; box-sizing: border-box; background: #fff; border-top: {{r.et}}; border-bottom: {{r.eb}}; border-left: {{r.el}}; border-right: {{r.er}}"></span>
+          </div>
+        </sc-for>
+        <div style="padding: 8px 12px; border-top: 1px solid rgba(15,23,42,0.07); font-size: 12px; color: #475569">{{more}}</div>
+      </div>
+      <div style="margin-top: 6px; font-size: 11.5px; color: #475569">Kromka: qalin chiziq = 2 mm, ingichka = 0,4 mm. Uzunlik tola boʻylab.</div>
+    </sc-if>
+
+    <sc-if value="{{isSheet}}" hint-placeholder-val="{{false}}">
+      <div style="margin-top: 10px; background: #fff; border-radius: 20px; padding: 10px; box-shadow: 0 10px 26px rgba(30,40,110,0.12)">
+        <div style="display: flex; justify-content: space-between; font-size: 12.5px; font-weight: 700"><span>List 1 / {{sheets}} · 2800 × 2070</span><span style="color: #B45309">chiqindi {{waste}}</span></div>
+        <div style="margin-top: 8px; position: relative; width: 336px; height: 249px; background: repeating-linear-gradient(45deg, #F1F5F9 0 6px, #E2E8F0 6px 7px); border: 1.5px solid #0F172A; box-sizing: border-box">
+          <sc-for list="{{parts}}" as="p" hint-placeholder-count="20">
+            <span style="position: absolute; left: {{p.l}}px; top: {{p.t}}px; width: {{p.w}}px; height: {{p.h}}px; box-sizing: border-box; background: #DBEAFE; border: 1px solid #1D4ED8; font-size: 9px; font-weight: 800; color: #1E3A8A; display: flex; align-items: center; justify-content: center; overflow: hidden; white-space: nowrap">{{p.no}}</span>
+          </sc-for>
+        </div>
+        <div style="margin-top: 8px; font-size: 12px; color: #334155; line-height: 1.5">Arra 4 mm · chetdan 10 mm · toʻgʻri kesimlar (formatli arra). Qoldiq: 2780 × 150 — saqlanmaydi (300 dan kichik).</div>
+      </div>
+    </sc-if>
+
+    <div style="flex: 1"></div>
+    <a href="WorkshopPdf.dc.html" style="text-decoration: none; height: 52px; border-radius: 18px; background: #3550E0; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 700">PDF: ustaxona uchun</a>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var s = this.state || {};
+    var self = this;
+    var tab = s.tab || 'l', mat = s.mat || 'oq';
+    var T = '3px solid #0F172A', t = '1px solid #94A3B8', no = '1px dashed #E2E8F0';
+    var data = {
+      oq: { sheets: 9, waste: '14 %', more: 'Yana 34 detal · jami 86 detal · 9 list', rows: [
+        ['Yon devor (pastki)', '704 × 560', 10, [T, no, no, no]], ['Yon devor (baland)', '2100 × 560', 4, [T, no, no, no]],
+        ['Tagi', '600 × 560', 3, [T, no, no, no]], ['Tagi', '800 × 560', 1, [T, no, no, no]], ['Tagi', '500 × 560', 1, [T, no, no, no]],
+        ['Planka', '568 × 100', 8, [t, no, no, no]], ['Planka', '768 × 100', 2, [t, no, no, no]], ['Polka', '566 × 540', 6, [T, no, no, no]] ] },
+      ka: { sheets: 6, waste: '17 %', more: 'Yana 19 detal · jami 41 detal · 6 list · tola tik', rows: [
+        ['Eshik (oshxona)', '717 × 297', 6, [T, T, T, T]], ['Eshik (oshxona)', '717 × 397', 4, [T, T, T, T]], ['Eshik (oshxona)', '717 × 497', 2, [T, T, T, T]],
+        ['Tortma fasadi', '237 × 597', 6, [T, T, T, T]], ['Eshik (baland)', '2097 × 397', 4, [T, T, T, T]], ['Eshik (shkaf)', '2417 × 348', 4, [T, T, T, T]],
+        ['Eshik (shkaf)', '2417 × 448', 1, [T, T, T, T]], ['Yon panel', '2200 × 580', 2, [T, T, no, no]] ] },
+      dvp: { sheets: 3, waste: '9 %', more: 'Jami 21 detal · 3 list', rows: [
+        ['Orqa (pastki)', '716 × 596', 3, [no, no, no, no]], ['Orqa (pastki)', '716 × 796', 1, [no, no, no, no]], ['Orqa (yuqori)', '716 × 596', 2, [no, no, no, no]],
+        ['Orqa (baland)', '2196 × 596', 1, [no, no, no, no]], ['Orqa (shkaf)', '2416 × 696', 1, [no, no, no, no]], ['Orqa (shkaf)', '2416 × 646', 1, [no, no, no, no]] ] }
+    };
+    var d = data[mat];
+    var K = 0.12, O = 1.2;
+    var P = [
+      [1, 0, 0, 704, 560], [1, 708, 0, 704, 560], [1, 1416, 0, 704, 560], [3, 2124, 0, 600, 560],
+      [1, 0, 564, 704, 560], [1, 708, 564, 704, 560], [4, 1416, 564, 800, 560], [5, 2220, 564, 500, 560],
+      [2, 0, 1128, 2100, 560], [8, 2104, 1128, 566, 540],
+      [7, 0, 1692, 768, 100], [7, 772, 1692, 768, 100], [6, 1544, 1692, 568, 100], [6, 2116, 1692, 568, 100],
+      [6, 0, 1796, 568, 100], [6, 572, 1796, 568, 100], [6, 1144, 1796, 568, 100], [6, 1716, 1796, 568, 100]
+    ];
+    function tb(id, name) { var on = tab === id; return { name: name, on: on, pick: function () { self.setState({ tab: id }); }, bg: on ? '#fff' : 'transparent', fg: on ? '#0F172A' : '#475569', sh: on ? '0 2px 6px rgba(30,40,110,0.14)' : 'none' }; }
+    function mb(id, v, c) { var on = mat === id; return { v: v, c: c, on: on, pick: function () { self.setState({ mat: id }); }, border: on ? '1.5px solid #3550E0' : '1px solid rgba(255,255,255,0.85)', bg: on ? 'rgba(53,80,224,0.1)' : 'rgba(255,255,255,0.6)', fg: on ? '#2B47D9' : '#0F172A' }; }
+    return {
+      tabs: [tb('l', 'Detallar'), tb('s', 'Raskroy')],
+      mats: [mb('oq', 'LDSP 16 Oq · 9 list', '#F5F5F2'), mb('ka', 'Kashmir · 6 list', '#CDBFAE'), mb('dvp', 'DVP · 3 list', '#FFFFFF')],
+      isList: tab === 'l', isSheet: tab === 's',
+      rows: d.rows.map(function (r, i) { return { no: i + 1, name: r[0], size: r[1], q: r[2], et: r[3][0], eb: r[3][1], el: r[3][2], er: r[3][3], edgeLabel: 'Kromka qirralari' }; }),
+      more: d.more, sheets: d.sheets, waste: d.waste,
+      parts: P.map(function (p) { return { no: p[0], l: Math.round((O + p[1] * K) * 10) / 10, t: Math.round((O + p[2] * K) * 10) / 10, w: Math.round(p[3] * K * 10) / 10, h: Math.round(p[4] * K * 10) / 10 }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

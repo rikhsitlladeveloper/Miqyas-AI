@@ -125,10 +125,30 @@ enum Geo {
             guard let L = r.dim("A").v, let W = r.dim("B").v else { return nil }
             floor = Int64(L) * Int64(W); perim = 2 * Int64(L + W)
         }
-        guard let H else { return Areas(floor: floor, perim: perim, gross: nil, open: nil, net: nil) }
-        let gross = perim * Int64(H)
+        // columns take floor and add their two sides to the walls; a niche from the floor adds floor and its sides
+        let fx = r.features
+        let floorF = floor - fx.filter { $0.type == "column" }.reduce(Int64(0)) { $0 + Int64($1.w) * Int64($1.d) }
+            + fx.filter { $0.type == "niche" && $0.sill == 0 }.reduce(Int64(0)) { $0 + Int64($1.w) * Int64($1.d) }
+        let perimF = perim + fx.filter { $0.type == "column" || $0.sill == 0 }.reduce(Int64(0)) { $0 + 2 * Int64($1.d) }
+        guard let H else { return Areas(floor: floorF, perim: perimF, gross: nil, open: nil, net: nil) }
+        let extra = fx.reduce(Int64(0)) { a, f in
+            if f.type == "column" { return a + 2 * Int64(f.d) * Int64(H) }
+            let nh = Int64(min(f.h > 0 ? f.h : H - f.sill, H - f.sill))
+            return a + 2 * Int64(f.d) * nh + (f.sill > 0 ? Int64(f.w) * Int64(f.d) : 0) + (Int64(f.sill) + nh < Int64(H) ? Int64(f.w) * Int64(f.d) : 0)
+        }
+        let gross = perim * Int64(H) + extra
         let open = r.openings.reduce(Int64(0)) { $0 + Int64($1.w) * Int64($1.h) }
-        return Areas(floor: floor, perim: perim, gross: gross, open: open, net: gross - open)
+        return Areas(floor: floorF, perim: perimF, gross: gross, open: open, net: gross - open)
+    }
+
+    /// What is wrong with a column or niche f in room r: off the wall's end, or too deep. Nil when it fits.
+    static func featureIssue(_ r: Room, _ f: Feature, _ snap: Bool = true) -> String? {
+        guard let L = walls(r, snap).first(where: { $0.id == f.wall })?.len else { return "ft.needWall" }
+        if f.w <= 0 || f.d <= 0 { return "ft.size" }
+        if f.off + f.w > L { return "ft.exceeds" }
+        if f.type == "niche" && f.d > 1000 { return "ft.deep" }
+        if f.type == "niche", let H = r.dim("H").v, f.sill + (f.h > 0 ? f.h : 0) > H { return "ft.tall" }
+        return nil
     }
 
     struct WallStats: Equatable { let gross: Int64?; let open: Int64; let net: Int64? }

@@ -1,0 +1,168 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Oshxona dizayneri</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B47D9}a:hover{color:#1E36B0}
+button{font:inherit}
+.g{border:1px solid rgba(255,255,255,0.8);background:rgba(255,255,255,0.45);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.95),0 14px 30px rgba(30,40,110,0.13)}
+.tool{cursor:pointer;height:44px;border-radius:15px;border:1px solid rgba(255,255,255,0.85);background:rgba(255,255,255,0.6);font-size:13px;font-weight:700;color:#0F172A;display:flex;align-items:center;justify-content:center;gap:6px}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #EEF1F8; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A">
+  <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none">
+    <div style="position: absolute; width: 300px; height: 300px; left: -120px; top: -110px; border-radius: 50%; background: #5B7BFF; filter: blur(70px); opacity: 0.5"></div>
+    <div style="position: absolute; width: 260px; height: 260px; right: -100px; bottom: 60px; border-radius: 50%; background: #B07CFF; filter: blur(80px); opacity: 0.35"></div>
+  </div>
+
+  <div style="position: relative; height: 100%; box-sizing: border-box; padding: 56px 16px 20px; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <a href="Order.dc.html" aria-label="Orqaga" class="g" style="width: 42px; height: 42px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #0F172A">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+      </a>
+      <div style="flex: 1; min-width: 0"><div style="font-size: 18px; font-weight: 800">Oshxona 1 · L</div><div style="font-size: 12px; color: #475569">16 modul · 5,4 pog. m</div></div>
+      <div role="tablist" aria-label="Koʻrinish" style="display: flex; padding: 3px; border-radius: 14px; background: rgba(15,23,42,0.07)">
+        <span role="tab" aria-selected="true" style="height: 32px; padding: 0 12px; border-radius: 11px; background: #fff; font-size: 13px; font-weight: 800; display: flex; align-items: center">2D</span>
+        <a href="Kitchen3D.dc.html" role="tab" style="text-decoration: none; height: 32px; padding: 0 12px; border-radius: 11px; color: #334155; font-size: 13px; font-weight: 700; display: flex; align-items: center">3D</a>
+      </div>
+    </div>
+
+    <div style="margin-top: 12px; display: flex; gap: 6px; align-items: center">
+      <sc-for list="{{walls}}" as="w" hint-placeholder-count="2">
+        <button type="button" onClick="{{w.pick}}" aria-pressed="{{w.on}}" style="cursor: pointer; height: 32px; padding: 0 14px; border-radius: 16px; border: 0; font-size: 13px; font-weight: 700; background: {{w.bg}}; color: {{w.fg}}">{{w.name}}</button>
+      </sc-for>
+      <span style="flex: 1"></span>
+      <span style="font-size: 12.5px; font-weight: 700; color: {{fitFg}}">{{fit}}</span>
+    </div>
+
+    <figure style="margin: 10px 0 0; background: #fff; border-radius: 22px; padding: 10px 8px 6px; box-shadow: 0 10px 26px rgba(30,40,110,0.12)">
+      <div style="position: relative; width: 342px; height: 268px; margin: 0 auto">
+        <div style="position: absolute; left: 0; top: 0; width: 342px; height: 250px; background: #F8FAFC; border: 1.5px solid #0F172A; box-sizing: border-box"></div>
+        <sc-for list="{{mods}}" as="m" hint-placeholder-count="10">
+          <button type="button" onClick="{{m.pick}}" aria-label="{{m.label}}" aria-pressed="{{m.on}}" style="position: absolute; left: {{m.l}}px; top: {{m.t}}px; width: {{m.w}}px; height: {{m.h}}px; padding: 0; margin: 0; cursor: pointer; box-sizing: border-box; border: 1px solid #0F172A; background: {{m.bg}}; display: flex; flex-direction: {{m.dir}}; outline: {{m.ring}}; outline-offset: 1px; z-index: {{m.z}}">
+            <sc-for list="{{m.fr}}" as="f" hint-placeholder-count="2">
+              <span style="flex: 1; box-sizing: border-box; border: 0.5px solid rgba(15,23,42,0.55); display: flex; align-items: center; justify-content: center"><span style="width: {{f.hw}}; height: {{f.hh}}; background: #0F172A; border-radius: 1px"></span></span>
+            </sc-for>
+          </button>
+        </sc-for>
+        <sc-for list="{{tops}}" as="t" hint-placeholder-count="1">
+          <div style="position: absolute; left: {{t.l}}px; top: 164px; width: {{t.w}}px; height: 4px; background: #4B4F58"></div>
+        </sc-for>
+        <sc-for list="{{marks}}" as="k" hint-placeholder-count="4">
+          <span aria-hidden="true" style="position: absolute; left: {{k.l}}px; top: {{k.t}}px; width: 9px; height: 9px; border-radius: 50%; background: {{k.c}}; border: 1.5px solid #fff; box-shadow: 0 0 0 1px {{k.c}}; z-index: 5"></span>
+        </sc-for>
+        <div style="position: absolute; left: 0; top: 256px; width: 342px; height: 1px; background: #0F172A"></div>
+        <sc-for list="{{dims}}" as="d" hint-placeholder-count="5">
+          <span style="position: absolute; left: {{d.l}}px; top: 253px; width: {{d.w}}px; text-align: center; font-size: 9.5px; font-weight: 700; color: #0F172A; border-left: 1px solid #0F172A; box-sizing: border-box; height: 15px; line-height: 15px">{{d.v}}</span>
+        </sc-for>
+      </div>
+    </figure>
+
+    <div style="margin-top: 10px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px">
+      <a href="KitchenModule.dc.html" class="tool" style="text-decoration: none"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Modul</a>
+      <span class="tool">Texnika</span>
+      <span class="tool">Boʻshliq</span>
+    </div>
+
+    <div class="g" style="margin-top: 10px; border-radius: 22px; padding: 12px 14px">
+      <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+        <div style="min-width: 0"><div style="font-size: 15px; font-weight: 800">{{selName}}</div><div style="font-size: 12.5px; color: #475569">{{selSub}}</div></div>
+        <a href="KitchenModule.dc.html" style="flex: none; text-decoration: none; height: 36px; padding: 0 14px; border-radius: 18px; background: #3550E0; color: #fff; font-size: 13px; font-weight: 700; display: flex; align-items: center">Sozlash</a>
+      </div>
+    </div>
+
+    <div style="margin-top: 8px; display: flex; flex-direction: column; gap: 6px">
+      <sc-for list="{{warns}}" as="x" hint-placeholder-count="2">
+        <div style="border-radius: 14px; padding: 9px 12px; font-size: 12.5px; font-weight: 600; line-height: 1.4; background: {{x.bg}}; color: {{x.fg}}">{{x.text}}</div>
+      </sc-for>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var s = this.state || {};
+    var self = this;
+    var wall = s.w || 'A';
+    var K = 0.1, OX = 0, FLOOR = 250;
+    var FRONT = '#CDBFAE', APPL = '#E2E8F0', CORNER = '#E7E5E4';
+    function px(mm) { return Math.round(mm * K * 10) / 10; }
+    var A = [
+      { id: 'a1', x: 0, w: 500, z0: 100, h: 720, bg: FRONT, dir: 'row', n: 1, name: 'Pastki modul 500', sub: '1 eshik · 1 polka · 4 oyoq' },
+      { id: 'a2', x: 500, w: 600, z0: 100, h: 720, bg: FRONT, dir: 'column', n: 3, name: 'Tortmali modul 600', sub: '3 tortma · yoʻnaltiruvchi 500 mm' },
+      { id: 'a3', x: 1100, w: 800, z0: 100, h: 720, bg: FRONT, dir: 'row', n: 2, name: 'Moyka osti 800', sub: '2 eshik · polkasiz · moyka 780 × 480' },
+      { id: 'a4', x: 1900, w: 600, z0: 100, h: 720, bg: APPL, dir: 'row', n: 1, name: 'Idish yuvish mashinasi 600', sub: 'Oʻrnatiladigan · fasad 597 × 717', appl: true },
+      { id: 'a5', x: 2500, w: 900, z0: 100, h: 720, bg: FRONT, dir: 'row', n: 1, name: 'Burchak modul 900', sub: 'Koʻr burchak · eshik 297 · B devorga 600 kiradi' },
+      { id: 'u1', x: 0, w: 500, z0: 1458, h: 720, bg: FRONT, dir: 'row', n: 1, name: 'Yuqori modul 500', sub: '1 eshik · 2 polka' },
+      { id: 'u2', x: 500, w: 600, z0: 1458, h: 720, bg: FRONT, dir: 'row', n: 2, name: 'Yuqori modul 600', sub: '2 eshik · 2 polka' },
+      { id: 'u3', x: 1100, w: 800, z0: 1458, h: 720, bg: FRONT, dir: 'row', n: 2, name: 'Quritgich 800', sub: '2 eshik · idish quritgich' },
+      { id: 'u4', x: 1900, w: 600, z0: 1458, h: 720, bg: FRONT, dir: 'row', n: 2, name: 'Yuqori modul 600', sub: '2 eshik · 2 polka' },
+      { id: 'u5', x: 2500, w: 900, z0: 1458, h: 720, bg: FRONT, dir: 'row', n: 1, name: 'Yuqori burchak 900', sub: '1 eshik · koʻr burchak' }
+    ];
+    var B = [
+      { id: 'b0', x: 0, w: 600, z0: 100, h: 720, bg: CORNER, dir: 'row', n: 1, name: 'Burchak zonasi', sub: 'A devordagi burchak modul shu yerga kiradi', corner: true },
+      { id: 'b1', x: 600, w: 600, z0: 100, h: 720, bg: FRONT, dir: 'column', n: 3, name: 'Plita osti 600', sub: '3 tortma · plita 590 × 520 oʻyiq' },
+      { id: 'b2', x: 1200, w: 400, z0: 100, h: 720, bg: FRONT, dir: 'row', n: 1, name: 'Pastki modul 400', sub: '1 eshik · 1 polka' },
+      { id: 'b3', x: 1600, w: 600, z0: 100, h: 2100, bg: APPL, dir: 'column', n: 2, name: 'Muzlatkich korpusi 600', sub: 'Oʻrnatiladigan muzlatkich · 2 fasad', appl: true },
+      { id: 'b4', x: 2200, w: 400, z0: 100, h: 2100, bg: FRONT, dir: 'column', n: 2, name: 'Baland shkaf 400', sub: '2 eshik · 5 polka' },
+      { id: 'v1', x: 600, w: 600, z0: 1508, h: 720, bg: FRONT, dir: 'row', n: 1, name: 'Soʻrgich modul 600', sub: 'Plitadan 650 mm yuqori · soʻrgich 600' },
+      { id: 'v2', x: 1200, w: 400, z0: 1458, h: 720, bg: FRONT, dir: 'row', n: 1, name: 'Yuqori modul 400', sub: '1 eshik · 2 polka' }
+    ];
+    var list = wall === 'A' ? A : B;
+    var sel = s.sel || (wall === 'A' ? 'a3' : 'b1');
+    var cur = list.filter(function (m) { return m.id === sel; })[0] || list[0];
+    var mods = list.map(function (m) {
+      var fr = [];
+      for (var i = 0; i < m.n; i++) fr.push({ hw: m.appl || m.corner ? '0px' : (m.dir === 'row' ? '2px' : '14px'), hh: m.appl || m.corner ? '0px' : (m.dir === 'row' ? '14px' : '2px') });
+      return {
+        l: OX + px(m.x), t: FLOOR - px(m.z0 + m.h), w: px(m.w), h: px(m.h), bg: m.bg, dir: m.dir, fr: fr,
+        label: m.name, on: m.id === cur.id, ring: m.id === cur.id ? '3px solid #3550E0' : 'none', z: m.id === cur.id ? 4 : 1,
+        pick: function () { self.setState({ sel: m.id }); }
+      };
+    });
+    var plinth = [{ l: 0, w: 342 }];
+    var tops = wall === 'A' ? [{ l: 0, w: 340 }] : [{ l: 0, w: 160 }];
+    var marksA = [
+      { l: 125 - 4, t: FLOOR - 55 - 4, c: '#2563EB' }, { l: 140 - 4, t: FLOOR - 55 - 4, c: '#DC2626' },
+      { l: 132 - 4, t: FLOOR - 45 - 4, c: '#64748B' }, { l: 290 - 4, t: FLOOR - 110 - 4, c: '#0F172A' },
+      { l: 52 - 4, t: FLOOR - 30 - 4, c: '#F59E0B' }
+    ];
+    var marksB = [{ l: 90 - 4, t: FLOOR - 100 - 4, c: '#EAB308' }];
+    var dimsA = [{ l: 0, w: 50, v: '500' }, { l: 50, w: 60, v: '600' }, { l: 110, w: 80, v: '800' }, { l: 190, w: 60, v: '600' }, { l: 250, w: 90, v: '900' }];
+    var dimsB = [{ l: 0, w: 60, v: '600' }, { l: 60, w: 60, v: '600' }, { l: 120, w: 40, v: '400' }, { l: 160, w: 60, v: '600' }, { l: 220, w: 40, v: '400' }];
+    var warnA = [
+      { text: '⚠ Rozetka (520 · 300) tortmali modul orqasida qoladi. Koʻchirish yoki modulni oʻzgartirish kerak.', bg: '#FEF3C7', fg: '#92400E' },
+      { text: '✓ Moyka suv va kanalizatsiya ustida (1250–1400 mm).', bg: '#DCFCE7', fg: '#166534' }
+    ];
+    var warnB = [
+      { text: '✓ Plita gaz quvuri yonida (900 · 1000).', bg: '#DCFCE7', fg: '#166534' },
+      { text: '⚠ Soʻrgich gaz plitadan 650 mm yuqorida. Gaz plita uchun kamida 750 mm kerak.', bg: '#FEF3C7', fg: '#92400E' }
+    ];
+    function wb(id, name) {
+      var on = wall === id;
+      return { name: name, on: on, bg: on ? '#0F172A' : 'rgba(255,255,255,0.6)', fg: on ? '#fff' : '#0F172A', pick: function () { self.setState({ w: id, sel: null }); } };
+    }
+    return {
+      walls: [wb('A', 'Devor A · 3400'), wb('B', 'Devor B · 2600')],
+      fit: wall === 'A' ? '3400 / 3400 · toʻla' : '2600 / 2600 · toʻla', fitFg: '#166534',
+      mods: mods, tops: tops, plinth: plinth,
+      marks: wall === 'A' ? marksA : marksB,
+      dims: wall === 'A' ? dimsA : dimsB,
+      selName: cur.name, selSub: cur.sub,
+      warns: wall === 'A' ? warnA : warnB
+    };
+  }
+}
+</script>
+</body>
+</html>

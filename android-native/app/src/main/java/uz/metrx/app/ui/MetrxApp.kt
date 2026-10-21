@@ -199,7 +199,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                         Tab.PROJECTS -> ProjectsList()
                                         Tab.PROFILE -> ProfileScreen(mainNav) { editMe = true }
                                     }
-                                    is Route.NewProject -> NewProjectScreen(route.editId)
+                                    is Route.NewProject -> if (route.editId == null && app.settings.furniture) uz.metrx.app.ui.furniture.NewOrderScreen() else NewProjectScreen(route.editId)
                                     is Route.Project -> ProjectScreen(route)
                                     is Route.Space -> SpaceScreen(route)
                                     is Route.Note -> NoteScreen(route)
@@ -214,6 +214,11 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.Quote -> uz.metrx.app.ui.report.ReportScreen(route.pid, route.no)
                                     is Route.Kitchen -> uz.metrx.app.ui.furniture.KitchenScreen(route)
                                     is Route.Wardrobe -> uz.metrx.app.ui.furniture.WardrobeScreen(route)
+                                    is Route.FNeed -> uz.metrx.app.ui.furniture.FNeedScreen(route)
+                                    is Route.FHow -> uz.metrx.app.ui.furniture.FHowScreen(route)
+                                    is Route.FModels -> uz.metrx.app.ui.furniture.FModelsScreen(route)
+                                    is Route.FSizes -> uz.metrx.app.ui.furniture.FSizesScreen(route)
+                                    is Route.FPlace -> uz.metrx.app.ui.furniture.FPlaceScreen(route)
                                     is Route.FCut -> uz.metrx.app.ui.furniture.CutScreen(route)
                                     is Route.FPack -> uz.metrx.app.ui.report.PackScreen(route.pid)
                                     is Route.Measure -> uz.metrx.app.ui.measure.MeasureScreen(route.calc)
@@ -236,7 +241,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                         onDisconnect = { settings.laser = Laser.DISCONNECTED; app.sheet = null }
                     )
                     null -> {}
-                    else -> if (!uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
+                    else -> if (!uz.metrx.app.ui.furniture.OrderFlowSheet(sh) && !uz.metrx.app.ui.furniture.FreeSheet(sh) && !uz.metrx.app.ui.projects.TradeSheet(sh) && !uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
                 }
                 if (soon) SoonSheet(onLocal = { soon = false; authNav.local() }, onClose = { soon = false })
                 ToastHost(app.toast) { app.toast = null }

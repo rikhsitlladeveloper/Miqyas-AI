@@ -133,18 +133,20 @@ fun ProjectsList() {
                     contentAlignment = Alignment.Center
                 ) { MIcon("plus", Color.White, 24.dp, 2.4f) }
             }
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // the chips share the width when they fit; a fourth one ("Other") scrolls into view rather than being cut off
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(end = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 (listOf("active" to "pl.active", "done" to "pl.doneSeg", "all" to "pl.allSeg") + (if (others.isNotEmpty()) listOf("other" to "fo.other") else emptyList())).forEach { (k, l) ->
                     val on = seg == k
                     Text("${tr(l)} · ${if (k == "other") others.size else n[k]}", style = ui(14f, if (on) 700 else 600, if (on) G.solid else G.slate),
+                        maxLines = 1, softWrap = false,
                         modifier = Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp))
                             .background(if (on) G.ink else G.idle(.45f))
                             .border(1.dp, if (on) G.ink else G.idleRim, RoundedCornerShape(20.dp))
-                            .clickable(role = Role.Tab) { seg = k }.padding(horizontal = 16.dp, vertical = 10.dp))
+                            .clickable(role = Role.Tab) { seg = k }.padding(horizontal = 14.dp, vertical = 10.dp))
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                list.forEach { p -> if (p.isFurniture) uz.metrx.app.ui.furniture.OrderRow(p) { app.push(Route.Project(p.id)) } else ProjectRow(p) { app.push(Route.Project(p.id)) } }
+                (if (furniture && seg != "other") uz.metrx.app.data.sortOrders(list) else list).forEach { p -> if (p.isFurniture) uz.metrx.app.ui.furniture.OrderRow(p) { app.push(Route.Project(p.id)) } else ProjectRow(p) { app.push(Route.Project(p.id)) } }
                 if (list.isEmpty()) Text(tr(if (needle.isNotEmpty()) "pl.noMatch" else "pl.none"), style = ui(14.5f, 400, G.ink2),
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
@@ -256,11 +258,11 @@ fun NewProjectScreen(editId: String?) {
         if (!ok) return
         focus.clearFocus()
         if (edit != null) {
-            app.store.update(edit.id) { it.copy(name = keep(it.name, name.trim(), lang), customer = keep(it.customer, customer.trim(), lang), phone = Phone.digits(phone), address = keep(it.address, address.trim(), lang), location = loc) }
+            app.store.update(edit.id) { it.copy(name = keep(it.name, name.trim(), lang), autoName = it.autoName && keep(it.name, name.trim(), lang) == it.name, customer = keep(it.customer, customer.trim(), lang), phone = Phone.digits(phone), address = keep(it.address, address.trim(), lang), location = loc) }
             app.pop(); app.say("op.saved", "o" to name.trim())
         } else {
             val p = newProject(name.trim(), customer.trim(), Phone.digits(phone), address.trim(), loc, app.settings.currency, app.settings.reportLang.code)
-                .let { if (app.settings.furniture) it.copy(industry = "furniture") else it }
+                .let { if (app.settings.furniture) it.copy(industry = "furniture") else if (uz.metrx.app.trades.isTrade(app.settings.industry)) it.copy(industry = app.settings.industry!!) else it }
             app.store.add(p)
             app.replaceTop(Route.Project(p.id))
             app.say("np.created", "n" to name.trim())

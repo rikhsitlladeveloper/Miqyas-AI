@@ -257,7 +257,7 @@ struct MarkupScreen: View {
                             let liveMarks: (GraphicsContext, CGFloat) -> Void = { c, zz in
                                 let cc = MK_COL[col] ?? MK_COL["ink"]!
                                 if let ps = livePen { c.stroke(mkPolyPath(ps), with: .color(cc), style: StrokeStyle(lineWidth: ops.width == 2 ? 18 : 8, lineCap: .round, lineJoin: .round)) }
-                                if let l = liveLine { c.stroke(linePath(l.0, l.1), with: .color(cc), style: StrokeStyle(lineWidth: 7 / zz, lineCap: .round, dash: [14 / zz, 10 / zz])) }
+                                if let l = liveLine { c.stroke(linePath(l.0, l.1), with: .color(cc), style: StrokeStyle(lineWidth: 7 / zz, lineCap: .butt, dash: [14 / zz, 10 / zz])) }
                                 if let e = liveEdit { drawMark(c, e, fmt, zoom: zz, letter: letters[e.id]) }
                             }
                             let under: (GraphicsContext, CGFloat) -> Void = { c, k in
@@ -583,7 +583,7 @@ private struct MkTools: View {
                 let on = tool == k
                 VStack(spacing: 3) {
                     MIcon(k, on ? G.cobalt2 : G.slate, 22, 2)
-                    T(tr("mk." + k), ui(11, on ? 700 : 600, on ? G.cobalt2 : G.slate), lines: 1)
+                    T(tr("mk." + k), ui(11, on ? 700 : 600, on ? G.cobalt2 : G.slate), lines: 1).minimumScaleFactor(0.7)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(RoundedRectangle(cornerRadius: 27, style: .continuous).fill(on ? G.glass(0.9) : .clear))
@@ -666,7 +666,8 @@ private struct DimSheet: View {
         let s = AppSettings.shared, en = s.lang == .en, on = s.laser == .connected
         if let r = mkRoute(), let it = ops.item(r.0, r.1), let e = it.els.first(where: { $0.id == eid }) {
             let parsed = Geo.lenErr(v, Geo.dimMax("A"), s.unit, en)
-            GlassSheet(tr("mk.dimT"), onClose: { app.sheet = nil }) {
+            // the sheet says which line it is (the photo is behind it, often covered by the keyboard)
+            GlassSheet(tr("mk.dimT") + (mkLetters(it)[e.id].map { " " + $0 } ?? ""), onClose: { app.sheet = nil }) {
                 if !on {
                     HStack(alignment: .top, spacing: 8) { MIcon("btoff", G.ink2, 18, 2); T(tr("mk.noLaser"), ui(13.5, 400, G.ink2, lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading) }
                 } else if let recv = ops.recv {

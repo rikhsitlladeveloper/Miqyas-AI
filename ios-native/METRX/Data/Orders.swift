@@ -42,7 +42,7 @@ func settle(_ p: Project) -> Project {
 /// Approving: the agreed price, the prepayment as the first payment (when there is one), stage "approved".
 func approve(_ p: Project, _ agreed: Decimal, _ pre: Decimal, _ now: Ms) -> Project {
     var q = p
-    q.agreed = Money.digits(agreed); q.stage = "approved"
+    q.agreed = Money.digits(agreed); q.stage = "approved"; q.approvedAt = now
     if pre > 0 { q.payments.append(Payment(id: uid(), amount: Money.digits(pre), ts: now, pre: true)) }
     return q
 }
@@ -70,6 +70,40 @@ func removePayment(_ p: Project, _ id: String) -> Project {
     q.payments.removeAll { $0.id == id }
     if q.stage == "paid", let left = orderMoney(q).left, left > 0 { q.stage = "installed" }
     return q
+}
+
+/* ---------------- the install date (furniture orders UX, 20 Oct 2026) ---------------- */
+
+private var gregorian: Calendar { var c = Calendar(identifier: .gregorian); c.timeZone = .current; return c }
+
+/// The day (midnight, here) of epoch milliseconds.
+func dayOf(_ ms: Ms) -> Date { gregorian.startOfDay(for: Date(timeIntervalSince1970: Double(ms) / 1000)) }
+
+/// d plus n working days: Monday to Saturday, Sunday off.
+func addWorkDays(_ d: Date, _ n: Int) -> Date {
+    var x = d, left = n
+    while left > 0 { x = gregorian.date(byAdding: .day, value: 1, to: x)!; if gregorian.component(.weekday, from: x) != 1 { left -= 1 } }
+    return x
+}
+
+/// When the order is to be installed: the date set by hand, else the approval day plus the Narx tab's making and
+/// installing days; nil until the order is approved. Older approved orders take the prepayment's day.
+func installDate(_ p: Project) -> Date? {
+    if p.install > 0 { return dayOf(p.install) }
+    let at: Ms
+    if p.approvedAt > 0 { at = p.approvedAt }
+    else if fStage(p) >= APPROVED, let pre = p.payments.first(where: { $0.pre }) { at = pre.ts }
+    else { return nil }
+    return addWorkDays(dayOf(at), p.fprice.days + p.fprice.inst)
+}
+
+/// Active orders with the soonest install first (late ones on top), the ones without a date after them, newest first.
+func sortOrders(_ ps: [Project]) -> [Project] {
+    let dated = ps.filter { installDate($0) != nil && fStage($0) < INSTALLED }
+    let undated = ps.filter { !(installDate($0) != nil && fStage($0) < INSTALLED) }
+    let a = dated.enumerated().sorted { (installDate($0.element)!, $0.offset) < (installDate($1.element)!, $1.offset) }.map(\.element)
+    let b = undated.enumerated().sorted { ($1.element.created, $0.offset) < ($0.element.created, $1.offset) }.map(\.element)
+    return a + b
 }
 
 /// Half the price, rounded half up: the usual prepayment.

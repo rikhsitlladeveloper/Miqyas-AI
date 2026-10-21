@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Ustaxona uchun — A4</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B47D9}a:hover{color:#1E36B0}
+.k{font-size:8px;font-weight:700;letter-spacing:0.06em;color:#475569}
+.tb{width:100%;border-collapse:collapse;font-size:9px;font-variant-numeric:tabular-nums}
+.tb th{text-align:left;font-size:7.5px;font-weight:800;letter-spacing:0.05em;color:#475569;padding:3px 4px;border-bottom:1px solid #0F172A}
+.tb td{padding:3px 4px;border-bottom:1px solid #E2E8F0}
+</style>
+</helmet>
+<div style="width: 595px; height: 842px; box-sizing: border-box; padding: 32px 36px 28px; background: #fff; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A; display: flex; flex-direction: column; gap: 12px; position: relative">
+  <header style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #0F172A; padding-bottom: 8px">
+    <div><div style="font-size: 15px; font-weight: 800">Ustaxona uchun · Chilonzor 9</div><div style="font-size: 9px; color: #475569">Oshxona 1 (L) + Shkaf · 17.10.2026 · LDSP 16, fasad 3 mm oraliq</div></div>
+    <span style="font-size: 8.5px; font-weight: 800; padding: 4px 8px; border-radius: 4px; background: #FEE2E2; color: #991B1B">ICHKI HUJJAT · MIJOZGA BERILMAYDI</span>
+  </header>
+
+  <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; font-variant-numeric: tabular-nums">
+    <sc-for list="{{sum}}" as="s" hint-placeholder-count="4">
+      <div style="background: #F1F5F9; border-radius: 6px; padding: 6px 8px"><div class="k">{{s.k}}</div><div style="font-size: 12px; font-weight: 800">{{s.v}}</div><div style="font-size: 8px; color: #475569">{{s.n}}</div></div>
+    </sc-for>
+  </div>
+
+  <div style="display: flex; gap: 12px">
+    <section style="flex: 1; min-width: 0">
+      <div class="k">DETALLAR · LDSP 16 OQ (86 dan 8 ta)</div>
+      <table class="tb" style="margin-top: 4px">
+        <tr><th>№</th><th>Detal</th><th>U × E</th><th>Soni</th><th>Kromka</th></tr>
+        <sc-for list="{{rows}}" as="r" hint-placeholder-count="8">
+          <tr><td>{{r.no}}</td><td>{{r.n}}</td><td>{{r.s}}</td><td style="font-weight: 800">{{r.q}}</td><td>{{r.e}}</td></tr>
+        </sc-for>
+      </table>
+    </section>
+    <section style="width: 210px">
+      <div class="k">LIST 1 / 9 · CHIQINDI 14 %</div>
+      <div style="margin-top: 4px; position: relative; width: 210px; height: 155px; border: 1px solid #0F172A; box-sizing: border-box; background: repeating-linear-gradient(45deg, #F8FAFC 0 5px, #E2E8F0 5px 6px)">
+        <sc-for list="{{parts}}" as="p" hint-placeholder-count="18">
+          <span style="position: absolute; left: {{p.l}}px; top: {{p.t}}px; width: {{p.w}}px; height: {{p.h}}px; box-sizing: border-box; background: #fff; border: 0.8px solid #0F172A; font-size: 7px; font-weight: 800; display: flex; align-items: center; justify-content: center">{{p.no}}</span>
+        </sc-for>
+      </div>
+      <div style="margin-top: 4px; font-size: 8px; color: #475569">2800 × 2070 · arra 4 · chetdan 10</div>
+    </section>
+  </div>
+
+  <section>
+    <div class="k">FURNITURA</div>
+    <table class="tb" style="margin-top: 4px">
+      <tr><th>Nomi</th><th>Soni</th><th>Narx</th><th style="text-align: right">Summa</th></tr>
+      <sc-for list="{{hw}}" as="h" hint-placeholder-count="6">
+        <tr><td>{{h.n}}</td><td>{{h.q}}</td><td>{{h.p}}</td><td style="text-align: right">{{h.s}}</td></tr>
+      </sc-for>
+    </table>
+  </section>
+
+  <section style="border: 1.5px solid #0F172A; border-radius: 6px; padding: 8px 10px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; font-variant-numeric: tabular-nums">
+    <div><div class="k">TANNARX</div><b style="font-size: 12px">24 667 000</b></div>
+    <div><div class="k">MIJOZ NARXI</div><b style="font-size: 12px">32 067 100</b></div>
+    <div><div class="k">FOYDA</div><b style="font-size: 12px; color: #166534">7 400 100</b></div>
+    <div><div class="k">USTAMA</div><b style="font-size: 12px">30 % · 23,1 %</b></div>
+  </section>
+
+  <footer style="position: absolute; left: 36px; right: 36px; bottom: 18px; display: flex; justify-content: space-between; font-size: 8px; color: #64748B"><span>METRX · Ustaxona uchun · keyingi sahifalar: Kashmir, DVP, listlar 2–18, modul chizmalari</span><span>1 / 6</span></footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":595,"height":842}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var K = 0.075, O = 0.75;
+    var P = [
+      [1, 0, 0, 704, 560], [1, 708, 0, 704, 560], [1, 1416, 0, 704, 560], [3, 2124, 0, 600, 560],
+      [1, 0, 564, 704, 560], [1, 708, 564, 704, 560], [4, 1416, 564, 800, 560], [5, 2220, 564, 500, 560],
+      [2, 0, 1128, 2100, 560], [8, 2104, 1128, 566, 540],
+      [7, 0, 1692, 768, 100], [7, 772, 1692, 768, 100], [6, 1544, 1692, 568, 100], [6, 2116, 1692, 568, 100],
+      [6, 0, 1796, 568, 100], [6, 572, 1796, 568, 100], [6, 1144, 1796, 568, 100], [6, 1716, 1796, 568, 100]
+    ];
+    return {
+      sum: [
+        { k: 'LDSP 16 OQ', v: '9 list', n: '86 detal · 14 %' },
+        { k: 'LDSP 16 KASHMIR', v: '6 list', n: '41 detal · 17 %' },
+        { k: 'DVP 3,2', v: '3 list', n: '21 detal · 9 %' },
+        { k: 'KROMKA', v: '210 + 160 m', n: '2 mm + 0,4 mm' }
+      ],
+      rows: [
+        [1, 'Yon devor (pastki)', '704 × 560', 10, '1 × 2 mm'], [2, 'Yon devor (baland)', '2100 × 560', 4, '1 × 2 mm'],
+        [3, 'Tagi', '600 × 560', 3, '1 × 2 mm'], [4, 'Tagi', '800 × 560', 1, '1 × 2 mm'], [5, 'Tagi', '500 × 560', 1, '1 × 2 mm'],
+        [6, 'Planka', '568 × 100', 8, '1 × 0,4'], [7, 'Planka', '768 × 100', 2, '1 × 0,4'], [8, 'Polka', '566 × 540', 6, '1 × 2 mm']
+      ].map(function (r) { return { no: r[0], n: r[1], s: r[2], q: r[3], e: r[4] }; }),
+      parts: P.map(function (p) { return { no: p[0], l: Math.round((O + p[1] * K) * 10) / 10, t: Math.round((O + p[2] * K) * 10) / 10, w: Math.round(p[3] * K * 10) / 10, h: Math.round(p[4] * K * 10) / 10 }; }),
+      hw: [
+        ['Petlya, yumshoq yopilish', 79, '18 000', '1 422 000'], ['Yoʻnaltiruvchi 300–600', '11 juft', '95 000', '1 045 000'],
+        ['Tutqich skoba 128', 45, '25 000', '1 125 000'], ['Oyoq 100 mm', 44, '6 000', '264 000'],
+        ['Shtanga', '2 m', '35 000', '70 000'], ['Konfirmat, polka ushlagich, osma', '—', '—', '186 000']
+      ].map(function (h) { return { n: h[0], q: h[1], p: h[2], s: h[3] }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

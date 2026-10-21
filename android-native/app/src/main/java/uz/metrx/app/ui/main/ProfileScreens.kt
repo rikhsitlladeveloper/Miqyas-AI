@@ -115,7 +115,7 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
             }
             Group(tr("pf.gReport"))
             Card {
-                Row1("sliders", tr("ind.row"), tr(if (s.furniture) "ind.furn" else "ind.build")) { app.sheet = Sheet.Industry }
+                Row1("sliders", tr("ind.row"), tr(when { s.furniture -> "ind.furn"; uz.metrx.app.trades.isTrade(s.industry) -> "ind.${s.industry}"; else -> "ind.build" })) { app.sheet = Sheet.Industry }
                 Row1("globe", tr("se.lang"), s.lang.longName) { nav.languages() }
                 Row1("doc", tr("se.reportLang"), s.reportLang.longName) { app.sheet = Sheet.ReportLang }
                 val pdfN = listOf(s.pdf.plan, s.pdf.dims, s.pdf.views, s.pdf.estimate, s.pdf.sign).count { it }

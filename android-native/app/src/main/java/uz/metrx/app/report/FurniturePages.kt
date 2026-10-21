@@ -95,14 +95,15 @@ fun furniturePages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?,
     // the front drawings, one per wall or wardrobe
     val ws = sn.fws ?: Workshop()
     val figs = sn.furniture.flatMap { f ->
-        val room = sn.rooms.firstOrNull { it.room.id == f.roomId }?.room
+        val room = if (f.roomId == null) uz.metrx.app.furniture.freeRoom(f) else sn.rooms.firstOrNull { it.room.id == f.roomId }?.room
         frontFigures(f, room, ws, sn.fmats).map { f to it }
     }
     if (figs.isNotEmpty()) {
         d.newPage(); d.h2(d.t("fd.fronts"))
         figs.forEach { (f, fig) ->
             val tmm = tm
-            val title = dn(f.name, d.l) + when (fig.wall) { null -> ""; ISLAND -> " · " + d.t(if (f.layout == "P") "kt.peninsula" else "kt.island"); else -> " · " + d.t("kt.wallN", "w" to fig.wall) }
+            val title = dn(f.name, d.l) + when (fig.wall) { null -> ""; ISLAND -> " · " + d.t(if (f.layout == "P") "kt.peninsula" else "kt.island")
+                else -> " · " + if (f.roomId == null) d.t("fz.sideN", "n" to f.walls.indexOf(fig.wall) + 1) else d.t("kt.wallN", "w" to fig.wall) }
             d.figure(title, fig.vw, fig.vh) { fig.draw(this, tmm) }
         }
         d.fn(d.t("fd.frontNote"))
@@ -122,6 +123,7 @@ private fun Doc.materials(sn: Snap) {
         }
     }
     if (sn.furniture.any { it.kind == "kitchen" }) mat("wt38")?.let { entries += Triple(t("mt.wtK"), it.name, it.rgb) }
+    if (sn.furniture.any { (it.kx?.splash ?: 0) > 0 }) mat("splash6")?.let { entries += Triple(t("mt.splashK"), it.name, it.rgb) }
     if (sn.fhandles.isNotBlank() && sn.furniture.any { f -> f.modules.any { it.handles } }) entries += Triple(t("hk.handle"), sn.fhandles, null)
     if (entries.isEmpty()) return
     h2(t("fd.mats"))
@@ -243,7 +245,7 @@ fun workshopPages(tm: TextMeasurer, sn: Snap, ws: Workshop, mats: List<Mat>, hws
     hr += listOf(d.th(d.t("fw.c.name")), d.th(d.t("fw.c.qty"), true), d.th(d.t("fw.c.price"), true), d.th(d.t("fw.c.sum"), true))
     cost.lines.filter { it.group == "hw" }.forEach { ln ->
         val hw = hws.firstOrNull { it.id == ln.key }
-        hr += listOf(d.cell(hw?.name ?: d.t("hk.${ln.key}")), d.rcell(fmtQty(d, ln.qty) + (if (ln.unit == "m") " m" else "")),
+        hr += listOf(d.cell(hw?.name ?: d.t("hk.${ln.key}")), d.rcell(fmtQty(d, ln.qty) + (when (ln.unit) { "m" -> " m"; "m2" -> " m²"; else -> "" })),
             d.rcell(if (ln.missing) "—" else d.money(ln.price)), d.rcell(d.money(ln.amount)))
     }
     hr += listOf(d.cell(d.t("r.total"), d.ui(10f, 700), span = 3), d.rcell(d.money(cost.sum("hw")), d.num(10f, 700)))

@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Narx — tannarx va foyda</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B47D9}a:hover{color:#1E36B0}
+button{font:inherit}
+.g{border:1px solid rgba(255,255,255,0.8);background:rgba(255,255,255,0.45);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.95),0 14px 30px rgba(30,40,110,0.13)}
+.ln{display:flex;justify-content:space-between;gap:8px;font-size:12.5px;padding:3px 0;font-variant-numeric:tabular-nums}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #EEF1F8; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A">
+  <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none">
+    <div style="position: absolute; width: 320px; height: 320px; left: -120px; top: -100px; border-radius: 50%; background: #5B7BFF; filter: blur(70px); opacity: 0.55"></div>
+    <div style="position: absolute; width: 260px; height: 260px; right: -90px; top: 330px; border-radius: 50%; background: #B07CFF; filter: blur(80px); opacity: 0.35"></div>
+  </div>
+
+  <div style="position: relative; height: 100%; box-sizing: border-box; padding: 56px 18px 18px; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <a href="Order.dc.html" aria-label="Orqaga" class="g" style="width: 42px; height: 42px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #0F172A">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+      </a>
+      <div style="flex: 1"><div style="font-size: 19px; font-weight: 800">Narx</div><div style="font-size: 12.5px; color: #475569">Oshxona 1 + Shkaf · faqat siz koʻrasiz</div></div>
+    </div>
+
+    <section class="g" style="margin-top: 12px; border-radius: 22px; padding: 12px 14px">
+      <div style="display: flex; justify-content: space-between; align-items: baseline">
+        <h2 style="margin: 0; font-size: 14px; font-weight: 800">Tannarx</h2>
+        <span style="font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums">24 667 000</span>
+      </div>
+      <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+        <div style="margin-top: 6px">
+          <button type="button" onClick="{{g.toggle}}" aria-expanded="{{g.open}}" style="cursor: pointer; width: 100%; padding: 6px 0; border: 0; background: none; display: flex; justify-content: space-between; font-size: 13.5px; font-weight: 700; color: #0F172A; border-top: 1px solid rgba(15,23,42,0.08); font-variant-numeric: tabular-nums"><span>{{g.arrow}} {{g.name}}</span><span>{{g.sum}}</span></button>
+          <sc-if value="{{g.open}}" hint-placeholder-val="{{false}}">
+            <sc-for list="{{g.lines}}" as="l" hint-placeholder-count="4">
+              <div class="ln"><span style="color: #334155">{{l.n}}</span><span>{{l.v}}</span></div>
+            </sc-for>
+          </sc-if>
+        </div>
+      </sc-for>
+    </section>
+
+    <section class="g" style="margin-top: 10px; border-radius: 22px; padding: 12px 14px">
+      <h2 style="margin: 0; font-size: 14px; font-weight: 800">Mijoz narxi qanday hisoblanadi</h2>
+      <div style="margin-top: 8px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px">
+        <sc-for list="{{modes}}" as="m" hint-placeholder-count="3">
+          <button type="button" onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="cursor: pointer; height: 40px; border-radius: 12px; border: {{m.border}}; background: {{m.bg}}; color: {{m.fg}}; font-size: 12.5px; font-weight: 700">{{m.v}}</button>
+        </sc-for>
+      </div>
+      <div style="margin-top: 8px; font-size: 12.5px; line-height: 1.5; color: #334155; white-space: pre-line">{{how}}</div>
+      <sc-if value="{{isMargin}}" hint-placeholder-val="{{true}}">
+        <div style="margin-top: 6px; display: flex; align-items: center; gap: 8px">
+          <button type="button" onClick="{{minus}}" aria-label="Ustamani kamaytirish" style="cursor: pointer; width: 38px; height: 38px; border-radius: 12px; border: 1px solid #E2E8F0; background: #fff; font-size: 18px; font-weight: 800">−</button>
+          <span style="min-width: 64px; text-align: center; font-size: 18px; font-weight: 800">{{pct}} %</span>
+          <button type="button" onClick="{{plus}}" aria-label="Ustamani oshirish" style="cursor: pointer; width: 38px; height: 38px; border-radius: 12px; border: 1px solid #E2E8F0; background: #fff; font-size: 18px; font-weight: 800">+</button>
+        </div>
+      </sc-if>
+    </section>
+
+    <section style="margin-top: 10px; border-radius: 22px; padding: 14px; background: #0F172A; color: #fff">
+      <div style="display: flex; justify-content: space-between; align-items: baseline"><span style="font-size: 13px; color: #CBD5E1">Mijoz narxi</span><span style="font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums">{{price}}</span></div>
+      <div style="margin-top: 4px; display: flex; justify-content: space-between; font-size: 13.5px; font-variant-numeric: tabular-nums"><span style="color: #CBD5E1">Foyda</span><span style="font-weight: 800; color: {{profitFg}}">{{profit}}</span></div>
+    </section>
+
+    <div style="flex: 1"></div>
+    <div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <a href="CutList.dc.html" style="text-decoration: none; height: 52px; border-radius: 18px; background: rgba(255,255,255,0.75); border: 1px solid rgba(15,23,42,0.12); color: #0F172A; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">Ustaxona uchun</a>
+      <a href="CustomerPdf.dc.html" style="text-decoration: none; height: 52px; border-radius: 18px; background: #3550E0; color: #fff; display: flex; align-items: center; justify-content: center; font-size: 14px; font-weight: 700">Mijoz uchun PDF</a>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var s = this.state || {};
+    var self = this;
+    var COST = 24667000, KITCHEN = 17902000, WARD = 6765000;
+    var mode = s.mode || 'm', pct = s.pct === undefined ? 30 : s.pct;
+    var open = s.open || { m: true };
+    function fmt(n) { return String(Math.round(n)).replace(/\B(?=(\d{3})+(?!\d))/g, ' '); }
+    var G = [
+      { id: 'm', name: 'Materiallar', sum: 14435000, lines: [['LDSP 16 Oq · 9 list × 620 000', 5580000], ['LDSP 16 Kashmir · 6 list × 690 000', 4140000], ['DVP 3,2 · 3 list × 210 000', 630000], ['Stoleshnitsa 4100 · 2 × 1 450 000', 2900000], ['Kromka 2 mm · 210 m × 4 500', 945000], ['Kromka 0,4 mm · 160 m × 1 500', 240000]] },
+      { id: 'h', name: 'Furnitura', sum: 4112000, lines: [['Petlya yumshoq · 79 × 18 000', 1422000], ['Yoʻnaltiruvchi · 11 juft × 95 000', 1045000], ['Tutqich · 45 × 25 000', 1125000], ['Oyoq · 44 × 6 000', 264000], ['Shtanga · 2 m × 35 000', 70000], ['Konfirmat, polka ushlagich, osma', 186000]] },
+      { id: 'l', name: 'Ish haqi', sum: 6120000, lines: [['Kesish · 18 list × 45 000', 810000], ['Kromkalash · 370 m × 3 000', 1110000], ['Yigʻish · 20 modul × 120 000', 2400000], ['Oʻrnatish', 1500000], ['Yetkazish', 300000]] }
+    ];
+    var price, how;
+    if (mode === 'm') { price = COST * (1 + pct / 100); how = 'Tannarx + ustama.'; }
+    else if (mode === 'r') { price = 5.4 * 4400000 + WARD * 1.3; how = 'Oshxona: 5,4 pog. m × 4 400 000 = 23 760 000\nShkaf: tannarx + 30 % = 8 794 500'; }
+    else { price = 32000000; how = 'Narxni oʻzingiz yozasiz: 32 000 000'; }
+    var profit = price - COST;
+    function seg(on) { return { border: on ? '1.5px solid #3550E0' : '1px solid #E2E8F0', bg: on ? 'rgba(53,80,224,0.1)' : '#fff', fg: on ? '#2B47D9' : '#0F172A' }; }
+    return {
+      groups: G.map(function (g) {
+        var o = !!open[g.id];
+        return { name: g.name, sum: fmt(g.sum), open: o, arrow: o ? '▾' : '▸',
+          toggle: function () { var n = Object.assign({}, open); n[g.id] = !o; self.setState({ open: n }); },
+          lines: g.lines.map(function (l) { return { n: l[0], v: fmt(l[1]) }; }) };
+      }),
+      modes: [['m', 'Ustama %'], ['r', 'Pogon metr'], ['f', 'Qatʼiy']].map(function (m) { return Object.assign(seg(mode === m[0]), { v: m[1], on: mode === m[0], pick: function () { self.setState({ mode: m[0] }); } }); }),
+      isMargin: mode === 'm', pct: pct,
+      minus: function () { self.setState({ pct: Math.max(0, pct - 5) }); },
+      plus: function () { self.setState({ pct: pct + 5 }); },
+      how: how,
+      price: fmt(price),
+      profit: fmt(profit) + ' · ' + (price > 0 ? Math.round(profit / price * 1000) / 10 : 0) + ' %',
+      profitFg: profit < 0 ? '#FCA5A5' : '#86EFAC'
+    };
+  }
+}
+</script>
+</body>
+</html>

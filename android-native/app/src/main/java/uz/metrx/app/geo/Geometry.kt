@@ -125,10 +125,32 @@ fun areas(r: Room, snap: Boolean = true): Areas? {
         val L = r.dim("A").v ?: return null; val W = r.dim("B").v ?: return null
         floor = L.toLong() * W; perim = 2L * (L + W)
     }
-    if (H == null) return Areas(floor, perim, null, null, null)
-    val gross = perim * H
+    // columns take floor and add their two sides to the walls; a niche from the floor adds floor and its sides
+    val fx = r.features
+    val floorF = floor - fx.filter { it.type == "column" }.sumOf { it.w.toLong() * it.d } + fx.filter { it.type == "niche" && it.sill == 0 }.sumOf { it.w.toLong() * it.d }
+    val perimF = perim + fx.filter { it.type == "column" || it.sill == 0 }.sumOf { 2L * it.d }
+    if (H == null) return Areas(floorF, perimF, null, null, null)
+    val extra = fx.sumOf { f ->
+        if (f.type == "column") 2L * f.d * H
+        else {
+            val nh = (if (f.h > 0) f.h else H - f.sill).coerceAtMost(H - f.sill).toLong()
+            2L * f.d * nh + (if (f.sill > 0) f.w.toLong() * f.d else 0L) + (if (f.sill + nh < H) f.w.toLong() * f.d else 0L)
+        }
+    }
+    val gross = perim * H + extra
     val open = r.openings.sumOf { it.w.toLong() * it.h }
-    return Areas(floor, perim, gross, open, gross - open)
+    return Areas(floorF, perimF, gross, open, gross - open)
+}
+
+/** What is wrong with a column or niche [f] in room [r]: off the wall's end, or too deep. Null when it fits. */
+fun featureIssue(r: Room, f: uz.metrx.app.data.Feature, snap: Boolean = true): String? {
+    val L = walls(r, snap).firstOrNull { it.id == f.wall }?.len ?: return "ft.needWall"
+    if (f.w <= 0 || f.d <= 0) return "ft.size"
+    if (f.off + f.w > L) return "ft.exceeds"
+    if (f.type == "niche" && f.d > 1000) return "ft.deep"
+    val H = r.dim("H").v
+    if (f.type == "niche" && H != null && f.sill + (if (f.h > 0) f.h else 0) > H) return "ft.tall"
+    return null
 }
 
 data class WallStats(val gross: Long?, val open: Long, val net: Long?)

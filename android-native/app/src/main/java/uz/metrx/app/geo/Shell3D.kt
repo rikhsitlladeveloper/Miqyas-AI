@@ -85,6 +85,13 @@ class Shell3D(
     /** The same scene with more parts and outlines (the furniture). */
     fun plus(more: List<Part>, moreEdges: List<Edges>) = Shell3D(parts + more, edges + moreEdges, groups, labels, rooms3, L, W, H, tgt, r, theta, phi, bounds, rMin, fit,
         gridSize, gridDiv, gridCx, gridCz, light, far, bases)
+
+    /**
+     * Only the floor: furniture without a room, drawn without walls (the walls' frames stay for placing it). With no
+     * walls, nothing faces the camera, so no furniture goes see-through.
+     */
+    fun floorOnly() = Shell3D(parts.filter { it.role == Role.FLOOR }, emptyList(), groups.map { Group(it.cx, it.cz, emptyMap()) }, emptyList(), rooms3, L, W, H, tgt, r, theta, phi, bounds, rMin, fit,
+        gridSize, gridDiv, gridCx, gridCz, light, far, bases)
 }
 
 const val FOV_HALF = PI / 9      // half of the 40° camera
@@ -155,16 +162,44 @@ private fun rectRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
         val (a, bb) = when (w) { "A", "B" -> off to off + wd; "C" -> L - off - wd to L - off; else -> W - off - wd to W - off }
         doubleArrayOf(a, bb, o.sill / 1000.0, o.h / 1000.0, if (o.type == "door") 1.0 else 0.0)
     }
+    // niches: cut out of the wall like an opening [a, b, sill, height, 2] and closed at their depth
+    fun nichesOn(w: String) = room.features.filter { it.wall == w && it.type == "niche" }.map { f ->
+        val off = f.off / 1000.0; val wd = f.w / 1000.0
+        val (a, bb) = when (w) { "A", "B" -> off to off + wd; "C" -> L - off - wd to L - off; else -> W - off - wd to W - off }
+        val sill = f.sill / 1000.0; val nh = (if (f.h > 0) f.h / 1000.0 else H - sill).coerceAtMost(H - sill)
+        doubleArrayOf(a, bb, sill, nh, 2.0, minOf(f.d / 1000.0, T - .01))
+    }
     for (w in listOf("A", "C", "B", "D")) {
         val p = b.part(gi, w, Role.WALL, wallRgb)
-        val ops = opsOn(w)
+        val niches = nichesOn(w)
+        val ops = opsOn(w) + niches
         when (w) {
             "A" -> pieces(-T, L + T, ops, H).forEach { box(w, it[0], it[1], it[2], it[3], -T, 0.0, p) }
             "C" -> pieces(-T, L + T, ops, H).forEach { box(w, it[0], it[1], it[2], it[3], W, W + T, p) }
             "B" -> pieces(0.0, W, ops, H).forEach { box(w, L, L + T, it[2], it[3], it[0], it[1], p) }
             else -> pieces(0.0, W, ops, H).forEach { box(w, -T, 0.0, it[2], it[3], it[0], it[1], p) }
         }
-        ops.forEach { openingModel(b, gi, w, it, T, L, W, ::X) }
+        ops.filter { it[4] != 2.0 }.forEach { openingModel(b, gi, w, it, T, L, W, ::X) }
+        // the niche's back, its depth into the wall
+        niches.forEach { n ->
+            val dd = n[5]
+            when (w) {
+                "A" -> box(w, n[0], n[1], n[2], n[2] + n[3], -T, -dd, p)
+                "C" -> box(w, n[0], n[1], n[2], n[2] + n[3], W + dd, W + T, p)
+                "B" -> box(w, L + dd, L + T, n[2], n[2] + n[3], n[0], n[1], p)
+                else -> box(w, -T, -dd, n[2], n[2] + n[3], n[0], n[1], p)
+            }
+        }
+        // columns: full-height boxes against the wall's inside face
+        room.features.filter { it.wall == w && it.type == "column" }.forEach { f ->
+            val off = f.off / 1000.0; val wd = f.w / 1000.0; val dd = f.d / 1000.0
+            when (w) {
+                "A" -> box(w, off, off + wd, 0.0, H, 0.0, dd, p)
+                "C" -> box(w, L - off - wd, L - off, 0.0, H, W - dd, W, p)
+                "B" -> box(w, L - dd, L, 0.0, H, off, off + wd, p)
+                else -> box(w, 0.0, dd, 0.0, H, W - off - wd, W - off, p)
+            }
+        }
     }
     room.points.forEach { pointModel(b, gi, it, L, W, ::X) }
     if (gi == 0) {

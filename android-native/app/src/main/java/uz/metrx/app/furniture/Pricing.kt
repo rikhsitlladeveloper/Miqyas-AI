@@ -39,7 +39,7 @@ data class Priced(val cost: Cost, val price: BigInteger, val lines: List<PriceLi
 private fun money(s: String) = s.replace(" ", "").takeIf { it.isNotEmpty() }?.toBigIntegerOrNull()
 
 /** Running metres of a kitchen's lower rows, in millimetres. */
-fun runMm(f: Furniture) = f.modules.filter { !isUpper(it) && it.type != "tall" && !(it.type == "gap" && it.app == "fridge") }.sumOf { it.w }
+fun runMm(f: Furniture) = f.modules.filter { !isUpper(it) && it.type != "tall" && !(it.type == "gap" && (it.app == "fridge" || it.app == "space")) }.sumOf { it.w }
 
 fun priceOf(fs: List<Furniture>, fp: FPrice, ws: Workshop, mats: List<Mat>, hws: List<Hw>): Priced {
     val cost = costOf(fs, ws, mats, hws)

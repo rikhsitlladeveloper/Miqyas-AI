@@ -72,6 +72,18 @@ fun RoomThumb(r: Room, label: String, unit: LenUnit, english: Boolean, snap: Boo
             drawLine(Color.White, p0, p1, 3.4f * den)
             if (o.type == "window") drawLine(ink, p0, p1, .8f * den)
         }
+        // columns (filled, inside) and niches (cut into the wall)
+        if (!r.isPoly && solid) r.features.forEach { f ->
+            val i = "ABCD".indexOf(f.wall).takeIf { it >= 0 } ?: return@forEach
+            val a = pts[i]; val b = pts[(i + 1) % 4]
+            val d = b - a; val len = kotlin.math.hypot(d.x, d.y); if (len == 0f) return@forEach
+            val u = Offset(d.x / len, d.y / len); val n = Offset(-u.y, u.x)          // into the room
+            val p0 = a + u * (f.off * s); val p1 = a + u * ((f.off + f.w) * s)
+            val dd = f.d * s * (if (f.type == "column") 1f else -1f)
+            val q = Path().apply { moveTo(p0.x, p0.y); lineTo(p1.x, p1.y); val p2 = p1 + n * dd; val p3 = p0 + n * dd; lineTo(p2.x, p2.y); lineTo(p3.x, p3.y); close() }
+            drawPath(q, if (f.type == "column") ink else Color.White)
+            if (f.type != "column") drawPath(q, ink, style = Stroke(.8f * den))
+        }
         if (!detailed) return@onPaper
         val a = areas(r, snap)
         val cx = (pts.minOf { it.x } + pts.maxOf { it.x }) / 2f; val cy = (pts.minOf { it.y } + pts.maxOf { it.y }) / 2f

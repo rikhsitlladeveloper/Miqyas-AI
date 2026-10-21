@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -175,7 +176,9 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
         (listOf(m.x) + m.sections.map { s -> acc += s.w; acc }).forEach { x -> drawRect(GREY_LINE, Offset(X(x) - 1.5f, bot), Size(3f, lay.yF - bot)) }
     }
     val bottomY = lay.y(z0 + base + t)
-    drawLine(onC, Offset(l, bottomY), Offset(r, bottomY), 1f)
+    // a desk's knee space has no bottom: the floor shows through
+    run { var a = m.x; m.sections.forEach { s -> if (!s.knee) drawLine(onC, Offset(X(a), bottomY), Offset(X(a + s.w), bottomY), 1f)
+        else drawRect(uz.metrx.app.ui.editor.PLAN_W, Offset(X(a) + 1f, lay.y(z0 + m.h - t)), Size(s.w * lay.s - 2f, lay.yF - lay.y(z0 + m.h - t))); a += s.w } }
     drawLine(onC, Offset(l, lay.y(z0 + m.h - t)), Offset(r, lay.y(z0 + m.h - t)), 1f)
     var acc = m.x
     m.sections.forEachIndexed { i, s ->
@@ -183,7 +186,8 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
         if (i > 0) drawLine(onC, Offset(sl, lay.y(z0 + base)), Offset(sl, top), 1.4f)
         val il = sl + 2f; val ir = sr - 2f
         val open = s.fronts.kind == "open"
-        if (!doors || open) s.inserts.forEach { x ->
+        val slide = m.slide != null
+        if (!doors || (open && !slide)) s.inserts.forEach { x ->
             val y0 = z0 + base + t + x.pos
             val h = blockH(x)
             when (x.kind) {
@@ -205,7 +209,7 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
                 }
             }
         }
-        if (doors && !open) {
+        if (doors && !open && !slide) {
             val n = frontSizes(s.fronts, s.w, m.h - base, ws).size
             if (n > 0) {
                 val g = max(.8f, ws.gap10 / 10f * lay.s)
@@ -243,10 +247,38 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
         if (i == sel) drawRect(COB, Offset(sl + 1.5f, top + 1.5f), Size(sr - sl - 3f, bot - top - 3f), style = Stroke(2.6f))
         acc += s.w
     }
+    if (doors) m.slide?.let { sl -> drawSlide(lay, m, sl, ox, z0 + base + t, front, ws) }
     // the ends: a side panel, or dashed where it meets a wall (built in)
     drawLine(INK, Offset(l, top), Offset(r, top), 1.4f)
     drawLine(INK, Offset(l, top), Offset(l, bot), if (m.sideL) 1.8f else 1f, pathEffect = if (m.sideL) null else dash)
     drawLine(INK, Offset(r, top), Offset(r, bot), if (m.sideR) 1.8f else 1f, pathEffect = if (m.sideR) null else dash)
+}
+
+/** Mirror and lacobel glass in drawings (the 3D uses the same colours). */
+internal val MIRROR_C = Color(0xFFC9D3DD)
+internal val GLASS_C = Color(0xFF8FA9C4)
+private val PROFILE_C = Color(0xFF9AA3AE)
+
+/** Sliding doors over the front: the back track's doors first, the front track's over them, each in its profile frame. */
+private fun DrawScope.drawSlide(lay: KLay, m: Module, sl: uz.metrx.app.furniture.Slide, ox: Int, y0: Int, front: Color, ws: Workshop) {
+    val n = sl.n.coerceIn(2, 4)
+    val (dw, dh) = uz.metrx.app.furniture.slideDoor(m, ws.t)
+    val step = dw - uz.metrx.app.furniture.SLIDE_OV
+    val ax = m.x + (if (m.sideL) ws.t else 0)
+    val y = y0 + uz.metrx.app.furniture.SLIDE_CLEAR / 2
+    val fw = max(1.2f, uz.metrx.app.furniture.SLIDE_FRAME_W * lay.s)
+    (0 until n).sortedBy { it % 2 }.forEach { j ->
+        val l = lay.x(ax + j * step - ox); val w = dw * lay.s
+        val t = lay.y(y + dh); val h = dh * lay.s
+        val fill = when (sl.panel(j)) { "mirror" -> MIRROR_C; "glass" -> GLASS_C; else -> front }
+        drawRect(PROFILE_C, Offset(l, t), Size(w, h))
+        drawRect(fill, Offset(l + fw, t + fw * 1.6f), Size(w - 2 * fw, h - 3.2f * fw))
+        if (sl.panel(j) == "mirror") for (k in 0..1) {
+            val sx = l + w * (.25f + .3f * k)
+            drawLine(Color.White.copy(alpha = .7f), Offset(sx, t + h * .2f), Offset(sx + w * .18f, t + h * .05f), 1.2f)
+        }
+        drawRect(INK, Offset(l, t), Size(w, h), style = Stroke(.9f))
+    }
 }
 
 /** Widths under the floor and the height at the left; [cuts] in mm from the drawing's start. */
@@ -300,7 +332,7 @@ private fun WardDrawing(m: Module, f: Furniture, cx: WardCtx, ws: Workshop, mats
             withTransform({ scale(k, k, pivot = Offset.Zero) }) {
                 if (onWall) drawWallFace(lay, cx.room, m.wall ?: "")
                 drawLine(INK, Offset(lay.x0 - 10f, lay.yF), Offset(lay.x(L) + 10f, lay.yF), 2f)
-                drawWard(lay, m, ox, ws, carcass, front, if (step == 3 || step == 4) sel else -1, doors, cx.bad, tm)
+                drawWard(lay, m, ox, ws, carcass, front, if ((step == 3 && m.slide == null) || step == 4) sel else -1, doors, cx.bad, tm)
                 if (onWall) cx.room?.points?.filter { it.wall == m.wall }?.forEach { p -> drawSitePoint(p, Offset(lay.x(p.off), lay.y(p.h)), lay.s, 6f) }
                 if (onWall) wardDims(lay, listOf(0, m.x, m.x + m.w, L).distinct().sorted(), L, outerH(m, ws), m.x, tm)
                 else {
@@ -421,6 +453,7 @@ private fun isFull(m: Module, wallL: Int?) = wallL != null && m.x == W_GAP_SIDE 
 private fun PlaceStep(p: Project, f: Furniture, m: Module, cx: WardCtx, ws: Workshop) {
     val app = LocalApp.current
     val snap = app.settings.angleSnap
+    if (f.roomId == null) { FreeBanner(p, f); return }
     val room = cx.room ?: return
     val full = isFull(m, cx.wallL)
     val hNew = cx.roomH?.let { (it - W_GAP_TOP).coerceIn(1200, 3000) } ?: m.h
@@ -430,7 +463,8 @@ private fun PlaceStep(p: Project, f: Furniture, m: Module, cx: WardCtx, ws: Work
             // the whole wall is free: a free-standing wardrobe 600 shorter
             if (pl.third) Triple(W_GAP_SIDE, max(600, L - 2 * W_GAP_SIDE - 600), false) else pl
         }
-        app.ward(p.id, f.id) { mm -> mm.copy(wall = wall, x = x, w = w, h = if (whole) hNew else mm.h, sideL = !built, sideR = !built,
+        // a wardrobe in a niche goes up to the ceiling; a TV unit or a dresser keeps its own height
+        app.ward(p.id, f.id) { mm -> mm.copy(wall = wall, x = x, w = w, h = if (whole && f.type.isEmpty()) hNew else mm.h, sideL = !built, sideR = !built,
             sections = splitSections(w, mm.sections.map { it.copy(lock = false) })) }
         app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.map { if (it.id == f.id) it.copy(walls = listOf(wall)) else it }) }
     }
@@ -496,18 +530,48 @@ private fun SizeStep(p: Project, f: Furniture, m: Module, ws: Workshop) {
     Text(tr("wd.sizeNote", "d" to m.d, "b" to (if (m.legs) tr("wd.legs") else tr("wd.plinth")), "m" to carcass), style = ui(12.5f, 400, G.ink2, 1.4f))
 }
 
+/** Sliding doors: how many, what each one is filled with, and their sizes. */
+@Composable
+private fun SlideDoors(p: Project, f: Furniture, m: Module, sl: uz.metrx.app.furniture.Slide, ws: Workshop) {
+    val app = LocalApp.current
+    val n = sl.n.coerceIn(2, 4)
+    Stepper(tr("wd.slideN"), n, 2, 4) { v -> app.ward(p.id, f.id) { mm -> mm.copy(slide = sl.copy(n = v)) } }
+    (0 until n).forEach { i ->
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Text(tr("wd.slideI", "n" to i + 1), style = ui(14f, 600), modifier = Modifier.width(76.dp), maxLines = 1)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                listOf("ldsp", "mirror", "glass").forEach { k ->
+                    Chip(tr("wd.fill.$k"), sl.panel(i) == k) {
+                        app.ward(p.id, f.id) { mm -> mm.copy(slide = sl.copy(panels = List(n) { j -> if (j == i) k else sl.panel(j) })) }
+                    }
+                }
+            }
+        }
+    }
+    val (dw, dh) = uz.metrx.app.furniture.slideDoor(m, ws.t)
+    val (pw, ph) = uz.metrx.app.furniture.slidePanel(m, ws.t)
+    Text(tr("wd.slideSize", "w" to dw, "h" to dh, "pw" to pw, "ph" to ph), style = num(14f, 700))
+    Text(tr("wd.slideNote", "d" to uz.metrx.app.furniture.SLIDE_D), style = ui(12.5f, 400, G.ink2, 1.4f))
+}
+
 @Composable
 private fun DoorStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop, onSec: (Int) -> Unit) {
     val app = LocalApp.current
     val s = m.sections.getOrNull(sel) ?: return
+    // hinged doors on each section, or sliding doors over the whole front (plan 1b-2)
+    // sliding doors are for wardrobes; the other cabinets have hinged doors or none
+    if (f.type.isEmpty()) Seg(listOf("hinged" to tr("wd.hingedT"), "slide" to tr("wd.slideT")), if (m.slide == null) "hinged" else "slide") { k ->
+        if ((k == "slide") != (m.slide != null)) app.ward(p.id, f.id) { mm ->
+            mm.copy(slide = if (k == "slide") uz.metrx.app.furniture.Slide(uz.metrx.app.furniture.slideDoorsFor(uz.metrx.app.furniture.slideOpening(mm, ws.t).first)) else null)
+        }
+    }
+    m.slide?.let { sl -> SlideDoors(p, f, m, sl, ws); return }
     Text(tr("wd.doors", "s" to sel + 1), style = ui(15.5f, 800))
     SecChips(m, sel, onSec)
     val cur = when { s.fronts.kind == "open" -> "0"; s.fronts.n >= 2 -> "2"; else -> "1" }
     fun fr(k: String) = when (k) { "0" -> Fronts("open", 0); "2" -> Fronts("door", 2); else -> Fronts("door", 1) }
     Seg(listOf("2" to tr("wd.d2"), "1" to tr("wd.d1"), "0" to tr("wd.d0")), cur) { k -> app.changeSec(p.id, f.id, sel) { it.copy(fronts = fr(k)) } }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Text(tr("wd.kupe"), style = ui(12.5f, 600, G.ink3), maxLines = 1,
-            modifier = Modifier.clip(CircleShape).border(1.dp, G.ink3.copy(alpha = .5f), CircleShape).padding(horizontal = 12.dp, vertical = 8.dp))
         Spacer(Modifier.weight(1f))
         GBtn(tr("wd.all"), { app.ward(p.id, f.id) { mm -> mm.copy(sections = mm.sections.map { it.copy(fronts = if (cur == "0") fr("0") else Fronts("door", if (cur == "2" && it.w >= 400) 2 else 1)) }) } },
             Btn.SECONDARY, height = 40.dp, corner = 14.dp, fontSize = 14f, fill = false)

@@ -173,7 +173,7 @@ fun ReportScreen(pid: String, no: Int?) {
                     if (app.settings.builderName.isBlank()) Banner("alert", tr("rpt.noBuilder"), amber = true, action = tr("rpt.addBuilder")) { app.sheet = Sheet.Issue(p.id, builderOnly = true) }
                     val uc = unconfirmed(sn)
                     if (uc > 0) Banner("clock", tr("rpt.unconf", "n" to uc), amber = true)
-                } else Banner("lock", tr("q.frozen") + "\n" + tr("q.issued") + ": " + fmtDate(quote.ts) + " " + fmtTime(quote.ts), amber = false, boldTail = true)
+                } else Banner("lock", tr(if (p.isFurniture) "fd.frozen" else "q.frozen") + "\n" + tr("q.issued") + ": " + fmtDate(quote.ts) + " " + fmtTime(quote.ts), amber = false, boldTail = true)
                 // the dark strip: total, pages, language
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(DARK).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
@@ -385,9 +385,18 @@ fun IssueSheet(s: Sheet.Issue) {
         val q = freezeQuote(ctx, p, snapshotOf(p, app.settings), no, now)
         app.store.update(p.id) { it.copy(quotes = it.quotes + q) }
         app.sheet = null
+        val early = p.stage == "measure" || p.stage == "estimate" || p.stage == "design"
+        if (p.isFurniture) {
+            // a furniture order: issued from the PDF or the order itself, it moves to "quote sent" and the quote opens, ready to share
+            if (app.top is Route.Report) app.pop()
+            if (app.top is Route.Project) app.setProjectTab("quotes")
+            if (early) app.store.update(p.id) { it.copy(stage = "quote") }
+            app.push(Route.Quote(p.id, no))
+            app.say(if (early) "fo.issuedMoved" else "iss.done", "n" to no)
+            return
+        }
         app.pop()
         if (app.top is Route.Project) app.setProjectTab("quotes")
-        val early = p.stage == "measure" || p.stage == "estimate" || p.stage == "design"
         app.toast = if (early) ToastMsg(app.t("iss.done", "n" to no) + ". " + app.t("bd.stage") + ": " + app.t(if (p.isFurniture) "fs.quote" else "stage.quote") + "?", ToastKind.OK, app.t("bd.move"), onAction = {
             app.store.update(p.id) { it.copy(stage = "quote") }
         }) else ToastMsg(app.t("iss.done", "n" to no))
@@ -398,11 +407,11 @@ fun IssueSheet(s: Sheet.Issue) {
             GBtn(tr("rpt.issue"), { issue() }, icon = "lock", enabled = !empty, modifier = Modifier.weight(1f), maxLines = 2)
         }
     }) {
-        Text(tr("iss.body"), style = ui(15f, 400, G.ink2, 1.45f))
+        Text(tr(if (p.isFurniture) "fd.issBody" else "iss.body"), style = ui(15f, 400, G.ink2, 1.45f))
         Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).border(1.dp, G.rim, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp)) {
             Kv(tr("es.grand"), moneyStr(grand, p.precision, lang == Lang.EN) + " " + curSuffix(p.currency, lang), true)
             uz.metrx.app.ui.components.Hairline(); Kv(tr("rpt.lang"), Lang.of(p.reportLang).longName)
-            uz.metrx.app.ui.components.Hairline(); Kv(tr("rpt.builder"), app.settings.builderName)
+            uz.metrx.app.ui.components.Hairline(); Kv(tr(if (p.isFurniture) "fd.maker" else "rpt.builder"), app.settings.builderName)
         }
         if (empty) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.errWash).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MIcon("alert", G.err, 18.dp, 2f); Text(tr(if (p.isFurniture) "fd.empty" else "iss.empty"), style = ui(13.5f, 500, G.err), modifier = Modifier.weight(1f))

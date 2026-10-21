@@ -62,7 +62,7 @@ import uz.metrx.app.ui.three.Shot3D
 fun rememberFurnShell(p: Project, room: Room, base: Shell3D, open: Set<String>): Pair<Shell3D, Furn3D> {
     val app = LocalApp.current
     val ws = app.settings.workshop; val mats = app.settings.mats
-    val fs = p.furniture.filter { it.roomId == room.id }
+    val fs = p.furniture.filter { it.roomId == room.id || (it.roomId == null && uz.metrx.app.furniture.FREE_ROOM + it.id == room.id) }
     val fur = remember(base, fs, open, ws, mats) { furniture3D(fs, base.bases, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, open) }
     val shell = remember(base, fur) { base.plus(fur.parts, fur.edges) }
     return shell to fur
@@ -104,13 +104,15 @@ fun ColumnScope.Furniture3D(p: Project, room: Room) {
         return
     }
     var open by remember(room.id) { mutableStateOf(setOf<String>()) }
-    val base = remember(room.dims, room.openings, room.poly, room.points, room.wallColor, room.floorColor, snap) { buildShell(listOf(room), true, snap) }
+    // furniture without a room stands on a floor of its size, no walls round it
+    val free = uz.metrx.app.furniture.isFreeRoom(room)
+    val base = remember(room.dims, room.openings, room.poly, room.points, room.wallColor, room.floorColor, snap) { buildShell(listOf(room), true, snap).let { if (free) it.floorOnly() else it } }
     val (shell, fur) = rememberFurnShell(p, room, base, open)
     val cam = remember(room.id) { Cam3D() }
     val shot = remember { Shot3D() }
     Box(Modifier.weight(1f).fillMaxWidth()) {
         Scene3D(shell, cam, Modifier.fillMaxSize(), shot, onTap = { pos -> fur.pick(cam, pos.x, pos.y)?.let { k -> open = if (k in open) open - k else open + k } }) {
-            ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
+            if (!free) ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
                 if (room.views.size >= 4) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
                 shot.take { bmp ->
                     val id = uid()

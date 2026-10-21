@@ -28,7 +28,8 @@ fun snapshotOf(p: Project, s: Settings, pdf: PdfParts = s.pdf): Snap =
 fun furnSnap(sn: Snap, p: Project, ws: uz.metrx.app.furniture.Workshop, mats: List<uz.metrx.app.furniture.Mat>, hws: List<uz.metrx.app.furniture.Hw>): Snap {
     val fs = p.furniture.filter { it.modules.isNotEmpty() }
     val pr = uz.metrx.app.furniture.priceOf(fs, p.fprice, ws, mats, hws)
-    val used = fs.flatMap { listOf(it.mats.carcass, it.mats.front, it.mats.back) }.toSet() + (if (fs.any { it.kind == "kitchen" }) setOf("wt38") else emptySet())
+    val used = fs.flatMap { listOf(it.mats.carcass, it.mats.front, it.mats.back) }.toSet() + (if (fs.any { it.kind == "kitchen" }) setOf("wt38") else emptySet()) +
+        (if (fs.any { (it.kx?.splash ?: 0) > 0 }) setOf("splash6") else emptySet())
     return sn.copy(furniture = fs, fmats = mats.filter { it.id in used }, flines = pr.lines.map { uz.metrx.app.data.SnapLine(it.key, it.amount.toString()) },
         ftotal = pr.price.toString(), fprepay = ws.prepay, fdays = p.fprice.days, finst = p.fprice.inst,
         fhandles = hws.lastOrNull { it.kind == "handle" }?.name ?: "", fws = ws)

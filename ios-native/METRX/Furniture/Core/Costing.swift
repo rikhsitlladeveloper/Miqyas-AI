@@ -46,6 +46,14 @@ func costOf(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], order
         lines.append(CostLine(group: "mat", key: "wt38", qty: Double(wtMm) / 1000, unit: "m", price: p ?? 0,
                               amount: roundHalfUp((p ?? 0) * Decimal(wtMm) / 1000), missing: p == nil))
     }
+    // the backsplash panel, by the running metre like the worktop
+    let spMm = fs.filter { $0.kind == "kitchen" && ($0.kx?.splash ?? 0) > 0 }.reduce(0) { $0 + splashMm($1) }
+    if spMm > 0 {
+        let sp = mats.first { $0.kind == "splash" }
+        let p = money(sp?.price)
+        lines.append(CostLine(group: "mat", key: sp?.id ?? "splash6", qty: Double(spMm) / 1000, unit: "m", price: p ?? 0,
+                              amount: roundHalfUp((p ?? 0) * Decimal(spMm) / 1000), missing: p == nil))
+    }
     let (thick, thin) = bandMetres(rows)
     for (id, m) in [("band2", thick), ("band04", thin)] where m > 0 {
         let q = metres(m), p = money(mat(id)?.price)
@@ -55,9 +63,11 @@ func costOf(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], order
         // the last item of a kind counts: the workshop's own item added after the preset takes over
         let hw = hws.last { $0.kind == k }
         let p = money(hw?.price)
-        let q = k == "rail" ? metres(Double(v) / 1000) : Double(v)
-        lines.append(CostLine(group: "hw", key: hw?.id ?? k, qty: q, unit: k == "rail" ? "m" : "pcs", price: p ?? 0,
-                              amount: (p ?? 0) * Decimal(Int(q.rounded(.up))), missing: p == nil))
+        // rails and profiles by the whole metre, mirror and glass by the m² (to 0,01), the rest by the piece
+        let area = AREA_KINDS.contains(k)
+        let q = METRE_KINDS.contains(k) ? metres(Double(v) / 1000) : area ? (Double(v) / 10000 - 1e-9).rounded(.up) / 100 : Double(v)
+        let amount = area ? roundHalfUp((p ?? 0) * Decimal(string: String(format: "%.2f", q))!) : (p ?? 0) * Decimal(Int(q.rounded(.up)))
+        lines.append(CostLine(group: "hw", key: hw?.id ?? k, qty: q, unit: hwUnit(k), price: p ?? 0, amount: amount, missing: p == nil))
     }
     let sheets = lays.reduce(0) { $0 + $1.sheets.count }
     let modules = fs.reduce(0) { a, f in a + f.modules.reduce(0) { $0 + ($1.type == "wardrobe" ? max(1, $1.sections.count) : 1) } }

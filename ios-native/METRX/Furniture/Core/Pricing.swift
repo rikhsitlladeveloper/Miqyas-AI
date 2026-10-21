@@ -53,7 +53,7 @@ private func money(_ s: String) -> Decimal? {
 private func roundHalfUp(_ x: Decimal) -> Decimal { var a = x, r = Decimal(); NSDecimalRound(&r, &a, 0, .plain); return r }
 
 /// Running metres of a kitchen's lower rows, in millimetres.
-func runMm(_ f: Furniture) -> Int { f.modules.filter { !isUpper($0) && $0.type != "tall" && !($0.type == "gap" && $0.app == "fridge") }.reduce(0) { $0 + $1.w } }
+func runMm(_ f: Furniture) -> Int { f.modules.filter { !isUpper($0) && $0.type != "tall" && !($0.type == "gap" && ($0.app == "fridge" || $0.app == "space")) }.reduce(0) { $0 + $1.w } }
 
 func priceOf(_ fs: [Furniture], _ fp: FPrice, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw]) -> Priced {
     let cost = costOf(fs, ws, mats, hws)

@@ -44,7 +44,14 @@ data class Project(
     /** Furniture orders: the kitchens, wardrobes… designed for it (furniture plan section 6.1). */
     val furniture: List<uz.metrx.app.furniture.Furniture> = emptyList(),
     /** Furniture orders: how the customer price is worked out, and the lead time (furniture plan section 6.7). */
-    val fprice: uz.metrx.app.furniture.FPrice = uz.metrx.app.furniture.FPrice()
+    val fprice: uz.metrx.app.furniture.FPrice = uz.metrx.app.furniture.FPrice(),
+    /** Furniture orders: when the order was approved (0: not yet), and an install date set by hand (0: worked out). */
+    val approvedAt: Long = 0,
+    val install: Long = 0,
+    /** Furniture orders: what the customer wants (kitchen, wardrobe), null until chosen ("Nima kerak?"). */
+    val want: List<String>? = null,
+    /** Furniture orders: the name follows the furniture ("Oshxona — Akmal") until the maker renames it. */
+    val autoName: Boolean = false
 ) {
     val isFurniture get() = industry == "furniture"
 }
@@ -134,6 +141,14 @@ data class Opening(
 @Serializable
 data class SitePoint(val id: String, val t: String, val wall: String, val off: Int, val h: Int, val d: Int = 0, val mh: Int = 0, val src: String = "manual")
 
+/**
+ * A column against a wall or a niche into it (room editor "Ustun / nisha"): [type] column or niche; [off] from the
+ * wall's start corner to its near edge; [w] along the wall; [d] into the room (column) or into the wall (niche); a
+ * niche's [sill] from the floor and [h] height (0: up to the ceiling). Columns are full height.
+ */
+@Serializable
+data class Feature(val id: String, val type: String, val wall: String, val off: Int, val w: Int, val d: Int, val sill: Int = 0, val h: Int = 0)
+
 @Serializable
 data class Pt(val x: Double, val y: Double)
 
@@ -167,7 +182,9 @@ data class Room(
     val floorColor: String = "#C49A6C",
     val created: Long = 0,
     /** Furniture orders: sockets, switches, pipes and the gas meter on the walls (furniture plan section 5). */
-    val points: List<SitePoint> = emptyList()
+    val points: List<SitePoint> = emptyList(),
+    /** Columns and niches (room editor). */
+    val features: List<Feature> = emptyList()
 ) {
     fun dim(k: String) = dims[k] ?: Dim()
     val isPoly get() = shape == "poly" && (poly?.verts?.size ?: 0) >= 3

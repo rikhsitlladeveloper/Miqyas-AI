@@ -444,7 +444,7 @@ fun MarkupScreen(r: Route.Markup) {
                         val path = Path().apply { (if (ps.size > 1) ps else listOf(ps[0], listOf(ps[0][0] + .1f, ps[0][1]))).forEachIndexed { i, q -> if (i == 0) moveTo(q[0], q[1]) else lineTo(q[0], q[1]) } }
                         drawPath(path, cc, style = Stroke(if (ops.width == 2) 18f else 8f, cap = StrokeCap.Round, join = StrokeJoin.Round))
                     }
-                    live.line?.let { (a, b) -> drawLine(cc, Offset(a[0], a[1]), Offset(b[0], b[1]), 7f / z, StrokeCap.Round, PathEffect.dashPathEffect(floatArrayOf(14f / z, 10f / z))) }
+                    live.line?.let { (a, b) -> drawLine(cc, Offset(a[0], a[1]), Offset(b[0], b[1]), 7f / z, StrokeCap.Butt, PathEffect.dashPathEffect(floatArrayOf(14f / z, 10f / z))) }   // round caps fill the gaps
                     live.edit?.let { e -> drawMark(e, fmt, tm, zoom = z, letter = letters[e.id]) }
                 }
                 val ed = if (ph && ops.edgesOn) edges else null
@@ -575,7 +575,8 @@ private fun MkTools(it: Item, tool: String) {
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp, Alignment.CenterVertically)
             ) {
                 MIcon(k, if (on) G.cobalt2 else G.slate, 22.dp, 2f)
-                Text(tr("mk.$k"), style = ui(11f, if (on) 700 else 600, if (on) G.cobalt2 else G.slate), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // shrinks rather than being cut off ("O‘chirg‘ich") when the phone's font is large
+                uz.metrx.app.ui.furniture.FitText(tr("mk.$k"), ui(11f, if (on) 700 else 600, if (on) G.cobalt2 else G.slate), Modifier.padding(horizontal = 2.dp))
             }
         }
     }
@@ -621,7 +622,9 @@ private fun DimSheet(s: Sheet.MkDim) {
         app.mk.change(r) { els -> els.map { x -> if (x.id == e.id) x.copy(v = ok.value.toInt(), src = src) else x } }
         app.sheet = null
     }
-    GlassSheet(tr("mk.dimT"), { app.sheet = null }, footer = {
+    // the sheet says which line it is (the photo is behind it, often covered by the keyboard)
+    val letter = mkLetters(it)[e.id]
+    GlassSheet(tr("mk.dimT") + (letter?.let { " $it" } ?: ""), { app.sheet = null }, footer = {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GBtn(tr("mk.later"), { app.sheet = null }, Btn.SECONDARY, modifier = Modifier.weight(1f))
             GBtn(tr("common.save"), { save() }, enabled = v.isNotBlank() && parsed is Parsed.Ok, modifier = Modifier.weight(1f))

@@ -82,6 +82,7 @@ let MAT_PRESETS: [Mat] = [
     Mat("mdf18", "board", "MDF 18 · bo‘yalgan", 18, price: "980000", rgb: "#E8E4DC", preset: true),
     Mat("hdf3", "back", "DVP 3,2 · Oq", 3, price: "210000", rgb: "#FFFFFF", preset: true),
     Mat("wt38", "worktop", "Stoleshnitsa 38 · Antratsit", 38, l: 4100, w: 600, price: "360000", rgb: "#4B4F58", preset: true),
+    Mat("splash6", "splash", "Stenovaya panel 6 mm (fartuk)", 6, l: 4100, w: 600, price: "190000", rgb: "#E8E2D8", preset: true),
     Mat("band2", "band", "Kromka PVX 2 mm", 20, l: 0, w: 0, price: "4500", preset: true),
     Mat("band04", "band", "Kromka PVX 0,4 mm", 4, l: 0, w: 0, price: "1500", preset: true)
 ]
@@ -97,5 +98,22 @@ let HW_PRESETS: [Hw] = [
     Hw("railEnd", "railEnd", "Shtanga ushlagich", "4000", true),
     Hw("confirmat", "confirmat", "Konfirmat 7 × 50", "250", true),
     Hw("hanger", "hanger", "Osma (yuqori modul)", "12000", true),
-    Hw("lift", "lift", "Lift (pantograf)", "450000", true)
+    Hw("lift", "lift", "Lift (pantograf)", "450000", true),
+    // sliding doors (plan 1b-2)
+    Hw("slideTrack", "slideTrack", "Kupe relsi, yuqori + pastki (metr)", "60000", true),
+    Hw("slideV", "slideV", "Kupe vertikal profili (metr)", "70000", true),
+    Hw("slideH", "slideH", "Kupe gorizontal profili (metr)", "45000", true),
+    Hw("slideRoller", "slideRoller", "Kupe rolik to‘plami (eshik)", "85000", true),
+    Hw("mirror", "mirror", "Oyna 4 mm (m²)", "250000", true),
+    Hw("glass", "glass", "Lakobel shisha (m²)", "320000", true),
+    // kitchen extras (plan 1b-1)
+    Hw("wtJoint", "wtJoint", "Stoleshnitsa ulash, to‘g‘ri (burchak)", "60000", true),
+    Hw("wtMitre", "wtMitre", "Stoleshnitsa ulash, 45° (burchak)", "150000", true),
+    Hw("wtCut", "wtCut", "Stoleshnitsada o‘yiq (moyka, plita)", "50000", true),
+    Hw("wtEnd", "wtEnd", "Stoleshnitsa uchi (planka)", "15000", true),
+    Hw("plinthK", "plinthK", "Tsokol paneli (metr)", "55000", true),
+    Hw("plinthCorner", "plinthCorner", "Tsokol burchagi", "12000", true),
+    Hw("cornice", "cornice", "Karniz (metr)", "65000", true),
+    Hw("led", "led", "LED lenta (metr)", "35000", true),
+    Hw("ledPsu", "ledPsu", "LED bloki (5 m gacha)", "120000", true)
 ]

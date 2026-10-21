@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Soha tanlash</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B47D9}a:hover{color:#1E36B0}
+button{font:inherit}
+.g{border:1px solid rgba(255,255,255,0.8);background:rgba(255,255,255,0.45);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.95),0 14px 30px rgba(30,40,110,0.13)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #EEF1F8; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A">
+  <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none">
+    <div style="position: absolute; width: 360px; height: 360px; left: -120px; top: -80px; border-radius: 50%; background: #5B7BFF; filter: blur(70px); opacity: 0.7"></div>
+    <div style="position: absolute; width: 300px; height: 300px; right: -110px; top: 200px; border-radius: 50%; background: #B07CFF; filter: blur(70px); opacity: 0.55"></div>
+    <div style="position: absolute; width: 260px; height: 260px; right: -60px; bottom: -60px; border-radius: 50%; background: #FFB58A; filter: blur(80px); opacity: 0.55"></div>
+  </div>
+
+  <div style="position: relative; height: 100%; box-sizing: border-box; padding: 60px 20px 28px; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <svg width="34" height="34" viewBox="0 0 38 38" aria-hidden="true"><rect width="38" height="38" rx="11" fill="#3550E0"></rect><path d="M10 27V11l9 10 9-10v16" fill="none" stroke="#fff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"></path></svg>
+      <span style="font-size: 17px; font-weight: 700; letter-spacing: 0.32em">METRX</span>
+    </div>
+
+    <h1 style="margin: 28px 0 0; font-size: 30px; line-height: 1.15; font-weight: 800; letter-spacing: -0.02em; text-wrap: balance">Qaysi soha boʻyicha ishlaysiz?</h1>
+    <p style="margin: 8px 0 0; font-size: 15px; line-height: 1.45; color: #475569">Ilova shu sohaga moslashadi. Keyin Profilda oʻzgartirish mumkin.</p>
+
+    <div style="margin-top: 22px; display: flex; flex-direction: column; gap: 12px">
+      <button type="button" onClick="{{pickBuild}}" class="g" aria-pressed="{{buildOn}}" style="text-align: left; cursor: pointer; padding: 16px; border-radius: 26px; display: flex; gap: 14px; align-items: center; color: #0F172A; outline: {{buildRing}}">
+        <div style="width: 64px; height: 64px; flex: none; border-radius: 20px; background: rgba(53,80,224,0.1); display: flex; align-items: center; justify-content: center">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#3550E0" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M6 8h28v24H6z"></path><path d="M6 20h12v12M24 8v10h10"></path><path d="M6 4h28" stroke-width="1.2"></path><path d="M6 2v4M34 2v4" stroke-width="1.2"></path></svg>
+        </div>
+        <div style="flex: 1; min-width: 0">
+          <div style="font-size: 19px; font-weight: 800">Quruvchi</div>
+          <div style="margin-top: 3px; font-size: 13.5px; line-height: 1.4; color: #475569">Xona oʻlchash, 3D, smeta va PDF hisobot</div>
+        </div>
+        <sc-if value="{{buildOn}}" hint-placeholder-val="{{false}}">
+          <div aria-hidden="true" style="width: 26px; height: 26px; flex: none; border-radius: 50%; background: #3550E0; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+        </sc-if>
+      </button>
+
+      <button type="button" onClick="{{pickFurn}}" class="g" aria-pressed="{{furnOn}}" style="text-align: left; cursor: pointer; padding: 16px; border-radius: 26px; display: flex; gap: 14px; align-items: center; color: #0F172A; outline: {{furnRing}}">
+        <div style="width: 64px; height: 64px; flex: none; border-radius: 20px; background: rgba(53,80,224,0.1); display: flex; align-items: center; justify-content: center">
+          <svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#3550E0" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h32v9H4z"></path><path d="M4 22h32v14H4z"></path><path d="M3 20h34" stroke-width="2.6"></path><path d="M20 6v9M15 22v14M27 22v14M9 11h4M25 11h4M9 28h2M21 28h2M31 28h2" stroke-width="1.6"></path></svg>
+        </div>
+        <div style="flex: 1; min-width: 0">
+          <div style="font-size: 19px; font-weight: 800">Mebelchi</div>
+          <div style="margin-top: 3px; font-size: 13.5px; line-height: 1.4; color: #475569">Oshxona va shkaf loyihasi, raskroy, narx</div>
+        </div>
+        <sc-if value="{{furnOn}}" hint-placeholder-val="{{true}}">
+          <div aria-hidden="true" style="width: 26px; height: 26px; flex: none; border-radius: 50%; background: #3550E0; display: flex; align-items: center; justify-content: center"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg></div>
+        </sc-if>
+      </button>
+    </div>
+
+    <div style="margin-top: 20px; font-size: 13px; font-weight: 700; color: #475569">Tez kunda</div>
+    <div style="margin-top: 8px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px">
+      <sc-for list="{{soon}}" as="s" hint-placeholder-count="4">
+        <button type="button" onClick="{{s.tap}}" style="cursor: pointer; text-align: left; padding: 11px 12px; border-radius: 18px; border: 1px dashed rgba(71,85,105,0.35); background: rgba(255,255,255,0.25); color: #64748B; font-size: 13.5px; font-weight: 600; display: flex; justify-content: space-between; align-items: center; gap: 6px">
+          <span>{{s.name}}</span>
+          <span style="font-size: 10.5px; font-weight: 700; padding: 3px 7px; border-radius: 10px; background: rgba(100,116,139,0.14); color: #475569">Tez kunda</span>
+        </button>
+      </sc-for>
+    </div>
+
+    <div style="flex: 1"></div>
+
+    <sc-if value="{{toast}}" hint-placeholder-val="{{false}}">
+      <div role="status" style="margin-bottom: 12px; padding: 12px 14px; border-radius: 16px; background: #0F172A; color: #fff; font-size: 13.5px; font-weight: 600">{{toastText}}</div>
+    </sc-if>
+
+    <sc-if value="{{furnOn}}" hint-placeholder-val="{{true}}">
+      <a href="Home.dc.html" style="text-decoration: none; height: 56px; border-radius: 20px; background: #3550E0; color: #fff; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 24px rgba(53,80,224,0.35)">Davom etish</a>
+    </sc-if>
+    <sc-if value="{{buildOn}}" hint-placeholder-val="{{false}}">
+      <div style="height: 56px; border-radius: 20px; background: #3550E0; color: #fff; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center">Davom etish</div>
+      <div style="margin-top: 8px; text-align: center; font-size: 12px; color: #475569">Quruvchi ilovasi hozirgidek qoladi (bu dizaynda koʻrsatilmaydi)</div>
+    </sc-if>
+    <sc-if value="{{noneOn}}" hint-placeholder-val="{{false}}">
+      <div aria-disabled="true" style="height: 56px; border-radius: 20px; background: rgba(53,80,224,0.35); color: #fff; font-size: 16px; font-weight: 700; display: flex; align-items: center; justify-content: center">Davom etish</div>
+    </sc-if>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var s = this.state || {};
+    var self = this;
+    var p = s.p === undefined ? 'furniture' : s.p;
+    var ring = '2.5px solid #3550E0';
+    var names = ['Kafelchi', 'Elektrik', 'Santexnik', 'Deraza-eshik'];
+    return {
+      buildOn: p === 'build',
+      furnOn: p === 'furniture',
+      noneOn: p === null,
+      buildRing: p === 'build' ? ring : 'none',
+      furnRing: p === 'furniture' ? ring : 'none',
+      pickBuild: function () { self.setState({ p: 'build', toast: false }); },
+      pickFurn: function () { self.setState({ p: 'furniture', toast: false }); },
+      toast: !!s.toast,
+      toastText: (s.toast || '') + ' — tez kunda qoʻshiladi',
+      soon: names.map(function (n) { return { name: n, tap: function () { self.setState({ toast: n }); } }; })
+    };
+  }
+}
+</script>
+</body>
+</html>

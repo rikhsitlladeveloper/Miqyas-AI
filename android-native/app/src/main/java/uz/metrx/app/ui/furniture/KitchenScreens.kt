@@ -180,7 +180,8 @@ class KitOps {
     fun redo(app: App, pid: String, fid: String) = step(app, pid, fid, fwd, back)
 }
 
-internal fun roomOf(p: Project, f: Furniture): Room? = p.rooms.firstOrNull { it.id == f.roomId }
+/** The piece's room: its measured one, or for furniture without a room the made-up room of its sizes (Free.kt). */
+internal fun roomOf(p: Project, f: Furniture): Room? = if (f.roomId == null) uz.metrx.app.furniture.freeRoom(f) else p.rooms.firstOrNull { it.id == f.roomId }
 
 /** A wall's length for the kitchen: confirmed, else the reading or the drawing's estimate (the designer says so). */
 internal fun wallLen(r: Room, snap: Boolean, id: String): Int? {
@@ -190,7 +191,7 @@ internal fun wallLen(r: Room, snap: Boolean, id: String): Int? {
 
 internal fun measured(r: Room, snap: Boolean, id: String) = walls(r, snap).firstOrNull { it.id == id }?.len != null
 
-internal fun kRuns(f: Furniture, r: Room?, snap: Boolean): List<Run> = runsOf(f) { id -> r?.let { wallLen(it, snap, id) } }
+internal fun kRuns(f: Furniture, r: Room?, snap: Boolean): List<Run> = runsOf(f) { id -> uz.metrx.app.furniture.freeLen(f, id) ?: r?.let { wallLen(it, snap, id) } }
 
 /** Kitchens pack their rows again after a change; a wardrobe keeps its place on the wall. */
 internal fun repack(f: Furniture, p: Project, snap: Boolean): Furniture = if (f.kind != "kitchen") f else pack(f, kRuns(f, roomOf(p, f), snap))
@@ -220,10 +221,10 @@ private fun modSub(m: Module): String {
 @Composable
 internal fun runName(f: Furniture, r: Run, withLen: Boolean = true): String =
     if (r.wall == ISLAND) tr(if (f.layout == "P") "kt.peninsula" else "kt.island")
-    else tr("kt.wallN", "w" to r.wall) + if (withLen && r.len != null) " · ${r.len}" else ""
+    else (if (f.roomId == null) tr("fz.sideN", "n" to f.walls.indexOf(r.wall) + 1) else tr("kt.wallN", "w" to r.wall)) + if (withLen && r.len != null) " · ${r.len}" else ""
 
 private fun runMetres(f: Furniture, en: Boolean): String {
-    val mm = f.modules.filter { !isUpper(it) }.sumOf { it.w }
+    val mm = f.modules.filter { !isUpper(it) && it.app != "space" }.sumOf { it.w }
     val v = (mm + 50) / 100
     return "${v / 10}${if (en) "." else ","}${v % 10}"
 }
@@ -300,6 +301,19 @@ internal fun DrawScope.drawRun(
     val tops = mods.filter { !isUpper(it) && (it.type == "base" || it.type == "filler" || it.app == "dishwasher") }.map { it.x to it.x + it.w }.toMutableList()
     if (run.lowStart > 0 && tops.isNotEmpty()) tops += 0 to run.lowStart
     tops.forEach { (a, b) -> drawRect(wtCol, Offset(lay.x(a), lay.y(wt)), Size((b - a) * lay.s, max(1.5f, K_TOP * lay.s))) }
+    // extras (plan 1b-1): the backsplash over the worktop, the cornice on the wall units, the LED strip under them
+    val kx = f.kx
+    if (kx != null && !island) {
+        val spCol = hex(mats.firstOrNull { it.kind == "splash" }?.rgb ?: "#E8E2D8")
+        if (kx.splash > 0) tops.forEach { (a, b) ->
+            drawRect(spCol, Offset(lay.x(a), lay.y(wt + kx.splash)), Size((b - a) * lay.s, kx.splash * lay.s))
+            drawRect(GREY_LINE, Offset(lay.x(a), lay.y(wt + kx.splash)), Size((b - a) * lay.s, kx.splash * lay.s), style = Stroke(.6f))
+        }
+        mods.filter { it.type == "wall" }.forEach { m ->
+            if (kx.cornice) drawRect(front, Offset(lay.x(m.x), lay.y(m.elev + m.h + 60)), Size(m.w * lay.s, 60 * lay.s))
+            if (kx.led) drawLine(Color(0xFFF2C94C), Offset(lay.x(m.x) + 1f, lay.y(m.elev) + 1f), Offset(lay.x(m.x + m.w) - 1f, lay.y(m.elev) + 1f), 1.6f)
+        }
+    }
     mods.forEach { m -> appliance(lay, m, ws) }
     room?.points?.filter { it.wall == run.wall && !island }?.forEach { p -> drawSitePoint(p, Offset(lay.x(p.off), lay.y(p.h)), lay.s, if (lay.dims) 6f else 3f) }
     mods.forEach { m ->
@@ -515,6 +529,7 @@ fun KitchenScreen(rt: Route.Kitchen) {
                     FillPill(tr("kt.low"), fillOf(f, run, false), Modifier.weight(1f))
                     if (run.wall != ISLAND) FillPill(tr("kt.up"), fillOf(f, run, true), Modifier.weight(1f))
                 }
+                if (f.roomId == null) FreeBanner(p, f)
                 if (run.wall != ISLAND && !measured(room, snap, run.wall))
                     Text(tr("kt.noLen", "w" to run.wall), style = ui(13f, 500, G.amberInk, 1.4f),
                         modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.amberWash).padding(12.dp))
@@ -541,9 +556,40 @@ fun KitchenScreen(rt: Route.Kitchen) {
                 }
                 if (sel != null) SelCard(p, f, sel, run)
                 ChecksCard(f, found) { id -> f.modules.firstOrNull { it.id == id }?.let { m -> if (m.wall != run.wall) app.setTop(rt.copy(wall = m.wall)); kit.sel = m.id } }
+                ExtrasCard(p, f)
                 CostCard(p, f, ws, mats)
             }
         }
+    }
+}
+
+/** The kitchen's extras (plan 1b-1): worktop corners and cut-outs, backsplash, plinth, cornice, LED, end panels. */
+@Composable
+private fun ExtrasCard(p: Project, f: Furniture) {
+    val app = LocalApp.current
+    val en = LocalLang.current == Lang.EN
+    val x = f.kx ?: uz.metrx.app.furniture.KExtras()
+    fun set(fn: (uz.metrx.app.furniture.KExtras) -> uz.metrx.app.furniture.KExtras) { app.kit.change(app, p.id, f.id) { it.copy(kx = fn(it.kx ?: uz.metrx.app.furniture.KExtras())) } }
+    fun m(mm: Int) = "%.1f".format(java.util.Locale.ROOT, mm / 1000.0).replace('.', if (en) '.' else ',')
+    val joints = uz.metrx.app.furniture.worktopJoints(f)
+    Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(tr("kx.title"), style = ui(16f, 800))
+        if (joints > 0) {
+            Text(tr("kx.joint", "n" to joints), style = ui(14f, 600))
+            Seg(listOf("butt" to tr("kx.butt"), "mitre" to tr("kx.mitre")), x.joint) { k -> set { it.copy(joint = k) } }
+        }
+        Toggle(tr("kx.cutouts", "n" to f.modules.count { it.app == "sink" || it.app == "hob" }), x.cutouts) { set { it.copy(cutouts = !it.cutouts) } }
+        Text(tr("kx.splash"), style = ui(14.5f, 500))
+        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            listOf(0, 500, 600, 700).forEach { h -> Chip(if (h == 0) tr("kx.none") else "$h", x.splash == h) { set { it.copy(splash = h) } } }
+        }
+        Toggle(tr("kx.plinth") + " · " + m(uz.metrx.app.furniture.plinthMm(f)) + " m", x.plinth) { set { it.copy(plinth = !it.plinth) } }
+        val wu = uz.metrx.app.furniture.wallUnitsMm(f)
+        Toggle(tr("kx.cornice") + " · " + m(wu) + " m", x.cornice) { set { it.copy(cornice = !it.cornice) } }
+        Toggle(tr("kx.led") + " · " + m(wu) + " m", x.led) { set { it.copy(led = !it.led) } }
+        Stepper(tr("kx.ends"), x.ends, 0, 8) { v -> set { it.copy(ends = v) } }
+        Stepper(tr("kx.endsUp"), x.endsUp, 0, 8) { v -> set { it.copy(endsUp = v) } }
+        Text(tr("kx.note"), style = ui(12.5f, 400, G.ink2, 1.4f))
     }
 }
 
@@ -719,34 +765,52 @@ private fun NewFurnitureSheet(s: Sheet.NewFurniture) {
     val p = app.store.get(s.pid) ?: run { app.sheet = null; return }
     val rooms = p.rooms.filter { it.floorId == s.wid }
     val snap = app.settings.angleSnap
-    var rid by rememberSaveable { mutableStateOf(rooms.firstOrNull()?.id) }
-    var kind by rememberSaveable { mutableStateOf("kitchen") }
+    var rid by rememberSaveable { mutableStateOf(s.rid ?: rooms.firstOrNull()?.id) }
+    var kind by rememberSaveable { mutableStateOf(s.kind ?: "kitchen") }
     var layout by rememberSaveable { mutableStateOf("L") }
     var combo by rememberSaveable { mutableIntStateOf(-1) }   // -1: the first walls nothing stands on yet
+    // living room and bedroom pieces (Stage 2): which one
+    var ptype by rememberSaveable { mutableStateOf(if (s.kind == "bedroom") "dresser" else "tv") }
+    val case = kind == "living" || kind == "bedroom"
     val room = rooms.firstOrNull { it.id == rid } ?: rooms.firstOrNull()
     val ids = room?.let { walls(it, snap).map { w -> w.id } } ?: emptyList()
-    val list = combos(if (kind == "wardrobe") "I" else layout, ids)
+    val list = combos(if (kind != "kitchen") "I" else layout, ids)
     val ws = app.settings.workshop
     val roomHt = room?.dim("H")?.let { it.v ?: it.pending?.mm }
     val wardH = roomHt?.let { (it - uz.metrx.app.furniture.W_GAP_TOP).coerceIn(1200, 3000) } ?: 2500
     /** The wardrobe on the picked wall: where it goes and how wide. */
     fun wardPlace(wall: String) = room?.let { r -> wallLen(r, snap, wall)?.let { L -> uz.metrx.app.furniture.placeOn(L, wall, r.openings, wardH) } }
+    val tsz = uz.metrx.app.furniture.typeSize(ptype)
+    /** A piece on the picked wall: at the start of its longest stretch clear of doors (and windows lower than the piece), its usual width or less. */
+    fun casePlace(wall: String): Pair<Int, Int>? = room?.let { r -> wallLen(r, snap, wall)?.let { L ->
+        val (a, n) = uz.metrx.app.furniture.freeSpan(L, wall, r.openings, tsz.h)
+        val g0 = if (a == 0) uz.metrx.app.furniture.W_GAP_SIDE else 50
+        val w = minOf(tsz.w, n - g0 - 10)
+        if (w < 300) null else (a + g0) to w
+    } }
     // walls this room's other kitchens and wardrobes already stand on
     val taken = p.furniture.filter { it.roomId == room?.id }.flatMap { f -> f.walls.filter { it != ISLAND }.map { it to f } }
     val pick = list.getOrNull(combo) ?: list.firstOrNull { c -> c.none { w -> taken.any { it.first == w } } } ?: list.firstOrNull()
     val footer: (@Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit)? = if (room == null) null else { {
         GBtn(tr("kt.start"), {
             val walls = pick ?: return@GBtn
-            val n = p.furniture.count { it.kind == kind } + 1
-            val f = if (kind == "wardrobe") {
+            val n = p.furniture.count { if (case) it.type == ptype else it.kind == kind && it.type.isEmpty() } + 1
+            val f = if (case) {
+                val (x, w) = casePlace(walls[0]) ?: run { app.say("kt.noSpace", kind = ToastKind.ERROR); return@GBtn }
+                Furniture(uid(), "wardrobe", app.t("ft.$ptype") + " $n", room.id, walls, listOf(uz.metrx.app.furniture.cabinetTemplate(ptype, ws, walls[0], x, w, tsz.h, tsz.d)),
+                    created = System.currentTimeMillis(), ws = s.wid, model = ptype, type = ptype)
+            } else if (kind == "wardrobe") {
                 val (x, w, built) = wardPlace(walls[0]) ?: return@GBtn
                 Furniture(uid(), "wardrobe", app.t("wd.nameN", "n" to n), room.id, walls, listOf(uz.metrx.app.furniture.wardrobeTemplate(ws, walls[0], x, w, wardH, built)),
                     created = System.currentTimeMillis(), ws = s.wid)
-            } else Furniture(uid(), "kitchen", app.t("kt.nameN", "n" to n), room.id, walls, created = System.currentTimeMillis(), layout = layout, ws = s.wid)
+            } else Furniture(uid(), "kitchen", app.t("kt.nameN", "n" to n), room.id, walls, created = System.currentTimeMillis(), layout = layout, ws = s.wid,
+                kx = uz.metrx.app.furniture.kExtrasFor(layout))
             val moved = p.stage == "measure"
             app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture + f, stage = if (pr.stage == "measure") "design" else pr.stage) }
             app.sheet = null; app.kit.sel = null
-            app.push(if (kind == "wardrobe") Route.Wardrobe(p.id, f.id) else Route.Kitchen(p.id, f.id))
+            val to = if (kind != "kitchen") Route.Wardrobe(p.id, f.id) else Route.Kitchen(p.id, f.id)
+            // started from the room just measured: the designer takes its place, so back goes to the order
+            if (app.top is Route.Editor) app.replaceTop(to) else app.push(to)
             if (moved) app.say("kt.stageTo", "s" to app.t("fs.design"))
         }, enabled = pick != null)
     } }
@@ -755,19 +819,15 @@ private fun NewFurnitureSheet(s: Sheet.NewFurniture) {
         Row(Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {   // tiles as tall as the tallest
             listOf("kitchen" to "kt.kitchen", "wardrobe" to "kt.wardrobe", "living" to "kt.living", "bedroom" to "kt.bedroom").forEach { (k, t) ->
                 val on = k == kind
-                val later = k == "living" || k == "bedroom"
                 Column(Modifier.weight(1f).fillMaxHeight().heightIn(min = 84.dp).clip(RoundedCornerShape(16.dp)).background(if (on) G.cobalt.copy(alpha = .1f) else G.idle(.5f))
                     .border(if (on) 2.dp else 1.dp, if (on) G.cobalt else G.idleRim, RoundedCornerShape(16.dp))
                     .clickable(role = Role.RadioButton) {
-                        when (k) {
-                            "living", "bedroom" -> app.say("kt.stage2", "n" to app.t(t), kind = ToastKind.INFO)
-                            else -> { kind = k; combo = -1 }
-                        }
+                        kind = k; combo = -1
+                        if (k == "living") ptype = "tv"; if (k == "bedroom") ptype = "dresser"
                     }.padding(horizontal = 2.dp, vertical = 10.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    MIcon(if (k == "kitchen") "kitchen" else "board", if (on) G.cobalt else G.ink3, 24.dp, 2f)
-                    TileLabel(tr(t), ui(11f, if (on) 700 else 600, if (later) G.ink3 else G.ink))
-                    if (later) Text(tr("kt.later"), style = ui(10.5f, 700, G.ink2), modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(G.ink3.copy(alpha = .14f)).padding(horizontal = 6.dp, vertical = 2.dp))
+                    MIcon(when (k) { "kitchen" -> "kitchen"; "wardrobe" -> "board"; "living" -> "box"; else -> "boxk" }, if (on) G.cobalt else G.ink3, 24.dp, 2f)
+                    TileLabel(tr(t), ui(11f, if (on) 700 else 600, G.ink))
                 }
             }
         }
@@ -782,6 +842,12 @@ private fun NewFurnitureSheet(s: Sheet.NewFurniture) {
                 rooms.forEach { r -> Chip(dn(r.name, lang), r.id == room.id) { rid = r.id; combo = -1 } }
             }
         }
+        if (case) {
+            Text(tr("kt.which"), style = ui(15f, 700))
+            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                (if (kind == "living") uz.metrx.app.furniture.LIVING_TYPES else uz.metrx.app.furniture.BEDROOM_TYPES).forEach { t -> Chip(tr("ft.$t"), t == ptype) { ptype = t } }
+            }
+        }
         if (kind == "kitchen") Text(tr("kt.layout"), style = ui(15f, 700))
         if (kind == "kitchen") Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf("I", "L", "U", "O", "P").forEach { l ->
@@ -791,11 +857,11 @@ private fun NewFurnitureSheet(s: Sheet.NewFurniture) {
                     .semantics { selected = on }.clickable(role = Role.RadioButton) { layout = l; combo = -1 }.padding(vertical = 8.dp, horizontal = 2.dp),
                     horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     PathIcon(LAYOUT_ICON.getValue(l), if (on) G.cobalt else G.ink, 26.dp, 2.4f)
-                    Text(tr("kt.l$l"), style = ui(11.5f, if (on) 700 else 500, if (on) G.cobalt2 else G.ink), maxLines = 2, textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                    TileLabel(tr("kt.l$l"), ui(11.5f, if (on) 700 else 500, if (on) G.cobalt2 else G.ink))   // "L-shaped" stays whole
                 }
             }
         }
-        Text(tr(if (kind == "wardrobe") "wd.wall" else "kt.walls"), style = ui(15f, 700))
+        Text(tr(if (kind != "kitchen") "wd.wall" else "kt.walls"), style = ui(15f, 700))
         if (list.isEmpty()) Text(tr("kt.noRoom"), style = ui(13.5f, 400, G.ink2, 1.4f))
         // the row scrolls to the picked walls (a free wall can be the last one, past the edge)
         val wallsSc = rememberScrollState()
@@ -803,7 +869,7 @@ private fun NewFurnitureSheet(s: Sheet.NewFurniture) {
         var shownFor by remember { mutableStateOf<List<String>?>(null) }
         Row(Modifier.horizontalScroll(wallsSc), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             list.forEachIndexed { i, c ->
-                val one = kind == "wardrobe" || layout == "I"
+                val one = kind != "kitchen" || layout == "I"
                 Box(Modifier.onGloballyPositioned { lc -> if (c == pick && shownFor != c) { shownFor = c; val x = lc.positionInParent().x.toInt(); scope.launch { wallsSc.animateScrollTo(maxOf(0, x - 40)) } } }) {
                     Chip(c.joinToString(" + ") { if (it == ISLAND) app.t(if (layout == "P") "kt.peninsula" else "kt.island") else it + if (one) wallLen(room, snap, it)?.let { l -> " · $l" } ?: "" else "" }, c == pick) { combo = i }
                 }
@@ -812,7 +878,11 @@ private fun NewFurnitureSheet(s: Sheet.NewFurniture) {
         taken.firstOrNull { t -> pick?.contains(t.first) == true }?.let { (w, f) ->
             Text(tr("kt.wallTaken", "w" to w, "n" to dn(f.name, lang)), style = ui(12.5f, 500, G.amberInk, 1.4f))
         }
-        if (pick != null && kind == "wardrobe") {
+        if (pick != null && case) {
+            val pl = casePlace(pick[0])
+            if (pl != null) Text(tr("wd.newPart", "w" to pick[0], "l" to (wallLen(room, snap, pick[0]) ?: 0), "x" to pl.first, "ww" to pl.second, "h" to tsz.h), style = num(14.5f, 700))
+            else Text(tr("kt.noSpace"), style = ui(12.5f, 500, G.amberInk, 1.4f))
+        } else if (pick != null && kind == "wardrobe") {
             val L = wallLen(room, snap, pick[0])
             val pl = wardPlace(pick[0])
             if (L != null && pl != null) Text(tr(if (pl.third) "wd.newNiche" else "wd.newPart", "w" to pick[0], "l" to L, "x" to pl.first, "ww" to pl.second, "h" to wardH), style = num(14.5f, 700))
@@ -855,6 +925,10 @@ private fun FMenuSheet(s: Sheet.FMenu) {
     GlassSheet(dn(f.name, lang), { app.sheet = null }) {
         MenuRow("edit", tr("kt.rename"), G.ink) { app.sheet = Sheet.FRename(p.id, f.id) }
         MenuRow("layers", tr("wd.mats"), G.ink) { app.sheet = Sheet.FMats(p.id, f.id) }
+        if (f.roomId == null) {
+            MenuRow("room", tr("fz.toRoom"), G.ink) { app.sheet = Sheet.FPickRoom(p.id, f.id) }
+            if (f.kind == "kitchen") MenuRow("ruler", tr("fz.editSizes"), G.ink) { app.sheet = null; app.push(Route.FSizes(p.id, f.kind, f.model.ifEmpty { f.layout }, f.id)) }
+        } else MenuRow("room", tr("fz.takeOut"), G.ink) { app.sheet = null; app.takeOut(p.id, f.id) }
         MenuRow("trash", tr("kt.del"), G.err) {
             val i = p.furniture.indexOfFirst { it.id == f.id }
             app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.filter { it.id != f.id }) }
@@ -935,6 +1009,7 @@ private fun LibrarySheet(s: Sheet.FLibrary) {
                 GField(tr("kt.spW"), w, { w = it.filter(Char::isDigit).take(4) }, "50", number = true, labelRight = "mm", error = tr("km.bad", "a" to 10, "b" to 1200), showError = !ok && w.isNotEmpty())
                 if (lowLeft != null) Text(tr("kt.spLeft", "v" to lowLeft) + if (upper && upLeft != null) " · " + tr("kt.up") + ": $upLeft" else "", style = ui(13f, 400, G.ink2))
                 LibRow("fillerLow", ws, wi) { if (ok) add("fillerLow", wi) }
+                LibRow("spaceLow", ws, wi) { if (ok) add("spaceLow", wi) }
                 if (upper) LibRow("fillerUp", ws, wi) { if (ok) add("fillerUp", wi) }
                 if (upper) LibRow("spaceUp", ws, wi) { if (ok) add("spaceUp", wi) }
             }
@@ -1094,7 +1169,7 @@ private fun ModuleSheet(s: Sheet.FModule) {
             }
         }
         val hw = hardwareOf(next, ws)
-        if (hw.isNotEmpty()) Text(tr("km.hw", "v" to hw.entries.joinToString(", ") { (k, v) -> app.t("hk.$k") + " × " + if (k == "rail") "${v} mm" else "$v" }),
+        if (hw.isNotEmpty()) Text(tr("km.hw", "v" to hw.entries.joinToString(", ") { (k, v) -> app.t("hk.$k") + " × " + uz.metrx.app.furniture.hwAmount(k, v, app.settings.lang == Lang.EN) }),
             style = ui(12.5f, 400, G.ink2, 1.4f))
     }
 }

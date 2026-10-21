@@ -1,0 +1,34 @@
+{
+  "v": 3,
+  "createdOnFiles": {"v": 1, "at": "2026-10-17T12:24:09Z"},
+  "title": "METRX Mebelchi",
+  "launch": {"view": "canvas"},
+  "pages": [],
+  "boards": {
+    "Main.dc.html":        {"x": 0,    "y": 0,    "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "1 · Soha tanlash"},
+    "Home.dc.html":        {"x": 470,  "y": 0,    "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "2 · Asosiy (mebelchi)"},
+    "Orders.dc.html":      {"x": 940,  "y": 0,    "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "3 · Buyurtmalar"},
+    "Order.dc.html":       {"x": 1410, "y": 0,    "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "4 · Buyurtma"},
+    "Payments.dc.html":    {"x": 1880, "y": 0,    "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "5 · Bosqich va toʻlovlar"},
+    "WallSite.dc.html":    {"x": 0,    "y": 1264, "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "6 · Devor: rozetka va quvurlar"},
+    "KitchenNew.dc.html":  {"x": 470,  "y": 1264, "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "7 · Yangi oshxona"},
+    "Kitchen.dc.html":     {"x": 940,  "y": 1264, "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "8 · Oshxona dizayneri"},
+    "KitchenModule.dc.html": {"x": 1410, "y": 1264, "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "9 · Modul sozlamalari"},
+    "Kitchen3D.dc.html":   {"x": 1880, "y": 1264, "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "10 · 3D: eshiklar ochiladi"},
+    "Wardrobe.dc.html":    {"x": 0,    "y": 2528, "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "11 · Shkaf dizayneri (5 qadam)"},
+    "Workshop.dc.html":    {"x": 470,  "y": 2528, "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "12 · Ustaxona sozlamalari"},
+    "Materials.dc.html":   {"x": 940,  "y": 2528, "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "13 · Materiallar va furnitura"},
+    "Price.dc.html":       {"x": 0,    "y": 3792, "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "14 · Narx: tannarx, mijoz narxi, foyda"},
+    "CutList.dc.html":     {"x": 470,  "y": 3792, "w": 390, "h": 844, "radius": 44, "is_interactive": true, "title": "15 · Detallar va raskroy"},
+    "CustomerPdf.dc.html": {"x": 940,  "y": 3792, "w": 595, "h": 842, "title": "16 · Mijoz uchun PDF (A4)"},
+    "WorkshopPdf.dc.html": {"x": 1615, "y": 3792, "w": 595, "h": 842, "title": "17 · Ustaxona uchun PDF (A4)"}
+  },
+  "order": ["Main.dc.html", "Home.dc.html", "Orders.dc.html", "Order.dc.html", "Payments.dc.html", "WallSite.dc.html", "KitchenNew.dc.html", "Kitchen.dc.html", "KitchenModule.dc.html", "Kitchen3D.dc.html", "Wardrobe.dc.html", "Workshop.dc.html", "Materials.dc.html", "Price.dc.html", "CutList.dc.html", "CustomerPdf.dc.html", "WorkshopPdf.dc.html"],
+  "notes": {
+    "r1": {"x": 0, "y": -300, "text": "Soha va buyurtmalar", "kind": "title1", "maxW": 2270},
+    "r2": {"x": 0, "y": 964, "text": "Oʻlchash va oshxona", "kind": "title1", "maxW": 2270},
+    "r3": {"x": 0, "y": 2228, "text": "Shkaf va ustaxona", "kind": "title1", "maxW": 1330},
+    "r4": {"x": 0, "y": 3492, "text": "Narx va hujjatlar", "kind": "title1", "maxW": 2210}
+  },
+  "designSystems": []
+}

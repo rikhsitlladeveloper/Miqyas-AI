@@ -97,12 +97,15 @@ fun template(kind: String, ws: Workshop, wall: String, w: Int? = null): Module {
         "fillerLow" -> Module(uid(), "filler", w ?: 50, K_BASE_H, 20, wall = wall, elev = low, fronts = Fronts("open", 0), legs = false)
         "fillerUp" -> Module(uid(), "filler", w ?: 50, K_WALL_H, 20, wall = wall, elev = up, fronts = Fronts("open", 0), legs = false)
         "spaceUp" -> Module(uid(), "gap", w ?: 600, K_WALL_H, K_WALL_D, wall = wall, elev = up, fronts = Fronts("open", 0), legs = false)
+        // an empty stretch of the lower row: no boards, no worktop, not in the running metres
+        "spaceLow" -> Module(uid(), "gap", w ?: 600, K_BASE_H, K_BASE_D, wall = wall, elev = low, fronts = Fronts("open", 0), legs = false, app = "space")
         else -> (w ?: 600).let { base(it, doors(it), listOf(Insert("shelf", qty = 1))) }
     }
 }
 
 /** The library kind a module was made from, for its name. */
 fun kindOf(m: Module): String = when {
+    m.app == "space" -> "spaceLow"
     m.app.isNotEmpty() -> m.app
     m.type == "base" && m.fronts.kind == "drawer" -> "drawers"
     m.type == "wall" && m.fronts.kind == "open" -> "open"

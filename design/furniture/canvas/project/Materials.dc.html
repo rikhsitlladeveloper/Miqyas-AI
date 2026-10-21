@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Materiallar va furnitura</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B47D9}a:hover{color:#1E36B0}
+button{font:inherit}
+.g{border:1px solid rgba(255,255,255,0.8);background:rgba(255,255,255,0.45);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.95),0 14px 30px rgba(30,40,110,0.13)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #EEF1F8; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A">
+  <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none">
+    <div style="position: absolute; width: 320px; height: 320px; left: -120px; top: -100px; border-radius: 50%; background: #5B7BFF; filter: blur(70px); opacity: 0.55"></div>
+    <div style="position: absolute; width: 260px; height: 260px; right: -90px; bottom: 40px; border-radius: 50%; background: #FFB58A; filter: blur(80px); opacity: 0.4"></div>
+  </div>
+
+  <div style="position: relative; height: 100%; box-sizing: border-box; padding: 56px 20px 20px; display: flex; flex-direction: column">
+    <div style="display: flex; align-items: center; gap: 12px">
+      <a href="Workshop.dc.html" aria-label="Orqaga" class="g" style="width: 42px; height: 42px; flex: none; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #0F172A">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"></path></svg>
+      </a>
+      <div style="font-size: 20px; font-weight: 800">Materiallar va furnitura</div>
+    </div>
+
+    <div role="tablist" aria-label="Roʻyxat" style="margin-top: 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px; padding: 4px; border-radius: 16px; background: rgba(15,23,42,0.06)">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+        <button type="button" role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="cursor: pointer; height: 38px; border: 0; border-radius: 12px; background: {{t.bg}}; color: {{t.fg}}; font-size: 13.5px; font-weight: 700; box-shadow: {{t.sh}}">{{t.name}}</button>
+      </sc-for>
+    </div>
+
+    <div style="margin-top: 8px; font-size: 12.5px; color: #475569; line-height: 1.45">Nomini va narxini bir marta yozing — har bir buyurtmada ishlatiladi. Brendni oʻzingiz tanlaysiz.</div>
+
+    <div style="margin-top: 10px; display: flex; flex-direction: column; gap: 6px">
+      <sc-for list="{{items}}" as="i" hint-placeholder-count="8">
+        <div class="g" style="border-radius: 16px; padding: 9px 12px; display: flex; align-items: center; gap: 10px">
+          <span aria-hidden="true" style="width: 28px; height: 28px; flex: none; border-radius: 8px; background: {{i.c}}; border: 1px solid rgba(15,23,42,0.18)"></span>
+          <div style="flex: 1; min-width: 0">
+            <div style="font-size: 13.5px; font-weight: 700">{{i.name}}</div>
+            <div style="font-size: 11.5px; color: #475569">{{i.sub}}</div>
+          </div>
+          <div style="text-align: right; font-variant-numeric: tabular-nums"><div style="font-size: 13.5px; font-weight: 800">{{i.price}}</div><div style="font-size: 11px; color: #475569">{{i.unit}}</div></div>
+        </div>
+      </sc-for>
+    </div>
+
+    <div style="flex: 1"></div>
+    <span style="height: 52px; border-radius: 18px; border: 2px dashed rgba(53,80,224,0.45); color: #2B47D9; display: flex; align-items: center; justify-content: center; font-size: 14.5px; font-weight: 700">{{addLabel}}</span>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var s = this.state || {};
+    var self = this;
+    var tab = s.tab || 'm';
+    var mats = [
+      { name: 'LDSP 16 · Oq', sub: 'Korpus · 2800 × 2070 · Kronospan', price: '620 000', unit: 'list', c: '#F5F5F2' },
+      { name: 'LDSP 16 · Kashmir', sub: 'Fasad · 2800 × 2070 · tolasi bor', price: '690 000', unit: 'list', c: '#CDBFAE' },
+      { name: 'LDSP 18 · Antratsit', sub: 'Korpus · 2800 × 2070', price: '720 000', unit: 'list', c: '#4B4F58' },
+      { name: 'MDF 18 · boʻyalgan', sub: 'Fasad · 2800 × 2070', price: '980 000', unit: 'list', c: '#E8E4DC' },
+      { name: 'DVP 3,2 · Oq', sub: 'Orqa devor · 2800 × 2070', price: '210 000', unit: 'list', c: '#FFFFFF' },
+      { name: 'Stoleshnitsa 38 · Antratsit', sub: '4100 × 600', price: '1 450 000', unit: 'dona', c: '#3F434B' },
+      { name: 'Kromka PVX 2 mm', sub: 'Koʻrinadigan qirralar', price: '4 500', unit: 'metr', c: '#CDBFAE' },
+      { name: 'Kromka PVX 0,4 mm', sub: 'Ichki qirralar', price: '1 500', unit: 'metr', c: '#F5F5F2' }
+    ];
+    var hw = [
+      { name: 'Petlya, yumshoq yopilish', sub: 'GTV · 110°', price: '18 000', unit: 'dona', c: '#CBD5E1' },
+      { name: 'Petlya, oddiy', sub: 'Xitoy', price: '9 000', unit: 'dona', c: '#CBD5E1' },
+      { name: 'Yoʻnaltiruvchi 300–600', sub: 'Boyard · toʻliq chiqadi', price: '95 000', unit: 'juft', c: '#CBD5E1' },
+      { name: 'Tutqich skoba 128', sub: 'Qora mat', price: '25 000', unit: 'dona', c: '#1E293B' },
+      { name: 'Oyoq 100 mm', sub: 'Rostlanadi', price: '6 000', unit: 'dona', c: '#CBD5E1' },
+      { name: 'Shtanga', sub: 'Oval, xrom', price: '35 000', unit: 'metr', c: '#CBD5E1' },
+      { name: 'Konfirmat 7 × 50', sub: '', price: '250', unit: 'dona', c: '#CBD5E1' },
+      { name: 'Lift mexanizmi', sub: 'Yuqori eshik uchun', price: '140 000', unit: 'dona', c: '#CBD5E1' }
+    ];
+    function t(id, name) { var on = tab === id; return { name: name, on: on, pick: function () { self.setState({ tab: id }); }, bg: on ? '#fff' : 'transparent', fg: on ? '#0F172A' : '#475569', sh: on ? '0 2px 6px rgba(30,40,110,0.14)' : 'none' }; }
+    return {
+      tabs: [t('m', 'Materiallar · 8'), t('h', 'Furnitura · 8')],
+      items: tab === 'm' ? mats : hw,
+      addLabel: tab === 'm' ? '+ Material qoʻshish' : '+ Furnitura qoʻshish'
+    };
+  }
+}
+</script>
+</body>
+</html>

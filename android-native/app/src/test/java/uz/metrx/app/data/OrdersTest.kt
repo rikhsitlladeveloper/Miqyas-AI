@@ -59,4 +59,36 @@ class OrdersTest {
         assertNull(orderMoney(order()).left)
         assertEquals(0, fStage(Project("x", "y", stage = "estimate")))
     }
+
+    /* ---------- the install date and the order of the list (furniture orders UX) ---------- */
+
+    private val utc = java.time.ZoneOffset.UTC
+    private fun ms(y: Int, m: Int, d: Int) = java.time.LocalDate.of(y, m, d).atStartOfDay(utc).toInstant().toEpochMilli()
+
+    @Test fun workingDaysSkipSundays() {
+        val mon = java.time.LocalDate.of(2026, 10, 19)
+        assertEquals(java.time.LocalDate.of(2026, 10, 24), addWorkDays(mon, 5))   // Tue..Sat
+        assertEquals(java.time.LocalDate.of(2026, 10, 26), addWorkDays(mon, 6))   // Sunday skipped
+        assertEquals(java.time.LocalDate.of(2026, 11, 11), addWorkDays(java.time.LocalDate.of(2026, 10, 20), 19))
+    }
+
+    @Test fun installDateFollowsApprovalAndTheNarxDays() {
+        assertNull(installDate(order(), utc))
+        val a = approve(order(), b(100), b(0), ms(2026, 10, 20))
+        assertEquals(java.time.LocalDate.of(2026, 11, 11), installDate(a, utc))   // 18 making + 1 installing
+        val byHand = a.copy(install = ms(2026, 11, 20))
+        assertEquals(java.time.LocalDate.of(2026, 11, 20), installDate(byHand, utc))
+        // an order approved before this field existed takes its prepayment's day
+        val old = a.copy(approvedAt = 0, payments = listOf(Payment("x", "50", ms(2026, 10, 20), pre = true)))
+        assertEquals(java.time.LocalDate.of(2026, 11, 11), installDate(old, utc))
+    }
+
+    @Test fun ordersWithTheSoonestInstallComeFirst() {
+        val late = order("approved").copy(id = "late", install = ms(2026, 10, 17), created = 1)
+        val soon = order("production").copy(id = "soon", install = ms(2026, 10, 23), created = 2)
+        val newer = order("design").copy(id = "newer", created = 9)
+        val older = order("measure").copy(id = "older", created = 3)
+        assertEquals(listOf("late", "soon", "newer", "older"), sortOrders(listOf(older, soon, newer, late), utc).map { it.id })
+    }
 }
+

@@ -21,8 +21,18 @@ data class Furniture(
     val created: Long = 0,
     /** Kitchens: I (one wall), L, U, O (a wall and an island), P (a wall and a peninsula). */
     val layout: String = "I",
-    /** The workspace it belongs to. */
-    val ws: String = ""
+    /** The workspace it belongs to ("" for furniture without a room). */
+    val ws: String = "",
+    /** Without a room ([roomId] null): the typed sizes (Free.kt). */
+    val free: FreeSize? = null,
+    /** The gallery model it started from (Free.kt F_MODELS), "" when made in a room. */
+    val model: String = "",
+    /** Put in a room although bigger than its wall or ceiling ("O‘lchamni saqlash"). */
+    val keep: Boolean = false,
+    /** Kitchens: the worktop joints and cut-outs, backsplash, plinth, cornice, LED and end panels (KitchenExtras.kt). */
+    val kx: KExtras? = null,
+    /** A cabinet on the wardrobe's engine ([kind] "wardrobe"): "" a wardrobe, or a Stage 2 type (Cabinets.kt CASE_TYPES). */
+    val type: String = ""
 )
 
 /** Material ids (from the workshop's list) for the carcass, the fronts and the back panel. */
@@ -56,8 +66,19 @@ data class Module(
     val app: String = "",
     /** Wardrobes: a side panel at the left and right end; a built-in wardrobe has none where it meets a wall. */
     val sideL: Boolean = true,
-    val sideR: Boolean = true
+    val sideR: Boolean = true,
+    /** Wardrobes: sliding (купе) doors over the whole front instead of each section's doors (plan 1b-2); null: hinged. */
+    val slide: Slide? = null
 )
+
+/**
+ * Sliding doors (furniture plan section 8, Stage 1b): [n] doors (2–4) in two tracks, each overlapping the next; each
+ * door's filling in [panels]: "ldsp" (the front board), "mirror" or "glass" (lacobel), in a profile frame.
+ */
+@Serializable
+data class Slide(val n: Int = 2, val panels: List<String> = emptyList()) {
+    fun panel(i: Int) = panels.getOrElse(i) { "ldsp" }
+}
 
 /** What closes a box or a section: [kind] door, drawer, open or panel (an appliance's front); [n] how many. */
 @Serializable
@@ -72,4 +93,6 @@ data class Insert(val kind: String, val pos: Int = 0, val qty: Int = 1, val h: I
 
 /** A wardrobe section: its width (centre to centre of the dividers, the outer ones to the sides' outer faces). */
 @Serializable
-data class Section(val w: Int, val fronts: Fronts = Fronts("door", 2), val inserts: List<Insert> = emptyList(), val lock: Boolean = false)
+data class Section(val w: Int, val fronts: Fronts = Fronts("door", 2), val inserts: List<Insert> = emptyList(), val lock: Boolean = false,
+                   /** A desk's knee space: no bottom, back or inside (Cabinets.kt). */
+                   val knee: Boolean = false)

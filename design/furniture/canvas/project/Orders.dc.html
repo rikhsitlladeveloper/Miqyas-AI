@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="uz">
+<head>
+<meta charset="utf-8">
+<title>Buyurtmalar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2B47D9}a:hover{color:#1E36B0}
+button{font:inherit}
+.g{border:1px solid rgba(255,255,255,0.8);background:rgba(255,255,255,0.45);backdrop-filter:blur(28px) saturate(190%);-webkit-backdrop-filter:blur(28px) saturate(190%);box-shadow:inset 0 1.5px 0 rgba(255,255,255,0.95),0 14px 30px rgba(30,40,110,0.13)}
+</style>
+</helmet>
+<div style="width: 390px; height: 844px; position: relative; overflow: hidden; box-sizing: border-box; background: #EEF1F8; font-family: 'Plus Jakarta Sans', system-ui, sans-serif; color: #0F172A">
+  <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none">
+    <div style="position: absolute; width: 340px; height: 340px; left: -120px; top: -90px; border-radius: 50%; background: #5B7BFF; filter: blur(70px); opacity: 0.65"></div>
+    <div style="position: absolute; width: 300px; height: 300px; right: -120px; top: 330px; border-radius: 50%; background: #B07CFF; filter: blur(80px); opacity: 0.45"></div>
+    <div style="position: absolute; width: 260px; height: 260px; left: -40px; bottom: -40px; border-radius: 50%; background: #3FD8F2; filter: blur(80px); opacity: 0.4"></div>
+  </div>
+
+  <div style="position: relative; height: 100%; box-sizing: border-box; padding: 60px 20px 0; display: flex; flex-direction: column">
+    <h1 style="margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -0.02em">Buyurtmalar</h1>
+
+    <div style="margin-top: 16px; display: flex; gap: 10px">
+      <label class="g" style="flex: 1; height: 50px; border-radius: 25px; display: flex; align-items: center; gap: 10px; padding: 0 16px; box-sizing: border-box">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#475569" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+        <span style="position: absolute; width: 1px; height: 1px; overflow: hidden">Qidirish</span>
+        <input type="search" placeholder="Mijoz yoki manzil" style="border: 0; background: none; outline: none; font: inherit; font-size: 15px; width: 100%; color: #0F172A">
+      </label>
+      <a href="Order.dc.html" aria-label="Yangi buyurtma" style="width: 50px; height: 50px; flex: none; border-radius: 50%; background: #3550E0; box-shadow: 0 10px 22px rgba(53,80,224,0.38); display: flex; align-items: center; justify-content: center">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>
+      </a>
+    </div>
+
+    <div style="margin-top: 14px; display: flex; gap: 8px; flex-wrap: wrap">
+      <sc-for list="{{chips}}" as="c" hint-placeholder-count="4">
+        <button type="button" onClick="{{c.pick}}" aria-pressed="{{c.on}}" style="cursor: pointer; height: 36px; padding: 0 14px; border-radius: 18px; font-size: 13.5px; font-weight: 700; border: {{c.border}}; background: {{c.bg}}; color: {{c.fg}}">{{c.label}}</button>
+      </sc-for>
+    </div>
+
+    <div style="margin-top: 14px; display: flex; flex-direction: column; gap: 10px">
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="3">
+        <a href="Order.dc.html" class="g" style="text-decoration: none; color: #0F172A; border-radius: 24px; padding: 14px; display: flex; flex-direction: column; gap: 10px">
+          <div style="display: flex; gap: 12px; align-items: flex-start">
+            <div style="width: 48px; height: 48px; flex: none; border-radius: 16px; background: rgba(255,255,255,0.7); display: flex; align-items: center; justify-content: center">
+              <svg width="30" height="30" viewBox="0 0 40 40" fill="none" stroke="#0F172A" stroke-width="2" aria-hidden="true"><path d="M4 6h32v9H4zM4 22h32v14H4z"></path><path d="M3 20h34" stroke-width="2.6"></path></svg>
+            </div>
+            <div style="flex: 1; min-width: 0">
+              <div style="font-size: 15.5px; font-weight: 700">{{r.name}}</div>
+              <div style="margin-top: 2px; font-size: 12.5px; color: #475569">{{r.sub}}</div>
+            </div>
+            <span style="flex: none; font-size: 11.5px; font-weight: 700; padding: 4px 9px; border-radius: 10px; background: {{r.pillBg}}; color: {{r.pillFg}}">{{r.stage}}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 4px" aria-label="{{r.stepsLabel}}">
+            <sc-for list="{{r.steps}}" as="d" hint-placeholder-count="7">
+              <span style="flex: 1; height: 5px; border-radius: 3px; background: {{d.c}}"></span>
+            </sc-for>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12.5px; color: #475569; font-variant-numeric: tabular-nums">
+            <span>{{r.total}}</span><span style="font-weight: 700; color: {{r.oweFg}}">{{r.owe}}</span>
+          </div>
+        </a>
+      </sc-for>
+    </div>
+  </div>
+
+  <nav aria-label="Asosiy menyu" style="position: absolute; left: 50%; bottom: 30px; transform: translateX(-50%); width: 300px; height: 68px; box-sizing: border-box; padding: 6px; border-radius: 34px; border: 1px solid rgba(255,255,255,0.8); background: rgba(255,255,255,0.45); backdrop-filter: blur(26px) saturate(190%); -webkit-backdrop-filter: blur(26px) saturate(190%); box-shadow: inset 0 1.5px 0 rgba(255,255,255,0.95), 0 14px 34px rgba(30,40,110,0.18); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px">
+    <a href="Home.dc.html" style="text-decoration: none; border-radius: 28px; color: #334155; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 600">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10.5L12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"></path></svg>Asosiy</a>
+    <a href="#" aria-current="page" style="text-decoration: none; border-radius: 28px; background: rgba(255,255,255,0.85); box-shadow: 0 4px 12px rgba(30,40,110,0.12); color: #2B47D9; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 700">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"></path></svg>Buyurtmalar</a>
+    <a href="Workshop.dc.html" style="text-decoration: none; border-radius: 28px; color: #334155; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 11px; font-weight: 600">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"></circle><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"></path></svg>Profil</a>
+  </nav>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+  renderVals() {
+    var s = this.state || {};
+    var self = this;
+    var f = s.f || 'active';
+    var pills = {
+      'Dizayn': ['#E0E7FF', '#3730A3'], 'Ishlab chiqarish': ['#FEF3C7', '#92400E'],
+      'Oʻrnatildi': ['#DCFCE7', '#166534'], 'Toʻlandi': ['#E2E8F0', '#334155']
+    };
+    var all = [
+      { name: 'Oshxona — Chilonzor 9', sub: 'Dilnoza Karimova · L-oshxona, shkaf', stage: 'Dizayn', step: 2, total: 'Taklif: 32 067 100', owe: 'Taklif yuborilmagan', oweFg: '#475569', done: false, build: false },
+      { name: 'Kupe shkaf — Yunusobod', sub: 'Aziz Rahimov · kupe 2 eshik', stage: 'Ishlab chiqarish', step: 5, total: 'Jami: 9 800 000', owe: 'Qoldi: 5 000 000', oweFg: '#B45309', done: false, build: false },
+      { name: 'Mehmonxona TV devori', sub: 'Bekzod Tursunov · Sergeli', stage: 'Oʻrnatildi', step: 6, total: 'Jami: 7 400 000', owe: 'Qoldi: 3 200 000', oweFg: '#B45309', done: false, build: false },
+      { name: 'Bolalar xonasi shkafi', sub: 'Malika Yusupova · Mirobod', stage: 'Toʻlandi', step: 7, total: 'Jami: 6 150 000', owe: 'Toʻliq toʻlandi', oweFg: '#166534', done: true, build: false }
+    ];
+    var shown = all.filter(function (o) { return f === 'all' ? true : f === 'done' ? o.done : !o.done; });
+    function chip(id, label) {
+      var on = f === id;
+      return { label: label, on: on, pick: function () { self.setState({ f: id }); },
+        bg: on ? '#0F172A' : 'rgba(255,255,255,0.5)', fg: on ? '#fff' : '#0F172A', border: on ? '1px solid #0F172A' : '1px solid rgba(255,255,255,0.85)' };
+    }
+    var chips = [chip('active', 'Faol · 3'), chip('done', 'Tugagan · 1'), chip('all', 'Hammasi · 4')];
+    chips.push({ label: 'Quruvchi loyihalari · 2', on: false, pick: function () {}, bg: 'transparent', fg: '#475569', border: '1px dashed rgba(71,85,105,0.4)' });
+    return {
+      chips: chips,
+      rows: shown.map(function (o) {
+        var p = pills[o.stage];
+        var steps = [];
+        for (var i = 1; i <= 7; i++) steps.push({ c: i <= o.step ? '#3550E0' : 'rgba(15,23,42,0.12)' });
+        return Object.assign({}, o, { pillBg: p[0], pillFg: p[1], steps: steps, stepsLabel: o.step + '/7 bosqich' });
+      })
+    };
+  }
+}
+</script>
+</body>
+</html>

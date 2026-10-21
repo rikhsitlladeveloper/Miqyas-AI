@@ -181,7 +181,7 @@ fun WallViewScreen(rt: Route.WallView) {
                 Text(tr("wv.inside"), style = ui(12.5f, 400, G.ink2))
                 Box(Modifier.fillMaxWidth().offset(x = slide.value.dp).alpha(1f - abs(slide.value) / 28f * .65f)) {
                     Elevation(r, w, wallOps, fr, unit, en, onSwipe = ::go,
-                        pts = if (p.isFurniture) r.points.filter { it.wall == w.id } else emptyList(),
+                        pts = if (p.isFurniture || p.industry == "elec" || p.industry == "plumb") r.points.filter { it.wall == w.id } else emptyList(),
                         onPoint = { id -> app.sheet = Sheet.PointForm(p.id, r.id, w.id, id) },
                         onOpening = { id -> app.sheet = Sheet.OpeningForm(p.id, r.id, id) },
                         onLength = {
@@ -223,7 +223,7 @@ fun WallViewScreen(rt: Route.WallView) {
                     }
                 }
                 // furniture orders: sockets, switches and pipes on this wall (furniture plan section 5)
-                if (p.isFurniture) uz.metrx.app.ui.furniture.PointsSection(p, r, w.id)
+                if (p.isFurniture || p.industry == "elec" || p.industry == "plumb") uz.metrx.app.ui.furniture.PointsSection(p, r, w.id)
                 Row(
                     Modifier.heightIn(min = 48.dp).clip(CircleShape).background(G.cobalt).pressable({ app.sheet = Sheet.WallAdd(p.id, r.id, w.id) }, .97f).padding(horizontal = 18.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)
