@@ -184,7 +184,7 @@ final class FeaturesAndTradesTests: XCTestCase {
                     SitePoint(id: "h", t: "hot", wall: "B", off: 700, h: 600), SitePoint(id: "k", t: "sewer", wall: "B", off: 600, h: 400)]
         return r
     }
-    private let name: (String, [String: String]) -> String = { k, _ in k }
+    private let words: (String, [String: String]) -> String = { k, _ in k }
 
     func testAColumnAndANiche() {
         var r = room; r.openings = []; r.features = [Feature(id: "c", type: "column", wall: "A", off: 1000, w: 400, d: 300)]
@@ -201,14 +201,14 @@ final class FeaturesAndTradesTests: XCTestCase {
         var tw = t; tw.wallH = 1500
         let area = tileArea(room, tw)
         XCTAssertEqual(area, 20 + 27 - 0.9 * 1.5 - 1.2 * 0.6, accuracy: 1e-9)
-        let tr = tradeRows("tiler", [room], tw, name)
+        let tr = tradeRows("tiler", [room], tw, words)
         XCTAssertEqual(tr.mats.map(\.id), ["t-tile", "t-glue", "t-grout"])
-        let e = tradeRows("elec", [room], t, name)
+        let e = tradeRows("elec", [room], t, words)
         XCTAssertEqual(e.facts["points"], 4); XCTAssertEqual(e.facts["cable"] ?? 0, 18 + 10, accuracy: 1e-9)
         XCTAssertEqual(e.labor.first?.amount, "240000")
-        let p = tradeRows("plumb", [room], t, name)
+        let p = tradeRows("plumb", [room], t, words)
         XCTAssertEqual(p.mats.first { $0.id == "t-pipe" }?.qty, "24")
-        let w = tradeRows("win", [room], t, name)
+        let w = tradeRows("win", [room], t, words)
         XCTAssertEqual(w.mats.map(\.id), ["t-door", "t-window", "t-sill", "t-reveal"])
         XCTAssertEqual(w.mats[2].qty, "1.3")
     }
