@@ -27,9 +27,14 @@ func blockH(_ x: Insert) -> Int {
 
 /// Section widths: locked ones keep theirs; the others share what is left equally, the last one takes the remainder.
 func splitSections(_ w: Int, _ secs: [Section]) -> [Section] {
+    if secs.count == 1 { var s = secs[0]; s.w = w; return [s] }
     let free = secs.filter { !$0.lock }.count
-    if free == 0 { return secs }
+    if free == 0 && secs.reduce(0, { $0 + $1.w }) == w { return secs }
     let rest = w - secs.filter(\.lock).reduce(0) { $0 + $1.w }
+    // the locked ones leave too little for the others (or none gives way): all share again
+    if free == 0 || rest < 150 * free {
+        return secs.contains(where: \.lock) ? splitSections(w, secs.map { var s = $0; s.lock = false; return s }) : secs
+    }
     let each = rest / free
     var k = 0
     return secs.map { s in

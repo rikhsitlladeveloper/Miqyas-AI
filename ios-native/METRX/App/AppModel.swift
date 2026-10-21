@@ -42,7 +42,8 @@ enum Route: Hashable {
     /// fromNew right after a new order); a model's sizes step by step (fid: changing a piece's); which room; into a room.
     /// fPlace places piece fid, or a new piece of model with the sizes vals ("s0=3000,h=2700"; nil: sizes from the room).
     case fGallery(pid: String, rid: String? = nil, fromNew: Bool = false)
-    case fSteps(pid: String, model: String, fid: String? = nil)
+    /// vals: the sizes typed so far ("s0=3400,h=2700"), kept while "Which room?" is on top; the steps open on the summary.
+    case fSteps(pid: String, model: String, fid: String? = nil, vals: String? = nil)
     case fWhere(pid: String, model: String, vals: String)
     case fPlace(pid: String, fid: String?, rid: String, model: String? = nil, vals: String? = nil)
 
@@ -140,7 +141,13 @@ final class AppModel {
 
     var store: Store { Store.shared }
 
-    func push(_ r: Route) { dir = 1; withAnimation(.easeOut(duration: 0.28)) { stacks[tab, default: [.root]].append(r) } }
+    /// The same page is not opened twice on top of itself (a double tap).
+    func push(_ r: Route) { if top == r { return }; dir = 1; withAnimation(.easeOut(duration: 0.28)) { stacks[tab, default: [.root]].append(r) } }
+    @ObservationIgnored private var lastAct = Date.distantPast
+    /// A page that steps back inside itself (the size steps) takes the edge swipe while it shows.
+    @ObservationIgnored var backOverride: (() -> Void)? = nil
+    /// False for a second tap within 0.6 s, so a double tap cannot create or save something twice.
+    func once() -> Bool { let now = Date(); if now.timeIntervalSince(lastAct) < 0.6 { return false }; lastAct = now; return true }
     @discardableResult func pop() -> Bool {
         guard stack.count > 1 else { return false }
         dir = -1; withAnimation(.easeOut(duration: 0.28)) { _ = stacks[tab]?.popLast() }
@@ -170,7 +177,7 @@ final class AppModel {
                 case .kitchen(let pid, let fid, _, _), .wardrobe(let pid, let fid, _, _, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
                 case .fCut(let pid), .fPack(let pid), .fWhere(let pid, _, _): return store.get(pid) != nil
                 case .fGallery(let pid, let rid, _): return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
-                case .fSteps(let pid, _, let fid): return store.get(pid).map { p in fid == nil || p.furniture.contains { $0.id == fid } } == true
+                case .fSteps(let pid, _, let fid, _): return store.get(pid).map { p in fid == nil || p.furniture.contains { $0.id == fid } } == true
                 case .fPlace(let pid, let fid, let rid, _, _): return store.get(pid).map { p in (fid == nil || p.furniture.contains { $0.id == fid }) && p.rooms.contains { $0.id == rid } } == true
                 default: return true
                 }

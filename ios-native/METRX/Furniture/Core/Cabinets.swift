@@ -30,7 +30,9 @@ func typeSize(_ type: String) -> TypeSize {
 }
 
 /// n drawers filling a section ih high inside, from the bottom, 20 mm apart.
-private func drawers(_ n: Int, _ ih: Int) -> [Insert] {
+private func drawers(_ n0: Int, _ ih: Int) -> [Insert] {
+    // a low cabinet takes fewer drawers: each keeps 80 mm and a 20 mm gap, all inside
+    let n = min(n0, max(1, (ih + 20) / 100))
     let h = max(80, (ih - 20 * (n - 1)) / n)
     return (0..<n).map { Insert("drawer", pos: $0 * (h + 20), h: h) }
 }

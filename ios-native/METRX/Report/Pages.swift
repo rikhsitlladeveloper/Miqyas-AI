@@ -302,7 +302,7 @@ final class Doc {
         let m = mUnit()
         func v(_ mm: Int?, _ k: String?) -> NSAttributedString { withProv(r, k, (len(mm) + " " + m).replacingOccurrences(of: " ", with: NBSP)) }
         if r.isPoly {
-            let g = Geo.polyGeo(r, true)
+            let g = Geo.polyGeo(r, sn.snap)
             for w in g.walls {
                 let main = (len(w.len) + " " + m).replacingOccurrences(of: " ", with: NBSP)
                 let s = NSMutableAttributedString(attributedString: a(main, num(10)))
@@ -315,7 +315,7 @@ final class Doc {
             rows.append([cell(t("r.wid")), rcell(v(r.dim("B").v, "B"))])
         }
         rows.append([cell(t("r.h")), rcell(v(r.dim("H").v, "H"))])
-        let ar = Geo.areas(r, true), m2 = t("u.m2")
+        let ar = Geo.areas(r, sn.snap), m2 = t("u.m2")
         if let ar {
             rows.append([cell(t("rp.floorArea")), rcell(Geo.fmtArea(ar.floor, en) + NBSP + m2)])
             rows.append([cell(t("rp.perim")), rcell((len(Int(ar.perim)) + " " + m).replacingOccurrences(of: " ", with: NBSP))])
@@ -340,7 +340,7 @@ final class Doc {
     func roomBlock(_ r: Room, _ i: Int, _ floorLabel: String) {
         let pf = sn.pdf
         if !pf.plan && !pf.dims { return }
-        let planH = pf.plan ? reportPlanHeight(r, snap: true) * 0.75 + 1.5 : 0
+        let planH = pf.plan ? reportPlanHeight(r, snap: sn.snap) * 0.75 + 1.5 : 0
         let rows = pf.dims ? roomRows(r) : []
         let tx = pf.plan ? PX + 271.5 + 14 : PX, tw = PX + CW - tx
         // the block's height before drawing it, to move the whole room to the next page when it does not fit
@@ -352,11 +352,11 @@ final class Doc {
         space(0)
         let top = y
         if pf.plan {
-            let label = dn(r.name, l), un = unit, e = en
+            let label = dn(r.name, l), un = unit, e = en, snap = sn.snap
             draw { ctx in
                 var c = ctx
                 c.translateBy(x: PX + 0.75, y: top + 0.75); c.scaleBy(x: 0.75, y: 0.75)
-                drawReportPlan(c, r, un, e, label)
+                drawReportPlan(c, r, un, e, label, snap: snap)
                 ctx.stroke(Path(CGRect(x: PX + 0.375, y: top + 0.375, width: 270.75, height: planH - 0.75)), with: .color(FIG), lineWidth: 0.75)
             }
         }

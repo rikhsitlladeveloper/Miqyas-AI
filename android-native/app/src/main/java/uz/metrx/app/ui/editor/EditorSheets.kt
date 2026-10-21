@@ -64,10 +64,8 @@ import uz.metrx.app.geo.fmtArea
 import uz.metrx.app.geo.fmtField
 import uz.metrx.app.geo.fmtLen
 import uz.metrx.app.geo.lenErr
-import uz.metrx.app.geo.parseDec
 import uz.metrx.app.geo.polyDims
 import uz.metrx.app.geo.unconfCount
-import uz.metrx.app.geo.unitDecimals
 import uz.metrx.app.geo.wallCorner
 import uz.metrx.app.geo.walls
 import uz.metrx.app.ui.App
@@ -168,7 +166,7 @@ private fun NewRoomSheet(s: Sheet.NewRoom) {
         app.store.update(p.id) { it.copy(rooms = it.rooms + r) }
         app.close()
         app.push(Route.Editor(p.id, r.id))
-        if (shape == "lshape") app.say("sk.created", "n" to 6) else app.ops.focus(r.id, "A")
+        if (shape == "lshape") app.say("sk.created", "n" to dn(r.name, lang)) else app.ops.focus(r.id, "A")
     }
     GlassSheet(tr("nr.title"), { app.close() }, footer = { GBtn(tr("nr.create"), { create("rect") }, enabled = err == null) }) {
         GField(tr("nr.name"), name, { name = it }, tr("smp.living"), error = err, showError = true, imeAction = ImeAction.Done, onIme = { create("rect") })
@@ -246,8 +244,10 @@ private fun AddOpeningSheet(s: Sheet.AddOpening) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             BigOpt("door", tr("op.door"), null, Modifier.weight(1f)) { app.sheet = Sheet.OpeningForm(s.pid, s.rid, null, "door") }
             BigOpt("window", tr("op.window"), null, Modifier.weight(1f)) { app.sheet = Sheet.OpeningForm(s.pid, s.rid, null, "window") }
-            BigOpt("column", tr("ao.col"), null, Modifier.weight(1f)) { app.sheet = Sheet.FeatureForm(s.pid, s.rid, null) }
+            // a drawn room's plan has no place for them yet, so only rectangles get columns and niches
+            if (!r.isPoly) BigOpt("column", tr("ao.col"), null, Modifier.weight(1f)) { app.sheet = Sheet.FeatureForm(s.pid, s.rid, null) }
         }
+        if (r.isPoly) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MIcon("info", G.ink2, 17.dp, 2f); Text(tr("ft.polyNo"), style = ui(13f, 400, G.ink2, 1.4f)) }
         Text(tr("ao.here"), style = ui(13f, 500, G.ink2), modifier = Modifier.padding(top = 8.dp))
         if (r.features.isNotEmpty()) ListBox {
             r.features.forEachIndexed { i, f ->
@@ -291,7 +291,7 @@ private fun FeatureSheet(s: Sheet.FeatureForm) {
     val app = LocalApp.current
     val ops = app.ops
     val r = ops.room(s.pid, s.rid) ?: run { app.close(); return }
-    val unit = app.settings.unit; val en = app.english(); val dec = unitDecimals(unit)
+    val unit = app.settings.unit; val en = app.english()
     val snap = app.settings.angleSnap
     val edit = s.fid?.let { id -> r.features.firstOrNull { it.id == id } }
     val ws = walls(r, snap)
@@ -304,9 +304,9 @@ private fun FeatureSheet(s: Sheet.FeatureForm) {
     var hv by rememberSaveable { mutableStateOf(fmtField(edit?.h ?: 600, unit, en)) }
     var tried by remember { mutableStateOf(false) }
     val pw = lenErr(wv, dimMax("A"), unit, en); val pd = lenErr(dv, dimMax("A"), unit, en)
-    val po = parseDec(offv, dec)
+    val po = lenErr(offv, dimMax("A"), unit, en, zeroOk = true)
     val niche = type == "niche"
-    val psl = if (niche) parseDec(sillv, dec) else Parsed.Ok(0); val ph = if (niche) parseDec(hv, dec) else Parsed.Ok(0)
+    val psl = if (niche) lenErr(sillv, dimMax("H"), unit, en, zeroOk = true) else Parsed.Ok(0); val ph = if (niche) lenErr(hv, dimMax("H"), unit, en) else Parsed.Ok(0)
     val ok = pw is Parsed.Ok && pd is Parsed.Ok && po is Parsed.Ok && psl is Parsed.Ok && ph is Parsed.Ok
     val f = if (ok) uz.metrx.app.data.Feature(edit?.id ?: uid(), type, wall, (po as Parsed.Ok).value.toInt(), (pw as Parsed.Ok).value.toInt(), (pd as Parsed.Ok).value.toInt(),
         (psl as Parsed.Ok).value.toInt(), (ph as Parsed.Ok).value.toInt()) else null
@@ -314,15 +314,11 @@ private fun FeatureSheet(s: Sheet.FeatureForm) {
     fun save() {
         tried = true
         if (f == null || iss != null) return
-        app.store.update(s.pid) { p -> p.copy(rooms = p.rooms.map { rm -> if (rm.id != r.id) rm else rm.copy(features = if (edit == null) rm.features + f else rm.features.map { if (it.id == f.id) f else it }) }) }
-        app.close(); app.say("ft.saved")
+        ops.saveFeature(s.pid, r.id, f, edit == null)
     }
     GlassSheet(tr(if (edit != null) (if (niche) "ft.niche" else "ft.column") else "ao.col"), { app.close() }, footer = {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            if (edit != null) GBtn(tr("common.delete"), {
-                app.store.update(s.pid) { p -> p.copy(rooms = p.rooms.map { rm -> if (rm.id != r.id) rm else rm.copy(features = rm.features.filter { it.id != edit.id }) }) }
-                app.close()
-            }, Btn.DANGER, icon = "trash", height = 44.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1f))
+            if (edit != null) GBtn(tr("common.delete"), { ops.deleteFeature(s.pid, r.id, edit) }, Btn.DANGER, icon = "trash", height = 44.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1f))
             else GBtn(tr("common.cancel"), { app.close() }, Btn.SECONDARY, height = 44.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1f))
             GBtn(tr("common.save"), ::save, enabled = ok && iss == null, height = 44.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1f))
         }
@@ -357,7 +353,7 @@ private fun OpeningSheet(s: Sheet.OpeningForm) {
     val app = LocalApp.current
     val ops = app.ops
     val r = ops.room(s.pid, s.rid) ?: run { app.close(); return }
-    val unit = app.settings.unit; val en = app.english(); val dec = unitDecimals(unit)
+    val unit = app.settings.unit; val en = app.english()
     val snap = app.settings.angleSnap
     val edit = s.oid?.let { id -> r.openings.firstOrNull { it.id == id } }
     val st = app.settings
@@ -381,7 +377,7 @@ private fun OpeningSheet(s: Sheet.OpeningForm) {
         offv = fmtField(defOff(t, wall), unit, en); sillv = fmtField(if (t == "door") 0 else st.winSill, unit, en)
     }
     val pw = lenErr(wv, dimMax("A"), unit, en); val ph = lenErr(hv, dimMax("H"), unit, en)
-    val po = parseDec(offv, dec); val ps = if (type == "window") parseDec(sillv, dec) else Parsed.Ok(0)
+    val po = lenErr(offv, dimMax("A"), unit, en, zeroOk = true); val ps = if (type == "window") lenErr(sillv, dimMax("H"), unit, en, zeroOk = true) else Parsed.Ok(0)
     val fieldsOk = pw is Parsed.Ok && ph is Parsed.Ok && po is Parsed.Ok && ps is Parsed.Ok
     val o = if (fieldsOk) Opening(edit?.id ?: "new", type, wall, (pw as Parsed.Ok).value.toInt(), (ph as Parsed.Ok).value.toInt(), (po as Parsed.Ok).value.toInt(), (ps as Parsed.Ok).value.toInt()) else null
     val iss = o?.let { ops.issue(r, it) }

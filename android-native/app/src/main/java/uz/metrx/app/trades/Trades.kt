@@ -59,33 +59,39 @@ fun tileArea(r: Room, t: TradeSet, snap: Boolean = true): Double {
     return mm2 / 1e6
 }
 
-/** The trade's lines for the measured rooms [rooms]; [name] gives a line's words (strings key, values). */
-fun tradeRows(trade: String, rooms: List<Room>, t: TradeSet, name: (String, Map<String, Any>) -> String, snap: Boolean = true): TradeResult {
+/**
+ * The trade's lines for the measured rooms [rooms]; [name] gives a line's words (strings key, values), and a number in
+ * them has the decimal mark of the language ([english]: a point, else a comma).
+ */
+fun tradeRows(trade: String, rooms: List<Room>, t: TradeSet, name: (String, Map<String, Any>) -> String, snap: Boolean = true, english: Boolean = true): TradeResult {
     val mats = ArrayList<Row>(); val labor = ArrayList<Row>(); val facts = LinkedHashMap<String, Double>()
+    // prices are whole currency units: one saved with decimals before the calculator checked them is rounded
     fun mat(key: String, unit: String, q: Double, price: String, vars: Map<String, Any> = emptyMap()) {
-        if (q > 0) mats += Row("t-$key", name("tr.$key", vars), name("tu.$unit", emptyMap()), qty(q), price.replace(" ", ""))
+        if (q > 0) mats += Row("t-$key", name("tr.$key", vars), name("tu.$unit", emptyMap()), qty(q), price.replace(" ", "").let { if (it.isEmpty()) it else money(num(it)) })
     }
     fun lab(key: String, amount: Double, vars: Map<String, Any> = emptyMap()) { if (amount > 0) labor += Row("t-$key", name("tr.$key", vars), amount = money(amount)) }
     val measured = rooms.filter { ready3D(it, snap) }
+    // counts saved before the calculator checked them can be absurd: kept in range so the sums never overflow
+    val lightsEach = t.lights.coerceIn(0, 100); val waste = t.waste.coerceIn(0, 100)
     when (trade) {
         "tiler" -> {
             val area = measured.sumOf { tileArea(it, t, snap) }
             facts["area"] = area
             val box = num(t.boxM2).takeIf { it > 0 } ?: 1.0
-            val boxes = ceil(area * (1 + t.waste / 100.0) / box - 1e-9)
+            val boxes = ceil(area * (1 + waste / 100.0) / box - 1e-9)
             facts["boxes"] = boxes
             mat("tile", "m2", boxes * box, t.pTile, mapOf("w" to t.tileW, "h" to t.tileH, "n" to boxes.toLong()))
             mat("glue", "bag", ceil(area * num(t.glueKg) / 25.0 - 1e-9), t.pGlue)
             mat("grout", "kg", ceil(area * num(t.groutKg) - 1e-9), t.pGrout)
-            lab("tileLab", area * num(t.lTile), mapOf("a" to qty(Math.round(area * 10) / 10.0)))
+            lab("tileLab", area * num(t.lTile), mapOf("a" to uz.metrx.app.core.fmtNumStr(qty(Math.round(area * 10) / 10.0), english)))
         }
         "elec" -> {
             val sockets = measured.sumOf { r -> r.points.count { it.t == "socket" } }
             val switches = measured.sumOf { r -> r.points.count { it.t == "switch" } }
-            val lights = measured.size * t.lights
+            val lights = measured.size * lightsEach
             val points = sockets + switches + lights
             // cable: round each room's walls once, and 2,5 m down to each point and up to each light
-            val cable = measured.sumOf { r -> (areas(r, snap)?.perim ?: 0L) / 1000.0 + 2.5 * (r.points.count { it.t == "socket" || it.t == "switch" } + t.lights) }
+            val cable = measured.sumOf { r -> (areas(r, snap)?.perim ?: 0L) / 1000.0 + 2.5 * (r.points.count { it.t == "socket" || it.t == "switch" } + lightsEach) }
             facts["points"] = points.toDouble(); facts["cable"] = cable
             mat("socket", "pcs", sockets.toDouble(), t.pSocket); mat("switch", "pcs", switches.toDouble(), t.pSwitch); mat("light", "pcs", lights.toDouble(), t.pLight)
             mat("cable", "m", ceil(cable * 1.1 - 1e-9), t.pCable); mat("conduit", "m", ceil(cable - 1e-9), t.pConduit)

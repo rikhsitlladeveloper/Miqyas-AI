@@ -649,7 +649,11 @@ private fun WFieldSheet(s: Sheet.WField) {
         "h" -> m.h to (600..3000)
         "d" -> m.d to (250..900)
         "x" -> m.x to (0..max(0, (wallL ?: 10000) - 300))
-        "secW" -> (sec?.w ?: 0) to (150..max(150, m.w - 150 * (n - 1)))
+        // a section can grow until each of the others keeps 150 (locked ones their width, one of them gives way if all are)
+        "secW" -> (sec?.w ?: 0) to if (n == 1) (m.w..m.w) else m.sections.filterIndexed { i, _ -> i != s.sec }.let { o ->
+            val locked = o.filter { it.lock }; val give = if (locked.size == o.size) locked.last().w - 150 else 0
+            150..max(150, m.w - locked.sumOf { it.w } - 150 * (o.size - locked.size) + give)
+        }
         else -> m.w to (300..6000)
     }
     var v by rememberSaveable { mutableStateOf(start.toString()) }

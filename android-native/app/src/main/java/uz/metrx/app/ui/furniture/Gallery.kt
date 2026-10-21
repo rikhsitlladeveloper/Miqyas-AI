@@ -137,9 +137,11 @@ private fun App.groupOf(p: Project, rid: String?): String? {
     val w = p.floors.firstOrNull { it.id == r.floorId }
     if (w?.type == "kitchen") return "kitchen"
     val n = w?.name ?: r.name
+    // the room may have been named while the app spoke another language
+    fun named(key: String) = Lang.entries.any { n.startsWith(uz.metrx.app.core.Strings.t(key, it)) }
     return when {
-        n.startsWith(t("fr.living")) -> "living"
-        n.startsWith(t("fr.hall")) -> "hall"
+        named("fr.living") -> "living"
+        named("fr.hall") -> "hall"
         else -> "bedroom"
     }
 }
@@ -276,13 +278,16 @@ fun FStepsScreen(rt: Route.FSteps) {
     val unit = app.settings.unit
     val steps = remember(m) { stepsOf(m) }
     val n = steps.size
-    var texts by rememberSaveable(rt) { mutableStateOf(steps.map { s -> edit?.let { valsOf(it, ws)[s.key] }?.let { fmtField(it, unit, en) } ?: "" }) }
-    // 0 … n-1 a size, n the summary; back: the step was opened from the summary
-    var at by rememberSaveable(rt) { mutableIntStateOf(0) }
+    val had = rt.vals?.let { decodeVals(it) } ?: edit?.let { valsOf(it, ws) } ?: emptyMap()
+    var texts by rememberSaveable(rt) { mutableStateOf(steps.map { s -> had[s.key]?.let { fmtField(it, unit, en) } ?: "" }) }
+    // 0 … n-1 a size, n the summary; back: the step was opened from the summary, was: its text then
+    var at by rememberSaveable(rt) { mutableIntStateOf(if (rt.vals != null) n else 0) }
     var back by rememberSaveable(rt) { mutableStateOf(false) }
+    var was by rememberSaveable(rt) { mutableStateOf("") }
     var laser by remember { mutableStateOf<String?>(null) }   // "busy", or the reading's words
     val scope = rememberCoroutineScope()
-    val vals = steps.indices.mapNotNull { i -> parseMm(texts[i], unit)?.let { steps[i].key to it } }.toMap()
+    // only sizes within their range reach the piece: a typed 99999 would otherwise build a 100 m kitchen on every key
+    val vals = steps.indices.mapNotNull { i -> parseMm(texts[i], unit)?.takeIf { stepIssue(steps[i], it) == null }?.let { steps[i].key to it } }.toMap()
     val piece = remember(vals, ws) { if (edit != null) resized(edit, vals, ws) else pieceOf(m, vals, ws, "") }
     val scene = remember(piece, mats) { pieceScene(piece, ws, mats) }
     val uw = unitWord(unit)
@@ -298,7 +303,12 @@ fun FStepsScreen(rt: Route.FSteps) {
     }
     fun prev() {
         laser = null
-        when { at < n && back -> { back = false; at = n }; at > 0 -> at -= 1; else -> app.pop() }
+        when {
+            // back to the summary: a size left empty or wrong gets its old value again
+            at < n && back -> { if (!ok(at)) texts = texts.toMutableList().also { it[at] = was }; back = false; at = n }
+            at > 0 -> at -= 1
+            else -> app.pop()
+        }
     }
     BackHandler { prev() }
 
@@ -317,18 +327,23 @@ fun FStepsScreen(rt: Route.FSteps) {
     }
 
     fun finish() {
+        if (!app.once()) return
         if (edit != null) {
             val g = resized(edit, vals, ws)
             app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.map { if (it.id == edit.id) g else it }) }
-            app.kit.tick++; app.pop(); app.say("fz.saved")
-        } else app.push(Route.FWhere(p.id, m.id, encodeVals(vals)))
+            app.kit.forget(edit.id); app.kit.tick++; app.pop(); app.say("fz.saved")
+        } else {
+            // the sizes stay with this page, so coming back from "Which room?" finds them
+            app.setTop(rt.copy(vals = encodeVals(vals)))
+            app.push(Route.FWhere(p.id, m.id, encodeVals(vals)))
+        }
     }
 
     val imeOn = WindowInsets.isImeVisible
     val footer: @Composable (Modifier) -> Unit = { mm ->
         FloatingFooter(mm) {
             if (at < n) GBtn(tr("common.next"), ::next, enabled = ok(at))
-            else GBtn(tr(if (edit != null) "common.save" else "fr.continue"), ::finish)
+            else GBtn(tr(if (edit != null) "common.save" else "fr.continue"), ::finish, enabled = steps.indices.all { ok(it) })
         }
     }
     Box(Modifier.fillMaxSize().imePadding()) {
@@ -354,7 +369,7 @@ fun FStepsScreen(rt: Route.FSteps) {
                     Text(tr("fx.drag"), style = ui(11f, 600, G.ink3), modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp))
                 }
                 if (at < n) StepAsk(steps[at], texts[at], { v -> texts = texts.toMutableList().also { it[at] = v }; laser = null }, issueOf(at), uw, at, ::next, laser, ::reading)
-                else Summary(steps, steps.indices.map { i -> parseMm(texts[i], unit)?.let { fmtLen(it, unit, en) } ?: texts[i] }, uw, m.kind == "kitchen") { i -> back = true; at = i }
+                else Summary(steps, steps.indices.map { i -> parseMm(texts[i], unit)?.let { fmtLen(it, unit, en) } ?: texts[i] }, uw, m.kind == "kitchen") { i -> was = texts[i]; back = true; at = i }
             }
             if (imeOn) footer(Modifier)
         }
@@ -462,6 +477,7 @@ fun FWhereScreen(rt: Route.FWhere) {
         }
         // a room still to measure: the piece is kept and goes in once the room is measured
         Row(Modifier.fillMaxWidth().heightIn(min = 66.dp).clip(RoundedCornerShape(16.dp)).dashedGlass(16.dp).clickable(role = Role.Button) {
+            if (!app.once()) return@clickable
             val f = made(); app.addPiece(p.id, f)
             app.popTo { it is Route.Project && it.id == p.id }
             app.sheet = Sheet.FNewRoom(p.id, f.kind, f.id)
@@ -473,6 +489,7 @@ fun FWhereScreen(rt: Route.FWhere) {
             }
         }
         Row(Modifier.fillMaxWidth().heightIn(min = 66.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.75f)).clickable(role = Role.Button) {
+            if (!app.once()) return@clickable
             val f = made(); val moved = p.stage == "measure"
             app.addPiece(p.id, f)
             app.kit.sel = null

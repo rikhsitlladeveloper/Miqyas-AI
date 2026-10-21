@@ -178,7 +178,7 @@ private val EMPTY_THUMB by lazy { PathParser().parsePathString("M5 6h22v12h8v16H
 @Composable
 private fun ProjectRow(p: Project, onClick: () -> Unit) {
     val lang = LocalLang.current
-    val st = stats(p)
+    val st = stats(p, LocalApp.current.settings.angleSnap)
     val stage = stageOf(p)
     val (bg, fg) = when {
         p.rooms.isEmpty() -> G.ink.copy(alpha = .07f) to G.slate

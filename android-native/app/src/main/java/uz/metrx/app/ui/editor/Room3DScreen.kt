@@ -119,19 +119,26 @@ fun Room3DScreen(r0: Route.Editor) {
         val (shell, fur) = if (p.isFurniture) uz.metrx.app.ui.furniture.rememberFurnShell(p, r, base, open) else base to null
         val cam = remember(r.id) { Cam3D() }
         val shot = remember { Shot3D() }
+        var taking by remember { mutableStateOf(false) }   // a second tap while a picture is being taken does nothing
         Box(Modifier.weight(1f).fillMaxWidth()) {
             Scene3D(shell, cam, Modifier.fillMaxSize(), shot, onTap = fur?.let { fr -> { pos: Offset ->
                 uz.metrx.app.ui.furniture.pickOf(fr, cam, pos)?.let { k -> open = if (k in open) open - k else open + k }
             } }) {
                 Labels3D(cam, shell.labels.map { it.p }) { i -> Lbl3D(shell.labels[i].text) }
                 ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
-                    if (r.views.size >= 4) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
+                    // at most 4 views: counted on the room as saved now, not as this screen last drew it
+                    fun full() = (ops.room(p.id, r.id)?.views?.size ?: 4) >= 4
+                    if (taking) return@ShotPill
+                    if (full()) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
+                    taking = true
                     shot.take { bmp ->
+                        taking = false
+                        if (full()) { app.say("3d.max", kind = ToastKind.ERROR); return@take }
                         val id = uid()
                         val img = bmp?.let { ViewFiles.save(ctx, id, it) }
                         if (img == null) app.say("3d.fail", kind = ToastKind.ERROR)
                         else {
-                            app.store.update(p.id) { pp -> pp.copy(rooms = pp.rooms.map { if (it.id == r.id) it.copy(views = it.views + View3D(id, img, System.currentTimeMillis())) else it }) }
+                            app.store.update(p.id) { pp -> pp.copy(rooms = pp.rooms.map { if (it.id == r.id && it.views.size < 4) it.copy(views = it.views + View3D(id, img, System.currentTimeMillis())) else it }) }
                             app.say("3d.saved")
                         }
                     }

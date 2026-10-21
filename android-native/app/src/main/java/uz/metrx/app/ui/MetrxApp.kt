@@ -96,7 +96,8 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
         val w = (view.context as? Activity)?.window ?: return@SideEffect
         WindowCompat.getInsetsController(w, view).apply {
             // light icons over the opening animation and the live camera, dark ones on every light screen
-            val darkPage = splash || (!inAuth && (app.top == Route.LiveCam || settings.dark))
+            // the sign-in pages and the builder's name and phone page (editMe) are always white
+            val darkPage = splash || (!inAuth && !editMe && (app.top == Route.LiveCam || settings.dark))
             isAppearanceLightStatusBars = !darkPage
             isAppearanceLightNavigationBars = !darkPage
         }
@@ -152,7 +153,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
     }
 
     uz.metrx.app.ui.editor.PlanLabel.mode = settings.roomLabel
-    uz.metrx.app.ui.theme.Theme.dark = settings.dark && !inAuth
+    uz.metrx.app.ui.theme.Theme.dark = settings.dark && !inAuth && !editMe
     CompositionLocalProvider(LocalSettings provides settings, LocalLang provides lang, LocalHaze provides haze, LocalApp provides app) {
         Box(Modifier.fillMaxSize()) {
             if (!splash || splashFade.value < 1f) {

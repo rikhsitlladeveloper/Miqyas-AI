@@ -56,7 +56,7 @@ sealed interface Parsed {
 
 /**
  * Parses "4,255", "4.255", "04.250", "4 255", ".5"; rejects "4.2.1", "1e3", "-1". Returns the value scaled by 10^maxDec
- * (so with the unit's decimals it is millimetres).
+ * (so with the unit's decimals it is millimetres), at most Int.MAX_VALUE, so a huge number stays huge and never wraps.
  */
 fun parseDec(str: String?, maxDec: Int): Parsed {
     val s = (str ?: "").replace(Regex("[\\s\\u00A0\\u202F]"), "")
@@ -66,17 +66,18 @@ fun parseDec(str: String?, maxDec: Int): Parsed {
     val parts = s.replace(',', '.').split('.')
     val i = parts[0]; val f = parts.getOrElse(1) { "" }
     if (f.length > maxDec) return Parsed.Err("err.precision", mapOf("n" to maxDec))
-    return Parsed.Ok(((i.ifEmpty { "0" }) + f.padEnd(maxDec, '0')).toBigInteger().toLong())
+    val v = ((i.ifEmpty { "0" }) + f.padEnd(maxDec, '0')).toBigInteger()
+    return Parsed.Ok(if (v > Int.MAX_VALUE.toBigInteger()) Int.MAX_VALUE.toLong() else v.toLong())
 }
 
 fun unitDecimals(unit: LenUnit) = if (unit == LenUnit.CM) 1 else 3
 
-/** A typed length in mm, or the error (key + values) to show. [max] in mm. */
-fun lenErr(str: String?, max: Int, unit: LenUnit, english: Boolean): Parsed {
+/** A typed length in mm, or the error (key + values) to show. [max] in mm; [zeroOk] for an offset or a sill. */
+fun lenErr(str: String?, max: Int, unit: LenUnit, english: Boolean, zeroOk: Boolean = false): Parsed {
     val r = parseDec(str, unitDecimals(unit))
     if (r is Parsed.Err) return r
     val mm = (r as Parsed.Ok).value
-    if (mm == 0L) return Parsed.Err("err.zero")
+    if (mm == 0L && !zeroOk) return Parsed.Err("err.zero")
     if (mm > max) {
         val m = fmtLen(max, unit, english).replace(Regex("[.,]0+$"), "")
         return Parsed.Err("err.max", mapOf("max" to m + " " + (if (unit == LenUnit.CM) "@u.cm" else "@u.m")))
@@ -142,12 +143,15 @@ fun areas(r: Room, snap: Boolean = true): Areas? {
     return Areas(floorF, perimF, gross, open, gross - open)
 }
 
-/** What is wrong with a column or niche [f] in room [r]: off the wall's end, or too deep. Null when it fits. */
+/** What is wrong with a column or niche [f] in room [r]: off the wall's end, too deep or sticking out too far. Null when it fits. */
 fun featureIssue(r: Room, f: uz.metrx.app.data.Feature, snap: Boolean = true): String? {
-    val L = walls(r, snap).firstOrNull { it.id == f.wall }?.len ?: return "ft.needWall"
+    val ws = walls(r, snap)
+    val L = ws.firstOrNull { it.id == f.wall }?.len ?: return "ft.needWall"
     if (f.w <= 0 || f.d <= 0) return "ft.size"
     if (f.off + f.w > L) return "ft.exceeds"
     if (f.type == "niche" && f.d > 1000) return "ft.deep"
+    // a column sticks out into the room: at most 2 m, and less than the room's shorter side
+    if (f.type == "column" && (f.d > 2000 || ws.mapNotNull { it.len }.minOrNull()?.let { f.d >= it } == true)) return "ft.colDeep"
     val H = r.dim("H").v
     if (f.type == "niche" && H != null && f.sill + (if (f.h > 0) f.h else 0) > H) return "ft.tall"
     return null
@@ -270,7 +274,8 @@ fun buildVerts(dirs: List<Double>, len: List<Double>, start: Pt): List<Pt> {
 
 fun shoelace(v: List<Pt>): Double { var s = 0.0; for (i in v.indices) { val a = v[i]; val b = v[(i + 1) % v.size]; s += a.x * b.y - b.x * a.y }; return s / 2 }
 
-private val geoCache = HashMap<String, Pair<Any, PolyGeo>>()
+// the report is drawn on a background thread while the screens read it too
+private val geoCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Any, PolyGeo>>()
 
 /** Solves a drawn room from its measured walls (prototype skGeo). Cached on the room's shape, dims and the snap setting. */
 fun polyGeo(r: Room, angleSnap: Boolean = true): PolyGeo {

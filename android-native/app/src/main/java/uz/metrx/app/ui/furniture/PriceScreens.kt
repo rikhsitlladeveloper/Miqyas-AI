@@ -139,7 +139,8 @@ fun FPriceTab(p: Project) {
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(tr("fw.profit"), style = ui(13f, 400, Color(0xFFB7C3D9)), modifier = Modifier.weight(1f))
                 val pc = pr.profitPct10
-                Text(money(p, pr.profit) + " · ${pc / 10}${if (lang == Lang.EN) "." else ","}${kotlin.math.abs(pc % 10)} %",
+                // −0,5 % keeps its minus: the whole part alone would say 0
+                Text(money(p, pr.profit) + " · ${if (pc < 0) "−" else ""}${kotlin.math.abs(pc) / 10}${if (lang == Lang.EN) "." else ","}${kotlin.math.abs(pc) % 10} %",
                     style = ui(15f, 700, if (neg) Color(0xFFFCA5A5) else Color(0xFF86EFAC)).copy(fontFamily = PlexCond))
             }
             if (neg) Text(tr("fp.loss"), style = ui(12.5f, 600, Color(0xFFFCA5A5)))

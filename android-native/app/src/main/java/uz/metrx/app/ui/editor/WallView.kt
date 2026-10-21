@@ -113,7 +113,8 @@ internal fun wallFrame(r: Room, w: Wall, ops: List<Opening>): WallFrame {
     val geoLen = hypot(w.p1.x - w.p0.x, w.p1.y - w.p0.y).roundToInt()
     val L = w.len ?: d.pending?.mm ?: max(if (geoLen > 0) geoLen else 4000, ext + 600)
     val H = h.v ?: h.pending?.mm ?: max(2700, hTop + 300)
-    val lenSt = if (w.len != null && d.pending == null) "conf" else if (d.pending != null) "recv" else "unset"
+    // a drawn room's wall worked out from the others is "calc", like the plan's "=x": not a confirmed measurement
+    val lenSt = if (w.len != null && d.pending == null) (if (w.status == "calc") "calc" else "conf") else if (d.pending != null) "recv" else "unset"
     return WallFrame(L, H, w.len != null, h.v != null, lenSt, h.status, (w.len == null && d.pending != null) || (h.v == null && h.pending != null))
 }
 
@@ -459,10 +460,10 @@ private fun DrawScope.drawElevation(lay: ElevLayout, r: Room, w: Wall, ops: List
     }
     // overall length, and the height on the left
     val ly = yF + lay.chainH + 30f
-    val lc = when (fr.lenSt) { "conf" -> INK; "recv" -> AMBER; else -> GREY_LINE }
+    val lc = when (fr.lenSt) { "conf" -> INK; "recv" -> AMBER; "calc" -> COB; else -> GREY_LINE }
     drawLine(lc, Offset(x0, ly), Offset(x1, ly), 1.1f, pathEffect = if (fr.lenSt == "conf") null else dash)
     listOf(x0, x1).forEach { x -> drawLine(lc, Offset(x - 4f, ly + 4f), Offset(x + 4f, ly - 4f), 1.6f) }
-    val lenTxt = if (w.derived && !r.isPoly) "= " + w.dimKey else when (fr.lenSt) { "recv" -> fmtLen(r.dim(w.dimKey).pending!!.mm, unit, en, true); "conf" -> fmtLen(w.len, unit, en); else -> "?" }
+    val lenTxt = if (w.derived && !r.isPoly) "= " + w.dimKey else when (fr.lenSt) { "recv" -> fmtLen(r.dim(w.dimKey).pending!!.mm, unit, en, true); "conf" -> fmtLen(w.len, unit, en); "calc" -> "=" + fmtLen(w.len, unit, en); else -> "?" }
     tag(tm, lenTxt, Offset((x0 + x1) / 2f, ly), fr.lenSt, 0f)
     val hx = x0 - 26f
     val hc = when (fr.hSt) { "conf" -> INK; "recv" -> AMBER; else -> GREY_LINE }
@@ -473,14 +474,15 @@ private fun DrawScope.drawElevation(lay: ElevLayout, r: Room, w: Wall, ops: List
 }
 
 private fun DrawScope.tag(tm: TextMeasurer, t: String, c: Offset, st: String, rot: Float) {
-    val icon = st != "unset"
+    val icon = st != "unset" && st != "calc"
     val pw = pillW(t, icon)
     rotate(rot, c) {
         val rect = Rect(c.x - pw / 2, c.y - 13f, c.x + pw / 2, c.y + 13f)
         drawRoundRect(pillFill(.9f), rect.topLeft, rect.size, CornerRadius(13f))
-        drawRoundRect(if (st == "recv") AMBER else if (st == "unset") GREY_LINE else pillEdge(1f), rect.topLeft, rect.size, CornerRadius(13f),
-            style = Stroke(1.2f, pathEffect = if (st == "unset") PathEffect.dashPathEffect(floatArrayOf(3f, 2f)) else null))
-        text(tm, t, Offset(c.x + if (st == "conf") -7f else if (st == "recv") 7f else 0f, c.y), TextStyle(fontFamily = Jakarta, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = PILL_INK))
+        drawRoundRect(if (st == "recv") AMBER else if (st == "unset") GREY_LINE else if (st == "calc") COB else pillEdge(1f), rect.topLeft, rect.size, CornerRadius(13f),
+            style = Stroke(1.2f, pathEffect = if (st == "unset" || st == "calc") PathEffect.dashPathEffect(floatArrayOf(3f, 2f)) else null))
+        text(tm, t, Offset(c.x + if (st == "conf") -7f else if (st == "recv") 7f else 0f, c.y), TextStyle(fontFamily = Jakarta, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold,
+            color = if (st == "calc") COB else PILL_INK, fontStyle = if (st == "calc") androidx.compose.ui.text.font.FontStyle.Italic else androidx.compose.ui.text.font.FontStyle.Normal))
         if (st == "conf") {
             val x = rect.right - 14f
             drawPath(Path().apply { moveTo(x, c.y); relativeLineTo(3f, 3f); relativeLineTo(5.5f, -5.5f) }, OK_GREEN, style = Stroke(2.2f, cap = StrokeCap.Round))

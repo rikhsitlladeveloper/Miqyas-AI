@@ -682,13 +682,21 @@ private struct WFieldSheet: View {
                                         case "secW": return m.flatMap { sec < $0.sections.count ? $0.sections[sec].w : nil } ?? 0; default: return m?.w ?? 0 } }()
         _v = State(initialValue: String(start))
     }
+    // a section can grow until each of the others keeps 150 (locked ones their width, one of them gives way if all are)
+    private func secRange(_ m: Module, _ sec: Int) -> ClosedRange<Int> {
+        if m.sections.count == 1 { return m.w...m.w }
+        let o = m.sections.enumerated().filter { $0.offset != sec }.map(\.element)
+        let locked = o.filter(\.lock)
+        let give = locked.count == o.count ? (locked.last?.w ?? 150) - 150 : 0
+        return 150...max(150, m.w - locked.reduce(0) { $0 + $1.w } - 150 * (o.count - locked.count) + give)
+    }
     var body: some View {
         if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }), let m = wardOf(f) {
             let wallL = roomOf(p, f).flatMap { wallLen($0, AppSettings.shared.angleSnap, m.wall ?? "") }
             let n = m.sections.count
             let secLock = sec < n && m.sections[sec].lock
             let range: ClosedRange<Int> = key == "h" ? 600...3000 : key == "d" ? 250...900 : key == "x" ? 0...max(0, (wallL ?? 10000) - 300)
-                : key == "secW" ? 150...max(150, m.w - 150 * (n - 1)) : 300...6000
+                : key == "secW" ? secRange(m, sec) : 300...6000
             let vi = Int(v).flatMap { range.contains($0) ? $0 : nil }
             let title = key == "h" ? tr("wd.h") : key == "d" ? tr("wd.d") : key == "x" ? tr("wd.x") : key == "secW" ? tr("wd.secT", ["n": sec + 1]) : tr("wd.w")
             let save = {

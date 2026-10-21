@@ -60,7 +60,7 @@ struct FPriceTab: View {
                     T(money(p, pr.price) + " " + cur, num(26, 800, .white), lines: 1).accessibilityIdentifier("fp.priceV")
                     HStack {
                         T(tr("fw.profit"), ui(13, 400, STRIP)).frame(maxWidth: .infinity, alignment: .leading)
-                        T(money(p, pr.profit) + " · \(pc / 10)\(en ? "." : ",")\(abs(pc % 10)) %", num(15, 700, neg ? Color(argb: 0xFFFCA5A5) : Color(argb: 0xFF86EFAC)))
+                        T(money(p, pr.profit) + " · \(pc < 0 ? "−" : "")\(abs(pc) / 10)\(en ? "." : ",")\(abs(pc) % 10) %", num(15, 700, neg ? Color(argb: 0xFFFCA5A5) : Color(argb: 0xFF86EFAC)))
                     }
                     .padding(.top, 6)
                     if neg { T(tr("fp.loss"), ui(12.5, 600, Color(argb: 0xFFFCA5A5))) }

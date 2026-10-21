@@ -95,7 +95,9 @@ struct FurnitureHome: View {
         let s = AppSettings.shared
         let first = s.builderName.split(whereSeparator: \.isWhitespace).first.map(String.init) ?? ""
         let lines = tr("fo.lines").split(separator: "|").map(String.init)
-        let orders = Store.shared.projects.filter(\.isFurniture)
+        // the simple app has no stages or install dates: the newest first
+        let all = Store.shared.projects.filter(\.isFurniture)
+        let orders = s.advanced ? all : all.sorted { $0.created > $1.created }
         let (debt, nDebt) = owed(orders)
         VStack(spacing: 0) {
             GlassHeader { app.sheet = .device }
@@ -121,10 +123,13 @@ struct FurnitureHome: View {
                     .accessibilityElement(children: .combine).accessibilityIdentifier("home.new")
                     HStack(spacing: 12) {
                         Tile(icon: RULER, title: tr("gl.meas"), sub: tr("gl.measS")) { app.push(.measure(calc: false)) }.accessibilityIdentifier("home.measure")
-                        Tile(icon: SHEET_ICON, title: tr("fo.sheets"), sub: tr("fo.sheetsS")) { MeasureCalc.shared.tool = "sheet"; app.push(.measure(calc: true)) }
-                            .accessibilityIdentifier("home.sheets")
+                        // the sheet calculator and what customers owe: the advanced app only
+                        if s.advanced {
+                            Tile(icon: SHEET_ICON, title: tr("fo.sheets"), sub: tr("fo.sheetsS")) { MeasureCalc.shared.tool = "sheet"; app.push(.measure(calc: true)) }
+                                .accessibilityIdentifier("home.sheets")
+                        }
                     }
-                    if nDebt > 0 {
+                    if s.advanced && nDebt > 0 {
                         HStack {
                             VStack(alignment: .leading, spacing: 2) {
                                 T(tr("fo.owed"), ui(12.5, 600, G.ink2))
@@ -175,7 +180,7 @@ private struct OrderLine: View {
     var body: some View {
         let m = orderMoney(p)
         let leftPart: String? = { if let l = m.left, l > 0, fStage(p) >= 3 { return tr("fo.leftV", ["v": orderMoneyStr(p, l)]) }; return nil }()
-        let sub = [dn(p.customer).isEmpty ? nil : dn(p.customer), leftPart].compactMap { $0 }.joined(separator: " · ")
+        let sub = AppSettings.shared.advanced ? [dn(p.customer).isEmpty ? nil : dn(p.customer), leftPart].compactMap { $0 }.joined(separator: " · ") : piecesLine(p)
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 1) {
                 T(dn(p.name), ui(15, 700), lines: 1)
@@ -198,9 +203,13 @@ struct FStageChip: View {
         let (bg, fg): (Color, Color) = stage == "measure" || stage == "production" ? (G.amberWash, G.amberInk)
             : stage == "installed" || stage == "paid" ? (Color(argb: 0x2416A34A), Theme.shared.dark ? G.green : Color(argb: 0xFF15803D))
             : (G.cobalt.opacity(0.12), G.cobalt2)
-        T(tr("fs." + stage), ui(12, 600, fg), lines: 1).padding(.horizontal, 10).padding(.vertical, 4).background(Capsule().fill(bg))
+        // no stages in the simple app
+        if AppSettings.shared.advanced { T(tr("fs." + stage), ui(12, 600, fg), lines: 1).padding(.horizontal, 10).padding(.vertical, 4).background(Capsule().fill(bg)) }
     }
 }
+
+/// The simple app's line under an order: the furniture in it by name.
+func piecesLine(_ p: Project) -> String { p.furniture.isEmpty ? tr("fo.pieces0") : p.furniture.map { dn($0.name) }.joined(separator: ", ") }
 
 /// One order in the Orders list: name and stage, customer, the 7 stages as a bar, the price and what is left.
 struct OrderRow: View {
@@ -213,6 +222,7 @@ struct OrderRow: View {
         VStack(alignment: .leading, spacing: 9) {
             HStack(spacing: 8) { T(dn(p.name), ui(15.5, 700), lines: 1).frame(maxWidth: .infinity, alignment: .leading); FStageChip(stage: p.stage) }
             if !sub.isEmpty { T(sub, ui(12.5, 400, G.ink2), lines: 1) }
+            if !AppSettings.shared.advanced { T(piecesLine(p), ui(12.5, 500, G.ink2), lines: 2) } else {
             HStack(spacing: 4) {
                 ForEach(0..<F_STAGES.count, id: \.self) { i in RoundedRectangle(cornerRadius: 3).fill(i <= k ? G.cobalt : G.ink.opacity(0.12)).frame(height: 5) }
             }
@@ -221,6 +231,7 @@ struct OrderRow: View {
                 if let left = m.left, k >= 3 {
                     T(left == 0 ? tr("fs.paid") : tr("fo.leftV", ["v": orderMoneyStr(p, left)]), ui(12.5, 700, left == 0 ? G.green : G.amberInk))
                 }
+            }
             }
         }
         .padding(14)
@@ -238,7 +249,7 @@ struct FNums: View {
         let m = orderMoney(p)
         let a = m.agreed.map { Money.short(p, $0, en, tr("pl.mln")) } ?? ("—", nil)
         let pd = Money.short(p, m.paid, en, tr("pl.mln"))
-        VStack(spacing: 0) {
+        if AppSettings.shared.advanced { VStack(spacing: 0) {
             Hairline()
             HStack(spacing: 12) {
                 cell(tr("fo.stage"), "\(fStage(p) + 1)/\(F_STAGES.count)", nil)
@@ -247,7 +258,7 @@ struct FNums: View {
             }
             .padding(.horizontal, 4).padding(.top, 10)
         }
-        .padding(.top, 11)
+        .padding(.top, 11) }
     }
     private func cell(_ label: String, _ value: String, _ unit: String?) -> some View {
         VStack(alignment: .leading, spacing: 2) {
@@ -279,7 +290,9 @@ struct FLater: View {
 struct FurnitureInfo: View {
     let app: AppModel
     let p: Project
-    var body: some View {
+    // stages and payments: the advanced app only
+    var body: some View { if AppSettings.shared.advanced { info } }
+    @ViewBuilder private var info: some View {
         let m = orderMoney(p)
         let k = fStage(p)
         VStack(spacing: 12) {
@@ -303,6 +316,7 @@ struct FurnitureInfo: View {
                     GBtn(tr("fo.next", ["s": tr("fs.approved")])) { app.sheet = .fApprove(pid: p.id) }.padding(.top, 8).accessibilityIdentifier("fo.next")
                 } else if k < 5 {
                     GBtn(tr("fo.next", ["s": tr("fs." + F_STAGES[k + 1])])) {
+                        guard app.once() else { return }
                         let q = Store.shared.update(p.id) { $0 = nextStage($0) }
                         if q?.stage == "paid" { app.say("fs.paid") }
                     }
@@ -312,7 +326,7 @@ struct FurnitureInfo: View {
                 }
                 if k > 0 {
                     T(tr("fo.prev"), ui(13.5, 600, G.cobalt2)).padding(.horizontal, 10).padding(.vertical, 12).frame(minHeight: 44)
-                        .pressable(0.97) { Store.shared.update(p.id) { $0 = prevStage($0) } }
+                        .pressable(0.97) { if app.once() { Store.shared.update(p.id) { $0 = prevStage($0) } } }
                         .frame(maxWidth: .infinity)
                 }
             }

@@ -259,7 +259,7 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
         val m = mUnit()
         fun v(mm: Int?, k: String?) = buildAnnotatedString { append((len(mm) + " " + m).replace(' ', NBSP)); if (k != null) append(prov(r, k)) }
         if (r.isPoly) {
-            val g = polyGeo(r, true)
+            val g = polyGeo(r, sn.snap)
             g.walls.forEach { w ->
                 rows += listOf(cell(t("op.wall") + " " + w.id), rcell(buildAnnotatedString {
                     append((len(w.len) + " " + m).replace(' ', NBSP))
@@ -272,7 +272,7 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
             rows += listOf(cell(t("r.wid")), rcell(v(r.dim("B").v, "B")))
         }
         rows += listOf(cell(t("r.h")), rcell(v(r.dim("H").v, "H")))
-        val a = areas(r, true)
+        val a = areas(r, sn.snap)
         val m2 = t("u.m2")
         if (a != null) {
             rows += listOf(cell(t("rp.floorArea")), rcell(fmtArea(a.floor, en) + NBSP + m2))
@@ -299,7 +299,7 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
     fun roomBlock(r: Room, i: Int, floorLabel: String) {
         val pf = sn.pdf
         if (!pf.plan && !pf.dims) return
-        val planH = if (pf.plan) reportPlanHeight(r, true) * .75f + 1.5f else 0f
+        val planH = if (pf.plan) reportPlanHeight(r, sn.snap) * .75f + 1.5f else 0f
         val rows = if (pf.dims) roomRows(r) else emptyList()
         val tx = if (pf.plan) PX + 271.5f + 14f else PX; val tw = PX + CW - tx
         // the block's height before drawing it, to move the whole room to the next page when it does not fit
@@ -316,7 +316,7 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
             val label = dn(r.name, l)
             val tm2 = tm; val un = unit; val e = en
             draw {
-                translate(PX + .75f, top + .75f) { scale(.75f, .75f, Offset.Zero) { drawReportPlan(r, un, e, label, tm2, true) } }
+                translate(PX + .75f, top + .75f) { scale(.75f, .75f, Offset.Zero) { drawReportPlan(r, un, e, label, tm2, sn.snap) } }
                 drawRect(FIG, Offset(PX + .375f, top + .375f), Size(270.75f, planH - .75f), style = Stroke(.75f))
             }
         }

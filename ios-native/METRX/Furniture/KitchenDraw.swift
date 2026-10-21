@@ -19,6 +19,8 @@ final class KitOps {
     @ObservationIgnored private var fwd: [String: [Furniture]] = [:]
     func canUndo(_ fid: String) -> Bool { !(back[fid] ?? []).isEmpty }
     func canRedo(_ fid: String) -> Bool { !(fwd[fid] ?? []).isEmpty }
+    /// The piece changed outside the designer (placed, taken out, new sizes): its old versions no longer apply.
+    func forget(_ fid: String) { back[fid] = nil; fwd[fid] = nil }
 
     /// Changes furniture fid of order pid and packs its rows again; the version before goes on the undo list.
     @discardableResult func change(_ pid: String, _ fid: String, _ f: (Furniture) -> Furniture) -> Furniture? {
@@ -101,7 +103,8 @@ func runName(_ f: Furniture, _ r: Run, withLen: Bool = true) -> String {
 /// Metres with one decimal ("3,4").
 func metres1(_ mm: Int, _ en: Bool) -> String { let v = (mm + 50) / 100; return "\(v / 10)\(en ? "." : ",")\(v % 10)" }
 
-func runMetres(_ f: Furniture, _ en: Bool) -> String { metres1(f.modules.filter { !isUpper($0) && $0.app != "space" }.reduce(0) { $0 + $1.w }, en) }
+// the running metres the price counts (runMm): no tall units, no fridge or empty gaps
+func runMetres(_ f: Furniture, _ en: Bool) -> String { metres1(runMm(f), en) }
 
 /* ---------------- the drawing: one run seen from inside the room ---------------- */
 

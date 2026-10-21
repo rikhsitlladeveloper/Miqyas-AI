@@ -172,10 +172,13 @@ private struct SpaceDelete: View {
                         let name = floorName(w)
                         let idx = p.floors.firstIndex(where: { $0.id == w.id }) ?? 0
                         let rooms = p.rooms.filter { $0.floorId == w.id }
-                        Store.shared.update(p.id) { pr in pr.floors.removeAll { $0.id == w.id }; pr.rooms.removeAll { $0.floorId == w.id } }
+                        let ids = Set(rooms.map(\.id))
+                        let pieces = p.furniture.filter { $0.roomId.map(ids.contains) ?? false }
+                        Store.shared.update(p.id) { pr in pr.furniture = outOfRooms(pr, ids); pr.floors.removeAll { $0.id == w.id }; pr.rooms.removeAll { $0.floorId == w.id } }
                         app.sheet = nil; app.dropMissing()
                         app.say("ws.deleted", ["n": name], action: "common.undo") {
-                            Store.shared.update(p.id) { pr in pr.floors.insert(w, at: min(idx, pr.floors.count)); pr.rooms.append(contentsOf: rooms) }
+                            Store.shared.update(p.id) { pr in pr.floors.insert(w, at: min(idx, pr.floors.count)); pr.rooms.append(contentsOf: rooms)
+                                pr.furniture = pr.furniture.map { f in pieces.first { $0.id == f.id } ?? f } }
                         }
                     }
                 }

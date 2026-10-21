@@ -154,8 +154,15 @@ fun App.takeOut(pid: String, fid: String) {
     val snap = settings.angleSnap
     val g = takenOut(f, { id -> room?.let { wallLen(it, snap, id) } }, room?.dim("H")?.v)
     store.update(pid) { pr -> pr.copy(furniture = pr.furniture.map { if (it.id == fid) g else it }) }
-    kit.sel = null; kit.tick++
+    kit.forget(fid); kit.sel = null; kit.tick++
     say("fz.outDone", "n" to dn(f.name, settings.lang))
+}
+
+/** The order's furniture with the pieces of these rooms taken out (the rooms are going away). */
+fun App.outOfRooms(p: uz.metrx.app.data.Project, rids: Set<String>): List<Furniture> = p.furniture.map { f ->
+    val room = p.rooms.firstOrNull { it.id == f.roomId }
+    if (f.roomId == null || f.roomId !in rids || room == null) f
+    else takenOut(f, { id -> wallLen(room, settings.angleSnap, id) }, room.dim("H").v)
 }
 
 internal fun App.designer(pid: String, f: Furniture, step: Int = 1): Route =
@@ -209,13 +216,15 @@ fun freeSub(f: Furniture, en: Boolean): String {
     fun m(v: Int) = uz.metrx.app.geo.fmtLen(v, uz.metrx.app.geo.LenUnit.M, en)
     if (f.kind == "wardrobe") {
         val w = wardOfF(f) ?: return ""
-        return listOfNotNull(f.model.takeIf { it.isNotEmpty() }?.let { tr(if (f.type.isNotEmpty()) "ft.$it" else "fz.m.$it") }, m(w.w) + " × " + m(w.h) + " × " + m(w.d) + " m").joinToString(" · ")
+        // the height as asked: a cabinet's with its legs
+        val h = uz.metrx.app.furniture.valsOf(f, LocalApp.current.settings.workshop)["h"] ?: w.h
+        return listOfNotNull(f.model.takeIf { it.isNotEmpty() }?.let { tr(if (f.type.isNotEmpty()) "ft.$it" else "fz.m.$it") }, m(w.w) + " × " + m(h) + " × " + m(w.d) + " m").joinToString(" · ")
     }
     val fs = f.free
     val run = fs?.let { freeRunMm(f.layout, it.sides, it.island) } ?: uz.metrx.app.furniture.runMm(f)
     val t = (max(0, run) + 50) / 100
     return listOfNotNull(tr(if (f.model.isNotEmpty()) "fz.m.${f.model}" else "kt.l${f.layout}"),
-        fs?.let { it.sides.joinToString(" + ") + if (it.island > 0) " + " + it.island else "" },
+        fs?.let { (it.sides + listOfNotNull(it.island.takeIf { i -> i > 0 })).joinToString(" + ") { v -> m(v) } + " m" },
         "${t / 10}${if (en) "." else ","}${t % 10} " + tr("kt.pm")).joinToString(" · ")
 }
 
@@ -238,7 +247,7 @@ fun FreeCard(p: Project, lang: Lang) {
         }
         free.forEach { f ->
             val ward = f.kind == "wardrobe"
-            val amount = priced.lines.firstOrNull { it.key == f.id }?.amount
+            val amount = priced.lines.firstOrNull { it.key == f.id }?.amount?.takeIf { s.advanced }
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.glass(.75f)).clickable { app.kit.sel = null; app.push(app.designer(p.id, f)) }
                 .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MIcon(if (ward) "board" else "kitchen", G.ink3, 18.dp, 2f)
@@ -340,7 +349,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
     if (existing == null && model == null) return
     val name = remember(rt) { existing?.name ?: app.pieceName(p, model!!) }
     val typed = remember(rt) { decodeVals(rt.vals) }
-    val taken = p.furniture.filter { it.roomId == room.id && it.id != rt.fid }.flatMap { it.walls }
+    val taken = p.furniture.filter { it.roomId == room.id && it.id != rt.fid }.flatMap { it.walls }.filter { it != ISLAND }
     var first by rememberSaveable { mutableStateOf(ids.firstOrNull { it !in taken } ?: ids.first()) }
     var off by rememberSaveable { mutableStateOf("") }          // a wardrobe's distance from the corner; "" = in the corner
     var wTxt by rememberSaveable { mutableStateOf("") }         // a new cabinet's width in a known room; "" = as made
@@ -351,7 +360,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
             existing != null -> existing
             known && model!!.kind == "kitchen" -> roomKitchen(model, ids, first, len, roomH, ws, name, System.currentTimeMillis())
             known -> roomCabinet(model!!, len(first), roomH, ws, name, System.currentTimeMillis()).let { c ->
-                parseMm(wTxt, unit)?.let { w -> resized(c, mapOf("w" to w), ws) } ?: c }
+                parseMm(wTxt, unit)?.let { w -> resized(c, mapOf("w" to w.coerceIn(300, 6000)), ws) } ?: c }
             else -> pieceOf(model!!, typed, ws, name, System.currentTimeMillis())
         }
     }
@@ -366,10 +375,11 @@ fun FPlaceScreen(rt: Route.FPlace) {
 
     fun place() {
         if (issues.isNotEmpty() && !keep) { app.say("fz.pickFirst", kind = ToastKind.ERROR); return }
-        val g = placed(f, on, room.id, room.floorId, offMm, keep = issues.isNotEmpty(), len = len)
+        if (!app.once()) return
+        val g = placed(f, on, room.id, room.floorId, offMm, keep = issues.isNotEmpty(), len = len, ws = ws)
         if (existing != null) app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.map { if (it.id == g.id) g else it }, stage = if (pr.stage == "measure") "design" else pr.stage) }
         else app.addPiece(p.id, g)
-        app.kit.sel = null; app.kit.tick++
+        app.kit.forget(g.id); app.kit.sel = null; app.kit.tick++
         app.popTo { it is Route.Project && it.id == p.id }
         app.push(app.designer(p.id, g, step = if (existing == null) 2 else 1))
         app.say("fz.placed", "n" to dn(g.name, lang), "r" to roomName)
@@ -410,7 +420,11 @@ fun FPlaceScreen(rt: Route.FPlace) {
             val heightOnly = issues.all { it.key == "fz.high" }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 GBtn(tr(if (heightOnly) "fz.fitH" else "fz.fit"), {
-                    fitted = fitTo(placed(f, on, room.id, room.floorId, offMm), on, len, roomH, ws, offMm); keep = false; app.say("fz.fitted")
+                    // a distance from the corner that leaves no room for a cabinet comes back to where 300 mm still fit
+                    val wl = on.firstOrNull()?.let(len)
+                    val o = if (ward && offMm != null && wl != null && offMm > wl - 300 - uz.metrx.app.furniture.W_GAP_SIDE) (wl - 300 - uz.metrx.app.furniture.W_GAP_SIDE).takeIf { it > 0 } else offMm
+                    if (o != offMm) off = o?.toString() ?: ""
+                    fitted = fitTo(placed(f, on, room.id, room.floorId, o, ws = ws), on, len, roomH, ws, o); keep = false; app.say("fz.fitted")
                 }, Btn.SECONDARY, height = 46.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f), maxLines = 2)
                 GBtn(tr("fz.keep"), { keep = true }, if (keep) Btn.PRIMARY else Btn.SECONDARY, height = 46.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f), maxLines = 2)
             }

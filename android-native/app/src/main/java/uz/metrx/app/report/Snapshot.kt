@@ -22,7 +22,7 @@ import uz.metrx.app.geo.LenUnit
  * and notes chosen for the report; the builder, the estimate and the PDF parts.
  */
 fun snapshotOf(p: Project, s: Settings, pdf: PdfParts = s.pdf): Snap =
-    snapshotOf(p, s.unit, s.builderName, s.builderPhone, pdf).let { if (p.isFurniture) furnSnap(it, p, s.workshop, s.mats, s.hws) else it }
+    snapshotOf(p, s.unit, s.builderName, s.builderPhone, pdf, s.angleSnap).let { if (p.isFurniture) furnSnap(it, p, s.workshop, s.mats, s.hws) else it }
 
 /** A furniture order's part of the snapshot: the furniture, its materials, the price lines and the terms. */
 fun furnSnap(sn: Snap, p: Project, ws: uz.metrx.app.furniture.Workshop, mats: List<uz.metrx.app.furniture.Mat>, hws: List<uz.metrx.app.furniture.Hw>): Snap {
@@ -35,7 +35,7 @@ fun furnSnap(sn: Snap, p: Project, ws: uz.metrx.app.furniture.Workshop, mats: Li
         fhandles = hws.lastOrNull { it.kind == "handle" }?.name ?: "", fws = ws)
 }
 
-fun snapshotOf(p: Project, unit: LenUnit, builderName: String, builderPhone: String, pdf: PdfParts): Snap {
+fun snapshotOf(p: Project, unit: LenUnit, builderName: String, builderPhone: String, pdf: PdfParts, snap: Boolean = true): Snap {
     val l = Lang.of(p.reportLang)
     val rooms = p.rooms.filter { p.reportRooms[it.id] != false }.map { r ->
         val w = p.floors.firstOrNull { it.id == r.floorId }
@@ -49,7 +49,7 @@ fun snapshotOf(p: Project, unit: LenUnit, builderName: String, builderPhone: Str
     return Snap(
         name = p.name, customer = p.customer, phone = p.phone, address = p.address, location = p.location,
         currency = p.currency, precision = p.precision, unit = if (unit == LenUnit.CM) "cm" else "m", lang = l.code, notes = p.reportNotes,
-        builderName = builderName, builderPhone = builderPhone, pdf = pdf, rooms = rooms, estimate = p.estimate, extras = extras
+        builderName = builderName, builderPhone = builderPhone, pdf = pdf, rooms = rooms, estimate = p.estimate, extras = extras, snap = snap
     )
 }
 
@@ -57,7 +57,9 @@ private val json = Json { encodeDefaults = true }
 
 /**
  * What decides whether the draft still matches an issued quote (prototype fingerprint): the parties, currency, language,
- * unit, notes, every room's name, measurements, openings, shape and chosen views, the estimate and the extras.
+ * unit, notes, every room's name, measurements, openings, columns and niches, site points, shape and chosen views, the
+ * estimate and the extras. The parts added later (columns and niches, site points, the customer's phone, the angle
+ * snap) are tagged and only there when set, so a quote issued before them still matches its unchanged draft.
  */
 fun fingerprint(sn: Snap): String {
     fun str(v: String?) = if (v == null) JsonNull else JsonPrimitive(v)
@@ -70,13 +72,16 @@ fun fingerprint(sn: Snap): String {
             r.poly?.let { json.encodeToJsonElement(it) } ?: JsonNull,
             JsonPrimitive(r.rot),
             JsonArray(r.views.map { str(it.id) })
-        ))
+        ) + (if (r.features.isEmpty()) emptyList() else listOf(JsonArray(listOf(str("ft"), json.encodeToJsonElement(r.features))))) +
+            (if (r.points.isEmpty()) emptyList() else listOf(JsonArray(listOf(str("pt"), json.encodeToJsonElement(r.points))))))
     })
     val all: List<JsonElement> = listOf(
         str(sn.name), str(sn.customer), str(sn.address), str(sn.currency), JsonPrimitive(sn.precision), str(sn.lang), str(sn.unit), str(sn.notes),
         JsonArray(listOf(str(sn.builderName), str(sn.builderPhone))), rooms, json.encodeToJsonElement(sn.estimate),
         JsonArray(sn.extras.map { x -> JsonArray(listOf(str(x.id), JsonPrimitive(x.edited), str(x.name))) })
     ) + if (sn.furniture.isEmpty()) emptyList() else listOf(json.encodeToJsonElement(sn.furniture), str(sn.ftotal), JsonPrimitive(sn.fdays), JsonPrimitive(sn.finst),
-        json.encodeToJsonElement(sn.fmats))
+        json.encodeToJsonElement(sn.fmats)) +
+        (if (sn.phone.isBlank()) emptyList() else listOf(JsonArray(listOf(str("ph"), str(sn.phone))))) +
+        (if (sn.snap) emptyList() else listOf(JsonArray(listOf(str("snap"), JsonPrimitive(false)))))
     return JsonArray(all).toString()
 }

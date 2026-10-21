@@ -12,7 +12,7 @@ final class FreeTests: XCTestCase {
         XCTAssertNil(f.roomId); XCTAssertEqual(f.walls, ["D", "A", "B"])
         let r = freeRoom(f)
         XCTAssertTrue(isFreeRoom(r))
-        XCTAssertEqual(r.dim("A").v, 3000); XCTAssertEqual(r.dim("B").v, 2200); XCTAssertEqual(r.dim("H").v, 2700)
+        XCTAssertEqual(r.dim("A").v, 3000); XCTAssertEqual(r.dim("B").v, 2400); XCTAssertEqual(r.dim("H").v, 2700)
         let runs = runsOf(f) { freeLen(f, $0) }
         XCTAssertEqual(runs.map(\.len), [2200, 3000, 2400])
         for run in runs { XCTAssertEqual(fillOf(f, run, false).used, run.len! - run.lowStart) }
@@ -226,5 +226,17 @@ final class FeaturesAndTradesTests: XCTestCase {
         var p = Project(id: "p", name: "TEST"); p.industry = "furniture"; p.stage = "approved"
         p.approvedAt = Ms(sat.timeIntervalSince1970 * 1000); p.fprice.days = 1; p.fprice.inst = 0
         XCTAssertEqual(installDate(p), dayOf(Ms(mon.timeIntervalSince1970 * 1000)))
+    }
+
+    func testSectionsNeverGoBelowNothing() {
+        // one section is the whole wardrobe, locked or not
+        XCTAssertEqual(splitSections(1800, [Section(600, lock: true)]).map(\.w), [1800])
+        // locked ones that no longer fit give way: all share again
+        let s = splitSections(1000, [Section(900, lock: true), Section(900, lock: true), Section(300)])
+        XCTAssertTrue(s.allSatisfy { $0.w >= 150 && !$0.lock }); XCTAssertEqual(s.reduce(0) { $0 + $1.w }, 1000)
+        // a fit with the wardrobe far from the corner still keeps 300 mm
+        let f = newFreeWardrobe("Shkaf 1", "h3", 1500, 2200, 600, false, "door", ws)
+        let p = fitTo(placed(f, ["B"], "r1", "w1", off: 1900), ["B"], { _ in 2000 }, 2500, ws, off: 1900)
+        XCTAssertGreaterThanOrEqual(wardOfF(p)!.w, 300)
     }
 }

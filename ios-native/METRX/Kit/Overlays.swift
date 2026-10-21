@@ -98,6 +98,8 @@ struct ToastHost: View {
     let onGone: () -> Void
     @State private var visible = false
     @State private var shown: ToastMsg? = nil
+    /// The toast whose action already ran: a second tap during the exit animation must not run Undo again.
+    @State private var acted: UUID? = nil
 
     var body: some View {
         VStack {
@@ -110,7 +112,7 @@ struct ToastHost: View {
                         HStack(spacing: 6) { MIcon("undo", .white, 16, 2.2); T(a, ui(14, 700, .white)) }
                             .padding(.horizontal, 14).frame(minHeight: 42)
                             .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.white.opacity(0.12)))
-                            .pressable(0.97) { m.onAction?(); hide() }
+                            .pressable(0.97) { if acted != m.id { acted = m.id; m.onAction?() }; hide() }
                     }
                     MIcon("x", Color.white.opacity(0.62), 18, 2).frame(width: 40, height: 40).pressable(0.95, label: tr("common.close")) { hide() }
                 }

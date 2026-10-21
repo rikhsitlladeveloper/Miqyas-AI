@@ -7,8 +7,8 @@ import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -24,7 +24,8 @@ import kotlinx.serialization.json.Json
 class Store private constructor(context: Context) {
     private val db = Db(context.applicationContext)
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
-    private val io = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    // one thread, so writes run in the order they were asked for (a delete, then its Undo's re-insert)
+    private val io = CoroutineScope(SupervisorJob() + java.util.concurrent.Executors.newSingleThreadExecutor().asCoroutineDispatcher())
     private val pending = HashMap<String, Job>()
     /** The newest unsaved version of each project, written by its job or by [flush]. */
     private val unsaved = java.util.concurrent.ConcurrentHashMap<String, Project>()
@@ -32,13 +33,29 @@ class Store private constructor(context: Context) {
     /** Newest edit first, like the prototype's list. */
     val projects = mutableStateListOf<Project>()
 
+    /**
+     * Saved projects that could not be read (skipped, but still in the database): their ids and the pictures and photos
+     * their text names ("views/…", "photos/…"), so the cold-start cleanup keeps those files.
+     */
+    var unreadableIds: Set<String> = emptySet(); private set
+    var unreadableFiles: Set<String> = emptySet(); private set
+
     init {
         val loaded = ArrayList<Project>()
-        db.readableDatabase.rawQuery("SELECT json FROM projects", null).use { c ->
-            while (c.moveToNext()) runCatching { json.decodeFromString(Project.serializer(), c.getString(0)) }
-                .onSuccess { loaded += it }
-                .onFailure { Log.e("METRX", "a saved project could not be read and was skipped", it) }
+        val badIds = HashSet<String>(); val badFiles = HashSet<String>()
+        db.readableDatabase.rawQuery("SELECT id, json FROM projects", null).use { c ->
+            while (c.moveToNext()) {
+                val text = c.getString(1)
+                runCatching { json.decodeFromString(Project.serializer(), text) }
+                    .onSuccess { loaded += it }
+                    .onFailure {
+                        Log.e("METRX", "a saved project could not be read and was skipped", it)
+                        badIds += c.getString(0)
+                        Regex("(?:views|photos)/[^\"\\\\]+").findAll(text).forEach { m -> badFiles += m.value }
+                    }
+            }
         }
+        unreadableIds = badIds; unreadableFiles = badFiles
         projects.addAll(loaded.sortedByDescending { it.edited })
     }
 

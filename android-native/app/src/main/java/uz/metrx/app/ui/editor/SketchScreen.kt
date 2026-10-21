@@ -104,7 +104,7 @@ fun SketchScreen(rt: Route.Sketch) {
         val room = Room(uid(), rt.wid, rt.name, template = "poly", shape = "poly", dims = polyDims(mm.size), poly = Poly(mm, template = "sketch"), created = System.currentTimeMillis())
         app.store.update(rt.pid) { it.copy(rooms = it.rooms + room) }
         app.replaceTop(Route.Editor(rt.pid, room.id))
-        app.say("sk.created", "n" to mm.size)
+        app.say("sk.created", "n" to uz.metrx.app.data.dn(room.name, app.settings.lang))
     }
     Column(Modifier.fillMaxSize().roomGrid().statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

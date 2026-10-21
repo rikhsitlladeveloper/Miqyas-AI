@@ -1,5 +1,6 @@
 package uz.metrx.app.ui.editor
 
+import uz.metrx.app.ui.furniture.outOfRooms
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -37,8 +38,9 @@ class RoomOps(private val app: App) {
     var diagFirst by mutableStateOf<Int?>(null)
     private var simCount by mutableIntStateOf(0)
 
-    private data class Snap(val dims: Map<String, Dim>, val openings: List<Opening>, val name: String, val poly: uz.metrx.app.data.Poly?, val rot: Int,
-                            val points: List<uz.metrx.app.data.SitePoint> = emptyList())
+    // the name is not in it: a rename has no history, so Undo must not take it back
+    private data class Snap(val dims: Map<String, Dim>, val openings: List<Opening>, val poly: uz.metrx.app.data.Poly?, val rot: Int,
+                            val points: List<uz.metrx.app.data.SitePoint> = emptyList(), val features: List<uz.metrx.app.data.Feature> = emptyList())
     private val undo = HashMap<String, ArrayDeque<Snap>>()
     private val redo = HashMap<String, ArrayDeque<Snap>>()
     var histTick by mutableIntStateOf(0)
@@ -50,8 +52,10 @@ class RoomOps(private val app: App) {
         app.setTop(uz.metrx.app.ui.Route.Editor(pid, rid, m))
     }
 
-    private fun snap(r: Room) = Snap(r.dims, r.openings, r.name, r.poly, r.rot, r.points)
-    private fun Room.restore(s: Snap) = copy(dims = s.dims, openings = s.openings, name = s.name, poly = s.poly, rot = s.rot, points = s.points)
+    private fun snap(r: Room) = Snap(r.dims, r.openings, r.poly, r.rot, r.points, r.features)
+    // a laser reading waiting on a value is not history: one that came after the snapshot stays
+    private fun Room.restore(s: Snap) = copy(dims = s.dims.mapValues { (k, d) -> d.copy(pending = dims[k]?.pending ?: d.pending) },
+        openings = s.openings, poly = s.poly, rot = s.rot, points = s.points, features = s.features)
 
     fun canUndo(rid: String) = undo[rid]?.isNotEmpty() == true
     fun canRedo(rid: String) = redo[rid]?.isNotEmpty() == true
@@ -216,6 +220,19 @@ class RoomOps(private val app: App) {
         app.say("pt.deleted", "o" to pointName(x.t), action = "common.undo") { undo(pid, rid) }
     }
 
+    /* ---------------- columns and niches ---------------- */
+
+    fun saveFeature(pid: String, rid: String, f: uz.metrx.app.data.Feature, isNew: Boolean) {
+        change(pid, rid) { r -> r.copy(features = if (isNew) r.features + f else r.features.map { if (it.id == f.id) f else it }) }
+        app.sheet = null
+        app.say("ft.saved", action = "common.undo") { undo(pid, rid) }
+    }
+
+    fun deleteFeature(pid: String, rid: String, f: uz.metrx.app.data.Feature) {
+        change(pid, rid) { r -> r.copy(features = r.features.filter { it.id != f.id }) }
+        app.sheet = null
+    }
+
     /* ---------------- the room ---------------- */
 
     fun rotate(pid: String, rid: String) {
@@ -231,11 +248,13 @@ class RoomOps(private val app: App) {
         val p = app.store.get(pid) ?: return
         val r = p.rooms.firstOrNull { it.id == rid } ?: return
         val idx = p.rooms.indexOf(r)
-        app.store.update(pid) { it.copy(rooms = it.rooms.filter { x -> x.id != rid }, reportRooms = it.reportRooms - rid) }
+        val pieces = p.furniture.filter { it.roomId == rid }
+        app.store.update(pid) { it.copy(rooms = it.rooms.filter { x -> x.id != rid }, reportRooms = it.reportRooms - rid, furniture = with(app) { outOfRooms(it, setOf(rid)) }) }
         app.sheet = null
         app.popTo { it !is Route.Editor && it !is Route.WallView }
+        app.dropMissing()   // the room's pages in the other tabs' stacks go too
         app.say("room.deleted", "n" to uz.metrx.app.data.dn(r.name, app.settings.lang), action = "common.undo") {
-            app.store.update(pid) { pr -> pr.copy(rooms = pr.rooms.toMutableList().apply { add(idx.coerceIn(0, size), r) }) }
+            app.store.update(pid) { pr -> pr.copy(rooms = pr.rooms.toMutableList().apply { add(idx.coerceIn(0, size), r) }, furniture = pr.furniture.map { f -> pieces.firstOrNull { it.id == f.id } ?: f }) }
         }
     }
 

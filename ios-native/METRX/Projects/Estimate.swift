@@ -581,8 +581,10 @@ private struct RowSheet: View {
         st.setDraft(key(kind), nil)
         if rid != nil { app.say("op.saved", ["o": row.name]) } else { app.say("re.added") }
         if again {
-            // a fresh sheet for the next row of the same kind
-            initForm = initial(p, kind); form = initForm; restored = false; touched = []; tried = false
+            // a fresh sheet for the next row of the same kind, without the suggested name and unit
+            var i = initial(p, kind)
+            if name0 != nil || unit0 != nil { i["ename"] = ""; if mat { i["eunit"] = "@u.pcs" } }
+            initForm = i; form = initForm; restored = false; touched = []; tried = false
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) { focus = .name }
         } else { closing = true; app.sheet = nil }
     }

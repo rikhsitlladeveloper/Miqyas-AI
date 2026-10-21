@@ -20,9 +20,12 @@ class MainActivity : ComponentActivity() {
         val playIntro = savedInstanceState == null
         // 3D pictures and photos left behind by rooms and items deleted in an earlier session
         if (playIntro) {
-            val ps = uz.metrx.app.data.Store.get(this).projects.toList()
-            uz.metrx.app.data.ViewFiles.sweep(this, ps)
-            uz.metrx.app.data.PhotoFiles.sweep(this, (ps.flatMap { p -> p.floors.flatMap { w -> w.items.mapNotNull { it.src } } } + settings.shots.mapNotNull { it.src }).toSet())
+            // (a project that could not be read keeps its files: it is still saved and may load in a later version)
+            val store = uz.metrx.app.data.Store.get(this)
+            val ps = store.projects.toList()
+            uz.metrx.app.data.ViewFiles.sweep(this, ps, store.unreadableFiles, store.unreadableIds)
+            uz.metrx.app.data.PhotoFiles.sweep(this, (ps.flatMap { p -> p.floors.flatMap { w -> w.items.mapNotNull { it.src } } } + settings.shots.mapNotNull { it.src } +
+                store.unreadableFiles).toSet())
         }
         setContent { MetrxApp(settings, playIntro) }
     }

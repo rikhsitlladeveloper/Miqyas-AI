@@ -14,7 +14,8 @@ func wallFrame(_ r: Room, _ w: Geo.Wall, _ ops: [Opening]) -> WallFrame {
     let geoLen = kround(hypot(w.p1.x - w.p0.x, w.p1.y - w.p0.y))
     let L = w.len ?? d.pending?.mm ?? max(geoLen > 0 ? geoLen : 4000, ext + 600)
     let H = h.v ?? h.pending?.mm ?? max(2700, hTop + 300)
-    let lenSt = w.len != nil && d.pending == nil ? "conf" : d.pending != nil ? "recv" : "unset"
+    // a drawn room's wall worked out from the others is "calc", like the plan's "=x": not a confirmed measurement
+    let lenSt = w.len != nil && d.pending == nil ? (w.status == "calc" ? "calc" : "conf") : d.pending != nil ? "recv" : "unset"
     return WallFrame(L: L, H: H, lenKnown: w.len != nil, hKnown: h.v != nil, lenSt: lenSt, hSt: h.status,
                      provisional: (w.len == nil && d.pending != nil) || (h.v == nil && h.pending != nil))
 }
@@ -425,10 +426,10 @@ private func drawElevation(_ ctx: GraphicsContext, _ lay: ElevLayout, _ r: Room,
     }
     // overall length, and the height on the left
     let ly = yF + lay.chainH + 30
-    let lc = fr.lenSt == "conf" ? PC.ink : fr.lenSt == "recv" ? PC.amber : PC.greyLine
+    let lc = fr.lenSt == "conf" ? PC.ink : fr.lenSt == "recv" ? PC.amber : fr.lenSt == "calc" ? PC.cob : PC.greyLine
     ctx.line(lc, CGPoint(x: x0, y: ly), CGPoint(x: x1, y: ly), 1.1, dash: fr.lenSt == "conf" ? nil : dash)
     for x in [x0, x1] { ctx.line(lc, CGPoint(x: x - 4, y: ly + 4), CGPoint(x: x + 4, y: ly - 4), 1.6) }
-    let lenTxt = w.derived && !r.isPoly ? "= " + w.dimKey : fr.lenSt == "recv" ? Geo.fmtLen(r.dim(w.dimKey).pending?.mm, unit, en, full: true) : fr.lenSt == "conf" ? Geo.fmtLen(w.len, unit, en) : "?"
+    let lenTxt = w.derived && !r.isPoly ? "= " + w.dimKey : fr.lenSt == "recv" ? Geo.fmtLen(r.dim(w.dimKey).pending?.mm, unit, en, full: true) : fr.lenSt == "conf" ? Geo.fmtLen(w.len, unit, en) : fr.lenSt == "calc" ? "=" + Geo.fmtLen(w.len, unit, en) : "?"
     tag(ctx, lenTxt, CGPoint(x: (x0 + x1) / 2, y: ly), fr.lenSt, 0)
     let hxx = x0 - 26
     let hc = fr.hSt == "conf" ? PC.ink : fr.hSt == "recv" ? PC.amber : PC.greyLine
@@ -439,15 +440,16 @@ private func drawElevation(_ ctx: GraphicsContext, _ lay: ElevLayout, _ r: Room,
 }
 
 private func tag(_ ctx0: GraphicsContext, _ t: String, _ c0: CGPoint, _ st: String, _ rot: Double) {
-    let pw = pillW(t, st != "unset")
+    let pw = pillW(t, st != "unset" && st != "calc")
     var ctx = ctx0
     ctx.translateBy(x: c0.x, y: c0.y); ctx.rotate(by: .degrees(rot))
     let c = CGPoint.zero
     let rect = CGRect(x: -pw / 2, y: -13, width: pw, height: 26)
     let pill = Path(roundedRect: rect, cornerRadius: 13)
     ctx.fill(pill, with: .color(PC.pillFill(0.9)))
-    ctx.stroke(pill, with: .color(st == "recv" ? PC.amber : st == "unset" ? PC.greyLine : PC.pillEdge(1)), style: StrokeStyle(lineWidth: 1.2, dash: st == "unset" ? [3, 2] : []))
-    ctx.text(t, CGPoint(x: st == "conf" ? -7 : st == "recv" ? 7 : 0, y: c.y), .ui, 14, 800, PC.pillInk)
+    ctx.stroke(pill, with: .color(st == "recv" ? PC.amber : st == "unset" ? PC.greyLine : st == "calc" ? PC.cob : PC.pillEdge(1)),
+               style: StrokeStyle(lineWidth: 1.2, dash: st == "unset" || st == "calc" ? [3, 2] : []))
+    ctx.text(t, CGPoint(x: st == "conf" ? -7 : st == "recv" ? 7 : 0, y: c.y), .ui, 14, 800, st == "calc" ? PC.cob : PC.pillInk, italic: st == "calc")
     if st == "conf" { ctx.tick(rect.maxX - 14, c.y, PC.okGreen, 2.2) }
     else if st == "recv" { ctx.clock(CGPoint(x: rect.minX + 12, y: c.y), PC.amber) }
 }

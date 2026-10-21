@@ -109,9 +109,14 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
             if (s.furniture) {
                 Group(tr("wk.group"))
                 Card {
-                    Row1("sliders", tr("wk.title"), null, sub = tr("wk.titleS")) { app.push(Route.Workshop) }
-                    Row1("layers", tr("wk.mats"), null, sub = tr("wk.matsS", "m" to s.mats.size, "h" to s.hws.size)) { app.push(Route.Materials) }
+                    // off: the app is just the 3D design; on: prices, order stages, workshop rules, cutting lists
+                    SwitchRow("sliders", tr("adv.title"), s.advanced) { s.setAdvancedOn(!s.advanced); app.say(if (s.advanced) "adv.on" else "adv.off") }
+                    if (s.advanced) {
+                        Row1("board", tr("wk.title"), null, sub = tr("wk.titleS")) { app.push(Route.Workshop) }
+                        Row1("layers", tr("wk.mats"), null, sub = tr("wk.matsS", "m" to s.mats.size, "h" to s.hws.size)) { app.push(Route.Materials) }
+                    }
                 }
+                Text(tr("adv.sub"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 8.dp))
             }
             Group(tr("pf.gReport"))
             Card {
@@ -369,8 +374,9 @@ private fun DefaultsSheet() {
     var ww by rememberSaveable { mutableStateOf(fmtField(s.winW, u, en)) }; var wh by rememberSaveable { mutableStateOf(fmtField(s.winH, u, en)) }
     var ws by rememberSaveable { mutableStateOf(fmtField(s.winSill, u, en)) }
     var tried by remember { mutableStateOf(false) }
-    fun chk(v: String, max: Int) = lenErr(v, max, u, en)
-    val r = listOf(chk(dw, 100_000), chk(dh, 20_000), chk(ww, 100_000), chk(wh, 20_000), chk(ws, 20_000))
+    fun chk(v: String, max: Int, zeroOk: Boolean = false) = lenErr(v, max, u, en, zeroOk)
+    // a window can sit on the floor: its sill may be 0
+    val r = listOf(chk(dw, 100_000), chk(dh, 20_000), chk(ww, 100_000), chk(wh, 20_000), chk(ws, 20_000, zeroOk = true))
     val errs = r.map { uz.metrx.app.ui.editor.errText(it) }
     fun err(i: Int) = errs[i]
     val m = tr(if (u == LenUnit.CM) "u.cm" else "u.m")

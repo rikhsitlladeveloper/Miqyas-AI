@@ -3,6 +3,8 @@ import SwiftUI
 private let TABS = [("rooms", "pj.t.rooms"), ("estimate", "pr.estimate"), ("quotes", "pj.t.quotes"), ("info", "pj.info")]
 /// A furniture order: its price tab instead of the estimate (furniture plan section 4).
 private let F_TABS = [("rooms", "fo.rooms"), ("price", "fo.price"), ("quotes", "pj.t.quotes"), ("info", "pj.info")]
+// the simple furniture app: the rooms with their furniture, and who it is for
+private let F_TABS_SIMPLE = [("rooms", "fo.rooms"), ("info", "pj.info")]
 
 /// Project page: name, customer and stage, three numbers, four tabs (prototype project.js + glass stage 2).
 struct ProjectScreen: View {
@@ -22,6 +24,8 @@ struct ProjectScreen: View {
 
     var body: some View {
         if let p = Store.shared.get(id) {
+            // price and quotes are the advanced app's; a link to them opens the rooms
+            let tab = p.isFurniture && !AppSettings.shared.advanced && (self.tab == "price" || self.tab == "quotes") ? "rooms" : self.tab
             let withTotal = tab == "estimate" && !(p.estimate.materials.isEmpty && p.estimate.labor.isEmpty)
             ZStack(alignment: .bottom) {
                 VStack(alignment: .leading, spacing: 0) {
@@ -87,16 +91,19 @@ struct ProjectScreen: View {
                         if p.location != nil { RoundIc(icon: "pin", label: tr("loc.open")) { openMap(p) } }
                         RoundIc(icon: "more", label: "menu") { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
                     }
-                    HStack(spacing: 8) {
-                        T(p.isFurniture ? sub : sub.isEmpty ? "—" : sub, ui(13.5, 400, G.ink2), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
-                        if p.isFurniture { FStageChip(stage: p.stage) } else { StageChip(stage: p.stage) }
+                    // the simple furniture app shows no stage: with no address either, the line goes
+                    if !(p.isFurniture && sub.isEmpty && !AppSettings.shared.advanced) {
+                        HStack(spacing: 8) {
+                            T(p.isFurniture ? sub : sub.isEmpty ? "—" : sub, ui(13.5, 400, G.ink2), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
+                            if p.isFurniture { FStageChip(stage: p.stage) } else { StageChip(stage: p.stage) }
+                        }
                     }
                 }
                 .padding(.horizontal, 4)
             }
             if tab == "rooms" { if p.isFurniture { FNums(p: p) } else { Nums(p: p) } }
             HStack(spacing: 2) {
-                ForEach(p.isFurniture ? F_TABS : TABS, id: \.0) { k, l in
+                ForEach(!p.isFurniture ? TABS : AppSettings.shared.advanced ? F_TABS : F_TABS_SIMPLE, id: \.0) { k, l in
                     let on = tab == k
                     HStack(spacing: 4) {
                         T(tr(l), ui(12.5, on ? 700 : 600, on ? G.ink : G.slate), lines: 1)

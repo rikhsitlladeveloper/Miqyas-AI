@@ -229,7 +229,9 @@ data class Snap(
     /** Furniture orders: the furniture, the materials it uses (names and colours), the price lines and terms. */
     val furniture: List<uz.metrx.app.furniture.Furniture> = emptyList(), val fmats: List<uz.metrx.app.furniture.Mat> = emptyList(),
     val flines: List<SnapLine> = emptyList(), val ftotal: String = "", val fprepay: Int = 50, val fdays: Int = 0, val finst: Int = 0,
-    val fhandles: String = "", val fws: uz.metrx.app.furniture.Workshop? = null
+    val fhandles: String = "", val fws: uz.metrx.app.furniture.Workshop? = null,
+    /** The angle snap the plans and areas are worked out with (Settings.angleSnap), kept with a quote. */
+    val snap: Boolean = true
 )
 
 /** A line of a furniture order's price in the customer's PDF: [key] a furniture id or "deliver". */

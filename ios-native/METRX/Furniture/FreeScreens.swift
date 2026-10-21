@@ -32,8 +32,16 @@ func takeOut(_ app: AppModel, _ pid: String, _ fid: String) {
     let snap = AppSettings.shared.angleSnap
     let g = takenOut(f, { id in room.flatMap { wallLen($0, snap, id) } }, room?.dim("H").v)
     Store.shared.update(pid) { pr in pr.furniture = pr.furniture.map { $0.id == fid ? g : $0 } }
-    KitOps.shared.sel = nil; KitOps.shared.tick += 1
+    KitOps.shared.forget(fid); KitOps.shared.sel = nil; KitOps.shared.tick += 1
     app.say("fz.outDone", ["n": dn(f.name)])
+}
+
+/// The order's furniture with the pieces of these rooms taken out (the rooms are going away).
+func outOfRooms(_ p: Project, _ rids: Set<String>) -> [Furniture] {
+    p.furniture.map { f in
+        guard let rid = f.roomId, rids.contains(rid), let room = p.rooms.first(where: { $0.id == rid }) else { return f }
+        return takenOut(f, { id in wallLen(room, AppSettings.shared.angleSnap, id) }, room.dim("H").v)
+    }
 }
 
 /// The designer of a piece: the wardrobe's at step, or the kitchen's.
@@ -111,12 +119,14 @@ func freeSub(_ f: Furniture, _ en: Bool) -> String {
     if f.kind == "wardrobe" {
         guard let w = wardOfF(f) else { return "" }
         let name: String? = f.model.isEmpty ? nil : tr(!f.type.isEmpty ? "ft." + f.model : "fz.m." + f.model)
-        return [name, m(w.w) + " × " + m(w.h) + " × " + m(w.d) + " m"].compactMap { $0 }.joined(separator: " · ")
+        // the height as asked: a cabinet's with its legs
+        let h = valsOf(f, AppSettings.shared.workshop)["h"] ?? w.h
+        return [name, m(w.w) + " × " + m(h) + " × " + m(w.d) + " m"].compactMap { $0 }.joined(separator: " · ")
     }
     let fs = f.free
     let run = fs.map { freeRunMm(f.layout, $0.sides, $0.island) } ?? runMm(f)
     let t = (max(0, run) + 50) / 100
-    let sizes = fs.map { $0.sides.map(String.init).joined(separator: " + ") + ($0.island > 0 ? " + \($0.island)" : "") }
+    let sizes = fs.map { ($0.sides + ($0.island > 0 ? [$0.island] : [])).map { m($0) }.joined(separator: " + ") + " m" }
     return [tr(f.model.isEmpty ? "kt.l" + f.layout : "fz.m." + f.model), sizes, "\(t / 10)\(en ? "." : ",")\(t % 10) " + tr("kt.pm")].compactMap { $0 }.joined(separator: " · ")
 }
 
@@ -246,7 +256,7 @@ struct FPlaceScreen: View {
         let p = Store.shared.get(pid)
         let room = p?.rooms.first { $0.id == rid }
         let ids = room.map { Geo.walls($0, AppSettings.shared.angleSnap).map(\.id) } ?? []
-        let taken = p?.furniture.filter { $0.roomId == rid && $0.id != fid }.flatMap(\.walls) ?? []
+        let taken = p?.furniture.filter { $0.roomId == rid && $0.id != fid }.flatMap(\.walls).filter { $0 != ISLAND } ?? []
         _first = State(initialValue: ids.first { !taken.contains($0) } ?? ids.first ?? "A")
         let existing = fid.flatMap { id in p?.furniture.first { $0.id == id } }
         _name = State(initialValue: existing?.name ?? (p.flatMap { pp in model.flatMap { fModel($0) }.map { pieceName(pp, $0) } } ?? ""))
@@ -270,13 +280,13 @@ struct FPlaceScreen: View {
                 if known && m.kind == "kitchen" { return roomKitchen(m, ids, first, len, roomH, ws, name, now: now) }
                 if known {
                     let c = roomCabinet(m, len(first), roomH, ws, name, now: now)
-                    return parseLen(wTxt, unit).map { resized(c, ["w": $0], ws) } ?? c
+                    return parseLen(wTxt, unit).map { resized(c, ["w": min(6000, max(300, $0))], ws) } ?? c
                 }
                 return pieceOf(m, decodeVals(vals), ws, name, now: now)
             }()
             if let base {
                 let others = p.furniture.filter { $0.roomId == room.id && $0.id != base.id }
-                let taken = others.flatMap(\.walls)
+                let taken = others.flatMap(\.walls).filter { $0 != ISLAND }
                 let ward = base.kind == "wardrobe"
                 let offMm: Int? = { let v = mm(off); return v > 0 ? v : nil }()
                 let f = fitted ?? base
@@ -313,7 +323,7 @@ struct FPlaceScreen: View {
                         HStack(spacing: 8) {
                             FChip(label: tr("fz.corner"), on: offMm == nil) { off = ""; reset() }
                             GField(label: nil, value: Binding(get: { off }, set: { off = String($0.filter { $0.isASCII && $0.isNumber }.prefix(5)); reset() }), placeholder: "0",
-                                   focus: $focus, me: .off, submit: .done, onSubmit: { focus = nil }, labelRight: nil, number: true)
+                                   focus: $focus, me: .off, submit: .done, onSubmit: { focus = nil }, labelRight: "mm", number: true)
                         }
                     }
                     if !issues.isEmpty {
@@ -331,7 +341,11 @@ struct FPlaceScreen: View {
                         let heightOnly = issues.allSatisfy { $0.key == "fz.high" }
                         HStack(spacing: 8) {
                             GBtn(tr(heightOnly ? "fz.fitH" : "fz.fit"), kind: .secondary, height: 46, corner: 14, fontSize: 14) {
-                                fitted = fitTo(placed(f, on, room.id, room.floorId, off: offMm), on, len, roomH, ws, off: offMm); keep = false; app.say("fz.fitted")
+                                // a distance from the corner that leaves no room for a cabinet comes back to where 300 mm still fit
+                                let wl = on.first.flatMap { len($0) }
+                                var o = offMm
+                                if ward, let v = offMm, let wl, v > wl - 300 - W_GAP_SIDE { let b = wl - 300 - W_GAP_SIDE; o = b > 0 ? b : nil; off = o.map { String($0) } ?? "" }
+                                fitted = fitTo(placed(f, on, room.id, room.floorId, off: o, ws: ws), on, len, roomH, ws, off: o); keep = false; app.say("fz.fitted")
                             }
                             .accessibilityIdentifier("fz.fit")
                             GBtn(tr("fz.keep"), kind: keep ? .primary : .secondary, height: 46, corner: 14, fontSize: 14) { keep = true }.accessibilityIdentifier("fz.keep")
@@ -340,14 +354,15 @@ struct FPlaceScreen: View {
                 } footer: {
                     GBtn(tr("fz.placeHere"), enabled: issues.isEmpty || keep) {
                         if !issues.isEmpty && !keep { app.say("fz.pickFirst", kind: .error); return }
-                        let g = placed(f, on, room.id, room.floorId, off: offMm, keep: !issues.isEmpty, len: len)
+                        guard app.once() else { return }
+                        let g = placed(f, on, room.id, room.floorId, off: offMm, keep: !issues.isEmpty, len: len, ws: ws)
                         if existing != nil {
                             Store.shared.update(pid) { pr in
                                 pr.furniture = pr.furniture.map { $0.id == g.id ? g : $0 }
                                 if pr.stage == "measure" { pr.stage = "design" }
                             }
                         } else { addPiece(pid, g) }
-                        KitOps.shared.sel = nil; KitOps.shared.tick += 1
+                        KitOps.shared.forget(g.id); KitOps.shared.sel = nil; KitOps.shared.tick += 1
                         app.popTo { if case .project(let id, _, _, _) = $0 { return id == pid }; return false }
                         app.push(designer(pid, g, step: existing == nil ? 2 : 1))
                         app.say("fz.placed", ["n": dn(g.name), "r": roomName])

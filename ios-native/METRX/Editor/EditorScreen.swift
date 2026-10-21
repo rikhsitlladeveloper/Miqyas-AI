@@ -405,12 +405,25 @@ private struct FullList: View {
                         }
                         .padding(.vertical, 8)
                     }
+                    // the sides of columns and niches add wall to paint: their own row, so the total is the room's net area
+                    let extra: Int64 = r.features.isEmpty || !stats.allSatisfy({ $0.gross != nil }) ? 0
+                        : (Geo.areas(r, snap)?.gross).map { (g: Int64) -> Int64 in g - stats.reduce(Int64(0)) { $0 + ($1.gross ?? 0) } } ?? 0
+                    if extra != 0 {
+                        Hairline()
+                        HStack(spacing: 0) {
+                            T(tr("ao.col"), ui(14, 600)).frame(maxWidth: .infinity, alignment: .leading)
+                            T(Geo.fmtArea(extra, en), num(14, 500)).frame(width: 66, alignment: .trailing)
+                            T("—", num(14, 500, G.ink2)).frame(width: 58, alignment: .trailing)
+                            T(Geo.fmtArea(extra, en), num(14, 700)).frame(width: 66, alignment: .trailing)
+                        }
+                        .padding(.vertical, 8)
+                    }
                     if stats.allSatisfy({ $0.gross != nil }) {
                         HStack(spacing: 0) {
                             T(tr("ed2.total"), ui(14, 700)).padding(.leading, 4).frame(maxWidth: .infinity, alignment: .leading)
-                            T(Geo.fmtArea(stats.reduce(0) { $0 + $1.gross! }, en), num(14, 600)).frame(width: 66, alignment: .trailing)
+                            T(Geo.fmtArea(stats.reduce(0) { $0 + $1.gross! } + extra, en), num(14, 600)).frame(width: 66, alignment: .trailing)
                             T(Geo.fmtArea(stats.reduce(0) { $0 + $1.open }, en), num(14, 600, G.ink2)).frame(width: 58, alignment: .trailing)
-                            T(Geo.fmtArea(stats.reduce(0) { $0 + ($1.net ?? 0) }, en), num(14, 800)).frame(width: 66, alignment: .trailing)
+                            T(Geo.fmtArea(stats.reduce(0) { $0 + ($1.net ?? 0) } + extra, en), num(14, 800)).frame(width: 66, alignment: .trailing)
                         }
                         .padding(.vertical, 8).background(RoundedRectangle(cornerRadius: 8).fill(G.ink.opacity(0.05)))
                     }

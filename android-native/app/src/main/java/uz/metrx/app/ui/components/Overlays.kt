@@ -127,6 +127,8 @@ private val TOAST_IN = CubicBezierEasing(.2f, .9f, .3f, 1.15f)
 fun ToastHost(msg: ToastMsg?, onGone: () -> Unit) {
     var shown by remember { mutableStateOf<ToastMsg?>(null) }
     var visible by remember { mutableStateOf(false) }
+    // the toast whose action already ran: a second tap during the exit animation must not run Undo again
+    var acted by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(msg?.id) {
         if (msg == null) return@LaunchedEffect
         shown = msg; visible = true
@@ -153,7 +155,7 @@ fun ToastHost(msg: ToastMsg?, onGone: () -> Unit) {
                 val action: (@Composable () -> Unit)? = m.action?.let { label -> {
                     Row(
                         Modifier.heightIn(min = 42.dp).clip(RoundedCornerShape(13.dp)).background(Color.White.copy(alpha = .12f))
-                            .clickable(role = Role.Button) { m.onAction?.invoke(); visible = false }.padding(horizontal = 14.dp),
+                            .clickable(role = Role.Button) { if (acted != m.id) { acted = m.id; m.onAction?.invoke() }; visible = false }.padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) { MIcon("undo", Color.White, 16.dp, 2.2f); Text(label, style = ui(14f, 700, Color.White), maxLines = 1) }
                 } }

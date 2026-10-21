@@ -10,11 +10,14 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import uz.metrx.app.core.Dec
 import uz.metrx.app.core.Lang
+import uz.metrx.app.core.parseDec
 import uz.metrx.app.data.Project
 import uz.metrx.app.trades.TradeSet
 import uz.metrx.app.trades.tradeRows
@@ -26,6 +29,7 @@ import uz.metrx.app.ui.components.GBtn
 import uz.metrx.app.ui.components.GField
 import uz.metrx.app.ui.components.GlassSheet
 import uz.metrx.app.ui.editor.Seg
+import uz.metrx.app.ui.editor.english
 import uz.metrx.app.ui.glass.glassCard
 import uz.metrx.app.ui.theme.G
 import uz.metrx.app.ui.theme.LocalLang
@@ -40,7 +44,7 @@ import uz.metrx.app.ui.theme.ui
 
 /** Puts the calculator's lines into the project's estimate, in place of the ones it made before. */
 fun App.applyTrade(p: Project) {
-    val r = tradeRows(p.industry, p.rooms, settings.trade, { k, v -> t(k, *v.toList().toTypedArray()) }, settings.angleSnap)
+    val r = tradeRows(p.industry, p.rooms, settings.trade, { k, v -> t(k, *v.toList().toTypedArray()) }, settings.angleSnap, english())
     store.update(p.id) { pr ->
         pr.copy(estimate = pr.estimate.copy(
             materials = pr.estimate.materials.filter { !it.id.startsWith("t-") } + r.mats.map { it.copy(id = "t-" + uz.metrx.app.data.uid()) },
@@ -53,7 +57,7 @@ fun App.applyTrade(p: Project) {
 fun TradeCard(p: Project) {
     val app = LocalApp.current
     val en = LocalLang.current == Lang.EN
-    val r = tradeRows(p.industry, p.rooms, app.settings.trade, { k, v -> app.t(k, *v.toList().toTypedArray()) }, app.settings.angleSnap)
+    val r = tradeRows(p.industry, p.rooms, app.settings.trade, { k, v -> app.t(k, *v.toList().toTypedArray()) }, app.settings.angleSnap, app.english())
     fun d(v: Double?) = v?.let { String.format(java.util.Locale.ROOT, "%.1f", it).replace('.', if (en) '.' else ',') } ?: "0"
     val fact = when (p.industry) {
         "tiler" -> tr("trc.tiler", "a" to d(r.facts["area"]), "b" to (r.facts["boxes"] ?: 0.0).toLong())
@@ -82,24 +86,24 @@ fun TradeSheet(s: Sheet): Boolean {
     return true
 }
 
-/** One number of the calculator's settings: a label, the value as typed, its unit. */
-private class F(val key: String, val unit: String, val get: (TradeSet) -> String, val set: (TradeSet, String) -> TradeSet)
+/** One number of the calculator's settings: a label, the value as typed, its unit; [dec] decimals allowed (prices are whole), [max] for a count or size. */
+private class F(val key: String, val unit: String, val get: (TradeSet) -> String, val set: (TradeSet, String) -> TradeSet, val dec: Int = 0, val max: Long? = null)
 
 private fun fieldsOf(trade: String): List<F> = when (trade) {
     "tiler" -> listOf(
-        F("tileW", "mm", { it.tileW.toString() }, { t, v -> t.copy(tileW = v.toIntOrNull() ?: t.tileW) }),
-        F("tileH", "mm", { it.tileH.toString() }, { t, v -> t.copy(tileH = v.toIntOrNull() ?: t.tileH) }),
-        F("boxM2", "m²", { it.boxM2 }, { t, v -> t.copy(boxM2 = v) }),
-        F("waste", "%", { it.waste.toString() }, { t, v -> t.copy(waste = v.toIntOrNull() ?: t.waste) }),
-        F("wallH", "mm", { it.wallH.toString() }, { t, v -> t.copy(wallH = v.toIntOrNull() ?: 0) }),
+        F("tileW", "mm", { it.tileW.toString() }, { t, v -> t.copy(tileW = v.toIntOrNull() ?: t.tileW) }, max = 10_000),
+        F("tileH", "mm", { it.tileH.toString() }, { t, v -> t.copy(tileH = v.toIntOrNull() ?: t.tileH) }, max = 10_000),
+        F("boxM2", "m²", { it.boxM2 }, { t, v -> t.copy(boxM2 = v) }, dec = 3),
+        F("waste", "%", { it.waste.toString() }, { t, v -> t.copy(waste = v.toIntOrNull() ?: t.waste) }, max = 100),
+        F("wallH", "mm", { it.wallH.toString() }, { t, v -> t.copy(wallH = v.toIntOrNull() ?: 0) }, max = 20_000),
         F("pTile", "/m²", { it.pTile }, { t, v -> t.copy(pTile = v) }),
-        F("glueKg", "kg/m²", { it.glueKg }, { t, v -> t.copy(glueKg = v) }),
+        F("glueKg", "kg/m²", { it.glueKg }, { t, v -> t.copy(glueKg = v) }, dec = 3),
         F("pGlue", "/25 kg", { it.pGlue }, { t, v -> t.copy(pGlue = v) }),
-        F("groutKg", "kg/m²", { it.groutKg }, { t, v -> t.copy(groutKg = v) }),
+        F("groutKg", "kg/m²", { it.groutKg }, { t, v -> t.copy(groutKg = v) }, dec = 3),
         F("pGrout", "/kg", { it.pGrout }, { t, v -> t.copy(pGrout = v) }),
         F("lTile", "/m²", { it.lTile }, { t, v -> t.copy(lTile = v) }))
     "elec" -> listOf(
-        F("lights", "", { it.lights.toString() }, { t, v -> t.copy(lights = v.toIntOrNull() ?: t.lights) }),
+        F("lights", "", { it.lights.toString() }, { t, v -> t.copy(lights = v.toIntOrNull() ?: t.lights) }, max = 100),
         F("pSocket", "", { it.pSocket }, { t, v -> t.copy(pSocket = v) }),
         F("pSwitch", "", { it.pSwitch }, { t, v -> t.copy(pSwitch = v) }),
         F("pLight", "", { it.pLight }, { t, v -> t.copy(pLight = v) }),
@@ -121,6 +125,15 @@ private fun fieldsOf(trade: String): List<F> = when (trade) {
         F("lWin", "", { it.lWin }, { t, v -> t.copy(lWin = v) }))
 }
 
+/** What a typed setting is wrong with, in words; null when fine or empty (an empty one keeps the old value). */
+private fun fieldErr(f: F, v: String, t: (String, Array<out Pair<String, Any?>>) -> String): String? = when (val d = parseDec(v, f.dec)) {
+    Dec.Empty -> null
+    is Dec.Ok -> if (f.max != null && d.v > f.max.toBigInteger()) t("err.max", arrayOf("max" to f.max)) else null
+    Dec.Format -> t("err.format", emptyArray())
+    Dec.Negative -> t("err.negative", emptyArray())
+    is Dec.Precision -> if (d.n > 0) t("err.precision", arrayOf("n" to d.n)) else t("err.whole", emptyArray())
+}
+
 @Composable
 private fun TradeCalcSheet(pid: String) {
     val app = LocalApp.current
@@ -130,7 +143,10 @@ private fun TradeCalcSheet(pid: String) {
     // the fields keep what is typed; the numbers are read when saving, so the cursor never jumps
     var texts by rememberSaveable { mutableStateOf(fields.associate { it.key to it.get(start) }) }
     var floorOn by rememberSaveable { mutableStateOf(start.floor) }
+    var tried by remember { mutableStateOf(false) }
+    val errs = fields.associate { f -> f.key to fieldErr(f, texts[f.key].orEmpty()) { k, v -> app.t(k, *v) } }
     fun save() {
+        if (errs.values.any { it != null }) { tried = true; return }
         val t = fields.fold(start.copy(floor = floorOn)) { acc, f -> f.set(acc, texts[f.key].orEmpty()) }
         app.settings.setTradeSet(t); app.sheet = null; app.applyTrade(app.store.get(pid) ?: p)
     }
@@ -142,8 +158,8 @@ private fun TradeCalcSheet(pid: String) {
         fields.chunked(2).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { f ->
-                    GField(tr("trf.${f.key}"), texts[f.key].orEmpty(), { v -> texts = texts + (f.key to v.filter { c -> c.isDigit() || c == ',' || c == '.' }.replace(',', '.')) }, "0",
-                        number = true, labelRight = f.unit.ifEmpty { null }, modifier = Modifier.weight(1f))
+                    GField(tr("trf.${f.key}"), texts[f.key].orEmpty(), { v -> texts = texts + (f.key to v.filter { c -> c.isDigit() || c == ',' || c == '.' }.replace(',', '.').take(12)) }, "0",
+                        error = errs[f.key], showError = tried, number = f.dec == 0, decimal = f.dec > 0, labelRight = f.unit.ifEmpty { null }, modifier = Modifier.weight(1f))
                 }
                 if (row.size == 1) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
             }

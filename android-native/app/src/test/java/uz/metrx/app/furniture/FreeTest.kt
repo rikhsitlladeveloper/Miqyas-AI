@@ -15,7 +15,7 @@ class FreeTest {
         assertEquals(listOf("D", "A", "B"), f.walls)
         val r = freeRoom(f)
         assertTrue(isFreeRoom(r))
-        assertEquals(3000, r.dim("A").v); assertEquals(2200, r.dim("B").v); assertEquals(2700, r.dim("H").v)
+        assertEquals(3000, r.dim("A").v); assertEquals(2400, r.dim("B").v); assertEquals(2700, r.dim("H").v)
         val runs = runsOf(f) { freeLen(f, it) }
         assertEquals(listOf(2200, 3000, 2400), runs.map { it.len })
         // every lower row is full: the first from its start, the others after the corner
@@ -96,5 +96,17 @@ class FreeTest {
         assertEquals(listOf(3000, 2000), out.free!!.sides)
         assertEquals(2500, out.free!!.h)
         assertEquals(f.modules.size, out.modules.size)
+    }
+
+    @Test fun sectionsNeverGoBelowNothing() {
+        // one section is the whole wardrobe, locked or not
+        assertEquals(listOf(1800), splitSections(1800, listOf(Section(600, lock = true))).map { it.w })
+        // locked ones that no longer fit give way: all share again
+        val s = splitSections(1000, listOf(Section(900, lock = true), Section(900, lock = true), Section(300)))
+        assertTrue(s.all { it.w >= 150 && !it.lock }); assertEquals(1000, s.sumOf { it.w })
+        // a fit with the wardrobe far from the corner still keeps 300 mm
+        val f = newFreeWardrobe("Shkaf 1", "h3", 1500, 2200, 600, false, "door", ws)
+        val p = fitTo(placed(f, listOf("B"), "r1", "w1", off = 1900), listOf("B"), { 2000 }, 2500, ws, off = 1900)
+        assertTrue(wardOfF(p)!!.w >= 300)
     }
 }

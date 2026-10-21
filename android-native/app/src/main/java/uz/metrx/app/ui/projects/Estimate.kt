@@ -364,11 +364,13 @@ fun RowSheet(s0: Sheet.Row) {
     val mat = kind == "mat"
     val existing = s0.id?.let { id -> (if (mat) p.estimate.materials else p.estimate.labor).firstOrNull { it.id == id } }
     fun key(k: String) = p.id + "|" + k + "|" + (s0.id ?: "new")
-    fun initial(k: String): Map<String, String> {
+    // [fresh]: the empty form "Save and add another" starts again with, without the suggested name and unit
+    fun initial(k: String, fresh: Boolean = false): Map<String, String> {
         val x = s0.id?.let { id -> (if (k == "mat") p.estimate.materials else p.estimate.labor).firstOrNull { it.id == id } }
-        return if (k == "mat") mapOf("ename" to (x?.let { dn(it.name, lang) } ?: s0.name ?: ""), "eunit" to (x?.unit ?: s0.unit ?: "@u.pcs"),
+        val sn = if (fresh) null else s0.name
+        return if (k == "mat") mapOf("ename" to (x?.let { dn(it.name, lang) } ?: sn ?: ""), "eunit" to (x?.unit ?: (if (fresh) null else s0.unit) ?: "@u.pcs"),
             "eqty" to (x?.qty?.replace('.', if (en) '.' else ',') ?: ""), "eprice" to (x?.price ?: ""), "ereserve" to "")
-        else mapOf("ename" to (x?.let { dn(it.name, lang) } ?: s0.name ?: ""), "eamount" to (x?.amount ?: ""))
+        else mapOf("ename" to (x?.let { dn(it.name, lang) } ?: sn ?: ""), "eamount" to (x?.amount ?: ""))
     }
     var init by remember { mutableStateOf(initial(s0.kind)) }
     // a suggestion button opens a fresh sheet; otherwise a kept draft comes back
@@ -421,10 +423,11 @@ fun RowSheet(s0: Sheet.Row) {
             pp.copy(stage = if (pp.stage == "measure") "estimate" else pp.stage,
                 estimate = if (mat) e.copy(materials = e.materials.put()) else e.copy(labor = e.labor.put()))
         }
-        closing = true
         app.settings.setDraft(key(kind), null)
         if (s0.id != null) app.say("op.saved", "o" to row.name) else app.say("re.added")
-        app.sheet = if (again) Sheet.Row(p.id, kind) else null
+        // the same sheet stays open (a new Sheet.Row(p.id, kind) would equal this one), so its form starts again here
+        if (again) { init = initial(kind, fresh = true); form = init; restored = false; touched = emptySet(); tried = false }
+        else { closing = true; app.sheet = null }
     }
     fun delete() {
         closing = true

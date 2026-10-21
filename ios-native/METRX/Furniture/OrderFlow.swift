@@ -30,7 +30,9 @@ func msOf(_ d: Date) -> Ms { Ms(gregorian.startOfDay(for: d).timeIntervalSince19
 struct InstallChip: View {
     let p: Project
     var body: some View {
-        if let d = installDate(p) {
+        if !AppSettings.shared.advanced {
+            EmptyView()   // no install dates in the simple app
+        } else if let d = installDate(p) {
             let left = daysFromToday(d)
             let open = fStage(p) < 5
             let late = open && left < 0, soon = open && !late && left <= 3
@@ -99,6 +101,7 @@ func drawRoomIn(_ app: AppModel, _ pid: String, _ w: Workspace) {
 /// The customer price of each piece, by furniture id.
 func pieceAmounts(_ p: Project) -> [String: Decimal] {
     let s = AppSettings.shared
+    if !s.advanced { return [:] }   // no prices in the simple app
     let priced = priceOf(p.furniture.filter { !$0.modules.isEmpty }, p.fprice, s.workshop, s.mats, s.hws)
     return Dictionary(priced.lines.map { ($0.key, $0.amount) }, uniquingKeysWith: { a, _ in a })
 }
@@ -120,7 +123,8 @@ struct NewOrderScreen: View {
     @FocusState private var focus: OF?
 
     var body: some View {
-        let whoErr = who.trimmingCharacters(in: .whitespaces).count < 2 ? tr("np.customerReq") : nil
+        let wt = who.trimmingCharacters(in: .whitespaces)
+        let whoErr = wt.isEmpty ? tr("np.customerReq") : wt.count < 2 ? tr("np.customerShort") : nil
         let phErr = Phone.errorKey(phone, required: false).map { tr($0) }
         let ok = whoErr == nil && phErr == nil
         ZStack(alignment: .bottom) {
@@ -159,7 +163,7 @@ struct NewOrderScreen: View {
 
     private func create(_ ok: Bool) {
         tried = true
-        guard ok else { return }
+        guard ok, app.once() else { return }
         focus = nil
         // named after the customer; "Oshxona — Akmal" once they say what they need (renameOrder)
         let name = who.trimmingCharacters(in: .whitespaces)
@@ -243,7 +247,7 @@ struct FRoomsTab: View {
 
     private func pieceRow(_ f: Furniture, _ amount: Decimal?) -> some View {
         let ward = f.kind == "wardrobe"
-        let sub = ward ? (wardOf(f).map { Geo.fmtLen($0.w, .m, en) + " × " + Geo.fmtLen($0.h, .m, en) + " m" } ?? "")
+        let sub = ward ? (wardOf(f).map { Geo.fmtLen($0.w, .m, en) + " × " + Geo.fmtLen(valsOf(f, AppSettings.shared.workshop)["h"] ?? $0.h, .m, en) + " m" } ?? "")
             : tr("kt.l" + f.layout) + " · " + runMetres(f, en) + " " + tr("kt.pm")
         return HStack(spacing: 10) {
             MIcon(ward ? "board" : "kitchen", G.ink3, 18, 2)
@@ -356,7 +360,7 @@ private struct NewRoomSheet: View {
     }
     private func create() {
         let n = name.trimmingCharacters(in: .whitespaces)
-        guard !n.isEmpty else { return }
+        guard !n.isEmpty, app.once() else { return }
         let rid = addFurnRoom(pid, type, n)
         if let fid { app.placeAfter = (rid, fid) }
         app.sheet = nil
@@ -425,6 +429,9 @@ struct NextStep: View {
         let pend = p.want?.first { k in !p.furniture.contains { kindKey($0) == k } && (k == "other" || !p.floors.contains { roomKind($0) == k }) }
         let installed = installDate(p).map { tr("fo.installV", ["d": fmtDay($0)]) }
         let pid = p.id
+        // the simple app has no stages: the steps of making the furniture, then sending the design
+        let share = Step(title: tr("ns.shareT"), sub: tr("ns.shareS"), button: tr("ns.shareB")) { app.push(.report(pid: pid, no: nil)) }
+        if !s.advanced && k >= 2 { return share }
         if k >= 6 { return nil }
         if k == 5 {
             guard let left = m.left, left > 0 else { return nil }
@@ -433,11 +440,12 @@ struct NextStep: View {
         if k == 4 {
             return Step(title: tr("ns.installT"), sub: installed, button: tr("ns.installB")) {
                 // installed today: the date becomes today's, so the card and the list say when it really happened
+                guard app.once() else { return }
                 let q = Store.shared.update(pid) { $0 = nextStage($0); $0.install = msOf(Date()) }
                 if q?.stage == "paid" { app.say("fs.paid") }
             }
         }
-        if k == 3 { return Step(title: tr("ns.makeT"), sub: installed, button: tr("ns.makeB")) { Store.shared.update(pid) { $0 = nextStage($0) } } }
+        if k == 3 { return Step(title: tr("ns.makeT"), sub: installed, button: tr("ns.makeB")) { if app.once() { Store.shared.update(pid) { $0 = nextStage($0) } } } }
         if k == 2 {
             let sub = p.quotes.last.map { q in tr("ns.approveS", ["n": q.no, "v": shortStr(p, Decimal(string: q.total) ?? 0)]) }
             return Step(title: tr("ns.approveT"), sub: sub, button: tr("fo.approve")) { app.sheet = .fApprove(pid: pid) }
@@ -470,6 +478,7 @@ struct NextStep: View {
         if p.floors.isEmpty && p.furniture.isEmpty {
             return Step(title: tr("ns.needT"), sub: tr("ns.needS"), button: tr("ns.needB")) { app.push(.fGallery(pid: pid)) }
         }
+        if !s.advanced { return share }
         let price = priceOf(p.furniture.filter { !$0.modules.isEmpty }, p.fprice, s.workshop, s.mats, s.hws).price
         return Step(title: tr("ns.quoteT"), sub: price > 0 ? tr("ns.quoteS", ["v": shortStr(p, price)]) : nil, button: tr("ns.quoteB")) { app.sheet = .issue(pid: pid) }
     }

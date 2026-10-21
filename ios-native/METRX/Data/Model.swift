@@ -393,6 +393,8 @@ struct Snap: Codable, Equatable {
     var fprepay = 50, fdays = 0, finst = 0
     var fhandles = ""
     var fws: Workshop? = nil
+    /// The angle snap the plans and areas are worked out with (AppSettings.angleSnap), kept with a quote.
+    var snap = true
 }
 
 extension Snap {
@@ -405,6 +407,7 @@ extension Snap {
         estimate = c.v(.estimate, Estimate()); extras = c.v(.extras, [])
         furniture = c.v(.furniture, []); fmats = c.v(.fmats, []); flines = c.v(.flines, []); ftotal = c.v(.ftotal, "")
         fprepay = c.v(.fprepay, 50); fdays = c.v(.fdays, 0); finst = c.v(.finst, 0); fhandles = c.v(.fhandles, ""); fws = c.v(.fws, nil)
+        snap = c.v(.snap, true)
     }
 }
 

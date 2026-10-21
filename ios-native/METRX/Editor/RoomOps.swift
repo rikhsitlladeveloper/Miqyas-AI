@@ -23,7 +23,8 @@ final class RoomOps {
     var diagFirst: Int? = nil
     @ObservationIgnored private var simCount = 0
 
-    private struct Snap { let dims: [String: Dim]; let openings: [Opening]; let name: String; let poly: Poly?; let rot: Int; let points: [SitePoint] }
+    // the name is not in it: a rename has no history, so Undo must not take it back
+    private struct Snap { let dims: [String: Dim]; let openings: [Opening]; let poly: Poly?; let rot: Int; let points: [SitePoint]; let features: [Feature] }
     @ObservationIgnored private var undoH: [String: [Snap]] = [:]
     @ObservationIgnored private var redoH: [String: [Snap]] = [:]
     private(set) var histTick = 0
@@ -40,8 +41,13 @@ final class RoomOps {
         app.setTop(.editor(pid: pid, rid: rid, mode: m))
     }
 
-    private func snapOf(_ r: Room) -> Snap { Snap(dims: r.dims, openings: r.openings, name: r.name, poly: r.poly, rot: r.rot, points: r.points) }
-    private func restore(_ r: inout Room, _ s: Snap) { r.dims = s.dims; r.openings = s.openings; r.name = s.name; r.poly = s.poly; r.rot = s.rot; r.points = s.points }
+    private func snapOf(_ r: Room) -> Snap { Snap(dims: r.dims, openings: r.openings, poly: r.poly, rot: r.rot, points: r.points, features: r.features) }
+    // a laser reading waiting on a value is not history: one that came after the snapshot stays
+    private func restore(_ r: inout Room, _ s: Snap) {
+        let now = r.dims
+        r.dims = s.dims.reduce(into: [String: Dim]()) { out, e in var d = e.value; d.pending = now[e.key]?.pending ?? d.pending; out[e.key] = d }
+        r.openings = s.openings; r.poly = s.poly; r.rot = s.rot; r.points = s.points; r.features = s.features
+    }
 
     func canUndo(_ rid: String) -> Bool { _ = histTick; return !(undoH[rid] ?? []).isEmpty }
     func canRedo(_ rid: String) -> Bool { _ = histTick; return !(redoH[rid] ?? []).isEmpty }
@@ -183,6 +189,19 @@ final class RoomOps {
         app.say("op.deleted", ["o": opName(o)], action: "common.undo") { [weak self] in self?.undo(pid, rid) }
     }
 
+    /* ---------------- columns and niches ---------------- */
+
+    func saveFeature(_ pid: String, _ rid: String, _ f: Feature, isNew: Bool) {
+        change(pid, rid) { r in if isNew { r.features.append(f) } else if let i = r.features.firstIndex(where: { $0.id == f.id }) { r.features[i] = f } }
+        app.sheet = nil
+        app.say("ft.saved", action: "common.undo") { [weak self] in self?.undo(pid, rid) }
+    }
+
+    func deleteFeature(_ pid: String, _ rid: String, _ f: Feature) {
+        change(pid, rid) { $0.features.removeAll { $0.id == f.id } }
+        app.sheet = nil
+    }
+
     /* ---------------- site points (furniture orders) ---------------- */
 
     func pointName(_ t: String) -> String { tr("pt." + t) }
@@ -228,13 +247,15 @@ final class RoomOps {
     func deleteRoom(_ pid: String, _ rid: String) {
         guard let p = Store.shared.get(pid), let idx = p.rooms.firstIndex(where: { $0.id == rid }) else { return }
         let r = p.rooms[idx]
-        Store.shared.update(pid) { $0.rooms.removeAll { $0.id == rid }; $0.reportRooms.removeValue(forKey: rid) }
+        let pieces = p.furniture.filter { $0.roomId == rid }
+        Store.shared.update(pid) { $0.furniture = outOfRooms($0, [rid]); $0.rooms.removeAll { $0.id == rid }; $0.reportRooms.removeValue(forKey: rid) }
         app.sheet = nil
         app.popTo { r in
             switch r { case .editor, .wallView: return false; default: return true }
         }
+        app.dropMissing()   // the room's pages in the other tabs' stacks go too
         app.say("room.deleted", ["n": dn(r.name)], action: "common.undo") {
-            Store.shared.update(pid) { $0.rooms.insert(r, at: min(idx, $0.rooms.count)) }
+            Store.shared.update(pid) { pr in pr.rooms.insert(r, at: min(idx, pr.rooms.count)); pr.furniture = pr.furniture.map { f in pieces.first { $0.id == f.id } ?? f } }
         }
     }
 

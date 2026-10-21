@@ -49,9 +49,15 @@ struct ProfileScreen: View {
                     if s.furniture {
                         Group1(text: tr("wk.group"))
                         Card {
-                            Row1(icon: "sliders", title: tr("wk.title"), value: nil, sub: tr("wk.titleS")) { app.push(.workshop) }.accessibilityIdentifier("pf.workshop")
-                            Row1(icon: "layers", title: tr("wk.mats"), value: nil, sub: tr("wk.matsS", ["m": s.mats.count, "h": s.hws.count])) { app.push(.materials) }.accessibilityIdentifier("pf.mats")
+                            // off: the app is just the 3D design; on: prices, order stages, workshop rules, cutting lists
+                            SwitchRow(icon: "sliders", title: tr("adv.title"), on: s.advanced) { s.setAdvancedOn(!s.advanced); app.say(s.advanced ? "adv.on" : "adv.off") }
+                                .accessibilityIdentifier("pf.advanced")
+                            if s.advanced {
+                                Row1(icon: "board", title: tr("wk.title"), value: nil, sub: tr("wk.titleS")) { app.push(.workshop) }.accessibilityIdentifier("pf.workshop")
+                                Row1(icon: "layers", title: tr("wk.mats"), value: nil, sub: tr("wk.matsS", ["m": s.mats.count, "h": s.hws.count])) { app.push(.materials) }.accessibilityIdentifier("pf.mats")
+                            }
                         }
+                        T(tr("adv.sub"), ui(12.5, 400, G.ink2, lh: 1.4)).padding(.horizontal, 28).padding(.top, 8)
                     }
                     Group1(text: tr("pf.gReport"))
                     Card {
@@ -336,7 +342,8 @@ private struct DefaultsSheet: View {
     var body: some View {
         let s = AppSettings.shared, u = s.unit, en = s.lang == .en, m = unitName()
         let maxes = [100_000, 20_000, 100_000, 20_000, 20_000]
-        let r = (0..<5).map { Geo.lenErr($0 < f.count ? f[$0] : "", maxes[$0], u, en) }
+        // a window can sit on the floor: its sill (the last) may be 0
+        let r = (0..<5).map { Geo.lenErr($0 < f.count ? f[$0] : "", maxes[$0], u, en, zeroOk: $0 == 4) }
         GlassSheet(tr("se.defaults"), onClose: { app.sheet = nil }) {
             T(tr("se.defaultsBody"), ui(14, 400, G.ink2, lh: 1.45))
             T(tr("op.door"), ui(13, 700, G.ink2))

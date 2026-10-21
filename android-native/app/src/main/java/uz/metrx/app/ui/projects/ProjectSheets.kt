@@ -1,5 +1,6 @@
 package uz.metrx.app.ui.projects
 
+import uz.metrx.app.ui.furniture.outOfRooms
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -206,10 +207,13 @@ private fun SpaceDelete(s: Sheet.SpaceDelete) {
                 val name = floorName(w, lang)
                 val idx = p.floors.indexOf(w)
                 val rooms = p.rooms.filter { it.floorId == w.id }
-                app.store.update(p.id) { pr -> pr.copy(floors = pr.floors.filter { it.id != w.id }, rooms = pr.rooms.filter { it.floorId != w.id }) }
+                val ids = rooms.map { it.id }.toSet()
+                val pieces = p.furniture.filter { it.roomId in ids }
+                app.store.update(p.id) { pr -> pr.copy(floors = pr.floors.filter { it.id != w.id }, rooms = pr.rooms.filter { it.floorId != w.id }, furniture = app.outOfRooms(pr, ids)) }
                 app.close(); app.dropMissing()
                 app.say("ws.deleted", "n" to name, action = "common.undo") {
-                    app.store.update(p.id) { pr -> pr.copy(floors = pr.floors.toMutableList().apply { add(idx.coerceIn(0, size), w) }, rooms = pr.rooms + rooms) }
+                    app.store.update(p.id) { pr -> pr.copy(floors = pr.floors.toMutableList().apply { add(idx.coerceIn(0, size), w) }, rooms = pr.rooms + rooms,
+                        furniture = pr.furniture.map { f -> pieces.firstOrNull { it.id == f.id } ?: f }) }
                 }
             }, Btn.DANGER, icon = "trash", modifier = Modifier.weight(1f))
         }

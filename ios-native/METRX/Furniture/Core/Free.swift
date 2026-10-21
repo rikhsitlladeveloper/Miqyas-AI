@@ -111,7 +111,7 @@ func freeRoom(_ f: Furniture) -> Room {
         let lens = freeLens(f), ws = f.walls.filter { $0 != ISLAND }
         func len(_ i: Int) -> Int { i < ws.count ? (lens[ws[i]] ?? 3000) : 3000 }
         switch f.layout {
-        case "U": a = len(1); b = len(0)
+        case "U": a = len(1); b = max(len(0), len(2))
         case "L": a = len(0); b = len(1)
         case "O", "P": a = len(0); b = 3000
         default: a = len(0); b = 1800
@@ -224,7 +224,7 @@ func fitTo(_ f: Furniture, _ walls: [String], _ len: (String) -> Int?, _ roomH: 
     if f.kind == "wardrobe" {
         guard let m = wardOfF(f) else { return f }
         let x = off ?? W_GAP_SIDE
-        let w = len(walls[0]).map { min(m.w, $0 - x - W_GAP_SIDE) } ?? m.w
+        let w = len(walls[0]).map { max(min(m.w, 300), min(m.w, $0 - x - W_GAP_SIDE)) } ?? m.w
         let legs = m.legs ? ws.legH : 0
         let h = roomH.map { min(m.h, $0 - W_GAP_TOP - legs) } ?? m.h
         var nm = m; nm.w = w; nm.h = h
@@ -249,7 +249,7 @@ func firstStart(_ f: Furniture, _ wallLen: Int?) -> Int {
 /// The piece standing in room roomId (workspace wsId) on walls (len each wall's length); a wardrobe off from the
 /// corner; keep its size kept. A corner kitchen's first side shorter than its wall gets an empty stretch at the wall's
 /// start, so its last unit stands in the corner where the next side turns.
-func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String, off: Int? = nil, keep: Bool = false, len: (String) -> Int? = { _ in nil }) -> Furniture {
+func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String, off: Int? = nil, keep: Bool = false, len: (String) -> Int? = { _ in nil }, ws: Workshop = Workshop()) -> Furniture {
     var g = onWalls(f, walls); g.roomId = roomId; g.ws = wsId; g.keep = keep
     if g.kind == "wardrobe" {
         g.modules = g.modules.map { m in var x = m; if m.type == "wardrobe" { x.x = off ?? W_GAP_SIDE }; return x }
@@ -257,7 +257,7 @@ func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String,
     }
     let gap = firstStart(g, len(walls[0]))
     if gap > 0 {
-        let ws = Workshop(), w0 = walls[0]
+        let w0 = walls[0]
         var low = template("spaceLow", ws, w0, gap); low.elev = g.modules.first { $0.wall == w0 && !isUpper($0) }?.elev ?? ws.legH
         var up = template("spaceUp", ws, w0, gap); up.elev = g.modules.first { $0.wall == w0 && isUpper($0) }?.elev ?? wallElev(ws)
         // the empty stretch goes first in the module list, so it packs at the wall's start

@@ -81,6 +81,8 @@ import uz.metrx.app.ui.theme.num
 private val TABS = listOf("rooms" to "pj.t.rooms", "estimate" to "pr.estimate", "quotes" to "pj.t.quotes", "info" to "pj.info")
 /** A furniture order: its price tab instead of the estimate (furniture plan section 4). */
 private val F_TABS = listOf("rooms" to "fo.rooms", "price" to "fo.price", "quotes" to "pj.t.quotes", "info" to "pj.info")
+// the simple furniture app: the rooms with their furniture, and who it is for
+private val F_TABS_SIMPLE = listOf("rooms" to "fo.rooms", "info" to "pj.info")
 
 /** Project page: name, customer and stage, three numbers, four tabs (prototype project.js + glass stage 2). */
 @Composable
@@ -94,10 +96,12 @@ fun ProjectScreen(r: Route.Project) {
         PageBar { BackPill(tr(under?.label ?: if (p.isFurniture) "fo.tab" else "tab.projects"), { app.pop() }) }
         val withTotal = r.tab == "estimate" && (p.estimate.materials.isNotEmpty() || p.estimate.labor.isNotEmpty())
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = if (withTotal) 0.dp else 24.dp + NAV_SPACE).let { if (withTotal) it else it.navigationBarsPadding() }) {
-            Header(p, r.tab, lang)
+            // price and quotes are the advanced app's; a link to them opens the rooms
+            val tab = if (p.isFurniture && !app.settings.advanced && (r.tab == "price" || r.tab == "quotes")) "rooms" else r.tab
+            Header(p, tab, lang)
             // a furniture order: what to do now, with the one button that does it
             if (p.isFurniture) uz.metrx.app.ui.furniture.NextStep(p)
-            when (r.tab) {
+            when (tab) {
                 "info" -> { if (p.isFurniture) uz.metrx.app.ui.furniture.FurnitureInfo(p); InfoTab(p, lang) }
                 "price" -> uz.metrx.app.ui.furniture.FPriceTab(p)
                 "quotes" -> QuotesTab(p, lang)
@@ -140,7 +144,8 @@ private fun Header(p: Project, tab: String, lang: Lang) {
                 if (p.location != null) RoundIc("pin", tr("loc.open")) { openMap(context, p) }
                 RoundIc("more", "menu") { app.sheet = Sheet.ProjectMenu(p.id) }
             }
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // the simple furniture app shows no stage: with no address either, the line goes
+            if (!(p.isFurniture && sub == "—" && !app.settings.advanced)) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(if (p.isFurniture && sub == "—") "" else sub, style = ui(13.5f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 if (p.isFurniture) uz.metrx.app.ui.furniture.FStageChip(p.stage) else StageChip(p.stage)
             }
@@ -150,7 +155,7 @@ private fun Header(p: Project, tab: String, lang: Lang) {
             Modifier.padding(top = 12.dp).fillMaxWidth().height(44.dp).clip(RoundedCornerShape(22.dp)).background(G.ink.copy(alpha = .06f)).padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            (if (p.isFurniture) F_TABS else TABS).forEach { (k, l) ->
+            (if (!p.isFurniture) TABS else if (app.settings.advanced) F_TABS else F_TABS_SIMPLE).forEach { (k, l) ->
                 val on = tab == k
                 val bubble = RoundedCornerShape(18.dp)
                 Box(
@@ -197,7 +202,7 @@ fun StageChip(stage: String) {
 /** "Devor, sof · O‘lchangan · Smeta" — the three numbers a brickmason prices by. */
 @Composable
 private fun Nums(p: Project) {
-    val st = stats(p)
+    val st = stats(p, LocalApp.current.settings.angleSnap)
     Column(Modifier.padding(top = 11.dp)) {
         Hairline()
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(start = 4.dp, end = 4.dp, top = 10.dp)) {
@@ -260,7 +265,7 @@ private fun WorkspacesTab(p: Project, lang: Lang, route: Route.Project) {
                     Text(floorName(w, lang), style = ui(15.5f, 600), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(wsCounts(p, w, lang).ifEmpty { tr("ws.empty") }, style = ui(12.5f, 400, G.ink2, 1.3f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 }
-                val (net, nn) = uz.metrx.app.data.wsNet(p, w)
+                val (net, nn) = uz.metrx.app.data.wsNet(p, w, app.settings.angleSnap)
                 if (nn > 0) Column(horizontalAlignment = Alignment.End) {
                     Text(uz.metrx.app.geo.fmtArea(net, lang == Lang.EN) + " m²", style = num(14.5f, 700))
                     Text(tr("pj.wsNet"), style = ui(11.5f, 400, G.ink2))

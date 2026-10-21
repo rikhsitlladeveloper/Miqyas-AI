@@ -29,10 +29,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -122,7 +124,9 @@ fun ReportScreen(pid: String, no: Int?) {
     val p = app.store.get(pid) ?: return
     val quote = no?.let { n -> p.quotes.firstOrNull { it.no == n } } ?: if (no != null) return else null
     val sn = quote?.sn ?: snapshotOf(p, app.settings)
-    val key = if (quote != null) "q${quote.no}" else fingerprint(sn) + sn.pdf + sn.lang + sn.extras.joinToString { it.text + it.checks }
+    // a furniture maker in the simple app shares the design: no price, nothing to issue
+    val design = quote == null && p.isFurniture && !app.settings.advanced
+    val key = if (quote != null) "q${quote.no}" else (if (design) "d" else "") + fingerprint(sn) + sn.pdf + sn.lang + sn.extras.joinToString { it.text + it.checks }
     val tm = remember { reportMeasurer(ctx) }
     val loader = remember { viewLoader(ctx) }
     val density = LocalDensity.current
@@ -135,7 +139,7 @@ fun ReportScreen(pid: String, no: Int?) {
             value = withContext(Dispatchers.Default) {
                 val meta = quote?.let { QuoteMeta(it.no, it.ts) }
                 // a furniture order's quote has its own pages (furniture plan section 10)
-                val pages = if (p.isFurniture) uz.metrx.app.report.furniturePages(tm, sn, quote == null, meta, loader) else reportPages(tm, sn, quote == null, meta, loader)
+                val pages = if (p.isFurniture) uz.metrx.app.report.furniturePages(tm, sn, quote == null, meta, loader, prices = !design) else reportPages(tm, sn, quote == null, meta, loader)
                 pages to pages.map { pageBitmap(it, wPx) }
             }
         }
@@ -145,7 +149,7 @@ fun ReportScreen(pid: String, no: Int?) {
         fun share() {
             val pg = built?.first ?: return
             app.say("sh.making", kind = ToastKind.INFO)
-            val fname = pdfName(dn(p.name, lang), if (quote != null) app.t("q.no", "n" to quote.no) else app.t("es.draft"))
+            val fname = pdfName(dn(p.name, lang), if (quote != null) app.t("q.no", "n" to quote.no) else app.t(if (design) "rpt.design" else "es.draft"))
             scope.launch {
                 runCatching { withContext(Dispatchers.Default) { pdfFile(ctx, pg, fname) } }
                     .onSuccess { sharePdf(ctx, it, app.t("sh.title")) }
@@ -156,7 +160,7 @@ fun ReportScreen(pid: String, no: Int?) {
             Row(Modifier.fillMaxWidth().height(64.dp).padding(start = 14.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 GlassIconButton("back", tr("nt.back"), { app.pop() })
                 Column(Modifier.weight(1f)) {
-                    Text(if (quote != null) tr("q.no", "n" to quote.no) else tr("rpt.title"), style = ui(17f, 700, G.ink, 1.2f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(if (quote != null) tr("q.no", "n" to quote.no) else tr(if (design) "rpt.design" else "rpt.title"), style = ui(17f, 700, G.ink, 1.2f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(dn(p.name, lang), style = ui(12.5f, 400, G.ink2, 1.2f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 if (quote == null) {
@@ -177,8 +181,11 @@ fun ReportScreen(pid: String, no: Int?) {
                 // the dark strip: total, pages, language
                 Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(DARK).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
-                        Text(tr("rp2.total"), style = ui(12.5f, 400, Color(0xFFB7C3D9)))
-                        Text(moneyStr(total, sn.precision, lang == Lang.EN) + " " + curSuffix(sn.currency, lang), style = ui(22f, 700, Color.White).copy(fontFamily = PlexCond), maxLines = 1)
+                        if (design) Text(dn(p.name, lang), style = ui(15f, 700, Color.White), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        else {
+                            Text(tr("rp2.total"), style = ui(12.5f, 400, Color(0xFFB7C3D9)))
+                            Text(moneyStr(total, sn.precision, lang == Lang.EN) + " " + curSuffix(sn.currency, lang), style = ui(22f, 700, Color.White).copy(fontFamily = PlexCond), maxLines = 1)
+                        }
                     }
                     Column(horizontalAlignment = Alignment.End) {
                         Text(if (pages.isEmpty()) "…" else tr("rp2.pages", "n" to pages.size), style = ui(12.5f, 400, Color(0xFFB7C3D9)))
@@ -201,7 +208,8 @@ fun ReportScreen(pid: String, no: Int?) {
                 Text(tr("rp2.tapZoom"), style = ui(12.5f, 400, G.ink2), textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 0.dp))
             }
             FloatingFooter {
-                if (quote == null) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (design) GBtn(tr("rpt.share"), { share() }, icon = "share")
+                else if (quote == null) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     GBtn(tr("rp2.shareDraft"), { share() }, Btn.SECONDARY, icon = "share", modifier = Modifier.weight(1f), maxLines = 2)
                     GBtn(tr("rpt.issue"), {
                         val n = if (p.isFurniture) 0 else rowsMissing(p)
@@ -293,7 +301,11 @@ fun ReportSetupSheet(s: Sheet.ReportSetup) {
     val lang = LocalLang.current
     val p = app.store.get(s.pid) ?: run { app.sheet = null; return }
     var notes by rememberSaveable { mutableStateOf(p.reportNotes) }
-    fun done() { if (notes != p.reportNotes) app.store.update(p.id, touch = false) { it.copy(reportNotes = notes) }; app.sheet = null }
+    fun keep(v: String) { val now = app.store.get(s.pid) ?: return; if (v != now.reportNotes) app.store.update(now.id, touch = false) { it.copy(reportNotes = v) } }
+    fun done() { keep(notes); app.sheet = null }
+    // the hardware Back, a tab or the background closes the sheet without done(): the note is kept then too
+    val cur by rememberUpdatedState(notes)
+    DisposableEffect(Unit) { onDispose { keep(cur) } }
     GlassSheet(tr("rp2.setupTitle"), { done() }, footer = { GBtn(tr("rp2.done"), { done() }) }) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Label(tr("rpt.lang"))

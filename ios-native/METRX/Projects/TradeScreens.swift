@@ -9,7 +9,7 @@ import SwiftUI
 /// Puts the calculator's lines into the project's estimate, in place of the ones it made before.
 func applyTrade(_ app: AppModel, _ p: Project) {
     let st = AppSettings.shared
-    let r = tradeRows(p.industry, p.rooms, st.trade, { k, v in tr(k, v) }, st.angleSnap)
+    let r = tradeRows(p.industry, p.rooms, st.trade, { k, v in tr(k, v) }, st.angleSnap, st.lang == .en)
     Store.shared.update(p.id) { pr in
         pr.estimate.materials = pr.estimate.materials.filter { !$0.id.hasPrefix("t-") } + r.mats.map { var x = $0; x.id = "t-" + uid(); return x }
         pr.estimate.labor = pr.estimate.labor.filter { !$0.id.hasPrefix("t-") } + r.labor.map { var x = $0; x.id = "t-" + uid(); return x }
@@ -23,7 +23,7 @@ struct TradeCard: View {
     let p: Project
     var body: some View {
         let st = AppSettings.shared, en = st.lang == .en
-        let r = tradeRows(p.industry, p.rooms, st.trade, { k, v in tr(k, v) }, st.angleSnap)
+        let r = tradeRows(p.industry, p.rooms, st.trade, { k, v in tr(k, v) }, st.angleSnap, en)
         func d(_ v: Double?) -> String {
             guard let v else { return "0" }
             let s = String(format: "%.1f", v)
@@ -71,11 +71,13 @@ struct TradeSheet: View {
     }
 }
 
-/// One number of the calculator's settings: a label, the value as typed, its unit; dec for a decimal mark.
+/// One number of the calculator's settings: a label, the value as typed, its unit; dec for a decimal mark (a rate, up to
+/// 3 decimals; prices are whole), max for a count or size.
 private struct TF {
     let key: String
     let unit: String
     var dec = false
+    var max: Int? = nil
     let get: (TradeSet) -> String
     let set: (inout TradeSet, String) -> Void
 }
@@ -83,11 +85,11 @@ private struct TF {
 private func fieldsOf(_ trade: String) -> [TF] {
     switch trade {
     case "tiler": return [
-        TF(key: "tileW", unit: "mm", get: { "\($0.tileW)" }, set: { t, v in t.tileW = Int(v) ?? t.tileW }),
-        TF(key: "tileH", unit: "mm", get: { "\($0.tileH)" }, set: { t, v in t.tileH = Int(v) ?? t.tileH }),
+        TF(key: "tileW", unit: "mm", max: 10_000, get: { "\($0.tileW)" }, set: { t, v in t.tileW = Int(v) ?? t.tileW }),
+        TF(key: "tileH", unit: "mm", max: 10_000, get: { "\($0.tileH)" }, set: { t, v in t.tileH = Int(v) ?? t.tileH }),
         TF(key: "boxM2", unit: "m²", dec: true, get: { $0.boxM2 }, set: { t, v in t.boxM2 = v }),
-        TF(key: "waste", unit: "%", get: { "\($0.waste)" }, set: { t, v in t.waste = Int(v) ?? t.waste }),
-        TF(key: "wallH", unit: "mm", get: { "\($0.wallH)" }, set: { t, v in t.wallH = Int(v) ?? 0 }),
+        TF(key: "waste", unit: "%", max: 100, get: { "\($0.waste)" }, set: { t, v in t.waste = Int(v) ?? t.waste }),
+        TF(key: "wallH", unit: "mm", max: 20_000, get: { "\($0.wallH)" }, set: { t, v in t.wallH = Int(v) ?? 0 }),
         TF(key: "pTile", unit: "/m²", get: { $0.pTile }, set: { t, v in t.pTile = v }),
         TF(key: "glueKg", unit: "kg/m²", dec: true, get: { $0.glueKg }, set: { t, v in t.glueKg = v }),
         TF(key: "pGlue", unit: "/25 kg", get: { $0.pGlue }, set: { t, v in t.pGlue = v }),
@@ -95,7 +97,7 @@ private func fieldsOf(_ trade: String) -> [TF] {
         TF(key: "pGrout", unit: "/kg", get: { $0.pGrout }, set: { t, v in t.pGrout = v }),
         TF(key: "lTile", unit: "/m²", get: { $0.lTile }, set: { t, v in t.lTile = v })]
     case "elec": return [
-        TF(key: "lights", unit: "", get: { "\($0.lights)" }, set: { t, v in t.lights = Int(v) ?? t.lights }),
+        TF(key: "lights", unit: "", max: 100, get: { "\($0.lights)" }, set: { t, v in t.lights = Int(v) ?? t.lights }),
         TF(key: "pSocket", unit: "", get: { $0.pSocket }, set: { t, v in t.pSocket = v }),
         TF(key: "pSwitch", unit: "", get: { $0.pSwitch }, set: { t, v in t.pSwitch = v }),
         TF(key: "pLight", unit: "", get: { $0.pLight }, set: { t, v in t.pLight = v }),
@@ -125,6 +127,7 @@ private struct TradeCalcSheet: View {
     // the fields keep what is typed; the numbers are read when saving, so the cursor never jumps
     @State private var texts: [String: String]
     @State private var floorOn: Bool
+    @State private var tried = false
     @FocusState private var focus: String?
     init(app: AppModel, pid: String) {
         self.app = app; self.pid = pid
@@ -157,15 +160,28 @@ private struct TradeCalcSheet: View {
     }
 
     private func field(_ f: TF) -> some View {
+        // at most 12 characters, so a number can never be absurd
         let text = Binding(get: { texts[f.key] ?? "" }, set: { v in
-            let c = v.filter { $0.isASCII && ($0.isNumber || $0 == "," || $0 == ".") }
+            let c = String(v.filter { $0.isASCII && ($0.isNumber || $0 == "," || $0 == ".") }.prefix(12))
             if c != texts[f.key] { texts[f.key] = c }
         })
-        return GField(label: tr("trf.\(f.key)"), value: text, placeholder: "0", focus: $focus, me: f.key,
+        return GField(label: tr("trf.\(f.key)"), value: text, placeholder: "0", error: fieldErr(f, texts[f.key] ?? ""), showError: tried, focus: $focus, me: f.key,
                       labelRight: f.unit.isEmpty ? nil : f.unit, number: !f.dec, decimal: f.dec, id: "trf." + f.key)
     }
 
+    /// What a typed setting is wrong with, in words; nil when fine or empty (an empty one keeps the old value).
+    private func fieldErr(_ f: TF, _ v: String) -> String? {
+        switch Money.parse(v, f.dec ? 3 : 0) {
+        case .empty: return nil
+        case .ok(let x): if let m = f.max, x > Decimal(m) { return tr("err.max", ["max": m]) }; return nil
+        case .format: return tr("err.format")
+        case .negative: return tr("err.negative")
+        case .precision(let n): return n > 0 ? tr("err.precision", ["n": n]) : tr("err.whole")
+        }
+    }
+
     private func save(_ p: Project, _ fields: [TF]) {
+        if fields.contains(where: { fieldErr($0, texts[$0.key] ?? "") != nil }) { tried = true; return }
         var t = AppSettings.shared.trade
         t.floor = floorOn
         for f in fields { f.set(&t, (texts[f.key] ?? "").replacingOccurrences(of: ",", with: ".")) }

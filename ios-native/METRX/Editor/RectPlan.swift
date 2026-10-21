@@ -285,9 +285,9 @@ private func overall(_ ctx: GraphicsContext, _ lay: RectLayout, _ w: SideWall, _
 
 /// A room's plan for the report (prototype planSVG with report:true), in the prototype's 360-wide units, on paper:
 /// rectangle and drawn rooms alike, the values in plain white boxes.
-func drawReportPlan(_ ctx: GraphicsContext, _ r: Room, _ unit: LenUnit, _ en: Bool, _ label: String) {
+func drawReportPlan(_ ctx: GraphicsContext, _ r: Room, _ unit: LenUnit, _ en: Bool, _ label: String, snap: Bool = true) {
     Theme.shared.onPaper {
-        if r.isPoly { _ = drawReportPoly(ctx, r, unit, en, label, snap: true) }
+        if r.isPoly { _ = drawReportPoly(ctx, r, unit, en, label, snap: snap) }
         else { drawRectPlan(ctx, RectLayout(r), r, nil, nil, unit, en, label, { _ in false }, report: true) }
     }
 }

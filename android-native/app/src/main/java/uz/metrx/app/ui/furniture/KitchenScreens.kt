@@ -157,6 +157,8 @@ class KitOps {
     private val fwd = HashMap<String, ArrayList<Furniture>>()
     fun canUndo(fid: String) = back[fid]?.isNotEmpty() == true
     fun canRedo(fid: String) = fwd[fid]?.isNotEmpty() == true
+    /** The piece changed outside the designer (placed, taken out, new sizes): its old versions no longer apply. */
+    fun forget(fid: String) { back.remove(fid); fwd.remove(fid) }
 
     /** Changes furniture [fid] of order [pid] and packs its rows again; the version before goes on the undo list. */
     fun change(app: App, pid: String, fid: String, f: (Furniture) -> Furniture): Furniture? {
@@ -223,9 +225,9 @@ internal fun runName(f: Furniture, r: Run, withLen: Boolean = true): String =
     if (r.wall == ISLAND) tr(if (f.layout == "P") "kt.peninsula" else "kt.island")
     else (if (f.roomId == null) tr("fz.sideN", "n" to f.walls.indexOf(r.wall) + 1) else tr("kt.wallN", "w" to r.wall)) + if (withLen && r.len != null) " · ${r.len}" else ""
 
+// the running metres the price counts (runMm): no tall units, no fridge or empty gaps
 private fun runMetres(f: Furniture, en: Boolean): String {
-    val mm = f.modules.filter { !isUpper(it) && it.app != "space" }.sumOf { it.w }
-    val v = (mm + 50) / 100
+    val v = (uz.metrx.app.furniture.runMm(f) + 50) / 100
     return "${v / 10}${if (en) "." else ","}${v % 10}"
 }
 
@@ -719,10 +721,11 @@ internal fun ChecksCard(f: Furniture, found: List<FCheck>, onModule: (String) ->
 
 @Composable
 internal fun CostCard(p: Project, f: Furniture, ws: Workshop, mats: List<Mat>) {
-    if (f.modules.isEmpty()) return
     val app = LocalApp.current
+    if (f.modules.isEmpty() || !app.settings.advanced) return
     val lang = LocalLang.current
-    val cost = costOf(listOf(f), ws, mats, app.settings.hws, order = false)
+    val hws = app.settings.hws
+    val cost = remember(f, ws, mats, hws) { costOf(listOf(f), ws, mats, hws, order = false) }
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(tr("kt.cost"), style = ui(14.5f, 700), modifier = Modifier.weight(1f))
@@ -939,7 +942,7 @@ private fun ModuleSheet(s: Sheet.FModule) {
     var shelves by rememberSaveable { mutableIntStateOf(m.inserts.filter { it.kind == "shelf" }.sumOf { it.qty }) }
     var soft by rememberSaveable { mutableStateOf(m.soft) }
     var handles by rememberSaveable { mutableStateOf(m.handles) }
-    val wMin = if (m.type == "filler") 10 else 150
+    val wMin = if (m.type == "filler" || m.type == "gap") 10 else 150
     val (hMin, hMax) = when (m.type) { "wall" -> 200 to 1200; "tall" -> 1200 to 2500; "filler" -> 100 to 2500; "gap" -> 300 to 2200; else -> 300 to 900 }
     val wi = w.toIntOrNull()?.takeIf { it in wMin..1200 }
     val hi = h.toIntOrNull()?.takeIf { it in hMin..hMax }
@@ -1056,7 +1059,7 @@ fun FurnitureCard(p: Project, f: Furniture, modifier: Modifier) {
             }
             Column(Modifier.fillMaxWidth().padding(start = 10.dp, end = 42.dp, top = 8.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    MIcon(if (ward) "board" else "kitchen", G.ink3, 15.dp, 2f); Text(tr(if (ward) "kt.wardrobe" else "kt.kitchen"), style = ui(12f, 400, G.ink3), maxLines = 1)
+                    MIcon(if (ward) "board" else "kitchen", G.ink3, 15.dp, 2f); Text(if (f.type.isNotEmpty()) tr("ft." + f.type) else tr(if (ward) "kt.wardrobe" else "kt.kitchen"), style = ui(12f, 400, G.ink3), maxLines = 1)
                 }
                 Text(dn(f.name, lang), style = ui(14.5f, 600, G.ink, 1.25f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val wm = wardOf(f)

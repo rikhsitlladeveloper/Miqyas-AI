@@ -226,7 +226,7 @@ fun GField(
     imeAction: ImeAction = ImeAction.Next, onIme: () -> Unit = {}, onBlur: () -> Unit = {},
     focusRequester: FocusRequester = remember { FocusRequester() }, minLines: Int = 1, labelRight: String? = null,
     capitalization: KeyboardCapitalization = KeyboardCapitalization.Sentences, done: Boolean = false,
-    modifier: Modifier = Modifier, number: Boolean = false, money: Boolean = false
+    modifier: Modifier = Modifier, number: Boolean = false, money: Boolean = false, decimal: Boolean = false
 ) {
     var focused by remember { mutableStateOf(false) }
     val bad = showError && error != null
@@ -263,7 +263,7 @@ fun GField(
                     singleLine = minLines == 1, minLines = minLines, textStyle = style, cursorBrush = SolidColor(G.cobalt),
                     visualTransformation = if (phone) PhoneGroups else if (money) DigitGroups else VisualTransformation.None,
                     keyboardOptions = KeyboardOptions(
-                        keyboardType = if (phone) KeyboardType.Phone else if (number) KeyboardType.Number else KeyboardType.Text,
+                        keyboardType = if (phone) KeyboardType.Phone else if (decimal) KeyboardType.Decimal else if (number) KeyboardType.Number else KeyboardType.Text,
                         capitalization = if (phone) KeyboardCapitalization.None else capitalization,
                         imeAction = if (minLines > 1) ImeAction.Default else imeAction
                     ),

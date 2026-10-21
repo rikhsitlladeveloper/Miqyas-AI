@@ -62,16 +62,17 @@ enum Geo {
         let i = parts[0], f = parts.count > 1 ? parts[1] : ""
         if f.count > maxDec { return .err("err.precision", ["n": "\(maxDec)"]) }
         let digits = (i.isEmpty ? "0" : i) + f.padding(toLength: maxDec, withPad: "0", startingAt: 0)
-        return .ok(Int64(digits) ?? Int64.max)
+        // at most Int32.max, so a huge number stays huge and sums of lengths never overflow
+        return .ok(min(Int64(digits) ?? Int64.max, Int64(Int32.max)))
     }
 
     static func unitDecimals(_ unit: LenUnit) -> Int { unit == .cm ? 1 : 3 }
 
-    /// A typed length in mm, or the error (key + values) to show. max in mm.
-    static func lenErr(_ str: String?, _ max: Int, _ unit: LenUnit, _ en: Bool) -> Parsed {
+    /// A typed length in mm, or the error (key + values) to show. max in mm; zeroOk for an offset or a sill.
+    static func lenErr(_ str: String?, _ max: Int, _ unit: LenUnit, _ en: Bool, zeroOk: Bool = false) -> Parsed {
         let r = parseDec(str, unitDecimals(unit))
         guard let mm = r.value else { return r }
-        if mm == 0 { return .err("err.zero", [:]) }
+        if mm == 0 && !zeroOk { return .err("err.zero", [:]) }
         if mm > Int64(max) {
             var m = fmtLen(max, unit, en)
             if let rg = m.range(of: "[.,]0+$", options: .regularExpression) { m.removeSubrange(rg) }
@@ -141,12 +142,15 @@ enum Geo {
         return Areas(floor: floorF, perim: perimF, gross: gross, open: open, net: gross - open)
     }
 
-    /// What is wrong with a column or niche f in room r: off the wall's end, or too deep. Nil when it fits.
+    /// What is wrong with a column or niche f in room r: off the wall's end, too deep or sticking out too far. Nil when it fits.
     static func featureIssue(_ r: Room, _ f: Feature, _ snap: Bool = true) -> String? {
-        guard let L = walls(r, snap).first(where: { $0.id == f.wall })?.len else { return "ft.needWall" }
+        let ws = walls(r, snap)
+        guard let L = ws.first(where: { $0.id == f.wall })?.len else { return "ft.needWall" }
         if f.w <= 0 || f.d <= 0 { return "ft.size" }
         if f.off + f.w > L { return "ft.exceeds" }
         if f.type == "niche" && f.d > 1000 { return "ft.deep" }
+        // a column sticks out into the room: at most 2 m, and less than the room's shorter side
+        if f.type == "column" && (f.d > 2000 || ws.compactMap(\.len).min().map { f.d >= $0 } == true) { return "ft.colDeep" }
         if f.type == "niche", let H = r.dim("H").v, f.sill + (f.h > 0 ? f.h : 0) > H { return "ft.tall" }
         return nil
     }

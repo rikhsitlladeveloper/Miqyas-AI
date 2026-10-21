@@ -639,7 +639,8 @@ final class Part7Tests: ScreenTestCase {
 /// prepayment, a payment, the Orders list, Profile → Soha and the sheets tool.
 final class Furniture1Tests: ScreenTestCase {
     func testOrders() {
-        let app = launch()
+        // prices, stages and the workshop: the advanced furniture app
+        let app = launch(extra: ["-advanced", "YES"])
         XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 20)); sleep(4)
         app.buttons["welcome.skip"].tap(); usleep(700_000)
         app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Jasur Usta")
@@ -717,7 +718,8 @@ final class Furniture2Tests: ScreenTestCase {
 /// hardware (a new handle).
 final class Furniture3Tests: ScreenTestCase {
     func testWorkshop() {
-        let app = launch()
+        // prices, stages and the workshop: the advanced furniture app
+        let app = launch(extra: ["-advanced", "YES"])
         firstRun(app, "ind.furn")
         app.buttons["tab.profile"].tap(); usleep(900_000); shot("f3-01-profile")
         app.buttons["pf.workshop"].tap(); usleep(900_000); shot("f3-02-workshop")
@@ -752,7 +754,8 @@ final class Furniture3Tests: ScreenTestCase {
 /// dishwasher from the library, the checks, the boards, undo.
 final class Furniture4Tests: ScreenTestCase {
     func testKitchen() {
-        let app = launch()
+        // prices, stages and the workshop: the advanced furniture app
+        let app = launch(extra: ["-advanced", "YES"])
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Akmal Yusupov", "kitchen")
         measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
@@ -808,7 +811,8 @@ final class Furniture4Tests: ScreenTestCase {
 /// wardrobe on wall D, five sections with one 500 wide, doors, the inside of a section, the boards.
 final class Furniture5Tests: ScreenTestCase {
     func testWardrobe() {
-        let app = launch()
+        // prices, stages and the workshop: the advanced furniture app
+        let app = launch(extra: ["-advanced", "YES"])
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Nodira Aliyeva", "wardrobe")
         measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
@@ -901,7 +905,8 @@ final class Furniture6Tests: ScreenTestCase {
 /// the workshop pack and the customer's quote, issued.
 final class Furniture7Tests: ScreenTestCase {
     func testPriceAndDocuments() {
-        let app = launch()
+        // prices, stages and the workshop: the advanced furniture app
+        let app = launch(extra: ["-advanced", "YES"])
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Kamola Tursunova", "kitchen")
         measuredRoom(app, "3,4", "2,6", "2,7", openings: false)

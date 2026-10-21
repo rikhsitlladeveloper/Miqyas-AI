@@ -193,13 +193,15 @@ private extension Doc {
 
 /* ---------------- the customer's quote ---------------- */
 
-func furniturePages(_ sn: Snap, draft: Bool, meta: QuoteMeta?, image: @escaping (String) -> UIImage?, now: Ms = nowMs()) -> [RPage] {
-    let d = Doc(sn, draft, meta, image, now)
-    d.draftTitle = "fd.draft"; d.quoteTitle = "fd.quote"; d.makerKey = "fd.maker"
+func furniturePages(_ sn: Snap, draft: Bool, meta: QuoteMeta?, image: @escaping (String) -> UIImage?, now: Ms = nowMs(), prices: Bool = true) -> [RPage] {
+    // without prices (the simple app) it is the design: dated, no draft mark, no price block
+    let d = Doc(sn, draft && prices, meta, image, now)
+    d.draftTitle = "fd.draft"; d.quoteTitle = prices ? "fd.quote" : "rpt.design"; d.makerKey = "fd.maker"
+    if !prices { d.subLine = fmtDate(now) }
     d.newPage(); d.parties()
     if sn.pdf.views { d.views() }
     d.materials(sn)
-    d.priceBlock(sn)
+    if prices { d.priceBlock(sn) }
     // the front drawings, one per wall or wardrobe
     let ws = sn.fws ?? Workshop()
     let figs = sn.furniture.flatMap { f in frontFigures(f, sn.rooms.first { $0.room.id == f.roomId }?.room, ws, sn.fmats).map { (f, $0) } }

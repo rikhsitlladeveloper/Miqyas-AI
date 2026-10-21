@@ -36,8 +36,10 @@ private func groupOf(_ p: Project, _ rid: String?) -> String? {
     let w = p.floors.first { $0.id == r.floorId }
     if w?.type == "kitchen" { return "kitchen" }
     let n = w?.name ?? r.name
-    if n.hasPrefix(tr("fr.living")) { return "living" }
-    if n.hasPrefix(tr("fr.hall")) { return "hall" }
+    // the room may have been named while the app spoke another language
+    let named = { (key: String) in Lang.allCases.contains { n.hasPrefix(Strings.t(key, $0)) } }
+    if named("fr.living") { return "living" }
+    if named("fr.hall") { return "hall" }
     return "bedroom"
 }
 
@@ -58,6 +60,7 @@ struct FGalleryScreen: View {
     let fromNew: Bool
     @State private var cur: String? = nil
     @State private var jumping = false
+    @State private var viewH: CGFloat = 0   // the list's visible height: its end in sight picks the last group
 
     var body: some View {
         if let p = Store.shared.get(pid) {
@@ -132,14 +135,18 @@ struct FGalleryScreen: View {
                                     .pressable(0.97) { app.pop() }
                                     .accessibilityAddTraits(.isButton).accessibilityIdentifier("fg.later")
                             }
+                            Color.clear.frame(height: 1)
+                                .background(GeometryReader { geo in Color.clear.preference(key: GroupTops.self, value: ["_end": geo.frame(in: .named("gal")).maxY]) })
                         }
                         .padding(.horizontal, 16).padding(.top, 6).padding(.bottom, 28)
                     }
                     .coordinateSpace(name: "gal")
+                    .background(GeometryReader { geo in Color.clear.onAppear { viewH = geo.size.height }.onChange(of: geo.size.height) { _, h in viewH = h } })
                     // the chip of the group at the top of the list
                     .onPreferenceChange(GroupTops.self) { tops in
                         guard !jumping else { return }
-                        let top = groups.last { (tops[$0.0] ?? .infinity) <= 60 }?.0 ?? groups[0].0
+                        let atEnd = viewH > 0 && (tops["_end"] ?? .infinity) <= viewH + 4
+                        let top = atEnd ? groups[groups.count - 1].0 : groups.last { (tops[$0.0] ?? .infinity) <= 60 }?.0 ?? groups[0].0
                         if top != cur { cur = top }
                     }
                 }
@@ -196,19 +203,21 @@ struct FStepsScreen: View {
     let model: String
     let fid: String?
     @State private var texts: [String]
-    /// 0 … n-1 a size, n the summary; back: the step was opened from the summary.
-    @State private var at = 0
+    /// 0 … n-1 a size, n the summary; back: the step was opened from the summary, was: its text then.
+    @State private var at: Int
     @State private var back = false
+    @State private var was = ""
     @State private var laser: String? = nil   // "busy", or the reading's words
     @FocusState private var typing: Bool
 
-    init(app: AppModel, pid: String, model: String, fid: String?) {
+    init(app: AppModel, pid: String, model: String, fid: String?, vals: String? = nil) {
         self.app = app; self.pid = pid; self.model = model; self.fid = fid
         let s = AppSettings.shared
-        let m = fModel(model)
+        let st = fModel(model).map { stepsOf($0) } ?? []
         let edit = fid.flatMap { id in Store.shared.get(pid)?.furniture.first { $0.id == id } }
-        let have = edit.map { valsOf($0, s.workshop) } ?? [:]
-        _texts = State(initialValue: (m.map { stepsOf($0) } ?? []).map { st in have[st.key].map { Geo.fmtField($0, s.unit, s.lang == .en) } ?? "" })
+        let have = vals.map { decodeVals($0) } ?? edit.map { valsOf($0, s.workshop) } ?? [:]
+        _texts = State(initialValue: st.map { have[$0.key].map { Geo.fmtField($0, s.unit, s.lang == .en) } ?? "" })
+        _at = State(initialValue: vals != nil ? st.count : 0)
     }
 
     var body: some View {
@@ -216,7 +225,8 @@ struct FStepsScreen: View {
             let s = AppSettings.shared, ws = s.workshop, unit = s.unit
             let steps = stepsOf(m), n = steps.count
             let edit = fid.flatMap { id in p.furniture.first { $0.id == id } }
-            let vals = Dictionary(uniqueKeysWithValues: steps.indices.compactMap { i in parseLen(texts[i], unit).map { (steps[i].key, $0) } })
+            // only sizes within their range reach the piece: a typed 99999 would otherwise build a 100 m kitchen on every key
+            let vals = Dictionary(uniqueKeysWithValues: steps.indices.compactMap { i in parseLen(texts[i], unit).flatMap { stepIssue(steps[i], $0) == nil ? (steps[i].key, $0) : nil } })
             let piece = edit.map { resized($0, vals, ws) } ?? pieceOf(m, vals, ws, "")
             let scene = pieceScene(piece, ws, s.mats)
             let uw = unitWord(unit)
@@ -258,18 +268,30 @@ struct FStepsScreen: View {
                     if at < n {
                         GBtn(tr("common.next"), enabled: ok(steps, at, unit)) { next(steps, unit) }.accessibilityIdentifier("fx.next")
                     } else if let edit {
-                        GBtn(tr("common.save")) {
+                        GBtn(tr("common.save"), enabled: steps.indices.allSatisfy { ok(steps, $0, unit) }) {
+                            guard app.once() else { return }
                             let g = resized(edit, vals, ws)
                             Store.shared.update(pid) { pr in pr.furniture = pr.furniture.map { $0.id == g.id ? g : $0 } }
-                            KitOps.shared.tick += 1; app.pop(); app.say("fz.saved")
+                            KitOps.shared.forget(g.id); KitOps.shared.tick += 1; app.pop(); app.say("fz.saved")
                         }
                         .accessibilityIdentifier("fx.save")
                     } else {
-                        GBtn(tr("fr.continue")) { app.push(.fWhere(pid: pid, model: m.id, vals: encodeVals(vals))) }.accessibilityIdentifier("fx.go")
+                        GBtn(tr("fr.continue"), enabled: steps.indices.allSatisfy { ok(steps, $0, unit) }) {
+                            // the sizes stay with this page, so coming back from "Which room?" finds them
+                            app.setTop(.fSteps(pid: pid, model: m.id, fid: nil, vals: encodeVals(vals)))
+                            app.push(.fWhere(pid: pid, model: m.id, vals: encodeVals(vals)))
+                        }
+                        .accessibilityIdentifier("fx.go")
                     }
                 }
             }
-            .onChange(of: at, initial: true) { _, v in typing = v < n }
+            .onChange(of: at) { _, v in typing = v < n }
+            .onAppear {
+                app.backOverride = { prev(n) }
+                // the keyboard waits until the page has slid in, or iOS drops the focus
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { if at < n { typing = true } }
+            }
+            .onDisappear { app.backOverride = nil }
         }
     }
 
@@ -285,7 +307,11 @@ struct FStepsScreen: View {
     }
     private func prev(_ n: Int) {
         laser = nil
-        if at < n && back { back = false; at = n } else if at > 0 { at -= 1 } else { app.pop() }
+        // back to the summary: a size left empty or wrong gets its old value again
+        if at < n && back {
+            if let m = fModel(model), !ok(stepsOf(m), at, AppSettings.shared.unit) { texts[at] = was }
+            back = false; at = n
+        } else if at > 0 { at -= 1 } else { app.pop() }
     }
 
     @ViewBuilder private func ask(_ s: SizeStep, _ unit: LenUnit, _ uw: String) -> some View {
@@ -349,7 +375,7 @@ struct FStepsScreen: View {
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8).frame(minHeight: 54)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.glass(0.7)))
-                .pressable(0.98) { back = true; at = i }
+                .pressable(0.98) { was = texts[i]; back = true; at = i }
                 .accessibilityElement(children: .combine).accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("fx.row.\(i)")
             }
@@ -386,6 +412,7 @@ struct FWhereScreen: View {
                 .padding(.horizontal, 12).padding(.vertical, 10).frame(minHeight: 66)
                 .dashedGlass(16)
                 .pressable(0.98) {
+                    guard app.once() else { return }
                     let f = pieceOf(m, v, ws, pieceName(p, m), now: nowMs()); addPiece(pid, f)
                     app.popTo { if case .project(let id, _, _, _) = $0 { return id == pid }; return false }
                     app.sheet = .fNewRoom(pid: pid, kind: f.kind, fid: f.id)
@@ -400,6 +427,7 @@ struct FWhereScreen: View {
                 .padding(.horizontal, 12).padding(.vertical, 10).frame(minHeight: 66)
                 .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.glass(0.75)))
                 .pressable(0.98) {
+                    guard app.once() else { return }
                     let f = pieceOf(m, v, ws, pieceName(p, m), now: nowMs()), moved = p.stage == "measure"
                     addPiece(pid, f)
                     KitOps.shared.sel = nil

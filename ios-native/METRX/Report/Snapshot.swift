@@ -40,30 +40,40 @@ private func baseSnapshot(_ p: Project, _ s: AppSettings, pdf: PdfParts?) -> Sna
     }
     return Snap(name: p.name, customer: p.customer, phone: p.phone, address: p.address, location: p.location,
                 currency: p.currency, precision: p.precision, unit: s.unit == .cm ? "cm" : "m", lang: l.code, notes: p.reportNotes,
-                builderName: s.builderName, builderPhone: s.builderPhone, pdf: pdf ?? s.pdf, rooms: rooms, estimate: p.estimate, extras: extras)
+                builderName: s.builderName, builderPhone: s.builderPhone, pdf: pdf ?? s.pdf, rooms: rooms, estimate: p.estimate, extras: extras,
+                snap: s.angleSnap)
 }
 
 /// What decides whether the draft still matches an issued quote (prototype fingerprint): the parties, currency,
-/// language, unit, notes, every room's name, measurements, openings, shape and chosen views, the estimate and the extras.
+/// language, unit, notes, every room's name, measurements, openings, columns and niches, site points, shape and chosen
+/// views, the estimate and the extras. The parts added later (columns and niches, site points, the customer's phone, the
+/// angle snap) are only there when set, so a quote issued before them still matches its unchanged draft.
 func fingerprint(_ sn: Snap) -> String {
-    struct FRoom: Encodable { let name: String; let dims: [[String?]]; let openings: [Opening]; let poly: Poly?; let rot: Int; let views: [String] }
+    struct FRoom: Encodable {
+        let name: String; let dims: [[String?]]; let openings: [Opening]; let poly: Poly?; let rot: Int; let views: [String]
+        var features: [Feature]? = nil, points: [SitePoint]? = nil
+    }
     struct FExtra: Encodable { let id: String; let edited: Ms; let name: String }
     struct F: Encodable {
         let name, customer, address, currency: String; let precision: Int; let lang, unit, notes: String
         let builder: [String]; let rooms: [FRoom]; let estimate: Estimate; let extras: [FExtra]
         /// furniture orders only (a builder's fingerprint stays as it was)
         var furniture: [Furniture]? = nil, ftotal: String? = nil, fdays: Int? = nil, finst: Int? = nil, fmats: [Mat]? = nil
+        var phone: String? = nil, snap: Bool? = nil
     }
     let f = F(name: sn.name, customer: sn.customer, address: sn.address, currency: sn.currency, precision: sn.precision, lang: sn.lang,
               unit: sn.unit, notes: sn.notes, builder: [sn.builderName, sn.builderPhone],
               rooms: sn.rooms.map { sr in
                   let r = sr.room
                   return FRoom(name: r.name, dims: r.dims.keys.sorted().map { [$0, r.dims[$0]?.v.map(String.init)] }, openings: r.openings,
-                               poly: r.poly, rot: r.rot, views: r.views.map(\.id))
+                               poly: r.poly, rot: r.rot, views: r.views.map(\.id),
+                               features: r.features.isEmpty ? nil : r.features, points: r.points.isEmpty ? nil : r.points)
               },
               estimate: sn.estimate, extras: sn.extras.map { FExtra(id: $0.id, edited: $0.edited, name: $0.name) })
     var g = f
     if !sn.furniture.isEmpty { g.furniture = sn.furniture; g.ftotal = sn.ftotal; g.fdays = sn.fdays; g.finst = sn.finst; g.fmats = sn.fmats }
+    if !sn.phone.isEmpty { g.phone = sn.phone }
+    if !sn.snap { g.snap = false }
     let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
     return (try? enc.encode(g)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
 }

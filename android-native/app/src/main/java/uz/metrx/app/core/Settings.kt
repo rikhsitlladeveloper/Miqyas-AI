@@ -36,6 +36,12 @@ class Settings(context: Context) {
         private set
     val furniture get() = industry == "furniture"
     fun setIndustryKind(v: String) { industry = v; p.edit().putString("industry", v).apply() }
+    /** A furniture maker's prices, order stages, workshop rules and cutting lists (Profile → Advanced); off, the app is just the 3D design. */
+    var advanced by mutableStateOf(p.getBoolean("advanced", false)); private set
+    fun setAdvancedOn(v: Boolean) { advanced = v; p.edit().putBoolean("advanced", v).apply() }
+
+    // declared before the first property that decodes with it (trade, workshop), or it is still null there
+    private val js = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
     /** The trades' calculator: options and prices (trades/Trades.kt), one set for all. */
     var trade by mutableStateOf(runCatching { js.decodeFromString(uz.metrx.app.trades.TradeSet.serializer(), p.getString("tradeSet", null) ?: "{}") }.getOrDefault(uz.metrx.app.trades.TradeSet()))
@@ -43,7 +49,6 @@ class Settings(context: Context) {
     fun setTradeSet(v: uz.metrx.app.trades.TradeSet) { trade = v; p.edit().putString("tradeSet", js.encodeToString(uz.metrx.app.trades.TradeSet.serializer(), v)).apply() }
 
     /** Furniture makers: how the workshop builds and prices, and its boards and hardware (furniture plan sections 6.2, 6.6). */
-    private val js = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }
     var workshop by mutableStateOf(runCatching { js.decodeFromString(uz.metrx.app.furniture.Workshop.serializer(), p.getString("workshop", null) ?: "{}") }.getOrDefault(uz.metrx.app.furniture.Workshop()))
         private set
     fun setWorkshopRules(v: uz.metrx.app.furniture.Workshop) { workshop = v; p.edit().putString("workshop", js.encodeToString(uz.metrx.app.furniture.Workshop.serializer(), v)).apply() }

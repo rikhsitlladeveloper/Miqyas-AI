@@ -164,7 +164,9 @@ fun FurnitureHome(nav: MainNav) {
     val first = s.builderName.trim().split(Regex("\\s+")).firstOrNull().orEmpty()
     val lines = tr("fo.lines").split('|')
     // the soonest install first (late ones on top), then the undated ones, newest first; paid orders last
-    val orders = app.store.projects.filter { it.isFurniture }.let { all -> uz.metrx.app.data.sortOrders(all.filter { it.stage != "paid" }) + all.filter { it.stage == "paid" } }
+    val orders = app.store.projects.filter { it.isFurniture }.let { all ->
+        if (!s.advanced) all.sortedByDescending { it.created }   // no stages or install dates: the newest first
+        else uz.metrx.app.data.sortOrders(all.filter { it.stage != "paid" }) + all.filter { it.stage == "paid" } }
     val (debt, nDebt) = owed(orders)
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         GlassHeader(nav::laser)
@@ -187,9 +189,10 @@ fun FurnitureHome(nav: MainNav) {
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Tile(RULER, tr("gl.meas"), tr("gl.measS"), nav::measure, Modifier.weight(1f))
-                Tile(SHEET_ICON, tr("fo.sheets"), tr("fo.sheetsS"), { app.calc.tool = "sheet"; nav.calculator() }, Modifier.weight(1f))
+                // the sheet calculator and what customers owe: the advanced app only
+                if (s.advanced) Tile(SHEET_ICON, tr("fo.sheets"), tr("fo.sheetsS"), { app.calc.tool = "sheet"; nav.calculator() }, Modifier.weight(1f))
             }
-            if (nDebt > 0) Row(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(24.dp)).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (s.advanced && nDebt > 0) Row(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(24.dp)).padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
                     Text(tr("fo.owed"), style = ui(12.5f, 600, G.ink2))
                     Text(moneyStr(debt, 0, lang == Lang.EN) + " " + curSuffix(s.currency, lang), style = num(21f, 800))
@@ -223,7 +226,8 @@ private fun OrderLine(p: Project, onClick: () -> Unit) {
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(dn(p.name, lang), style = ui(15f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { FStageChip(p.stage); InstallChip(p) }
+            if (LocalApp.current.settings.advanced) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) { FStageChip(p.stage); InstallChip(p) }
+            else Pieces(p)
         }
         CallButton(p)
     }
@@ -232,12 +236,20 @@ private fun OrderLine(p: Project, onClick: () -> Unit) {
 /** A furniture order's stage as a coloured chip. */
 @Composable
 fun FStageChip(stage: String) {
+    if (!LocalApp.current.settings.advanced) return   // no stages in the simple app
     val (bg, fg) = when (stage) {
         "measure", "production" -> G.amberWash to G.amberInk
         "installed", "paid" -> Color(0x2416A34A) to (if (Theme.dark) G.green else Color(0xFF15803D))
         else -> G.cobalt.copy(alpha = .12f) to G.cobalt2
     }
     Text(tr("fs.$stage"), style = ui(12f, 600, fg), maxLines = 1, modifier = Modifier.clip(CircleShape).background(bg).padding(horizontal = 10.dp, vertical = 4.dp))
+}
+
+/** The simple app's line under an order: the furniture in it by name. */
+@Composable
+private fun Pieces(p: Project) {
+    val lang = LocalLang.current
+    Text(if (p.furniture.isEmpty()) tr("fo.pieces0") else p.furniture.joinToString(", ") { dn(it.name, lang) }, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
 }
 
 /** One order in the Orders list: name, who, the 7 stages as a bar, the stage and install date, what is left; the call button. */
@@ -255,6 +267,7 @@ fun OrderRow(p: Project, onClick: () -> Unit) {
                 val sub = orderSub(p, lang, " · ")
                 if (sub.isNotEmpty()) Text(sub, style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
+            if (!LocalApp.current.settings.advanced) { Pieces(p); return@Column }
             Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 F_STAGES.indices.forEach { i -> Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(if (i <= k) G.cobalt else G.ink.copy(alpha = .12f))) }
             }
@@ -272,6 +285,7 @@ fun OrderRow(p: Project, onClick: () -> Unit) {
 /** The order page's three numbers: stage, agreed price, paid. */
 @Composable
 fun FNums(p: Project) {
+    if (!LocalApp.current.settings.advanced) return
     val lang = LocalLang.current
     val m = orderMoney(p)
     Column(Modifier.padding(top = 11.dp)) {
@@ -316,6 +330,7 @@ private fun Cell(label: String, value: String, unit: String?, modifier: Modifier
 @Composable
 fun FurnitureInfo(p: Project) {
     val app = LocalApp.current
+    if (!app.settings.advanced) return   // stages and payments: the advanced app only
     val m = orderMoney(p)
     val k = fStage(p)
     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -335,6 +350,7 @@ fun FurnitureInfo(p: Project) {
             when {
                 k == 2 -> GBtn(tr("fo.next", "s" to tr("fs.approved")), { app.sheet = Sheet.FApprove(p.id) }, modifier = Modifier.padding(top = 8.dp))
                 k < 5 -> GBtn(tr("fo.next", "s" to tr("fs." + F_STAGES[k + 1])), {
+                    if (!app.once()) return@GBtn
                     val q = app.store.update(p.id) { nextStage(it) }
                     if (q?.stage == "paid") app.say("fs.paid")
                 }, modifier = Modifier.padding(top = 8.dp))
@@ -342,7 +358,7 @@ fun FurnitureInfo(p: Project) {
             }
             if (k > 0) Text(tr("fo.prev"), style = ui(13.5f, 600, G.cobalt2),
                 modifier = Modifier.align(Alignment.CenterHorizontally).heightIn(min = 44.dp).clip(RoundedCornerShape(10.dp))
-                    .clickable(role = Role.Button) { app.store.update(p.id) { prevStage(it) } }.padding(horizontal = 10.dp, vertical = 12.dp))
+                    .clickable(role = Role.Button) { if (app.once()) app.store.update(p.id) { prevStage(it) } }.padding(horizontal = 10.dp, vertical = 12.dp))
         }
 
         Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {

@@ -104,7 +104,7 @@ struct RootView: View {
             if app.stack.count > 1 && app.sheet == nil {
                 Color.clear.frame(width: 20).frame(maxHeight: .infinity).contentShape(Rectangle())
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    .gesture(DragGesture(minimumDistance: 10).onEnded { v in if v.translation.width > 70 { app.pop() } })
+                    .gesture(DragGesture(minimumDistance: 10).onEnded { v in if v.translation.width > 70 { if let b = app.backOverride { b() } else { app.pop() } } })
             }
             // the tab bar shows on the tab pages and the project page; it steps away under a sheet
             if app.sheet == nil && (app.top == .root || { switch app.top { case .project, .measure: return true; default: return false } }()) {
@@ -144,7 +144,7 @@ struct RootView: View {
         case .fCut(let pid): CutScreen(app: app, pid: pid)
         case .fPack(let pid): PackScreen(app: app, pid: pid)
         case .fGallery(let pid, let rid, let fromNew): FGalleryScreen(app: app, pid: pid, rid: rid, fromNew: fromNew)
-        case .fSteps(let pid, let model, let fid): FStepsScreen(app: app, pid: pid, model: model, fid: fid)
+        case .fSteps(let pid, let model, let fid, let vals): FStepsScreen(app: app, pid: pid, model: model, fid: fid, vals: vals)
         case .fWhere(let pid, let model, let vals): FWhereScreen(app: app, pid: pid, model: model, vals: vals)
         case .fPlace(let pid, let fid, let rid, let model, let vals): FPlaceScreen(app: app, pid: pid, fid: fid, rid: rid, model: model, vals: vals)
         }

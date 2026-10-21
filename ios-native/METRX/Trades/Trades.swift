@@ -40,14 +40,16 @@ struct TradeSet: Codable, Equatable {
 struct TradeResult { let mats: [Row]; let labor: [Row]; let facts: [String: Double] }
 
 private func num(_ s: String) -> Double { Double(s.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ",", with: ".")) ?? 0 }
+/// A double as a whole number, never trapping: absurd settings (saved before the calculator checked them) stay finite.
+private func i64(_ v: Double) -> Int64 { v.isFinite ? Int64(min(max(v, -9e15), 9e15)) : 0 }
 private func qty(_ v: Double) -> String {
-    if v == v.rounded(.down) { return String(Int64(v)) }
+    if v == v.rounded(.down) { return String(i64(v)) }
     var s = String(format: "%.2f", v)
     while s.hasSuffix("0") { s.removeLast() }
     if s.hasSuffix(".") { s.removeLast() }
     return s
 }
-private func money(_ v: Double) -> String { String(Int64(v.rounded())) }
+private func money(_ v: Double) -> String { String(i64(v.rounded())) }
 private func up(_ v: Double) -> Double { (v - 1e-9).rounded(.up) }
 
 /// A room's tiled area in m²: its floor, and its walls up to wallH less the doors and windows below that line.
@@ -63,12 +65,17 @@ func tileArea(_ r: Room, _ t: TradeSet, _ snap: Bool = true) -> Double {
     return mm2 / 1e6
 }
 
-/// The trade's lines for the measured rooms; name gives a line's words (strings key, values).
-func tradeRows(_ trade: String, _ rooms: [Room], _ t: TradeSet, _ name: (String, [String: String]) -> String, _ snap: Bool = true) -> TradeResult {
+/// The trade's lines for the measured rooms; name gives a line's words (strings key, values), and a number in them
+/// has the decimal mark of the language (en: a point, else a comma).
+func tradeRows(_ trade: String, _ rooms: [Room], _ t: TradeSet, _ name: (String, [String: String]) -> String, _ snap: Bool = true, _ en: Bool = true) -> TradeResult {
     var mats: [Row] = [], labor: [Row] = [], facts: [String: Double] = [:]
+    // prices are whole currency units: one saved with decimals before the calculator checked them is rounded
     func mat(_ key: String, _ unit: String, _ q: Double, _ price: String, _ vars: [String: String] = [:]) {
-        if q > 0 { mats.append(Row(id: "t-\(key)", name: name("tr.\(key)", vars), unit: name("tu.\(unit)", [:]), qty: qty(q), price: price.replacingOccurrences(of: " ", with: ""))) }
+        let pr = price.replacingOccurrences(of: " ", with: "")
+        if q > 0 { mats.append(Row(id: "t-\(key)", name: name("tr.\(key)", vars), unit: name("tu.\(unit)", [:]), qty: qty(q), price: pr.isEmpty ? pr : money(num(pr)))) }
     }
+    // counts saved before the calculator checked them can be absurd: kept in range so the sums never overflow
+    let lightsEach = min(max(t.lights, 0), 100), waste = min(max(t.waste, 0), 100)
     func lab(_ key: String, _ amount: Double, _ vars: [String: String] = [:]) {
         if amount > 0 { labor.append(Row(id: "t-\(key)", name: name("tr.\(key)", vars), amount: money(amount))) }
     }
@@ -79,19 +86,19 @@ func tradeRows(_ trade: String, _ rooms: [Room], _ t: TradeSet, _ name: (String,
         let area = measured.reduce(0.0) { $0 + tileArea($1, t, snap) }
         facts["area"] = area
         let box = num(t.boxM2) > 0 ? num(t.boxM2) : 1
-        let boxes = up(area * (1 + Double(t.waste) / 100) / box)
+        let boxes = up(area * (1 + Double(waste) / 100) / box)
         facts["boxes"] = boxes
-        mat("tile", "m2", boxes * box, t.pTile, ["w": "\(t.tileW)", "h": "\(t.tileH)", "n": "\(Int64(boxes))"])
+        mat("tile", "m2", boxes * box, t.pTile, ["w": "\(t.tileW)", "h": "\(t.tileH)", "n": "\(i64(boxes))"])
         mat("glue", "bag", up(area * num(t.glueKg) / 25), t.pGlue)
         mat("grout", "kg", up(area * num(t.groutKg)), t.pGrout)
-        lab("tileLab", area * num(t.lTile), ["a": qty((area * 10).rounded() / 10)])
+        lab("tileLab", area * num(t.lTile), ["a": Money.num(qty((area * 10).rounded() / 10), en)])
     case "elec":
         let sockets = measured.reduce(0) { $0 + $1.points.filter { $0.t == "socket" }.count }
         let switches = measured.reduce(0) { $0 + $1.points.filter { $0.t == "switch" }.count }
-        let lights = measured.count * t.lights
+        let lights = measured.count * lightsEach
         let points = sockets + switches + lights
         // cable: round each room's walls once, and 2,5 m down to each point and up to each light
-        let cable = measured.reduce(0.0) { a, r in a + perimM(r) + 2.5 * Double(r.points.filter { $0.t == "socket" || $0.t == "switch" }.count + t.lights) }
+        let cable = measured.reduce(0.0) { a, r in a + perimM(r) + 2.5 * Double(r.points.filter { $0.t == "socket" || $0.t == "switch" }.count + lightsEach) }
         facts["points"] = Double(points); facts["cable"] = cable
         mat("socket", "pcs", Double(sockets), t.pSocket); mat("switch", "pcs", Double(switches), t.pSwitch); mat("light", "pcs", Double(lights), t.pLight)
         mat("cable", "m", up(cable * 1.1), t.pCable); mat("conduit", "m", up(cable), t.pConduit)

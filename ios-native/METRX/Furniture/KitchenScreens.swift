@@ -333,7 +333,7 @@ struct CostCard: View {
     let p: Project
     let f: Furniture
     var body: some View {
-        if !f.modules.isEmpty {
+        if !f.modules.isEmpty && AppSettings.shared.advanced {
             let s = AppSettings.shared
             let cost = costOf([f], s.workshop, s.mats, s.hws, order: false)
             VStack(alignment: .leading, spacing: 4) {
@@ -705,7 +705,7 @@ private struct ModuleSheet: View {
             let boxed = m.type == "base" || m.type == "wall" || m.type == "tall"
             // an appliance's panels (a built-in fridge) stay as they are
             let frontsEditable = boxed && m.fronts.kind != "panel"
-            let wMin = m.type == "filler" ? 10 : 150
+            let wMin = m.type == "filler" || m.type == "gap" ? 10 : 150
             let (hMin, hMax): (Int, Int) = m.type == "wall" ? (200, 1200) : m.type == "tall" ? (1200, 2500) : m.type == "filler" ? (100, 2500) : m.type == "gap" ? (300, 2200) : (300, 900)
             let wi = Int(w).flatMap { (wMin...1200).contains($0) ? $0 : nil }
             let hi = Int(h).flatMap { (hMin...hMax).contains($0) ? $0 : nil }
@@ -799,7 +799,7 @@ struct FurnitureCard: View {
                 Group { if ward { WardThumb(f: f) } else { KitchenThumb(p: p, f: f) } }
                     .padding(8).frame(maxWidth: .infinity).frame(height: 129).background(PC.white)
                 VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 4) { MIcon(ward ? "board" : "kitchen", G.ink3, 15, 2); T(tr(ward ? "kt.wardrobe" : "kt.kitchen"), ui(12, 400, G.ink3), lines: 1) }
+                    HStack(spacing: 4) { MIcon(ward ? "board" : "kitchen", G.ink3, 15, 2); T(f.type.isEmpty ? tr(ward ? "kt.wardrobe" : "kt.kitchen") : tr("ft." + f.type), ui(12, 400, G.ink3), lines: 1) }
                     T(dn(f.name), ui(14.5, 600, G.ink, lh: 1.25), lines: 1)
                     if ward, let wm = wardOf(f) {
                         T(tr("wd.card", ["w": wm.w, "h": outerH(wm, AppSettings.shared.workshop), "n": wm.sections.count]), ui(12.5, 400, G.ink2), lines: 1)

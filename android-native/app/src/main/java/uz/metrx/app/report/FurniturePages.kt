@@ -85,13 +85,16 @@ private fun Doc.figure(title: String, vw: Float, vh: Float, draw: androidx.compo
 
 /* ---------------- the customer's quote ---------------- */
 
-fun furniturePages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, image: (String) -> ImageBitmap?, now: Long = System.currentTimeMillis()): List<RPage> {
-    val d = Doc(tm, sn, draft, meta, image, now)
-    d.draftTitle = "fd.draft"; d.quoteTitle = "fd.quote"; d.makerKey = "fd.maker"
+fun furniturePages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, image: (String) -> ImageBitmap?, now: Long = System.currentTimeMillis(),
+                   prices: Boolean = true): List<RPage> {
+    // without prices (the simple app) it is the design: dated, no draft mark, no price block
+    val d = Doc(tm, sn, draft && prices, meta, image, now)
+    d.draftTitle = "fd.draft"; d.quoteTitle = if (prices) "fd.quote" else "rpt.design"; d.makerKey = "fd.maker"
+    if (!prices) d.subLine = uz.metrx.app.data.fmtDate(now)
     d.newPage(); d.parties()
     if (sn.pdf.views) d.views()
     d.materials(sn)
-    d.priceBlock(sn)
+    if (prices) d.priceBlock(sn)
     // the front drawings, one per wall or wardrobe
     val ws = sn.fws ?: Workshop()
     val figs = sn.furniture.flatMap { f ->

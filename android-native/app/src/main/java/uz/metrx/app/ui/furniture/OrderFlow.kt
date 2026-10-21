@@ -105,6 +105,7 @@ fun fmtDay(d: LocalDate, app: App): String = "${d.dayOfMonth}-" + app.t("fo.mont
 @Composable
 fun InstallChip(p: Project) {
     val app = LocalApp.current
+    if (!app.settings.advanced) return   // no install dates in the simple app
     val d = installDate(p)
     if (d == null) { Text(tr("fo.noDate"), style = ui(12.5f, 600, G.ink3), maxLines = 1); return }
     val left = ChronoUnit.DAYS.between(LocalDate.now(), d).toInt()
@@ -177,13 +178,13 @@ fun NewOrderScreen() {
     val focus = LocalFocusManager.current
     val fWho = remember { FocusRequester() }; val fPhone = remember { FocusRequester() }; val fAddr = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { fWho.requestFocus() } }
-    val whoErr = if (who.trim().length < 2) tr("np.customerReq") else null
+    val whoErr = when { who.isBlank() -> tr("np.customerReq"); who.trim().length < 2 -> tr("np.customerShort"); else -> null }
     val phErr = Phone.errorKey(phone, false)?.let { tr(it) }
     val ok = whoErr == null && phErr == null
 
     fun create() {
         tried = true
-        if (!ok) return
+        if (!ok || !app.once()) return
         focus.clearFocus()
         // named after the customer; "Oshxona — Akmal" once they say what they need (renameOrder)
         val name = who.trim()
@@ -254,9 +255,10 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                 }
                 furn.forEach { f ->
                     val ward = f.kind == "wardrobe"
-                    val sub = if (ward) wardOf(f)?.let { m -> uz.metrx.app.geo.fmtLen(m.w, uz.metrx.app.geo.LenUnit.M, en) + " × " + uz.metrx.app.geo.fmtLen(m.h, uz.metrx.app.geo.LenUnit.M, en) + " m" } ?: ""
+                    val sub = if (ward) wardOf(f)?.let { m -> uz.metrx.app.geo.fmtLen(m.w, uz.metrx.app.geo.LenUnit.M, en) + " × " +
+                        uz.metrx.app.geo.fmtLen(uz.metrx.app.furniture.valsOf(f, s.workshop)["h"] ?: m.h, uz.metrx.app.geo.LenUnit.M, en) + " m" } ?: ""
                         else tr("kt.l" + f.layout) + " · " + "%.1f".format(java.util.Locale.ROOT, runMm(f) / 1000.0).replace('.', if (en) '.' else ',') + " " + tr("kt.pm")
-                    val amount = priced.lines.firstOrNull { it.key == f.id }?.amount
+                    val amount = priced.lines.firstOrNull { it.key == f.id }?.amount?.takeIf { s.advanced }
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.glass(.75f)).clickable { app.kit.sel = null; app.push(if (ward) Route.Wardrobe(p.id, f.id) else Route.Kitchen(p.id, f.id)) }
                         .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         MIcon(if (ward) "board" else "kitchen", G.ink3, 18.dp, 2f)
@@ -331,7 +333,7 @@ private fun NewRoomSheet(s: Sheet.FNewRoom) {
     var type by rememberSaveable { mutableStateOf(when (s.kind) { "kitchen" -> "kitchen"; "wardrobe" -> "bedroom"; "other" -> "living"; else -> if (p.floors.none { it.type == "kitchen" }) "kitchen" else "bedroom" }) }
     var name by rememberSaveable { mutableStateOf(nameFor(type)) }
     fun create() {
-        if (name.isBlank()) return
+        if (name.isBlank() || !app.once()) return
         val rid = app.addFurnRoom(pid, type, name.trim())
         if (s.fid != null) app.placeAfter = rid to s.fid
         app.sheet = null
@@ -396,13 +398,15 @@ fun NextStep(p: Project) {
     val price = remember(p.furniture, p.fprice, s.workshop, s.mats, s.hws) { priceOf(p.furniture.filter { it.modules.isNotEmpty() }, p.fprice, s.workshop, s.mats, s.hws).price }
     data class Step(val title: String, val sub: String?, val button: String, val go: () -> Unit)
     val step: Step? = when {
+        // the simple app has no stages: the steps of making the furniture, then sending the design
+        !s.advanced && k >= 2 -> Step(tr("ns.shareT"), tr("ns.shareS"), tr("ns.shareB")) { app.push(Route.Report(p.id)) }
         k >= 6 -> null
         k == 5 -> m.left?.takeIf { it.signum() > 0 }?.let { Step(tr("ns.payT"), tr("fo.leftV", "v" to mln(it)), tr("fo.addPay")) { app.sheet = Sheet.FPay(p.id) } }
         k == 4 -> Step(tr("ns.installT"), installDate(p)?.let { tr("fo.installV", "d" to fmtDay(it, app)) }, tr("ns.installB")) {
             // installed today: the date becomes today's, so the card and the list say when it really happened
             val today = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
-            val q = app.store.update(p.id) { uz.metrx.app.data.nextStage(it).copy(install = today) }; if (q?.stage == "paid") app.say("fs.paid") }
-        k == 3 -> Step(tr("ns.makeT"), installDate(p)?.let { tr("fo.installV", "d" to fmtDay(it, app)) }, tr("ns.makeB")) { app.store.update(p.id) { uz.metrx.app.data.nextStage(it) } }
+            if (app.once()) { val q = app.store.update(p.id) { uz.metrx.app.data.nextStage(it).copy(install = today) }; if (q?.stage == "paid") app.say("fs.paid") } }
+        k == 3 -> Step(tr("ns.makeT"), installDate(p)?.let { tr("fo.installV", "d" to fmtDay(it, app)) }, tr("ns.makeB")) { if (app.once()) app.store.update(p.id) { uz.metrx.app.data.nextStage(it) } }
         k == 2 -> Step(tr("ns.approveT"), p.quotes.lastOrNull()?.let { q -> tr("ns.approveS", "n" to q.no, "v" to mln(q.total.toBigIntegerOrNull() ?: java.math.BigInteger.ZERO)) }, tr("fo.approve")) { app.sheet = Sheet.FApprove(p.id) }
         p.want == null && p.floors.isEmpty() && p.furniture.isEmpty() -> Step(tr("ns.needT"), tr("ns.needS"), tr("ns.needB")) { app.push(Route.FGallery(p.id)) }
         undrawn != null -> Step(tr("ns.measureT"), floorName(undrawn, lang), tr("fo.drawRoom")) { app.drawRoomIn(p.id, undrawn, lang) }
@@ -414,6 +418,7 @@ fun NextStep(p: Project) {
                 app.push(Route.FGallery(p.id, bare.second.id)) } }
         pend != null -> Step(tr(when (pend) { "kitchen" -> "ns.designK"; "other" -> "ns.designO"; else -> "ns.designW" }), tr("ns.pendS"), tr("ns.pendB")) { app.push(Route.FGallery(p.id)) }
         p.floors.isEmpty() && p.furniture.isEmpty() -> Step(tr("ns.needT"), tr("ns.needS"), tr("ns.needB")) { app.push(Route.FGallery(p.id)) }
+        !s.advanced -> Step(tr("ns.shareT"), tr("ns.shareS"), tr("ns.shareB")) { app.push(Route.Report(p.id)) }
         else -> Step(tr("ns.quoteT"), if (price.signum() > 0) tr("ns.quoteS", "v" to mln(price)) else null, tr("ns.quoteB")) { app.sheet = Sheet.Issue(p.id) }
     }
     if (step == null) return

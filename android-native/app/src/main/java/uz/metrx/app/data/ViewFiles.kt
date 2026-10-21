@@ -32,11 +32,12 @@ object ViewFiles {
     fun delete(ctx: Context, img: String) { runCatching { file(ctx, img).delete() } }
 
     /** Removes pictures no room refers to any more (a deleted room or project, once its Undo has passed). */
-    fun sweep(ctx: Context, projects: List<Project>) {
-        val used = projects.flatMap { p -> p.rooms.flatMap { r -> r.views.map { File(it.img).name } } }.toSet()
+    /** [keepFiles] and [keepIds]: what projects that could not be read refer to (Store.unreadableFiles, unreadableIds). */
+    fun sweep(ctx: Context, projects: List<Project>, keepFiles: Set<String> = emptySet(), keepIds: Set<String> = emptySet()) {
+        val used = projects.flatMap { p -> p.rooms.flatMap { r -> r.views.map { File(it.img).name } } }.toSet() + keepFiles.map { File(it).name }
         dir(ctx).listFiles()?.forEach { if (it.name !in used) it.delete() }
         // pictures kept with issued quotes go with their project
-        val ids = projects.map { it.id }.toSet()
+        val ids = projects.map { it.id }.toSet() + keepIds
         File(ctx.filesDir, "quotes").listFiles()?.forEach { d -> if (ids.none { d.name.startsWith("$it-") }) d.deleteRecursively() }
     }
 }

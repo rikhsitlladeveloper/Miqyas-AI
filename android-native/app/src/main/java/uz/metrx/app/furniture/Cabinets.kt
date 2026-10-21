@@ -1,6 +1,8 @@
 package uz.metrx.app.furniture
 
 import uz.metrx.app.data.uid
+import kotlin.math.max
+import kotlin.math.min
 
 /*
  * More furniture types (furniture plan Stage 2): living room (TV unit, shelving, sideboard), bedroom and other (dresser,
@@ -30,7 +32,9 @@ fun typeSize(type: String) = when (type) {
 }
 
 /** [n] drawers filling a section [ih] high inside, from the bottom, 20 mm apart. */
-private fun drawers(n: Int, ih: Int): List<Insert> {
+private fun drawers(n0: Int, ih: Int): List<Insert> {
+    // a low cabinet takes fewer drawers: each keeps 80 mm and a 20 mm gap, all inside
+    val n = min(n0, max(1, (ih + 20) / 100))
     val h = ((ih - 20 * (n - 1)) / n).coerceAtLeast(80)
     return List(n) { i -> Insert("drawer", pos = i * (h + 20), h = h) }
 }

@@ -30,9 +30,12 @@ fun blockH(x: Insert): Int = when (x.kind) {
 
 /** Section widths: locked ones keep theirs; the others share what is left equally, the last one takes the remainder. */
 fun splitSections(w: Int, secs: List<Section>): List<Section> {
+    if (secs.size == 1) return listOf(secs[0].copy(w = w))
     val free = secs.count { !it.lock }
-    if (free == 0) return secs
+    if (free == 0 && secs.sumOf { it.w } == w) return secs
     val rest = w - secs.filter { it.lock }.sumOf { it.w }
+    // the locked ones leave too little for the others (or none gives way): all share again
+    if (free == 0 || rest < 150 * free) return if (secs.any { it.lock }) splitSections(w, secs.map { it.copy(lock = false) }) else secs
     val each = rest / free
     var k = 0
     return secs.map { s -> if (s.lock) s else { k++; s.copy(w = each + if (k == free) rest - each * free else 0) } }

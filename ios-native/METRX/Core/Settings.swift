@@ -20,6 +20,8 @@ final class AppSettings {
     /// app before industries existed are builders.
     private(set) var industry: String?
     var furniture: Bool { industry == "furniture" }
+    /// A furniture maker's prices, order stages, workshop rules and cutting lists (Profile → Advanced); off, the app is just the 3D design.
+    private(set) var advanced: Bool
     /// The trades' calculator: options and prices (Trades/Trades.swift), one set for all.
     private(set) var trade: TradeSet
     /// Currency and report language that new projects start with.
@@ -73,6 +75,7 @@ final class AppSettings {
         builderPhone = d.string(forKey: "builderPhone") ?? ""
         dark = d.bool(forKey: "dark")
         industry = d.string(forKey: "industry") ?? (d.bool(forKey: "firstRunDone") ? "build" : nil)
+        advanced = d.bool(forKey: "advanced")
         trade = d.data(forKey: "tradeSet").flatMap { try? JSONDecoder().decode(TradeSet.self, from: $0) } ?? TradeSet()
         currency = d.string(forKey: "currency") ?? "UZS"
         reportLang = Lang.of(d.string(forKey: "reportLang") ?? d.string(forKey: "lang"))
@@ -107,6 +110,7 @@ final class AppSettings {
     func setSnap(_ on: Bool) { angleSnap = on; d.set(on, forKey: "angleSnap") }
     func setDarkMode(_ on: Bool) { dark = on; d.set(on, forKey: "dark") }
     func setIndustryKind(_ v: String) { industry = v; d.set(v, forKey: "industry") }
+    func setAdvancedOn(_ v: Bool) { advanced = v; d.set(v, forKey: "advanced") }
     func setTradeSet(_ v: TradeSet) { trade = v; d.set(try? JSONEncoder().encode(v), forKey: "tradeSet") }
     func setWorkshopRules(_ v: Workshop) { workshop = v; d.set(try? JSONEncoder().encode(v), forKey: "workshop") }
     func setMatList(_ v: [Mat]) { mats = v; d.set(try? JSONEncoder().encode(v), forKey: "mats") }

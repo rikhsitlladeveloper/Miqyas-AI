@@ -43,7 +43,8 @@ sealed interface Route {
      * [fid], or a new piece of [model] with the sizes [vals] ("s0=3000,h=2700"; null: sizes from the room).
      */
     data class FGallery(val pid: String, val rid: String? = null, val fromNew: Boolean = false) : Route
-    data class FSteps(val pid: String, val model: String, val fid: String? = null) : Route
+    /** [vals]: the sizes typed so far ("s0=3400,h=2700"), kept while "Which room?" is on top; the steps open on the summary. */
+    data class FSteps(val pid: String, val model: String, val fid: String? = null, val vals: String? = null) : Route
     data class FWhere(val pid: String, val model: String, val vals: String) : Route
     data class FPlace(val pid: String, val fid: String?, val rid: String, val model: String? = null, val vals: String? = null) : Route
     /** A furniture order's parts and sheet layout, and its workshop pack. */
@@ -177,7 +178,11 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     val stack get() = stacks.getValue(tab)
     val top get() = stack.last()
 
-    fun push(r: Route) { dir = 1; stack.add(r) }
+    /** The same page is not opened twice on top of itself (a double tap). */
+    fun push(r: Route) { if (stack.lastOrNull() == r) return; dir = 1; stack.add(r) }
+    private var lastAct = 0L
+    /** False for a second tap within 600 ms, so a double tap cannot create or save something twice. */
+    fun once(): Boolean { val now = android.os.SystemClock.uptimeMillis(); if (now - lastAct < 600) return false; lastAct = now; return true }
     fun replaceTop(r: Route) { dir = 1; stack[stack.lastIndex] = r }
     fun pop(): Boolean { if (stack.size <= 1) return false; dir = -1; stack.removeAt(stack.lastIndex); return true }
     fun popTo(match: (Route) -> Boolean) { dir = -1; while (stack.size > 1 && !match(stack.last())) stack.removeAt(stack.lastIndex) }

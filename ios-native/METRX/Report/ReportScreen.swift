@@ -36,7 +36,9 @@ struct ReportScreen: View {
         if let p = Store.shared.get(pid) {
             let quote = no.flatMap { n in p.quotes.first { $0.no == n } }
             let sn = quote?.sn ?? snapshotOf(p)
-            let key = quote.map { "q\($0.no)" } ?? fingerprint(sn) + "\(sn.pdf)" + sn.lang + sn.extras.map { $0.text + "\($0.checks)" }.joined()
+            // a furniture maker in the simple app shares the design: no price, nothing to issue
+            let design = quote == nil && p.isFurniture && !AppSettings.shared.advanced
+            let key = quote.map { "q\($0.no)" } ?? (design ? "d" : "") + fingerprint(sn) + "\(sn.pdf)" + sn.lang + sn.extras.map { $0.text + "\($0.checks)" }.joined()
             let total = quote.flatMap { Decimal(string: $0.total) } ?? (p.isFurniture ? Decimal(string: sn.ftotal) ?? 0 : snapTotal(sn))
             let lang = AppSettings.shared.lang
             GeometryReader { geo in
@@ -46,7 +48,7 @@ struct ReportScreen: View {
                         HStack(spacing: 10) {
                             GlassIconButton("back", tr("nt.back")) { app.pop() }.accessibilityIdentifier("back")
                             VStack(alignment: .leading, spacing: 0) {
-                                T(quote.map { tr("q.no", ["n": $0.no]) } ?? tr("rpt.title"), ui(17, 700, G.ink, lh: 1.2), lines: 1)
+                                T(quote.map { tr("q.no", ["n": $0.no]) } ?? tr(design ? "rpt.design" : "rpt.title"), ui(17, 700, G.ink, lh: 1.2), lines: 1)
                                 T(dn(p.name), ui(12.5, 400, G.ink2, lh: 1.2), lines: 1)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -74,9 +76,11 @@ struct ReportScreen: View {
                                 // the dark strip: total, pages, language
                                 HStack {
                                     VStack(alignment: .leading, spacing: 0) {
-                                        T(tr("rp2.total"), ui(12.5, 400, STRIP_INK))
-                                        Text(Money.str(total, sn.precision, lang == .en) + " " + Money.cur(sn.currency)).st(num(22, 700, .white)).lineLimit(1)
-                                            .accessibilityIdentifier("rp.total")
+                                        if design { T(dn(p.name), ui(15, 700, .white), lines: 1) } else {
+                                            T(tr("rp2.total"), ui(12.5, 400, STRIP_INK))
+                                            Text(Money.str(total, sn.precision, lang == .en) + " " + Money.cur(sn.currency)).st(num(22, 700, .white)).lineLimit(1)
+                                                .accessibilityIdentifier("rp.total")
+                                        }
                                     }
                                     Spacer()
                                     VStack(alignment: .trailing, spacing: 0) {
@@ -116,7 +120,9 @@ struct ReportScreen: View {
                     VStack {
                         Spacer()
                         FloatingFooter {
-                            if quote == nil {
+                            if design {
+                                GBtn(tr("rpt.share"), icon: "share") { share(p, quote) }.accessibilityIdentifier("rp.share")
+                            } else if quote == nil {
                                 HStack(spacing: 10) {
                                     GBtn(tr("rp2.shareDraft"), kind: .secondary, icon: "share") { share(p, quote) }.accessibilityIdentifier("rp.shareDraft")
                                     GBtn(tr("rpt.issue"), icon: "lock") {
@@ -136,7 +142,7 @@ struct ReportScreen: View {
                     guard w > 0 else { return }
                     let meta = quote.map { QuoteMeta(no: $0.no, ts: $0.ts) }
                     // a furniture order's quote has its own pages (furniture plan section 10)
-                    let built = p.isFurniture ? furniturePages(sn, draft: quote == nil, meta: meta, image: viewLoader())
+                    let built = p.isFurniture ? furniturePages(sn, draft: quote == nil, meta: meta, image: viewLoader(), prices: !(quote == nil && !AppSettings.shared.advanced))
                                               : reportPages(sn, draft: quote == nil, meta: meta, image: viewLoader())
                     pages = built
                     images = built.compactMap { pageImage($0, width: w) }
@@ -150,7 +156,8 @@ struct ReportScreen: View {
     private func share(_ p: Project, _ quote: Quote?) {
         guard !pages.isEmpty else { return }
         app.say("sh.making", kind: .info)
-        let fname = pdfName(dn(p.name), quote.map { tr("q.no", ["n": $0.no]) } ?? tr("es.draft"))
+        let design = quote == nil && p.isFurniture && !AppSettings.shared.advanced
+        let fname = pdfName(dn(p.name), quote.map { tr("q.no", ["n": $0.no]) } ?? tr(design ? "rpt.design" : "es.draft"))
         if let url = pdfFile(pages, fname) { presentShare(url) } else { app.say("cm.shareErr", kind: .error) }
     }
 }
@@ -356,10 +363,16 @@ private struct ReportSetupSheet: View {
                 GBtn(tr("rp2.done")) { done(p) }.accessibilityIdentifier("rp.done")
             }
             .onAppear { if !loaded { loaded = true; notes = p.reportNotes } }
+            // closed another way (a tab, another sheet): the note is kept then too
+            .onDisappear { if loaded { keep() } }
         }
     }
+    private func keep() {
+        guard let now = Store.shared.get(pid), notes != now.reportNotes else { return }
+        let n = notes; Store.shared.update(now.id, touch: false) { $0.reportNotes = n }
+    }
     private func done(_ p: Project) {
-        if notes != p.reportNotes { let n = notes; Store.shared.update(p.id, touch: false) { $0.reportNotes = n } }
+        keep()
         app.sheet = nil
     }
 }

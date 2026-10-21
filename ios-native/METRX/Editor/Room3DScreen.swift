@@ -8,6 +8,8 @@ struct Room3DScreen: View {
     let r: Room
     @State private var cam = Cam3D()
     @State private var shot = Shot3D()
+    /// A picture is being taken: a second tap does nothing.
+    @State private var taking = false
     /// A furniture order's doors and drawers that are open.
     @State private var open: Set<String> = []
     private var ops: RoomOps { RoomOps.shared }
@@ -74,13 +76,21 @@ struct Room3DScreen: View {
     }
 
     private func save() {
-        if r.views.count >= 4 { app.say("3d.max", kind: .error); return }
         let pid = p.id, rid = r.id
+        // at most 4 views: counted on the room as saved now, not as this screen last drew it
+        func full() -> Bool { (RoomOps.shared.room(pid, rid)?.views.count ?? 4) >= 4 }
+        if taking { return }
+        if full() { app.say("3d.max", kind: .error); return }
+        taking = true
         shot.take { img in
             DispatchQueue.main.async {
+                taking = false
+                if full() { app.say("3d.max", kind: .error); return }
                 let id = uid()
                 guard let img, let file = ViewFiles.save(id, img) else { app.say("3d.fail", kind: .error); return }
-                Store.shared.update(pid) { pp in if let i = pp.rooms.firstIndex(where: { $0.id == rid }) { pp.rooms[i].views.append(View3D(id: id, img: file, ts: nowMs())) } }
+                Store.shared.update(pid) { pp in
+                    if let i = pp.rooms.firstIndex(where: { $0.id == rid }), pp.rooms[i].views.count < 4 { pp.rooms[i].views.append(View3D(id: id, img: file, ts: nowMs())) }
+                }
                 app.say("3d.saved")
             }
         }

@@ -112,7 +112,7 @@ fun freeRoom(f: Furniture): Room {
         val lens = freeLens(f); val ws = f.walls.filter { it != ISLAND }
         fun len(i: Int) = ws.getOrNull(i)?.let { lens[it] } ?: 3000
         when (f.layout) {
-            "U" -> { a = len(1); b = len(0) }
+            "U" -> { a = len(1); b = max(len(0), len(2)) }
             "L" -> { a = len(0); b = len(1) }
             "O", "P" -> { a = len(0); b = 3000 }
             else -> { a = len(0); b = 1800 }
@@ -217,7 +217,7 @@ fun fitTo(f: Furniture, walls: List<String>, len: (String) -> Int?, roomH: Int?,
     if (f.kind == "wardrobe") {
         val m = wardOfF(f) ?: return f
         val x = off ?: W_GAP_SIDE
-        val w = len(walls[0])?.let { min(m.w, it - x - W_GAP_SIDE) } ?: m.w
+        val w = len(walls[0])?.let { min(m.w, it - x - W_GAP_SIDE).coerceAtLeast(min(m.w, 300)) } ?: m.w
         val legs = if (m.legs) ws.legH else 0
         val h = roomH?.let { min(m.h, it - W_GAP_TOP - legs) } ?: m.h
         val nm = m.copy(w = w, h = h, sections = if (w != m.w) splitSections(w, m.sections.map { it.copy(lock = false) }) else m.sections)
@@ -244,12 +244,11 @@ fun firstStart(f: Furniture, wallLen: Int?): Int {
  * the corner; [keep] its size kept. A corner kitchen's first side shorter than its wall gets an empty stretch at the
  * wall's start, so its last unit stands in the corner where the next side turns.
  */
-fun placed(f: Furniture, walls: List<String>, roomId: String, wsId: String, off: Int? = null, keep: Boolean = false, len: (String) -> Int? = { null }): Furniture {
+fun placed(f: Furniture, walls: List<String>, roomId: String, wsId: String, off: Int? = null, keep: Boolean = false, len: (String) -> Int? = { null }, ws: Workshop = Workshop()): Furniture {
     var g = onWalls(f, walls).copy(roomId = roomId, ws = wsId, keep = keep)
     if (g.kind == "wardrobe") return g.copy(modules = g.modules.map { if (it.type == "wardrobe") it.copy(x = off ?: W_GAP_SIDE) else it })
     val gap = firstStart(g, len(walls[0]))
     if (gap > 0) {
-        val ws = Workshop()
         val w0 = walls[0]
         // the empty stretch goes first in the module list, so it packs at the wall's start
         g = g.copy(modules = listOf(template("spaceLow", ws, w0, gap).copy(elev = g.modules.firstOrNull { it.wall == w0 && !isUpper(it) }?.elev ?: ws.legH),

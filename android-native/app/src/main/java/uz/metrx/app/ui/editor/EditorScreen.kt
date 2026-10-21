@@ -412,11 +412,23 @@ private fun FullList(pid: String, r: Room, f: RoomOps.Focus) {
                         Text(s.net?.let { fmtArea(it, en) } ?: "?", style = num(14f, 700), modifier = Modifier.width(66.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
                 }
+                // the sides of columns and niches add wall to paint: their own row, so the total is the room's net area
+                val extra = if (r.features.isEmpty() || stats.any { it.gross == null }) 0L
+                    else uz.metrx.app.geo.areas(r, snap)?.gross?.let { g -> g - stats.sumOf { it.gross!! } } ?: 0L
+                if (extra != 0L) {
+                    Hairline()
+                    Row(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                        Text(tr("ao.col"), style = ui(14f, 600), modifier = Modifier.weight(1f))
+                        Text(fmtArea(extra, en), style = num(14f, 500), modifier = Modifier.width(66.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Text("—", style = num(14f, 500, G.ink2), modifier = Modifier.width(58.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                        Text(fmtArea(extra, en), style = num(14f, 700), modifier = Modifier.width(66.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                    }
+                }
                 if (stats.all { it.gross != null }) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(G.ink.copy(alpha = .05f)).padding(vertical = 8.dp)) {
                     Text(tr("ed2.total"), style = ui(14f, 700), modifier = Modifier.weight(1f).padding(start = 4.dp))
-                    Text(fmtArea(stats.sumOf { it.gross!! }, en), style = num(14f, 600), modifier = Modifier.width(66.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                    Text(fmtArea(stats.sumOf { it.gross!! } + extra, en), style = num(14f, 600), modifier = Modifier.width(66.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     Text(fmtArea(stats.sumOf { it.open }, en), style = num(14f, 600, G.ink2), modifier = Modifier.width(58.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
-                    Text(fmtArea(stats.sumOf { it.net!! }, en), style = num(14f, 800), modifier = Modifier.width(66.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
+                    Text(fmtArea(stats.sumOf { it.net!! } + extra, en), style = num(14f, 800), modifier = Modifier.width(66.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                 }
             }
         }

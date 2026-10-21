@@ -233,7 +233,13 @@ private struct AddOpeningSheet: View {
                 HStack(alignment: .top, spacing: 10) {
                     BigOpt(icon: "door", label: tr("op.door"), sub: nil) { app.sheet = .openingForm(pid: pid, rid: rid, oid: nil, type: "door", wall: nil) }.accessibilityIdentifier("ao.door")
                     BigOpt(icon: "window", label: tr("op.window"), sub: nil) { app.sheet = .openingForm(pid: pid, rid: rid, oid: nil, type: "window", wall: nil) }.accessibilityIdentifier("ao.window")
-                    BigOpt(icon: "column", label: tr("ao.col"), sub: nil) { app.sheet = .featureForm(pid: pid, rid: rid, fid: nil, type: "column") }.accessibilityIdentifier("ao.col")
+                    // a drawn room's plan has no place for them yet, so only rectangles get columns and niches
+                    if !r.isPoly {
+                        BigOpt(icon: "column", label: tr("ao.col"), sub: nil) { app.sheet = .featureForm(pid: pid, rid: rid, fid: nil, type: "column") }.accessibilityIdentifier("ao.col")
+                    }
+                }
+                if r.isPoly {
+                    Note(text: tr("ft.polyNo"))
                 }
                 T(tr("ao.here"), ui(13, 500, G.ink2)).padding(.top, 8)
                 // columns and niches first, then the doors and windows
@@ -316,11 +322,12 @@ private struct OpeningSheet: View {
 
     var body: some View {
         if let r = ops.room(pid, rid) {
-            let unit = st.unit, en = st.lang == .en, dec = Geo.unitDecimals(unit), snap = st.angleSnap
+            let unit = st.unit, en = st.lang == .en, snap = st.angleSnap
             let edit = oid.flatMap { id in r.openings.first { $0.id == id } }
             let ws = Geo.walls(r, snap)
             let pw = Geo.lenErr(wv, Geo.dimMax("A"), unit, en), ph = Geo.lenErr(hv, Geo.dimMax("H"), unit, en)
-            let po = Geo.parseDec(offv, dec), ps = type == "window" ? Geo.parseDec(sillv, dec) : .ok(0)
+            let po = Geo.lenErr(offv, Geo.dimMax("A"), unit, en, zeroOk: true)
+            let ps = type == "window" ? Geo.lenErr(sillv, Geo.dimMax("H"), unit, en, zeroOk: true) : .ok(0)
             let o: Opening? = {
                 guard let w = pw.value, let h = ph.value, let off = po.value, let sill = ps.value else { return nil }
                 return Opening(id: edit?.id ?? "new", type: type, wall: wall, w: Int(w), h: Int(h), off: Int(off), sill: Int(sill))
@@ -417,13 +424,13 @@ private struct FeatureSheet: View {
 
     var body: some View {
         if let r = ops.room(pid, rid) {
-            let unit = st.unit, en = st.lang == .en, dec = Geo.unitDecimals(unit), snap = st.angleSnap
+            let unit = st.unit, en = st.lang == .en, snap = st.angleSnap
             let edit = fid.flatMap { id in r.features.first { $0.id == id } }
             let ws = Geo.walls(r, snap)
             let niche = type == "niche"
             let pw = Geo.lenErr(wv, Geo.dimMax("A"), unit, en), pd = Geo.lenErr(dv, Geo.dimMax("A"), unit, en)
-            let po = Geo.parseDec(offv, dec)
-            let psl: Parsed = niche ? Geo.parseDec(sillv, dec) : .ok(0), ph: Parsed = niche ? Geo.parseDec(hv, dec) : .ok(0)
+            let po = Geo.lenErr(offv, Geo.dimMax("A"), unit, en, zeroOk: true)
+            let psl: Parsed = niche ? Geo.lenErr(sillv, Geo.dimMax("H"), unit, en, zeroOk: true) : .ok(0), ph: Parsed = niche ? Geo.lenErr(hv, Geo.dimMax("H"), unit, en) : .ok(0)
             let f: Feature? = {
                 guard let w = pw.value, let d = pd.value, let off = po.value, let sill = psl.value, let h = ph.value else { return nil }
                 return Feature(id: edit?.id ?? "new", type: type, wall: wall, off: Int(off), w: Int(w), d: Int(d), sill: Int(sill), h: Int(h))
@@ -456,10 +463,7 @@ private struct FeatureSheet: View {
                 HStack(spacing: 8) {
                     if let edit {
                         GBtn(tr("common.delete"), kind: .danger, icon: "trash", height: 44, corner: 16, fontSize: 15) {
-                            Store.shared.update(pid) { p in
-                                if let k = p.rooms.firstIndex(where: { $0.id == rid }) { p.rooms[k].features.removeAll { $0.id == edit.id } }
-                            }
-                            close()
+                            ops.deleteFeature(pid, rid, edit)
                         }
                     }
                     else { GBtn(tr("common.cancel"), kind: .secondary, height: 44, corner: 16, fontSize: 15, close) }
@@ -467,12 +471,7 @@ private struct FeatureSheet: View {
                         tried = true
                         guard var f, iss == nil else { return }
                         if edit == nil { f.id = uid() }
-                        Store.shared.update(pid) { p in
-                            guard let k = p.rooms.firstIndex(where: { $0.id == rid }) else { return }
-                            if let j = p.rooms[k].features.firstIndex(where: { $0.id == f.id }) { p.rooms[k].features[j] = f }
-                            else { p.rooms[k].features.append(f) }
-                        }
-                        close(); app.say("ft.saved")
+                        ops.saveFeature(pid, rid, f, isNew: edit == nil)
                     }
                     .accessibilityIdentifier("ft.save")
                 }
