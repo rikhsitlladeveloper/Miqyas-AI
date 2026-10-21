@@ -63,4 +63,5 @@ let ICONS: [String: IconDef] = [
     "arrow": IconDef(w: 24, h: 24, parts: [IconPart("M5 19L19 5M10 5h9v9")]),
     "text": IconDef(w: 24, h: 24, parts: [IconPart("M5 7V4h14v3M12 4v16M9 20h6")]),
     "line": IconDef(w: 24, h: 24, parts: [IconPart("M5 19L19 5"), IconPart("M3 17l4 4M17 3l4 4")]),
+    "grip": IconDef(w: 24, h: 24, parts: [IconPart("M5 8h14"), IconPart("M5 12h14"), IconPart("M5 16h14")]),
 ]

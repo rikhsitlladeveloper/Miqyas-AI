@@ -74,6 +74,7 @@ import uz.metrx.app.furniture.FCheck
 import uz.metrx.app.furniture.Fronts
 import uz.metrx.app.furniture.Furniture
 import uz.metrx.app.furniture.ISLAND
+import uz.metrx.app.furniture.wsOf
 import uz.metrx.app.furniture.Insert
 import uz.metrx.app.furniture.K_TOP
 import uz.metrx.app.furniture.K_WALL_H
@@ -465,7 +466,7 @@ fun KitchenThumb(p: Project, f: Furniture, modifier: Modifier) {
     val room = roomOf(p, f)
     val runs = kRuns(f, room, app.settings.angleSnap)
     val run = runs.firstOrNull() ?: return
-    val ws = app.settings.workshop; val mats = app.settings.mats
+    val ws = wsOf(f, app.settings.workshop); val mats = app.settings.mats
     Canvas(modifier) {
         val lay = KLay(runLen(f, run), roomH(room), 200f, false, runExt(f, run))
         val k = min(size.width / lay.vw, size.height / lay.vh)
@@ -489,7 +490,7 @@ fun KitchenScreen(rt: Route.Kitchen) {
     val room = roomOf(p, f)
     val runs = kRuns(f, room, snap)
     val run = runs.firstOrNull { it.wall == rt.wall } ?: runs.firstOrNull()
-    val ws = app.settings.workshop; val mats = app.settings.mats
+    val ws = wsOf(f, app.settings.workshop); val mats = app.settings.mats
     val en = lang == Lang.EN
     val found = checks(f, runs, ws, room?.openings ?: emptyList(), room?.points ?: emptyList())
     val bad = HashMap<String, String>().apply { found.forEach { c -> c.mid?.let { id -> if (c.level == "err" || (c.level == "warn" && this[id] != "err")) this[id] = c.level } } }
@@ -585,6 +586,16 @@ private fun ExtrasCard(p: Project, f: Furniture) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             listOf(0, 500, 600, 700).forEach { h -> Chip(if (h == 0) tr("kx.none") else "$h", x.splash == h) { set { it.copy(splash = h) } } }
         }
+        // the units' legs (the plinth covers them): the carcass stays 720, the worktop follows
+        val ws = wsOf(f, app.settings.workshop)
+        Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button) { app.sheet = Sheet.KLegs(p.id, f.id) }.padding(horizontal = 4.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(tr("kx.legs"), style = ui(14.5f, 500))
+                Text(tr("kx.worktopAt", "v" to uz.metrx.app.furniture.worktopTop(ws)), style = ui(12.5f, 400, G.ink2))
+            }
+            Text("${ws.legH} mm", style = num(14.5f, 700)); MIcon("chev", G.ink3, 16.dp, 2f)
+        }
         Toggle(tr("kx.plinth") + " · " + m(uz.metrx.app.furniture.plinthMm(f)) + " m", x.plinth) { set { it.copy(plinth = !it.plinth) } }
         val wu = uz.metrx.app.furniture.wallUnitsMm(f)
         Toggle(tr("kx.cornice") + " · " + m(wu) + " m", x.cornice) { set { it.copy(cornice = !it.cornice) } }
@@ -592,6 +603,27 @@ private fun ExtrasCard(p: Project, f: Furniture) {
         Stepper(tr("kx.ends"), x.ends, 0, 8) { v -> set { it.copy(ends = v) } }
         Stepper(tr("kx.endsUp"), x.endsUp, 0, 8) { v -> set { it.copy(endsUp = v) } }
         Text(tr("kx.note"), style = ui(12.5f, 400, G.ink2, 1.4f))
+    }
+}
+
+/** A kitchen's legs' height: every unit moves up or down with it, so the worktop and the wall units follow. */
+@Composable
+private fun LegsSheet(s: Sheet.KLegs) {
+    val app = LocalApp.current
+    val p = app.store.get(s.pid) ?: run { app.sheet = null; return }
+    val f = p.furniture.firstOrNull { it.id == s.fid } ?: run { app.sheet = null; return }
+    val now = wsOf(f, app.settings.workshop).legH
+    var v by rememberSaveable { mutableStateOf(now.toString()) }
+    val vi = v.toIntOrNull()?.takeIf { it in 50..250 }
+    fun save() {
+        val x = vi ?: return
+        app.kit.change(app, p.id, f.id) { g -> g.copy(baseH = x, modules = g.modules.map { it.copy(elev = it.elev + (x - now)) }) }
+        app.sheet = null
+    }
+    GlassSheet(tr("kx.legs"), { app.sheet = null }, footer = { GBtn(tr("common.save"), ::save, enabled = vi != null) }) {
+        GField(tr("kx.legs"), v, { v = it.filter(Char::isDigit).take(3) }, "$now", number = true, labelRight = "mm", error = tr("km.bad", "a" to 50, "b" to 250),
+            showError = vi == null, imeAction = ImeAction.Done, onIme = ::save)
+        Text(tr("kx.worktopAt", "v" to uz.metrx.app.furniture.worktopTop(app.settings.workshop.copy(legH = vi ?: now))), style = ui(13f, 400, G.ink2, 1.4f))
     }
 }
 
@@ -743,6 +775,7 @@ fun KitchenSheet(s: Sheet): Boolean = when (s) {
     is Sheet.FMenu -> { FMenuSheet(s); true }
     is Sheet.FRename -> { FRenameSheet(s); true }
     is Sheet.FModule -> { ModuleSheet(s); true }
+    is Sheet.KLegs -> { LegsSheet(s); true }
     is Sheet.FLibrary -> { LibrarySheet(s); true }
     else -> false
 }
@@ -822,7 +855,7 @@ private fun LibrarySheet(s: Sheet.FLibrary) {
     val f = p.furniture.firstOrNull { it.id == s.fid } ?: run { app.sheet = null; return }
     val room = roomOf(p, f)
     val run = kRuns(f, room, app.settings.angleSnap).firstOrNull { it.wall == s.wall } ?: run { app.sheet = null; return }
-    val ws = app.settings.workshop
+    val ws = wsOf(f, app.settings.workshop)
     val island = run.wall == ISLAND
     var group by rememberSaveable { mutableStateOf("low") }
     val lowLeft = fillOf(f, run, false).left
@@ -932,7 +965,7 @@ private fun ModuleSheet(s: Sheet.FModule) {
     val p = app.store.get(s.pid) ?: run { app.sheet = null; return }
     val f = p.furniture.firstOrNull { it.id == s.fid } ?: run { app.sheet = null; return }
     val m = f.modules.firstOrNull { it.id == s.mid } ?: run { app.sheet = null; return }
-    val ws = app.settings.workshop
+    val ws = wsOf(f, app.settings.workshop)
     val run = kRuns(f, roomOf(p, f), app.settings.angleSnap).firstOrNull { it.wall == m.wall }
     val boxed = m.type == "base" || m.type == "wall" || m.type == "tall"
     // an appliance's panels (a built-in fridge) stay as they are

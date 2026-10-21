@@ -45,7 +45,8 @@ fun wallUnitsMm(f: Furniture): Int = f.modules.filter { it.type == "wall" }.sumO
 fun splashMm(f: Furniture): Int = worktopRuns(f).filterKeys { it != ISLAND }.values.sum()
 
 /** End panels as parts: the lower ones from the floor to the worktop, the upper ones the wall units' height. */
-fun extrasParts(f: Furniture, ws: Workshop): List<FPart> {
+fun extrasParts(f: Furniture, ws0: Workshop): List<FPart> {
+    val ws = wsOf(f, ws0)
     val x = f.kx ?: return emptyList()
     val out = ArrayList<FPart>()
     val all = 2 to 2

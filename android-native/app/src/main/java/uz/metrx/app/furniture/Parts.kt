@@ -30,7 +30,10 @@ private const val RAIL = 100
 const val PLINTH = 80
 
 /** Where a wardrobe's inside starts: the plinth, or nothing on legs. */
-fun wardBase(m: Module) = if (m.legs) 0 else PLINTH
+fun wardBase(m: Module) = if (m.legs) 0 else m.base ?: PLINTH
+
+/** How high a wardrobe's legs lift it: its own, or the workshop's; none on a plinth. */
+fun legsOf(m: Module, ws: Workshop) = if (m.legs) m.base ?: ws.legH else 0
 
 /** Section [i]'s width between its side or dividers (a divider takes half of [t] from each side, a missing side nothing). */
 fun wardInner(m: Module, secs: List<Section>, i: Int, t: Int): Int {
@@ -118,7 +121,7 @@ fun partsOf(m: Module, ws: Workshop): List<FPart> {
                     out += part("fp.divider", id, "carcass", if (toFloor) m.h - t else m.h - base - 2 * t, if (toFloor) m.d else dIn, 1, THICK)
                 }
             }
-            if (!m.legs) out += part("fp.plinth", id, "carcass", inW, PLINTH, 1, THICK)
+            if (!m.legs) out += part("fp.plinth", id, "carcass", inW, wardBase(m), 1, THICK)
             secs.forEachIndexed { i, s ->
                 val iw = wardInner(m, secs, i, t)
                 val sid = "$id/${i + 1}"

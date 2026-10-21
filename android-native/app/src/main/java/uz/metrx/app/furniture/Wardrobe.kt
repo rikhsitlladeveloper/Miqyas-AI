@@ -5,6 +5,7 @@ import uz.metrx.app.data.SitePoint
 import uz.metrx.app.data.pointSize
 import uz.metrx.app.data.uid
 import kotlin.math.max
+import kotlin.math.roundToInt
 
 /*
  * Wardrobe design rules (furniture plan section 8; design canvas screen 11). Pure Kotlin, unit-tested (WardrobeTest).
@@ -132,7 +133,45 @@ fun wardrobeTemplate(ws: Workshop, wall: String, x: Int, w: Int, h: Int, builtIn
 }
 
 /** The whole height from the floor: on legs the carcass is [Workshop.legH] up. */
-fun outerH(m: Module, ws: Workshop) = m.h + if (m.legs) ws.legH else 0
+fun outerH(m: Module, ws: Workshop) = m.h + legsOf(m, ws)
+
+/** Whether section [i]'s single door hinges on its right edge (its handle on the left): as chosen, else in pairs from the left, the last on the wardrobe's end. */
+fun hingeRight(m: Module, i: Int): Boolean = when (m.sections.getOrNull(i)?.hinge) {
+    "R" -> true
+    "L" -> false
+    else -> i % 2 == 1 || (i > 0 && i == m.sections.lastIndex)
+}
+
+/**
+ * The side panels [m] needs where it stands on a wall [wallLen] long: an end in the room has one; at a wall a hinged
+ * wardrobe keeps its own and a built-in sliding one uses the wall. Standing free ([free]) or on an unknown wall, both.
+ */
+fun withSides(m: Module, wallLen: Int?, free: Boolean = false): Module {
+    if (free || m.slide == null || wallLen == null) return m.copy(sideL = true, sideR = true)
+    return m.copy(sideL = m.x > W_GAP_SIDE + 30, sideR = m.x + m.w < wallLen - W_GAP_SIDE - 30)
+}
+
+/**
+ * The inserts in [order] (bottom first) spread over a section [ih] high: equal gaps, counting each block's height and
+ * a shelf's board; a rail keeps 900 mm to hang under it, the ones above it share what is left.
+ */
+fun respaced(order: List<Insert>, ih: Int, t: Int): List<Insert> {
+    fun size(x: Insert) = blockH(x) + if (x.kind == "shelf") t else 0
+    fun spread(items: List<Insert>, from: Int, to: Int): List<Insert> {
+        val gap = ((to - from - items.sumOf { size(it) }).toDouble() / (items.size + 1)).coerceAtLeast(0.0)
+        var y = from.toDouble()
+        return items.map { x -> y += gap; val p = y.roundToInt(); y += size(x); x.copy(pos = p) }
+    }
+    var out = spread(order, 0, ih)
+    for (i in out.indices) {
+        if (out[i].kind != "rail") continue
+        val below = if (i == 0) 0 else out[i - 1].pos + size(out[i - 1])
+        if (out[i].pos - below >= 900) continue
+        val p = minOf(below + 900, ih - 60).coerceAtLeast(out[i].pos)
+        out = out.take(i) + out[i].copy(pos = p) + spread(out.drop(i + 1), p + 30, ih)
+    }
+    return out
+}
 
 /**
  * What is wrong with wardrobe [m] on its wall ([wallL] long, the room [roomH] high), with the wall's [openings] and

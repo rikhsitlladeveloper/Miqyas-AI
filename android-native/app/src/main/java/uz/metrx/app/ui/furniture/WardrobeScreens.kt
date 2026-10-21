@@ -113,6 +113,14 @@ import uz.metrx.app.ui.theme.PlexCond
 import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
+import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.ui.zIndex
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.ui.semantics.contentDescription
+import kotlin.math.roundToInt
+import androidx.compose.runtime.remember
 import kotlin.math.max
 import kotlin.math.min
 
@@ -126,7 +134,13 @@ internal fun wardOf(f: Furniture): Module? = f.modules.firstOrNull { it.type == 
 
 /** Changes the wardrobe of furniture [fid] (on the designer's undo list). */
 private fun App.ward(pid: String, fid: String, fn: (Module) -> Module) =
-    kit.change(this, pid, fid) { x -> x.copy(modules = x.modules.map { if (it.type == "wardrobe") fn(it) else it }) }
+    kit.change(this, pid, fid) { x ->
+        // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
+        val room = if (x.roomId == null) null else store.get(pid)?.let { roomOf(it, x) }
+        x.copy(modules = x.modules.map { if (it.type == "wardrobe") fn(it).let { m ->
+            uz.metrx.app.furniture.withSides(m, room?.let { r -> wallLen(r, settings.angleSnap, m.wall ?: "") } ?: (m.x + m.w + W_GAP_SIDE), x.pose != null)
+        } else it })
+    }
 
 private fun App.changeSec(pid: String, fid: String, i: Int, fn: (Section) -> Section) =
     ward(pid, fid) { m -> m.copy(sections = m.sections.mapIndexed { k, s -> if (k == i) fn(s) else s }) }
@@ -163,14 +177,14 @@ private class WardCtx(p: Project, f: Furniture, m: Module, ws: Workshop, snap: B
 internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, carcass: Color, front: Color, sel: Int, doors: Boolean,
                                bad: Map<Int, String>, tm: TextMeasurer?) {
     val t = ws.t
-    val z0 = if (m.legs) ws.legH else 0
+    val z0 = uz.metrx.app.furniture.legsOf(m, ws)
     val base = wardBase(m)
     fun X(mm: Int) = lay.x(mm - ox)
     val l = X(m.x); val r = X(m.x + m.w); val top = lay.y(z0 + m.h); val bot = lay.y(z0)
     val onC = lineOn(carcass); val onF = lineOn(front)
     val dash = PathEffect.dashPathEffect(floatArrayOf(4f, 3f))
     drawRect(carcass, Offset(l, top), Size(r - l, bot - top))
-    if (!m.legs) drawRect(GREY_LINE.copy(alpha = .4f), Offset(l, lay.y(PLINTH)), Size(r - l, PLINTH * lay.s))
+    if (!m.legs) drawRect(GREY_LINE.copy(alpha = .4f), Offset(l, lay.y(base)), Size(r - l, base * lay.s))
     else {
         var acc = m.x
         (listOf(m.x) + m.sections.map { s -> acc += s.w; acc }).forEach { x -> drawRect(GREY_LINE, Offset(X(x) - 1.5f, bot), Size(3f, lay.yF - bot)) }
@@ -219,7 +233,7 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
                     val fx = sl + g + j * (fw + g)
                     drawRect(front, Offset(fx, ft), Size(fw, fb - ft)); drawRect(onF, Offset(fx, ft), Size(fw, fb - ft), style = Stroke(.8f))
                     if (m.handles) {
-                        val hx = if (n == 2) (if (j == 0) fx + fw - 3f else fx + 3f) else (if (i % 2 == 0) fx + fw - 3f else fx + 3f)
+                        val hx = if (n == 2) (if (j == 0) fx + fw - 3f else fx + 3f) else (if (!uz.metrx.app.furniture.hingeRight(m, i)) fx + fw - 3f else fx + 3f)
                         val hy = lay.y(z0 + 1000)
                         drawLine(onF, Offset(hx, hy - 9f), Offset(hx, hy + 9f), 1.6f, StrokeCap.Round)
                     }
@@ -446,27 +460,20 @@ private fun SecChips(m: Module, sel: Int, onPick: (Int) -> Unit) {
     }
 }
 
-/** Whether the wardrobe fills its wall as a niche. */
-private fun isFull(m: Module, wallL: Int?) = wallL != null && m.x == W_GAP_SIDE && m.w == wallL - 2 * W_GAP_SIDE
-
 @Composable
 private fun PlaceStep(p: Project, f: Furniture, m: Module, cx: WardCtx, ws: Workshop) {
     val app = LocalApp.current
     val snap = app.settings.angleSnap
     if (f.roomId == null) { FreeBanner(p, f); return }
     val room = cx.room ?: return
-    val full = isFull(m, cx.wallL)
-    val hNew = cx.roomH?.let { (it - W_GAP_TOP).coerceIn(1200, 3000) } ?: m.h
-    fun moveTo(wall: String, len: Int?, whole: Boolean) {
+    // to another wall: its width kept where it fits, at the wall's longest stretch clear of doors and windows
+    fun moveTo(wall: String, len: Int?) {
         val L = len ?: return
-        val (x, w, built) = if (whole) Triple(W_GAP_SIDE, L - 2 * W_GAP_SIDE, true) else placeOn(L, wall, room.openings, hNew).let { pl ->
-            // the whole wall is free: a free-standing wardrobe 600 shorter
-            if (pl.third) Triple(W_GAP_SIDE, max(600, L - 2 * W_GAP_SIDE - 600), false) else pl
-        }
-        // a wardrobe in a niche goes up to the ceiling; a TV unit or a dresser keeps its own height
-        app.ward(p.id, f.id) { mm -> mm.copy(wall = wall, x = x, w = w, h = if (whole && f.type.isEmpty()) hNew else mm.h, sideL = !built, sideR = !built,
-            sections = splitSections(w, mm.sections.map { it.copy(lock = false) })) }
-        app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.map { if (it.id == f.id) it.copy(walls = listOf(wall)) else it }) }
+        val (sx, sw, _) = placeOn(L, wall, room.openings, m.h)
+        val w = min(m.w, L - 2 * W_GAP_SIDE)
+        val x = if (sw >= w) sx else W_GAP_SIDE
+        app.ward(p.id, f.id) { mm -> mm.copy(wall = wall, x = x, w = w, sections = if (w != mm.w) splitSections(w, mm.sections.map { it.copy(lock = false) }) else mm.sections) }
+        app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.map { if (it.id == f.id) it.copy(walls = listOf(wall), pose = null) else it }) }
     }
     Text(tr("wd.place", "w" to (m.wall ?: "")), style = ui(15.5f, 800))
     // the row opens scrolled to the wardrobe's wall, so wall C or D is not hidden past the edge
@@ -477,21 +484,14 @@ private fun PlaceStep(p: Project, f: Furniture, m: Module, cx: WardCtx, ws: Work
         walls(room, snap).forEach { w ->
             val len = wallLen(room, snap, w.id)
             Box(Modifier.onGloballyPositioned { c -> if (!shown && w.id == m.wall) { shown = true; val x = c.positionInParent().x.toInt(); if (x > 0) scope.launch { wallsSc.scrollTo(x) } } }) {
-                Chip(tr("kt.wallN", "w" to w.id) + (len?.let { " · $it" } ?: ""), w.id == m.wall) { if (w.id != m.wall) moveTo(w.id, len, placeOn(len ?: 0, w.id, room.openings, hNew).third) }
+                Chip(tr("kt.wallN", "w" to w.id) + (len?.let { " · $it" } ?: ""), w.id == m.wall) { if (w.id != m.wall) moveTo(w.id, len) }
             }
         }
     }
-    Seg(listOf("full" to tr("wd.full"), "part" to tr("wd.part")), if (full) "full" else "part") { k -> if ((k == "full") != full) moveTo(m.wall ?: "", cx.wallL, k == "full") }
-    Seg(listOf("built" to tr("wd.built"), "free" to tr("wd.free")), if (!m.sideL && !m.sideR) "built" else "free") { k ->
-        app.ward(p.id, f.id) { mm -> mm.copy(sideL = k != "built", sideR = k != "built") }
-    }
-    if (full && cx.wallL != null) Text(
-        if (cx.roomH != null) tr("wd.niche", "l" to cx.wallL, "h" to cx.roomH, "w" to m.w, "hh" to m.h) else tr("wd.nicheNoH", "l" to cx.wallL, "w" to m.w),
-        style = ui(13f, 400, G.ink2, 1.45f))
-    else {
-        ValRow(tr("wd.x"), "${m.x} mm") { app.sheet = Sheet.WField(p.id, f.id, "x") }
-        ValRow(tr("wd.w"), "${m.w} mm") { app.sheet = Sheet.WField(p.id, f.id, "w") }
-    }
+    ValRow(tr("wd.x"), "${m.x} mm") { app.sheet = Sheet.WField(p.id, f.id, "x") }
+    ValRow(tr("wd.w"), "${m.w} mm") { app.sheet = Sheet.WField(p.id, f.id, "w") }
+    // the room's plan, to drag it where it should stand
+    GBtn(tr("fz.move"), { app.push(Route.FPlace(p.id, f.id, room.id)) }, Btn.SECONDARY, icon = "room", height = 44.dp, corner = 14.dp, fontSize = 14f)
     if (!measured(room, snap, m.wall ?: "")) Text(tr("kt.noLen", "w" to (m.wall ?: "")), style = ui(12.5f, 500, G.amberInk, 1.4f))
 }
 
@@ -503,7 +503,14 @@ private fun SizeStep(p: Project, f: Furniture, m: Module, ws: Workshop) {
     ValRow(tr("wd.h"), "${m.h} mm") { app.sheet = Sheet.WField(p.id, f.id, "h") }
     ValRow(tr("wd.d"), "${m.d} mm") { app.sheet = Sheet.WField(p.id, f.id, "d") }
     Text(tr("wd.base"), style = ui(14.5f, 700))
-    Seg(listOf("plinth" to tr("wd.plinth"), "legs" to tr("wd.legs")), if (m.legs) "legs" else "plinth") { k -> app.ward(p.id, f.id) { it.copy(legs = k == "legs") } }
+    // plinth or legs, each with its height; the whole height stays, the carcass gives way
+    Seg(listOf("plinth" to tr("wd.plinth"), "legs" to tr("wd.legs")), if (m.legs) "legs" else "plinth") { k ->
+        if ((k == "legs") != m.legs) app.ward(p.id, f.id) { mm ->
+            val legs = if (k == "legs") ws.legH else 0
+            mm.copy(legs = k == "legs", base = null, h = (outerH(mm, ws) - legs).coerceAtLeast(300))
+        }
+    }
+    ValRow(tr(if (m.legs) "wd.legsH" else "wd.plinthH"), "${if (m.legs) uz.metrx.app.furniture.legsOf(m, ws) else wardBase(m)} mm") { app.sheet = Sheet.WField(p.id, f.id, "base") }
     Stepper(tr("wd.secCount"), m.sections.size, 1, 8) { n ->
         app.ward(p.id, f.id) { mm ->
             val ih = wardInnerH(mm, ws.t)
@@ -571,6 +578,11 @@ private fun DoorStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop
     val cur = when { s.fronts.kind == "open" -> "0"; s.fronts.n >= 2 -> "2"; else -> "1" }
     fun fr(k: String) = when (k) { "0" -> Fronts("open", 0); "2" -> Fronts("door", 2); else -> Fronts("door", 1) }
     Seg(listOf("2" to tr("wd.d2"), "1" to tr("wd.d1"), "0" to tr("wd.d0")), cur) { k -> app.changeSec(p.id, f.id, sel) { it.copy(fronts = fr(k)) } }
+    // one door: which way it opens, its handle on the other edge
+    if (cur == "1") {
+        Seg(listOf("L" to tr("wd.openL"), "R" to tr("wd.openR")), if (uz.metrx.app.furniture.hingeRight(m, sel)) "R" else "L") { k -> app.changeSec(p.id, f.id, sel) { it.copy(hinge = k) } }
+        Text(tr("wd.openNote"), style = ui(12.5f, 400, G.ink2, 1.4f))
+    }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Spacer(Modifier.weight(1f))
         GBtn(tr("wd.all"), { app.ward(p.id, f.id) { mm -> mm.copy(sections = mm.sections.map { it.copy(fronts = if (cur == "0") fr("0") else Fronts("door", if (cur == "2" && it.w >= 400) 2 else 1)) }) } },
@@ -589,9 +601,27 @@ private fun InsideStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Worksh
     Text(tr("wd.inside", "s" to sel + 1), style = ui(15.5f, 800))
     SecChips(m, sel, onSec)
     if (s.inserts.isEmpty()) Text(tr("wd.empty"), style = ui(13f, 400, G.ink2, 1.4f))
-    s.inserts.withIndex().sortedByDescending { it.value.pos }.forEach { (i, x) ->
-        Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button) { app.sheet = Sheet.WInsert(p.id, f.id, sel, i) }.padding(horizontal = 4.dp),
+    else if (s.inserts.size > 1) Text(tr("wd.dragNote"), style = ui(12.5f, 400, G.ink2, 1.4f))
+    // the list from the top down; a row's handle drags it to another place, then they all spread evenly over the section
+    val rows = s.inserts.withIndex().sortedByDescending { it.value.pos }
+    var dragI by remember(sel) { mutableIntStateOf(-1) }
+    var dragDy by remember(sel) { mutableFloatStateOf(0f) }
+    val pitch = with(androidx.compose.ui.platform.LocalDensity.current) { 52.dp.toPx() }
+    fun drop(from: Int, dy: Float) {
+        val to = (from + (dy / pitch).roundToInt()).coerceIn(0, rows.lastIndex)
+        if (from !in rows.indices || to == from) return
+        val order = rows.map { it.value }.toMutableList().apply { add(to, removeAt(from)) }
+        app.changeSec(p.id, f.id, sel) { it.copy(inserts = uz.metrx.app.furniture.respaced(order.reversed(), wardInnerH(m, ws.t), ws.t).sortedBy { y -> y.pos }) }
+    }
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { rows.forEachIndexed { r, (i, x) ->
+        Row(Modifier.fillMaxWidth().height(48.dp).zIndex(if (r == dragI) 1f else 0f).graphicsLayer { translationY = if (r == dragI) dragDy else 0f }
+            .clip(RoundedCornerShape(12.dp)).background(if (r == dragI) G.glass(.95f) else Color.Transparent)
+            .clickable(role = Role.Button) { app.sheet = Sheet.WInsert(p.id, f.id, sel, i) }.padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            if (rows.size > 1) Box(Modifier.size(40.dp).pointerInput(sel, r, rows.size) {
+                detectDragGestures(onDragStart = { dragI = r; dragDy = 0f }, onDragEnd = { drop(dragI, dragDy); dragI = -1; dragDy = 0f },
+                    onDragCancel = { dragI = -1; dragDy = 0f }) { ch, d -> ch.consume(); dragDy += d.y }
+            }.semantics { contentDescription = app.t("wd.drag") }, contentAlignment = Alignment.Center) { MIcon("grip", G.ink3, 20.dp, 2f) }
             Text(tr("wi.${x.kind}"), style = ui(14f, 700), modifier = Modifier.weight(1f))
             Text(if (blockH(x) > 0) tr("wi.atH", "v" to x.pos, "h" to blockH(x)) else tr("wi.at", "v" to x.pos), style = num(13.5f, 600, G.ink2))
             Box(Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button) {
@@ -599,7 +629,7 @@ private fun InsideStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Worksh
                 app.say("kt.deleted", "m" to app.t("wi.${x.kind}"), action = "common.undo", onAction = { app.kit.undo(app, p.id, f.id) })
             }, contentAlignment = Alignment.Center) { MIcon("x", G.ink3, 16.dp, 2f) }
         }
-    }
+    } }
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         listOf("shelf" to "wd.addShelf", "drawer" to "wd.addDrawer", "rail" to "wd.addRail").forEach { (k, t) -> Chip(tr(t), false) { app.addInsert(p.id, f.id, m, sel, k) } }
         Chip(tr("wd.more"), false) { app.sheet = Sheet.WMore(p.id, f.id, sel) }
@@ -649,6 +679,7 @@ private fun WFieldSheet(s: Sheet.WField) {
         "h" -> m.h to (600..3000)
         "d" -> m.d to (250..900)
         "x" -> m.x to (0..max(0, (wallL ?: 10000) - 300))
+        "base" -> (if (m.legs) uz.metrx.app.furniture.legsOf(m, app.settings.workshop) else wardBase(m)) to (if (m.legs) 50..250 else 50..200)
         // a section can grow until each of the others keeps 150 (locked ones their width, one of them gives way if all are)
         "secW" -> (sec?.w ?: 0) to if (n == 1) (m.w..m.w) else m.sections.filterIndexed { i, _ -> i != s.sec }.let { o ->
             val locked = o.filter { it.lock }; val give = if (locked.size == o.size) locked.last().w - 150 else 0
@@ -658,7 +689,7 @@ private fun WFieldSheet(s: Sheet.WField) {
     }
     var v by rememberSaveable { mutableStateOf(start.toString()) }
     val vi = v.toIntOrNull()?.takeIf { it in range }
-    val title = when (s.key) { "h" -> tr("wd.h"); "d" -> tr("wd.d"); "x" -> tr("wd.x"); "secW" -> tr("wd.secT", "n" to s.sec + 1); else -> tr("wd.w") }
+    val title = when (s.key) { "h" -> tr("wd.h"); "d" -> tr("wd.d"); "x" -> tr("wd.x"); "base" -> tr(if (m.legs) "wd.legsH" else "wd.plinthH"); "secW" -> tr("wd.secT", "n" to s.sec + 1); else -> tr("wd.w") }
     fun save() {
         val x = vi ?: return
         app.ward(p.id, f.id) { mm ->
@@ -666,6 +697,8 @@ private fun WFieldSheet(s: Sheet.WField) {
                 "h" -> mm.copy(h = x)
                 "d" -> mm.copy(d = x)
                 "x" -> mm.copy(x = x)
+                // the whole height stays: taller legs, a shorter carcass (a plinth is inside the carcass)
+                "base" -> if (mm.legs) mm.copy(base = x, h = (mm.h - (x - uz.metrx.app.furniture.legsOf(mm, app.settings.workshop))).coerceAtLeast(300)) else mm.copy(base = x)
                 "secW" -> {
                     var secs = mm.sections.mapIndexed { i, ss -> if (i == s.sec) ss.copy(w = x, lock = true) else ss }
                     // someone has to give way: the last other section takes what is left

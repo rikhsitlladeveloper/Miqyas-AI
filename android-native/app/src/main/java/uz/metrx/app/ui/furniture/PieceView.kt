@@ -106,7 +106,7 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
     if (furn.isEmpty()) { x0 = 0.0; y0 = 0.0; z0 = 0.0; x1 = 1.0; y1 = 1.0; z1 = 1.0 }
     val dims = HashMap<String, DimLine>(); val tint = HashMap<String, String>()
     if (f.kind == "kitchen") {
-        val y = (worktopTop(ws) + 30) / 1000.0
+        val y = (worktopTop(uz.metrx.app.furniture.wsOf(f, ws)) + 30) / 1000.0
         onWalls.forEachIndexed { i, w ->
             val bas = b[w] ?: return@forEachIndexed
             val l = (f.free?.sides?.getOrNull(i) ?: (bas.len * 1000).toInt()) / 1000.0

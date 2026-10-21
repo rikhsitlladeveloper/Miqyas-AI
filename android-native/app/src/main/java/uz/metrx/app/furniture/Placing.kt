@@ -110,7 +110,8 @@ fun islandPoseIn(f: Furniture, walls: List<PlanWall>): Pose? {
 }
 
 /** Everything [f] covers in the room: a cabinet's box, a kitchen's lower row, tall units and wall units on each side, its island. */
-fun footsOf(f: Furniture, walls: List<PlanWall>, ws: Workshop): List<Foot> {
+fun footsOf(f: Furniture, walls: List<PlanWall>, ws0: Workshop): List<Foot> {
+    val ws = wsOf(f, ws0)
     val out = ArrayList<Foot>()
     if (f.kind == "wardrobe") {
         val m = wardOfF(f) ?: return out

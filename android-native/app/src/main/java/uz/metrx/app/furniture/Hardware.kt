@@ -79,7 +79,7 @@ fun hardwareOf(m: Module, ws: Workshop): Map<String, Int> {
 fun hardware(fs: List<Furniture>, ws: Workshop): Map<String, Int> {
     val n = LinkedHashMap<String, Int>()
     fs.forEach { f ->
-        f.modules.forEach { m -> hardwareOf(m, ws).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v } }
+        f.modules.forEach { m -> hardwareOf(m, wsOf(f, ws)).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v } }
         extrasHardware(f).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v }
     }
     return n

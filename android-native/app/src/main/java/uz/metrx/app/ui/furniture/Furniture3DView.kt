@@ -15,7 +15,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -57,13 +60,66 @@ import uz.metrx.app.ui.three.Shot3D
  * existing 3D page and engine. A tap on a door or drawer opens it; "Hammasini ochish" and "Yopish" do all of them.
  */
 
-/** The room's scene with this order's furniture in it, and what can be opened. */
+/**
+ * Doors and drawers opening and shutting, about 0.3 s each: [target] what should be open, [prog] how far each one is.
+ * Shutting a door slides in what was pulled out behind it first; opening one leaves its drawers shut.
+ */
+class DoorMotion {
+    var target by mutableStateOf(setOf<String>())
+    val prog = mutableStateMapOf<String, Float>()
+    fun toggle(k: String) { target = if (k in target) target - k - inner(k, target) else target + k }
+    fun openAll(keys: Collection<String>) { target = keys.toSet() }
+    fun closeAll() { target = emptySet() }
+}
+
+/** A door's key (a hinged door "…:f1" or a sliding one "…:slide0"), not a drawer's or a rack's. */
+private fun isDoor(k: String) = k.substringAfterLast(':').let { it.startsWith("f") || it.startsWith("slide") }
+
+/** What stands behind door [door] among [keys]: the drawers and racks of its section (a sliding door: of its wardrobe). */
+private fun inner(door: String, keys: Collection<String>): Set<String> {
+    if (!isDoor(door)) return emptySet()
+    val pre = door.substringBeforeLast(':') + ":"
+    return keys.filter { it.startsWith(pre) && !isDoor(it) }.toSet()
+}
+
 @Composable
-fun rememberFurnShell(p: Project, room: Room, base: Shell3D, open: Set<String>): Pair<Shell3D, Furn3D> {
+fun rememberDoorMotion(id: String): DoorMotion {
+    val mo = remember(id) { DoorMotion() }
+    val target = mo.target
+    LaunchedEffect(mo, target) {
+        suspend fun move(keys: List<String>, to: Float) {
+            if (keys.isEmpty()) return
+            val from = keys.associateWith { mo.prog[it] ?: 0f }
+            val t0 = withFrameNanos { it }
+            while (true) {
+                val e = ((withFrameNanos { it } - t0) / 300_000_000f).coerceIn(0f, 1f)
+                val k = e * e * (3 - 2 * e)
+                keys.forEach { mo.prog[it] = from.getValue(it) + (to - from.getValue(it)) * k }
+                if (e >= 1f) break
+            }
+            keys.forEach { if (to == 0f) mo.prog.remove(it) else mo.prog[it] = 1f }
+        }
+        // what shuts: the drawers first, then the doors; what opens: the doors first, then the drawers
+        val shut = mo.prog.keys.filter { it !in target }
+        move(shut.filter { !isDoor(it) }, 0f)
+        move(shut.filter { isDoor(it) }, 0f)
+        val opening = target.filter { (mo.prog[it] ?: 0f) < 1f }
+        move(opening.filter { isDoor(it) }, 1f)
+        move(opening.filter { !isDoor(it) }, 1f)
+    }
+    return mo
+}
+
+/** The room's scene with this order's furniture in it, each door and drawer as far open as [mo] says; what can be opened. */
+@Composable
+fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion): Pair<Shell3D, Furn3D> {
     val app = LocalApp.current
     val ws = app.settings.workshop; val mats = app.settings.mats
     val fs = p.furniture.filter { it.roomId == room.id || (it.roomId == null && uz.metrx.app.furniture.FREE_ROOM + it.id == room.id) }
-    val fur = remember(base, fs, open, ws, mats) { furniture3D(fs, base.bases, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, open) }
+    val amt = mo.prog.toMap()
+    val fur = remember(base, fs, amt, ws, mats) {
+        furniture3D(fs, base.bases, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet()) { k -> (amt[k] ?: 0f).toDouble() }
+    }
     val shell = remember(base, fur) { base.plus(fur.parts, fur.edges) }
     return shell to fur
 }
@@ -103,15 +159,15 @@ fun ColumnScope.Furniture3D(p: Project, room: Room) {
         }
         return
     }
-    var open by remember(room.id) { mutableStateOf(setOf<String>()) }
+    val mo = rememberDoorMotion(room.id)
     // furniture without a room stands on a floor of its size, no walls round it
     val free = uz.metrx.app.furniture.isFreeRoom(room)
     val base = remember(room.dims, room.openings, room.poly, room.points, room.wallColor, room.floorColor, snap) { buildShell(listOf(room), true, snap).let { if (free) it.floorOnly() else it } }
-    val (shell, fur) = rememberFurnShell(p, room, base, open)
+    val (shell, fur) = rememberFurnShell(p, room, base, mo)
     val cam = remember(room.id) { Cam3D() }
     val shot = remember { Shot3D() }
     Box(Modifier.weight(1f).fillMaxWidth()) {
-        Scene3D(shell, cam, Modifier.fillMaxSize(), shot, onTap = { pos -> fur.pick(cam, pos.x, pos.y)?.let { k -> open = if (k in open) open - k else open + k } }) {
+        Scene3D(shell, cam, Modifier.fillMaxSize(), shot, onTap = { pos -> fur.pick(cam, pos.x, pos.y)?.let { k -> mo.toggle(k) } }) {
             if (!free) ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
                 if (room.views.size >= 4) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
                 shot.take { bmp ->
@@ -130,8 +186,8 @@ fun ColumnScope.Furniture3D(p: Project, room: Room) {
     }
     Column(Modifier.fillMaxWidth().background(G.glass(.55f)).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GBtn(tr("f3.openAll"), { open = fur.keys.toSet() }, Btn.SECONDARY, height = 44.dp, corner = 12.dp, fontSize = 14f, modifier = Modifier.weight(1f))
-            GBtn(tr("f3.close"), { open = emptySet() }, Btn.SECONDARY, enabled = open.isNotEmpty(), height = 44.dp, corner = 12.dp, fontSize = 14f, modifier = Modifier.weight(1f))
+            GBtn(tr("f3.openAll"), { mo.openAll(fur.keys) }, Btn.SECONDARY, height = 44.dp, corner = 12.dp, fontSize = 14f, modifier = Modifier.weight(1f))
+            GBtn(tr("f3.close"), { mo.closeAll() }, Btn.SECONDARY, enabled = mo.target.isNotEmpty(), height = 44.dp, corner = 12.dp, fontSize = 14f, modifier = Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             listOf("3d.top" to true, "3d.corner" to false).forEach { (k, top) ->

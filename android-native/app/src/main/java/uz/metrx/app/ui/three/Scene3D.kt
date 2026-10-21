@@ -297,9 +297,10 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader) {
             val dx = eye.x - gp.cx; val dz = eye.z - gp.cz
             return dx * n.first + dz * n.second > .4 * hypot(dx, dz)
         }
+        // the wall facing the eye goes see-through, its doors and windows with it; the furniture on it stays solid
         prims.forEach { p ->
             val f = facing(p.group, p.wall)
-            val a = when (p.role) { Role.WALL -> if (f) .14f else 1f; Role.OPENING -> if (f) min(.12f, p.op) else p.op; Role.FURN -> if (f) .1f else p.op; else -> p.op }
+            val a = when (p.role) { Role.WALL -> if (f) .14f else 1f; Role.OPENING -> if (f) min(.12f, p.op) else p.op; Role.FURN -> p.op; else -> p.op }
             if (a != p.alpha) { p.alpha = a; p.node.setMaterialInstanceAt(p.index, mat(p.rgb, a)) }
         }
         lines.forEach { l ->

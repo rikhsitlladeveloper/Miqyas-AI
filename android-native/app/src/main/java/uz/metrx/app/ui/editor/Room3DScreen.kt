@@ -115,14 +115,14 @@ fun Room3DScreen(r0: Route.Editor) {
         }
         val base = remember(r.dims, r.openings, r.poly, r.points, r.wallColor, r.floorColor, snap) { buildShell(listOf(r), true, snap) }
         // a furniture order's furniture stands in its room; a tap opens a door or a drawer
-        var open by remember(r.id) { mutableStateOf(setOf<String>()) }
-        val (shell, fur) = if (p.isFurniture) uz.metrx.app.ui.furniture.rememberFurnShell(p, r, base, open) else base to null
+        val mo = uz.metrx.app.ui.furniture.rememberDoorMotion(r.id)
+        val (shell, fur) = if (p.isFurniture) uz.metrx.app.ui.furniture.rememberFurnShell(p, r, base, mo) else base to null
         val cam = remember(r.id) { Cam3D() }
         val shot = remember { Shot3D() }
         var taking by remember { mutableStateOf(false) }   // a second tap while a picture is being taken does nothing
         Box(Modifier.weight(1f).fillMaxWidth()) {
             Scene3D(shell, cam, Modifier.fillMaxSize(), shot, onTap = fur?.let { fr -> { pos: Offset ->
-                uz.metrx.app.ui.furniture.pickOf(fr, cam, pos)?.let { k -> open = if (k in open) open - k else open + k }
+                uz.metrx.app.ui.furniture.pickOf(fr, cam, pos)?.let { k -> mo.toggle(k) }
             } }) {
                 Labels3D(cam, shell.labels.map { it.p }) { i -> Lbl3D(shell.labels[i].text) }
                 ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {

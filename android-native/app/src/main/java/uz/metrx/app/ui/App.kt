@@ -145,6 +145,7 @@ sealed interface Sheet {
     data class FRename(val pid: String, val fid: String) : Sheet
     /** The kitchen designer: a unit's settings; the library of units ([group] module, appl or space) for [wall]. */
     data class FModule(val pid: String, val fid: String, val mid: String) : Sheet
+    data class KLegs(val pid: String, val fid: String) : Sheet
     data class FLibrary(val pid: String, val fid: String, val wall: String, val group: String) : Sheet
     /** The wardrobe designer: one size ([key] w, h, d, x or secW of section [sec]), an insert, more inserts; materials of any furniture. */
     data class WField(val pid: String, val fid: String, val key: String, val sec: Int = 0) : Sheet

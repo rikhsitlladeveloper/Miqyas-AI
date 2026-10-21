@@ -68,4 +68,5 @@ val ICONS: Map<String, IconDef> = mapOf(
     "arrow" to IconDef(24f, 24f, listOf(IconPart("M5 19L19 5M10 5h9v9"))),
     "text" to IconDef(24f, 24f, listOf(IconPart("M5 7V4h14v3M12 4v16M9 20h6"))),
     "line" to IconDef(24f, 24f, listOf(IconPart("M5 19L19 5"), IconPart("M3 17l4 4M17 3l4 4"))),
+    "grip" to IconDef(24f, 24f, listOf(IconPart("M5 8h14"), IconPart("M5 12h14"), IconPart("M5 16h14"))),
 )

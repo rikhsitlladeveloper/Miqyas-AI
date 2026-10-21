@@ -16,7 +16,8 @@ import uz.metrx.app.ui.theme.Theme
 class FrontFig(val wall: String?, val vw: Float, val vh: Float, val draw: DrawScope.(TextMeasurer) -> Unit)
 
 /** The fronts of [f] as the documents show them: each kitchen wall (and the island), or the wardrobe, with sizes. */
-fun frontFigures(f: Furniture, room: Room?, ws: Workshop, mats: List<Mat>): List<FrontFig> {
+fun frontFigures(f: Furniture, room: Room?, ws0: Workshop, mats: List<Mat>): List<FrontFig> {
+    val ws = uz.metrx.app.furniture.wsOf(f, ws0)
     if (f.kind == "wardrobe") {
         val m = wardOf(f) ?: return emptyList()
         val lay = KLay(m.w, outerH(m, ws), 360f, true)

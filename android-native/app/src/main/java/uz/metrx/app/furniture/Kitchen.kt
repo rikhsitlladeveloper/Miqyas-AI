@@ -182,7 +182,8 @@ data class FCheck(val level: String, val key: String, val vars: Map<String, Any>
 private fun overlaps(a0: Int, a1: Int, b0: Int, b1: Int) = a0 < b1 && b0 < a1
 
 /** What is wrong (or right) with the kitchen on its room's walls: [openings] and [points] of the room. */
-fun checks(f: Furniture, runs: List<Run>, ws: Workshop, openings: List<Opening>, points: List<SitePoint>): List<FCheck> {
+fun checks(f: Furniture, runs: List<Run>, ws0: Workshop, openings: List<Opening>, points: List<SitePoint>): List<FCheck> {
+    val ws = wsOf(f, ws0)
     val out = ArrayList<FCheck>()
     runs.forEach { r ->
         listOf(false, true).forEach { up ->

@@ -34,8 +34,13 @@ data class Furniture(
     /** A cabinet on the wardrobe's engine ([kind] "wardrobe"): "" a wardrobe, or a Stage 2 type (Cabinets.kt CASE_TYPES). */
     val type: String = "",
     /** Standing away from the walls, dragged on the room's plan: a kitchen's island, or the whole piece (a desk…); null: the usual place. */
-    val pose: Pose? = null
+    val pose: Pose? = null,
+    /** Kitchens: the legs' height under the units, mm (the carcass stays 720, the worktop follows); null: the workshop's. */
+    val baseH: Int? = null
 )
+
+/** The workshop's rules as [f] is built: a kitchen with its own legs' height. */
+fun wsOf(f: Furniture, ws: Workshop): Workshop = f.baseH?.takeIf { f.kind == "kitchen" }?.let { ws.copy(legH = it) } ?: ws
 
 /**
  * A place in the room: [a] mm along wall [ref] from its start and [n] mm into the room is the back's left end; the
@@ -77,7 +82,9 @@ data class Module(
     val sideL: Boolean = true,
     val sideR: Boolean = true,
     /** Wardrobes: sliding (купе) doors over the whole front instead of each section's doors (plan 1b-2); null: hinged. */
-    val slide: Slide? = null
+    val slide: Slide? = null,
+    /** Wardrobes: the plinth's or the legs' height, mm; null: a plinth of 80, or the workshop's legs. */
+    val base: Int? = null
 )
 
 /**
@@ -104,4 +111,6 @@ data class Insert(val kind: String, val pos: Int = 0, val qty: Int = 1, val h: I
 @Serializable
 data class Section(val w: Int, val fronts: Fronts = Fronts("door", 2), val inserts: List<Insert> = emptyList(), val lock: Boolean = false,
                    /** A desk's knee space: no bottom, back or inside (Cabinets.kt). */
-                   val knee: Boolean = false)
+                   val knee: Boolean = false,
+                   /** A single door's hinge edge: "L" it opens to the left, "R" to the right; "" as usual (Wardrobe.kt hingeRight). */
+                   val hinge: String = "")

@@ -237,7 +237,7 @@ fun fitTo(f: Furniture, walls: List<String>, len: (String) -> Int?, roomH: Int?,
         val m = wardOfF(f) ?: return f
         val x = off ?: W_GAP_SIDE
         val w = len(walls[0])?.let { min(m.w, it - x - W_GAP_SIDE).coerceAtLeast(min(m.w, 300)) } ?: m.w
-        val legs = if (m.legs) ws.legH else 0
+        val legs = legsOf(m, ws)
         val h = roomH?.let { min(m.h, it - W_GAP_TOP - legs) } ?: m.h
         val nm = m.copy(w = w, h = h, sections = if (w != m.w) splitSections(w, m.sections.map { it.copy(lock = false) }) else m.sections)
         return f.copy(modules = f.modules.map { if (it.id == m.id) nm else it })
@@ -303,7 +303,8 @@ fun islandPose(f: Furniture, wallLen: Int): Pose {
 fun placed(f: Furniture, walls: List<String>, roomId: String, wsId: String, off: Int? = null, keep: Boolean = false, len: (String) -> Int? = { null }, ws: Workshop = Workshop(),
            start: Int? = null, pose: Pose? = null): Furniture {
     var g = onWalls(withoutLead(f, len), walls).copy(roomId = roomId, ws = wsId, keep = keep, pose = pose)
-    if (g.kind == "wardrobe") return g.copy(modules = g.modules.map { if (it.type == "wardrobe") it.copy(x = off ?: W_GAP_SIDE) else it })
+    // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
+    if (g.kind == "wardrobe") return g.copy(modules = g.modules.map { if (it.type == "wardrobe") withSides(it.copy(x = off ?: W_GAP_SIDE), len(walls[0]), pose != null) else it })
     val gap = if (walls.count { it != ISLAND } == 1) start ?: 0 else firstStart(g, len(walls[0]))
     if (gap > 0) {
         val w0 = walls[0]
@@ -319,7 +320,7 @@ fun placed(f: Furniture, walls: List<String>, roomId: String, wsId: String, off:
 fun takenOut(f: Furniture, len: (String) -> Int?, roomH: Int?): Furniture {
     if (f.kind == "wardrobe") {
         val g = onWalls(f, listOf("A")).copy(roomId = null, ws = "", keep = false, pose = null)
-        return g.copy(modules = g.modules.map { if (it.type == "wardrobe") it.copy(x = W_GAP_SIDE) else it })
+        return g.copy(modules = g.modules.map { if (it.type == "wardrobe") withSides(it.copy(x = W_GAP_SIDE), it.w + 2 * W_GAP_SIDE) else it })
     }
     // the empty stretch before a corner kitchen's first side stays with the room, and so does where its island stood
     val f = withoutLead(f, len).copy(pose = null)

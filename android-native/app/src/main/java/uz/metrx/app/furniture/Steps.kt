@@ -94,7 +94,7 @@ fun resized(f: Furniture, v: Map<String, Int>, ws: Workshop): Furniture {
     }
     val m = wardOfF(f) ?: return f
     val w = v["w"] ?: m.w; val d = v["d"] ?: m.d
-    val h = (v["h"] ?: outerH(m, ws)).let { if (f.type.isNotEmpty() && m.legs) it - ws.legH else it }
+    val h = (v["h"] ?: outerH(m, ws)).let { if (f.type.isNotEmpty() && m.legs) it - legsOf(m, ws) else it }
     val secs = if (w != m.w) splitSections(w, m.sections.map { it.copy(lock = false) }) else m.sections
     val nm = m.copy(w = w, h = h, d = d, sections = secs)
     return f.copy(modules = f.modules.map { if (it.id == m.id) nm else it })
