@@ -244,7 +244,7 @@ struct FRoomsTab: View {
     private func pieceRow(_ f: Furniture, _ amount: Decimal?) -> some View {
         let ward = f.kind == "wardrobe"
         let sub = ward ? (wardOf(f).map { Geo.fmtLen($0.w, .m, en) + " × " + Geo.fmtLen($0.h, .m, en) + " m" } ?? "")
-            : tr("kt.l" + f.layout) + " · " + runMetres(f, en)
+            : tr("kt.l" + f.layout) + " · " + runMetres(f, en) + " " + tr("kt.pm")
         return HStack(spacing: 10) {
             MIcon(ward ? "board" : "kitchen", G.ink3, 18, 2)
             VStack(alignment: .leading, spacing: 1) {
