@@ -62,6 +62,19 @@ class ScreenTestCase: XCTestCase {
         app.buttons["ws.save"].tap(); usleep(1_000_000)
     }
 
+    /// A furniture order for who with one room, opened in the editor (furniture orders UX: the three-field order,
+    /// "Nima kerak?" need, the room).
+    func newFurnitureRoom(_ app: XCUIApplication, _ who: String, _ need: String) {
+        app.buttons["home.new"].tap(); usleep(900_000)
+        app.textFields.element(boundBy: 0).typeText(who)
+        app.buttons["no.create"].tap(); usleep(1_200_000)
+        XCTAssertTrue(app.buttons["need." + need].waitForExistence(timeout: 4))
+        app.buttons["need." + need].tap(); usleep(900_000)
+        app.buttons["how.room"].tap(); usleep(900_000)
+        app.buttons["fr.create"].tap(); sleep(1)
+        if app.buttons["tip.ok"].waitForExistence(timeout: 2) { app.buttons["tip.ok"].tap(); usleep(700_000) }
+    }
+
     func typeValue(_ app: XCUIApplication, _ v: String) {
         let f = app.textFields["ms.value"]
         XCTAssertTrue(f.waitForExistence(timeout: 3))
@@ -608,10 +621,10 @@ final class Furniture1Tests: ScreenTestCase {
         XCTAssertTrue(app.buttons["laser"].waitForExistence(timeout: 8)); sleep(1); shot("f1-03-home")
 
         app.buttons["home.new"].tap(); usleep(900_000)
-        app.textFields.element(boundBy: 0).typeText("Oshxona Chilonzor 9")
-        app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText("Dilnoza Karimova")
+        app.textFields.element(boundBy: 0).typeText("Dilnoza Karimova")
         shot("f1-04-new-order")
-        app.buttons["np.save"].tap(); sleep(1); shot("f1-05-order")
+        app.buttons["no.create"].tap(); sleep(1); shot("f1-04b-what")
+        app.buttons["need.later"].tap(); sleep(1); shot("f1-05-order")
 
         app.buttons["ptab.info"].tap(); usleep(800_000); shot("f1-06-stages")
         app.buttons["fo.next"].tap(); usleep(700_000)          // measure → design
@@ -640,12 +653,7 @@ final class Furniture2Tests: ScreenTestCase {
     func testSitePoints() {
         let app = launch()
         firstRun(app, "ind.furn")
-        newWorkspace(app, "Oshxona Chilonzor 9")
-        app.buttons["space.add"].tap(); usleep(700_000)
-        app.buttons["add.sketch"].tap(); usleep(700_000)
-        app.buttons["add.plan"].tap(); usleep(800_000)
-        app.buttons["nr.create"].tap(); sleep(1)
-        app.buttons["tip.ok"].tap(); usleep(700_000)
+        newFurnitureRoom(app, "Dilnoza Karimova", "kitchen")
         measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
         sleep(6)    // the last toast goes away
         app.buttons["ed.walls"].tap(); usleep(900_000); shot("f2-01-wall-empty")
@@ -713,12 +721,7 @@ final class Furniture4Tests: ScreenTestCase {
     func testKitchen() {
         let app = launch()
         firstRun(app, "ind.furn")
-        newWorkspace(app, "Oshxona Yunusobod")
-        app.buttons["space.add"].tap(); usleep(700_000)
-        app.buttons["add.sketch"].tap(); usleep(700_000)
-        app.buttons["add.plan"].tap(); usleep(800_000)
-        app.buttons["nr.create"].tap(); sleep(1)
-        app.buttons["tip.ok"].tap(); usleep(700_000)
+        newFurnitureRoom(app, "Akmal Yusupov", "kitchen")
         measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
         sleep(6)    // the last toast goes away
         app.buttons["ed.walls"].tap(); usleep(900_000)
@@ -726,11 +729,9 @@ final class Furniture4Tests: ScreenTestCase {
         app.buttons["pt.cold"].tap(); usleep(400_000)
         retype(app, "pt.off", "1,3"); app.buttons["pt.save"].tap(); sleep(5)
         shot("f4-00a-wall"); app.buttons["back"].tap(); sleep(2); shot("f4-00b-after-back")
-        // the plan's own back button (another page's may still be in the tree)
-        app.buttons.matching(identifier: "back").allElementsBoundByIndex.last { $0.isHittable }?.tap(); sleep(2); shot("f4-01-workspace")
-        XCTAssertTrue(app.buttons["space.addTile"].waitForExistence(timeout: 4))
-        app.buttons["space.addTile"].tap(); usleep(900_000); shot("f4-02-add-sheet")
-        app.buttons["add.furn"].tap(); usleep(900_000); shot("f4-03-new-furniture")
+        // the measured room offers its kitchen
+        XCTAssertTrue(app.buttons["ed.addFurn"].waitForExistence(timeout: 4))
+        app.buttons["ed.addFurn"].tap(); usleep(900_000); shot("f4-03-new-furniture")
         app.buttons["nf.lL"].tap(); usleep(500_000); shot("f4-04-L-layout")
         app.buttons["nf.start"].tap(); sleep(2); shot("f4-05-empty-wall")
         app.buttons["kt.auto"].tap(); sleep(1); shot("f4-06-auto-A")
@@ -763,8 +764,8 @@ final class Furniture4Tests: ScreenTestCase {
         app.buttons["fm.mats"].tap(); usleep(900_000)
         app.buttons["fmat.front.ldsp18a"].tap(); usleep(700_000); shot("f4-18-mats")
         app.buttons["sheet.close"].tap(); usleep(900_000); shot("f4-19-dark-fronts")
-        app.buttons["back"].tap(); usleep(900_000); shot("f4-20-workspace-card")
-        XCTAssertTrue(app.buttons["furn.card"].exists || app.otherElements["furn.card"].exists)
+        app.buttons["back"].tap(); usleep(900_000); shot("f4-20-order-rooms")
+        XCTAssertTrue(app.buttons["ptab.rooms"].waitForExistence(timeout: 4))
     }
 }
 
@@ -774,18 +775,11 @@ final class Furniture5Tests: ScreenTestCase {
     func testWardrobe() {
         let app = launch()
         firstRun(app, "ind.furn")
-        newWorkspace(app, "Shkaf Chilonzor")
-        app.buttons["space.add"].tap(); usleep(700_000)
-        app.buttons["add.sketch"].tap(); usleep(700_000)
-        app.buttons["add.plan"].tap(); usleep(800_000)
-        app.buttons["nr.create"].tap(); sleep(1)
-        app.buttons["tip.ok"].tap(); usleep(700_000)
+        newFurnitureRoom(app, "Nodira Aliyeva", "wardrobe")
         measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
         sleep(6)    // the last toast goes away
-        app.buttons.matching(identifier: "back").allElementsBoundByIndex.last { $0.isHittable }?.tap(); sleep(2)
-        XCTAssertTrue(app.buttons["space.addTile"].waitForExistence(timeout: 4))
-        app.buttons["space.addTile"].tap(); usleep(900_000)
-        app.buttons["add.furn"].tap(); usleep(900_000)
+        XCTAssertTrue(app.buttons["ed.addFurn"].waitForExistence(timeout: 4))
+        app.buttons["ed.addFurn"].tap(); usleep(900_000)
         app.buttons["nf.wardrobe"].tap(); usleep(600_000)
         app.buttons["nf.c3"].tap(); usleep(500_000); shot("f5-01-new-wardrobe")
         app.buttons["nf.start"].tap(); sleep(2); shot("f5-02-place")
@@ -811,8 +805,8 @@ final class Furniture5Tests: ScreenTestCase {
         app.buttons["wd.mat.front"].tap(); usleep(900_000)
         app.buttons["fmat.front.mdf18"].tap(); usleep(700_000)
         app.buttons["sheet.close"].tap(); usleep(900_000); shot("f5-11-mdf-fronts")
-        app.buttons["back"].tap(); sleep(1); shot("f5-12-workspace-card")
-        XCTAssertTrue(app.buttons["furn.card"].exists || app.otherElements["furn.card"].exists)
+        app.buttons["back"].tap(); sleep(1); shot("f5-12-order-rooms")
+        XCTAssertTrue(app.buttons["ptab.rooms"].waitForExistence(timeout: 4))
     }
 }
 
@@ -821,19 +815,12 @@ final class Furniture6Tests: ScreenTestCase {
     func testFurnitureIn3D() {
         let app = launch()
         firstRun(app, "ind.furn")
-        newWorkspace(app, "Oshxona 3D")
-        app.buttons["space.add"].tap(); usleep(700_000)
-        app.buttons["add.sketch"].tap(); usleep(700_000)
-        app.buttons["add.plan"].tap(); usleep(800_000)
-        app.buttons["nr.create"].tap(); sleep(1)
-        app.buttons["tip.ok"].tap(); usleep(700_000)
+        newFurnitureRoom(app, "Bobur Rahimov", "kitchen")
         measuredRoom(app, "3,4", "2,6", "2,7", openings: true)
         sleep(6)
-        app.buttons.matching(identifier: "back").allElementsBoundByIndex.last { $0.isHittable }?.tap(); sleep(2)
-        XCTAssertTrue(app.buttons["space.addTile"].waitForExistence(timeout: 4))
         // an L-kitchen on A and B, filled
-        app.buttons["space.addTile"].tap(); usleep(900_000)
-        app.buttons["add.furn"].tap(); usleep(900_000)
+        XCTAssertTrue(app.buttons["ed.addFurn"].waitForExistence(timeout: 4))
+        app.buttons["ed.addFurn"].tap(); usleep(900_000)
         app.buttons["nf.lL"].tap(); usleep(500_000)
         app.buttons["nf.start"].tap(); sleep(6)
         app.buttons["kt.auto"].tap(); sleep(5)
@@ -850,8 +837,7 @@ final class Furniture6Tests: ScreenTestCase {
         app.buttons["dim.2D"].tap(); sleep(2)
         app.buttons["back"].tap(); sleep(2)
         // a wardrobe on wall D next to it
-        app.buttons["space.addTile"].exists ? app.buttons["space.addTile"].tap() : app.buttons["space.add"].tap()
-        usleep(900_000)
+        if app.buttons["space.addTile"].exists { app.buttons["space.addTile"].tap(); usleep(900_000) }
         if app.buttons["add.furn"].waitForExistence(timeout: 3) {
             app.buttons["add.furn"].tap(); usleep(900_000)
             app.buttons["nf.wardrobe"].tap(); usleep(600_000)
@@ -875,17 +861,10 @@ final class Furniture7Tests: ScreenTestCase {
     func testPriceAndDocuments() {
         let app = launch()
         firstRun(app, "ind.furn")
-        newWorkspace(app, "Oshxona Sergeli")
-        app.buttons["space.add"].tap(); usleep(700_000)
-        app.buttons["add.sketch"].tap(); usleep(700_000)
-        app.buttons["add.plan"].tap(); usleep(800_000)
-        app.buttons["nr.create"].tap(); sleep(1)
-        app.buttons["tip.ok"].tap(); usleep(700_000)
+        newFurnitureRoom(app, "Kamola Tursunova", "kitchen")
         measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
         sleep(6)
-        backVisible(app)
-        app.buttons["space.addTile"].tap(); usleep(900_000)
-        app.buttons["add.furn"].tap(); usleep(900_000)
+        app.buttons["ed.addFurn"].tap(); usleep(900_000)
         app.buttons["nf.lL"].tap(); usleep(500_000)
         app.buttons["nf.start"].tap(); sleep(6)
         app.buttons["kt.auto"].tap(); sleep(5)

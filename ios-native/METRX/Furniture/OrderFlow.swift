@@ -346,7 +346,7 @@ private struct NewRoomSheet: View {
         let p = Store.shared.get(pid)
         GlassSheet(tr("fo.addRoom"), onClose: { app.sheet = nil }) {
             T(tr("fr.type"), ui(15, 700))
-            FlowLayout {
+            FlowLayout(spacing: 8) {
                 ForEach(F_ROOMS, id: \.self) { t in FChip(label: tr("fr." + t), on: t == type) { type = t; name = NewRoomSheet.nameFor(t, p) } }
             }
             GField(label: tr("fr.name"), value: $name, placeholder: tr("fr." + type), focus: $focus, me: .name, submit: .done, onSubmit: create)

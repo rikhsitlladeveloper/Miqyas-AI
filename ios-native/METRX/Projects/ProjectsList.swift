@@ -240,7 +240,7 @@ struct NewProjectScreen: View {
             app.pop(); app.say("op.saved", ["o": n])
         } else {
             var p = newProject(n, c, Phone.digits(phone), a, loc, AppSettings.shared.currency, AppSettings.shared.reportLang.code)
-            if AppSettings.shared.furniture { p.industry = "furniture" } else if isTrade(AppSettings.shared.industry) { p.industry = AppSettings.shared.industry }
+            if AppSettings.shared.furniture { p.industry = "furniture" } else if let t = AppSettings.shared.industry, isTrade(t) { p.industry = t }
             Store.shared.add(p)
             app.replaceTop(.project(id: p.id, tab: "rooms"))
             app.say("np.created", ["n": n])

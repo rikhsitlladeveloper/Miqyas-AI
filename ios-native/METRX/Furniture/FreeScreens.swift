@@ -677,7 +677,7 @@ struct FPlaceScreen: View {
             FPage(eyebrow: dn(f0.name) + " → " + roomName, title: tr("fz.toRoom"), back: { app.pop() }) {
                 PlacePlan(room: room, f: f, on: on, off: offMm, snap: snap)
                 T(tr(ward ? "fz.wallQ" : "fz.first"), ui(15, 700))
-                FlowLayout {
+                FlowLayout(spacing: 8) {
                     ForEach(wl, id: \.id) { w in
                         FChip(label: tr("kt.wallN", ["w": w.id]) + (len(w.id).map { " · \($0)" } ?? ""), on: w.id == first) { if w.id != first { first = w.id; reset() } }
                     }
