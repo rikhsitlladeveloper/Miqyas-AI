@@ -17,12 +17,16 @@ private struct RowKey: Hashable { let mat: String; let p: FPart }
 func cutList(_ fs: [Furniture], _ ws: Workshop) -> [CutRow] {
     // in the order they first come, as Kotlin's LinkedHashMap keeps them
     var order: [RowKey] = []; var count: [RowKey: Int] = [:]
-    for f in fs { for p in f.modules.flatMap({ partsOf($0, ws) }) + extrasParts(f, ws) {
-        var q = p; q.mod = ""; q.qty = 0
-        let k = RowKey(mat: matFor(p.role, f.mats), p: q)
-        if count[k] == nil { order.append(k) }
-        count[k, default: 0] += p.qty
-    } }
+    for f in fs {
+        let fws = wsOf(f, ws)
+        let ps = f.modules.flatMap { partsOf($0, fws) } + extrasParts(f, ws)
+        for p in ps {
+            var q = p; q.mod = ""; q.qty = 0
+            let k = RowKey(mat: matFor(p.role, f.mats), p: q)
+            if count[k] == nil { order.append(k) }
+            count[k, default: 0] += p.qty
+        }
+    }
     let off = ws.bandOff ? ws.band10 : 0
     func less(_ a: Int, _ e1: Int, _ e2: Int) -> Int { (a * 10 - (e1 == 2 ? off : 0) - (e2 == 2 ? off : 0)) / 10 }
     let rows: [CutRow] = order.map { k in

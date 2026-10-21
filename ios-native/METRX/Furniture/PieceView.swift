@@ -86,7 +86,7 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> PieceScene {
     if furn.isEmpty { x0 = 0; y0 = 0; z0 = 0; x1 = 1; y1 = 1; z1 = 1 }
     var dims: [String: DimLine] = [:], tint: [String: String] = [:]
     if f.kind == "kitchen" {
-        let y = Double(worktopTop(ws) + 30) / 1000
+        let y = Double(worktopTop(wsOf(f, ws)) + 30) / 1000
         for (i, w) in onWalls.enumerated() {
             guard let bas = b[w] else { continue }
             let sides = f.free?.sides ?? []

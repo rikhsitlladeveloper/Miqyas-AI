@@ -87,7 +87,8 @@ func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
 func hardware(_ fs: [Furniture], _ ws: Workshop) -> Counts {
     var n = Counts()
     for f in fs {
-        for m in f.modules { for (k, v) in hardwareOf(m, ws).pairs { n.add(k, v) } }
+        let fws = wsOf(f, ws)
+        for m in f.modules { for (k, v) in hardwareOf(m, fws).pairs { n.add(k, v) } }
         for (k, v) in extrasHardware(f).pairs { n.add(k, v) }
     }
     return n

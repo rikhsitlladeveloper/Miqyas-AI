@@ -137,7 +137,56 @@ func wardrobeTemplate(_ ws: Workshop, _ wall: String, _ x: Int, _ w: Int, _ h: I
 }
 
 /// The whole height from the floor: on legs the carcass is Workshop.legH up.
-func outerH(_ m: Module, _ ws: Workshop) -> Int { m.h + (m.legs ? ws.legH : 0) }
+func outerH(_ m: Module, _ ws: Workshop) -> Int { m.h + legsOf(m, ws) }
+
+/// Whether section i's single door hinges on its right edge (its handle on the left): as chosen, else in pairs from the
+/// left, the last on the wardrobe's end.
+func hingeRight(_ m: Module, _ i: Int) -> Bool {
+    let hinge = i >= 0 && i < m.sections.count ? m.sections[i].hinge : ""
+    if hinge == "R" { return true }
+    if hinge == "L" { return false }
+    return i % 2 == 1 || (i > 0 && i == m.sections.count - 1)
+}
+
+/// The side panels m needs where it stands on a wall wallLen long: an end in the room has one; at a wall a hinged
+/// wardrobe keeps its own and a built-in sliding one uses the wall. Standing free (free) or on an unknown wall, both.
+func withSides(_ m: Module, _ wallLen: Int?, free: Bool = false) -> Module {
+    var n = m
+    guard !free, m.slide != nil, let L = wallLen else { n.sideL = true; n.sideR = true; return n }
+    n.sideL = m.x > W_GAP_SIDE + 30
+    n.sideR = m.x + m.w < L - W_GAP_SIDE - 30
+    return n
+}
+
+/// The inserts in order (bottom first) spread over a section ih high: equal gaps, counting each block's height and a
+/// shelf's board; a rail keeps 900 mm to hang under it, the ones above it share what is left.
+func respaced(_ order: [Insert], _ ih: Int, _ t: Int) -> [Insert] {
+    func size(_ x: Insert) -> Int { blockH(x) + (x.kind == "shelf" ? t : 0) }
+    func spread(_ items: [Insert], _ from: Int, _ to: Int) -> [Insert] {
+        var total = 0
+        for x in items { total += size(x) }
+        let gap = max(0.0, Double(to - from - total) / Double(items.count + 1))
+        var y = Double(from)
+        var res: [Insert] = []
+        for x in items {
+            y += gap
+            var n = x; n.pos = Int(y.rounded())
+            y += Double(size(x))
+            res.append(n)
+        }
+        return res
+    }
+    var out = spread(order, 0, ih)
+    for i in out.indices {
+        if out[i].kind != "rail" { continue }
+        let below = i == 0 ? 0 : out[i - 1].pos + size(out[i - 1])
+        if out[i].pos - below >= 900 { continue }
+        let p = max(min(below + 900, ih - 60), out[i].pos)
+        var r = out[i]; r.pos = p
+        out = Array(out[..<i]) + [r] + spread(Array(out[(i + 1)...]), p + 30, ih)
+    }
+    return out
+}
 
 /// What is wrong with wardrobe m on its wall (wallL long, the room roomH high), with the wall's openings and points.
 /// Section findings carry "s", the section's number from 1.

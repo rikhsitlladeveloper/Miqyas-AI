@@ -54,7 +54,8 @@ func wallUnitsMm(_ f: Furniture) -> Int { f.modules.filter { $0.type == "wall" }
 func splashMm(_ f: Furniture) -> Int { worktopRuns(f).filter { $0.key != ISLAND }.values.reduce(0, +) }
 
 /// End panels as parts: the lower ones from the floor to the worktop, the upper ones the wall units' height.
-func extrasParts(_ f: Furniture, _ ws: Workshop) -> [FPart] {
+func extrasParts(_ f: Furniture, _ ws0: Workshop) -> [FPart] {
+    let ws = wsOf(f, ws0)
     guard let x = f.kx else { return [] }
     var out: [FPart] = []
     func part(_ key: String, _ a: Int, _ b: Int, _ n: Int) {

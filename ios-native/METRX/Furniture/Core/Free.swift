@@ -243,7 +243,7 @@ func fitTo(_ f: Furniture, _ walls: [String], _ len: (String) -> Int?, _ roomH: 
         guard let m = wardOfF(f) else { return f }
         let x = off ?? W_GAP_SIDE
         let w = len(walls[0]).map { max(min(m.w, 300), min(m.w, $0 - x - W_GAP_SIDE)) } ?? m.w
-        let legs = m.legs ? ws.legH : 0
+        let legs = legsOf(m, ws)
         let h = roomH.map { min(m.h, $0 - W_GAP_TOP - legs) } ?? m.h
         var nm = m; nm.w = w; nm.h = h
         if w != m.w { nm.sections = splitSections(w, m.sections.map { var s = $0; s.lock = false; return s }) }
@@ -309,7 +309,13 @@ func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String,
             start: Int? = nil, pose: Pose? = nil) -> Furniture {
     var g = onWalls(withoutLead(f, len), walls); g.roomId = roomId; g.ws = wsId; g.keep = keep; g.pose = pose
     if g.kind == "wardrobe" {
-        g.modules = g.modules.map { m in var x = m; if m.type == "wardrobe" { x.x = off ?? W_GAP_SIDE }; return x }
+        // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
+        let wallLen = len(walls[0]), free = pose != nil
+        g.modules = g.modules.map { m in
+            guard m.type == "wardrobe" else { return m }
+            var x = m; x.x = off ?? W_GAP_SIDE
+            return withSides(x, wallLen, free: free)
+        }
         return g
     }
     let gap = walls.filter { $0 != ISLAND }.count == 1 ? start ?? 0 : firstStart(g, len(walls[0]))
@@ -328,7 +334,11 @@ func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String,
 func takenOut(_ f0: Furniture, _ len: (String) -> Int?, _ roomH: Int?) -> Furniture {
     if f0.kind == "wardrobe" {
         var g = onWalls(f0, ["A"]); g.roomId = nil; g.ws = ""; g.keep = false; g.pose = nil
-        g.modules = g.modules.map { m in var x = m; if m.type == "wardrobe" { x.x = W_GAP_SIDE }; return x }
+        g.modules = g.modules.map { m in
+            guard m.type == "wardrobe" else { return m }
+            var x = m; x.x = W_GAP_SIDE
+            return withSides(x, m.w + 2 * W_GAP_SIDE)
+        }
         return g
     }
     // the empty stretch before a corner kitchen's first side stays with the room, and so does where its island stood

@@ -19,7 +19,8 @@ private let PART_BG = Color(argb: 0xFFDDE6F5)
 struct FrontFig { let wall: String?; let vw: CGFloat; let vh: CGFloat; let draw: (GraphicsContext) -> Void }
 
 /// The fronts of f as the documents show them: each kitchen wall (and the island), or the wardrobe, with sizes.
-func frontFigures(_ f: Furniture, _ room: Room?, _ ws: Workshop, _ mats: [Mat]) -> [FrontFig] {
+func frontFigures(_ f: Furniture, _ room: Room?, _ ws0: Workshop, _ mats: [Mat]) -> [FrontFig] {
+    let ws = wsOf(f, ws0)
     if f.kind == "wardrobe" {
         guard let m = wardOf(f) else { return [] }
         let lay = KLay(m.w, outerH(m, ws), 360, true)

@@ -26,7 +26,7 @@ struct KitchenScreen: View {
             let room = roomOf(p, f)
             let runs = kRuns(f, room, snap)
             let run = runs.first { $0.wall == wall } ?? runs.first
-            let ws = s.workshop, mats = s.mats
+            let ws = wsOf(f, s.workshop), mats = s.mats
             let found = checks(f, runs, ws, room?.openings ?? [], room?.points ?? [])
             let bad = badOf(found)
             let sel = f.modules.first { $0.id == kit.sel && $0.wall == run?.wall }
@@ -113,7 +113,7 @@ struct KitchenScreen: View {
                                         kit.sel = m.id
                                     }
                                 }
-                                ExtrasCard(p: p, f: f)
+                                ExtrasCard(app: app, p: p, f: f)
                                 CostCard(p: p, f: f)
                             }
                             .padding(.horizontal, 16).padding(.bottom, 28)
@@ -133,6 +133,7 @@ struct KitchenScreen: View {
 
 /// The kitchen's extras (plan 1b-1): worktop corners and cut-outs, backsplash, plinth, cornice, LED, end panels.
 private struct ExtrasCard: View {
+    let app: AppModel
     let p: Project
     let f: Furniture
     var body: some View {
@@ -158,6 +159,20 @@ private struct ExtrasCard: View {
                     }
                 }
             }
+            // the units' legs (the plinth covers them): the carcass stays 720, the worktop follows
+            let legH = wsOf(f, AppSettings.shared.workshop).legH
+            let wtAt = worktopTop(wsOf(f, AppSettings.shared.workshop))
+            HStack(spacing: 6) {
+                VStack(alignment: .leading, spacing: 0) {
+                    T(tr("kx.legs"), ui(14.5, 500))
+                    T(tr("kx.worktopAt", ["v": wtAt]), ui(12.5, 400, G.ink2))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                T("\(legH) mm", num(14.5, 700)); MIcon("chev", G.ink3, 16, 2)
+            }
+            .padding(.horizontal, 4).frame(minHeight: 48)
+            .pressable(0.99) { app.sheet = .kLegs(pid: p.id, fid: f.id) }
+            .accessibilityIdentifier("kx.legs")
             FToggle(label: tr("kx.plinth") + " · " + m(plinthMm(f)) + " m", on: x.plinth, id: "kx.plinth") { set { $0.plinth.toggle() } }
             FToggle(label: tr("kx.cornice") + " · " + m(wu) + " m", on: x.cornice, id: "kx.cornice") { set { $0.cornice.toggle() } }
             FToggle(label: tr("kx.led") + " · " + m(wu) + " m", on: x.led, id: "kx.led") { set { $0.led.toggle() } }
@@ -417,7 +432,7 @@ struct KitchenSheet: View {
     let app: AppModel
     let sheet: Sheet
     static func handles(_ s: Sheet) -> Bool {
-        switch s { case .fMenu, .fRename, .fMats, .fModule, .fLibrary: return true; default: return false }
+        switch s { case .fMenu, .fRename, .fMats, .fModule, .fLibrary, .kLegs: return true; default: return false }
     }
     var body: some View {
         switch sheet {
@@ -426,6 +441,7 @@ struct KitchenSheet: View {
         case .fMats(let pid, let fid): FMatsSheet(app: app, pid: pid, fid: fid)
         case .fModule(let pid, let fid, let mid): ModuleSheet(app: app, pid: pid, fid: fid, mid: mid)
         case .fLibrary(let pid, let fid, let wall, let group): LibrarySheet(app: app, pid: pid, fid: fid, wall: wall, group: group)
+        case .kLegs(let pid, let fid): LegsSheet(app: app, pid: pid, fid: fid)
         default: EmptyView()
         }
     }
@@ -469,6 +485,46 @@ private struct FMenuSheet: View {
 }
 
 private enum KF: Hashable { case a, b, c }
+
+/// A kitchen's legs' height: every unit moves up or down with it, so the worktop and the wall units follow.
+private struct LegsSheet: View {
+    let app: AppModel
+    let pid: String, fid: String
+    @State private var v: String
+    @FocusState private var focus: KF?
+    init(app: AppModel, pid: String, fid: String) {
+        self.app = app; self.pid = pid; self.fid = fid
+        let f = Store.shared.get(pid)?.furniture.first { $0.id == fid }
+        let ws = AppSettings.shared.workshop
+        _v = State(initialValue: String(f.map { wsOf($0, ws).legH } ?? ws.legH))
+    }
+    var body: some View {
+        if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }) {
+            let ws = AppSettings.shared.workshop
+            let now = wsOf(f, ws).legH
+            let vi = Int(v).flatMap { (50...250).contains($0) ? $0 : nil }
+            let wtAt: Int = { var at = ws; at.legH = vi ?? now; return worktopTop(at) }()
+            let save = {
+                guard let x = vi else { return }
+                let dy = x - now
+                KitOps.shared.change(p.id, f.id) { g in
+                    var n = g; n.baseH = x
+                    n.modules = g.modules.map { var m = $0; m.elev += dy; return m }
+                    return n
+                }
+                app.sheet = nil
+            }
+            GlassSheet(tr("kx.legs"), onClose: { app.sheet = nil }) {
+                GField(label: tr("kx.legs"), value: $v, placeholder: "\(now)", error: tr("km.bad", ["a": 50, "b": 250]), showError: vi == nil, focus: $focus, me: .a,
+                       submit: .done, onSubmit: save, labelRight: "mm", number: true, id: "kl.value")
+                T(tr("kx.worktopAt", ["v": wtAt]), ui(13, 400, G.ink2, lh: 1.4))
+            } footer: {
+                GBtn(tr("common.save"), enabled: vi != nil) { save() }.accessibilityIdentifier("kl.save")
+            }
+            .onChange(of: v) { _, x in let t = String(x.filter(\.isNumber).prefix(3)); if t != x { v = t } }
+        }
+    }
+}
 
 private struct FRenameSheet: View {
     let app: AppModel
@@ -544,7 +600,7 @@ private struct LibrarySheet: View {
         let s = AppSettings.shared, kit = KitOps.shared
         if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }),
            let run = kRuns(f, roomOf(p, f), s.angleSnap).first(where: { $0.wall == wall }) {
-            let ws = s.workshop, island = run.wall == ISLAND
+            let ws = wsOf(f, s.workshop), island = run.wall == ISLAND
             let lowLeft = fillOf(f, run, false).left, upLeft = fillOf(f, run, true).left
             // a new unit goes after the selected one of its row, else at the row's end
             let after = f.modules.first { $0.id == kit.sel && $0.wall == run.wall }
@@ -703,7 +759,7 @@ private struct ModuleSheet: View {
     var body: some View {
         let s = AppSettings.shared, kit = KitOps.shared
         if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }), let m = f.modules.first(where: { $0.id == mid }) {
-            let ws = s.workshop
+            let ws = wsOf(f, s.workshop)
             let run = kRuns(f, roomOf(p, f), s.angleSnap).first { $0.wall == m.wall }
             let boxed = m.type == "base" || m.type == "wall" || m.type == "tall"
             // an appliance's panels (a built-in fridge) stay as they are

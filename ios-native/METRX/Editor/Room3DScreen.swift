@@ -10,8 +10,8 @@ struct Room3DScreen: View {
     @State private var shot = Shot3D()
     /// A picture is being taken: a second tap does nothing.
     @State private var taking = false
-    /// A furniture order's doors and drawers that are open.
-    @State private var open: Set<String> = []
+    /// A furniture order's doors and drawers, opening and shutting.
+    @State private var mo = DoorMotion()
     private var ops: RoomOps { RoomOps.shared }
 
     var body: some View {
@@ -48,13 +48,13 @@ struct Room3DScreen: View {
             } else {
                 let base = buildShell([r], single: true, snap: snap)
                 // a furniture order's furniture stands in its room; a tap opens a door or a drawer
-                let fur: (Shell3D, Furn3D, String)? = p.isFurniture ? furnShell(p, r, base, open, snap) : nil
+                let fur: (Shell3D, Furn3D, String)? = p.isFurniture ? furnShell(p, r, base, mo.prog, snap) : nil
                 let shell = fur?.0 ?? base
                 Scene3D(shell: shell, key: fur?.2 ?? shellKey([r], snap), cam: cam, shot: shot, points: shell.labels.map(\.p),
                         label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
                         onTap: fur.map { f in { pt in
                             let (e, d) = cam.ray(pt.x, pt.y)
-                            if let k = f.1.pick(e, d) { if open.contains(k) { open.remove(k) } else { open.insert(k) } }
+                            if let k = f.1.pick(e, d) { mo.toggle(k) }
                         } }) {
                     ShotPill(icon: "camera", label: tr("3d.save")) { save() }
                         .accessibilityIdentifier("3d.save")

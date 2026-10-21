@@ -103,7 +103,8 @@ func islandPoseIn(_ f: Furniture, _ walls: [PlanWall]) -> Pose? {
 }
 
 /// Everything f covers in the room: a cabinet's box, a kitchen's lower row, tall units and wall units on each side, its island.
-func footsOf(_ f: Furniture, _ walls: [PlanWall], _ ws: Workshop) -> [Foot] {
+func footsOf(_ f: Furniture, _ walls: [PlanWall], _ ws0: Workshop) -> [Foot] {
+    let ws = wsOf(f, ws0)
     var out: [Foot] = []
     if f.kind == "wardrobe" {
         guard let m = wardOfF(f) else { return out }

@@ -108,6 +108,8 @@ enum Sheet: Equatable {
     /// The trades' calculator settings; a column or a niche (fid nil: a new one).
     case tradeCalc(pid: String), featureForm(pid: String, rid: String, fid: String?, type: String)
     case fModule(pid: String, fid: String, mid: String), fLibrary(pid: String, fid: String, wall: String, group: String)
+    /// A kitchen's legs' height.
+    case kLegs(pid: String, fid: String)
     /// The wardrobe: one size (key w, h, d, x or secW of section sec), an insert, more inserts for a section.
     /// Narx tab: a price, a rate or the lead time (key fixed, rRun, rTall or days).
     case fPriceField(pid: String, key: String)

@@ -348,7 +348,7 @@ struct KitchenThumb: View {
             let k = min(size.width / lay.vw, size.height / lay.vh)
             var c = ctx
             c.translateBy(x: (size.width - lay.vw * k) / 2, y: (size.height - lay.vh * k) / 2); c.scaleBy(x: k, y: k)
-            drawRun(c, lay, f, run, room, s.workshop, s.mats, nil, [:])
+            drawRun(c, lay, f, run, room, wsOf(f, s.workshop), s.mats, nil, [:])
         }
     }
 }

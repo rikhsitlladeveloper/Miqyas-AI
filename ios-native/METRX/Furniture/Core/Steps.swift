@@ -95,7 +95,7 @@ func resized(_ f: Furniture, _ v: [String: Int], _ ws: Workshop) -> Furniture {
     guard let m = wardOfF(f) else { return f }
     let w = v["w"] ?? m.w, d = v["d"] ?? m.d
     var h = v["h"] ?? outerH(m, ws)
-    if !f.type.isEmpty && m.legs { h -= ws.legH }
+    if !f.type.isEmpty && m.legs { h -= legsOf(m, ws) }
     var nm = m; nm.w = w; nm.h = h; nm.d = d
     if w != m.w { nm.sections = splitSections(w, m.sections.map { var s = $0; s.lock = false; return s }) }
     var g = f; g.modules = f.modules.map { $0.id == m.id ? nm : $0 }

@@ -39,7 +39,10 @@ private let ALL = (2, 2)
 private let THIN = 1
 
 /// Where a wardrobe's inside starts: the plinth, or nothing on legs.
-func wardBase(_ m: Module) -> Int { m.legs ? 0 : PLINTH }
+func wardBase(_ m: Module) -> Int { m.legs ? 0 : (m.base ?? PLINTH) }
+
+/// How high a wardrobe's legs lift it: its own, or the workshop's; none on a plinth.
+func legsOf(_ m: Module, _ ws: Workshop) -> Int { m.legs ? (m.base ?? ws.legH) : 0 }
 
 /// Section i's width between its side or dividers (a divider takes half of t from each side, a missing side nothing).
 func wardInner(_ m: Module, _ secs: [Section], _ i: Int, _ t: Int) -> Int {
@@ -130,7 +133,7 @@ func partsOf(_ m: Module, _ ws: Workshop) -> [FPart] {
                 out.append(part("fp.divider", id, "carcass", toFloor ? m.h - t : m.h - base - 2 * t, toFloor ? m.d : dIn, 1, THICK))
             }
         }
-        if !m.legs { out.append(part("fp.plinth", id, "carcass", inW, PLINTH, 1, THICK)) }
+        if !m.legs { out.append(part("fp.plinth", id, "carcass", inW, wardBase(m), 1, THICK)) }
         for (i, s) in secs.enumerated() {
             let iw = wardInner(m, secs, i, t)
             let sid = "\(id)/\(i + 1)"

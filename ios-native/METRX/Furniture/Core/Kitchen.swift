@@ -189,7 +189,8 @@ struct FCheck: Equatable {
 private func overlaps(_ a0: Int, _ a1: Int, _ b0: Int, _ b1: Int) -> Bool { a0 < b1 && b0 < a1 }
 
 /// What is wrong (or right) with the kitchen on its room's walls: openings and points of the room.
-func checks(_ f: Furniture, _ runs: [Run], _ ws: Workshop, _ openings: [Opening], _ points: [SitePoint]) -> [FCheck] {
+func checks(_ f: Furniture, _ runs: [Run], _ ws0: Workshop, _ openings: [Opening], _ points: [SitePoint]) -> [FCheck] {
+    let ws = wsOf(f, ws0)
     var out: [FCheck] = []
     for r in runs {
         for up in [false, true] {

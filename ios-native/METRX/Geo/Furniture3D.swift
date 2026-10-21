@@ -69,8 +69,6 @@ private func obbEdges(_ e: Edges3, _ x: Obb) {
     for (i, j) in [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)] { e.segs.append(k[i]); e.segs.append(k[j]) }
 }
 
-/// The furniture fs of a room whose walls are bases. rgb gives a material's colour; open holds the keys of open doors
-/// and drawers.
 /// The frame of a piece standing at p (Pose: along and out from wall p.ref, turned): len m long.
 func poseBasis(_ w: WallBasis, _ p: Pose, _ len: Double) -> WallBasis {
     let o = w.at(Double(p.a) / 1000, 0, Double(p.n) / 1000)
@@ -79,13 +77,18 @@ func poseBasis(_ w: WallBasis, _ p: Pose, _ len: Double) -> WallBasis {
     return WallBasis(ox: o.x, oz: o.z, ux: w.ux * c + w.nx * s, uz: w.uz * c + w.nz * s, nx: w.nx * c - w.ux * s, nz: w.nz * c - w.uz * s, len: len)
 }
 
-func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop, _ rgb: (String) -> Int, _ open: Set<String>) -> Furn3D {
+/// The furniture fs of a room whose walls are bases. rgb gives a material's colour; open holds the keys of open doors
+/// and drawers, or amt says how far each one is open, 0 to 1 (moving between the two while it opens or shuts).
+func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop, _ rgb: (String) -> Int, _ open: Set<String>,
+                 amt: ((String) -> Double)? = nil) -> Furn3D {
+    let how: (String) -> Double = amt ?? { k in open.contains(k) ? 1 : 0 }
     let st = FStore()
     for f in fs {
         let colors = ["carcass": rgb(f.mats.carcass), "front": rgb(f.mats.front), "back": rgb(f.mats.back), "top": rgb("wt38"),
                       "mirror": MIRROR, "glass": GLASS_P, "splash": rgb("splash6"),
                       "metal": METAL, "dark": DARK, "handle": HANDLE, "white": WHITE]
-        let B = FBuilder(ws, colors, st, open)
+        let fws = wsOf(f, ws)
+        let B = FBuilder(fws, colors, st, how)
         let lens = { (id: String) in bases[id].map { Int(($0.len * 1000).rounded(.towardZero)) } }
         // the island (or peninsula) stands where it was dragged, else 900 mm out from the front of the first wall's
         // units, its fronts facing them
@@ -109,7 +112,7 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
         }
         // the worktop over the lower row of each wall (and over the corner it turns into)
         if f.kind == "kitchen" {
-            let wt = worktopTop(ws)
+            let wt = worktopTop(fws)
             for r in runsOf(f, lens) {
                 guard let b = r.wall == ISLAND ? island : bases[r.wall] else { continue }
                 B.wall = r.wall
@@ -168,13 +171,12 @@ private func d(_ v: Int) -> Double { Double(v) }
 
 /// Builds the boards of one piece of furniture on a wall frame; lengths in mm.
 private final class FBuilder {
-    let ws: Workshop, colors: [String: Int], st: FStore, open: Set<String>
-    /// The wall being furnished: the furniture on a wall that faces the camera goes see-through with it (an island's
-    /// never does).
+    let ws: Workshop, colors: [String: Int], st: FStore, how: (String) -> Double
+    /// The wall being furnished: the furniture's parts are kept per wall (it stays solid when its wall goes see-through).
     var wall: String? = nil
     let t: Int, g: Double, edge: Double
-    init(_ ws: Workshop, _ colors: [String: Int], _ st: FStore, _ open: Set<String>) {
-        self.ws = ws; self.colors = colors; self.st = st; self.open = open
+    init(_ ws: Workshop, _ colors: [String: Int], _ st: FStore, _ how: @escaping (String) -> Double) {
+        self.ws = ws; self.colors = colors; self.st = st; self.how = how
         t = ws.t; g = Double(ws.gap10) / 10; edge = Double(ws.edge10) / 10
     }
 
@@ -187,7 +189,8 @@ private final class FBuilder {
     var edges: Edges3 {
         let w = wall == ISLAND ? "island" : (wall ?? "island")
         if let e = st.edges[w] { return e }
-        let e = Edges3(0, w); st.edges[w] = e; st.edgeOrder.append(w); return e
+        // named apart from the wall's own outline, so it does not fade with a see-through wall
+        let e = Edges3(0, "furn " + w); st.edges[w] = e; st.edgeOrder.append(w); return e
     }
 
     func obb(_ p: Part3, _ x: Obb, _ line: Bool) { obbFaces(p, x); if line { obbEdges(edges, x) } }
@@ -206,7 +209,7 @@ private final class FBuilder {
     /// handle's middle hy above the door's bottom.
     func door(_ w: WallBasis, _ key: String, _ ha: Double, _ n: Double, _ y0: Double, _ h: Double, _ fw: Double, _ s: Double, _ handles: Bool, _ hy: Double, _ part: Part3? = nil) {
         st.keys.append(key)
-        let th = open.contains(key) ? OPEN_DEG * .pi / 180 : 0
+        let th = OPEN_DEG * .pi / 180 * how(key)
         let e = w.dir(s * cos(th), sin(th)), tn = w.dir(-s * sin(th), cos(th))
         let o = w.at(ha / 1000, y0 / 1000, n / 1000)
         let x = Obb(o: o, a: e * (fw / 1000), b: V3(0, h / 1000, 0), c: tn * (Double(t) / 1000))
@@ -220,7 +223,7 @@ private final class FBuilder {
     /// A drawer front (and its box, out when open): a0 along, y0 up, the front's back face at n.
     func drawer(_ w: WallBasis, _ key: String, _ a0: Double, _ fw: Double, _ y0: Double, _ fh: Double, _ n: Double, _ dd: Double, _ handles: Bool, _ part: Part3? = nil) {
         st.keys.append(key)
-        let out = open.contains(key) ? dd * 0.75 : 0
+        let out = dd * 0.75 * how(key)
         let nn = n + out
         let o = w.at(a0 / 1000, y0 / 1000, nn / 1000)
         let x = Obb(o: o, a: w.dir(fw / 1000, 0), b: V3(0, fh / 1000, 0), c: w.dir(0, Double(t) / 1000))
@@ -326,7 +329,7 @@ private final class FBuilder {
     /// A wardrobe: sides (none at a wall), top and bottom, plinth, dividers, backs, inside, doors.
     /// A vanity's basin on its top, the tap behind it.
     func basin(_ w: WallBasis, _ m: Module) {
-        let top = Double((m.legs ? ws.legH : 0) + m.h)
+        let top = Double(legsOf(m, ws) + m.h)
         let mid = Double(m.x) + Double(m.w) / 2, bw = min(500, Double(m.w) - 120), bd = min(380, Double(m.d) - 80)
         guard bw >= 200, bd >= 200 else { return }
         let n0 = (Double(m.d) - bd) / 2 + 20
@@ -340,7 +343,7 @@ private final class FBuilder {
         let x0 = d(m.x), x1 = x0 + d(m.w), dd = d(m.d), T = d(t)
         // sliding doors take the front of the depth: the inside is shallower
         let di = d(innerD(m))
-        let z0 = m.legs ? d(ws.legH) : 0
+        let z0 = d(legsOf(m, ws))
         let base = d(wardBase(m))
         let yb = z0 + base, yt = z0 + d(m.h)
         let sl = m.sideL ? T : 0, sr = m.sideR ? T : 0
@@ -354,7 +357,7 @@ private final class FBuilder {
             for s in m.sections { if !s.knee { box(w, carcass, max(a, x0 + sl), min(a + d(s.w), x1 - sr), yb, yb + T, 0, dd, true) }; a += d(s.w) }
         }
         box(w, carcass, x0 + sl, x1 - sr, yt - T, yt, 0, dd, true)
-        if !m.legs { box(w, carcass, x0 + sl, x1 - sr, 0, d(PLINTH), dd - 60, dd - 44, true) }
+        if !m.legs { box(w, carcass, x0 + sl, x1 - sr, 0, base, dd - 60, dd - 44, true) }
         else {
             // on legs: a pair under each side and each divider, as the hardware list counts them
             var xs = [x0 + 20], a = x0
@@ -394,7 +397,7 @@ private final class FBuilder {
                     let key = "\(m.id):s\(i):r\(x.pos)"
                     st.keys.append(key)
                     // within the inside's depth: in a sliding wardrobe the doors run in front of it
-                    let out = open.contains(key) ? di * 0.7 : 0
+                    let out = di * 0.7 * how(key)
                     let h = d(blockH(x))
                     let o = w.at((il + 13) / 1000, y / 1000, (20 + out) / 1000)
                     let bx = Obb(o: o, a: w.dir((iw - 26) / 1000, 0), b: V3(0, h / 1000, 0), c: w.dir(0, (di - 60) / 1000))
@@ -413,7 +416,7 @@ private final class FBuilder {
                 for (j, (fh, fw)) in fs.enumerated() {
                     let a = a0 + edge + Double(j) * (d(fw) + g)
                     // a pair hinges on its outer edges; single doors pair up two by two, the last one hinged on the wardrobe's end
-                    let right = fs.count == 2 ? j == 1 : i % 2 == 1 || (i > 0 && i == secs.count - 1)
+                    let right = fs.count == 2 ? j == 1 : hingeRight(m, i)
                     door(w, "\(m.id):s\(i):f\(j)", right ? a + d(fw) : a, dd, yb + edge, d(fh), d(fw), right ? -1 : 1, m.handles,
                          min(max(1000 - yb, 150), d(fh) - 150))
                 }
@@ -435,7 +438,7 @@ private final class FBuilder {
             let key = "\(m.id):slide\(j)"
             st.keys.append(key)
             // a door slides one step towards the middle: the last one left, the others right
-            let shift = open.contains(key) ? (j == n - 1 ? -step : step) : 0
+            let shift = (j == n - 1 ? -step : step) * how(key)
             let a = ax + Double(j) * step + shift
             let n0 = dd - 95 + Double(j % 2) * 45, n1 = n0 + 22
             let y = y0 + d(SLIDE_CLEAR) / 2

@@ -11,7 +11,20 @@ func wardOf(_ f: Furniture) -> Module? { f.modules.first { $0.type == "wardrobe"
 
 /// Changes the wardrobe of furniture fid (on the designer's undo list).
 private func ward(_ pid: String, _ fid: String, _ fn: @escaping (Module) -> Module) {
-    KitOps.shared.change(pid, fid) { x in var y = x; y.modules = y.modules.map { $0.type == "wardrobe" ? fn($0) : $0 }; return y }
+    let snap = AppSettings.shared.angleSnap
+    KitOps.shared.change(pid, fid) { x in
+        // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
+        let room: Room? = x.roomId == nil ? nil : Store.shared.get(pid).flatMap { roomOf($0, x) }
+        let free = x.pose != nil
+        var y = x
+        y.modules = x.modules.map { mod in
+            guard mod.type == "wardrobe" else { return mod }
+            let m = fn(mod)
+            let len = room.flatMap { wallLen($0, snap, m.wall ?? "") } ?? (m.x + m.w + W_GAP_SIDE)
+            return withSides(m, len, free: free)
+        }
+        return y
+    }
 }
 
 private func changeSec(_ pid: String, _ fid: String, _ i: Int, _ fn: @escaping (Section) -> Section) {
@@ -61,12 +74,12 @@ private func opaque(_ rgb: Int) -> Color { Color(argb: 0xFF00_0000 | UInt32(rgb)
 /// (unless the doors are shown), doors, problem outlines and the selected section.
 func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: Workshop, _ carcassRgb: Int, _ frontRgb: Int, _ sel: Int, _ doors: Bool,
               _ bad: [Int: String], labels: Bool) {
-    let t = ws.t, z0 = m.legs ? ws.legH : 0, base = wardBase(m)
+    let t = ws.t, z0 = legsOf(m, ws), base = wardBase(m)
     func X(_ mm: Int) -> CGFloat { lay.x(mm - ox) }
     let l = X(m.x), r = X(m.x + m.w), top = lay.y(z0 + m.h), bot = lay.y(z0)
     let carcass = opaque(carcassRgb), front = opaque(frontRgb), onC = lineOn(carcassRgb), onF = lineOn(frontRgb)
     c.fill(rect(l, top, r - l, bot - top), with: .color(carcass))
-    if !m.legs { c.fill(rect(l, lay.y(PLINTH), r - l, CGFloat(PLINTH) * lay.s), with: .color(PC.greyLine.opacity(0.4))) }
+    if !m.legs { c.fill(rect(l, lay.y(base), r - l, CGFloat(base) * lay.s), with: .color(PC.greyLine.opacity(0.4))) }
     else {
         var acc = m.x
         for x in [m.x] + m.sections.map({ acc += $0.w; return acc }) { c.fill(rect(X(x) - 1.5, bot, 3, lay.yF - bot), with: .color(PC.greyLine)) }
@@ -119,7 +132,7 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
                     let fx = sl + g + CGFloat(j) * (fw + g)
                     c.fill(rect(fx, ft, fw, fb - ft), with: .color(front)); c.stroke(rect(fx, ft, fw, fb - ft), with: .color(onF), lineWidth: 0.8)
                     if m.handles {
-                        let hx = n == 2 ? (j == 0 ? fx + fw - 3 : fx + 3) : (i % 2 == 0 ? fx + fw - 3 : fx + 3)
+                        let hx = n == 2 ? (j == 0 ? fx + fw - 3 : fx + 3) : (!hingeRight(m, i) ? fx + fw - 3 : fx + 3)
                         let hy = lay.y(z0 + 1000)
                         c.line(onF, CGPoint(x: hx, y: hy - 9), CGPoint(x: hx, y: hy + 9), 1.6, round: true)
                     }
@@ -390,9 +403,6 @@ private struct SecChips: View {
     }
 }
 
-/// Whether the wardrobe fills its wall as a niche.
-private func isFull(_ m: Module, _ wallL: Int?) -> Bool { wallL != nil && m.x == W_GAP_SIDE && m.w == wallL! - 2 * W_GAP_SIDE }
-
 private struct PlaceStep: View {
     let app: AppModel
     let p: Project, f: Furniture, m: Module
@@ -401,24 +411,20 @@ private struct PlaceStep: View {
         let snap = AppSettings.shared.angleSnap
         if f.roomId == nil { return AnyView(FreeBanner(app: app, p: p, f: f)) }
         if let room = cx.room {
-            let full = isFull(m, cx.wallL)
-            let hNew = cx.roomH.map { min(3000, max(1200, $0 - W_GAP_TOP)) } ?? m.h
-            func moveTo(_ wall: String, _ len: Int?, _ whole: Bool) {
+            // to another wall: its width kept where it fits, at the wall's longest stretch clear of doors and windows
+            func moveTo(_ wall: String, _ len: Int?) {
                 guard let L = len else { return }
-                let pl: (x: Int, w: Int, builtIn: Bool)
-                if whole { pl = (W_GAP_SIDE, L - 2 * W_GAP_SIDE, true) }
-                else {
-                    let q = placeOn(L, wall, room.openings, hNew)
-                    // the whole wall is free: a free-standing wardrobe 600 shorter
-                    pl = q.builtIn ? (W_GAP_SIDE, max(600, L - 2 * W_GAP_SIDE - 600), false) : q
-                }
-                // a wardrobe in a niche goes up to the ceiling; a TV unit or a dresser keeps its own height
+                let pl = placeOn(L, wall, room.openings, m.h)
+                let w = min(m.w, L - 2 * W_GAP_SIDE)
+                let x = pl.w >= w ? pl.x : W_GAP_SIDE
                 ward(p.id, f.id) { mm in
-                    var n = mm; n.wall = wall; n.x = pl.x; n.w = pl.w; if whole && f.type.isEmpty { n.h = hNew }; n.sideL = !pl.builtIn; n.sideR = !pl.builtIn
-                    n.sections = splitSections(pl.w, mm.sections.map { var s = $0; s.lock = false; return s })
+                    var n = mm; n.wall = wall; n.x = x; n.w = w
+                    if w != mm.w { n.sections = splitSections(w, mm.sections.map { var s = $0; s.lock = false; return s }) }
                     return n
                 }
-                Store.shared.update(p.id) { pr in if let i = pr.furniture.firstIndex(where: { $0.id == f.id }) { pr.furniture[i].walls = [wall] } }
+                Store.shared.update(p.id) { pr in
+                    if let i = pr.furniture.firstIndex(where: { $0.id == f.id }) { pr.furniture[i].walls = [wall]; pr.furniture[i].pose = nil }
+                }
             }
             return AnyView(VStack(alignment: .leading, spacing: 10) {
                 T(tr("wd.place", ["w": m.wall ?? ""]), ui(15.5, 800))
@@ -427,22 +433,17 @@ private struct PlaceStep: View {
                         ForEach(Geo.walls(room, snap), id: \.id) { w in
                             let len = wallLen(room, snap, w.id)
                             FChip(label: tr("kt.wallN", ["w": w.id]) + (len.map { " · \($0)" } ?? ""), on: w.id == m.wall) {
-                                if w.id != m.wall { moveTo(w.id, len, placeOn(len ?? 0, w.id, room.openings, hNew).builtIn) }
+                                if w.id != m.wall { moveTo(w.id, len) }
                             }
                             .accessibilityIdentifier("wd.wall." + w.id)
                         }
                     }
                 }
-                Seg(items: [("full", tr("wd.full")), ("part", tr("wd.part"))], cur: full ? "full" : "part") { k in if (k == "full") != full { moveTo(m.wall ?? "", cx.wallL, k == "full") } }
-                Seg(items: [("built", tr("wd.built")), ("free", tr("wd.free"))], cur: !m.sideL && !m.sideR ? "built" : "free") { k in
-                    ward(p.id, f.id) { mm in var n = mm; n.sideL = k != "built"; n.sideR = k != "built"; return n }
-                }
-                if full, let wallL = cx.wallL {
-                    T(cx.roomH != nil ? tr("wd.niche", ["l": wallL, "h": cx.roomH!, "w": m.w, "hh": m.h]) : tr("wd.nicheNoH", ["l": wallL, "w": m.w]), ui(13, 400, G.ink2, lh: 1.45))
-                } else {
-                    WValRow(label: tr("wd.x"), value: "\(m.x) mm", id: "wd.x") { app.sheet = .wField(pid: p.id, fid: f.id, key: "x", sec: 0) }
-                    WValRow(label: tr("wd.w"), value: "\(m.w) mm", id: "wd.w") { app.sheet = .wField(pid: p.id, fid: f.id, key: "w", sec: 0) }
-                }
+                WValRow(label: tr("wd.x"), value: "\(m.x) mm", id: "wd.x") { app.sheet = .wField(pid: p.id, fid: f.id, key: "x", sec: 0) }
+                WValRow(label: tr("wd.w"), value: "\(m.w) mm", id: "wd.w") { app.sheet = .wField(pid: p.id, fid: f.id, key: "w", sec: 0) }
+                // the room's plan, to drag it where it should stand
+                GBtn(tr("fz.move"), kind: .secondary, icon: "room", height: 44, corner: 14, fontSize: 14) { app.push(.fPlace(pid: p.id, fid: f.id, rid: room.id)) }
+                    .accessibilityIdentifier("wd.move")
                 if !measured(room, snap, m.wall ?? "") { T(tr("kt.noLen", ["w": m.wall ?? ""]), ui(12.5, 500, G.amberInk, lh: 1.4)) }
             })
         }
@@ -461,7 +462,18 @@ private struct WardSizeStep: View {
             WValRow(label: tr("wd.h"), value: "\(m.h) mm", id: "wd.h") { app.sheet = .wField(pid: p.id, fid: f.id, key: "h", sec: 0) }
             WValRow(label: tr("wd.d"), value: "\(m.d) mm", id: "wd.d") { app.sheet = .wField(pid: p.id, fid: f.id, key: "d", sec: 0) }
             T(tr("wd.base"), ui(14.5, 700))
-            Seg(items: [("plinth", tr("wd.plinth")), ("legs", tr("wd.legs"))], cur: m.legs ? "legs" : "plinth") { k in ward(p.id, f.id) { mm in var n = mm; n.legs = k == "legs"; return n } }
+            // plinth or legs, each with its height; the whole height stays, the carcass gives way
+            Seg(items: [("plinth", tr("wd.plinth")), ("legs", tr("wd.legs"))], cur: m.legs ? "legs" : "plinth") { k in
+                if (k == "legs") != m.legs {
+                    ward(p.id, f.id) { mm in
+                        let legs = k == "legs" ? ws.legH : 0
+                        var n = mm; n.legs = k == "legs"; n.base = nil; n.h = max(300, outerH(mm, ws) - legs)
+                        return n
+                    }
+                }
+            }
+            let baseV = m.legs ? legsOf(m, ws) : wardBase(m)
+            WValRow(label: tr(m.legs ? "wd.legsH" : "wd.plinthH"), value: "\(baseV) mm", id: "wd.base") { app.sheet = .wField(pid: p.id, fid: f.id, key: "base", sec: 0) }
             FStepper(label: tr("wd.secCount"), v: m.sections.count, lo: 1, hi: 8, id: "wd.secs") { n in
                 ward(p.id, f.id) { mm in
                     let ih = wardInnerH(mm, ws.t)
@@ -559,6 +571,13 @@ private struct DoorStep: View {
                     T(tr("wd.doors", ["s": sel + 1]), ui(15.5, 800))
                     SecChips(m: m, sel: sel, onPick: onSec)
                     Seg(items: [("2", tr("wd.d2")), ("1", tr("wd.d1")), ("0", tr("wd.d0"))], cur: cur) { k in changeSec(p.id, f.id, sel) { x in var n = x; n.fronts = fr(k); return n } }
+                    // one door: which way it opens, its handle on the other edge
+                    if cur == "1" {
+                        Seg(items: [("L", tr("wd.openL")), ("R", tr("wd.openR"))], cur: hingeRight(m, sel) ? "R" : "L") { k in
+                            changeSec(p.id, f.id, sel) { x in var n = x; n.hinge = k; return n }
+                        }
+                        T(tr("wd.openNote"), ui(12.5, 400, G.ink2, lh: 1.4))
+                    }
                     HStack(spacing: 8) {
                         Spacer()
                         GBtn(tr("wd.all"), kind: .secondary, height: 40, corner: 14, fontSize: 14, fill: false) {
@@ -581,11 +600,42 @@ private struct DoorStep: View {
     }
 }
 
+/// A row of a section's inside list: r its place from the top, idx the insert's index in the section.
+private struct InsRow: Identifiable { let id: Int; let r: Int; let x: Insert }
+
+/// A row's height and the space under it: how far a drag moves a row by one place.
+private let INS_ROW_H: CGFloat = 48
+private let INS_PITCH: CGFloat = 52
+
 private struct InsideStep: View {
     let app: AppModel
     let p: Project, f: Furniture, m: Module
     let sel: Int
     let onSec: (Int) -> Void
+    /// The row being dragged by its handle (-1: none) and how far it has moved.
+    @State private var dragI = -1
+    @State private var dragDy: CGFloat = 0
+
+    /// The list from the top down (the highest first; equal heights in the section's order).
+    private func rowsOf(_ s: Section) -> [InsRow] {
+        let sorted = s.inserts.enumerated().sorted { ($0.element.pos, $1.offset) > ($1.element.pos, $0.offset) }
+        var out: [InsRow] = []
+        for (r, e) in sorted.enumerated() { out.append(InsRow(id: e.offset, r: r, x: e.element)) }
+        return out
+    }
+
+    /// Row from dropped dy lower: moved to its new place, then they all spread evenly over the section.
+    private func drop(_ rows: [InsRow], _ from: Int, _ dy: CGFloat, _ ws: Workshop) {
+        guard from >= 0, from < rows.count else { return }
+        let to = min(max(from + Int((dy / INS_PITCH).rounded()), 0), rows.count - 1)
+        if to == from { return }
+        var order = rows.map(\.x)
+        let moved = order.remove(at: from)
+        order.insert(moved, at: to)
+        let spread = respaced(Array(order.reversed()), wardInnerH(m, ws.t), ws.t)
+        changeSec(p.id, f.id, sel) { y in var n = y; n.inserts = sortedByPos(spread); return n }
+    }
+
     var body: some View {
         let ws = AppSettings.shared.workshop
         if sel < m.sections.count {
@@ -594,19 +644,11 @@ private struct InsideStep: View {
                 T(tr("wd.inside", ["s": sel + 1]), ui(15.5, 800))
                 SecChips(m: m, sel: sel, onPick: onSec)
                 if s.inserts.isEmpty { T(tr("wd.empty"), ui(13, 400, G.ink2, lh: 1.4)) }
-                let rows = s.inserts.enumerated().sorted { ($0.element.pos, $1.offset) > ($1.element.pos, $0.offset) }
-                ForEach(rows, id: \.offset) { i, x in
-                    HStack(spacing: 8) {
-                        T(tr("wi." + x.kind), ui(14, 700)).frame(maxWidth: .infinity, alignment: .leading)
-                        T(blockH(x) > 0 ? tr("wi.atH", ["v": x.pos, "h": blockH(x)]) : tr("wi.at", ["v": x.pos]), num(13.5, 600, G.ink2))
-                        MIcon("x", G.ink3, 16, 2).frame(width: 40, height: 40).pressable(0.95, label: tr("common.delete")) {
-                            changeSec(p.id, f.id, sel) { y in var n = y; n.inserts.remove(at: i); return n }
-                            app.say("kt.deleted", ["m": tr("wi." + x.kind)], action: "common.undo") { KitOps.shared.undo(p.id, f.id) }
-                        }
-                    }
-                    .padding(.horizontal, 4).frame(minHeight: 44)
-                    .pressable(0.99) { app.sheet = .wInsert(pid: p.id, fid: f.id, sec: sel, idx: i) }
-                    .accessibilityIdentifier("wd.ins.\(x.kind).\(i)")
+                else if s.inserts.count > 1 { T(tr("wd.dragNote"), ui(12.5, 400, G.ink2, lh: 1.4)) }
+                // a row's handle drags it to another place, then they all spread evenly over the section
+                let rows = rowsOf(s)
+                VStack(spacing: INS_PITCH - INS_ROW_H) {
+                    ForEach(rows) { row in insRow(rows, row, ws) }
                 }
                 ScrollView(.horizontal, showsIndicators: false) {
                     HStack(spacing: 6) {
@@ -623,7 +665,36 @@ private struct InsideStep: View {
                     .accessibilityIdentifier("wd.spread")
                 }
             }
+            .onChange(of: sel) { _, _ in dragI = -1; dragDy = 0 }
         }
+    }
+
+    private func insRow(_ rows: [InsRow], _ row: InsRow, _ ws: Workshop) -> some View {
+        let i = row.id, x = row.x, r = row.r
+        let dragged = r == dragI
+        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+        let drag = DragGesture(minimumDistance: 4)
+            .onChanged { v in dragI = r; dragDy = v.translation.height }
+            .onEnded { v in drop(rows, r, v.translation.height, ws); dragI = -1; dragDy = 0 }
+        return HStack(spacing: 8) {
+            if rows.count > 1 {
+                MIcon("grip", G.ink3, 20, 2).frame(width: 40, height: 40).contentShape(Rectangle())
+                    .highPriorityGesture(drag)
+                    .accessibilityLabel(tr("wd.drag"))
+            }
+            T(tr("wi." + x.kind), ui(14, 700)).frame(maxWidth: .infinity, alignment: .leading)
+            T(blockH(x) > 0 ? tr("wi.atH", ["v": x.pos, "h": blockH(x)]) : tr("wi.at", ["v": x.pos]), num(13.5, 600, G.ink2))
+            MIcon("x", G.ink3, 16, 2).frame(width: 40, height: 40).pressable(0.95, label: tr("common.delete")) {
+                changeSec(p.id, f.id, sel) { y in var n = y; n.inserts.remove(at: i); return n }
+                app.say("kt.deleted", ["m": tr("wi." + x.kind)], action: "common.undo") { KitOps.shared.undo(p.id, f.id) }
+            }
+        }
+        .padding(.horizontal, 4).frame(height: INS_ROW_H)
+        .background(shape.fill(dragged ? G.glass(0.95) : Color.clear))
+        .pressable(0.99) { app.sheet = .wInsert(pid: p.id, fid: f.id, sec: sel, idx: i) }
+        .accessibilityIdentifier("wd.ins.\(x.kind).\(i)")
+        .offset(y: dragged ? dragDy : 0)
+        .zIndex(dragged ? 1 : 0)
     }
 }
 
@@ -678,7 +749,9 @@ private struct WFieldSheet: View {
     init(app: AppModel, pid: String, fid: String, key: String, sec: Int) {
         self.app = app; self.pid = pid; self.fid = fid; self.key = key; self.sec = sec
         let m = Store.shared.get(pid)?.furniture.first { $0.id == fid }.flatMap(wardOf)
+        let ws = AppSettings.shared.workshop
         let start: Int = { switch key { case "h": return m?.h ?? 0; case "d": return m?.d ?? 0; case "x": return m?.x ?? 0
+                                        case "base": return m.map { $0.legs ? legsOf($0, ws) : wardBase($0) } ?? 0
                                         case "secW": return m.flatMap { sec < $0.sections.count ? $0.sections[sec].w : nil } ?? 0; default: return m?.w ?? 0 } }()
         _v = State(initialValue: String(start))
     }
@@ -690,15 +763,35 @@ private struct WFieldSheet: View {
         let give = locked.count == o.count ? (locked.last?.w ?? 150) - 150 : 0
         return 150...max(150, m.w - locked.reduce(0) { $0 + $1.w } - 150 * (o.count - locked.count) + give)
     }
+    private func rangeOf(_ m: Module, _ wallL: Int?) -> ClosedRange<Int> {
+        switch key {
+        case "h": return 600...3000
+        case "d": return 250...900
+        case "x": return 0...max(0, (wallL ?? 10000) - 300)
+        case "base": return m.legs ? 50...250 : 50...200
+        case "secW": return secRange(m, sec)
+        default: return 300...6000
+        }
+    }
+    private func titleOf(_ m: Module) -> String {
+        switch key {
+        case "h": return tr("wd.h")
+        case "d": return tr("wd.d")
+        case "x": return tr("wd.x")
+        case "base": return tr(m.legs ? "wd.legsH" : "wd.plinthH")
+        case "secW": return tr("wd.secT", ["n": sec + 1])
+        default: return tr("wd.w")
+        }
+    }
     var body: some View {
         if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }), let m = wardOf(f) {
             let wallL = roomOf(p, f).flatMap { wallLen($0, AppSettings.shared.angleSnap, m.wall ?? "") }
             let n = m.sections.count
             let secLock = sec < n && m.sections[sec].lock
-            let range: ClosedRange<Int> = key == "h" ? 600...3000 : key == "d" ? 250...900 : key == "x" ? 0...max(0, (wallL ?? 10000) - 300)
-                : key == "secW" ? secRange(m, sec) : 300...6000
+            let ws = AppSettings.shared.workshop
+            let range: ClosedRange<Int> = rangeOf(m, wallL)
             let vi = Int(v).flatMap { range.contains($0) ? $0 : nil }
-            let title = key == "h" ? tr("wd.h") : key == "d" ? tr("wd.d") : key == "x" ? tr("wd.x") : key == "secW" ? tr("wd.secT", ["n": sec + 1]) : tr("wd.w")
+            let title = titleOf(m)
             let save = {
                 guard let x = vi else { return }
                 ward(p.id, f.id) { mm in
@@ -707,6 +800,10 @@ private struct WFieldSheet: View {
                     case "h": out.h = x
                     case "d": out.d = x
                     case "x": out.x = x
+                    // the whole height stays: taller legs, a shorter carcass (a plinth is inside the carcass)
+                    case "base":
+                        if mm.legs { out.h = max(300, mm.h - (x - legsOf(mm, ws))) }
+                        out.base = x
                     case "secW":
                         var secs = mm.sections.enumerated().map { i, s in i == sec ? { var y = s; y.w = x; y.lock = true; return y }() : s }
                         // someone has to give way: the last other section takes what is left

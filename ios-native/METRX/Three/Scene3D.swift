@@ -355,9 +355,10 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
             let gp = s.groups[g], dx = eye.x - gp.cx, dz = eye.z - gp.cz
             return dx * n.0 + dz * n.1 > 0.4 * hypot(dx, dz)
         }
+        // the wall facing the eye goes see-through, its doors and windows with it; the furniture on it stays solid
         for i in prims.indices {
             let p = prims[i], f = facing(p.group, p.wall)
-            let a: Double = p.role == .wall ? (f ? 0.14 : 1) : p.role == .opening ? (f ? min(0.12, p.op) : p.op) : p.role == .furn ? (f ? 0.1 : p.op) : p.op
+            let a: Double = p.role == .wall ? (f ? 0.14 : 1) : p.role == .opening ? (f ? min(0.12, p.op) : p.op) : p.op
             if a != p.alpha { prims[i].alpha = a; p.e.model?.materials = [mat(p.rgb, a)] }
         }
         for i in lines.indices {
