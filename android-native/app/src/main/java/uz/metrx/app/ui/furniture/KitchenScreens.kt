@@ -737,169 +737,11 @@ internal fun CostCard(p: Project, f: Furniture, ws: Workshop, mats: List<Mat>) {
 
 @Composable
 fun KitchenSheet(s: Sheet): Boolean = when (s) {
-    is Sheet.NewFurniture -> { NewFurnitureSheet(s); true }
     is Sheet.FMenu -> { FMenuSheet(s); true }
     is Sheet.FRename -> { FRenameSheet(s); true }
     is Sheet.FModule -> { ModuleSheet(s); true }
     is Sheet.FLibrary -> { LibrarySheet(s); true }
     else -> false
-}
-
-private val LAYOUT_ICON = mapOf("I" to "M3 9h18", "L" to "M3 6h18v13", "U" to "M3 19V6h18v13", "O" to "M3 6h18 M8 16h8", "P" to "M3 6h18v4 M12 6v12")
-
-/** The wall combinations a layout can take in a room with walls [ids]: consecutive walls, or a wall and the island. */
-private fun combos(layout: String, ids: List<String>): List<List<String>> {
-    val n = ids.size
-    return when (layout) {
-        "L" -> if (n >= 2) ids.indices.map { listOf(ids[it], ids[(it + 1) % n]) } else emptyList()
-        "U" -> if (n >= 3) ids.indices.map { listOf(ids[it], ids[(it + 1) % n], ids[(it + 2) % n]) } else emptyList()
-        "O", "P" -> ids.map { listOf(it, ISLAND) }
-        else -> ids.map { listOf(it) }
-    }
-}
-
-@Composable
-private fun NewFurnitureSheet(s: Sheet.NewFurniture) {
-    val app = LocalApp.current
-    val lang = LocalLang.current
-    val p = app.store.get(s.pid) ?: run { app.sheet = null; return }
-    val rooms = p.rooms.filter { it.floorId == s.wid }
-    val snap = app.settings.angleSnap
-    var rid by rememberSaveable { mutableStateOf(s.rid ?: rooms.firstOrNull()?.id) }
-    var kind by rememberSaveable { mutableStateOf(s.kind ?: "kitchen") }
-    var layout by rememberSaveable { mutableStateOf("L") }
-    var combo by rememberSaveable { mutableIntStateOf(-1) }   // -1: the first walls nothing stands on yet
-    // living room and bedroom pieces (Stage 2): which one
-    var ptype by rememberSaveable { mutableStateOf(if (s.kind == "bedroom") "dresser" else "tv") }
-    val case = kind == "living" || kind == "bedroom"
-    val room = rooms.firstOrNull { it.id == rid } ?: rooms.firstOrNull()
-    val ids = room?.let { walls(it, snap).map { w -> w.id } } ?: emptyList()
-    val list = combos(if (kind != "kitchen") "I" else layout, ids)
-    val ws = app.settings.workshop
-    val roomHt = room?.dim("H")?.let { it.v ?: it.pending?.mm }
-    val wardH = roomHt?.let { (it - uz.metrx.app.furniture.W_GAP_TOP).coerceIn(1200, 3000) } ?: 2500
-    /** The wardrobe on the picked wall: where it goes and how wide. */
-    fun wardPlace(wall: String) = room?.let { r -> wallLen(r, snap, wall)?.let { L -> uz.metrx.app.furniture.placeOn(L, wall, r.openings, wardH) } }
-    val tsz = uz.metrx.app.furniture.typeSize(ptype)
-    /** A piece on the picked wall: at the start of its longest stretch clear of doors (and windows lower than the piece), its usual width or less. */
-    fun casePlace(wall: String): Pair<Int, Int>? = room?.let { r -> wallLen(r, snap, wall)?.let { L ->
-        val (a, n) = uz.metrx.app.furniture.freeSpan(L, wall, r.openings, tsz.h)
-        val g0 = if (a == 0) uz.metrx.app.furniture.W_GAP_SIDE else 50
-        val w = minOf(tsz.w, n - g0 - 10)
-        if (w < 300) null else (a + g0) to w
-    } }
-    // walls this room's other kitchens and wardrobes already stand on
-    val taken = p.furniture.filter { it.roomId == room?.id }.flatMap { f -> f.walls.filter { it != ISLAND }.map { it to f } }
-    val pick = list.getOrNull(combo) ?: list.firstOrNull { c -> c.none { w -> taken.any { it.first == w } } } ?: list.firstOrNull()
-    val footer: (@Composable androidx.compose.foundation.layout.ColumnScope.() -> Unit)? = if (room == null) null else { {
-        GBtn(tr("kt.start"), {
-            val walls = pick ?: return@GBtn
-            val n = p.furniture.count { if (case) it.type == ptype else it.kind == kind && it.type.isEmpty() } + 1
-            val f = if (case) {
-                val (x, w) = casePlace(walls[0]) ?: run { app.say("kt.noSpace", kind = ToastKind.ERROR); return@GBtn }
-                Furniture(uid(), "wardrobe", app.t("ft.$ptype") + " $n", room.id, walls, listOf(uz.metrx.app.furniture.cabinetTemplate(ptype, ws, walls[0], x, w, tsz.h, tsz.d)),
-                    created = System.currentTimeMillis(), ws = s.wid, model = ptype, type = ptype)
-            } else if (kind == "wardrobe") {
-                val (x, w, built) = wardPlace(walls[0]) ?: return@GBtn
-                Furniture(uid(), "wardrobe", app.t("wd.nameN", "n" to n), room.id, walls, listOf(uz.metrx.app.furniture.wardrobeTemplate(ws, walls[0], x, w, wardH, built)),
-                    created = System.currentTimeMillis(), ws = s.wid)
-            } else Furniture(uid(), "kitchen", app.t("kt.nameN", "n" to n), room.id, walls, created = System.currentTimeMillis(), layout = layout, ws = s.wid,
-                kx = uz.metrx.app.furniture.kExtrasFor(layout))
-            val moved = p.stage == "measure"
-            app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture + f, stage = if (pr.stage == "measure") "design" else pr.stage) }
-            app.sheet = null; app.kit.sel = null
-            val to = if (kind != "kitchen") Route.Wardrobe(p.id, f.id) else Route.Kitchen(p.id, f.id)
-            // started from the room just measured: the designer takes its place, so back goes to the order
-            if (app.top is Route.Editor) app.replaceTop(to) else app.push(to)
-            if (moved) app.say("kt.stageTo", "s" to app.t("fs.design"))
-        }, enabled = pick != null)
-    } }
-    GlassSheet(tr("kt.addT"), { app.sheet = null }, footer = footer) {
-        Text(tr("kt.type"), style = ui(15f, 700))
-        Row(Modifier.height(androidx.compose.foundation.layout.IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(8.dp)) {   // tiles as tall as the tallest
-            listOf("kitchen" to "kt.kitchen", "wardrobe" to "kt.wardrobe", "living" to "kt.living", "bedroom" to "kt.bedroom").forEach { (k, t) ->
-                val on = k == kind
-                Column(Modifier.weight(1f).fillMaxHeight().heightIn(min = 84.dp).clip(RoundedCornerShape(16.dp)).background(if (on) G.cobalt.copy(alpha = .1f) else G.idle(.5f))
-                    .border(if (on) 2.dp else 1.dp, if (on) G.cobalt else G.idleRim, RoundedCornerShape(16.dp))
-                    .clickable(role = Role.RadioButton) {
-                        kind = k; combo = -1
-                        if (k == "living") ptype = "tv"; if (k == "bedroom") ptype = "dresser"
-                    }.padding(horizontal = 2.dp, vertical = 10.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    MIcon(when (k) { "kitchen" -> "kitchen"; "wardrobe" -> "board"; "living" -> "box"; else -> "boxk" }, if (on) G.cobalt else G.ink3, 24.dp, 2f)
-                    TileLabel(tr(t), ui(11f, if (on) 700 else 600, G.ink))
-                }
-            }
-        }
-        if (room == null) {
-            Text(tr("kt.noRoom"), style = ui(14f, 400, G.ink2, 1.45f))
-            GBtn(tr("kt.drawRoom"), { app.sheet = Sheet.NewRoom(p.id, s.wid) }, icon = "room")
-            return@GlassSheet
-        }
-        if (rooms.size > 1) {
-            Text(tr("kt.room"), style = ui(15f, 700))
-            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                rooms.forEach { r -> Chip(dn(r.name, lang), r.id == room.id) { rid = r.id; combo = -1 } }
-            }
-        }
-        if (case) {
-            Text(tr("kt.which"), style = ui(15f, 700))
-            androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                (if (kind == "living") uz.metrx.app.furniture.LIVING_TYPES else uz.metrx.app.furniture.BEDROOM_TYPES).forEach { t -> Chip(tr("ft.$t"), t == ptype) { ptype = t } }
-            }
-        }
-        if (kind == "kitchen") Text(tr("kt.layout"), style = ui(15f, 700))
-        if (kind == "kitchen") Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("I", "L", "U", "O", "P").forEach { l ->
-                val on = l == layout
-                Column(Modifier.weight(1f).heightIn(min = 72.dp).clip(RoundedCornerShape(14.dp)).background(if (on) G.cobalt.copy(alpha = .1f) else G.idle(.5f))
-                    .border(if (on) 2.dp else 1.dp, if (on) G.cobalt else G.idleRim, RoundedCornerShape(14.dp))
-                    .semantics { selected = on }.clickable(role = Role.RadioButton) { layout = l; combo = -1 }.padding(vertical = 8.dp, horizontal = 2.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    PathIcon(LAYOUT_ICON.getValue(l), if (on) G.cobalt else G.ink, 26.dp, 2.4f)
-                    TileLabel(tr("kt.l$l"), ui(11.5f, if (on) 700 else 500, if (on) G.cobalt2 else G.ink))   // "L-shaped" stays whole
-                }
-            }
-        }
-        Text(tr(if (kind != "kitchen") "wd.wall" else "kt.walls"), style = ui(15f, 700))
-        if (list.isEmpty()) Text(tr("kt.noRoom"), style = ui(13.5f, 400, G.ink2, 1.4f))
-        // the row scrolls to the picked walls (a free wall can be the last one, past the edge)
-        val wallsSc = rememberScrollState()
-        val scope = androidx.compose.runtime.rememberCoroutineScope()
-        var shownFor by remember { mutableStateOf<List<String>?>(null) }
-        Row(Modifier.horizontalScroll(wallsSc), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            list.forEachIndexed { i, c ->
-                val one = kind != "kitchen" || layout == "I"
-                Box(Modifier.onGloballyPositioned { lc -> if (c == pick && shownFor != c) { shownFor = c; val x = lc.positionInParent().x.toInt(); scope.launch { wallsSc.animateScrollTo(maxOf(0, x - 40)) } } }) {
-                    Chip(c.joinToString(" + ") { if (it == ISLAND) app.t(if (layout == "P") "kt.peninsula" else "kt.island") else it + if (one) wallLen(room, snap, it)?.let { l -> " · $l" } ?: "" else "" }, c == pick) { combo = i }
-                }
-            }
-        }
-        taken.firstOrNull { t -> pick?.contains(t.first) == true }?.let { (w, f) ->
-            Text(tr("kt.wallTaken", "w" to w, "n" to dn(f.name, lang)), style = ui(12.5f, 500, G.amberInk, 1.4f))
-        }
-        if (pick != null && case) {
-            val pl = casePlace(pick[0])
-            if (pl != null) Text(tr("wd.newPart", "w" to pick[0], "l" to (wallLen(room, snap, pick[0]) ?: 0), "x" to pl.first, "ww" to pl.second, "h" to tsz.h), style = num(14.5f, 700))
-            else Text(tr("kt.noSpace"), style = ui(12.5f, 500, G.amberInk, 1.4f))
-        } else if (pick != null && kind == "wardrobe") {
-            val L = wallLen(room, snap, pick[0])
-            val pl = wardPlace(pick[0])
-            if (L != null && pl != null) Text(tr(if (pl.third) "wd.newNiche" else "wd.newPart", "w" to pick[0], "l" to L, "x" to pl.first, "ww" to pl.second, "h" to wardH), style = num(14.5f, 700))
-            if (!measured(room, snap, pick[0])) Text(tr("kt.noLen", "w" to pick[0]), style = ui(12.5f, 500, G.amberInk, 1.4f))
-        } else if (pick != null) {
-            val lens = pick.filter { it != ISLAND }.map { it to wallLen(room, snap, it) }
-            // the running metres as the price counts them: a wall after a corner starts past the first wall's units
-            val corners = pick.indices.count { i -> i > 0 && pick[i] != ISLAND && pick[i - 1] != ISLAND }
-            val total = lens.sumOf { it.second ?: 0 } - corners * K_CORNER
-            val en = lang == Lang.EN
-            val v = (maxOf(0, total) + 50) / 100
-            Text(lens.joinToString(" + ") { "${it.first} ${it.second ?: "?"}" } + (if (corners > 0) " − ${corners * K_CORNER} " + tr("kt.cornerCut") else "") +
-                " → ${v / 10}${if (en) "." else ","}${v % 10} " + tr("kt.pm"), style = num(15f, 700))
-            pick.filter { it != ISLAND && !measured(room, snap, it) }.forEach { w -> Text(tr("kt.noLen", "w" to w), style = ui(12.5f, 500, G.amberInk, 1.4f)) }
-            if (ISLAND in pick) Text(tr("kt.islandNote"), style = ui(12.5f, 400, G.ink2, 1.4f))
-        }
-    }
 }
 
 /** A label under a tile's icon: a one-word name shrinks to stay whole on one line (no "Mehmonxon-a"), longer ones take two. */
@@ -927,7 +769,7 @@ private fun FMenuSheet(s: Sheet.FMenu) {
         MenuRow("layers", tr("wd.mats"), G.ink) { app.sheet = Sheet.FMats(p.id, f.id) }
         if (f.roomId == null) {
             MenuRow("room", tr("fz.toRoom"), G.ink) { app.sheet = Sheet.FPickRoom(p.id, f.id) }
-            if (f.kind == "kitchen") MenuRow("ruler", tr("fz.editSizes"), G.ink) { app.sheet = null; app.push(Route.FSizes(p.id, f.kind, f.model.ifEmpty { f.layout }, f.id)) }
+            MenuRow("ruler", tr("fz.editSizes"), G.ink) { app.sheet = null; app.push(Route.FSteps(p.id, uz.metrx.app.furniture.modelOf(f).id, f.id)) }
         } else MenuRow("room", tr("fz.takeOut"), G.ink) { app.sheet = null; app.takeOut(p.id, f.id) }
         MenuRow("trash", tr("kt.del"), G.err) {
             val i = p.furniture.indexOfFirst { it.id == f.id }

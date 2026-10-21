@@ -233,7 +233,7 @@ private fun StepCard(pid: String, r: Room, f: RoomOps.Focus) {
                     }, icon = if (waiting.kind == "kitchen") "kitchen" else "board", height = 50.dp, fontSize = 15.5f)
                 } else if (pr != null && addFurn) {
                     val kind = uz.metrx.app.ui.furniture.roomKind(pr.floors.firstOrNull { it.id == r.floorId })
-                    uz.metrx.app.ui.components.GBtn(tr(if (kind == "kitchen") "fo.addK" else "fo.addW"), { app.sheet = Sheet.NewFurniture(pid, r.floorId, r.id, kind) },
+                    uz.metrx.app.ui.components.GBtn(tr(if (kind == "kitchen") "fo.addK" else "fo.addW"), { app.push(Route.FGallery(pid, r.id)) },
                         icon = if (kind == "kitchen") "kitchen" else "board", height = 50.dp, fontSize = 15.5f)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

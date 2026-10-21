@@ -82,6 +82,12 @@ import uz.metrx.app.furniture.runEnd
 import uz.metrx.app.furniture.runsOf
 import uz.metrx.app.furniture.sidesOf
 import uz.metrx.app.furniture.takenOut
+import uz.metrx.app.furniture.roomKitchen
+import uz.metrx.app.furniture.roomCabinet
+import uz.metrx.app.furniture.resized
+import uz.metrx.app.furniture.pieceOf
+import uz.metrx.app.geo.fmtLen
+import uz.metrx.app.geo.fmtField
 import uz.metrx.app.furniture.wardOfF
 import uz.metrx.app.geo.stepKeys
 import uz.metrx.app.geo.walls
@@ -159,7 +165,7 @@ internal fun App.designer(pid: String, f: Furniture, step: Int = 1): Route =
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-private fun FPage(eyebrow: String, title: String, back: () -> Unit, footer: (@Composable ColumnScope.() -> Unit)? = null, body: @Composable ColumnScope.() -> Unit) {
+internal fun FPage(eyebrow: String, title: String, back: () -> Unit, footer: (@Composable ColumnScope.() -> Unit)? = null, body: @Composable ColumnScope.() -> Unit) {
     val imeOn = WindowInsets.isImeVisible
     val foot: @Composable (Modifier) -> Unit = { m -> if (footer != null) FloatingFooter(m) { footer() } }
     Box(Modifier.fillMaxSize().imePadding()) {
@@ -180,329 +186,6 @@ private fun FPage(eyebrow: String, title: String, back: () -> Unit, footer: (@Co
     }
 }
 
-@Composable
-private fun ChoiceRow(icon: String, title: String, sub: String, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(22.dp)
-    Row(Modifier.fillMaxWidth().heightIn(min = 78.dp).clip(shape).glassCard(shape, fill = G.glass(.62f)).clickable(role = Role.Button, onClick = onClick)
-        .padding(horizontal = 16.dp, vertical = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        Box(Modifier.size(46.dp).clip(RoundedCornerShape(14.dp)).background(G.cobalt.copy(alpha = .1f)), contentAlignment = Alignment.Center) { MIcon(icon, G.cobalt, 24.dp, 2f) }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(title, style = ui(16.5f, 800))
-            Text(sub, style = ui(13f, 400, G.ink2, 1.35f))
-        }
-        MIcon("chev", G.ink3, 16.dp, 2f)
-    }
-}
-
-/* ---------------- "Nima kerak?" ---------------- */
-
-@Composable
-fun FNeedScreen(rt: Route.FNeed) {
-    val app = LocalApp.current
-    val lang = LocalLang.current
-    val p = app.store.get(rt.pid) ?: return
-    fun pick(k: String) {
-        if (k == "later") { app.pop(); return }
-        val ks = if (k == "both") listOf("kitchen", "wardrobe") else listOf(k)
-        app.store.update(p.id) { it.copy(want = ((it.want ?: emptyList()) + ks).distinct()) }
-        app.renameOrder(p.id)
-        app.replaceTop(Route.FHow(p.id, ks[0]))
-    }
-    FPage(dn(p.name, lang), tr("fo.what"), { app.pop() }) {
-        ChoiceRow("kitchen", tr("kt.kitchen"), tr("fz.needKs")) { pick("kitchen") }
-        ChoiceRow("board", tr("kt.wardrobe"), tr("fz.needWs")) { pick("wardrobe") }
-        ChoiceRow("layers", tr("fz.needB"), tr("fz.needBs")) { pick("both") }
-        ChoiceRow("box", tr("fz.needO"), tr("fz.needOs")) { pick("other") }
-        ChoiceRow("clock", tr("fz.needL"), tr("fz.needLs")) { pick("later") }
-    }
-}
-
-/* ---------------- the room, or only the sizes ---------------- */
-
-@Composable
-fun FHowScreen(rt: Route.FHow) {
-    val app = LocalApp.current
-    val lang = LocalLang.current
-    val p = app.store.get(rt.pid) ?: return
-    FPage(dn(p.name, lang), tr("fz.howT", "k" to tr(when (rt.kind) { "kitchen" -> "kt.kitchen"; "other" -> "fz.furn"; else -> "kt.wardrobe" })), { app.pop() }) {
-        ChoiceRow("room", tr("fz.howRoom"), tr("fz.howRoomS")) { app.pop(); app.sheet = Sheet.FNewRoom(p.id, rt.kind) }
-        ChoiceRow("ruler", tr("fz.howSize"), tr("fz.howSizeS")) { app.replaceTop(Route.FModels(p.id, rt.kind)) }
-    }
-}
-
-/* ---------------- the gallery ---------------- */
-
-@Composable
-fun FModelsScreen(rt: Route.FModels) {
-    val app = LocalApp.current
-    val lang = LocalLang.current
-    val p = app.store.get(rt.pid) ?: return
-    val list = uz.metrx.app.furniture.modelsOf(rt.kind)
-    FPage(dn(p.name, lang), tr(when (rt.kind) { "kitchen" -> "fz.modelsK"; "other" -> "fz.modelsO"; else -> "fz.modelsW" }), { app.pop() }) {
-        Text(tr("fz.modelsNote"), style = ui(14f, 400, G.ink2, 1.4f))
-        list.groupBy { it.group }.forEach { (g, ms) ->
-            if (g.isNotEmpty()) Text(tr("kt.$g"), style = ui(16f, 800), modifier = Modifier.padding(top = 6.dp))
-            ms.chunked(2).forEach { row ->
-                Row(Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    row.forEach { m -> ModelCard(m, Modifier.weight(1f).fillMaxHeight(), wide = row.size == 1) { pickModel(app, p.id, m) } }
-                }
-            }
-        }
-    }
-}
-
-private fun pickModel(app: App, pid: String, m: FModelDef) {
-    app.push(Route.FSizes(pid, m.kind, m.id))
-}
-
-@Composable
-private fun ModelCard(m: FModelDef, modifier: Modifier, wide: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(20.dp)
-    val name = tr("fz.m.${m.id}")
-    val body: @Composable (Modifier) -> Unit = { pm ->
-        Box(pm.clip(RoundedCornerShape(14.dp))) {
-            ModelPic(m, m.sides, m.island, m.w, m.h, m.d, Modifier.fillMaxWidth())
-        }
-    }
-    val text: @Composable () -> Unit = {
-        Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(name, style = ui(14.5f, 800, G.ink), maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(tr("fz.s.${m.id}"), style = ui(12f, 500, G.ink2, 1.3f), maxLines = 2, overflow = TextOverflow.Ellipsis)
-        }
-    }
-    val mod = modifier.clip(shape).glassCard(shape, fill = G.glass(.62f)).clickable(role = Role.Button, onClick = onClick).semantics { contentDescription = name }.padding(8.dp)
-    // the last card of an odd row takes the whole width, its picture beside the words
-    if (wide) Row(mod, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        body(Modifier.weight(1f)); Box(Modifier.weight(1f)) { text() }
-    } else Column(mod, verticalArrangement = Arrangement.spacedBy(6.dp)) { body(Modifier.fillMaxWidth()); text() }
-}
-
-/* ---------------- the 3D picture of a model (the mockup's iso sketch) ---------------- */
-
-private val PIC_BG = Color(0xFFF6F8FC)
-private val FLOOR = Color(0xFFE8ECF3); private val FLOOR_LN = Color(0xFFC9D1DE)
-private val WALL_F = Color(0x0D3550E0); private val WALL_F2 = Color(0x0A3550E0); private val WALL_LN = Color(0x2E3550E0)
-private val LO = Color(0xFFD9E2EF); private val SI = Color(0xFFC9D5E6); private val TOP = Color(0xFF4B4F58); private val UP = Color(0xFFE4EAF3); private val LN = Color(0xFF7A8BA6)
-private val DARK = Color(0xFF333333)
-private val WD = Color(0xFFE8E0D3); private val WD_OPEN = Color(0xFFF3EEE6); private val WD_LN = Color(0xFF8C7A62)
-
-private fun iso(x: Float, y: Float, z: Float) = Offset(130f + (x - y) * .62f, 150f + (x + y) * .33f - z)
-
-private fun DrawScope.poly(pts: List<Offset>, fill: Color, line: Color, dashed: Boolean = false) {
-    val path = Path().apply { moveTo(pts[0].x, pts[0].y); pts.drop(1).forEach { lineTo(it.x, it.y) }; close() }
-    drawPath(path, fill)
-    drawPath(path, line, style = Stroke(1f, pathEffect = if (dashed) PathEffect.dashPathEffect(floatArrayOf(4f, 3f)) else null))
-}
-
-/** A box seen from the front-right: its front, right side and top, as the mockup draws them. */
-private fun DrawScope.box(x: Float, y: Float, w: Float, d: Float, h: Float, fill: Color, line: Color, z0: Float = 0f) {
-    val p = listOf(iso(x, y, z0), iso(x + w, y, z0), iso(x + w, y + d, z0), iso(x, y + d, z0),
-        iso(x, y, z0 + h), iso(x + w, y, z0 + h), iso(x + w, y + d, z0 + h), iso(x, y + d, z0 + h))
-    poly(listOf(p[3], p[2], p[6], p[7]), fill, line); poly(listOf(p[1], p[2], p[6], p[5]), fill, line); poly(listOf(p[4], p[5], p[6], p[7]), fill, line)
-}
-
-private fun DrawScope.vline(x: Float, y: Float, z0: Float, z1: Float, c: Color, w: Float = 1f) = drawLine(c, iso(x, y, z0), iso(x, y, z1), w)
-
-/** The model drawn as a small 3D sketch on a floor with faint walls, sized to fill a 260 × 230 picture. */
-@Composable
-fun ModelPic(m: FModelDef, sides: List<Int>, island: Int, w: Int, h: Int, d: Int, modifier: Modifier) {
-    Canvas(modifier.aspectRatio(260f / 230f).background(PIC_BG)) {
-        val k0 = size.width / 260f
-        withTransform({ scale(k0, k0, pivot = Offset.Zero) }) { drawModel(m, sides, island, w, h, d) }
-    }
-}
-
-private fun DrawScope.drawModel(m: FModelDef, sides: List<Int>, island: Int, ww: Int, hh: Int, dd: Int) {
-    if (m.type.isNotEmpty()) { drawCabinet(m.type, max(ww, 300), max(hh, 300), max(dd, 250)); return }
-    val kit = m.kind == "kitchen"; val L = m.layout
-    fun side(i: Int) = sides.getOrElse(i) { 600 }.coerceAtLeast(600).toFloat()
-    val main = if (kit) (if (L == "U") side(1) else side(0)) else max(ww, 300).toFloat()
-    val turns = kit && L != "I"
-    val k = min(.05f, (if (kit) 140f else 105f) / (if (turns) main + 900f else main))
-    val deep = if (kit) when (L) { "L" -> side(1); "U" -> max(side(0), side(2)); "P" -> max(island, 600).toFloat(); "O" -> 2400f; else -> 600f } else max(dd, 300).toFloat()
-    val W = main * k + 30f; val D = max(deep * k + 30f, 90f); val H = (if (kit) max(hh, 2000) else max(hh + 150, 2500)) * k
-    poly(listOf(iso(0f, 0f, 0f), iso(W, 0f, 0f), iso(W, D, 0f), iso(0f, D, 0f)), FLOOR, FLOOR_LN)
-    poly(listOf(iso(0f, 0f, 0f), iso(W, 0f, 0f), iso(W, 0f, H), iso(0f, 0f, H)), WALL_F, WALL_LN, dashed = true)
-    if (kit && (L == "L" || L == "U")) poly(listOf(iso(0f, 0f, 0f), iso(0f, D, 0f), iso(0f, D, H), iso(0f, 0f, H)), WALL_F2, WALL_LN, dashed = true)
-    if (kit) {
-        val d = 600 * k; val lo = 870 * k; val up0 = 1450 * k; val up = 720 * k; val ud = 350 * k; val t = 40 * k
-        fun run(x: Float, y: Float, w: Float, uppers: Boolean) { box(x, y, w, d, lo, LO, LN); box(x, y, w, d, t, TOP, DARK, lo); if (uppers) box(x, y, w, ud, up, UP, LN, up0) }
-        fun leg(x: Float, y: Float, len: Float, uppers: Boolean) { box(x, y, d, len, lo, SI, LN); box(x, y, d, len, t, TOP, DARK, lo); if (uppers) box(x, y, ud, len, up, UP, LN, up0) }
-        val a = main * k
-        if (L == "L") leg(0f, d, side(1) * k - d, true)
-        if (L == "U") leg(0f, d, side(0) * k - d, true)
-        run(0f, 0f, a, true)
-        val n = max(1, (main / 600f).roundToInt()); for (i in 1 until n) vline(a * i / n, d, 0f, lo, LN)
-        if (L == "U") leg(a - d, d, side(2) * k - d, false)
-        if (L == "P") leg(a - d, d, max(island, 600) * k - d, false)
-        if (L == "O") { val il = max(island, 600) * k; box((a - il) / 2, d + 900 * k, il, 900 * k, lo, LO, LN); box((a - il) / 2, d + 900 * k, il, 900 * k, t, TOP, DARK, lo) }
-    } else {
-        val w = ww * k; val dp = dd * k; val h = hh * k
-        box(0f, 0f, w, dp, h, if (m.doors == "open") WD_OPEN else WD, WD_LN)
-        when (m.doors) {
-            "open" -> for (i in 1 until 5) { val z = h * i / 5; drawLine(WD_LN, iso(0f, dp, z), iso(w, dp, z), 1.6f) }
-            "slide" -> { val n = max(2, m.n); val pw = w / n; for (i in 0 until n) box(i * pw, dp + (if (i % 2 == 1) 2 else 0) * k * 30, pw, k * 20, h * .98f, if (i % 2 == 1) Color(0xFFDCD2C2) else Color(0xFFEDE6DA), WD_LN) }
-            else -> {
-                val n = if (m.n > 0) m.n else max(2, (ww / 600f).roundToInt())
-                for (i in 1 until n) vline(w * i / n, dp, 0f, h, WD_LN)
-                for (i in 0 until n) { val x = w * (i + if (i % 2 == 1) .12f else .88f) / n; drawLine(DARK, iso(x, dp, h * .45f), iso(x, dp, h * .55f), 2f, StrokeCap.Round) }
-            }
-        }
-    }
-}
-
-/** A Stage 2 type's picture: its template's carcass, sections, drawers, shelves and doors, as an iso sketch. */
-private fun DrawScope.drawCabinet(type: String, ww: Int, hh: Int, dd: Int) {
-    val cab = uz.metrx.app.furniture.cabinetTemplate(type, uz.metrx.app.furniture.Workshop(), "A", 0, ww, hh, dd)
-    val k = min(.06f, 110f / max(ww, hh))
-    val w = ww * k; val dp = dd * k; val h = hh * k
-    val z0 = if (cab.legs) 100 * k else 0f
-    poly(listOf(iso(-10f, -10f, 0f), iso(w + 30f, -10f, 0f), iso(w + 30f, dp + 60f, 0f), iso(-10f, dp + 60f, 0f)), FLOOR, FLOOR_LN)
-    poly(listOf(iso(-10f, -10f, 0f), iso(w + 30f, -10f, 0f), iso(w + 30f, -10f, max(h + 40f, 120f)), iso(-10f, -10f, max(h + 40f, 120f))), WALL_F, WALL_LN, dashed = true)
-    if (cab.legs) { listOf(4f, w - 6f).forEach { x -> box(x, dp - 6f, 2f, 2f, z0, DARK, DARK) } }
-    val t = 16 * k
-    var a = 0f
-    cab.sections.forEachIndexed { i, s ->
-        val sw = s.w * k
-        if (s.knee) {
-            // the knee space: the top over it, a side down to the floor at its far end
-            box(a, 0f, sw, dp, t, WD, WD_LN, z0 + h - t)
-        } else {
-            box(a, 0f, sw, dp, h, if (s.fronts.kind == "open") WD_OPEN else WD, WD_LN, z0)
-            val ih = h - 2 * t
-            s.inserts.forEach { x ->
-                val y = z0 + t + x.pos * k
-                when (x.kind) {
-                    "shelf" -> drawLine(WD_LN, iso(a + 1f, dp, y), iso(a + sw - 1f, dp, y), 1.2f)
-                    "drawer" -> { val top = y + x.h * k; drawLine(WD_LN, iso(a + 1f, dp, top), iso(a + sw - 1f, dp, top), 1.2f)
-                        drawLine(DARK, iso(a + sw * .42f, dp, y + x.h * k * .6f), iso(a + sw * .58f, dp, y + x.h * k * .6f), 1.8f, StrokeCap.Round) }
-                    "rail" -> drawLine(DARK, iso(a + 2f, dp * .5f, y), iso(a + sw - 2f, dp * .5f, y), 1.4f)
-                }
-            }
-            if (s.fronts.kind == "door") {
-                val n = s.fronts.n
-                for (j in 1 until n) vline(a + sw * j / n, dp, z0, z0 + h, WD_LN)
-                for (j in 0 until n) { val x = a + sw * (j + if (j % 2 == 1) .12f else .88f) / n; drawLine(DARK, iso(x, dp, z0 + ih * .45f), iso(x, dp, z0 + ih * .6f), 2f, StrokeCap.Round) }
-            }
-        }
-        if (i > 0) vline(a, dp, if (s.knee || cab.sections[i - 1].knee) 0f else z0, z0 + h, WD_LN)
-        a += sw
-    }
-    // a desk's far side stands on the floor
-    if (cab.sections.lastOrNull()?.knee == true) box(w - t, 0f, t, dp, z0 + h - t, WD, WD_LN, 0f)
-}
-
-/* ---------------- the sizes ---------------- */
-
-/** The labels of a layout's sides, in run order. */
-private fun sideKeys(layout: String): List<String> = when (layout) {
-    "L" -> listOf("fz.w1", "fz.w2")
-    "U" -> listOf("fz.uL", "fz.uM", "fz.uR")
-    "O", "P" -> listOf("fz.pW")
-    else -> listOf("fz.len")
-}
-
-@Composable
-fun FSizesScreen(rt: Route.FSizes) {
-    val app = LocalApp.current
-    val lang = LocalLang.current
-    val en = lang == Lang.EN
-    val p = app.store.get(rt.pid) ?: return
-    val m = fModel(rt.model) ?: fModel(if (rt.kind == "kitchen") "L" else "h2")!!
-    val cabinet = m.type.isNotEmpty()
-    val edit = rt.fid?.let { id -> p.furniture.firstOrNull { it.id == id } }
-    val kit = rt.kind == "kitchen"
-    val L = edit?.layout ?: m.layout
-    val n = sidesOf(L)
-    // what the fields start from: the piece being changed, or the model's usual sizes
-    val start = edit?.free
-    var sides by rememberSaveable(rt) { mutableStateOf((start?.sides ?: m.sides).take(n).map { it.toString() }.let { s -> s + List(n - s.size) { "" } }) }
-    var island by rememberSaveable(rt) { mutableStateOf(((start?.island ?: m.island).takeIf { it > 0 } ?: 0).let { if (it > 0) it.toString() else "" }) }
-    var ceil by rememberSaveable(rt) { mutableStateOf((start?.h ?: m.h).toString()) }
-    var w by rememberSaveable(rt) { mutableStateOf(m.w.toString()) }
-    var h by rememberSaveable(rt) { mutableStateOf(m.h.toString()) }
-    var d by rememberSaveable(rt) { mutableStateOf(m.d.toString()) }
-    var built by rememberSaveable(rt) { mutableStateOf(m.built) }
-    var tried by rememberSaveable(rt) { mutableStateOf(false) }
-    fun v(s: String) = s.filter { it.isDigit() }.take(5).toIntOrNull() ?: 0
-    val hasIsland = L == "O" || L == "P"
-    val sideErr = if (kit && sides.any { v(it) < 600 }) tr("fz.min600") else null
-    val islErr = if (kit && hasIsland && v(island) < 600) tr("fz.min600") else null
-    val wErr = if (!kit && !cabinet && (v(w) < 400 || v(h) < 1200)) tr("fz.minW")
-        else if (cabinet && (v(w) < 300 || v(h) < 300 || v(d) < 250)) tr("fz.minC") else null
-    val ok = sideErr == null && islErr == null && wErr == null
-
-    fun create() {
-        tried = true
-        if (!ok) return
-        val now = System.currentTimeMillis()
-        val ws = app.settings.workshop
-        if (edit != null) {
-            // new sizes for a room-less kitchen: the units that no longer fit are cut, the rest stays
-            val nf = edit.copy(free = uz.metrx.app.furniture.FreeSize(sides.map(::v), if (hasIsland) v(island) else 0, v(ceil).takeIf { it > 0 } ?: 2700))
-            val g = fitTo(nf, nf.walls, { id -> freeLen(nf, id) }, null, ws)
-            app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.map { if (it.id == edit.id) g else it }) }
-            app.kit.tick++; app.pop(); app.say("fz.saved"); return
-        }
-        val count = p.furniture.count { if (cabinet) it.type == m.type else it.kind == rt.kind && it.type.isEmpty() } + 1
-        val f = if (cabinet) uz.metrx.app.furniture.newFreeCabinet(app.t("ft.${m.type}") + " $count", m.type, v(w), v(h), v(d), ws, now)
-            else if (kit) newFreeKitchen(app.t("kt.nameN", "n" to count), m.id, L, sides.map(::v), if (hasIsland) v(island) else 0, v(ceil).takeIf { it > 0 } ?: 2700, ws, now)
-            else newFreeWardrobe(app.t("wd.nameN", "n" to count), m.id, v(w), v(h), v(d).takeIf { it >= 200 } ?: W_DEPTH, built, m.doors, ws, now, m.n)
-        val moved = p.stage == "measure"
-        app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture + f, stage = if (pr.stage == "measure") "design" else pr.stage,
-            want = ((pr.want ?: emptyList()) + (if (cabinet) "other" else rt.kind)).distinct()) }
-        app.renameOrder(p.id)
-        app.kit.sel = null
-        app.popTo { it is Route.Project && it.id == p.id }
-        app.push(app.designer(p.id, f, step = 2))
-        app.say(if (moved) "fz.createdS" else "fz.created", "n" to dn(f.name, lang), "s" to app.t("fs.design"))
-    }
-
-    FPage(dn(p.name, lang), tr(if (kit) "fz.sizesK" else if (cabinet) "fz.sizesO" else "fz.sizesW"), { app.pop() },
-        footer = { GBtn(tr(if (edit != null) "common.save" else "kt.start"), ::create, enabled = !tried || ok) }) {
-        // the chosen model, with a way back to the gallery
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).glassCard(RoundedCornerShape(18.dp), fill = G.glass(.62f)).padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Box(Modifier.width(96.dp).clip(RoundedCornerShape(12.dp))) {
-                ModelPic(m, sides.map(::v), v(island), v(w), v(h), v(d), Modifier.fillMaxWidth())
-            }
-            Column(Modifier.weight(1f)) {
-                Text(tr("fz.m.${m.id}"), style = ui(15.5f, 800), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(tr("fz.s.${m.id}"), style = ui(12.5f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
-            }
-            if (edit == null) GBtn(tr("fz.change"), { app.pop() }, Btn.SECONDARY, height = 40.dp, corner = 12.dp, fontSize = 13.5f, fill = false)
-        }
-        if (kit) {
-            sideKeys(L).forEachIndexed { i, key ->
-                GField(tr(key), sides.getOrElse(i) { "" }, { s -> sides = sides.toMutableList().also { it[i] = s.filter { c -> c.isDigit() }.take(5) } }, "2000",
-                    number = true, labelRight = "mm", error = if (v(sides.getOrElse(i) { "" }) < 600) sideErr else null, showError = tried)
-            }
-            if (hasIsland) GField(tr(if (L == "P") "fz.pP" else "fz.isl"), island, { island = it.filter { c -> c.isDigit() }.take(5) }, "1800",
-                number = true, labelRight = "mm", error = islErr, showError = tried)
-            GField(tr("fz.ceil"), ceil, { ceil = it.filter { c -> c.isDigit() }.take(5) }, "2700", number = true, labelRight = "mm", imeAction = ImeAction.Done)
-            // the running metres, as the price counts them
-            val vs = sides.map(::v); val corners = n - 1
-            val total = freeRunMm(L, vs, v(island))
-            val t = (max(0, total) + 50) / 100
-            Text(vs.joinToString(" + ") + (if (hasIsland) " + " + tr(if (L == "P") "kt.peninsula" else "kt.island").lowercase() + " " + v(island) else "") +
-                (if (corners > 0) " − ${corners * K_CORNER} " + tr("kt.cornerCut") else "") + " → ${t / 10}${if (en) "." else ","}${t % 10} " + tr("kt.pm"), style = num(15f, 700))
-        } else {
-            GField(tr("wd.w"), w, { w = it.filter { c -> c.isDigit() }.take(5) }, "2400", number = true, labelRight = "mm", error = wErr, showError = tried)
-            GField(tr("fz.wH"), h, { h = it.filter { c -> c.isDigit() }.take(5) }, "2600", number = true, labelRight = "mm")
-            GField(tr("wd.d"), d, { d = it.filter { c -> c.isDigit() }.take(4) }, "600", number = true, labelRight = "mm", imeAction = ImeAction.Done)
-            if (!cabinet) {
-                Text(tr("fz.type"), style = ui(15f, 700))
-                Seg(listOf("built" to tr("wd.built"), "free" to tr("wd.free")), if (built) "built" else "free") { built = it == "built" }
-            }
-            // as the wardrobe is made: about 600 a section, two doors on a section 600 or wider
-            val secs = uz.metrx.app.furniture.sectionsFor(v(w).coerceAtLeast(400))
-            if (m.doors == "door") Text(tr("fz.doorsH", "n" to secs * (if (v(w) / secs >= 600) 2 else 1)), style = ui(13f, 400, G.ink2, 1.4f))
-            if (m.doors == "slide") Text(tr("fz.doorsS", "n" to m.n), style = ui(13f, 400, G.ink2, 1.4f))
-        }
-        if (edit == null) Text(tr("fz.noRoomNote"), style = ui(13f, 400, G.ink2, 1.4f))
-    }
-}
-
 /* ---------------- on the designers and the order: room-less pieces ---------------- */
 
 /** On a room-less piece's designer: it has no room yet, and the way into one. */
@@ -514,7 +197,7 @@ fun FreeBanner(p: Project, f: Furniture) {
         Text(tr("fz.banner"), style = ui(13.5f, 500, G.ink, 1.4f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GBtn(tr("fz.toRoom"), { app.sheet = Sheet.FPickRoom(p.id, f.id) }, icon = "room", height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
-            if (f.kind == "kitchen") GBtn(tr("fz.sizesBtn"), { app.push(Route.FSizes(p.id, f.kind, f.model.ifEmpty { f.layout }, f.id)) }, Btn.SECONDARY,
+            GBtn(tr("fz.sizesBtn"), { app.push(Route.FSteps(p.id, uz.metrx.app.furniture.modelOf(f).id, f.id)) }, Btn.SECONDARY,
                 icon = "ruler", height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
         }
     }
@@ -623,28 +306,59 @@ private fun PickRoomSheet(s: Sheet.FPickRoom) {
 
 /* ---------------- into the room ---------------- */
 
+/** A new piece's name: "Oshxona 2", "Shkaf 3", "Komod 1" (counted by kind, or by type for the other pieces). */
+internal fun App.pieceName(p: uz.metrx.app.data.Project, m: FModelDef): String {
+    val n = p.furniture.count { if (m.type.isNotEmpty()) it.type == m.type else it.kind == m.kind && it.type.isEmpty() } + 1
+    return when { m.type.isNotEmpty() -> t("ft.${m.type}") + " $n"; m.kind == "kitchen" -> t("kt.nameN", "n" to n); else -> t("wd.nameN", "n" to n) }
+}
+
+/** Adds a new piece to the order: the stage moves on from measuring, what they want grows, the name follows. */
+internal fun App.addPiece(pid: String, f: Furniture) {
+    store.update(pid) { pr -> pr.copy(furniture = pr.furniture + f, stage = if (pr.stage == "measure") "design" else pr.stage,
+        want = ((pr.want ?: emptyList()) + uz.metrx.app.furniture.kindKey(f)).distinct()) }
+    renameOrder(pid)
+}
+
 @Composable
 fun FPlaceScreen(rt: Route.FPlace) {
     val app = LocalApp.current
     val lang = LocalLang.current
+    val en = lang == Lang.EN
     val p = app.store.get(rt.pid) ?: return
-    val f0 = p.furniture.firstOrNull { it.id == rt.fid } ?: return
     val room = p.rooms.firstOrNull { it.id == rt.rid } ?: return
     val snap = app.settings.angleSnap
     val ws = app.settings.workshop
+    val unit = app.settings.unit
     val wl = walls(room, snap)
     val ids = wl.map { it.id }
-    val taken = p.furniture.filter { it.roomId == room.id && it.id != f0.id }.flatMap { it.walls }
-    var first by rememberSaveable { mutableStateOf(ids.firstOrNull { it !in taken } ?: ids.first()) }
-    var off by rememberSaveable { mutableStateOf("") }          // a wardrobe's distance from the corner; "" = in the corner
-    var keep by rememberSaveable { mutableStateOf(false) }
-    var fitted by remember { mutableStateOf<Furniture?>(null) }
-    val ward = f0.kind == "wardrobe"
-    val offMm = off.filter { it.isDigit() }.toIntOrNull()?.takeIf { it > 0 }
-    val f = fitted ?: f0
-    val on = placeWalls(f, ids, first)
     val len = { id: String -> wallLen(room, snap, id) }
     val roomH = room.dim("H").v
+    // the piece: one of the order's, or a new one of a model (its typed sizes, or the room's own when vals is null)
+    val model = rt.model?.let { fModel(it) }
+    val known = rt.fid == null && rt.vals == null && model != null
+    val existing = rt.fid?.let { id -> p.furniture.firstOrNull { it.id == id } }
+    if (existing == null && model == null) return
+    val name = remember(rt) { existing?.name ?: app.pieceName(p, model!!) }
+    val typed = remember(rt) { decodeVals(rt.vals) }
+    val taken = p.furniture.filter { it.roomId == room.id && it.id != rt.fid }.flatMap { it.walls }
+    var first by rememberSaveable { mutableStateOf(ids.firstOrNull { it !in taken } ?: ids.first()) }
+    var off by rememberSaveable { mutableStateOf("") }          // a wardrobe's distance from the corner; "" = in the corner
+    var wTxt by rememberSaveable { mutableStateOf("") }         // a new cabinet's width in a known room; "" = as made
+    var keep by rememberSaveable { mutableStateOf(false) }
+    var fitted by remember { mutableStateOf<Furniture?>(null) }
+    val base: Furniture = remember(rt, first, wTxt) {
+        when {
+            existing != null -> existing
+            known && model!!.kind == "kitchen" -> roomKitchen(model, ids, first, len, roomH, ws, name, System.currentTimeMillis())
+            known -> roomCabinet(model!!, len(first), roomH, ws, name, System.currentTimeMillis()).let { c ->
+                parseMm(wTxt, unit)?.let { w -> resized(c, mapOf("w" to w), ws) } ?: c }
+            else -> pieceOf(model!!, typed, ws, name, System.currentTimeMillis())
+        }
+    }
+    val ward = base.kind == "wardrobe"
+    val offMm = off.filter { it.isDigit() }.toIntOrNull()?.takeIf { it > 0 }
+    val f = fitted ?: base
+    val on = placeWalls(f, ids, first)
     val issues = fitIssues(f, on, len, roomH, ws, offMm)
     val floor = p.floors.firstOrNull { it.id == room.floorId }
     val roomName = floor?.let { floorName(it, lang) } ?: dn(room.name, lang)
@@ -653,13 +367,15 @@ fun FPlaceScreen(rt: Route.FPlace) {
     fun place() {
         if (issues.isNotEmpty() && !keep) { app.say("fz.pickFirst", kind = ToastKind.ERROR); return }
         val g = placed(f, on, room.id, room.floorId, offMm, keep = issues.isNotEmpty(), len = len)
-        app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.map { if (it.id == f0.id) g else it }, stage = if (pr.stage == "measure") "design" else pr.stage) }
+        if (existing != null) app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.map { if (it.id == g.id) g else it }, stage = if (pr.stage == "measure") "design" else pr.stage) }
+        else app.addPiece(p.id, g)
         app.kit.sel = null; app.kit.tick++
-        app.replaceTop(app.designer(p.id, g))
-        app.say("fz.placed", "n" to dn(f0.name, lang), "r" to roomName)
+        app.popTo { it is Route.Project && it.id == p.id }
+        app.push(app.designer(p.id, g, step = if (existing == null) 2 else 1))
+        app.say("fz.placed", "n" to dn(g.name, lang), "r" to roomName)
     }
 
-    FPage(dn(f0.name, lang) + " → " + roomName, tr("fz.toRoom"), { app.pop() },
+    FPage(dn(f.name, lang) + " → " + roomName, tr("fz.toRoom"), { app.pop() },
         footer = { GBtn(tr("fz.placeHere"), ::place, enabled = issues.isEmpty() || keep) }) {
         PlacePlan(room, f, on, offMm, snap)
         Text(tr(if (ward) "fz.wallQ" else "fz.first"), style = ui(15f, 700))
@@ -667,9 +383,14 @@ fun FPlaceScreen(rt: Route.FPlace) {
             wl.forEach { w -> Chip(tr("kt.wallN", "w" to w.id) + (len(w.id)?.let { " · $it" } ?: ""), w.id == first) { if (w.id != first) { first = w.id; reset() } } }
         }
         if (!ward && on.count { it != ISLAND } > 1) Text(tr("fz.nextWalls", "w" to on.drop(1).filter { it != ISLAND }.joinToString(", ")), style = ui(13f, 400, G.ink2, 1.4f))
-        if (on.any { it in taken }) Text(tr("kt.wallTaken", "w" to on.first { it in taken }, "n" to dn(p.furniture.first { it.roomId == room.id && it.id != f0.id && on.any { w -> w in it.walls } }.name, lang)),
+        // a kitchen for a measured room takes its walls whole
+        if (known && !ward) Text(tr("fq.whole", "v" to (f.free?.sides ?: emptyList()).joinToString(" + ") { fmtLen(it, unit, en) } + " " + unitWord(unit),
+            "h" to fmtLen(roomH, unit, en) + " " + unitWord(unit)), style = ui(13f, 400, G.ink2, 1.4f))
+        if (on.any { it in taken }) Text(tr("kt.wallTaken", "w" to on.first { it in taken }, "n" to dn(p.furniture.first { it.roomId == room.id && it.id != rt.fid && on.any { w -> w in it.walls } }.name, lang)),
             style = ui(12.5f, 500, G.amberInk, 1.4f))
         if (ward) {
+            if (known) GField(tr("wd.w"), wTxt, { wTxt = it.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(6); reset() }, wardOfF(base)?.let { fmtField(it.w, unit, en) } ?: "",
+                labelRight = unitWord(unit))
             Text(tr("fz.offset"), style = ui(15f, 700))
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip(tr("fz.corner"), offMm == null) { off = ""; reset() }
@@ -681,7 +402,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     MIcon("alert", if (keep) G.amberInk else G.err, 18.dp, 2f)
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        issues.forEach { i -> Text(app.t(i.key, *i.vars.map { (k, v) -> k to (if (k == "n") dn(v.toString(), lang) else v) }.toTypedArray()), style = ui(13.5f, 600, if (keep) G.amberInk else G.err, 1.35f)) }
+                        issues.forEach { i -> Text(issueText(app, i, lang), style = ui(13.5f, 600, if (keep) G.amberInk else G.err, 1.35f)) }
                     }
                 }
                 if (keep) Text(tr("fz.kept"), style = ui(12.5f, 500, G.amberInk, 1.35f))
@@ -696,6 +417,10 @@ fun FPlaceScreen(rt: Route.FPlace) {
         }
     }
 }
+
+/** A fit issue in words, the piece's name in the app language. */
+internal fun issueText(app: App, i: uz.metrx.app.furniture.FitIssue, lang: Lang): String =
+    app.t(i.key, *i.vars.map { (k, v) -> k to (if (k == "n") dn(v.toString(), lang) else v) }.toTypedArray())
 
 /** The room from above with the piece's place: each side along its wall (red past the wall's end), the wardrobe at its distance. */
 @Composable

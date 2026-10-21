@@ -239,7 +239,11 @@ private fun AddItem(s: Sheet.AddItem) {
         }
         else -> GlassSheet(tr("add.title", "n" to floorName(w, lang)), { app.close() }) {
             // furniture orders: the kitchen (or wardrobe) for the measured room comes first
-            if (p.isFurniture) BigRow("kitchen", "kt.addRow", "kt.addRowD") { app.sheet = Sheet.NewFurniture(p.id, w.id) }
+            if (p.isFurniture) BigRow("kitchen", "kt.addRow", "kt.addRowD") {
+                // the gallery, for the workspace's room when it is measured
+                val rid = p.rooms.firstOrNull { it.floorId == w.id && uz.metrx.app.ui.furniture.measuredRoom(it, app.settings.angleSnap) }?.id
+                app.close(); app.push(Route.FGallery(p.id, rid))
+            }
             Row(Modifier.padding(bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 listOf("sketch" to "pen", "photo" to "camera", "note" to "note").forEach { (k, icon) ->
                     Column(

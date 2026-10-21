@@ -190,7 +190,7 @@ fun NewOrderScreen() {
         val p = newProject(name, name, Phone.digits(phone), address.trim(), null, app.settings.currency, app.settings.reportLang.code).copy(industry = "furniture", autoName = true)
         app.store.add(p)
         app.replaceTop(Route.Project(p.id))
-        app.push(Route.FNeed(p.id))
+        app.push(Route.FGallery(p.id, fromNew = true))
         app.say("np.created", "n" to name)
     }
 
@@ -280,7 +280,7 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                     !drawn -> TodoRow(tr("ns.measureT")) { app.openRoom(p.id, room.id) }
                     furn.isEmpty() -> p.furniture.firstOrNull { it.roomId == null && it.kind == kind }?.let { loose ->
                         TodoRow(tr("fz.placeN", "n" to dn(loose.name, lang))) { app.push(Route.FPlace(p.id, loose.id, room.id)) }
-                    } ?: TodoRow(tr(if (kind == "kitchen") "fo.addK" else "fo.addW")) { app.sheet = Sheet.NewFurniture(p.id, w.id, room.id, kind) }
+                    } ?: TodoRow(tr(if (kind == "kitchen") "fo.addK" else "fo.addW")) { app.push(Route.FGallery(p.id, room.id)) }
                 }
                 val n = w.items.size
                 if (n > 0 || room != null) Text(tr("fo.photos") + if (n > 0) " · $n" else "", style = ui(13f, 600, G.cobalt2),
@@ -292,7 +292,7 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
             GBtn(tr("pj.v3d"), { app.setTop(route.copy(view = "3d")) }, Btn.SECONDARY, icon = "cube", modifier = Modifier.weight(1f), height = 48.dp, fontSize = 15f)
         }
         Row(
-            Modifier.fillMaxWidth().height(60.dp).dashedGlass(22.dp).pressable({ app.push(Route.FNeed(p.id)) }, .98f),
+            Modifier.fillMaxWidth().height(60.dp).dashedGlass(22.dp).pressable({ app.push(Route.FGallery(p.id)) }, .98f),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically
         ) {
             MIcon("plus", G.cobalt2, 22.dp, 2.2f)
@@ -404,16 +404,16 @@ fun NextStep(p: Project) {
             val q = app.store.update(p.id) { uz.metrx.app.data.nextStage(it).copy(install = today) }; if (q?.stage == "paid") app.say("fs.paid") }
         k == 3 -> Step(tr("ns.makeT"), installDate(p)?.let { tr("fo.installV", "d" to fmtDay(it, app)) }, tr("ns.makeB")) { app.store.update(p.id) { uz.metrx.app.data.nextStage(it) } }
         k == 2 -> Step(tr("ns.approveT"), p.quotes.lastOrNull()?.let { q -> tr("ns.approveS", "n" to q.no, "v" to mln(q.total.toBigIntegerOrNull() ?: java.math.BigInteger.ZERO)) }, tr("fo.approve")) { app.sheet = Sheet.FApprove(p.id) }
-        p.want == null && p.floors.isEmpty() && p.furniture.isEmpty() -> Step(tr("ns.needT"), tr("ns.needS"), tr("ns.needB")) { app.push(Route.FNeed(p.id)) }
+        p.want == null && p.floors.isEmpty() && p.furniture.isEmpty() -> Step(tr("ns.needT"), tr("ns.needS"), tr("ns.needB")) { app.push(Route.FGallery(p.id)) }
         undrawn != null -> Step(tr("ns.measureT"), floorName(undrawn, lang), tr("fo.drawRoom")) { app.drawRoomIn(p.id, undrawn, lang) }
         unmeasured != null -> Step(tr("ns.measureT"), tr("ns.measureS", "r" to floorName(unmeasured.first, lang)), tr("ns.measureB")) { app.openRoom(p.id, unmeasured.second.id) }
         loose != null && bare != null -> Step(tr("ns.placeT", "n" to dn(loose.name, lang), "r" to floorName(bare.first, lang)),
             tr("ns.placeS", "n" to dn(loose.name, lang), "r" to floorName(bare.first, lang)), tr("fz.toRoom")) { app.push(Route.FPlace(p.id, loose.id, bare.second.id)) }
         bare != null -> roomKind(bare.first).let { kind ->
             Step(tr(if (kind == "kitchen") "ns.designK" else "ns.designW"), tr("ns.designS", "r" to floorName(bare.first, lang)), tr(if (kind == "kitchen") "fo.addK" else "fo.addW")) {
-                app.sheet = Sheet.NewFurniture(p.id, bare.first.id, bare.second.id, kind) } }
-        pend != null -> Step(tr(when (pend) { "kitchen" -> "ns.designK"; "other" -> "ns.designO"; else -> "ns.designW" }), tr("ns.pendS"), tr("ns.pendB")) { app.push(Route.FHow(p.id, pend)) }
-        p.floors.isEmpty() && p.furniture.isEmpty() -> Step(tr("ns.needT"), tr("ns.needS"), tr("ns.needB")) { app.push(Route.FNeed(p.id)) }
+                app.push(Route.FGallery(p.id, bare.second.id)) } }
+        pend != null -> Step(tr(when (pend) { "kitchen" -> "ns.designK"; "other" -> "ns.designO"; else -> "ns.designW" }), tr("ns.pendS"), tr("ns.pendB")) { app.push(Route.FGallery(p.id)) }
+        p.floors.isEmpty() && p.furniture.isEmpty() -> Step(tr("ns.needT"), tr("ns.needS"), tr("ns.needB")) { app.push(Route.FGallery(p.id)) }
         else -> Step(tr("ns.quoteT"), if (price.signum() > 0) tr("ns.quoteS", "v" to mln(price)) else null, tr("ns.quoteB")) { app.sheet = Sheet.Issue(p.id) }
     }
     if (step == null) return

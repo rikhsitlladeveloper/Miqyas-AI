@@ -1,0 +1,227 @@
+package uz.metrx.app.ui.furniture
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectHorizontalDragGestures
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.CanvasDrawScope
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
+import androidx.compose.ui.unit.sp
+import uz.metrx.app.furniture.Furniture
+import uz.metrx.app.furniture.ISLAND
+import uz.metrx.app.furniture.K_BASE_D
+import uz.metrx.app.furniture.Mat
+import uz.metrx.app.furniture.Workshop
+import uz.metrx.app.furniture.freeRoom
+import uz.metrx.app.furniture.isUpper
+import uz.metrx.app.furniture.outerH
+import uz.metrx.app.furniture.wardOfF
+import uz.metrx.app.furniture.worktopTop
+import uz.metrx.app.geo.Role
+import uz.metrx.app.geo.V3
+import uz.metrx.app.geo.buildShell
+import uz.metrx.app.geo.furniture3D
+import uz.metrx.app.geo.rgbOf
+import kotlin.math.atan
+import kotlin.math.cos
+import kotlin.math.max
+import kotlin.math.min
+import kotlin.math.sin
+import kotlin.math.tan
+
+/*
+ * A piece of furniture drawn in 3D for the gallery's cards and the size steps (gallery v5, 21 Oct 2026): the designer's
+ * own boards (geo/furniture3D) on the floor of the piece's made-up room, the walls it stands on behind it, flat-shaded
+ * and drawn back to front. A size step tints the run it asks about and draws that size as a blue dimension line.
+ */
+
+/** A face to draw: its corners, outward normal, colour and opacity, and what it belongs to (a wall id, "floor" or "wall"). */
+class SFace(val pts: List<V3>, val n: V3, val rgb: Int, val op: Float, val tag: String?)
+
+/** A size shown on the piece: from [a] to [b], with end ticks along [tick]. */
+class DimLine(val a: V3, val b: V3, val tick: V3)
+
+/**
+ * The faces of a piece ([env]: floor and walls, drawn first; [furn]: the boards), its middle and size for the camera,
+ * the dimension line of each step key and what each step tints ([tint]: a wall id, ISLAND or "wall").
+ */
+class PieceScene(val env: List<SFace>, val furn: List<SFace>, val center: V3, val radius: Double, val dims: Map<String, DimLine>, val tint: Map<String, String>, val az0: Double,
+    /** The middle and size with the dimension lines in, for a step that shows one. */
+    val dimCenter: V3 = center, val dimRadius: Double = radius)
+
+private val UP = V3(0.0, 1.0, 0.0)
+private const val WALL_RGB = 0xEEF1F7
+private const val FLOOR_RGB = 0xE3E8F0
+private const val HI_RGB = 0x9FB2FF
+private val BLUE = Color(0xFF3550E0)
+
+fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
+    val room = freeRoom(f)
+    val shell = buildShell(listOf(room), true, true)
+    val b = shell.bases
+    val fur = furniture3D(listOf(f), b, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet())
+    val furn = fur.parts.flatMap { p -> p.faces.map { SFace(it.pts, it.n, p.rgb, p.op, p.wall) } }
+    val env = ArrayList<SFace>()
+    shell.parts.filter { it.role == Role.FLOOR }.forEach { p -> p.faces.forEach { env += SFace(it.pts, it.n, FLOOR_RGB, 1f, "floor") } }
+    val H = (room.dim("H").v ?: 2700) / 1000.0
+    val onWalls = f.walls.filter { it != ISLAND }
+    onWalls.forEach { w -> b[w]?.let { bas -> env += SFace(listOf(bas.at(0.0, 0.0, 0.0), bas.at(bas.len, 0.0, 0.0), bas.at(bas.len, H, 0.0), bas.at(0.0, H, 0.0)), V3(bas.nx, 0.0, bas.nz), WALL_RGB, .95f, "wall") } }
+    // the middle and size of the boards alone
+    var x0 = Double.MAX_VALUE; var y0 = Double.MAX_VALUE; var z0 = Double.MAX_VALUE; var x1 = -Double.MAX_VALUE; var y1 = -Double.MAX_VALUE; var z1 = -Double.MAX_VALUE
+    furn.forEach { fc -> fc.pts.forEach { q -> x0 = min(x0, q.x); y0 = min(y0, q.y); z0 = min(z0, q.z); x1 = max(x1, q.x); y1 = max(y1, q.y); z1 = max(z1, q.z) } }
+    if (furn.isEmpty()) { x0 = 0.0; y0 = 0.0; z0 = 0.0; x1 = 1.0; y1 = 1.0; z1 = 1.0 }
+    val dims = HashMap<String, DimLine>(); val tint = HashMap<String, String>()
+    if (f.kind == "kitchen") {
+        val y = (worktopTop(ws) + 30) / 1000.0
+        onWalls.forEachIndexed { i, w ->
+            val bas = b[w] ?: return@forEachIndexed
+            val l = (f.free?.sides?.getOrNull(i) ?: (bas.len * 1000).toInt()) / 1000.0
+            dims["s$i"] = DimLine(bas.at(0.0, y, .68), bas.at(l, y, .68), UP); tint["s$i"] = w
+        }
+        // the island stands 900 out in front of the first wall's units, as furniture3D puts it
+        val w0 = onWalls.firstOrNull()?.let { b[it] }
+        val isl = f.modules.filter { it.wall == ISLAND && !isUpper(it) }.sumOf { it.w } / 1000.0
+        if (w0 != null && isl > 0) {
+            val s = (w0.len - isl) / 2; val back = (K_BASE_D + 900 + K_BASE_D) / 1000.0
+            dims["isl"] = DimLine(w0.at(s, y, back + .08), w0.at(s + isl, y, back + .08), UP); tint["isl"] = ISLAND
+        }
+        if (w0 != null) { dims["h"] = DimLine(w0.at(0.0, 0.0, .04), w0.at(0.0, H, .04), w0.dir(1.0, 0.0)); tint["h"] = "wall" }
+    } else wardOfF(f)?.let { m ->
+        val bas = b["A"] ?: return@let
+        val xa = m.x / 1000.0; val w = m.w / 1000.0; val d = m.d / 1000.0; val h = outerH(m, ws) / 1000.0
+        dims["w"] = DimLine(bas.at(xa, .02, d + .2), bas.at(xa + w, .02, d + .2), UP)
+        dims["h"] = DimLine(bas.at(xa + w + .15, 0.0, d), bas.at(xa + w + .15, h, d), bas.dir(1.0, 0.0))
+        dims["d"] = DimLine(bas.at(xa + w + .08, h + .08, 0.0), bas.at(xa + w + .08, h + .08, d), UP)
+    }
+    val center = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+    val radius = max(.45, V3(x1 - x0, y1 - y0, z1 - z0).len() / 2)
+    // a step's camera takes in the dimension lines too, so a size in front of the piece stays in the picture
+    dims.values.forEach { d -> listOf(d.a, d.b).forEach { q -> x0 = min(x0, q.x); y0 = min(y0, q.y); z0 = min(z0, q.z); x1 = max(x1, q.x); y1 = max(y1, q.y); z1 = max(z1, q.z) } }
+    val dimCenter = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
+    val dimRadius = max(.45, V3(x1 - x0, y1 - y0, z1 - z0).len() / 2)
+    // an L turns into the right-hand wall: seen from the left so both runs show from inside
+    val az0 = when (f.layout.takeIf { f.kind == "kitchen" }) { "L" -> -.6; "U" -> .15; null -> .55; else -> .6 }
+    return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter, dimRadius)
+}
+
+private fun cross(a: V3, b: V3) = V3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
+
+/** A camera round the piece: [az] turns it from the scene's own angle, the piece filling the picture. */
+private class PCam(s: PieceScene, w: Float, h: Float, az: Double, withDims: Boolean) {
+    private val half = 16.0 * Math.PI / 180
+    val e: V3; private val r: V3; private val u: V3; private val f: V3; private val foc: Double; private val cx = w / 2f; private val cy = h / 2f
+    init {
+        val fit = min(half, atan(tan(half) * w / h))
+        val c = if (withDims) s.dimCenter else s.center
+        val dist = (if (withDims) s.dimRadius else s.radius) / sin(fit) * .9
+        val a = s.az0 + az; val el = .5
+        e = c + V3(sin(a) * cos(el), sin(el), cos(a) * cos(el)) * dist
+        f = (c - e).unit(); r = cross(f, UP).unit(); u = cross(r, f)
+        foc = (h / 2) / tan(half)
+    }
+    fun p(q: V3): Offset? {
+        val d = q - e; val z = d.dot(f)
+        if (z < .05) return null
+        return Offset((cx + d.dot(r) / z * foc).toFloat(), (cy - d.dot(u) / z * foc).toFloat())
+    }
+    fun depth(q: V3) = (q - e).dot(f)
+}
+
+private val LIGHT = V3(.35, .85, .45).unit()
+
+private fun mix(a: Int, b: Int, k: Float): Int {
+    fun c(s: Int) = (((a shr s) and 0xFF) * (1 - k) + ((b shr s) and 0xFF) * k).toInt().coerceIn(0, 255)
+    return (c(16) shl 16) or (c(8) shl 8) or c(0)
+}
+
+private fun shade(rgb: Int, n: V3, op: Float, env: Boolean = false): Color {
+    // the floor and the walls stay light: they are only there to stand the piece in its place
+    val k = if (env) (.93 + .07 * max(0.0, n.dot(LIGHT))).toFloat() else (.66 + .34 * max(0.0, n.dot(LIGHT))).toFloat()
+    fun c(s: Int) = (((rgb shr s) and 0xFF) * k).toInt().coerceIn(0, 255)
+    return Color(c(16), c(8), c(0), (op * 255).toInt().coerceIn(0, 255))
+}
+
+/** Draws the piece: walls facing the camera and the floor first, then the boards back to front; [hi] a step key to show. */
+fun DrawScope.drawPiece(s: PieceScene, hi: String?, az: Float, label: String? = null, tm: TextMeasurer? = null) {
+    drawRect(Color(0xFFF6F8FC))
+    val cam = PCam(s, size.width, size.height, az.toDouble(), hi != null && s.dims.containsKey(hi))
+    val tintTag = hi?.let { s.tint[it] }
+    val edge = Color(0x401E293B)
+    fun face(fc: SFace, faceOut: Boolean) {
+        val pts = fc.pts.map { cam.p(it) ?: return }
+        if (faceOut) {
+            val c = V3(fc.pts.sumOf { it.x } / fc.pts.size, fc.pts.sumOf { it.y } / fc.pts.size, fc.pts.sumOf { it.z } / fc.pts.size)
+            if (fc.n.dot(cam.e - c) <= 0) return
+        }
+        val path = Path().apply { moveTo(pts[0].x, pts[0].y); pts.drop(1).forEach { lineTo(it.x, it.y) }; close() }
+        val rgb = if (tintTag != null && fc.tag == tintTag) mix(fc.rgb, HI_RGB, .55f) else fc.rgb
+        drawPath(path, shade(rgb, fc.n, fc.op, fc.tag == "floor" || fc.tag == "wall"))
+        if (fc.tag != "floor") drawPath(path, edge, style = Stroke(1f))
+    }
+    s.env.forEach { face(it, it.tag == "wall") }
+    s.furn.map { fc -> fc to fc.pts.sumOf { cam.depth(it) } / fc.pts.size }.sortedByDescending { it.second }.forEach { face(it.first, true) }
+    val d = hi?.let { s.dims[it] } ?: return
+    val a = cam.p(d.a) ?: return; val b = cam.p(d.b) ?: return
+    val t0 = cam.p(d.a + d.tick * .09); val t1 = cam.p(d.a - d.tick * .09); val t2 = cam.p(d.b + d.tick * .09); val t3 = cam.p(d.b - d.tick * .09)
+    val w = 3.2f * density
+    drawLine(BLUE, a, b, w, StrokeCap.Round)
+    if (t0 != null && t1 != null) drawLine(BLUE, t0, t1, w * .8f, StrokeCap.Round)
+    if (t2 != null && t3 != null) drawLine(BLUE, t2, t3, w * .8f, StrokeCap.Round)
+    // arrowheads at both ends
+    val dx = b.x - a.x; val dy = b.y - a.y; val l = kotlin.math.hypot(dx, dy)
+    if (l > 1f) {
+        val ux = dx / l; val uy = dy / l; val ah = min(11f * density, l / 3)
+        fun head(p: Offset, sx: Float) {
+            val bx = p.x - ux * ah * sx; val by = p.y - uy * ah * sx
+            drawPath(Path().apply { moveTo(p.x, p.y); lineTo(bx - uy * ah * .45f, by + ux * ah * .45f); lineTo(bx + uy * ah * .45f, by - ux * ah * .45f); close() }, BLUE)
+        }
+        head(b, 1f); head(a, -1f)
+    }
+    if (label != null && tm != null) {
+        val empty = label == "?"
+        val lay = tm.measure(label, TextStyle(fontSize = 13.sp, fontWeight = FontWeight.Bold, color = if (empty) BLUE else Color.White))
+        val mid = Offset((a.x + b.x) / 2, (a.y + b.y) / 2)
+        val pw = lay.size.width + 18 * density; val ph = lay.size.height + 8 * density
+        val tl = Offset(mid.x - pw / 2, mid.y - ph / 2)
+        drawRoundRect(if (empty) Color.White else BLUE, tl, Size(pw, ph), CornerRadius(9 * density))
+        if (empty) drawRoundRect(BLUE, tl, Size(pw, ph), CornerRadius(9 * density), style = Stroke(2 * density))
+        drawText(lay, topLeft = Offset(mid.x - lay.size.width / 2f, mid.y - lay.size.height / 2f))
+    }
+}
+
+/** The piece as a still picture [w] × [h] pixels (the gallery's cards). */
+fun piecePicture(s: PieceScene, w: Int, h: Int, density: Float): ImageBitmap {
+    val img = ImageBitmap(w, h)
+    CanvasDrawScope().draw(Density(density), LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(img), Size(w.toFloat(), h.toFloat())) { drawPiece(s, null, 0f) }
+    return img
+}
+
+/** The piece live: a drag turns it; [hi] the step being asked and [label] its value (or "?"). */
+@Composable
+fun PieceView(s: PieceScene, hi: String?, label: String?, modifier: Modifier) {
+    var az by remember { mutableFloatStateOf(0f) }
+    val tm = rememberTextMeasurer()
+    Canvas(modifier.pointerInput(Unit) { detectHorizontalDragGestures { ch, dx -> ch.consume(); az = (az + dx / 320f).coerceIn(-1.1f, 1.1f) } }) {
+        drawPiece(s, hi, az, label, tm)
+    }
+}
