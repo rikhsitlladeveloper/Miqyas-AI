@@ -114,7 +114,11 @@ fun roomKitchen(m: FModelDef, ids: List<String>, first: String, len: (String) ->
     val v = HashMap<String, Int>()
     on.forEachIndexed { i, w -> v["s$i"] = len(w) ?: m.sides.getOrElse(i) { 3000 } }
     val usual = stepsOf(m).firstOrNull { it.key == "isl" }?.usual
-    if (usual != null) v["isl"] = min(usual, (v["s0"] ?: usual) - 600).coerceAtLeast(600)
+    // an island runs along its side; a peninsula out from it, so it is held to the room's other way less the side's
+    // units and a 900 way round its end
+    val cap = if (m.layout == "P") ids.getOrNull((ids.indexOf(on.firstOrNull() ?: first) + 1) % ids.size.coerceAtLeast(1))?.let(len)?.let { it - 600 - 900 }
+        else v["s0"]?.let { it - 600 }
+    if (usual != null) v["isl"] = min(usual, cap ?: usual).coerceAtLeast(600)
     roomH?.let { v["h"] = it }
     return pieceOf(m, v, ws, name, now)
 }

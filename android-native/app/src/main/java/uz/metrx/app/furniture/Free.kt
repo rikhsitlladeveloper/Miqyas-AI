@@ -201,7 +201,8 @@ fun fitIssues(f: Furniture, walls: List<String>, len: (String) -> Int?, roomH: I
     if (f.kind == "wardrobe") {
         val m = wardOfF(f) ?: return out
         val L = len(walls[0]); val x = off ?: W_GAP_SIDE
-        if (L != null && x + m.w > L) out += FitIssue("fz.wide", mapOf("n" to f.name, "v" to x + m.w, "w" to walls[0], "d" to x + m.w - L, "l" to L))
+        // standing free (a desk in the room) it is not held to a wall's length
+        if (L != null && f.pose == null && x + m.w > L) out += FitIssue("fz.wide", mapOf("n" to f.name, "v" to x + m.w, "w" to walls[0], "d" to x + m.w - L, "l" to L))
         val H = outerH(m, ws)
         if (roomH != null && H > roomH) out += FitIssue("fz.high", mapOf("n" to f.name, "v" to H, "d" to H - roomH, "l" to roomH))
         return out
@@ -232,7 +233,8 @@ private fun fitRow(f: Furniture, wall: String, upper: Boolean, start: Int, avail
 }
 
 /** The piece made to fit [walls]: kitchen rows cut to each wall, a wardrobe narrowed to the wall and lowered under the ceiling. */
-fun fitTo(f: Furniture, walls: List<String>, len: (String) -> Int?, roomH: Int?, ws: Workshop, off: Int? = null): Furniture {
+fun fitTo(f: Furniture, walls: List<String>, len: (String) -> Int?, roomH: Int?, ws0: Workshop, off: Int? = null): Furniture {
+    val ws = wsOf(f, ws0)
     if (f.kind == "wardrobe") {
         val m = wardOfF(f) ?: return f
         val x = off ?: W_GAP_SIDE
@@ -288,8 +290,9 @@ fun islandPose(f: Furniture, wallLen: Int): Pose {
     val len = islandLen(f)
     val first = f.walls.first { it != ISLAND }
     if (f.layout == "P") {
+        // its seating overhang and finished back (336 mm past its back) stay inside the room
         val end = runsOf(f) { null }.firstOrNull { it.wall != ISLAND }?.let { runEnd(f, it) } ?: wallLen
-        return Pose(first, min(end, wallLen), 600, 90)
+        return Pose(first, min(end, wallLen - 336), 600, 90)
     }
     return Pose(first, (wallLen - len) / 2 + len, K_BASE_D + 900 + K_BASE_D, 180)
 }

@@ -112,12 +112,13 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
             val l = (f.free?.sides?.getOrNull(i) ?: (bas.len * 1000).toInt()) / 1000.0
             dims["s$i"] = DimLine(bas.at(0.0, y, .68), bas.at(l, y, .68), UP); tint["s$i"] = w
         }
-        // the island stands 900 out in front of the first wall's units, as furniture3D puts it
+        // the island (or peninsula) where furniture3D puts it: its length past its seating side
         val w0 = onWalls.firstOrNull()?.let { b[it] }
         val isl = f.modules.filter { it.wall == ISLAND && !isUpper(it) }.sumOf { it.w } / 1000.0
         if (w0 != null && isl > 0) {
-            val s = (w0.len - isl) / 2; val back = (K_BASE_D + 900 + K_BASE_D) / 1000.0
-            dims["isl"] = DimLine(w0.at(s, y, back + .08), w0.at(s + isl, y, back + .08), UP); tint["isl"] = ISLAND
+            val ip = uz.metrx.app.furniture.islandPose(f, (w0.len * 1000).toInt())
+            val ib = uz.metrx.app.geo.poseBasis(b[ip.ref] ?: w0, ip, isl)
+            dims["isl"] = DimLine(ib.at(0.0, y, -.40), ib.at(isl, y, -.40), UP); tint["isl"] = ISLAND
         }
         if (w0 != null) { dims["h"] = DimLine(w0.at(0.0, 0.0, .04), w0.at(0.0, H, .04), w0.dir(1.0, 0.0)); tint["h"] = "wall" }
     } else wardOfF(f)?.let { m ->
@@ -246,6 +247,9 @@ private fun drawOrder(bs: List<SBox>, cam: PCam): List<SBox> {
     return out
 }
 
+/** Each scene's box order for the last 3° step of turning it: worked out again only when it turns past the step. */
+private val orderCache = java.util.WeakHashMap<PieceScene, Pair<Int, List<SBox>>>()
+
 /** Draws the piece: walls facing the camera and the floor first, then the boards back to front; [hi] a step key to show. */
 fun DrawScope.drawPiece(s: PieceScene, hi: String?, az: Float, label: String? = null, tm: TextMeasurer? = null) {
     drawRect(Color(0xFFF6F8FC))
@@ -264,7 +268,9 @@ fun DrawScope.drawPiece(s: PieceScene, hi: String?, az: Float, label: String? = 
         if (fc.tag != "floor") drawPath(path, edge, style = Stroke(1f))
     }
     s.env.forEach { face(it, it.tag == "wall") }
-    drawOrder(s.furn, cam).forEach { bx -> bx.faces.forEach { face(it, true) } }
+    val step = Math.round(az * 60 / Math.PI).toInt() * 2 + if (hi != null && s.dims.containsKey(hi)) 1 else 0
+    val order = synchronized(orderCache) { orderCache[s]?.takeIf { it.first == step }?.second } ?: drawOrder(s.furn, cam).also { o -> synchronized(orderCache) { orderCache[s] = step to o } }
+    order.forEach { bx -> bx.faces.forEach { face(it, true) } }
     val d = hi?.let { s.dims[it] } ?: return
     val a = cam.p(d.a) ?: return; val b = cam.p(d.b) ?: return
     val t0 = cam.p(d.a + d.tick * .09); val t1 = cam.p(d.a - d.tick * .09); val t2 = cam.p(d.b + d.tick * .09); val t3 = cam.p(d.b - d.tick * .09)

@@ -375,7 +375,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
     val offMm = off.filter { it.isDigit() }.toIntOrNull()?.takeIf { it > 0 }
     val f = fitted ?: base
     val on = placeWalls(f, ids, first)
-    val issues = fitIssues(f, on, len, roomH, ws, offMm, start)
+    val issues = fitIssues(f.copy(pose = pose?.takeIf { uz.metrx.app.furniture.canStandFree(f) }), on, len, roomH, ws, offMm, start)
     // where it would stand, and what it would be in the way of there
     val pw = remember(room, snap) { uz.metrx.app.furniture.planWalls(room, snap) }
     val others = p.furniture.filter { it.roomId == room.id && it.id != rt.fid }
@@ -431,7 +431,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
         // a kitchen for a measured room takes its walls whole
         if (known && !ward) Text(tr("fq.whole", "v" to (f.free?.sides ?: emptyList()).joinToString(" + ") { fmtLen(it, unit, en) } + " " + unitWord(unit),
             "h" to fmtLen(roomH, unit, en) + " " + unitWord(unit)), style = ui(13f, 400, G.ink2, 1.4f))
-        if (on.any { it in taken }) Text(tr("kt.wallTaken", "w" to on.first { it in taken }, "n" to dn(p.furniture.first { it.roomId == room.id && it.id != rt.fid && on.any { w -> w in it.walls } }.name, lang)),
+        if (on.any { it in taken }) Text(tr("kt.wallTaken", "w" to on.first { it in taken }, "n" to dn(p.furniture.first { it.roomId == room.id && it.id != rt.fid && on.any { w -> w != ISLAND && w in it.walls } }.name, lang)),
             style = ui(12.5f, 500, G.amberInk, 1.4f))
         if (ward) {
             if (known) GField(tr("wd.w"), wTxt, { wTxt = it.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(6); reset() }, wardOfF(base)?.let { fmtField(it.w, unit, en) } ?: "",

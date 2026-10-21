@@ -91,8 +91,13 @@ fun rememberDoorMotion(id: String): DoorMotion {
             if (keys.isEmpty()) return
             val from = keys.associateWith { mo.prog[it] ?: 0f }
             val t0 = withFrameNanos { it }
+            var last = 0L
             while (true) {
-                val e = ((withFrameNanos { it } - t0) / 300_000_000f).coerceIn(0f, 1f)
+                val now = withFrameNanos { it }
+                val e = ((now - t0) / 300_000_000f).coerceIn(0f, 1f)
+                // each step rebuilds the room's scene: about 25 a second is smooth enough and keeps it light
+                if (e < 1f && now - last < 40_000_000L) continue
+                last = now
                 val k = e * e * (3 - 2 * e)
                 keys.forEach { mo.prog[it] = from.getValue(it) + (to - from.getValue(it)) * k }
                 if (e >= 1f) break
@@ -166,11 +171,18 @@ fun ColumnScope.Furniture3D(p: Project, room: Room) {
     val (shell, fur) = rememberFurnShell(p, room, base, mo)
     val cam = remember(room.id) { Cam3D() }
     val shot = remember { Shot3D() }
+    var taking by remember { mutableStateOf(false) }
     Box(Modifier.weight(1f).fillMaxWidth()) {
         Scene3D(shell, cam, Modifier.fillMaxSize(), shot, onTap = { pos -> fur.pick(cam, pos.x, pos.y)?.let { k -> mo.toggle(k) } }) {
             if (!free) ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
-                if (room.views.size >= 4) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
+                // a second tap while a picture is being taken does nothing; the limit is read from the store, not this page
+                fun full() = (app.store.get(p.id)?.rooms?.firstOrNull { it.id == room.id }?.views?.size ?: 0) >= 4
+                if (taking) return@ShotPill
+                if (full()) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
+                taking = true
                 shot.take { bmp ->
+                    taking = false
+                    if (full()) { app.say("3d.max", kind = ToastKind.ERROR); return@take }
                     val id = uid()
                     val img = bmp?.let { ViewFiles.save(ctx, id, it) }
                     if (img == null) app.say("3d.fail", kind = ToastKind.ERROR)

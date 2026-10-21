@@ -2,7 +2,9 @@ package uz.metrx.app.ui.furniture
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.border
-import androidx.compose.foundation.gestures.detectDragGestures
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.gestures.drag
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -90,21 +92,14 @@ internal fun PlacePlan(room: Room, walls: List<PlanWall>, g: Furniture, others: 
         .onSizeChanged { size = it }
         .semantics { contentDescription = label }
         .pointerInput(walls) {
-            var grab: Grab? = null
-            detectDragGestures(onDragStart = { at ->
-                val q = plan(at); val f = cur
-                val isl = footsOf(f, walls, ws).firstOrNull { it.island }
-                val fr = if (isl != null && near(isl, q)) islandPoseIn(f, walls)?.let { frameOf(walls, it) } else mainFrame(f, walls)
-                grab = fr?.let { Grab(isl != null && near(isl, q), (q - it.o) dot it.u, (q - it.o) dot it.n) }
-            }, onDragEnd = { grab = null }, onDragCancel = { grab = null }) { ch, _ ->
-                ch.consume()
-                val gr = grab ?: return@detectDragGestures
-                val q = plan(ch.position); val f = cur
+            // what one finger moved to [q], holding the piece at [gr]
+            fun move(gr: Grab, q: PlanPt) {
+                val f = cur
                 if (gr.island) {
-                    val p = islandPoseIn(f, walls) ?: return@detectDragGestures
-                    val fr = frameOf(walls, p) ?: return@detectDragGestures
+                    val p = islandPoseIn(f, walls) ?: return
+                    val fr = frameOf(walls, p) ?: return
                     isle(poseOf(walls, p.ref, Frame(q - fr.u * gr.ga - fr.n * gr.gn, fr.u, fr.n)))
-                    return@detectDragGestures
+                    return
                 }
                 val mode = when { f.kind == "kitchen" && f.walls.count { it != ISLAND } > 1 -> Drag.CORNER; canStandFree(f) -> Drag.FREE; else -> Drag.SLIDE }
                 when (mode) {
@@ -115,12 +110,12 @@ internal fun PlacePlan(room: Room, walls: List<PlanWall>, g: Furniture, others: 
                         else walls.indices.minByOrNull { walls[it].dist(q) }?.let { corner(walls[(it - 1 + n) % n].id) }
                     }
                     Drag.SLIDE -> {
-                        val w = walls.minByOrNull { it.dist(q) } ?: return@detectDragGestures
+                        val w = walls.minByOrNull { it.dist(q) } ?: return
                         slide(w.id, slideX(f, mine(f, walls, ws), w, w.along(q) - gr.ga))
                     }
                     Drag.FREE -> {
-                        val fr = mainFrame(f, walls) ?: return@detectDragGestures
-                        val m = wardOfF(f) ?: return@detectDragGestures
+                        val fr = mainFrame(f, walls) ?: return
+                        val m = wardOfF(f) ?: return
                         val o = q - fr.u * gr.ga - fr.n * gr.gn
                         // its back near a wall: back on that wall; else where the finger is, turned as it was
                         val mid = o + fr.u * (m.w / 2.0)
@@ -129,6 +124,18 @@ internal fun PlacePlan(room: Room, walls: List<PlanWall>, g: Furniture, others: 
                         else pose(poseOf(walls, f.pose?.ref ?: walls[0].id, Frame(o, fr.u, fr.n)))
                     }
                 }
+            }
+            awaitEachGesture {
+                val down = awaitFirstDown(requireUnconsumed = false)
+                val q0 = plan(down.position); val f0 = cur
+                val feet = footsOf(f0, walls, ws)
+                val isl = feet.firstOrNull { it.island }
+                val onIsl = isl != null && near(isl, q0)
+                // only a touch on the piece moves it; anywhere else the page scrolls as usual
+                if (!onIsl && feet.none { !it.island && near(it, q0) }) return@awaitEachGesture
+                val fr = (if (onIsl) islandPoseIn(f0, walls)?.let { frameOf(walls, it) } else mainFrame(f0, walls)) ?: return@awaitEachGesture
+                val gr = Grab(onIsl, (q0 - fr.o) dot fr.u, (q0 - fr.o) dot fr.n)
+                drag(down.id) { ch -> ch.consume(); move(gr, plan(ch.position)) }
             }
         }) {
         // a piece's box: filled when it stands on the floor, outlined when it hangs; the one being placed with a heavier front
@@ -188,11 +195,15 @@ private fun mine(f: Furniture, walls: List<PlanWall>, ws: Workshop): List<Foot> 
 
 /** The distance from [w]'s start for a piece dragged to [a]: kept on the wall, snapped into a corner near one, to 10 mm. */
 private fun slideX(f: Furniture, feet: List<Foot>, w: PlanWall, a: Double): Int {
-    val len = if (f.kind == "wardrobe") wardOfF(f)?.w?.toDouble() ?: 0.0 else feet.takeIf { it.isNotEmpty() }?.let { it.maxOf { ft -> ft.a1 } - it.minOf { ft -> ft.a0 } } ?: 0.0
+    // a kitchen's length is its units on the floor (the wall units over them may start or end elsewhere)
+    val low = feet.filter { it.floor }
+    val len = if (f.kind == "wardrobe") wardOfF(f)?.w?.toDouble() ?: 0.0 else low.takeIf { it.isNotEmpty() }?.let { it.maxOf { ft -> ft.a1 } - it.minOf { ft -> ft.a0 } } ?: 0.0
     val gap = if (f.kind == "wardrobe") W_GAP_SIDE.toDouble() else 0.0
     val hi = (w.len - len - gap).coerceAtLeast(gap)
     var x = a.coerceIn(gap, hi)
     if (abs(x - gap) < 150) x = gap
     if (abs(x - hi) < 150) x = hi
-    return ((x / 10).roundToInt() * 10).let { if (abs(it - gap) < 10) gap.toInt() else it }
+    // to 10 mm, never past the far corner (a wall of 3605 must not make a 1210 start for 1205)
+    if (x == hi) return kotlin.math.floor(hi).toInt()
+    return ((x / 10).roundToInt() * 10).let { if (abs(it - gap) < 10) gap.toInt() else minOf(it, kotlin.math.floor(hi).toInt()) }
 }

@@ -82,4 +82,15 @@ class PlacingTest {
         assertEquals(90, islandPoseIn(p, walls)!!.deg)
         assertTrue(footsOf(p, walls, ws).single { it.island }.pts.all { it.y >= 599.0 })
     }
+
+    @Test fun emptyStretchesTakeNoRoomAndAPeninsulaStaysInside() {
+        val k = newFreeKitchen("Oshxona 1", "I", "I", listOf(2400), 0, 2700, ws)
+        val len = { id: String -> if (id == "A" || id == "C") 4000 else 3000 }
+        val p = placed(k, listOf("C"), "r1", "w1", len = len, ws = ws, start = 800)
+        // the wall units start where the units below them do, not at the empty stretch
+        assertTrue(footsOf(p, walls, ws).filter { it.wall == "C" }.all { it.a0 >= 800.0 })
+        // a peninsula on a side that fills its wall keeps its seating overhang inside the room
+        val pk = placed(newFreeKitchen("Oshxona 1", "P", "P", listOf(4000), 1600, 2700, ws), listOf("A", ISLAND), "r1", "w1", ws = ws)
+        assertTrue(placeWarnings(pk, emptyList(), room, walls, ws).none { it.key == "fz.outside" })
+    }
 }

@@ -288,7 +288,7 @@ private class Builder3(
                 // single doors hinge on the left; pairs on the outer edges
                 val right = n == 2 && j == 1
                 // handles near the top of a low door, near the bottom of a wall unit's, at 1 m on a tall one
-                val hy = when { m.type == "wall" -> 90.0; fh > 1200 -> (1000 - y0).coerceIn(150.0, fh - 150.0); else -> fh - 90.0 }
+                val hy = when { m.type == "wall" -> 90.0; fh > 1200 -> (1000 - y0).coerceIn(minOf(150.0, fh / 2.0), maxOf(fh / 2.0, fh - 150.0)); else -> fh - 90.0 }
                 door(w, "${m.id}:f$j", if (right) a + fw else a, d, y0 + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, m.handles, hy)
             }
             "drawer", "panel" -> {
@@ -398,7 +398,7 @@ private class Builder3(
                 // a pair hinges on its outer edges; single doors pair up two by two, the last one hinged on the wardrobe's end
                 val right = if (fs.size == 2) j == 1 else uz.metrx.app.furniture.hingeRight(m, i)
                 door(w, "${m.id}:s$i:f$j", if (right) a + fw else a, d, yb + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, m.handles,
-                    (1000 - yb).coerceIn(150.0, fh - 150.0))
+                    (1000 - yb).coerceIn(minOf(150.0, fh / 2.0), maxOf(fh / 2.0, fh - 150.0)))
             }
             acc = a1
         }

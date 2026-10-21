@@ -126,15 +126,16 @@ fun footsOf(f: Furniture, walls: List<PlanWall>, ws0: Workshop): List<Foot> {
     }
     f.walls.filter { it != ISLAND }.forEach { id ->
         val w = walls.firstOrNull { it.id == id } ?: return@forEach
-        val ms = f.modules.filter { it.wall == id && !(it.type == "gap" && it.app == "space") }
+        // empty stretches (before a corner kitchen, over a window) take no room; a dishwasher is under the worktop
+        val ms = f.modules.filter { it.wall == id && !(it.type == "gap" && it.app != "dishwasher" && it.app != "fridge") }
         fun row(sel: List<Module>, d: Int, lo: Int, hi: Int, floor: Boolean) {
             if (sel.isEmpty()) return
             val a0 = sel.minOf { it.x }.toDouble(); val a1 = sel.maxOf { it.x + it.w }.toDouble()
             out += Foot(box(wallFrame(w), a0, a1, d.toDouble()), lo, hi, id, a0, a1, floor)
         }
-        // the lower row under its worktop, 600 deep
-        row(ms.filter { !isUpper(it) && it.type != "tall" }, 600, 0, worktopTop(ws), true)
-        ms.filter { it.type == "tall" }.forEach { row(listOf(it), it.d, 0, it.elev + it.h, true) }
+        // the lower row under its worktop, 600 deep; tall units and a free-standing fridge their own
+        row(ms.filter { !isUpper(it) && it.type != "tall" && it.app != "fridge" }, 600, 0, worktopTop(ws), true)
+        ms.filter { it.type == "tall" || it.app == "fridge" }.forEach { row(listOf(it), it.d, 0, it.elev + it.h, true) }
         val up = ms.filter { isUpper(it) }
         if (up.isNotEmpty()) row(up, up.maxOf { it.d }, up.minOf { it.elev }, up.maxOf { it.elev + it.h }, false)
     }

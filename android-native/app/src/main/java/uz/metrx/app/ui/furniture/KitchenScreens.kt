@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -602,7 +603,7 @@ private fun ExtrasCard(p: Project, f: Furniture) {
         Toggle(tr("kx.led") + " · " + m(wu) + " m", x.led) { set { it.copy(led = !it.led) } }
         Stepper(tr("kx.ends"), x.ends, 0, 8) { v -> set { it.copy(ends = v) } }
         Stepper(tr("kx.endsUp"), x.endsUp, 0, 8) { v -> set { it.copy(endsUp = v) } }
-        Text(tr("kx.note"), style = ui(12.5f, 400, G.ink2, 1.4f))
+        if (app.settings.advanced) Text(tr("kx.note"), style = ui(12.5f, 400, G.ink2, 1.4f))
     }
 }
 
@@ -615,14 +616,17 @@ private fun LegsSheet(s: Sheet.KLegs) {
     val now = wsOf(f, app.settings.workshop).legH
     var v by rememberSaveable { mutableStateOf(now.toString()) }
     val vi = v.toIntOrNull()?.takeIf { it in 50..250 }
+    val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
     fun save() {
         val x = vi ?: return
-        app.kit.change(app, p.id, f.id) { g -> g.copy(baseH = x, modules = g.modules.map { it.copy(elev = it.elev + (x - now)) }) }
+        // what stands on the legs or hangs over them moves; a free-standing fridge stays on the floor
+        app.kit.change(app, p.id, f.id) { g -> g.copy(baseH = x, modules = g.modules.map { if (it.app == "fridge" || it.elev == 0) it else it.copy(elev = it.elev + (x - now)) }) }
         app.sheet = null
     }
     GlassSheet(tr("kx.legs"), { app.sheet = null }, footer = { GBtn(tr("common.save"), ::save, enabled = vi != null) }) {
         GField(tr("kx.legs"), v, { v = it.filter(Char::isDigit).take(3) }, "$now", number = true, labelRight = "mm", error = tr("km.bad", "a" to 50, "b" to 250),
-            showError = vi == null, imeAction = ImeAction.Done, onIme = ::save)
+            showError = vi == null, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
         Text(tr("kx.worktopAt", "v" to uz.metrx.app.furniture.worktopTop(app.settings.workshop.copy(legH = vi ?: now))), style = ui(13f, 400, G.ink2, 1.4f))
     }
 }
@@ -709,8 +713,9 @@ private fun SelCard(p: Project, f: Furniture, m: Module, run: Run) {
             }, contentAlignment = Alignment.Center) { MIcon("trash", G.err, 20.dp, 2f) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GBtn(tr("kt.left"), { move(-1) }, Btn.SECONDARY, icon = "back", enabled = i > 0, height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
-            GBtn(tr("kt.right"), { move(1) }, Btn.SECONDARY, icon = "chev", enabled = i < row.lastIndex, height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
+            // long words ("O‘ngga", "Вправо") take a second line rather than being cut
+            GBtn(tr("kt.left"), { move(-1) }, Btn.SECONDARY, icon = "back", enabled = i > 0, height = 48.dp, corner = 14.dp, fontSize = 13f, modifier = Modifier.weight(1f), maxLines = 2)
+            GBtn(tr("kt.right"), { move(1) }, Btn.SECONDARY, icon = "chev", enabled = i < row.lastIndex, height = 48.dp, corner = 14.dp, fontSize = 13f, modifier = Modifier.weight(1f), maxLines = 2)
             GBtn(tr("kt.setup"), { app.sheet = Sheet.FModule(p.id, f.id, m.id) }, icon = "sliders", height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1.2f))
         }
     }
@@ -1038,7 +1043,8 @@ private fun ModuleSheet(s: Sheet.FModule) {
                 if (fr != "d") Toggle(tr("km.soft"), soft) { soft = !soft }
             }
         }
-        // what the workshop will cut and fit for it
+        // what the workshop will cut and fit for it: the advanced app only
+        if (!app.settings.advanced) return@GlassSheet
         val parts = partsOf(next, ws)
         Hairline()
         Text(tr("km.parts"), style = ui(15f, 700))

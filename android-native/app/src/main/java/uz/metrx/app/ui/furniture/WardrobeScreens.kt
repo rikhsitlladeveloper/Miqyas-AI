@@ -28,6 +28,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -591,7 +592,8 @@ private fun DoorStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop
     Toggle(tr("km.handles") + if (!m.handles) " · " + tr("wd.push") else "", m.handles) { app.ward(p.id, f.id) { it.copy(handles = !it.handles) } }
     Toggle(tr("km.soft"), m.soft) { app.ward(p.id, f.id) { it.copy(soft = !it.soft) } }
     val dh = frontSizes(Fronts("door", 1), s.w, m.h - wardBase(m), ws).firstOrNull()?.first
-    if (dh != null) Text(tr("wd.hinges", "v" to dh, "n" to hingesFor(dh)) + " " + tr("wd.tapSec"), style = ui(12.5f, 400, G.ink2, 1.4f))
+    // how many hinges: workshop detail, the advanced app only
+    if (dh != null) Text((if (app.settings.advanced) tr("wd.hinges", "v" to dh, "n" to hingesFor(dh)) + " " else "") + tr("wd.tapSec"), style = ui(12.5f, 400, G.ink2, 1.4f))
 }
 
 @Composable
@@ -607,19 +609,24 @@ private fun InsideStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Worksh
     var dragI by remember(sel) { mutableIntStateOf(-1) }
     var dragDy by remember(sel) { mutableFloatStateOf(0f) }
     val pitch = with(androidx.compose.ui.platform.LocalDensity.current) { 52.dp.toPx() }
+    // the drag's end reads the section as it is then (an edit, an undo or a first reorder may have changed it)
     fun drop(from: Int, dy: Float) {
-        val to = (from + (dy / pitch).roundToInt()).coerceIn(0, rows.lastIndex)
-        if (from !in rows.indices || to == from) return
-        val order = rows.map { it.value }.toMutableList().apply { add(to, removeAt(from)) }
-        app.changeSec(p.id, f.id, sel) { it.copy(inserts = uz.metrx.app.furniture.respaced(order.reversed(), wardInnerH(m, ws.t), ws.t).sortedBy { y -> y.pos }) }
+        app.changeSec(p.id, f.id, sel) { sec ->
+            val now = sec.inserts.sortedByDescending { it.pos }
+            val to = (from + (dy / pitch).roundToInt()).coerceIn(0, now.lastIndex)
+            if (from !in now.indices || to == from) return@changeSec sec
+            val order = now.toMutableList().apply { add(to, removeAt(from)) }
+            sec.copy(inserts = uz.metrx.app.furniture.respaced(order.reversed(), wardInnerH(m, ws.t), ws.t).sortedBy { y -> y.pos })
+        }
     }
+    val dropNow by androidx.compose.runtime.rememberUpdatedState(::drop)
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) { rows.forEachIndexed { r, (i, x) ->
         Row(Modifier.fillMaxWidth().height(48.dp).zIndex(if (r == dragI) 1f else 0f).graphicsLayer { translationY = if (r == dragI) dragDy else 0f }
             .clip(RoundedCornerShape(12.dp)).background(if (r == dragI) G.glass(.95f) else Color.Transparent)
             .clickable(role = Role.Button) { app.sheet = Sheet.WInsert(p.id, f.id, sel, i) }.padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             if (rows.size > 1) Box(Modifier.size(40.dp).pointerInput(sel, r, rows.size) {
-                detectDragGestures(onDragStart = { dragI = r; dragDy = 0f }, onDragEnd = { drop(dragI, dragDy); dragI = -1; dragDy = 0f },
+                detectDragGestures(onDragStart = { dragI = r; dragDy = 0f }, onDragEnd = { dropNow(dragI, dragDy); dragI = -1; dragDy = 0f },
                     onDragCancel = { dragI = -1; dragDy = 0f }) { ch, d -> ch.consume(); dragDy += d.y }
             }.semantics { contentDescription = app.t("wd.drag") }, contentAlignment = Alignment.Center) { MIcon("grip", G.ink3, 20.dp, 2f) }
             Text(tr("wi.${x.kind}"), style = ui(14f, 700), modifier = Modifier.weight(1f))
@@ -689,6 +696,9 @@ private fun WFieldSheet(s: Sheet.WField) {
     }
     var v by rememberSaveable { mutableStateOf(start.toString()) }
     val vi = v.toIntOrNull()?.takeIf { it in range }
+    // the keyboard comes up with the sheet
+    val fr = remember { androidx.compose.ui.focus.FocusRequester() }
+    LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
     val title = when (s.key) { "h" -> tr("wd.h"); "d" -> tr("wd.d"); "x" -> tr("wd.x"); "base" -> tr(if (m.legs) "wd.legsH" else "wd.plinthH"); "secW" -> tr("wd.secT", "n" to s.sec + 1); else -> tr("wd.w") }
     fun save() {
         val x = vi ?: return
@@ -712,7 +722,7 @@ private fun WFieldSheet(s: Sheet.WField) {
     }
     GlassSheet(title, { app.sheet = null }, footer = { GBtn(tr("common.save"), ::save, enabled = vi != null) }) {
         GField(title, v, { v = it.filter(Char::isDigit).take(4) }, "$start", number = true, labelRight = "mm", error = tr("km.bad", "a" to range.first, "b" to range.last),
-            showError = vi == null, imeAction = ImeAction.Done, onIme = ::save)
+            showError = vi == null, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
         if (s.key == "secW") {
             Text(tr("wd.secNote"), style = ui(12.5f, 400, G.ink2, 1.4f))
             if (sec?.lock == true) GBtn(tr("wd.unlock"), {
