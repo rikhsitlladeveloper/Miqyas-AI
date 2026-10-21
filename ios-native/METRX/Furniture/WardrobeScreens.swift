@@ -313,7 +313,7 @@ struct WardrobeScreen: View {
                                 VStack(alignment: .leading, spacing: 10) {
                                     switch step {
                                     case 1: PlaceStep(app: app, p: p, f: f, m: m, cx: cx)
-                                    case 2: SizeStep(app: app, p: p, f: f, m: m)
+                                    case 2: WardSizeStep(app: app, p: p, f: f, m: m)
                                     case 3: DoorStep(app: app, p: p, f: f, m: m, sel: sel, onSec: pick)
                                     case 4: InsideStep(app: app, p: p, f: f, m: m, sel: sel, onSec: pick)
                                     default: MatStep(app: app, p: p, f: f)
@@ -450,7 +450,7 @@ private struct PlaceStep: View {
     }
 }
 
-private struct SizeStep: View {
+private struct WardSizeStep: View {
     let app: AppModel
     let p: Project, f: Furniture, m: Module
     var body: some View {
