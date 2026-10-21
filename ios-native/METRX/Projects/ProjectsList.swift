@@ -52,7 +52,7 @@ struct ProjectsList: View {
                             }
                         }
                         VStack(spacing: 10) {
-                            ForEach(list) { p in
+                            ForEach(furniture && seg != "other" ? sortOrders(list) : list) { p in
                                 if p.isFurniture { OrderRow(p: p) { app.push(.project(id: p.id, tab: "rooms")) } }
                                 else { ProjectRow(p: p) { app.push(.project(id: p.id, tab: "rooms")) } }
                             }
@@ -236,11 +236,11 @@ struct NewProjectScreen: View {
         focus = nil
         let n = name.trimmingCharacters(in: .whitespaces), c = customer.trimmingCharacters(in: .whitespaces), a = address.trimmingCharacters(in: .whitespaces)
         if let e = edit {
-            Store.shared.update(e.id) { p in p.name = keep(p.name, n); p.customer = keep(p.customer, c); p.phone = Phone.digits(phone); p.address = keep(p.address, a); p.location = loc }
+            Store.shared.update(e.id) { p in p.autoName = p.autoName && keep(p.name, n) == p.name; p.name = keep(p.name, n); p.customer = keep(p.customer, c); p.phone = Phone.digits(phone); p.address = keep(p.address, a); p.location = loc }
             app.pop(); app.say("op.saved", ["o": n])
         } else {
             var p = newProject(n, c, Phone.digits(phone), a, loc, AppSettings.shared.currency, AppSettings.shared.reportLang.code)
-            if AppSettings.shared.furniture { p.industry = "furniture" }
+            if AppSettings.shared.furniture { p.industry = "furniture" } else if isTrade(AppSettings.shared.industry) { p.industry = AppSettings.shared.industry }
             Store.shared.add(p)
             app.replaceTop(.project(id: p.id, tab: "rooms"))
             app.say("np.created", ["n": n])

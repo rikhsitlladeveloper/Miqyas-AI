@@ -126,7 +126,9 @@ struct RootView: View {
         case .subscription: SubscriptionScreen(app: app)
         case .workshop: WorkshopScreen(app: app)
         case .materials: MaterialsScreen(app: app)
-        case .newProject(let e): NewProjectScreen(app: app, editId: e)
+        case .newProject(let e):
+            // a furniture maker's new order asks only who it is for (furniture orders UX, 20 Oct 2026)
+            if e == nil && AppSettings.shared.furniture { NewOrderScreen(app: app) } else { NewProjectScreen(app: app, editId: e) }
         case .project(let id, let tab, let view, let floor): ProjectScreen(app: app, id: id, tab: tab, view: view, floor: floor)
         case .space(let pid, let wid): SpaceScreen(app: app, pid: pid, wid: wid)
         case .note(let pid, let wid, let iid): NoteScreen(app: app, pid: pid, wid: wid, iid: iid)
@@ -141,6 +143,11 @@ struct RootView: View {
         case .wardrobe(let pid, let fid, let step, let sec, let d3): WardrobeScreen(app: app, pid: pid, fid: fid, step: step, sec: sec, d3: d3)
         case .fCut(let pid): CutScreen(app: app, pid: pid)
         case .fPack(let pid): PackScreen(app: app, pid: pid)
+        case .fNeed(let pid): FNeedScreen(app: app, pid: pid)
+        case .fHow(let pid, let kind): FHowScreen(app: app, pid: pid, kind: kind)
+        case .fModels(let pid, let kind): FModelsScreen(app: app, pid: pid, kind: kind)
+        case .fSizes(let pid, let kind, let model, let fid): FSizesScreen(app: app, pid: pid, kind: kind, model: model, fid: fid)
+        case .fPlace(let pid, let fid, let rid): FPlaceScreen(app: app, pid: pid, fid: fid, rid: rid)
         }
     }
 
@@ -149,7 +156,9 @@ struct RootView: View {
         case .language: LanguageSheet(app: app)
         case .device: DeviceSheet(app: app)
         default:
-            if FurnitureSheet.handles(s) { FurnitureSheet(app: app, sheet: s) }
+            if OrderFlowSheet.handles(s) { OrderFlowSheet(app: app, sheet: s) }
+            else if TradeSheet.handles(s) { TradeSheet(app: app, sheet: s) }
+            else if FurnitureSheet.handles(s) { FurnitureSheet(app: app, sheet: s) }
             else if WorkshopSheet.handles(s) { WorkshopSheet(app: app, sheet: s) }
             else if KitchenSheet.handles(s) { KitchenSheet(app: app, sheet: s) }
             else if WardrobeSheet.handles(s) { WardrobeSheet(app: app, sheet: s) }

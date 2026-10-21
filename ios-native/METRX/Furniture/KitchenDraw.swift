@@ -53,7 +53,8 @@ final class KitOps {
     func redo(_ pid: String, _ fid: String) { step(pid, fid, undo: false) }
 }
 
-func roomOf(_ p: Project, _ f: Furniture) -> Room? { p.rooms.first { $0.id == f.roomId } }
+/// The piece's room: its measured one, or for furniture without a room the made-up room of its sizes (Core/Free.swift).
+func roomOf(_ p: Project, _ f: Furniture) -> Room? { f.roomId == nil ? freeRoom(f) : p.rooms.first(where: { $0.id == f.roomId }) }
 
 /// A wall's length for the kitchen: confirmed, else the reading or the drawing's estimate (the designer says so).
 func wallLen(_ r: Room, _ snap: Bool, _ id: String) -> Int? {
@@ -63,7 +64,7 @@ func wallLen(_ r: Room, _ snap: Bool, _ id: String) -> Int? {
 
 func measured(_ r: Room, _ snap: Bool, _ id: String) -> Bool { Geo.walls(r, snap).first { $0.id == id }?.len != nil }
 
-func kRuns(_ f: Furniture, _ r: Room?, _ snap: Bool) -> [Run] { runsOf(f) { id in r.flatMap { wallLen($0, snap, id) } } }
+func kRuns(_ f: Furniture, _ r: Room?, _ snap: Bool) -> [Run] { runsOf(f) { id in freeLen(f, id) ?? r.flatMap { wallLen($0, snap, id) } } }
 
 /// Kitchens pack their rows again after a change; a wardrobe keeps its place on the wall.
 func repack(_ f: Furniture, _ p: Project, _ snap: Bool) -> Furniture { f.kind != "kitchen" ? f : pack(f, kRuns(f, roomOf(p, f), snap)) }
@@ -90,16 +91,17 @@ func modSub(_ m: Module) -> String {
     return out.joined(separator: " · ")
 }
 
-/// A wall's chip: "Devor A · 3400", or the island.
+/// A wall's chip: "Devor A · 3400", or the island; furniture without a room has sides ("1-tomon").
 func runName(_ f: Furniture, _ r: Run, withLen: Bool = true) -> String {
     if r.wall == ISLAND { return tr(f.layout == "P" ? "kt.peninsula" : "kt.island") }
-    return tr("kt.wallN", ["w": r.wall]) + (withLen && r.len != nil ? " · \(r.len!)" : "")
+    let name = f.roomId == nil ? tr("fz.sideN", ["n": (f.walls.firstIndex(of: r.wall) ?? -1) + 1]) : tr("kt.wallN", ["w": r.wall])
+    return name + (withLen && r.len != nil ? " · \(r.len!)" : "")
 }
 
 /// Metres with one decimal ("3,4").
 func metres1(_ mm: Int, _ en: Bool) -> String { let v = (mm + 50) / 100; return "\(v / 10)\(en ? "." : ",")\(v % 10)" }
 
-func runMetres(_ f: Furniture, _ en: Bool) -> String { metres1(f.modules.filter { !isUpper($0) }.reduce(0) { $0 + $1.w }, en) }
+func runMetres(_ f: Furniture, _ en: Bool) -> String { metres1(f.modules.filter { !isUpper($0) && $0.app != "space" }.reduce(0) { $0 + $1.w }, en) }
 
 /* ---------------- the drawing: one run seen from inside the room ---------------- */
 
@@ -176,6 +178,20 @@ func drawRun(_ c: GraphicsContext, _ lay: KLay, _ f: Furniture, _ run: Run, _ ro
     if run.lowStart > 0 && !tops.isEmpty { tops.append((0, run.lowStart)) }
     let wtY = lay.y(worktopTop(ws))
     for (a, b) in tops { c.fill(rect(lay.x(a), wtY, CGFloat(b - a) * lay.s, max(1.5, CGFloat(K_TOP) * lay.s)), with: .color(Color(argb: 0xFF00_0000 | UInt32(wt)))) }
+    // extras (plan 1b-1): the backsplash over the worktop, the cornice on the wall units, the LED strip under them
+    if let kx = f.kx, !island {
+        let sp = Color(argb: 0xFF00_0000 | UInt32(rgbOf(mats.first { $0.kind == "splash" }?.rgb ?? "#E8E2D8")))
+        if kx.splash > 0 {
+            for (a, b) in tops {
+                let r = rect(lay.x(a), lay.y(worktopTop(ws) + kx.splash), CGFloat(b - a) * lay.s, CGFloat(kx.splash) * lay.s)
+                c.fill(r, with: .color(sp)); c.stroke(r, with: .color(PC.greyLine), lineWidth: 0.6)
+            }
+        }
+        for m in mods where m.type == "wall" {
+            if kx.cornice { c.fill(rect(lay.x(m.x), lay.y(m.elev + m.h + 60), CGFloat(m.w) * lay.s, 60 * lay.s), with: .color(Color(argb: 0xFF00_0000 | UInt32(front)))) }
+            if kx.led { c.line(Color(argb: 0xFFF2C94C), CGPoint(x: lay.x(m.x) + 1, y: lay.y(m.elev) + 1), CGPoint(x: lay.x(m.x + m.w) - 1, y: lay.y(m.elev) + 1), 1.6) }
+        }
+    }
     for m in mods { appliance(c, lay, m, ws) }
     if !island { for p in room?.points ?? [] where p.wall == run.wall { drawSitePoint(c, p, CGPoint(x: lay.x(p.off), y: lay.y(p.h)), lay.s, lay.dims ? 6 : 3) } }
     for m in mods {

@@ -46,6 +46,8 @@ private let DARK = 0x1E293B
 private let HANDLE = 0x4B5563
 private let WHITE = 0xE8EAEE
 private let OPEN_DEG = 100.0
+private let MIRROR = 0xC9D3DD
+private let GLASS_P = 0x8FA9C4
 
 /// The faces of a box, each facing out.
 private func obbFaces(_ p: Part3, _ x: Obb) {
@@ -73,6 +75,7 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
     let st = FStore()
     for f in fs {
         let colors = ["carcass": rgb(f.mats.carcass), "front": rgb(f.mats.front), "back": rgb(f.mats.back), "top": rgb("wt38"),
+                      "mirror": MIRROR, "glass": GLASS_P, "splash": rgb("splash6"),
                       "metal": METAL, "dark": DARK, "handle": HANDLE, "white": WHITE]
         let B = FBuilder(ws, colors, st, open)
         let lens = { (id: String) in bases[id].map { Int(($0.len * 1000).rounded(.towardZero)) } }
@@ -99,6 +102,17 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
                 let low = f.modules.filter { $0.wall == r.wall && !isUpper($0) && ($0.type == "base" || $0.type == "filler" || $0.app == "dishwasher") }
                 for m in low { B.box(b, B.p("top"), m.x, m.x + m.w, wt - K_TOP, wt, 0, 600, true) }
                 if r.lowStart > 0 && !low.isEmpty { B.box(b, B.p("top"), 0, r.lowStart, wt - K_TOP, wt, 0, 600, true) }
+                // extras: the backsplash panel on the wall over the worktop, the cornice on the wall units
+                if let kx = f.kx, r.wall != ISLAND {
+                    let a0 = r.lowStart > 0 ? 0 : low.map(\.x).min() ?? 0
+                    let a1 = low.map { $0.x + $0.w }.max() ?? 0
+                    if kx.splash > 0 && a1 > a0 { B.box(b, B.p("splash"), a0, a1, wt, wt + kx.splash, 0, 6, true) }
+                    if kx.cornice {
+                        for m in f.modules where m.wall == r.wall && m.type == "wall" {
+                            B.box(b, B.p("front"), m.x, m.x + m.w, m.elev + m.h, m.elev + m.h + 60, 0, m.d + 30, true)
+                        }
+                    }
+                }
             }
         }
     }
@@ -265,6 +279,8 @@ private final class FBuilder {
     /// A wardrobe: sides (none at a wall), top and bottom, plinth, dividers, backs, inside, doors.
     func wardrobe(_ w: WallBasis, _ m: Module) {
         let x0 = d(m.x), x1 = x0 + d(m.w), dd = d(m.d), T = d(t)
+        // sliding doors take the front of the depth: the inside is shallower
+        let di = d(innerD(m))
         let z0 = m.legs ? d(ws.legH) : 0
         let base = d(wardBase(m))
         let yb = z0 + base, yt = z0 + d(m.h)
@@ -272,14 +288,24 @@ private final class FBuilder {
         let carcass = p("carcass"), metal = p("metal")
         if m.sideL { box(w, carcass, x0, x0 + T, z0, yt, 0, dd, true) }
         if m.sideR { box(w, carcass, x1 - T, x1, z0, yt, 0, dd, true) }
-        box(w, carcass, x0 + sl, x1 - sr, yb, yb + T, 0, dd, true)
+        // the bottom under every section but a desk's knee space
+        if !m.sections.contains(where: \.knee) { box(w, carcass, x0 + sl, x1 - sr, yb, yb + T, 0, dd, true) }
+        else {
+            var a = x0
+            for s in m.sections { if !s.knee { box(w, carcass, max(a, x0 + sl), min(a + d(s.w), x1 - sr), yb, yb + T, 0, dd, true) }; a += d(s.w) }
+        }
         box(w, carcass, x0 + sl, x1 - sr, yt - T, yt, 0, dd, true)
         if !m.legs { box(w, carcass, x0 + sl, x1 - sr, 0, d(PLINTH), dd - 60, dd - 44, true) }
         var acc = x0
         let secs = m.sections
         for (i, s) in secs.enumerated() {
             let a0 = acc, a1 = acc + d(s.w)
-            if i > 0 { box(w, carcass, a0 - T / 2, a0 + T / 2, yb + T, yt - T, 0, dd, true) }
+            if i > 0 {
+                // beside a knee space the divider stands on the floor like a side
+                let toFloor = s.knee || secs[i - 1].knee
+                box(w, carcass, a0 - T / 2, a0 + T / 2, toFloor ? 0 : yb + T, yt - T, 0, toFloor ? dd : di, true)
+            }
+            if s.knee { acc = a1; continue }
             let iw = d(wardInner(m, secs, i, t))
             let il = i == 0 ? a0 + sl : a0 + T / 2
             box(w, p("back"), a0 + 2, a1 - 2, yb + 2, yt - 2, 0, 3)
@@ -287,12 +313,15 @@ private final class FBuilder {
             for x in s.inserts {
                 let y = floor + d(x.pos)
                 switch x.kind {
-                case "shelf": box(w, carcass, il, il + iw, y, y + T, 0, dd - 20, true)
-                case "rail": box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, dd / 2 - 12, dd / 2 + 12)
+                case "shelf": box(w, carcass, il, il + iw, y, y + T, 0, di - 20, true)
+                case "rail": box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, di / 2 - 12, di / 2 + 12)
                 case "lift":
-                    box(w, metal, il + 20, il + iw - 20, y + 30, y + 54, dd / 2 - 12, dd / 2 + 12)
-                    box(w, metal, il + 5, il + 25, y + 54, y + d(blockH(x)), dd / 2 - 15, dd / 2 + 15)
-                case "drawer": drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), dd - 40 - T, dd - 60, m.handles, carcass)
+                    box(w, metal, il + 20, il + iw - 20, y + 30, y + 54, di / 2 - 12, di / 2 + 12)
+                    box(w, metal, il + 5, il + 25, y + 54, y + d(blockH(x)), di / 2 - 15, di / 2 + 15)
+                case "drawer":
+                    // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
+                    if s.fronts.kind == "open" { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), di - T, di - 60, m.handles, p("front")) }
+                    else { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), di - 40 - T, di - 60, m.handles, carcass) }
                 default:
                     // trouser and shoe racks: a frame that pulls out
                     let key = "\(m.id):s\(i):r\(x.pos)"
@@ -312,7 +341,7 @@ private final class FBuilder {
             }
             // the section's doors over its width, from the bottom panel up
             let fs = frontSizes(s.fronts, s.w, m.h - wardBase(m), ws)
-            if s.fronts.kind == "door" {
+            if s.fronts.kind == "door" && m.slide == nil {
                 for (j, (fh, fw)) in fs.enumerated() {
                     let a = a0 + edge + Double(j) * (d(fw) + g)
                     let right = fs.count == 2 ? j == 1 : i % 2 == 1
@@ -321,6 +350,35 @@ private final class FBuilder {
                 }
             }
             acc = a1
+        }
+        if let sd = m.slide { slidingDoors(w, m, sd, x0 + sl, yb + T, dd) }
+    }
+
+    /// Sliding doors: n in two tracks at the front, each overlapping the next; a frame of profiles round its filling
+    /// (board, mirror or glass). A tapped door slides over its neighbour.
+    func slidingDoors(_ w: WallBasis, _ m: Module, _ sl: Slide, _ ax: Double, _ y0: Double, _ dd: Double) {
+        let n = min(4, max(2, sl.n))
+        let (dwi, dhi) = slideDoor(m, t)
+        let dw = d(dwi), dh = d(dhi)
+        let step = d(dwi - SLIDE_OV)
+        let metal = p("metal")
+        for j in 0..<n {
+            let key = "\(m.id):slide\(j)"
+            st.keys.append(key)
+            // a door slides one step towards the middle: the last one left, the others right
+            let shift = open.contains(key) ? (j == n - 1 ? -step : step) : 0
+            let a = ax + Double(j) * step + shift
+            let n0 = dd - 95 + Double(j % 2) * 45, n1 = n0 + 22
+            let y = y0 + d(SLIDE_CLEAR) / 2
+            let fill: Part3
+            switch sl.panel(j) { case "mirror": fill = p("mirror"); case "glass": fill = p("glass"); default: fill = p("front") }
+            let fw = d(SLIDE_FRAME_W), fh = d(SLIDE_FRAME_H) / 2
+            box(w, fill, a + fw, a + dw - fw, y + fh, y + dh - fh, n0 + 6, n1 - 6, true)
+            // the frame: two uprights, the top and the bottom
+            box(w, metal, a, a + fw, y, y + dh, n0, n1, true); box(w, metal, a + dw - fw, a + dw, y, y + dh, n0, n1, true)
+            box(w, metal, a + fw, a + dw - fw, y, y + fh, n0, n1, true); box(w, metal, a + fw, a + dw - fw, y + dh - fh, y + dh, n0, n1, true)
+            let o = w.at(a / 1000, y / 1000, n0 / 1000)
+            st.picks.append(Pick(key: key, box: Obb(o: o, a: w.dir(dw / 1000, 0), b: V3(0, dh / 1000, 0), c: w.dir(0, (n1 - n0) / 1000))))
         }
     }
 }

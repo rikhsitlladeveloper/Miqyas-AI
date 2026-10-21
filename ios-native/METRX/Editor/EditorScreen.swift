@@ -191,9 +191,27 @@ private struct StepCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     AllPill()
                 }
+                // a furniture order's room is ready: the next step is its kitchen or wardrobe, for this room
+                let pr = Store.shared.get(pid)
+                let addFurn = pr.map { p in p.isFurniture && !p.furniture.contains { $0.roomId == r.id || $0.ws == r.floorId } } ?? false
+                // measured for a room-less piece: it goes in now
+                let waiting = app.placeAfter.flatMap { pa in pa.rid == r.id ? pr?.furniture.first { $0.id == pa.fid && $0.roomId == nil } : nil }
+                if let waiting {
+                    GBtn(tr("fz.placeN", ["n": dn(waiting.name)]), icon: waiting.kind == "kitchen" ? "kitchen" : "board", height: 50, fontSize: 15.5) {
+                        app.placeAfter = nil; app.replaceTop(.fPlace(pid: pid, fid: waiting.id, rid: r.id))
+                    }
+                    .accessibilityIdentifier("ed.placeN")
+                } else if addFurn, let pr {
+                    let kind = roomKind(pr.floors.first { $0.id == r.floorId })
+                    GBtn(tr(kind == "kitchen" ? "fo.addK" : "fo.addW"), icon: kind == "kitchen" ? "kitchen" : "board", height: 50, fontSize: 15.5) {
+                        app.sheet = .newFurniture(pid: pid, wid: r.floorId, rid: r.id, kind: kind)
+                    }
+                    .accessibilityIdentifier("ed.addFurn")
+                }
                 HStack(spacing: 8) {
                     CardBtn(label: tr("ed.tb.walls"), icon: "walls", primary: false) { app.push(.wallView(pid: pid, rid: r.id, wall: Geo.walls(r, snap).first!.id)) }
-                    CardBtn(label: tr("gs.3d"), icon: "cube", primary: true) { open3D(pid, r.id) }
+                    // with the furniture button above, 3D steps back so there is one main button
+                    CardBtn(label: tr("gs.3d"), icon: "cube", primary: !addFurn && waiting == nil) { open3D(pid, r.id) }
                 }
             case "bad":
                 if let o = f.issue {

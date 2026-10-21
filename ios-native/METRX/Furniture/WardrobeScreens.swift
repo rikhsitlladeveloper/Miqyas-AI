@@ -3,7 +3,8 @@ import SwiftUI
 /*
  * Furniture makers, Stage 1a part 5 (furniture plan section 8; design canvas screen 11; Android
  * ui/furniture/WardrobeScreens.kt): the wardrobe designer in five steps (place, sizes, doors, inside, material) over
- * its front drawing. Hinged doors or open; sliding doors are 1b. The rules are in Furniture/Core/Wardrobe.swift.
+ * its front drawing. Hinged doors, open, or sliding doors over the whole front (1b-2). The rules are in
+ * Furniture/Core/Wardrobe.swift.
  */
 
 func wardOf(_ f: Furniture) -> Module? { f.modules.first { $0.type == "wardrobe" } }
@@ -71,7 +72,13 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
         for x in [m.x] + m.sections.map({ acc += $0.w; return acc }) { c.fill(rect(X(x) - 1.5, bot, 3, lay.yF - bot), with: .color(PC.greyLine)) }
     }
     let bottomY = lay.y(z0 + base + t)
-    c.line(onC, CGPoint(x: l, y: bottomY), CGPoint(x: r, y: bottomY), 1)
+    // a desk's knee space has no bottom: the floor shows through
+    var ka = m.x
+    for s in m.sections {
+        if !s.knee { c.line(onC, CGPoint(x: X(ka), y: bottomY), CGPoint(x: X(ka + s.w), y: bottomY), 1) }
+        else { let ky = lay.y(z0 + m.h - t); c.fill(rect(X(ka) + 1, ky, CGFloat(s.w) * lay.s - 2, lay.yF - ky), with: .color(PC.white)) }
+        ka += s.w
+    }
     c.line(onC, CGPoint(x: l, y: lay.y(z0 + m.h - t)), CGPoint(x: r, y: lay.y(z0 + m.h - t)), 1)
     var acc = m.x
     for (i, s) in m.sections.enumerated() {
@@ -79,7 +86,8 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
         if i > 0 { c.line(onC, CGPoint(x: sl, y: lay.y(z0 + base)), CGPoint(x: sl, y: top), 1.4) }
         let il = sl + 2, ir = sr - 2
         let open = s.fronts.kind == "open"
-        if !doors || open {
+        let slide = m.slide != nil
+        if !doors || (open && !slide) {
             for x in s.inserts {
                 let y0 = z0 + base + t + x.pos, h = blockH(x)
                 switch x.kind {
@@ -101,7 +109,7 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
                 }
             }
         }
-        if doors && !open {
+        if doors && !open && !slide {
             let n = frontSizes(s.fronts, s.w, m.h - base, ws).count
             if n > 0 {
                 let g = max(0.8, CGFloat(ws.gap10) / 10 * lay.s)
@@ -139,10 +147,40 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
         if i == sel { c.stroke(rect(sl + 1.5, top + 1.5, sr - sl - 3, bot - top - 3), with: .color(PC.cob), lineWidth: 2.6) }
         acc += s.w
     }
+    if doors, let sd = m.slide { drawSlide(c, lay, m, sd, ox, z0 + base + t, front, ws) }
     // the ends: a side panel, or dashed where it meets a wall (built in)
     c.line(PC.ink, CGPoint(x: l, y: top), CGPoint(x: r, y: top), 1.4)
     c.line(PC.ink, CGPoint(x: l, y: top), CGPoint(x: l, y: bot), m.sideL ? 1.8 : 1, dash: m.sideL ? nil : DASH)
     c.line(PC.ink, CGPoint(x: r, y: top), CGPoint(x: r, y: bot), m.sideR ? 1.8 : 1, dash: m.sideR ? nil : DASH)
+}
+
+/// Mirror and lacobel glass in drawings (the 3D uses the same colours).
+let MIRROR_C = Color(argb: 0xFFC9D3DD)
+let GLASS_C = Color(argb: 0xFF8FA9C4)
+private let PROFILE_C = Color(argb: 0xFF9AA3AE)
+
+/// Sliding doors over the front: the back track's doors first, the front track's over them, each in its profile frame.
+private func drawSlide(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ sl: Slide, _ ox: Int, _ y0: Int, _ front: Color, _ ws: Workshop) {
+    let n = min(4, max(2, sl.n))
+    let (dw, dh) = slideDoor(m, ws.t)
+    let step = dw - SLIDE_OV
+    let ax = m.x + (m.sideL ? ws.t : 0)
+    let y = y0 + SLIDE_CLEAR / 2
+    let fw = max(1.2, CGFloat(SLIDE_FRAME_W) * lay.s)
+    for j in (0..<n).filter({ $0 % 2 == 0 }) + (0..<n).filter({ $0 % 2 == 1 }) {
+        let l = lay.x(ax + j * step - ox), w = CGFloat(dw) * lay.s
+        let t = lay.y(y + dh), h = CGFloat(dh) * lay.s
+        let fill = sl.panel(j) == "mirror" ? MIRROR_C : sl.panel(j) == "glass" ? GLASS_C : front
+        c.fill(rect(l, t, w, h), with: .color(PROFILE_C))
+        c.fill(rect(l + fw, t + fw * 1.6, w - 2 * fw, h - 3.2 * fw), with: .color(fill))
+        if sl.panel(j) == "mirror" {
+            for k in 0...1 {
+                let sx = l + w * (0.25 + 0.3 * CGFloat(k))
+                c.line(Color.white.opacity(0.7), CGPoint(x: sx, y: t + h * 0.2), CGPoint(x: sx + w * 0.18, y: t + h * 0.05), 1.2)
+            }
+        }
+        c.stroke(rect(l, t, w, h), with: .color(PC.ink), lineWidth: 0.9)
+    }
 }
 
 /// Widths under the floor and the height at the left; cuts in mm from the drawing's start.
@@ -189,7 +227,7 @@ private struct WardDrawing: View {
                 var c = ctx; let k = size.width / lay.vw; c.scaleBy(x: k, y: k)
                 if onWall { drawWallFace(c, lay, cx.room, m.wall ?? "") }
                 c.line(PC.ink, CGPoint(x: lay.x0 - 10, y: lay.yF), CGPoint(x: lay.x(L) + 10, y: lay.yF), 2)
-                drawWard(c, lay, m, ox, ws, carcass, front, step == 3 || step == 4 ? sel : -1, doors, cx.bad, labels: true)
+                drawWard(c, lay, m, ox, ws, carcass, front, (step == 3 && m.slide == nil) || step == 4 ? sel : -1, doors, cx.bad, labels: true)
                 if onWall {
                     for p in cx.room?.points ?? [] where p.wall == m.wall { drawSitePoint(c, p, CGPoint(x: lay.x(p.off), y: lay.y(p.h)), lay.s, 6) }
                     wardDims(c, lay, Array(Set([0, m.x, m.x + m.w, L])).sorted(), L, outerH(m, ws), m.x)
@@ -361,6 +399,7 @@ private struct PlaceStep: View {
     let cx: WardCtx
     var body: some View {
         let snap = AppSettings.shared.angleSnap
+        if f.roomId == nil { return AnyView(FreeBanner(app: app, p: p, f: f)) }
         if let room = cx.room {
             let full = isFull(m, cx.wallL)
             let hNew = cx.roomH.map { min(3000, max(1200, $0 - W_GAP_TOP)) } ?? m.h
@@ -373,8 +412,9 @@ private struct PlaceStep: View {
                     // the whole wall is free: a free-standing wardrobe 600 shorter
                     pl = q.builtIn ? (W_GAP_SIDE, max(600, L - 2 * W_GAP_SIDE - 600), false) : q
                 }
+                // a wardrobe in a niche goes up to the ceiling; a TV unit or a dresser keeps its own height
                 ward(p.id, f.id) { mm in
-                    var n = mm; n.wall = wall; n.x = pl.x; n.w = pl.w; if whole { n.h = hNew }; n.sideL = !pl.builtIn; n.sideR = !pl.builtIn
+                    var n = mm; n.wall = wall; n.x = pl.x; n.w = pl.w; if whole && f.type.isEmpty { n.h = hNew }; n.sideL = !pl.builtIn; n.sideR = !pl.builtIn
                     n.sections = splitSections(pl.w, mm.sections.map { var s = $0; s.lock = false; return s })
                     return n
                 }
@@ -462,6 +502,38 @@ private struct SizeStep: View {
     }
 }
 
+/// Sliding doors: how many, what each one is filled with, and their sizes.
+private struct SlideDoors: View {
+    let p: Project, f: Furniture, m: Module
+    let sl: Slide
+    let ws: Workshop
+    var body: some View {
+        let n = min(4, max(2, sl.n))
+        let (dw, dh) = slideDoor(m, ws.t)
+        let (pw, ph) = slidePanel(m, ws.t)
+        VStack(alignment: .leading, spacing: 10) {
+            FStepper(label: tr("wd.slideN"), v: n, lo: 2, hi: 4, id: "wd.slideN") { v in ward(p.id, f.id) { mm in var o = mm; var x = sl; x.n = v; o.slide = x; return o } }
+            ForEach(0..<n, id: \.self) { i in
+                HStack(spacing: 6) {
+                    T(tr("wd.slideI", ["n": i + 1]), ui(14, 600), lines: 1).frame(width: 76, alignment: .leading)
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 6) {
+                            ForEach(["ldsp", "mirror", "glass"], id: \.self) { k in
+                                FChip(label: tr("wd.fill." + k), on: sl.panel(i) == k) {
+                                    ward(p.id, f.id) { mm in var o = mm; o.slide = Slide(sl.n, (0..<n).map { j in j == i ? k : sl.panel(j) }); return o }
+                                }
+                                .accessibilityIdentifier("wd.fill\(i + 1).\(k)")
+                            }
+                        }
+                    }
+                }
+            }
+            T(tr("wd.slideSize", ["w": dw, "h": dh, "pw": pw, "ph": ph]), num(14, 700))
+            T(tr("wd.slideNote", ["d": SLIDE_D]), ui(12.5, 400, G.ink2, lh: 1.4))
+        }
+    }
+}
+
 private struct DoorStep: View {
     let app: AppModel
     let p: Project, f: Furniture, m: Module
@@ -474,26 +546,35 @@ private struct DoorStep: View {
             let cur = s.fronts.kind == "open" ? "0" : s.fronts.n >= 2 ? "2" : "1"
             let fr = { (k: String) -> Fronts in k == "0" ? Fronts("open", 0) : k == "2" ? Fronts("door", 2) : Fronts("door", 1) }
             VStack(alignment: .leading, spacing: 10) {
-                T(tr("wd.doors", ["s": sel + 1]), ui(15.5, 800))
-                SecChips(m: m, sel: sel, onPick: onSec)
-                Seg(items: [("2", tr("wd.d2")), ("1", tr("wd.d1")), ("0", tr("wd.d0"))], cur: cur) { k in changeSec(p.id, f.id, sel) { x in var n = x; n.fronts = fr(k); return n } }
-                HStack(spacing: 8) {
-                    T(tr("wd.kupe"), ui(12.5, 600, G.ink3), lines: 1).padding(.horizontal, 12).padding(.vertical, 8)
-                        .overlay(Capsule().strokeBorder(G.ink3.opacity(0.5), lineWidth: 1))
-                    Spacer()
-                    GBtn(tr("wd.all"), kind: .secondary, height: 40, corner: 14, fontSize: 14, fill: false) {
-                        ward(p.id, f.id) { mm in
-                            var n = mm
-                            n.sections = mm.sections.map { x in var y = x; y.fronts = cur == "0" ? fr("0") : Fronts("door", cur == "2" && x.w >= 400 ? 2 : 1); return y }
-                            return n
+                // hinged doors on each section, or sliding doors over the whole front (plan 1b-2)
+                // sliding doors are for wardrobes; the other cabinets have hinged doors or none
+                if f.type.isEmpty {
+                    Seg(items: [("hinged", tr("wd.hingedT")), ("slide", tr("wd.slideT"))], cur: m.slide == nil ? "hinged" : "slide") { k in
+                        if (k == "slide") != (m.slide != nil) {
+                            ward(p.id, f.id) { mm in var n = mm; n.slide = k == "slide" ? Slide(slideDoorsFor(slideOpening(mm, ws.t).0)) : nil; return n }
                         }
                     }
-                    .accessibilityIdentifier("wd.all")
                 }
-                FToggle(label: tr("km.handles") + (!m.handles ? " · " + tr("wd.push") : ""), on: m.handles, id: "wd.handles") { ward(p.id, f.id) { x in var n = x; n.handles.toggle(); return n } }
-                FToggle(label: tr("km.soft"), on: m.soft, id: "wd.soft") { ward(p.id, f.id) { x in var n = x; n.soft.toggle(); return n } }
-                if let dh = frontSizes(Fronts("door", 1), s.w, m.h - wardBase(m), ws).first?.0 {
-                    T(tr("wd.hinges", ["v": dh, "n": hingesFor(dh)]) + " " + tr("wd.tapSec"), ui(12.5, 400, G.ink2, lh: 1.4))
+                if let sl = m.slide { SlideDoors(p: p, f: f, m: m, sl: sl, ws: ws) } else {
+                    T(tr("wd.doors", ["s": sel + 1]), ui(15.5, 800))
+                    SecChips(m: m, sel: sel, onPick: onSec)
+                    Seg(items: [("2", tr("wd.d2")), ("1", tr("wd.d1")), ("0", tr("wd.d0"))], cur: cur) { k in changeSec(p.id, f.id, sel) { x in var n = x; n.fronts = fr(k); return n } }
+                    HStack(spacing: 8) {
+                        Spacer()
+                        GBtn(tr("wd.all"), kind: .secondary, height: 40, corner: 14, fontSize: 14, fill: false) {
+                            ward(p.id, f.id) { mm in
+                                var n = mm
+                                n.sections = mm.sections.map { x in var y = x; y.fronts = cur == "0" ? fr("0") : Fronts("door", cur == "2" && x.w >= 400 ? 2 : 1); return y }
+                                return n
+                            }
+                        }
+                        .accessibilityIdentifier("wd.all")
+                    }
+                    FToggle(label: tr("km.handles") + (!m.handles ? " · " + tr("wd.push") : ""), on: m.handles, id: "wd.handles") { ward(p.id, f.id) { x in var n = x; n.handles.toggle(); return n } }
+                    FToggle(label: tr("km.soft"), on: m.soft, id: "wd.soft") { ward(p.id, f.id) { x in var n = x; n.soft.toggle(); return n } }
+                    if let dh = frontSizes(Fronts("door", 1), s.w, m.h - wardBase(m), ws).first?.0 {
+                        T(tr("wd.hinges", ["v": dh, "n": hingesFor(dh)]) + " " + tr("wd.tapSec"), ui(12.5, 400, G.ink2, lh: 1.4))
+                    }
                 }
             }
         }

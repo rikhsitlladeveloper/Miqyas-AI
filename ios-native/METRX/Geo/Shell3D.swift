@@ -88,6 +88,16 @@ struct Shell3D {
         s.bases = bases
         return s
     }
+
+    /// Only the floor: furniture without a room, drawn without walls (the walls' frames stay for placing it). With no
+    /// walls, nothing faces the camera, so no furniture goes see-through.
+    func floorOnly() -> Shell3D {
+        var s = Shell3D(parts: parts.filter { $0.role == .floor }, edges: [], groups: groups.map { Group3(cx: $0.cx, cz: $0.cz, normals: [:]) }, labels: [],
+                        rooms3: rooms3, L: L, W: W, H: H, tgt: tgt, r: r, theta: theta, phi: phi, bounds: bounds, rMin: rMin, fit: fit,
+                        gridSize: gridSize, gridDiv: gridDiv, gridCx: gridCx, gridCz: gridCz, light: light, far: far)
+        s.bases = bases
+        return s
+    }
 }
 
 let FOV_HALF = Double.pi / 9      // half of the 40° camera
@@ -162,16 +172,46 @@ private func rectRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
             return [ab.0, ab.1, Double(o.sill) / 1000, Double(o.h) / 1000, o.type == "door" ? 1 : 0]
         }
     }
+    // niches: cut out of the wall like an opening [a, b, sill, height, 2] and closed at their depth
+    func nichesOn(_ w: String) -> [[Double]] {
+        room.features.filter { $0.wall == w && $0.type == "niche" }.map { f in
+            let off = Double(f.off) / 1000, wd = Double(f.w) / 1000
+            let ab: (Double, Double) = w == "A" || w == "B" ? (off, off + wd) : w == "C" ? (L - off - wd, L - off) : (W - off - wd, W - off)
+            let sill = Double(f.sill) / 1000, nh = min(f.h > 0 ? Double(f.h) / 1000 : H - sill, H - sill)
+            return [ab.0, ab.1, sill, nh, 2, min(Double(f.d) / 1000, T - 0.01)]
+        }
+    }
     for w in ["A", "C", "B", "D"] {
         let p = b.part(gi, w, .wall, wallRgb)
-        let ops = opsOn(w)
+        let niches = nichesOn(w)
+        let ops = opsOn(w) + niches
         switch w {
         case "A": for pc in wallPieces(-T, L + T, ops, H) { box(w, pc[0], pc[1], pc[2], pc[3], -T, 0, p) }
         case "C": for pc in wallPieces(-T, L + T, ops, H) { box(w, pc[0], pc[1], pc[2], pc[3], W, W + T, p) }
         case "B": for pc in wallPieces(0, W, ops, H) { box(w, L, L + T, pc[2], pc[3], pc[0], pc[1], p) }
         default: for pc in wallPieces(0, W, ops, H) { box(w, -T, 0, pc[2], pc[3], pc[0], pc[1], p) }
         }
-        for o in ops { openingModel(b, gi, w, o, T, L, W, X) }
+        for o in ops where o[4] != 2 { openingModel(b, gi, w, o, T, L, W, X) }
+        // the niche's back, its depth into the wall
+        for n in niches {
+            let dd = n[5]
+            switch w {
+            case "A": box(w, n[0], n[1], n[2], n[2] + n[3], -T, -dd, p)
+            case "C": box(w, n[0], n[1], n[2], n[2] + n[3], W + dd, W + T, p)
+            case "B": box(w, L + dd, L + T, n[2], n[2] + n[3], n[0], n[1], p)
+            default: box(w, -T, -dd, n[2], n[2] + n[3], n[0], n[1], p)
+            }
+        }
+        // columns: full-height boxes against the wall's inside face
+        for f in room.features where f.wall == w && f.type == "column" {
+            let off = Double(f.off) / 1000, wd = Double(f.w) / 1000, dd = Double(f.d) / 1000
+            switch w {
+            case "A": box(w, off, off + wd, 0, H, 0, dd, p)
+            case "C": box(w, L - off - wd, L - off, 0, H, W - dd, W, p)
+            case "B": box(w, L - dd, L, 0, H, off, off + wd, p)
+            default: box(w, 0, dd, 0, H, W - off - wd, W - off, p)
+            }
+        }
     }
     for x in room.points { pointModel(b, gi, x, L, W, X) }
     if gi == 0 {

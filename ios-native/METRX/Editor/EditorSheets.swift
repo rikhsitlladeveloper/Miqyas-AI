@@ -10,6 +10,7 @@ struct EditorSheet: View {
         case .measure(let pid, let rid, let k): MeasureSheet(app: app, pid: pid, rid: rid, k: k)
         case .addOpening(let pid, let rid): AddOpeningSheet(app: app, pid: pid, rid: rid)
         case .openingForm(let pid, let rid, let oid, let type, let wall): OpeningSheet(app: app, pid: pid, rid: rid, oid: oid, type0: type, wall0: wall)
+        case .featureForm(let pid, let rid, let fid, let type): FeatureSheet(app: app, pid: pid, rid: rid, fid: fid, type0: type)
         case .roomInfo(let pid, let rid): RoomInfoSheet(app: app, pid: pid, rid: rid)
         case .roomRename(let pid, let rid): RenameSheet(app: app, pid: pid, rid: rid)
         case .tray(let pid, let rid): TraySheet(app: app, pid: pid, rid: rid)
@@ -21,7 +22,7 @@ struct EditorSheet: View {
     }
     static func handles(_ s: Sheet) -> Bool {
         switch s {
-        case .newRoom, .measure, .addOpening, .openingForm, .roomInfo, .roomRename, .tray, .roomMenu, .roomMove, .wallAdd: return true
+        case .newRoom, .measure, .addOpening, .openingForm, .featureForm, .roomInfo, .roomRename, .tray, .roomMenu, .roomMove, .wallAdd: return true
         default: return false
         }
     }
@@ -232,11 +233,27 @@ private struct AddOpeningSheet: View {
                 HStack(alignment: .top, spacing: 10) {
                     BigOpt(icon: "door", label: tr("op.door"), sub: nil) { app.sheet = .openingForm(pid: pid, rid: rid, oid: nil, type: "door", wall: nil) }.accessibilityIdentifier("ao.door")
                     BigOpt(icon: "window", label: tr("op.window"), sub: nil) { app.sheet = .openingForm(pid: pid, rid: rid, oid: nil, type: "window", wall: nil) }.accessibilityIdentifier("ao.window")
-                    BigOpt(icon: "column", label: tr("ao.col"), sub: tr("nr.later")) { app.say("nr.later", kind: .info) }
+                    BigOpt(icon: "column", label: tr("ao.col"), sub: nil) { app.sheet = .featureForm(pid: pid, rid: rid, fid: nil, type: "column") }.accessibilityIdentifier("ao.col")
                 }
                 T(tr("ao.here"), ui(13, 500, G.ink2)).padding(.top, 8)
-                if r.openings.isEmpty { T(tr("ao.none"), ui(13, 400, G.ink2)) }
-                else {
+                // columns and niches first, then the doors and windows
+                if !r.features.isEmpty {
+                    ListBox {
+                        ForEach(Array(r.features.enumerated()), id: \.element.id) { i, f in
+                            if i > 0 { Hairline() }
+                            HStack(spacing: 10) {
+                                MIcon("column", G.cobalt, 20, 2)
+                                T(tr(f.type == "column" ? "ft.column" : "ft.niche") + ", " + tr("op.wall") + " " + f.wall, ui(15, 600)).frame(maxWidth: .infinity, alignment: .leading)
+                                T(Geo.fmtLen(f.w, unit, en) + " × " + Geo.fmtLen(f.d, unit, en) + " " + unitName(), num(14.5, 600, G.ink2))
+                                MIcon("chev", G.ink3, 16, 2)
+                            }
+                            .frame(minHeight: 56)
+                            .pressable(0.99) { app.sheet = .featureForm(pid: pid, rid: rid, fid: f.id, type: f.type) }
+                        }
+                    }
+                }
+                if r.openings.isEmpty && r.features.isEmpty { T(tr("ao.none"), ui(13, 400, G.ink2)) }
+                else if !r.openings.isEmpty {
                     ListBox {
                         ForEach(Array(r.openings.enumerated()), id: \.element.id) { i, o in
                             if i > 0 { Hairline() }
@@ -372,6 +389,104 @@ private struct OpeningSheet: View {
         let unit = st.unit, en = st.lang == .en
         wv = Geo.fmtField(t == "door" ? st.doorW : st.winW, unit, en); hv = Geo.fmtField(t == "door" ? st.doorH : st.winH, unit, en)
         offv = Geo.fmtField(defOff(t, wall, ws), unit, en); sillv = Geo.fmtField(t == "door" ? 0 : st.winSill, unit, en)
+    }
+}
+
+private enum FF: Hashable { case w, d, off, sill, h }
+
+/// A column against a wall or a niche into it: type, wall, width, depth, offset, and a niche's sill and height
+/// (Android FeatureSheet).
+private struct FeatureSheet: View {
+    let app: AppModel
+    let pid: String
+    let rid: String
+    let fid: String?
+    let type0: String
+    @State private var type = "column"
+    @State private var wall = "A"
+    @State private var wv = ""
+    @State private var dv = ""
+    @State private var offv = ""
+    @State private var sillv = ""
+    @State private var hv = ""
+    @State private var tried = false
+    @State private var loaded = false
+    @FocusState private var focus: FF?
+    private var ops: RoomOps { RoomOps.shared }
+    private var st: AppSettings { AppSettings.shared }
+
+    var body: some View {
+        if let r = ops.room(pid, rid) {
+            let unit = st.unit, en = st.lang == .en, dec = Geo.unitDecimals(unit), snap = st.angleSnap
+            let edit = fid.flatMap { id in r.features.first { $0.id == id } }
+            let ws = Geo.walls(r, snap)
+            let niche = type == "niche"
+            let pw = Geo.lenErr(wv, Geo.dimMax("A"), unit, en), pd = Geo.lenErr(dv, Geo.dimMax("A"), unit, en)
+            let po = Geo.parseDec(offv, dec)
+            let psl: Parsed = niche ? Geo.parseDec(sillv, dec) : .ok(0), ph: Parsed = niche ? Geo.parseDec(hv, dec) : .ok(0)
+            let f: Feature? = {
+                guard let w = pw.value, let d = pd.value, let off = po.value, let sill = psl.value, let h = ph.value else { return nil }
+                return Feature(id: edit?.id ?? "new", type: type, wall: wall, off: Int(off), w: Int(w), d: Int(d), sill: Int(sill), h: Int(h))
+            }()
+            let iss = f.flatMap { Geo.featureIssue(r, $0, snap) }
+            let corner = Geo.wallCorner(r, wall, snap)
+            GlassSheet(tr(edit != nil ? (niche ? "ft.niche" : "ft.column") : "ao.col"), onClose: close) {
+                Seg(items: [("column", tr("ft.column")), ("niche", tr("ft.niche"))], cur: type) { type = $0 }
+                T(tr(niche ? "ft.nicheB" : "ft.columnB"), ui(13, 400, G.ink2, lh: 1.4))
+                VStack(alignment: .leading, spacing: 6) {
+                    T(tr("op.wall"), ui(15, 700))
+                    Seg(items: ws.map { ($0.id, $0.id) }, cur: wall, subs: Dictionary(uniqueKeysWithValues: ws.map { ($0.id, Geo.fmtLen($0.len, unit, en)) })) { wall = $0 }
+                }
+                HStack(alignment: .top, spacing: 10) {
+                    NumField(label: tr("op.width"), value: $wv, suffix: unitName(), error: errText(pw), showError: tried, focus: $focus, me: .w, id: "ft.w")
+                    NumField(label: tr(niche ? "ft.dIn" : "ft.dOut"), value: $dv, suffix: unitName(), error: errText(pd), showError: tried, focus: $focus, me: .d, id: "ft.d")
+                }
+                HStack(alignment: .top, spacing: 10) {
+                    NumField(label: tr("op.offset", ["c": corner]), value: $offv, suffix: unitName(), error: errText(po), showError: tried, focus: $focus, me: .off, id: "ft.off")
+                    Color.clear.frame(maxWidth: .infinity, maxHeight: 1)
+                }
+                if niche {
+                    HStack(alignment: .top, spacing: 10) {
+                        NumField(label: tr("op.sill"), value: $sillv, suffix: unitName(), error: errText(psl), showError: tried, focus: $focus, me: .sill, id: "ft.sill")
+                        NumField(label: tr("ft.h"), value: $hv, suffix: unitName(), error: errText(ph), showError: tried, focus: $focus, me: .h, id: "ft.h")
+                    }
+                }
+                if f != nil, let iss { Warn(icon: "alert", text: tr(iss), red: true) }
+            } footer: {
+                HStack(spacing: 8) {
+                    if let edit {
+                        GBtn(tr("common.delete"), kind: .danger, icon: "trash", height: 44, corner: 16, fontSize: 15) {
+                            Store.shared.update(pid) { p in
+                                if let k = p.rooms.firstIndex(where: { $0.id == rid }) { p.rooms[k].features.removeAll { $0.id == edit.id } }
+                            }
+                            close()
+                        }
+                    }
+                    else { GBtn(tr("common.cancel"), kind: .secondary, height: 44, corner: 16, fontSize: 15, close) }
+                    GBtn(tr("common.save"), enabled: f != nil && iss == nil, height: 44, corner: 16, fontSize: 15) {
+                        tried = true
+                        guard var f, iss == nil else { return }
+                        if edit == nil { f.id = uid() }
+                        Store.shared.update(pid) { p in
+                            guard let k = p.rooms.firstIndex(where: { $0.id == rid }) else { return }
+                            if let j = p.rooms[k].features.firstIndex(where: { $0.id == f.id }) { p.rooms[k].features[j] = f }
+                            else { p.rooms[k].features.append(f) }
+                        }
+                        close(); app.say("ft.saved")
+                    }
+                    .accessibilityIdentifier("ft.save")
+                }
+            }
+            .onAppear {
+                guard !loaded else { return }
+                loaded = true
+                type = edit?.type ?? type0
+                wall = edit?.wall ?? "A"
+                wv = Geo.fmtField(edit?.w ?? 400, unit, en); dv = Geo.fmtField(edit?.d ?? 300, unit, en)
+                offv = Geo.fmtField(edit?.off ?? 0, unit, en)
+                sillv = Geo.fmtField(edit?.sill ?? 900, unit, en); hv = Geo.fmtField(edit?.h ?? 600, unit, en)
+            }
+        }
     }
 }
 

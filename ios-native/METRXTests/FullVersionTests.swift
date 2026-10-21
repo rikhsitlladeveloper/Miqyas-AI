@@ -189,10 +189,13 @@ final class FeaturesAndTradesTests: XCTestCase {
     func testAColumnAndANiche() {
         var r = room; r.openings = []; r.features = [Feature(id: "c", type: "column", wall: "A", off: 1000, w: 400, d: 300)]
         var a = Geo.areas(r)!
-        XCTAssertEqual(a.floor, 20_000_000 - 400 * 300); XCTAssertEqual(a.perim, 18_600); XCTAssertEqual(a.gross, 18_000 * 3000 + 2 * 300 * 3000)
+        XCTAssertEqual(a.floor, Int64(20_000_000 - 400 * 300)); XCTAssertEqual(a.perim, 18_600)
+        let colGross: Int64 = 18_000 * 3000 + 2 * 300 * 3000
+        XCTAssertEqual(a.gross, colGross)
         r.features = [Feature(id: "n", type: "niche", wall: "B", off: 500, w: 800, d: 150, sill: 900, h: 600)]
         a = Geo.areas(r)!
-        XCTAssertEqual(a.gross, 18_000 * 3000 + 2 * 150 * 600 + 2 * 800 * 150)
+        let nicheGross: Int64 = 18_000 * 3000 + 2 * 150 * 600 + 2 * 800 * 150
+        XCTAssertEqual(a.gross, nicheGross)
         XCTAssertNil(Geo.featureIssue(r, r.features[0]))
     }
 
@@ -200,7 +203,8 @@ final class FeaturesAndTradesTests: XCTestCase {
         let t = TradeSet()
         var tw = t; tw.wallH = 1500
         let area = tileArea(room, tw)
-        XCTAssertEqual(area, 20 + 27 - 0.9 * 1.5 - 1.2 * 0.6, accuracy: 1e-9)
+        let want: Double = 20 + 27 - 0.9 * 1.5 - 1.2 * 0.6
+        XCTAssertEqual(area, want, accuracy: 1e-9)
         let tr = tradeRows("tiler", [room], tw, words)
         XCTAssertEqual(tr.mats.map(\.id), ["t-tile", "t-glue", "t-grout"])
         let e = tradeRows("elec", [room], t, words)

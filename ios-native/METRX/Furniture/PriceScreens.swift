@@ -35,7 +35,7 @@ private func lineText(_ p: Project, _ l: CostLine) -> String {
 struct FPriceTab: View {
     let app: AppModel
     let p: Project
-    @State private var open = "mat"
+    @State private var open = ""   // the cost groups start folded
     var body: some View {
         let s = AppSettings.shared, lang = s.lang, en = lang == .en
         let fs = p.furniture.filter { !$0.modules.isEmpty }
@@ -53,6 +53,56 @@ struct FPriceTab: View {
             let cost = pr.cost, cur = Money.cur(p.currency)
             let pct = fp.pct ?? s.workshop.margin
             VStack(alignment: .leading, spacing: 12) {
+                // the customer price and the profit
+                let neg = pr.profit < 0, pc = pr.profitPct10
+                VStack(alignment: .leading, spacing: 4) {
+                    T(tr("fp.price"), ui(12.5, 400, STRIP))
+                    T(money(p, pr.price) + " " + cur, num(26, 800, .white), lines: 1).accessibilityIdentifier("fp.priceV")
+                    HStack {
+                        T(tr("fw.profit"), ui(13, 400, STRIP)).frame(maxWidth: .infinity, alignment: .leading)
+                        T(money(p, pr.profit) + " · \(pc / 10)\(en ? "." : ",")\(abs(pc % 10)) %", num(15, 700, neg ? Color(argb: 0xFFFCA5A5) : Color(argb: 0xFF86EFAC)))
+                    }
+                    .padding(.top, 6)
+                    if neg { T(tr("fp.loss"), ui(12.5, 600, Color(argb: 0xFFFCA5A5))) }
+                }
+                .padding(16).frame(maxWidth: .infinity, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(DARK))
+                // how the customer price is worked out
+                VStack(alignment: .leading, spacing: 10) {
+                    T(tr("fp.how"), ui(15, 800))
+                    Seg(items: [("margin", tr("fpm.margin")), ("run", tr("fpm.run")), ("fixed", tr("fpm.fixed"))], cur: fp.mode) { m in set { $0.mode = m } }
+                    if fp.mode == "fixed" {
+                        PriceRow(label: tr("fp.fixed"), value: fp.fixed.isEmpty ? "—" : money(p, digits(fp.fixed)) + " " + cur, id: "fp.fixed") { app.sheet = .fPriceField(pid: p.id, key: "fixed") }
+                        T(tr("fp.howFixed"), ui(12.5, 400, G.ink2, lh: 1.4))
+                    } else {
+                        FStepper(label: tr("fp.margin"), v: pct, lo: 0, hi: 300, id: "fp.pct") { v in set { $0.pct = v } }
+                        if fp.mode == "run" {
+                            PriceRow(label: tr("fp.rRun"), value: money(p, digits(fp.rRun)) + " " + cur, id: "fp.rRun") { app.sheet = .fPriceField(pid: p.id, key: "rRun") }
+                            PriceRow(label: tr("fp.rTall"), value: fp.rTall.isEmpty ? "—" : money(p, digits(fp.rTall)) + " " + cur, id: "fp.rTall") { app.sheet = .fPriceField(pid: p.id, key: "rTall") }
+                        }
+                        ForEach(Array(pr.lines.enumerated()), id: \.offset) { _, ln in
+                            let f = fs.first { $0.id == ln.key }
+                            let how: String = ln.key == "deliver" ? tr("fd.deliver") + ": " + tr("fp.plusPct", ["p": pct])
+                                : f.map { f in fp.mode == "run" && f.kind == "kitchen"
+                                    ? dn(f.name) + ": " + metres1(runMm(f), en) + " " + tr("kt.pm") + " × " + money(p, digits(fp.rRun))
+                                    : dn(f.name) + ": " + tr("fp.plusPct", ["p": pct]) } ?? ln.key
+                            HStack(alignment: .top, spacing: 8) {
+                                T(how, ui(12.5, 400, G.ink2, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
+                                T(money(p, ln.amount), num(13, 600, G.ink2))
+                            }
+                        }
+                    }
+                }
+                .padding(14).frame(maxWidth: .infinity, alignment: .leading)
+                .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.6))
+                // the documents: the customer's PDF first, then the workshop's pack and the parts with their sheet layout
+                GBtn(tr("fd.btn"), icon: "share", height: 52, corner: 16, fontSize: 15.5) { app.push(.report(pid: p.id, no: nil)) }.accessibilityIdentifier("fp.quote")
+                HStack(spacing: 10) {
+                    GBtn(tr("fw.btn"), kind: .secondary, icon: "doc", height: 50, corner: 16, fontSize: 14.5) { app.push(.fPack(pid: p.id)) }.accessibilityIdentifier("fp.pack")
+                    GBtn(tr("fc.title"), kind: .secondary, icon: "board", height: 50, corner: 16, fontSize: 14.5) { app.push(.fCut(pid: p.id)) }.accessibilityIdentifier("fp.cut")
+                }
+                T(tr("fp.docsNote"), ui(12.5, 400, G.ink2, lh: 1.4))
+                PriceRow(label: tr("fp.days"), value: tr("fd.days", ["d": fp.days, "i": fp.inst]), id: "fp.days") { app.sheet = .fPriceField(pid: p.id, key: "days") }
                 // the cost, by group
                 VStack(alignment: .leading, spacing: 6) {
                     T(tr("fp.cost"), ui(12.5, 600, G.ink2))
@@ -89,55 +139,6 @@ struct FPriceTab: View {
                 }
                 .padding(14).frame(maxWidth: .infinity, alignment: .leading)
                 .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.6))
-                // how the customer price is worked out
-                VStack(alignment: .leading, spacing: 10) {
-                    T(tr("fp.how"), ui(15, 800))
-                    Seg(items: [("margin", tr("fpm.margin")), ("run", tr("fpm.run")), ("fixed", tr("fpm.fixed"))], cur: fp.mode) { m in set { $0.mode = m } }
-                    if fp.mode == "fixed" {
-                        PriceRow(label: tr("fp.fixed"), value: fp.fixed.isEmpty ? "—" : money(p, digits(fp.fixed)) + " " + cur, id: "fp.fixed") { app.sheet = .fPriceField(pid: p.id, key: "fixed") }
-                        T(tr("fp.howFixed"), ui(12.5, 400, G.ink2, lh: 1.4))
-                    } else {
-                        FStepper(label: tr("fp.margin"), v: pct, lo: 0, hi: 300, id: "fp.pct") { v in set { $0.pct = v } }
-                        if fp.mode == "run" {
-                            PriceRow(label: tr("fp.rRun"), value: money(p, digits(fp.rRun)) + " " + cur, id: "fp.rRun") { app.sheet = .fPriceField(pid: p.id, key: "rRun") }
-                            PriceRow(label: tr("fp.rTall"), value: fp.rTall.isEmpty ? "—" : money(p, digits(fp.rTall)) + " " + cur, id: "fp.rTall") { app.sheet = .fPriceField(pid: p.id, key: "rTall") }
-                        }
-                        ForEach(Array(pr.lines.enumerated()), id: \.offset) { _, ln in
-                            let f = fs.first { $0.id == ln.key }
-                            let how: String = ln.key == "deliver" ? tr("fd.deliver") + ": " + tr("fp.plusPct", ["p": pct])
-                                : f.map { f in fp.mode == "run" && f.kind == "kitchen"
-                                    ? dn(f.name) + ": " + metres1(runMm(f), en) + " " + tr("kt.pm") + " × " + money(p, digits(fp.rRun))
-                                    : dn(f.name) + ": " + tr("fp.plusPct", ["p": pct]) } ?? ln.key
-                            HStack(alignment: .top, spacing: 8) {
-                                T(how, ui(12.5, 400, G.ink2, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
-                                T(money(p, ln.amount), num(13, 600, G.ink2))
-                            }
-                        }
-                    }
-                }
-                .padding(14).frame(maxWidth: .infinity, alignment: .leading)
-                .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.6))
-                // the customer price and the profit
-                let neg = pr.profit < 0, pc = pr.profitPct10
-                VStack(alignment: .leading, spacing: 4) {
-                    T(tr("fp.price"), ui(12.5, 400, STRIP))
-                    T(money(p, pr.price) + " " + cur, num(26, 800, .white), lines: 1).accessibilityIdentifier("fp.priceV")
-                    HStack {
-                        T(tr("fw.profit"), ui(13, 400, STRIP)).frame(maxWidth: .infinity, alignment: .leading)
-                        T(money(p, pr.profit) + " · \(pc / 10)\(en ? "." : ",")\(abs(pc % 10)) %", num(15, 700, neg ? Color(argb: 0xFFFCA5A5) : Color(argb: 0xFF86EFAC)))
-                    }
-                    .padding(.top, 6)
-                    if neg { T(tr("fp.loss"), ui(12.5, 600, Color(argb: 0xFFFCA5A5))) }
-                }
-                .padding(16).frame(maxWidth: .infinity, alignment: .leading)
-                .background(RoundedRectangle(cornerRadius: 22, style: .continuous).fill(DARK))
-                PriceRow(label: tr("fp.days"), value: tr("fd.days", ["d": fp.days, "i": fp.inst]), id: "fp.days") { app.sheet = .fPriceField(pid: p.id, key: "days") }
-                GBtn(tr("fc.title"), kind: .secondary, icon: "board", height: 48, corner: 16, fontSize: 15) { app.push(.fCut(pid: p.id)) }.accessibilityIdentifier("fp.cut")
-                HStack(spacing: 10) {
-                    GBtn(tr("fw.btn"), kind: .secondary, icon: "doc", height: 52, corner: 16, fontSize: 15) { app.push(.fPack(pid: p.id)) }.accessibilityIdentifier("fp.pack")
-                    GBtn(tr("fd.btn"), icon: "share", height: 52, corner: 16, fontSize: 15) { app.push(.report(pid: p.id, no: nil)) }.accessibilityIdentifier("fp.quote")
-                }
-                T(tr("fp.docsNote"), ui(12.5, 400, G.ink2, lh: 1.4))
             }
             .padding(.horizontal, 16).padding(.top, 12)
         }

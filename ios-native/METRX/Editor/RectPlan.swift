@@ -157,6 +157,8 @@ func drawRectPlan(_ ctx: GraphicsContext, _ lay: RectLayout, _ r: Room, _ sel: S
 
     // doors and windows across the wall
     for o in r.openings { let bad = issueOf(o); drawOpening(ctx, lay, o, bad ? PC.red : o.id == selOp ? PC.cob : PC.ink, bad) }
+    // columns stand inside against the wall, hatched like walls; niches are cut into the wall (dashed when above the floor)
+    for f in r.features { drawFeature(ctx, lay, f) }
     // furniture orders: sockets, switches and pipes, just inside their wall (furniture plan section 5)
     for x in r.points {
         let w = lay.wall(x.wall), u = unitV(w.a, w.b)
@@ -210,6 +212,24 @@ private func drawOpening(_ ctx: GraphicsContext, _ lay: RectLayout, _ o: Opening
     func box(_ pad: CGFloat) -> Path { polyPath([a - u * pad - w.n * pad, b + u * pad - w.n * pad, b + u * pad + w.n * (tw + pad), a - u * pad + w.n * (tw + pad)]) }
     if o.approx && !bad { ctx.stroke(box(3), with: .color(PC.amber), style: StrokeStyle(lineWidth: 1.4, dash: [4, 3])) }
     if bad { ctx.stroke(box(4), with: .color(PC.red), style: StrokeStyle(lineWidth: 2.5, dash: [4, 3])) }
+}
+
+private func drawFeature(_ ctx: GraphicsContext, _ lay: RectLayout, _ f: Feature) {
+    let w = lay.wall(f.wall), u = unitV(w.a, w.b), s = lay.s
+    let a = w.a + u * (CGFloat(f.off) * s), b = w.a + u * (CGFloat(f.off + f.w) * s)
+    let depth = CGFloat(f.d) * s * (f.type == "column" ? -1 : 1)
+    let quad = polyPath([a, b, b + w.n * depth, a + w.n * depth])
+    if f.type == "column" {
+        ctx.fill(quad, with: .color(PC.white))
+        var hc = ctx; hc.clip(to: quad)
+        let bx = quad.boundingRect
+        var x = bx.minX - bx.height
+        while x < bx.maxX + bx.height { hc.line(PC.ink, CGPoint(x: x, y: bx.maxY), CGPoint(x: x + bx.height, y: bx.minY), 1.1); x += 4 * 1.4142 }
+        ctx.stroke(quad, with: .color(PC.ink), lineWidth: 1.2)
+    } else {
+        ctx.fill(quad, with: .color(PC.paper))
+        ctx.stroke(quad, with: .color(PC.ink), style: StrokeStyle(lineWidth: 1.1, dash: f.sill > 0 ? [3, 3] : []))
+    }
 }
 
 private func chain(_ ctx: GraphicsContext, _ lay: RectLayout, _ w: SideWall, _ ops: [Opening], _ unit: LenUnit, _ en: Bool) {

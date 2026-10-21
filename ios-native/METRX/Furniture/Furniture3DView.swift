@@ -10,7 +10,7 @@ import SwiftUI
 /// camera stays where it is when only doors open: the furniture has as many parts open as closed).
 func furnShell(_ p: Project, _ room: Room, _ base: Shell3D, _ open: Set<String>, _ snap: Bool) -> (Shell3D, Furn3D, String) {
     let s = AppSettings.shared, ws = s.workshop, mats = s.mats
-    let fs = p.furniture.filter { $0.roomId == room.id }
+    let fs = p.furniture.filter { $0.roomId == room.id || ($0.roomId == nil && FREE_ROOM + $0.id == room.id) }
     let fur = furniture3D(fs, base.bases, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, open)
     let key = shellKey([room], snap) + "|\(fs)|\(ws)|\(mats.map(\.rgb))|" + open.sorted().joined(separator: ",")
     return (base.plus(fur.parts, fur.edges), fur, key)
@@ -51,13 +51,18 @@ struct Furniture3DPane: View {
             T(tr(room.isPoly ? "sk.need3d" : "3d.need"), ui(17, 700, G.ink, lh: 1.35), align: .center)
                 .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            let (shell, fur, key) = furnShell(p, room, buildShell([room], single: true, snap: snap), open, snap)
+            // furniture without a room stands on a floor of its size, no walls round it
+            let free = isFreeRoom(room)
+            let built = buildShell([room], single: true, snap: snap)
+            let (shell, fur, key) = furnShell(p, room, free ? built.floorOnly() : built, open, snap)
             Scene3D(shell: shell, key: key, cam: cam, shot: shot, points: shell.labels.map(\.p), label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
                     onTap: { pt in toggle(fur, pt) }) {
-                ShotPill(icon: "camera", label: tr("3d.save")) { save3DView(app, p.id, room, shot) }
-                    .accessibilityIdentifier("3d.save")
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
-                    .padding(.top, 10).padding(.trailing, 10)
+                if !free {
+                    ShotPill(icon: "camera", label: tr("3d.save")) { save3DView(app, p.id, room, shot) }
+                        .accessibilityIdentifier("3d.save")
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
+                        .padding(.top, 10).padding(.trailing, 10)
+                }
                 T(tr("f3.hint"), ui(12.5, 600, G.ink2)).padding(.horizontal, 10).padding(.vertical, 6)
                     .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(G.sheet(0.7)))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)

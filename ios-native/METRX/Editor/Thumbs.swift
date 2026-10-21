@@ -45,6 +45,18 @@ struct RoomThumb: View {
                     ctx.line(.white, p0, p1, 3.4)
                     if o.type == "window" { ctx.line(ink, p0, p1, 0.8) }
                 }
+                // columns (filled, inside) and niches (cut into the wall)
+                for f in r.features {
+                    guard let i = ["A", "B", "C", "D"].firstIndex(of: f.wall) else { continue }
+                    let a = pts[i], b = pts[(i + 1) % 4], d = b - a
+                    if d.len == 0 { continue }
+                    let u = d / d.len, n = CGPoint(x: -u.y, y: u.x)          // into the room
+                    let p0 = a + u * (CGFloat(f.off) * s), p1 = a + u * (CGFloat(f.off + f.w) * s)
+                    let dd = CGFloat(f.d) * s * (f.type == "column" ? 1 : -1)
+                    let q = polyPath([p0, p1, p1 + n * dd, p0 + n * dd])
+                    ctx.fill(q, with: .color(f.type == "column" ? ink : .white))
+                    if f.type != "column" { ctx.stroke(q, with: .color(ink), lineWidth: 0.8) }
+                }
             }
             guard detailed else { return }
             let ar = Geo.areas(r, snap)

@@ -2,7 +2,7 @@ import SwiftUI
 
 private let TABS = [("rooms", "pj.t.rooms"), ("estimate", "pr.estimate"), ("quotes", "pj.t.quotes"), ("info", "pj.info")]
 /// A furniture order: its price tab instead of the estimate (furniture plan section 4).
-private let F_TABS = [("rooms", "pj.t.rooms"), ("price", "fo.price"), ("quotes", "pj.t.quotes"), ("info", "pj.info")]
+private let F_TABS = [("rooms", "fo.rooms"), ("price", "fo.price"), ("quotes", "pj.t.quotes"), ("info", "pj.info")]
 
 /// Project page: name, customer and stage, three numbers, four tabs (prototype project.js + glass stage 2).
 struct ProjectScreen: View {
@@ -29,6 +29,8 @@ struct ProjectScreen: View {
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
                             header(p)
+                            // a furniture order: what to do now, with the one button that does it
+                            if p.isFurniture { NextStep(app: app, p: p) }
                             switch tab {
                             case "info":
                                 if p.isFurniture { FurnitureInfo(app: app, p: p) }
@@ -43,7 +45,7 @@ struct ProjectScreen: View {
                                         if view == "2d" { Plans2D(app: app, p: p) } else { Project3D(app: app, p: p, floor: floor) }
                                     }
                                     .padding(.horizontal, 20).padding(.top, 12)
-                                } else { WorkspacesTab(app: app, p: p) }
+                                } else if p.isFurniture { FRoomsTab(app: app, p: p) } else { WorkspacesTab(app: app, p: p) }
                             }
                         }
                         // the floating total leaves room for the last rows
@@ -63,22 +65,35 @@ struct ProjectScreen: View {
     }
 
     private func header(_ p: Project) -> some View {
-        let sub = [dn(p.customer), dn(p.address)].filter { !$0.isEmpty }.joined(separator: ", ")
+        let sub = p.isFurniture ? orderSub(p, ", ") : [dn(p.customer), dn(p.address)].filter { !$0.isEmpty }.joined(separator: ", ")
         let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
         return VStack(alignment: .leading, spacing: 0) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(alignment: .top, spacing: 8) {
-                    T(dn(p.name), ui(28, 800, G.ink, lh: 1.15, ls: -0.02)).padding(.top, 2).frame(maxWidth: .infinity, alignment: .leading)
-                    if !p.phone.isEmpty { RoundIc(icon: "phone", label: tr("pl.call")) { call(p) } }
-                    if p.location != nil { RoundIc(icon: "pin", label: tr("loc.open")) { openMap(p) } }
+            // a furniture order's other tabs: one line, so the tab's own content starts higher
+            if p.isFurniture && tab != "rooms" {
+                HStack(spacing: 8) {
+                    T(dn(p.name), ui(17, 800, G.ink, lh: 1.2), lines: 1).frame(maxWidth: .infinity, alignment: .leading)
+                    FStageChip(stage: p.stage)
                     RoundIc(icon: "more", label: "menu") { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
                 }
-                HStack(spacing: 8) {
-                    T(sub.isEmpty ? "—" : sub, ui(13.5, 400, G.ink2), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
-                    if p.isFurniture { FStageChip(stage: p.stage) } else { StageChip(stage: p.stage) }
+                .padding(.leading, 4)
+            } else {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(alignment: .top, spacing: 8) {
+                        // a furniture order's name is often long ("Kitchen and wardrobe — Akmal Yusupov"): a bit smaller, two lines
+                        T(dn(p.name), ui(p.isFurniture ? 23 : 28, 800, G.ink, lh: 1.15, ls: -0.02), lines: p.isFurniture ? 2 : nil).padding(.top, 2)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                        if p.isFurniture { CallButton(p: p) }
+                        else if !p.phone.isEmpty { RoundIc(icon: "phone", label: tr("pl.call")) { call(p) } }
+                        if p.location != nil { RoundIc(icon: "pin", label: tr("loc.open")) { openMap(p) } }
+                        RoundIc(icon: "more", label: "menu") { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
+                    }
+                    HStack(spacing: 8) {
+                        T(p.isFurniture ? sub : sub.isEmpty ? "—" : sub, ui(13.5, 400, G.ink2), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
+                        if p.isFurniture { FStageChip(stage: p.stage) } else { StageChip(stage: p.stage) }
+                    }
                 }
+                .padding(.horizontal, 4)
             }
-            .padding(.horizontal, 4)
             if tab == "rooms" { if p.isFurniture { FNums(p: p) } else { Nums(p: p) } }
             HStack(spacing: 2) {
                 ForEach(p.isFurniture ? F_TABS : TABS, id: \.0) { k, l in
@@ -298,7 +313,10 @@ private struct QuotesTab: View {
     let app: AppModel
     let p: Project
     var body: some View {
-        if p.quotes.isEmpty {
+        if p.isFurniture { FIssueBar(app: app, p: p) }
+        if p.quotes.isEmpty && p.isFurniture {
+            EmptyView()
+        } else if p.quotes.isEmpty {
             VStack(spacing: 10) {
                 MIcon("doc", G.cobalt, 26, 2).frame(width: 56, height: 56).background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.cobalt.opacity(0.12)))
                 T(tr("q.emptyTitle"), ui(18, 700), align: .center)
@@ -343,5 +361,30 @@ private struct QuotesTab: View {
             }
             .padding(.horizontal, 20).padding(.top, 12)
         }
+    }
+}
+
+/// A furniture order's Quotes tab starts with issuing the next quote at today's price, and looking at the PDF first.
+private struct FIssueBar: View {
+    let app: AppModel
+    let p: Project
+    var body: some View {
+        let st = AppSettings.shared
+        let fs = p.furniture.filter { !$0.modules.isEmpty }
+        VStack(spacing: 8) {
+            if fs.isEmpty {
+                T(tr("fp.empty"), ui(14, 400, G.ink2, lh: 1.45), align: .center).padding(20).frame(maxWidth: .infinity)
+                    .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
+            } else {
+                let price = priceOf(fs, p.fprice, st.workshop, st.mats, st.hws).price
+                // a new quote only when something changed since the last one: otherwise it would be the same quote again
+                let changed = p.quotes.last.map { $0.fp != fingerprint(snapshotOf(p)) } ?? true
+                if changed {
+                    GBtn(tr("fo.issueN", ["n": p.quotes.count + 1, "v": shortStr(p, price)]), icon: "lock") { app.sheet = .issue(pid: p.id) }.accessibilityIdentifier("fo.issue")
+                }
+                GBtn(tr("fo.preview"), kind: .secondary, icon: "doc", height: 46, fontSize: 14.5) { app.push(.report(pid: p.id, no: nil)) }
+            }
+        }
+        .padding(.horizontal, 20).padding(.top, 12)
     }
 }

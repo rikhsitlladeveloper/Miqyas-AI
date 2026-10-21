@@ -84,7 +84,7 @@ struct WallViewScreen: View {
                         }
                         T(tr("wv.inside"), ui(12.5, 400, G.ink2))
                         Elevation(r: r, w: w, ops: wallOps, fr: fr, wallCount: ws.count,
-                                  pts: p.isFurniture ? r.points.filter { $0.wall == w.id } : [],
+                                  pts: (p.isFurniture || p.industry == "elec" || p.industry == "plumb") ? r.points.filter { $0.wall == w.id } : [],
                                   onPoint: { id in app.sheet = .pointForm(pid: p.id, rid: r.id, wall: w.id, id: id) },
                                   onSwipe: { go($0, ws, i) },
                                   onOpening: { id in app.sheet = .openingForm(pid: p.id, rid: r.id, oid: id, type: "door", wall: nil) },
@@ -140,7 +140,7 @@ struct WallViewScreen: View {
                                 .padding(.vertical, -14)
                             }
                             // furniture orders: sockets, switches and pipes on this wall (furniture plan section 5)
-                            if p.isFurniture { PointsSection(app: app, p: p, r: r, wall: w.id) }
+                            if p.isFurniture || p.industry == "elec" || p.industry == "plumb" { PointsSection(app: app, p: p, r: r, wall: w.id) }
                             HStack(spacing: 6) { MIcon("plus", .white, 18, 2.4); T(tr("wv.add"), ui(15, 700, .white)) }
                                 .padding(.horizontal, 18).frame(minHeight: 48)
                                 .background(Capsule().fill(G.cobalt))

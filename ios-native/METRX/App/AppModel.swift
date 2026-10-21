@@ -38,6 +38,11 @@ enum Route: Hashable {
     case wardrobe(pid: String, fid: String, step: Int, sec: Int, d3: Bool = false)
     /// Furniture orders: the parts and sheet layout, and the workshop pack.
     case fCut(pid: String), fPack(pid: String)
+    /// Furniture without a room (Android FreeScreens.kt): what the customer needs, room or sizes, the models, their
+    /// sizes (fid: changing a piece's), into a room.
+    case fNeed(pid: String), fHow(pid: String, kind: String), fModels(pid: String, kind: String)
+    case fSizes(pid: String, kind: String, model: String, fid: String?)
+    case fPlace(pid: String, fid: String, rid: String)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -93,7 +98,12 @@ enum Sheet: Equatable {
     case wsField(key: String), matForm(id: String?), hwForm(id: String?)
     /// Furniture: new furniture in a workspace, its menu, name and boards; a unit's settings; the unit library (group
     /// module, appl or space) for a wall.
-    case newFurniture(pid: String, wid: String), fMenu(pid: String, fid: String), fRename(pid: String, fid: String), fMats(pid: String, fid: String)
+    case newFurniture(pid: String, wid: String, rid: String? = nil, kind: String? = nil), fMenu(pid: String, fid: String), fRename(pid: String, fid: String), fMats(pid: String, fid: String)
+    /// Furniture orders: a new room (kind the furniture it is for; fid a room-less piece that goes in once it is
+    /// measured), the install date, which room a room-less piece goes into.
+    case fNewRoom(pid: String, kind: String? = nil, fid: String? = nil), fInstall(pid: String), fPickRoom(pid: String, fid: String)
+    /// The trades' calculator settings; a column or a niche (fid nil: a new one).
+    case tradeCalc(pid: String), featureForm(pid: String, rid: String, fid: String?, type: String)
     case fModule(pid: String, fid: String, mid: String), fLibrary(pid: String, fid: String, wall: String, group: String)
     /// The wardrobe: one size (key w, h, d, x or secW of section sec), an insert, more inserts for a section.
     /// Narx tab: a price, a rate or the lead time (key fixed, rRun, rTall or days).
@@ -120,6 +130,8 @@ final class AppModel {
     var soon = false
     /// The launch animation has handed over (the welcome screen rises then).
     var splashDone = false
+    /// A room being measured for a room-less piece (room id, furniture id): when it is done, the piece goes in.
+    var placeAfter: (rid: String, fid: String)? = nil
 
     var stack: [Route] { stacks[tab] ?? [.root] }
     var top: Route { stack.last ?? .root }
@@ -154,7 +166,9 @@ final class AppModel {
                     return pid.map { store.get($0)?.floors.contains { w in w.items.contains { $0.id == iid } } == true } ?? AppSettings.shared.shots.contains { $0.id == iid }
                 case .report(let pid, let no): return store.get(pid).map { p in no == nil || p.quotes.contains { $0.no == no } } == true
                 case .kitchen(let pid, let fid, _, _), .wardrobe(let pid, let fid, _, _, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
-                case .fCut(let pid), .fPack(let pid): return store.get(pid) != nil
+                case .fCut(let pid), .fPack(let pid), .fNeed(let pid), .fHow(let pid, _), .fModels(let pid, _): return store.get(pid) != nil
+                case .fSizes(let pid, _, _, let fid): return store.get(pid).map { p in fid == nil || p.furniture.contains { $0.id == fid } } == true
+                case .fPlace(let pid, let fid, let rid): return store.get(pid).map { p in p.furniture.contains { $0.id == fid } && p.rooms.contains { $0.id == rid } } == true
                 default: return true
                 }
             }

@@ -69,7 +69,7 @@ struct ReportScreen: View {
                                     let uc = unconfirmed(sn)
                                     if uc > 0 { Banner(icon: "clock", text: tr("rpt.unconf", ["n": uc]), amber: true) }
                                 } else if let quote {
-                                    Banner(icon: "lock", text: tr("q.frozen"), amber: false, tail: tr("q.issued") + ": " + fmtDate(quote.ts) + " " + fmtTime(quote.ts))
+                                    Banner(icon: "lock", text: tr(p.isFurniture ? "fd.frozen" : "q.frozen"), amber: false, tail: tr("q.issued") + ": " + fmtDate(quote.ts) + " " + fmtTime(quote.ts))
                                 }
                                 // the dark strip: total, pages, language
                                 HStack {
@@ -404,11 +404,11 @@ private struct IssueSheet: View {
                 let empty = fsn.map { $0.furniture.isEmpty } ?? (p.estimate.materials.isEmpty && p.estimate.labor.isEmpty)
                 let grand = fsn.flatMap { Decimal(string: $0.ftotal) } ?? tt.g
                 GlassSheet(tr("iss.title", ["n": no]), onClose: { app.sheet = nil }) {
-                    T(tr("iss.body"), ui(15, 400, G.ink2, lh: 1.45))
+                    T(tr(p.isFurniture ? "fd.issBody" : "iss.body"), ui(15, 400, G.ink2, lh: 1.45))
                     VStack(spacing: 0) {
                         kv(tr("es.grand"), Money.of(grand, p, withCur: true), number: true)
                         Hairline(); kv(tr("rpt.lang"), Lang.of(p.reportLang).longName)
-                        Hairline(); kv(tr("rpt.builder"), st.builderName)
+                        Hairline(); kv(tr(p.isFurniture ? "fd.maker" : "rpt.builder"), st.builderName)
                     }
                     .padding(.horizontal, 14)
                     .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.glass(0.6)))
@@ -442,9 +442,18 @@ private struct IssueSheet: View {
         let q = freezeQuote(p, sn, no, nowMs())
         Store.shared.update(p.id) { $0.quotes.append(q) }
         app.sheet = nil
+        let early = p.stage == "measure" || p.stage == "estimate" || p.stage == "design"
+        if p.isFurniture {
+            // a furniture order: issued from the PDF or the order itself, it moves to "quote sent" and the quote opens, ready to share
+            if case .report = app.top { app.pop() }
+            if case .project = app.top { app.setProjectTab("quotes") }
+            if early { Store.shared.update(p.id) { $0.stage = "quote" } }
+            app.push(.report(pid: p.id, no: no))
+            app.say(early ? "fo.issuedMoved" : "iss.done", ["n": no])
+            return
+        }
         app.pop()
         app.setProjectTab("quotes")
-        let early = p.stage == "measure" || p.stage == "estimate" || p.stage == "design"
         let pid = p.id
         app.toast = early
             ? ToastMsg(text: tr("iss.done", ["n": no]) + ". " + tr("bd.stage") + ": " + tr(p.isFurniture ? "fs.quote" : "stage.quote") + "?", kind: .ok, action: tr("bd.move"),
