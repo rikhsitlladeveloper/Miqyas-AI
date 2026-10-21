@@ -216,7 +216,11 @@ private func pvDrawOrder(_ bs: [SBox], _ cam: PCam) -> [SBox] {
         }
         return (x0, y0, x1, y1)
     }
-    let dist: [Double] = bs.map { b in (0..<8).reduce(0.0) { $0 + cam.depth(V3(b.pts[3 * $1], b.pts[3 * $1 + 1], b.pts[3 * $1 + 2])) } / 8 }
+    let dist: [Double] = bs.map { b in
+        var s = 0.0
+        for k in 0..<8 { s += cam.depth(V3(b.pts[3 * k], b.pts[3 * k + 1], b.pts[3 * k + 2])) }
+        return s / 8
+    }
     var after = [[Int]](repeating: [], count: n), need = [Int](repeating: 0, count: n)
     for i in 0..<n {
         for j in (i + 1)..<max(i + 1, n) {
