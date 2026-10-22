@@ -16,6 +16,11 @@ struct ProjectsList: View {
         // each industry sees its own projects; the others stay one chip away (furniture plan section 3)
         let ps = all.filter { $0.isFurniture == furniture }
         let others = all.filter { $0.isFurniture != furniture }
+        // the simple furniture app has no stages: no "in work / finished", just all of them (and the other industry's)
+        let staged = !furniture || AppSettings.shared.advanced
+        let seg = !staged && self.seg != "other" ? "all" : self.seg
+        let stages: [(String, String)] = staged ? [("active", "pl.active"), ("done", "pl.doneSeg")] : []
+        let chips: [(String, String)] = stages + [("all", "pl.allSeg")] + (others.isEmpty ? [] : [("other", "fo.other")])
         VStack(alignment: .leading, spacing: 0) {
             GlassHeader { app.sheet = .device }
             PageTitle(text: tr(furniture ? "fo.tab" : "tab.projects")).padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
@@ -40,19 +45,20 @@ struct ProjectsList: View {
                         }
                         ScrollView(.horizontal, showsIndicators: false) {
                             HStack(spacing: 8) {
-                                ForEach([("active", "pl.active"), ("done", "pl.doneSeg"), ("all", "pl.allSeg")] + (others.isEmpty ? [] : [("other", "fo.other")]), id: \.0) { k, l in
+                                ForEach(chips, id: \.0) { k, l in
                                     let on = seg == k
                                     T("\(tr(l)) · \(n[k] ?? 0)", ui(14, on ? 700 : 600, on ? G.solid : G.slate))
                                         .padding(.horizontal, 16).padding(.vertical, 10).frame(minHeight: 40)
                                         .background(Capsule().fill(on ? G.ink : G.glass(0.45)))
                                         .overlay(Capsule().strokeBorder(on ? G.ink : G.rim, lineWidth: 1))
-                                        .pressable(0.97) { seg = k }
+                                        .pressable(0.97) { self.seg = k }
                                         .accessibilityAddTraits(on ? .isSelected : [])
                                 }
                             }
                         }
                         VStack(spacing: 10) {
-                            ForEach(furniture && seg != "other" ? sortOrders(list) : list) { p in
+                            // the simple app has no install dates: the newest first, as on Home
+                            ForEach(furniture && seg != "other" ? (staged ? sortOrders(list) : list.sorted { $0.created > $1.created }) : list) { p in
                                 if p.isFurniture { OrderRow(p: p) { app.push(.project(id: p.id, tab: "rooms")) } }
                                 else { ProjectRow(p: p) { app.push(.project(id: p.id, tab: "rooms")) } }
                             }
@@ -202,7 +208,9 @@ struct NewProjectScreen: View {
                             MIcon("sliders", G.ink2, 18, 2)
                             let cur = edit?.currency ?? AppSettings.shared.currency
                             let rl = edit.map { Lang.of($0.reportLang) } ?? AppSettings.shared.reportLang
-                            T(tr("np.fromSettings", ["c": cur, "l": rl.longName]), ui(13.5, 400, G.ink2, lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading)
+                            // the simple furniture app has no prices, so no currency either
+                            T(furn && !AppSettings.shared.advanced ? tr("np.fromSettingsL", ["l": rl.longName]) : tr("np.fromSettings", ["c": cur, "l": rl.longName]),
+                              ui(13.5, 400, G.ink2, lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading)
                             if edit == nil { T(tr("np.change"), ui(13.5, 700, G.cobalt)).padding(.horizontal, 4).pressable(0.97) { app.sheet = .currency } }
                         }
                         .padding(16)

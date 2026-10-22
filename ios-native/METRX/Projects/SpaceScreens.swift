@@ -18,7 +18,7 @@ struct SpaceScreen: View {
                     HStack {
                         BackLink(text: dn(p.name)) { app.pop() }
                         Spacer()
-                        GlassIconButton("more", "menu") { app.sheet = .spaceMenu(pid: p.id, wid: w.id) }.accessibilityIdentifier("space.menu")
+                        GlassIconButton("more", tr("common.menu")) { app.sheet = .spaceMenu(pid: p.id, wid: w.id) }.accessibilityIdentifier("space.menu")
                     }
                     .padding(.leading, 8).padding(.trailing, 12).frame(minHeight: 64)
                     HStack(spacing: 12) {
@@ -201,7 +201,7 @@ private struct RoomCard: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("room.card")
-            MIcon("more", G.ink, 18, 2).frame(width: 44, height: 44).pressable(0.95, label: "menu") { app.sheet = .roomMenu(pid: p.id, rid: r.id) }
+            MIcon("more", G.ink, 18, 2).frame(width: 44, height: 44).pressable(0.95, label: tr("common.menu")) { app.sheet = .roomMenu(pid: p.id, rid: r.id) }
                 .padding(.bottom, 4)
                 .accessibilityIdentifier("room.menu")
         }
@@ -272,7 +272,7 @@ private struct ItemCard: View {
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("item." + it.kind)
-            MIcon("more", G.ink, 18, 2).frame(width: 44, height: 44).pressable(0.95, label: "menu") { app.sheet = .itemMenu(pid: p.id, wid: w.id, iid: it.id) }
+            MIcon("more", G.ink, 18, 2).frame(width: 44, height: 44).pressable(0.95, label: tr("common.menu")) { app.sheet = .itemMenu(pid: p.id, wid: w.id, iid: it.id) }
                 .padding(.bottom, 4)
         }
         .overlay(alignment: .topLeading) {
@@ -330,7 +330,7 @@ struct NoteScreen: View {
                 HStack(spacing: 6) {
                     GlassIconButton("back", tr("nt.back")) { focus = nil; app.pop() }.padding(.leading, 6)
                     BarTitle(title: tr("it.k.note"), sub: floorName(w))
-                    GlassIconButton("more", "menu") { app.sheet = .itemMenu(pid: p.id, wid: w.id, iid: it.id) }
+                    GlassIconButton("more", tr("common.menu")) { app.sheet = .itemMenu(pid: p.id, wid: w.id, iid: it.id) }
                 }
                 .padding(.trailing, 12).frame(minHeight: 64)
                 ScrollView {

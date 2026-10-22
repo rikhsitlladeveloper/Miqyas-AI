@@ -99,7 +99,9 @@ struct RootView: View {
             Aurora()
             page
                 .id("\(app.tab)-\(app.stack.count)-\(app.top.pageKey)")
-                .transition(app.dir > 0 ? .push(from: .trailing) : .push(from: .leading))
+                // the page sliding away takes no taps, so a second tap cannot create or go back twice
+                .transition((app.dir > 0 ? AnyTransition.push(from: .trailing) : .push(from: .leading))
+                    .combined(with: .modifier(active: TapsOff(off: true), identity: TapsOff(off: false))))
             // iPhone's back gesture: a swipe from the left edge closes the page
             if app.stack.count > 1 && app.sheet == nil {
                 Color.clear.frame(width: 20).frame(maxHeight: .infinity).contentShape(Rectangle())
@@ -171,4 +173,10 @@ struct RootView: View {
             else if ProjectSheet.handles(s) { ProjectSheet(app: app, sheet: s) } else { ProfileSheet(app: app, sheet: s) }
         }
     }
+}
+
+/// Off: the view takes no taps (a page while it slides away).
+private struct TapsOff: ViewModifier {
+    let off: Bool
+    func body(content: Content) -> some View { content.allowsHitTesting(!off) }
 }

@@ -326,8 +326,10 @@ final class Doc {
             }
         }
         for o in r.openings {
-            rows.append([cell(t("r.op", ["o": t(o.type == "door" ? "op.door" : "op.window"), "w": o.wall, "wd": len(o.w), "h": len(o.h),
-                                         "off": (o.offDrag ? "≈ " : "") + len(o.off), "s": o.type == "window" ? t("r.sill", ["s": len(o.sill)]) : ""]), span: 2)])
+            // the line says "m": its sizes are in metres whatever the length unit
+            let lm = { (mm: Int) in Geo.fmtLen(mm, .m, en) }
+            rows.append([cell(t("r.op", ["o": t(o.type == "door" ? "op.door" : "op.window"), "w": o.wall, "wd": lm(o.w), "h": lm(o.h),
+                                         "off": (o.offDrag ? "≈ " : "") + lm(o.off), "s": o.type == "window" ? t("r.sill", ["s": lm(o.sill)]) : ""]), span: 2)])
         }
         if ar?.net != nil, let H = r.dim("H").v, let ar {
             let vol = String(format: "%.2f", Double(ar.floor) * Double(H) / 1e9)
@@ -526,22 +528,28 @@ func reportPages(_ sn: Snap, draft: Bool, meta: QuoteMeta?, image: @escaping (St
     let d = Doc(sn, draft, meta, image, now)
     let rooms = sn.rooms
     d.newPage(); d.parties()
-    if let first = rooms.first { d.roomBlock(first.room, 1, first.floorLabel) }
-    d.fn(d.t("r.geoNote"))
-    var i = 1
-    while i < rooms.count {
-        d.newPage()
-        d.roomBlock(rooms[i].room, i + 1, rooms[i].floorLabel)
-        if i + 1 < rooms.count { d.roomBlock(rooms[i + 1].room, i + 2, rooms[i + 1].floorLabel) }
-        i += 2
+    // with the plans and the measurements both off the rooms print nothing: no empty pages for them
+    let roomsOn = sn.pdf.plan || sn.pdf.dims
+    if roomsOn {
+        if let first = rooms.first { d.roomBlock(first.room, 1, first.floorLabel) }
+        d.fn(d.t("r.geoNote"))
+        var i = 1
+        while i < rooms.count {
+            d.newPage()
+            d.roomBlock(rooms[i].room, i + 1, rooms[i].floorLabel)
+            if i + 1 < rooms.count { d.roomBlock(rooms[i + 1].room, i + 2, rooms[i + 1].floorLabel) }
+            i += 2
+        }
     }
     d.figurePages()
     d.notesPages()
-    d.newPage()
+    // the first page holding only the parties has room for the rest
+    if roomsOn || d.pages.count > 1 { d.newPage() }
     if sn.pdf.views { d.views() }
     if sn.pdf.estimate { d.estimate(sn.estimate) }
     if !sn.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { d.h2(d.t("rpt.notes")); d.para(d.a(sn.notes, d.ui(10)), top: 10, bottom: 10) }
-    d.fn(d.t("r.qtyNote")); d.fn(d.t("r.moneyNote", ["c": sn.currency]))
+    // the notes on quantities and money are the estimate's
+    if sn.pdf.estimate { d.fn(d.t("r.qtyNote")); d.fn(d.t("r.moneyNote", ["c": sn.currency])) }
     if sn.pdf.sign { d.signatures() }
     return d.finish()
 }

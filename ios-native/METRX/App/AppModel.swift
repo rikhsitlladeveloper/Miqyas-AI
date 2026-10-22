@@ -188,6 +188,21 @@ final class AppModel {
         }
     }
 
+    /// Advanced turned off: its pages (parts and pack, quotes, the workshop's rules and boards) leave every stack.
+    func dropAdvanced() {
+        for (t, st) in stacks {
+            let keep = st.filter { r in
+                switch r {
+                case .fCut, .fPack, .workshop, .materials: return false
+                case .report(_, let no): return no == nil
+                default: return true
+                }
+            }
+            if keep.count != st.count { stacks[t] = keep }
+        }
+        if MeasureCalc.shared.tool == "sheet" { MeasureCalc.shared.tool = "area" }
+    }
+
     /// Back until a page that matches (or the first page).
     func popTo(_ match: (Route) -> Bool) {
         dir = -1

@@ -40,11 +40,15 @@ final class PlacingTests: XCTestCase {
     func testTwoPiecesOnTopOfEachOtherAndOneOutside() {
         let a = placed(newFreeWardrobe("Shkaf 1", "h3", 1200, 2200, 600, false, "door", ws), ["B"], "r1", "w1", off: 200)
         let b = placed(newFreeWardrobe("Shkaf 2", "h3", 1200, 2200, 600, false, "door", ws), ["B"], "r1", "w1", off: 900)
-        XCTAssertEqual(placeWarnings(b, [a], room, walls, ws).map(\.key), ["fz.hitPiece"])
+        XCTAssertTrue(placeWarnings(b, [a], room, walls, ws).map(\.key).contains("fz.hitPiece"))
+        // side by side they only touch, but a door hinged where they meet would hit the other's fronts…
         let c = placed(newFreeWardrobe("Shkaf 2", "h3", 1200, 2200, 600, false, "door", ws), ["B"], "r1", "w1", off: 1400)
-        XCTAssertTrue(placeWarnings(c, [a], room, walls, ws).isEmpty)
+        XCTAssertEqual(placeWarnings(c, [a], room, walls, ws).map(\.key), ["fz.doorsHit"])
+        // …so 50 mm between them lets it open
+        let c2 = placed(newFreeWardrobe("Shkaf 2", "h3", 1200, 2200, 600, false, "door", ws), ["B"], "r1", "w1", off: 1450)
+        XCTAssertTrue(placeWarnings(c2, [a], room, walls, ws).isEmpty)
         var desk = newFreeCabinet("Stol 1", "desk", 1200, 750, 600, ws); desk.roomId = "r1"; desk.pose = Pose("A", 2500, 2700, 0)
-        XCTAssertEqual(placeWarnings(desk, [], room, walls, ws).map(\.key), ["fz.outside"])
+        XCTAssertTrue(placeWarnings(desk, [], room, walls, ws).map(\.key).contains("fz.outside"))
     }
 
     func testAOneWallKitchenSlidesAlongItsWall() {

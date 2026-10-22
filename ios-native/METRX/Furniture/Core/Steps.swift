@@ -115,7 +115,16 @@ func roomKitchen(_ m: FModelDef, _ ids: [String], _ first: String, _ len: (Strin
     let on = placeWalls(probe, ids, first).filter { $0 != ISLAND }
     var v: [String: Int] = [:]
     for (i, w) in on.enumerated() { v["s\(i)"] = len(w) ?? (i < m.sides.count ? m.sides[i] : 3000) }
-    if let usual = stepsOf(m).first(where: { $0.key == "isl" })?.usual { v["isl"] = max(600, min(usual, (v["s0"] ?? usual) - 600)) }
+    // an island runs along its side; a peninsula out from it, so it is held to the room's other way less the side's
+    // units and a 900 way round its end
+    var cap: Int? = v["s0"].map { $0 - 600 }
+    if m.layout == "P" {
+        cap = nil
+        let i0 = ids.firstIndex(of: on.first ?? first) ?? -1
+        let j = ids.isEmpty ? -1 : (i0 + 1) % ids.count
+        if j >= 0, let l = len(ids[j]) { cap = l - 600 - 900 }
+    }
+    if let usual = stepsOf(m).first(where: { $0.key == "isl" })?.usual { v["isl"] = max(600, min(usual, cap ?? usual)) }
     if let roomH { v["h"] = roomH }
     return pieceOf(m, v, ws, name, now: now)
 }

@@ -24,6 +24,21 @@ import Observation
     @MainActor func openAll(_ keys: [String]) { target = Set(keys); run() }
     @MainActor func closeAll() { target = []; run() }
 
+    /// The page goes away: the run stops, everything where it was going.
+    @MainActor func stop() {
+        job?.cancel(); job = nil
+        var done: [String: Double] = [:]
+        for k in target { done[k] = 1 }
+        if done != prog { prog = done }
+    }
+
+    /// Another room: all shut, nothing moving.
+    @MainActor func reset() {
+        job?.cancel(); job = nil
+        if !target.isEmpty { target = [] }
+        if !prog.isEmpty { prog = [:] }
+    }
+
     /// Moves everything towards target; a new target stops the old run where it is and starts from there.
     @MainActor private func run() {
         job?.cancel()
@@ -54,7 +69,8 @@ import Observation
             for k in keys { let a = from[k] ?? 0; next[k] = a + (to - a) * s }
             prog = next
             if e >= 1 { break }
-            try? await Task.sleep(nanoseconds: 16_000_000)
+            // each step rebuilds the furniture in the scene: about 25 a second is smooth enough and keeps it light
+            try? await Task.sleep(nanoseconds: 40_000_000)
         }
         var done = prog
         for k in keys { if to == 0 { done.removeValue(forKey: k) } else { done[k] = 1 } }
@@ -77,15 +93,52 @@ private func doorInner(_ door: String, _ keys: Set<String>) -> Set<String> {
 
 /// The room's scene with this order's furniture in it, each door and drawer as far open as amt says (0 to 1), what can
 /// be opened, and the key the scene is rebuilt by (the camera stays where it is when only doors move: the furniture has
-/// as many parts open as closed).
-func furnShell(_ p: Project, _ room: Room, _ base: Shell3D, _ amt: [String: Double], _ snap: Bool) -> (Shell3D, Furn3D, String) {
+/// as many parts open as closed). With cache (whose base gave base) the key is short and stable, not a dump of the furniture.
+func furnShell(_ p: Project, _ room: Room, _ base: Shell3D, _ amt: [String: Double], _ snap: Bool, cache: Furn3DCache? = nil) -> (Shell3D, Furn3D, String) {
     let s = AppSettings.shared, ws = s.workshop, mats = s.mats
     let fs = p.furniture.filter { $0.roomId == room.id || ($0.roomId == nil && FREE_ROOM + $0.id == room.id) }
     let fur = furniture3D(fs, base.bases, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [], amt: { k in amt[k] ?? 0 })
     var moving: [String] = []
     for k in amt.keys.sorted() { moving.append(k + "=" + String(Int(((amt[k] ?? 0) * 1000).rounded()))) }
-    let key = shellKey([room], snap) + "|\(fs)|\(ws)|\(mats.map(\.rgb))|" + moving.joined(separator: ",")
+    let key: String
+    if let cache {
+        key = cache.key + "|f" + String(cache.revision(fs, ws, mats)) + "|" + moving.joined(separator: ",")
+    } else {
+        key = shellKey([room], snap) + "|\(fs)|\(ws)|\(mats.map(\.rgb))|" + moving.joined(separator: ",")
+    }
     return (base.plus(fur.parts, fur.edges), fur, key)
+}
+
+/// What a room's 3D with furniture is built from, kept between redraws: the room's walls and floor are built again only
+/// when the room changes, and the furniture counts as changed (a new revision) only when the pieces, the workshop or the
+/// materials do, so a door opening costs a short key and the furniture's rebuild alone.
+final class Furn3DCache {
+    private var room: Room? = nil
+    private var snap = true
+    private var bare = false
+    private var shell: Shell3D? = nil
+    /// What the walls and floor were built from (Scene3D's baseKey).
+    private(set) var key = ""
+    private var fs: [Furniture] = []
+    private var ws: Workshop? = nil
+    private var mats: [Mat] = []
+    private var rev = 0
+
+    /// The room's shell; bare: only its floor (furniture without a room).
+    func base(_ r: Room, _ snap: Bool, bare: Bool = false) -> Shell3D {
+        if let shell, room == r, self.snap == snap, self.bare == bare { return shell }
+        let built = buildShell([r], single: true, snap: snap)
+        let s = bare ? built.floorOnly() : built
+        room = r; self.snap = snap; self.bare = bare; shell = s
+        key = shellKey([r], snap) + (bare ? "|bare" : "")
+        return s
+    }
+
+    /// The furniture's revision: a new one when fs, ws or mats differ from the last ones.
+    func revision(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat]) -> Int {
+        if fs != self.fs || ws != self.ws || mats != self.mats { self.fs = fs; self.ws = ws; self.mats = mats; rev += 1 }
+        return rev
+    }
 }
 
 /// The 2D | 3D switch of the kitchen and wardrobe designers.
@@ -118,7 +171,18 @@ struct Furniture3DPane: View {
     @State private var mo = DoorMotion()
     @State private var cam = Cam3D()
     @State private var shot = Shot3D()
+    /// The room's walls and floor, built once while the room stays the same.
+    @State private var cache = Furn3DCache()
+    /// A picture is being taken: a second tap does nothing.
+    @State private var taking = false
     var body: some View {
+        Group { content }
+            // the doors are the room's: another room starts all shut; leaving the page stops the run
+            .onChange(of: room.id) { _, _ in mo.reset() }
+            .onDisappear { mo.stop() }
+    }
+
+    @ViewBuilder private var content: some View {
         let snap = AppSettings.shared.angleSnap
         if !Geo.ready3D(room, snap) {
             T(tr(room.isPoly ? "sk.need3d" : "3d.need"), ui(17, 700, G.ink, lh: 1.35), align: .center)
@@ -126,12 +190,12 @@ struct Furniture3DPane: View {
         } else {
             // furniture without a room stands on a floor of its size, no walls round it
             let free = isFreeRoom(room)
-            let built = buildShell([room], single: true, snap: snap)
-            let (shell, fur, key) = furnShell(p, room, free ? built.floorOnly() : built, mo.prog, snap)
-            Scene3D(shell: shell, key: key, cam: cam, shot: shot, points: shell.labels.map(\.p), label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
+            let base = cache.base(room, snap, bare: free)
+            let (shell, fur, key) = furnShell(p, room, base, mo.prog, snap, cache: cache)
+            Scene3D(shell: shell, key: key, baseKey: cache.key, cam: cam, shot: shot, points: shell.labels.map(\.p), label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
                     onTap: { pt in toggle(fur, pt) }) {
                 if !free {
-                    ShotPill(icon: "camera", label: tr("3d.save")) { save3DView(app, p.id, room, shot) }
+                    ShotPill(icon: "camera", label: tr("3d.save")) { save() }
                         .accessibilityIdentifier("3d.save")
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         .padding(.top, 10).padding(.trailing, 10)
@@ -164,18 +228,26 @@ struct Furniture3DPane: View {
         let (e, d) = cam.ray(pt.x, pt.y)
         if let k = fur.pick(e, d) { mo.toggle(k) }
     }
-}
 
-/// "Add to report" on a 3D picture: at most 4 views a room.
-func save3DView(_ app: AppModel, _ pid: String, _ room: Room, _ shot: Shot3D) {
-    if room.views.count >= 4 { app.say("3d.max", kind: .error); return }
-    let rid = room.id
-    shot.take { img in
-        DispatchQueue.main.async {
-            let id = uid()
-            guard let img, let file = ViewFiles.save(id, img) else { app.say("3d.fail", kind: .error); return }
-            Store.shared.update(pid) { pp in if let i = pp.rooms.firstIndex(where: { $0.id == rid }) { pp.rooms[i].views.append(View3D(id: id, img: file, ts: nowMs())) } }
-            app.say("3d.saved")
+    /// "Add to report" on the 3D picture: at most 4 views a room, counted in the store (not as this page last drew it);
+    /// a second tap while a picture is being taken does nothing.
+    private func save() {
+        let pid = p.id, rid = room.id
+        func full() -> Bool { (Store.shared.get(pid)?.rooms.first { $0.id == rid }?.views.count ?? 0) >= 4 }
+        if taking { return }
+        if full() { app.say("3d.max", kind: .error); return }
+        taking = true
+        shot.take { img in
+            DispatchQueue.main.async {
+                taking = false
+                if full() { app.say("3d.max", kind: .error); return }
+                let id = uid()
+                guard let img, let file = ViewFiles.save(id, img) else { app.say("3d.fail", kind: .error); return }
+                Store.shared.update(pid) { pp in
+                    if let i = pp.rooms.firstIndex(where: { $0.id == rid }), pp.rooms[i].views.count < 4 { pp.rooms[i].views.append(View3D(id: id, img: file, ts: nowMs())) }
+                }
+                app.say("3d.saved")
+            }
         }
     }
 }

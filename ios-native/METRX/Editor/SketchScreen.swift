@@ -13,6 +13,17 @@ struct SketchScreen: View {
     @State private var taps: [Pt] = []
     @State private var tapClosed = false
     @State private var forceClosed = false
+    /// A shape drawn and not made into a room: the first close says it is not kept, a second one (or the toast's button) leaves.
+    @State private var warned = false
+
+    private func close() {
+        let drawn = !stroke.isEmpty || raw != nil || !taps.isEmpty
+        if drawn && !warned {
+            warned = true
+            let me = app.top
+            app.say("sk.leaveQ", kind: .info, action: "sk.leave") { if app.top == me { app.pop() } }
+        } else { app.pop() }
+    }
 
     private var result: Sketch.Result? {
         let snap = AppSettings.shared.angleSnap
@@ -35,7 +46,7 @@ struct SketchScreen: View {
             RoomGrid().ignoresSafeArea()
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
-                    GlassIconButton("x", tr("common.close")) { app.pop() }.accessibilityIdentifier("back")
+                    GlassIconButton("x", tr("common.close")) { close() }.accessibilityIdentifier("back")
                     VStack(alignment: .leading, spacing: 0) { T(tr("sk.title"), ui(20, 800), lines: 1); T(name, ui(12, 400, G.ink2), lines: 1) }
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }

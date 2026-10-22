@@ -17,12 +17,17 @@ final class KitchenTests: XCTestCase {
     func testAutoFillUsesWholeUnitsAndPutsTheSinkOverTheWater() {
         let f = autoFill(f0, runs, ws, [], water)
         let lowA = f.modules.filter { $0.wall == "A" && !isUpper($0) }
-        XCTAssertEqual(lowA.map(\.w), [600, 600, 600, 600, 600, 400])
-        XCTAssertEqual(lowA.map(\.x), [0, 600, 1200, 1800, 2400, 3000])
-        XCTAssertEqual(lowA[2].app, "sink")                      // 1200–1800 holds the water at 1300
+        // A turns into B: its narrow piece at its start, a 50 filler, then a whole unit in the corner, blind behind
+        // B's first unit (the filler keeps the door beside it clear of B's fronts)
+        XCTAssertEqual(lowA.map(\.w), [350, 600, 600, 600, 600, 50, 600])
+        XCTAssertEqual(lowA.map(\.x), [0, 350, 950, 1550, 2150, 2750, 2800])
+        XCTAssertEqual(lowA[5].type, "filler")
+        XCTAssertEqual(lowA[2].app, "sink")                      // 950–1550 holds the water at 1300
+        XCTAssertEqual(lowA.last?.fronts.kind, "panel")
+        // B starts past the corner with a 50 filler, so its doors and handles clear A's
         let lowB = f.modules.filter { $0.wall == "B" && !isUpper($0) }
-        XCTAssertEqual(lowB.map(\.w), [600, 600, 600, 200])
-        XCTAssertEqual(lowB.last?.type, "filler")
+        XCTAssertEqual(lowB.map(\.w), [50, 600, 600, 600, 150])
+        XCTAssertEqual(lowB.first?.type, "filler"); XCTAssertEqual(lowB.last?.type, "filler")
         XCTAssertEqual(lowB.first?.x, 600)
         XCTAssertEqual(fillOf(f, runs[0], false), Fill(used: 3400, avail: 3400))
         let c = checks(f, runs, ws, [], water)
@@ -33,8 +38,9 @@ final class KitchenTests: XCTestCase {
     func testWindowsLeaveASpaceInTheUpperRow() {
         let win = [Opening(id: "o", type: "window", wall: "B", w: 1200, h: 1400, off: 1000, sill: 900)]
         let f = autoFill(f0, runs, ws, win, [])
-        // B's upper row from 320: 320–920 is clear; 920–1520, 1520–2120 and 2120–2600 meet the window at 1000–2200
-        XCTAssertEqual(f.modules.filter { $0.wall == "B" && isUpper($0) }.map(\.type), ["wall", "gap", "gap", "gap"])
+        // B's upper row past the corner: a 50 filler, then 370–970 is clear; 970–1570, 1570–2170 and 2170–2600 meet
+        // the window at 1000–2200
+        XCTAssertEqual(f.modules.filter { $0.wall == "B" && isUpper($0) }.map(\.type), ["filler", "wall", "gap", "gap", "gap"])
     }
 
     func testTooLongAndGapsAreReported() {

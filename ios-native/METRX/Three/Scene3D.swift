@@ -158,10 +158,12 @@ final class Scene3DARView: ARView {
     override func layoutSubviews() { super.layoutSubviews(); onLayout?(bounds.size) }
 }
 
-/// The 3D picture of shell; key changes when the rooms change (it is rebuilt then).
+/// The 3D picture of shell; key changes when the rooms change (it is rebuilt then). baseKey, when given, is what the
+/// walls and the floor are built from: while it stays the same, a new key rebuilds only the furniture (doors opening).
 struct Scene3DView: UIViewRepresentable {
     let shell: Shell3D
     let key: String
+    var baseKey: String? = nil
     let cam: Cam3D
     var shot: Shot3D? = nil
     /// A short tap with one finger (it opens a door), in points.
@@ -178,7 +180,7 @@ struct Scene3DView: UIViewRepresentable {
         return v
     }
 
-    func updateUIView(_ v: Scene3DARView, context: Context) { context.coordinator.onTap = onTap; context.coordinator.update(shell, key, cam, shot) }
+    func updateUIView(_ v: Scene3DARView, context: Context) { context.coordinator.onTap = onTap; context.coordinator.update(shell, key, baseKey, cam, shot) }
 
     static func dismantleUIView(_ v: Scene3DARView, coordinator: Scene3DCoordinator) { coordinator.detach() }
 }
@@ -192,6 +194,7 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
     private let camera = PerspectiveCamera()
     private let content = Entity()
     private var key: String? = nil
+    private var baseKey: String? = nil
     private var prims: [Prim] = []
     private var lines: [LineP] = []
     private var shell: Shell3D?
@@ -216,7 +219,7 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
 
     func detach() { cam?.onMove = nil; cam?.projector = nil; cam?.stop() }
 
-    func update(_ s: Shell3D, _ k: String, _ c: Cam3D, _ shot: Shot3D?) {
+    func update(_ s: Shell3D, _ k: String, _ bk: String?, _ c: Cam3D, _ shot: Shot3D?) {
         if cam !== c {
             cam = c
             c.projector = { [weak self] p in
@@ -225,8 +228,10 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
             }
         }
         if k != key {
-            key = k
-            build(s)
+            // the same walls and floor: only the furniture is built again
+            let onlyFurn = bk != nil && bk == baseKey && shell != nil
+            key = k; baseKey = bk
+            if onlyFurn { rebuildFurn(s) } else { build(s) }
             camera.camera.far = Float(s.far)
             c.onMove = { [weak self] in self?.push() }
             c.load(s)
@@ -269,12 +274,29 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
     private func build(_ s: Shell3D) {
         content.children.removeAll()
         prims = []; lines = []; shell = s
-        // faces: one entity per piece and lit colour
-        for p in s.parts where !p.faces.isEmpty {
+        addParts(s.parts, s.light)
+        addEdges(s.edges)
+        addGrid(s)
+    }
+
+    /// The furniture taken out and built again from s; the walls, the floor and the grid stay as they are.
+    private func rebuildFurn(_ s: Shell3D) {
+        for p in prims where p.role == .furn { p.e.removeFromParent() }
+        prims.removeAll { $0.role == .furn }
+        for l in lines where l.wall.hasPrefix("furn ") { l.e.removeFromParent() }
+        lines.removeAll { $0.wall.hasPrefix("furn ") }
+        shell = s
+        addParts(s.parts.filter { $0.role == .furn }, s.light)
+        addEdges(s.edges.filter { $0.wall.hasPrefix("furn ") })
+    }
+
+    /// Faces: one entity per piece and lit colour.
+    private func addParts(_ parts: [Part3], _ light: V3) {
+        for p in parts where !p.faces.isEmpty {
             var byColor: [Int: [Face3]] = [:]
             var order: [Int] = []
             for f in p.faces {
-                let c = shade(p.rgb, f.n, s.light)
+                let c = shade(p.rgb, f.n, light)
                 if byColor[c] == nil { order.append(c) }
                 byColor[c, default: []].append(f)
             }
@@ -299,8 +321,11 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
                 prims.append(Prim(e: e, rgb: c, op: p.op, role: p.role, group: p.group, wall: p.wall))
             }
         }
-        // the dark wall outlines: thin bars
-        for ed in s.edges where !ed.segs.isEmpty {
+    }
+
+    /// The dark outlines: thin bars.
+    private func addEdges(_ edges: [Edges3]) {
+        for ed in edges where !ed.segs.isEmpty {
             var pos: [SIMD3<Float>] = [], idx: [UInt32] = []
             var i = 0
             while i + 1 < ed.segs.count { bar(&pos, &idx, ed.segs[i], ed.segs[i + 1], 0.012); i += 2 }
@@ -309,6 +334,9 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
             content.addChild(e)
             lines.append(LineP(e: e, group: ed.group, wall: ed.wall))
         }
+    }
+
+    private func addGrid(_ s: Shell3D) {
         // the floor grid (three.js GridHelper: the middle lines darker)
         let half = s.gridSize / 2, step = s.gridSize / Double(max(1, s.gridDiv)), center = s.gridDiv % 2 == 0 ? s.gridDiv / 2 : -1
         var mp: [SIMD3<Float>] = [], mi: [UInt32] = [], rp: [SIMD3<Float>] = [], ri: [UInt32] = []
@@ -395,6 +423,8 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
 struct Scene3D<Overlay: View>: View {
     let shell: Shell3D
     let key: String
+    /// What the walls and floor are built from (see Scene3DView): nil rebuilds everything on a new key.
+    var baseKey: String? = nil
     let cam: Cam3D
     var shot: Shot3D? = nil
     var points: [V3] = []
@@ -404,7 +434,7 @@ struct Scene3D<Overlay: View>: View {
 
     var body: some View {
         ZStack {
-            Scene3DView(shell: shell, key: key, cam: cam, shot: shot, onTap: onTap)
+            Scene3DView(shell: shell, key: key, baseKey: baseKey, cam: cam, shot: shot, onTap: onTap)
             let _ = cam.tick
             ForEach(points.indices, id: \.self) { i in
                 if let p = cam.project(points[i]) { label(i).position(p) }

@@ -84,9 +84,10 @@ struct MeasureScreen: View {
         let on = s.laser == .connected
         let rs = Array(s.readings.reversed())
         let last = on && c.cont && c.liveVal != nil ? c.liveVal : rs.first?.mm
-        // furniture makers have the sheets tool where builders have bricks
-        let _ = { if s.furniture && c.tool == "brick" { DispatchQueue.main.async { c.tool = "sheet" } }
-                  if !s.furniture && c.tool == "sheet" { DispatchQueue.main.async { c.tool = "area" } } }()
+        // furniture makers have the sheets tool where builders have bricks; it is the advanced app's (simple mode has neither)
+        let sheets = s.furniture && s.advanced
+        let _ = { if sheets && c.tool == "brick" { DispatchQueue.main.async { c.tool = "sheet" } }
+                  if (s.furniture && !sheets && c.tool == "brick") || (!sheets && c.tool == "sheet") { DispatchQueue.main.async { c.tool = "area" } } }()
         ZStack(alignment: .bottom) {
             VStack(spacing: 0) {
                 HStack(spacing: 12) {
@@ -203,8 +204,10 @@ private struct Tools: View {
     let c: MeasureCalc
     var body: some View {
         HStack(spacing: 5) {
-            // furniture makers have the sheets tool where builders have bricks
-            ForEach([("area", "room"), ("wall", "walls"), ("vol", "cube"), ("sum", "dim"), (AppSettings.shared.furniture ? "sheet" : "brick", "")], id: \.0) { k, ic in
+            // the fifth tool: bricks for builders, sheets for a furniture maker's advanced app, none in simple mode
+            let s = AppSettings.shared
+            let fifth: [(String, String)] = !s.furniture ? [("brick", "")] : s.advanced ? [("sheet", "")] : []
+            ForEach([("area", "room"), ("wall", "walls"), ("vol", "cube"), ("sum", "dim")] + fifth, id: \.0) { k, ic in
                 let on = c.tool == k
                 let tint: Color = on ? .white : G.ink
                 VStack(spacing: 3) {
@@ -338,8 +341,9 @@ private struct CalcCard: View {
             if !c.cur.isEmpty { return (Geo.fmtLen(c.cur.reduce(0) { $0 + ($1?.mm ?? 0) }, u, en) + " " + m, nil, nil) }
         case "sheet":
             if let a = g(0), let b = g(1) {
-                let area = Int64(a) * Int64(b)
-                return ("\(sheetsFor(Double(area))) " + tr("u.sheet"), nil, (tr("qs.spec"), Geo.fmtArea(area, en) + " " + m2))
+                // the workshop's sheet size (Profile → Ustaxona sozlamalari)
+                let area = Int64(a) * Int64(b), ws = AppSettings.shared.workshop
+                return ("\(sheetsFor(Double(area), sheetL: ws.sheetL, sheetW: ws.sheetW)) " + tr("u.sheet"), nil, (tr("qs.spec", ["l": ws.sheetL, "w": ws.sheetW]), Geo.fmtArea(area, en) + " " + m2))
             }
         case "brick":
             if let a = g(0), let b = g(1) {
@@ -570,9 +574,9 @@ private struct SendSheet: View {
         }
         AppSettings.shared.markReadingUsed(x.id, label)
         app.sheet = nil
-        // to the room, with that measurement chosen (prototype doSend)
+        // to the room, with that measurement chosen (prototype doSend); the Projects tab keeps its pages under it
         app.tab = .projects
-        app.stacks[.projects] = [.root, .project(id: p.id, tab: "rooms"), .editor(pid: p.id, rid: r.id, mode: "plan")]
+        app.push(.editor(pid: p.id, rid: r.id, mode: "plan"))
         RoomOps.shared.focusKey = k; RoomOps.shared.focusRoom = r.id
         app.say("qm.sent", kind: .info)
     }

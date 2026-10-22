@@ -41,6 +41,17 @@ final class PieceScene {
     let dimCenter: V3, dimRadius: Double
     /// The corners of the boards' bounds, and of the bounds with the dimension lines in: what the camera fits in.
     let ext: [V3], dimExt: [V3]
+    /// The boards' draw order for the last 3° step of turning it (and picture size): worked out again only past the step.
+    private var orderKey: [Int] = []
+    private var orderBoxes: [SBox] = []
+    private let orderLock = NSLock()
+    func cachedOrder(_ key: [Int], _ make: () -> [SBox]) -> [SBox] {
+        orderLock.lock(); defer { orderLock.unlock() }
+        if key == orderKey { return orderBoxes }
+        let o = make()
+        orderKey = key; orderBoxes = o
+        return o
+    }
     init(_ env: [SFace], _ furn: [SBox], _ center: V3, _ radius: Double, _ dims: [String: DimLine], _ tint: [String: String], _ az0: Double,
          dimCenter: V3? = nil, dimRadius: Double? = nil, ext: [V3] = [], dimExt: [V3]? = nil) {
         self.env = env; self.furn = furn; self.center = center; self.radius = radius; self.dims = dims; self.tint = tint; self.az0 = az0
@@ -93,12 +104,13 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> PieceScene {
             let l = Double(i < sides.count ? sides[i] : Int(bas.len * 1000)) / 1000
             dims["s\(i)"] = DimLine(a: bas.at(0, y, 0.68), b: bas.at(l, y, 0.68), tick: PV_UP); tint["s\(i)"] = w
         }
-        // the island stands 900 out in front of the first wall's units, as furniture3D puts it
+        // the island (or peninsula) where furniture3D puts it: its length past its seating side
         let w0 = onWalls.first.flatMap { b[$0] }
         let isl = Double(f.modules.filter { $0.wall == ISLAND && !isUpper($0) }.reduce(0) { $0 + $1.w }) / 1000
         if let w0, isl > 0 {
-            let s = (w0.len - isl) / 2, back = Double(K_BASE_D + 900 + K_BASE_D) / 1000
-            dims["isl"] = DimLine(a: w0.at(s, y, back + 0.08), b: w0.at(s + isl, y, back + 0.08), tick: PV_UP); tint["isl"] = ISLAND
+            let ip = islandPose(f, Int((w0.len * 1000).rounded()))
+            let ib = poseBasis(b[ip.ref] ?? w0, ip, isl)
+            dims["isl"] = DimLine(a: ib.at(0, y, -0.40), b: ib.at(isl, y, -0.40), tick: PV_UP); tint["isl"] = ISLAND
         }
         if let w0 { dims["h"] = DimLine(a: w0.at(0, 0, 0.04), b: w0.at(0, H, 0.04), tick: w0.dir(1, 0)); tint["h"] = "wall" }
     } else if let m = wardOfF(f), let bas = b["A"] {
@@ -284,7 +296,12 @@ func drawPiece(_ cg: CGContext, _ size: CGSize, _ s: PieceScene, hi: String?, az
         }
     }
     for fc in s.env { face(fc, fc.tag == "wall") }
-    for bx in pvDrawOrder(s.furn, cam) { for fc in bx.faces { face(fc, true) } }
+    // the boards' order kept per 3° of turning: sorting them is the slow part of a frame
+    let withDim = hi.map { s.dims[$0] != nil } ?? false
+    let turn = az * 60 / Double.pi
+    let step = (turn.isFinite ? Int(turn.rounded()) : 0) * 2 + (withDim ? 1 : 0)
+    let order = s.cachedOrder([step, Int(size.width), Int(size.height)]) { pvDrawOrder(s.furn, cam) }
+    for bx in order { for fc in bx.faces { face(fc, true) } }
     guard let hi, let d = s.dims[hi], let a = cam.p(d.a), let b = cam.p(d.b) else { return }
     let t0 = cam.p(d.a + d.tick * 0.09), t1 = cam.p(d.a - d.tick * 0.09), t2 = cam.p(d.b + d.tick * 0.09), t3 = cam.p(d.b - d.tick * 0.09)
     let w: CGFloat = 3.2

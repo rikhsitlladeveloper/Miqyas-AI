@@ -62,8 +62,10 @@ func frameOf(_ walls: [PlanWall], _ p: Pose) -> Frame? {
 func poseOf(_ walls: [PlanWall], _ ref: String, _ fr: Frame) -> Pose {
     guard let w = walls.first(where: { $0.id == ref }) else { return Pose(ref, 0, 0) }
     let d = fr.o - w.p0
-    let deg = Int((atan2(fr.u.dot(w.n), fr.u.dot(w.u)) * 180 / .pi).rounded())
-    return Pose(ref, Int(d.dot(w.u).rounded()), Int(d.dot(w.n).rounded()), (deg % 360 + 360) % 360)
+    // a NaN or an endless value (a degenerate frame) would crash Int(...): it counts as 0
+    func whole(_ v: Double) -> Int { v.isFinite ? Int(v.rounded()) : 0 }
+    let deg = whole(atan2(fr.u.dot(w.n), fr.u.dot(w.u)) * 180 / .pi)
+    return Pose(ref, whole(d.dot(w.u)), whole(d.dot(w.n)), (deg % 360 + 360) % 360)
 }
 
 /// fr turned by delta degrees about the middle of a w × d box.
@@ -119,14 +121,18 @@ func footsOf(_ f: Furniture, _ walls: [PlanWall], _ ws0: Workshop) -> [Foot] {
     }
     for id in f.walls where id != ISLAND {
         guard let w = walls.first(where: { $0.id == id }) else { continue }
-        let ms = f.modules.filter { $0.wall == id && !($0.type == "gap" && $0.app == "space") }
+        // empty stretches (before a corner kitchen, over a window) take no room; a dishwasher is under the worktop
+        let ms = f.modules.filter { m in
+            guard m.wall == id else { return false }
+            return m.type != "gap" || m.app == "dishwasher" || m.app == "fridge"
+        }
         func row(_ sel: [Module], _ d: Int, _ lo: Int, _ hi: Int, _ floor: Bool) {
             guard let a0 = sel.map(\.x).min(), let a1 = sel.map({ $0.x + $0.w }).max() else { return }
             out.append(Foot(pts: box(wallFrame(w), Double(a0), Double(a1), Double(d)), lo: lo, hi: hi, wall: id, a0: Double(a0), a1: Double(a1), floor: floor))
         }
-        // the lower row under its worktop, 600 deep
-        row(ms.filter { !isUpper($0) && $0.type != "tall" }, 600, 0, worktopTop(ws), true)
-        for t in ms where t.type == "tall" { row([t], t.d, 0, t.elev + t.h, true) }
+        // the lower row under its worktop, 600 deep; tall units and a free-standing fridge their own
+        row(ms.filter { !isUpper($0) && $0.type != "tall" && $0.app != "fridge" }, 600, 0, worktopTop(ws), true)
+        for t in ms where t.type == "tall" || t.app == "fridge" { row([t], t.d, 0, t.elev + t.h, true) }
         let up = ms.filter { isUpper($0) }
         if !up.isEmpty { row(up, up.map(\.d).max() ?? 350, up.map(\.elev).min() ?? 0, up.map { $0.elev + $0.h }.max() ?? 0, false) }
     }
@@ -137,6 +143,99 @@ func footsOf(_ f: Furniture, _ walls: [PlanWall], _ ws0: Workshop) -> [Foot] {
                         lo: 0, hi: worktopTop(ws), wall: nil, a0: 0, a1: 0, floor: true, island: true))
     }
     return out
+}
+
+/// What a hinged door needs beside its hinge to open: its own thickness swinging past the hinge, and the handle there.
+let HINGE_CLEAR = 50
+
+/// Whether f's left and right ends (along its wall) have a door hinged right at them. A kitchen's run ends may.
+func hingedEnds(_ f: Furniture) -> (Bool, Bool) {
+    if f.kind != "wardrobe" { return (true, true) }
+    guard let m = wardOfF(f) else { return (false, false) }
+    if m.slide != nil || m.sections.isEmpty { return (false, false) }
+    func at(_ i: Int, _ right: Bool) -> Bool {
+        let s = m.sections[i]
+        return s.fronts.kind == "door" && (s.fronts.n >= 2 || hingeRight(m, i) == right)
+    }
+    return (at(0, false), at(m.sections.count - 1, true))
+}
+
+/// How far from the corner a cabinet stands at its left (or right) end: 50 where a door hinges there, else 10.
+func cornerGap(_ f: Furniture, right: Bool = false) -> Int {
+    guard f.kind == "wardrobe" else { return W_GAP_SIDE }
+    let ends = hingedEnds(f)
+    return (right ? ends.1 : ends.0) ? HINGE_CLEAR : W_GAP_SIDE
+}
+
+/// A box in fr from a0 to a1 along and n0 to n1 out.
+private func quad(_ fr: Frame, _ a0: Double, _ a1: Double, _ n0: Double, _ n1: Double) -> [PlanPt] {
+    [fr.o + fr.u * a0 + fr.n * n0, fr.o + fr.u * a1 + fr.n * n0, fr.o + fr.u * a1 + fr.n * n1, fr.o + fr.u * a0 + fr.n * n1]
+}
+
+/// Where f's doors and drawers sweep when they open, in front of it: a door as far out as it is wide and, past its
+/// hinge, its own thickness; a drawer as far as it pulls out.
+func swingsOf(_ f: Furniture, _ walls: [PlanWall], _ ws0: Workshop) -> [Foot] {
+    let ws = wsOf(f, ws0)
+    var out: [Foot] = []
+    // a kitchen's units stand unit to unit with their own hinges, so only a cabinet's door is held to its thickness past the hinge
+    let past: Double = f.kind == "wardrobe" ? 20 : 0
+    func door(_ fr: Frame, _ a0: Double, _ a1: Double, _ d: Double, _ hingeR: Bool, _ lo: Int, _ hi: Int) -> Foot {
+        let b0 = a0 - (hingeR ? 0 : past), b1 = a1 + (hingeR ? past : 0)
+        return Foot(pts: quad(fr, b0, b1, d, d + (a1 - a0)), lo: lo, hi: hi, wall: nil, a0: a0, a1: a1, floor: true)
+    }
+    func drawer(_ fr: Frame, _ a0: Double, _ a1: Double, _ d: Double, _ lo: Int, _ hi: Int) -> Foot {
+        Foot(pts: quad(fr, a0, a1, d, d + d * 0.75), lo: lo, hi: hi, wall: nil, a0: a0, a1: a1, floor: true)
+    }
+    if f.kind == "wardrobe" {
+        guard let m = wardOfF(f), m.slide == nil, let fr = mainFrame(f, walls) else { return out }
+        let lo = legsOf(m, ws) + wardBase(m), hi = legsOf(m, ws) + m.h
+        let d = Double(m.d)
+        var a = 0.0
+        for (i, s) in m.sections.enumerated() {
+            let n = max(1, s.fronts.n), dw = Double(s.w) / Double(n)
+            if s.fronts.kind == "door" {
+                for j in 0..<n {
+                    let right = n == 2 ? j == 1 : hingeRight(m, i)
+                    out.append(door(fr, a + Double(j) * dw, a + Double(j + 1) * dw, d, right, lo, hi))
+                }
+            } else if s.fronts.kind == "drawer" {
+                out.append(drawer(fr, a, a + Double(s.w), d, lo, hi))
+            }
+            a += Double(s.w)
+        }
+        return out
+    }
+    // a kitchen: each unit's doors (a single one hinged on its left, a pair on the outer edges) or drawers
+    func unit(_ fr: Frame, _ m: Module) {
+        let n = max(1, m.fronts.n), dw = Double(m.w) / Double(n)
+        let a0 = Double(m.x), d = Double(m.d)
+        if m.fronts.kind == "door" {
+            for j in 0..<n { out.append(door(fr, a0 + Double(j) * dw, a0 + Double(j + 1) * dw, d, n == 2 && j == 1, m.elev, m.elev + m.h)) }
+        } else if m.fronts.kind == "drawer" {
+            out.append(drawer(fr, a0, a0 + Double(m.w), d, m.elev, m.elev + m.h))
+        }
+    }
+    for id in f.walls where id != ISLAND {
+        guard let w = walls.first(where: { $0.id == id }) else { continue }
+        for m in f.modules where m.wall == id && m.type != "gap" && m.type != "filler" { unit(wallFrame(w), m) }
+    }
+    if let p = islandPoseIn(f, walls), let fr = frameOf(walls, p) {
+        for m in f.modules where m.wall == ISLAND && m.type != "gap" && m.type != "filler" { unit(fr, m) }
+    }
+    return out
+}
+
+/// The strip in front of a piece where its doors and handles stand out (40 mm), the height of the piece.
+private func frontBand(_ ft: Foot) -> Foot {
+    let p = ft.pts
+    let e = p[3] - p[0]
+    let out = e * (40.0 / max(hypot(e.x, e.y), 1e-9))
+    return Foot(pts: [p[3], p[2], p[2] + out, p[3] + out], lo: ft.lo, hi: ft.hi, wall: ft.wall, a0: ft.a0, a1: ft.a1, floor: ft.floor)
+}
+
+/// Whether any of the swings sw meets any of feet at a height both reach.
+private func swingHits(_ sw: [Foot], _ feet: [Foot]) -> Bool {
+    sw.contains { a in feet.contains { b in a.lo < b.hi && b.lo < a.hi && overlaps(a.pts, b.pts) } }
 }
 
 /// Whether two convex boxes overlap by more than a few millimetres (pieces side by side only touch).
@@ -166,6 +265,17 @@ func placeWarnings(_ f: Furniture, _ others: [Furniture], _ room: Room, _ walls:
     for o in others {
         let theirs = footsOf(o, walls, ws)
         if mine.contains(where: { a in theirs.contains { b in a.lo < b.hi && b.lo < a.hi && overlaps(a.pts, b.pts) } }) { out.append(FitIssue(key: "fz.hitPiece", vars: ["n": o.name])) }
+    }
+    // doors and drawers that hit something when they open: another piece or its fronts, or the room's walls
+    let mySw = swingsOf(f, walls, ws)
+    let myFronts = mine + mine.map(frontBand)
+    for o in others {
+        let theirs = footsOf(o, walls, ws)
+        let theirFronts = theirs + theirs.map(frontBand)
+        if swingHits(mySw, theirFronts) || swingHits(swingsOf(o, walls, ws), myFronts) { out.append(FitIssue(key: "fz.doorsHit", vars: ["n": o.name])) }
+    }
+    if mySw.contains(where: { ft in ft.pts.contains { q in !inside(poly, q) && (walls.map { $0.dist(q) }.min() ?? 0) > 5 } }) {
+        out.append(FitIssue(key: "fz.doorRoom", vars: ["n": f.name]))
     }
     for op in room.openings {
         guard let w = walls.first(where: { $0.id == op.wall }) else { continue }

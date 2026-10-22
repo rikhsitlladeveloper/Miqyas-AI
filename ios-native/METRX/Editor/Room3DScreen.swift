@@ -12,6 +12,8 @@ struct Room3DScreen: View {
     @State private var taking = false
     /// A furniture order's doors and drawers, opening and shutting.
     @State private var mo = DoorMotion()
+    /// The room's walls and floor, built once while the room stays the same (doors moving rebuild only the furniture).
+    @State private var f3 = Furn3DCache()
     private var ops: RoomOps { RoomOps.shared }
 
     var body: some View {
@@ -46,11 +48,11 @@ struct Room3DScreen: View {
                 }
                 .padding(24).frame(maxWidth: .infinity, maxHeight: .infinity)
             } else {
-                let base = buildShell([r], single: true, snap: snap)
+                let base = f3.base(r, snap)
                 // a furniture order's furniture stands in its room; a tap opens a door or a drawer
-                let fur: (Shell3D, Furn3D, String)? = p.isFurniture ? furnShell(p, r, base, mo.prog, snap) : nil
+                let fur: (Shell3D, Furn3D, String)? = p.isFurniture ? furnShell(p, r, base, mo.prog, snap, cache: f3) : nil
                 let shell = fur?.0 ?? base
-                Scene3D(shell: shell, key: fur?.2 ?? shellKey([r], snap), cam: cam, shot: shot, points: shell.labels.map(\.p),
+                Scene3D(shell: shell, key: fur?.2 ?? shellKey([r], snap), baseKey: fur == nil ? nil : f3.key, cam: cam, shot: shot, points: shell.labels.map(\.p),
                         label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
                         onTap: fur.map { f in { pt in
                             let (e, d) = cam.ray(pt.x, pt.y)
@@ -73,6 +75,7 @@ struct Room3DScreen: View {
                            })
             }
         }
+        .onDisappear { mo.stop() }
     }
 
     private func save() {

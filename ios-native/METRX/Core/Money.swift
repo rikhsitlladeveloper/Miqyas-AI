@@ -32,10 +32,11 @@ enum Money {
         return .ok(Decimal(string: (i.isEmpty ? "0" : i) + f.padding(toLength: maxDec, withPad: "0", startingAt: 0)) ?? 0)
     }
 
-    /// prototype canonOf: what is stored ("120 000" → "120000", "4,50" → "4.50", "007" → "7", "5." → "5").
+    /// prototype canonOf: what is stored ("120 000" → "120000", "4,50" → "4.50", "007" → "7", "5." → "5", ",5" → "0.5").
     static func canon(_ str: String) -> String {
         var s = strip(str).replacingOccurrences(of: ",", with: ".")
         while s.count > 1 && s.hasPrefix("0") && s.dropFirst().first?.isNumber == true { s.removeFirst() }
+        if s.hasPrefix("."), s.dropFirst().first?.isNumber == true { s = "0" + s }
         if s.hasSuffix(".") { s.removeLast() }
         return s
     }

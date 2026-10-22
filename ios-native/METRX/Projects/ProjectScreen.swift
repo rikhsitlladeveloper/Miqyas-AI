@@ -32,7 +32,7 @@ struct ProjectScreen: View {
                     HStack { BackPill(text: tr(backLabel(p))) { app.pop() }; Spacer() }.padding(.leading, 8).frame(minHeight: 64)
                     ScrollView {
                         VStack(alignment: .leading, spacing: 0) {
-                            header(p)
+                            header(p, tab)
                             // a furniture order: what to do now, with the one button that does it
                             if p.isFurniture { NextStep(app: app, p: p) }
                             switch tab {
@@ -68,7 +68,8 @@ struct ProjectScreen: View {
         openURL(u)
     }
 
-    private func header(_ p: Project) -> some View {
+    /// tab: the tab shown (a price or quotes link in the simple app shows the rooms).
+    private func header(_ p: Project, _ tab: String) -> some View {
         let sub = p.isFurniture ? orderSub(p, ", ") : [dn(p.customer), dn(p.address)].filter { !$0.isEmpty }.joined(separator: ", ")
         let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
         return VStack(alignment: .leading, spacing: 0) {
@@ -77,7 +78,7 @@ struct ProjectScreen: View {
                 HStack(spacing: 8) {
                     T(dn(p.name), ui(17, 800, G.ink, lh: 1.2), lines: 1).frame(maxWidth: .infinity, alignment: .leading)
                     FStageChip(stage: p.stage)
-                    RoundIc(icon: "more", label: "menu") { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
+                    RoundIc(icon: "more", label: tr("common.menu")) { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
                 }
                 .padding(.leading, 4)
             } else {
@@ -89,7 +90,7 @@ struct ProjectScreen: View {
                         if p.isFurniture { CallButton(p: p) }
                         else if !p.phone.isEmpty { RoundIc(icon: "phone", label: tr("pl.call")) { call(p) } }
                         if p.location != nil { RoundIc(icon: "pin", label: tr("loc.open")) { openMap(p) } }
-                        RoundIc(icon: "more", label: "menu") { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
+                        RoundIc(icon: "more", label: tr("common.menu")) { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
                     }
                     // the simple furniture app shows no stage: with no address either, the line goes
                     if !(p.isFurniture && sub.isEmpty && !AppSettings.shared.advanced) {
@@ -160,7 +161,7 @@ private struct Nums: View {
         VStack(spacing: 0) {
             Hairline()
             HStack(spacing: 0) {
-                cell(tr("pl.wall"), wall, st.nets > 0 ? "m²" : nil)
+                cell(tr("pl.wall"), wall, st.nets > 0 ? tr("u.m2") : nil)
                 vline
                 cell(tr("pl.meas"), st.need > 0 ? "\(st.conf)/\(st.need)" : "—", nil).padding(.leading, 12)
                 vline
@@ -222,7 +223,7 @@ private struct WorkspacesTab: View {
                         let nw = wsNet(p, w)
                         if nw.1 > 0 {
                             VStack(alignment: .trailing) {
-                                Text(Geo.fmtArea(nw.0, AppSettings.shared.lang == .en) + " m²").st(num(14.5, 700))
+                                Text(Geo.fmtArea(nw.0, AppSettings.shared.lang == .en) + " " + tr("u.m2")).st(num(14.5, 700))
                                 T(tr("pj.wsNet"), ui(11.5, 400, G.ink2))
                             }
                         }
@@ -294,8 +295,11 @@ private struct InfoTab: View {
                 kv(tr("pr.location"), p.location.map { String(format: "%.5f, %.5f", $0.lat, $0.lng) } ?? tr("loc.none")) {
                     if p.location != nil { GBtn(tr("loc.open"), kind: .secondary, icon: "pin", height: 40, corner: 14, fontSize: 14, fill: false, map) }
                 }
-                Hairline()
-                kv(tr("np.currency"), p.currency) { EmptyView() }
+                // the simple furniture app has no prices, so no currency either
+                if !p.isFurniture || AppSettings.shared.advanced {
+                    Hairline()
+                    kv(tr("np.currency"), p.currency) { EmptyView() }
+                }
                 Hairline()
                 kv(tr("rpt.lang"), Lang.of(p.reportLang).longName) { EmptyView() }
             }

@@ -18,6 +18,8 @@ let K_WALL_D = 300
 let K_SPLASH = 600
 /// Where the next wall's lower and upper rows start, past the corner unit of the wall before.
 let K_CORNER = 600
+/// The filler a run starts with past a corner, so its doors and handles clear the run before (mm).
+let CORNER_FILLER = 50
 let K_UP_CORNER = 320
 let ISLAND = "island"
 
@@ -125,38 +127,77 @@ func kindOf(_ m: Module) -> String {
 }
 
 /// Fills the empty rows of every wall: 600 mm units, the last one narrower (from 300) or a filler; the unit over the
-/// cold water becomes the sink and the one at the gas pipe the hob. Upper units over a window leave a space.
+/// cold water becomes the sink and the one at the gas pipe the hob. Upper units over a window leave a space. A run that
+/// ends where the next one turns (or a peninsula joins) has its narrow piece at its start and a blind corner unit last;
+/// a run past a corner starts with a 50 mm filler.
 func autoFill(_ f: Furniture, _ runs: [Run], _ ws: Workshop, _ openings: [Opening], _ points: [SitePoint]) -> Furniture {
     var added: [Module] = []
-    func slots(_ avail: Int) -> [Int] {
-        let n = max(0, avail / 600), rem = avail - n * 600
-        return Array(repeating: 600, count: n) + (rem > 0 ? [rem] : [])
-    }
-    for r in runs where r.wall != ISLAND && r.len != nil {
+    for (ri, r) in runs.enumerated() {
+        guard r.wall != ISLAND, let len = r.len else { continue }
         let hasLow = f.modules.contains { $0.wall == r.wall && !isUpper($0) }
         let hasUp = f.modules.contains { $0.wall == r.wall && isUpper($0) }
+        // a run that ends where the next one turns (or a peninsula joins): its last unit stands behind the next run's
+        // first, so it is a blind corner unit (a panel, no door), and any narrower piece goes at the run's start instead
+        let nextIsWall = ri + 1 < runs.count && runs[ri + 1].wall != ISLAND
+        let corner = nextIsWall || (f.layout == "P" && ri == 0)
+        func slots(_ avail: Int) -> [Int] {
+            let n = max(0, avail / 600), rem = avail - n * 600
+            let whole = Array(repeating: 600, count: n), part = rem > 0 ? [rem] : []
+            return corner ? part + whole : whole + part
+        }
         if !hasLow {
-            var x = r.lowStart
+            // a run that starts past a corner: a 50 mm filler first, so its doors and handles clear the run before
+            let pad = r.lowStart > 0 ? CORNER_FILLER : 0
+            if pad > 0 { added.append(template("fillerLow", ws, r.wall, pad)) }
+            var x = r.lowStart + pad
             let water = points.first { $0.wall == r.wall && ($0.t == "cold" || $0.t == "sewer") }
             let gas = points.first { $0.wall == r.wall && $0.t == "gas" }
             var sink = false, hob = false
-            for w in slots(r.len! - r.lowStart) {
+            // the blind unit keeps a 50 mm filler before it, so the door beside it clears the next run's fronts
+            let row = slots(len - r.lowStart - pad - (corner ? CORNER_FILLER : 0))
+            var mine: [Module] = []
+            for (k, w) in row.enumerated() {
                 func inside(_ p: SitePoint?) -> Bool { guard let p else { return false }; return p.off >= x && p.off < x + w }
-                if w < 300 { added.append(template("fillerLow", ws, r.wall, w)) }
-                else if !sink && inside(water) { sink = true; added.append(template("sink", ws, r.wall, w)) }
-                else if !hob && inside(gas) { hob = true; added.append(template("hob", ws, r.wall, w)) }
-                else { added.append(template("base", ws, r.wall, w)) }
+                if corner && k == row.count - 1 { mine.append(template("fillerLow", ws, r.wall, CORNER_FILLER)); x += CORNER_FILLER }
+                if w < 300 { mine.append(template("fillerLow", ws, r.wall, w)) }
+                else if corner && k == row.count - 1 { var b = template("base", ws, r.wall, w); b.fronts = Fronts("panel", 1); mine.append(b) }
+                else if !sink && inside(water) { sink = true; mine.append(template("sink", ws, r.wall, w)) }
+                else if !hob && inside(gas) { hob = true; mine.append(template("hob", ws, r.wall, w)) }
+                else { mine.append(template("base", ws, r.wall, w)) }
                 x += w
             }
+            // the water or the gas behind the blind corner: the sink or the hob goes in the nearest open unit
+            func near(_ p: SitePoint, _ kind: String) {
+                var at = r.lowStart + pad
+                var best: (Int, Int)? = nil
+                for (k, m) in mine.enumerated() {
+                    let c = at + m.w / 2
+                    at += m.w
+                    guard m.type == "base", m.app.isEmpty, m.fronts.kind != "panel" else { continue }
+                    let dist = abs(c - p.off)
+                    if best == nil || dist < best!.1 { best = (k, dist) }
+                }
+                guard let i = best?.0 else { return }
+                mine[i] = template(kind, ws, r.wall, mine[i].w)
+            }
+            if let water, !sink { near(water, "sink") }
+            if let gas, !hob { near(gas, "hob") }
+            added += mine
         }
         if !hasUp {
-            var x = r.upStart
+            let upPad = r.upStart > 0 ? CORNER_FILLER : 0
+            if upPad > 0 { added.append(template("fillerUp", ws, r.wall, upPad)) }
+            var x = r.upStart + upPad
             let up0 = wallElev(ws), up1 = up0 + K_WALL_H
-            for w in slots(r.len! - r.upStart) {
+            let row = slots(len - r.upStart - upPad)
+            for (k, w) in row.enumerated() {
                 let window = openings.contains { o in
                     o.wall == r.wall && o.type == "window" && o.off < x + w && o.off + o.w > x && o.sill < up1 && o.sill + o.h > up0
                 }
-                added.append(template(window ? "spaceUp" : w < 300 ? "fillerUp" : "wall", ws, r.wall, w))
+                if window { added.append(template("spaceUp", ws, r.wall, w)) }
+                else if w < 300 { added.append(template("fillerUp", ws, r.wall, w)) }
+                else if corner && k == row.count - 1 && nextIsWall { var u = template("wall", ws, r.wall, w); u.fronts = Fronts("panel", 1); added.append(u) }
+                else { added.append(template("wall", ws, r.wall, w)) }
                 x += w
             }
         }

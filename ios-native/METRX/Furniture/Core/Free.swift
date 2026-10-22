@@ -139,7 +139,12 @@ func newFreeKitchen(_ name: String, _ model: String, _ layout: String, _ sides: 
     let ff = f
     let runs = runsOf(f) { freeLen(ff, $0) }
     f = autoFill(f, runs, ws, [], usualPoints(runs))
-    if walls.contains(ISLAND) && island > 0 { f.modules += slots(island).map { template($0 < 300 ? "fillerLow" : "base", ws, ISLAND, $0) } }
+    if walls.contains(ISLAND) && island > 0 {
+        // a peninsula starts with a filler where it joins the side, so its doors clear the side's units
+        let pad = layout == "P" ? CORNER_FILLER : 0
+        if pad > 0 { f.modules.append(template("fillerLow", ws, ISLAND, pad)) }
+        f.modules += slots(island - pad).map { template($0 < 300 ? "fillerLow" : "base", ws, ISLAND, $0) }
+    }
     return pack(f, runs)
 }
 
@@ -183,6 +188,8 @@ func placeWalls(_ f: Furniture, _ ids: [String], _ first: String) -> [String] {
     let i0 = max(0, ids.firstIndex(of: first) ?? 0)
     if f.kind != "kitchen" { return [i0 < ids.count ? ids[i0] : first] }
     let n = f.walls.filter { $0 != ISLAND }.count
+    // a room with no walls yet: the piece keeps the one it was given (no % 0)
+    if ids.isEmpty { return f.walls.contains(ISLAND) ? [first, ISLAND] : [first] }
     let out = (0..<n).map { ids[(i0 + $0) % ids.count] }
     return f.walls.contains(ISLAND) ? out + [ISLAND] : out
 }
@@ -205,8 +212,9 @@ func fitIssues(_ f: Furniture, _ walls: [String], _ len: (String) -> Int?, _ roo
     var out: [FitIssue] = []
     if f.kind == "wardrobe" {
         guard let m = wardOfF(f) else { return out }
-        let x = off ?? W_GAP_SIDE
-        if let L = len(walls[0]), x + m.w > L { out.append(FitIssue(key: "fz.wide", vars: ["n": f.name, "v": "\(x + m.w)", "w": walls[0], "d": "\(x + m.w - L)", "l": "\(L)"])) }
+        let x = off ?? cornerGap(f)
+        // standing free (a desk in the room) it is not held to a wall's length
+        if let L = len(walls[0]), f.pose == nil, x + m.w > L { out.append(FitIssue(key: "fz.wide", vars: ["n": f.name, "v": "\(x + m.w)", "w": walls[0], "d": "\(x + m.w - L)", "l": "\(L)"])) }
         let H = outerH(m, ws)
         if let roomH, H > roomH { out.append(FitIssue(key: "fz.high", vars: ["n": f.name, "v": "\(H)", "d": "\(H - roomH)", "l": "\(roomH)"])) }
         return out
@@ -238,11 +246,14 @@ private func fitRow(_ f: Furniture, _ wall: String, _ upper: Bool, _ start: Int,
 }
 
 /// The piece made to fit walls: kitchen rows cut to each wall, a wardrobe narrowed to the wall and lowered under the ceiling.
-func fitTo(_ f: Furniture, _ walls: [String], _ len: (String) -> Int?, _ roomH: Int?, _ ws: Workshop, off: Int? = nil) -> Furniture {
+func fitTo(_ f: Furniture, _ walls: [String], _ len: (String) -> Int?, _ roomH: Int?, _ ws0: Workshop, off: Int? = nil) -> Furniture {
+    let ws = wsOf(f, ws0)
     if f.kind == "wardrobe" {
         guard let m = wardOfF(f) else { return f }
-        let x = off ?? W_GAP_SIDE
-        let w = len(walls[0]).map { max(min(m.w, 300), min(m.w, $0 - x - W_GAP_SIDE)) } ?? m.w
+        // a door hinged at an end next to the wall needs 50 mm there to open
+        let x = off ?? cornerGap(f)
+        let gapR = cornerGap(f, right: true)
+        let w = len(walls[0]).map { max(min(m.w, 300), min(m.w, $0 - x - gapR)) } ?? m.w
         let legs = legsOf(m, ws)
         let h = roomH.map { min(m.h, $0 - W_GAP_TOP - legs) } ?? m.h
         var nm = m; nm.w = w; nm.h = h
@@ -298,7 +309,8 @@ func islandPose(_ f: Furniture, _ wallLen: Int) -> Pose {
     let first = f.walls.first { $0 != ISLAND } ?? "A"
     if f.layout == "P" {
         let end = runsOf(f) { _ in nil }.first { $0.wall != ISLAND }.map { runEnd(f, $0) } ?? wallLen
-        return Pose(first, min(end, wallLen), 600, 90)
+        // its seating overhang and finished back (336 mm past its back) stay inside the room
+        return Pose(first, min(end, wallLen - 336), 600, 90)
     }
     return Pose(first, (wallLen - len) / 2 + len, K_BASE_D + 900 + K_BASE_D, 180)
 }
@@ -310,10 +322,10 @@ func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String,
     var g = onWalls(withoutLead(f, len), walls); g.roomId = roomId; g.ws = wsId; g.keep = keep; g.pose = pose
     if g.kind == "wardrobe" {
         // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
-        let wallLen = len(walls[0]), free = pose != nil
+        let wallLen = len(walls[0]), free = pose != nil, gap0 = cornerGap(g)
         g.modules = g.modules.map { m in
             guard m.type == "wardrobe" else { return m }
-            var x = m; x.x = off ?? W_GAP_SIDE
+            var x = m; x.x = off ?? gap0
             return withSides(x, wallLen, free: free)
         }
         return g

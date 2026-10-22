@@ -6,11 +6,13 @@ import SwiftUI
  * before; lines typed by hand stay.
  */
 
-/// Puts the calculator's lines into the project's estimate, in place of the ones it made before.
+/// Puts the calculator's lines into the project's estimate, in place of the ones it made before. Their names and units
+/// are stored as keys ("@tr.glue", "@u.m2"), so they follow the app's and the report's language like typed rows' units.
 func applyTrade(_ app: AppModel, _ p: Project) {
     let st = AppSettings.shared
-    let r = tradeRows(p.industry, p.rooms, st.trade, { k, v in tr(k, v) }, st.angleSnap, st.lang == .en)
+    let r = tradeRows(p.industry, p.rooms, st.trade, { k, v in k.hasPrefix("tu.") ? "@u." + String(k.dropFirst(3)) : keyName(k, v) }, st.angleSnap, true)
     Store.shared.update(p.id) { pr in
+        if pr.stage == "measure" { pr.stage = "estimate" }
         pr.estimate.materials = pr.estimate.materials.filter { !$0.id.hasPrefix("t-") } + r.mats.map { var x = $0; x.id = "t-" + uid(); return x }
         pr.estimate.labor = pr.estimate.labor.filter { !$0.id.hasPrefix("t-") } + r.labor.map { var x = $0; x.id = "t-" + uid(); return x }
     }
@@ -45,9 +47,10 @@ struct TradeCard: View {
             T(tr("trc.body." + p.industry), ui(12.5, 400, G.ink2, lh: 1.4))
             if !p.rooms.contains(where: { Geo.ready3D($0, st.angleSnap) }) { T(tr("trc.noRooms"), ui(13, 500, G.amberInk, lh: 1.4)) }
             HStack(spacing: 8) {
-                GBtn(tr(made ? "trc.update" : "trc.apply"), enabled: !r.mats.isEmpty || !r.labor.isEmpty, height: 44, corner: 14, fontSize: 14) { applyTrade(app, p) }
+                // half the width each: two lines rather than cut off
+                GBtn(tr(made ? "trc.update" : "trc.apply"), enabled: !r.mats.isEmpty || !r.labor.isEmpty, height: 44, corner: 14, fontSize: 14, lines: 2) { applyTrade(app, p) }
                     .accessibilityIdentifier("trc.apply")
-                GBtn(tr("trc.setB"), kind: .secondary, icon: "sliders", height: 44, corner: 14, fontSize: 14) { app.sheet = .tradeCalc(pid: p.id) }
+                GBtn(tr("trc.setB"), kind: .secondary, icon: "sliders", height: 44, corner: 14, fontSize: 14, lines: 2) { app.sheet = .tradeCalc(pid: p.id) }
                     .accessibilityIdentifier("trc.set")
             }
         }
@@ -72,12 +75,13 @@ struct TradeSheet: View {
 }
 
 /// One number of the calculator's settings: a label, the value as typed, its unit; dec for a decimal mark (a rate, up to
-/// 3 decimals; prices are whole), max for a count or size.
+/// 3 decimals; prices are whole), max for a count or size, pos more than 0 (what a box holds: it divides).
 private struct TF {
     let key: String
     let unit: String
     var dec = false
     var max: Int? = nil
+    var pos = false
     let get: (TradeSet) -> String
     let set: (inout TradeSet, String) -> Void
 }
@@ -87,7 +91,7 @@ private func fieldsOf(_ trade: String) -> [TF] {
     case "tiler": return [
         TF(key: "tileW", unit: "mm", max: 10_000, get: { "\($0.tileW)" }, set: { t, v in t.tileW = Int(v) ?? t.tileW }),
         TF(key: "tileH", unit: "mm", max: 10_000, get: { "\($0.tileH)" }, set: { t, v in t.tileH = Int(v) ?? t.tileH }),
-        TF(key: "boxM2", unit: "m²", dec: true, get: { $0.boxM2 }, set: { t, v in t.boxM2 = v }),
+        TF(key: "boxM2", unit: "m²", dec: true, pos: true, get: { $0.boxM2 }, set: { t, v in t.boxM2 = v }),
         TF(key: "waste", unit: "%", max: 100, get: { "\($0.waste)" }, set: { t, v in t.waste = Int(v) ?? t.waste }),
         TF(key: "wallH", unit: "mm", max: 20_000, get: { "\($0.wallH)" }, set: { t, v in t.wallH = Int(v) ?? 0 }),
         TF(key: "pTile", unit: "/m²", get: { $0.pTile }, set: { t, v in t.pTile = v }),
@@ -173,7 +177,9 @@ private struct TradeCalcSheet: View {
     private func fieldErr(_ f: TF, _ v: String) -> String? {
         switch Money.parse(v, f.dec ? 3 : 0) {
         case .empty: return nil
-        case .ok(let x): if let m = f.max, x > Decimal(m) { return tr("err.max", ["max": m]) }; return nil
+        case .ok(let x):
+            if f.pos && x == 0 { return tr("err.zero") }
+            if let m = f.max, x > Decimal(m) { return tr("err.max", ["max": m]) }; return nil
         case .format: return tr("err.format")
         case .negative: return tr("err.negative")
         case .precision(let n): return n > 0 ? tr("err.precision", ["n": n]) : tr("err.whole")
@@ -184,7 +190,11 @@ private struct TradeCalcSheet: View {
         if fields.contains(where: { fieldErr($0, texts[$0.key] ?? "") != nil }) { tried = true; return }
         var t = AppSettings.shared.trade
         t.floor = floorOn
-        for f in fields { f.set(&t, (texts[f.key] ?? "").replacingOccurrences(of: ",", with: ".")) }
+        // a field left empty keeps its old value
+        for f in fields {
+            let v = (texts[f.key] ?? "").trimmingCharacters(in: .whitespaces).replacingOccurrences(of: ",", with: ".")
+            if !v.isEmpty { f.set(&t, v) }
+        }
         AppSettings.shared.setTradeSet(t)
         app.sheet = nil
         applyTrade(app, Store.shared.get(pid) ?? p)

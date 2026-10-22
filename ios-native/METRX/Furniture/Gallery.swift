@@ -197,6 +197,10 @@ private struct ModelCard: View {
 
 /* ---------------- the sizes, one at a time ---------------- */
 
+/// Which sizes page set app.backOverride last: a page going away clears it only while it is still its own (the next
+/// page may have set its own before the old one's onDisappear).
+private enum BackOwner { static var last = 0; static var seq = 0 }
+
 struct FStepsScreen: View {
     let app: AppModel
     let pid: String
@@ -208,6 +212,8 @@ struct FStepsScreen: View {
     @State private var back = false
     @State private var was = ""
     @State private var laser: String? = nil   // "busy", or the reading's words
+    /// This page's turn at app.backOverride (BackOwner).
+    @State private var backToken = 0
     @FocusState private var typing: Bool
 
     init(app: AppModel, pid: String, model: String, fid: String?, vals: String? = nil) {
@@ -287,11 +293,12 @@ struct FStepsScreen: View {
             }
             .onChange(of: at) { _, v in typing = v < n }
             .onAppear {
+                BackOwner.seq += 1; backToken = BackOwner.seq; BackOwner.last = backToken
                 app.backOverride = { prev(n) }
                 // the keyboard waits until the page has slid in, or iOS drops the focus
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { if at < n { typing = true } }
             }
-            .onDisappear { app.backOverride = nil }
+            .onDisappear { if BackOwner.last == backToken { app.backOverride = nil; BackOwner.last = 0 } }
         }
     }
 

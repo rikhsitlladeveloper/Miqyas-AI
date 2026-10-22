@@ -67,7 +67,7 @@ struct WallViewScreen: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         GlassIconButton("undo", tr("common.undo"), tint: ops.canUndo(r.id) ? G.ink : PC.offIcon) { ops.undo(p.id, r.id) }
-                        GlassIconButton("redo", "redo", tint: ops.canRedo(r.id) ? G.ink : PC.offIcon) { ops.redo(p.id, r.id) }
+                        GlassIconButton("redo", tr("common.redo"), tint: ops.canRedo(r.id) ? G.ink : PC.offIcon) { ops.redo(p.id, r.id) }
                     }
                     .padding(.horizontal, 16).frame(height: 64)
                     VStack(alignment: .leading, spacing: 12) {

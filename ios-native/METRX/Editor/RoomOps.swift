@@ -98,7 +98,7 @@ final class RoomOps {
         guard let r = room(pid, rid) else { return }
         let w = Geo.walls(r, snap).first { $0.id == wall }
         if let w, w.derived, !r.isPoly { app.say("ed.derived", ["w": wall, "s": w.dimKey], kind: .info); focus(rid, w.dimKey); return }
-        if let w, r.isPoly, w.status == "calc" { app.say("sk.computedTap", ["w": wall, "v": Geo.fmtLen(w.len, unit, en)], kind: .info) }
+        if let w, r.isPoly, w.status == "calc" { app.say("sk.computedTap", ["w": wall, "v": Geo.fmtLen(w.len, .m, en)], kind: .info) }
         focus(rid, w?.dimKey ?? wall)
     }
 
@@ -138,6 +138,12 @@ final class RoomOps {
     /// Puts a reading on a wall or the height, waiting for confirmation (prototype trayAssign).
     func assignReading(_ pid: String, _ rid: String, _ id: String, _ k: String) {
         guard let x = s.readings.first(where: { $0.id == id }) else { return }
+        // the same limit as a typed value (a 3 m reading is not a wall's thickness)
+        let lim = Geo.dimMax(k)
+        if x.mm > lim {
+            let m = Geo.fmtLen(lim, s.unit, en).replacingOccurrences(of: "[.,]0+$", with: "", options: .regularExpression)
+            app.say("err.max", ["max": m + " " + unitName()], kind: .error); return
+        }
         change(pid, rid, hist: false) { $0.dims[k] = Dim(v: $0.dim(k).v, src: $0.dim(k).src, pending: Pending(mm: x.mm, src: x.src, from: "quick")) }
         s.markReadingUsed(id, dimLabel(k))
         focus(rid, k)
@@ -200,6 +206,7 @@ final class RoomOps {
     func deleteFeature(_ pid: String, _ rid: String, _ f: Feature) {
         change(pid, rid) { $0.features.removeAll { $0.id == f.id } }
         app.sheet = nil
+        app.say("op.deleted", ["o": tr("ft." + f.type)], action: "common.undo") { [pid, rid] in RoomOps.shared.undo(pid, rid) }
     }
 
     /* ---------------- site points (furniture orders) ---------------- */
@@ -248,6 +255,7 @@ final class RoomOps {
         guard let p = Store.shared.get(pid), let idx = p.rooms.firstIndex(where: { $0.id == rid }) else { return }
         let r = p.rooms[idx]
         let pieces = p.furniture.filter { $0.roomId == rid }
+        let inReport = p.reportRooms[rid]   // left out of the report: Undo keeps it out
         Store.shared.update(pid) { $0.furniture = outOfRooms($0, [rid]); $0.rooms.removeAll { $0.id == rid }; $0.reportRooms.removeValue(forKey: rid) }
         app.sheet = nil
         app.popTo { r in
@@ -255,16 +263,22 @@ final class RoomOps {
         }
         app.dropMissing()   // the room's pages in the other tabs' stacks go too
         app.say("room.deleted", ["n": dn(r.name)], action: "common.undo") {
-            Store.shared.update(pid) { pr in pr.rooms.insert(r, at: min(idx, pr.rooms.count)); pr.furniture = pr.furniture.map { f in pieces.first { $0.id == f.id } ?? f } }
+            Store.shared.update(pid) { pr in
+                pr.rooms.insert(r, at: min(idx, pr.rooms.count)); pr.furniture = pr.furniture.map { f in pieces.first { $0.id == f.id } ?? f }
+                if let inReport { pr.reportRooms[rid] = inReport }
+            }
         }
     }
 
     /// The card the editor shows (prototype ed2Focus): the picked measurement, a reading waiting, the next unmeasured
     /// one, a problem, or done.
-    struct Focus { let kind: String; var k: String? = nil; var issue: Opening? = nil }
+    struct Focus { let kind: String; var k: String? = nil; var issue: Opening? = nil; var ft: Feature? = nil }
+
+    /// Every measurement of the room: its walls and height, then a drawn room's diagonals.
+    func measureKeys(_ r: Room) -> [String] { Geo.stepKeys(r, snap) + (r.poly?.diags.map { $0.id } ?? []) }
 
     func focusOf(_ r: Room) -> Focus {
-        let keys = Geo.stepKeys(r, snap)
+        let keys = measureKeys(r)
         if let fk = focusKey, focusRoom == r.id, r.dims[fk] != nil {
             let st = r.dim(fk).status
             return Focus(kind: st == "conf" && again == "\(r.id):\(fk)" ? "again" : st, k: fk)
@@ -272,6 +286,8 @@ final class RoomOps {
         if let k = keys.first(where: { r.dim($0).status == "recv" }) { return Focus(kind: "recv", k: k) }
         if let k = keys.first(where: { r.dim($0).status == "unset" }) { return Focus(kind: "unset", k: k) }
         if let o = r.openings.first(where: { issue(r, $0) != nil }) { return Focus(kind: "bad", issue: o) }
+        // a column or niche that no longer fits (the wall or the height changed after it was added)
+        if let x = r.features.first(where: { Geo.featureIssue(r, $0, snap) != nil }) { return Focus(kind: "badFt", ft: x) }
         return Focus(kind: "ok")
     }
 
@@ -286,7 +302,7 @@ final class RoomOps {
         let a = Geo.areas(r, snap)
         let text: String
         if let net = a?.net { text = tr("ws.netWall", ["v": Geo.fmtArea(net, en)]) }
-        else if let a { text = Geo.fmtArea(a.floor, en) + " m²" }
+        else if let a { text = Geo.fmtArea(a.floor, en) + " " + tr("u.m2") }
         else { text = tr("hm.next.ok") }
         return Next(cls: "ok", icon: "check", text: text)
     }

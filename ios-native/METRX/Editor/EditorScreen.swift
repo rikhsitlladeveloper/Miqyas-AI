@@ -34,7 +34,7 @@ struct EditorScreen: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     LaserButton { app.sheet = .device }.frame(width: 44, height: 44)
-                    GlassIconButton("more", "menu") { app.sheet = .roomInfo(pid: p.id, rid: r.id) }.accessibilityIdentifier("ed.menu")
+                    GlassIconButton("more", tr("common.menu")) { app.sheet = .roomInfo(pid: p.id, rid: r.id) }.accessibilityIdentifier("ed.menu")
                 }
                 .padding(.horizontal, 16).frame(height: 64)
                 ZStack(alignment: .bottom) {
@@ -69,7 +69,7 @@ struct EditorScreen: View {
                             HStack(spacing: 0) {
                                 HistBtn(icon: "undo", on: ops.canUndo(r.id), label: tr("common.undo")) { ops.undo(p.id, r.id) }
                                 Rectangle().fill(G.ink.opacity(0.12)).frame(width: 1, height: 20)
-                                HistBtn(icon: "redo", on: ops.canRedo(r.id), label: "redo") { ops.redo(p.id, r.id) }
+                                HistBtn(icon: "redo", on: ops.canRedo(r.id), label: tr("common.redo")) { ops.redo(p.id, r.id) }
                             }
                             .padding(.horizontal, 4)
                         }
@@ -174,7 +174,7 @@ private struct StepCard: View {
 
     var body: some View {
         let unit = AppSettings.shared.unit, en = AppSettings.shared.lang == .en, snap = AppSettings.shared.angleSnap
-        let keys = Geo.stepKeys(r, snap)
+        let keys = ops.measureKeys(r)
         let k = f.k
         VStack(alignment: .leading, spacing: 10) {
             switch f.kind {
@@ -183,7 +183,7 @@ private struct StepCard: View {
                 HStack(spacing: 12) {
                     MIcon("check", PC.okGreen, 22, 2.4).frame(width: 42, height: 42).background(Circle().fill(G.green.opacity(0.14)))
                     VStack(alignment: .leading, spacing: 0) {
-                        T(tr("ed2.done"), ui(16, 800), lines: 1)
+                        T(tr("ed2.done"), ui(16, 800), lines: 2)
                         if let a {
                             T(a.net != nil ? tr("ed2.sum", ["f": Geo.fmtArea(a.floor, en), "w": Geo.fmtArea(a.net, en)]) : tr("ed2.sumNoH", ["f": Geo.fmtArea(a.floor, en)]), ui(12.5, 400, G.ink2))
                         }
@@ -221,6 +221,17 @@ private struct StepCard: View {
                         T(iss.map { tr($0.key, $0.vars) } ?? "", ui(13.5, 500, G.err, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
                         T(tr("ed.fix"), ui(14, 700, G.err)).padding(8)
                             .pressable(0.96) { app.sheet = .openingForm(pid: pid, rid: r.id, oid: o.id, type: o.type, wall: nil) }
+                    }
+                    .padding(12).background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.errWash))
+                }
+            case "badFt":
+                if let x = f.ft {
+                    let iss = Geo.featureIssue(r, x, snap)
+                    HStack(spacing: 10) {
+                        MIcon("alert", G.err, 20, 2)
+                        T(tr("ft." + x.type) + ": " + (iss.map { tr($0) } ?? ""), ui(13.5, 500, G.err, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
+                        T(tr("ed.fix"), ui(14, 700, G.err)).padding(8)
+                            .pressable(0.96) { app.sheet = .featureForm(pid: pid, rid: r.id, fid: x.id, type: x.type) }
                     }
                     .padding(12).background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.errWash))
                 }
@@ -264,7 +275,7 @@ private struct StepCard: View {
             default: StatusPill(text: tr("ed2.notMeasured"), bg: G.ink.opacity(0.06), fg: G.ink2, icon: nil)
             }
         }
-        if f.kind == "again" { T(tr("ed2.cur", ["v": Geo.fmtLen(d.v, unit, en)]), ui(13, 400, G.ink2)) }
+        if f.kind == "again" { T(tr("ed2.cur", ["v": Geo.fmtLen(d.v, .m, en)]), ui(13, 400, G.ink2)) }
         if f.kind == "unset" || f.kind == "again" {
             if ops.laserOn { T(tr("ed2.pressLaser"), ui(13, 400, G.ink2)) }
             else { HStack(spacing: 6) { MIcon("btoff", G.ink2, 16, 2); T(tr("ed2.noLaser"), ui(13, 400, G.ink2)) } }
@@ -335,9 +346,10 @@ struct CardBtn: View {
         let shape = Capsule()
         HStack(spacing: 8) {
             MIcon(icon, primary ? .white : G.cobalt, 18, 2.2)
-            T(label, ui(15, 700, primary ? .white : G.ink), lines: 1)
+            // two lines rather than cut off with a large font or a long word
+            T(label, ui(15, 700, primary ? .white : G.ink), align: .center, lines: 2)
         }
-        .padding(.horizontal, 16)
+        .padding(.horizontal, 16).padding(.vertical, 4)
         .frame(maxWidth: .infinity, minHeight: 52)
         .background(shape.fill(primary ? G.cobalt : G.glass(0.65)))
         .overlay { if !primary { shape.strokeBorder(G.rim, lineWidth: 1) } }
@@ -358,7 +370,7 @@ private struct FullList: View {
         let unit = AppSettings.shared.unit, en = AppSettings.shared.lang == .en, snap = AppSettings.shared.angleSnap
         VStack(alignment: .leading, spacing: 14) {
             Sect(title: tr("ed2.meas")) {
-                ForEach(Geo.stepKeys(r, snap), id: \.self) { k in
+                ForEach(ops.measureKeys(r), id: \.self) { k in
                     let d = r.dim(k), st = d.status, on = f.k == k
                     HStack(spacing: 10) {
                         T(k, num(13, 700, on ? .white : G.ink)).frame(width: 30, height: 30)

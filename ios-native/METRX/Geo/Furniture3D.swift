@@ -46,6 +46,8 @@ private let DARK = 0x1E293B
 private let HANDLE = 0x4B5563
 private let WHITE = 0xE8EAEE
 private let OPEN_DEG = 100.0
+/// A door with a wall, another piece or a door beside its hinge stops at a right angle, not swinging into it.
+private let SHUT_DEG = 90.0
 private let MIRROR = 0xC9D3DD
 private let GLASS_P = 0x8FA9C4
 
@@ -67,6 +69,12 @@ private func obbFaces(_ p: Part3, _ x: Obb) {
 private func obbEdges(_ e: Edges3, _ x: Obb) {
     let k = x.corners()
     for (i, j) in [(0, 1), (1, 2), (2, 3), (3, 0), (4, 5), (5, 6), (6, 7), (7, 4), (0, 4), (1, 5), (2, 6), (3, 7)] { e.segs.append(k[i]); e.segs.append(k[j]) }
+}
+
+/// A door handle's middle at v above the bottom of a door fh tall, kept 150 from its ends (the middle of a short door).
+private func handleAt(_ v: Double, _ fh: Double) -> Double {
+    let lo = min(150, fh / 2), hi = max(fh / 2, fh - 150)
+    return min(max(v, lo), hi)
 }
 
 /// The frame of a piece standing at p (Pose: along and out from wall p.ref, turned): len m long.
@@ -104,6 +112,18 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
             guard let b = free ?? (m.wall == ISLAND ? island : bases[m.wall ?? ""]) else { continue }
             B.wall = m.wall
             if m.type == "wardrobe" {
+                // what stands past each end along its wall: the wall's corner, or another piece close by
+                let L = bases[m.wall ?? ""].map { Int($0.len * 1000) }
+                func near(_ at: Int) -> Bool {
+                    fs.contains { o in
+                        o.id != f.id && o.pose == nil && o.modules.contains { x in x.wall == m.wall && (abs(x.x + x.w - at) < 60 || abs(x.x - at) < 60) }
+                    }
+                }
+                let edgeL = m.x > W_GAP_SIDE + 40 && !near(m.x)
+                var edgeR = false
+                if let L { edgeR = m.x + m.w < L - W_GAP_SIDE - 40 && !near(m.x + m.w) }
+                B.freeL = free != nil || edgeL
+                B.freeR = free != nil || edgeR
                 var mm = m; if free != nil { mm.x = 0 }
                 B.wardrobe(b, mm)
                 // a bathroom vanity carries its basin and tap on top
@@ -174,6 +194,9 @@ private final class FBuilder {
     let ws: Workshop, colors: [String: Int], st: FStore, how: (String) -> Double
     /// The wall being furnished: the furniture's parts are kept per wall (it stays solid when its wall goes see-through).
     var wall: String? = nil
+    /// The piece being built has nothing past its left / right end (no wall, no neighbour): a door hinged there opens wide.
+    var freeL = false
+    var freeR = false
     let t: Int, g: Double, edge: Double
     init(_ ws: Workshop, _ colors: [String: Int], _ st: FStore, _ how: @escaping (String) -> Double) {
         self.ws = ws; self.colors = colors; self.st = st; self.how = how
@@ -207,9 +230,10 @@ private final class FBuilder {
 
     /// A door hinged at ha (the back corner of its hinge edge), fw wide, opening to the right (s +1) or left (-1); its
     /// handle's middle hy above the door's bottom.
-    func door(_ w: WallBasis, _ key: String, _ ha: Double, _ n: Double, _ y0: Double, _ h: Double, _ fw: Double, _ s: Double, _ handles: Bool, _ hy: Double, _ part: Part3? = nil) {
+    func door(_ w: WallBasis, _ key: String, _ ha: Double, _ n: Double, _ y0: Double, _ h: Double, _ fw: Double, _ s: Double, _ handles: Bool, _ hy: Double, _ part: Part3? = nil,
+              deg: Double = SHUT_DEG) {
         st.keys.append(key)
-        let th = OPEN_DEG * .pi / 180 * how(key)
+        let th = deg * .pi / 180 * how(key)
         let e = w.dir(s * cos(th), sin(th)), tn = w.dir(-s * sin(th), cos(th))
         let o = w.at(ha / 1000, y0 / 1000, n / 1000)
         let x = Obb(o: o, a: e * (fw / 1000), b: V3(0, h / 1000, 0), c: tn * (Double(t) / 1000))
@@ -294,7 +318,7 @@ private final class FBuilder {
                 // single doors hinge on the left; pairs on the outer edges
                 let right = fs.count == 2 && j == 1
                 // handles near the top of a low door, near the bottom of a wall unit's, at 1 m on a tall one
-                let hy = m.type == "wall" ? 90 : fh > 1200 ? min(max(1000 - y0, 150), d(fh) - 150) : d(fh) - 90
+                let hy: Double = m.type == "wall" ? 90 : fh > 1200 ? handleAt(1000 - y0, d(fh)) : d(fh) - 90
                 door(w, "\(m.id):f\(j)", right ? a + d(fw) : a, dd, y0 + edge, d(fh), d(fw), right ? -1 : 1, m.handles, hy)
             }
         case "drawer", "panel":
@@ -417,8 +441,11 @@ private final class FBuilder {
                     let a = a0 + edge + Double(j) * (d(fw) + g)
                     // a pair hinges on its outer edges; single doors pair up two by two, the last one hinged on the wardrobe's end
                     let right = fs.count == 2 ? j == 1 : hingeRight(m, i)
+                    // only a hinge at the piece's free end opens wide; beside a divider, a wall or a neighbour it stops at 90°
+                    let wide: Bool
+                    if right { wide = i == secs.count - 1 && j == fs.count - 1 && freeR } else { wide = i == 0 && j == 0 && freeL }
                     door(w, "\(m.id):s\(i):f\(j)", right ? a + d(fw) : a, dd, yb + edge, d(fh), d(fw), right ? -1 : 1, m.handles,
-                         min(max(1000 - yb, 150), d(fh) - 150))
+                         handleAt(1000 - yb, d(fh)), deg: wide ? OPEN_DEG : SHUT_DEG)
                 }
             }
             acc = a1

@@ -36,11 +36,13 @@ struct GBtn: View {
     var corner: CGFloat = 18
     var fontSize: CGFloat = 16
     var fill = true
+    /// More than 1: the label wraps rather than being cut off (half-width buttons).
+    var lines = 1
     let action: () -> Void
     init(_ label: String, kind: Btn = .primary, icon: String? = nil, enabled: Bool = true, height: CGFloat = 54, corner: CGFloat = 18,
-         fontSize: CGFloat = 16, fill: Bool = true, _ action: @escaping () -> Void) {
+         fontSize: CGFloat = 16, fill: Bool = true, lines: Int = 1, _ action: @escaping () -> Void) {
         self.label = label; self.kind = kind; self.icon = icon; self.enabled = enabled; self.height = height; self.corner = corner
-        self.fontSize = fontSize; self.fill = fill; self.action = action
+        self.fontSize = fontSize; self.fill = fill; self.lines = lines; self.action = action
     }
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: corner, style: .continuous)
@@ -48,9 +50,9 @@ struct GBtn: View {
         let fg: Color = kind == .secondary ? G.ink : .white
         HStack(spacing: 8) {
             if let icon { MIcon(icon, fg, 18, 2.2) }
-            T(label, ui(fontSize, 700, fg), align: .center, lines: 1)
+            T(label, ui(fontSize, 700, fg), align: .center, lines: lines)
         }
-        .padding(.horizontal, height < 50 ? 12 : 16)
+        .padding(.horizontal, height < 50 ? 12 : 16).padding(.vertical, lines > 1 ? 4 : 0)
         .frame(maxWidth: fill ? .infinity : nil, minHeight: height)
         .background(shape.fill(bg))
         .background(shape.fill(Color.black.opacity(0.001)).boxShadow(kind == .primary && enabled ? Color(argb: 0x38374FDD) : .clear, blur: 18, y: 8))

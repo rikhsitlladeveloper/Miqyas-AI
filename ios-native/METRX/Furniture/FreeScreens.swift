@@ -236,6 +236,16 @@ func issueText(_ i: FitIssue) -> String {
 
 private enum PF: Hashable { case off, w }
 
+/// A new piece made once for the page's choices (key): redraws keep the same piece, its id and its time.
+private final class BaseMemo {
+    var key = ""
+    var f: Furniture? = nil
+    func get(_ k: String, _ make: () -> Furniture?) -> Furniture? {
+        if k != key || f == nil { key = k; f = make() }
+        return f
+    }
+}
+
 struct FPlaceScreen: View {
     let app: AppModel
     let pid: String
@@ -251,6 +261,8 @@ struct FPlaceScreen: View {
     @State private var name: String
     @State private var start = 0            // a one-wall kitchen's distance from the corner
     @State private var pose: Pose? = nil    // dragged off the walls: a desk, the island
+    @State private var holding = false      // a finger holds the piece on the plan: the page does not scroll
+    @State private var memo = BaseMemo()
     @FocusState private var focus: PF?
 
     init(app: AppModel, pid: String, fid: String?, rid: String, model: String? = nil, vals: String? = nil) {
@@ -263,7 +275,7 @@ struct FPlaceScreen: View {
         // a piece already in this room starts where it stands
         let here = existing.flatMap { $0.roomId == rid ? $0 : nil }
         _first = State(initialValue: here?.walls.first { $0 != ISLAND && ids.contains($0) } ?? ids.first { !taken.contains($0) } ?? ids.first ?? "A")
-        _off = State(initialValue: here.flatMap(wardOfF).map(\.x).flatMap { $0 == W_GAP_SIDE ? nil : String($0) } ?? "")
+        _off = State(initialValue: here.flatMap { h in wardOfF(h).map { $0.x == cornerGap(h) ? "" : String($0.x) } } ?? "")
         _start = State(initialValue: here.map { $0.walls.filter { $0 != ISLAND }.count == 1 ? leadOf($0) : 0 } ?? 0)
         _pose = State(initialValue: here?.pose)
         _name = State(initialValue: existing?.name ?? (p.flatMap { pp in model.flatMap { fModel($0) }.map { pieceName(pp, $0) } } ?? ""))
@@ -280,8 +292,8 @@ struct FPlaceScreen: View {
             let m = model.flatMap { fModel($0) }
             let known = fid == nil && vals == nil && m != nil
             let existing = fid.flatMap { id in p.furniture.first { $0.id == id } }
-            let base: Furniture? = {
-                if let existing { return withoutLead(existing, len) }
+            // a new one is made once for the wall and the width chosen (as Android's remember(rt, first, wTxt)), not on each redraw
+            let fresh: () -> Furniture? = {
                 guard let m else { return nil }
                 let now = nowMs()
                 if known && m.kind == "kitchen" { return roomKitchen(m, ids, first, len, roomH, ws, name, now: now) }
@@ -290,7 +302,8 @@ struct FPlaceScreen: View {
                     return parseLen(wTxt, unit).map { resized(c, ["w": min(6000, max(300, $0))], ws) } ?? c
                 }
                 return pieceOf(m, decodeVals(vals), ws, name, now: now)
-            }()
+            }
+            let base: Furniture? = existing.map { withoutLead($0, len) } ?? memo.get(first + "|" + wTxt + "|" + (model ?? "") + "|" + (vals ?? ""), fresh)
             if let base {
                 let others = p.furniture.filter { $0.roomId == room.id && $0.id != base.id }
                 let taken = others.flatMap(\.walls).filter { $0 != ISLAND }
@@ -298,7 +311,9 @@ struct FPlaceScreen: View {
                 let offMm: Int? = { let v = mm(off); return v > 0 ? v : nil }()
                 let f = fitted ?? base
                 let on = placeWalls(f, ids, first)
-                let issues = fitIssues(f, on, len, roomH, ws, off: offMm, start: start)
+                // a free-standing piece where it was dragged is not held to a wall's length
+                let fp: Furniture = { var x = f; x.pose = canStandFree(f) ? pose : nil; return x }()
+                let issues = fitIssues(fp, on, len, roomH, ws, off: offMm, start: start)
                 // where it would stand, and what it would be in the way of there
                 let pw = planWalls(room, snap)
                 let g = placed(f, on, room.id, room.floorId, off: offMm, keep: !issues.isEmpty, len: len, ws: ws, start: start, pose: pose)
@@ -309,10 +324,10 @@ struct FPlaceScreen: View {
                     PlacePlan(room: room, walls: pw, g: g, others: others, ws: ws, red: !warns.isEmpty || !issues.isEmpty, label: tr("fz.planLabel"),
                               onSlide: { w, x in
                                   if w != first { first = w; reset() }
-                                  if ward { off = x == W_GAP_SIDE ? "" : String(x); pose = nil } else { start = x }
+                                  if ward { off = x == cornerGap(f) ? "" : String(x); pose = nil } else { start = x }
                               },
                               onCorner: { w in if w != first { first = w; pose = nil; reset() } },
-                              onPose: { pose = $0 }, onIsland: { pose = $0 })
+                              onPose: { pose = $0 }, onIsland: { pose = $0 }, onHold: { holding = $0 })
                     T(tr("fz.dragHint"), ui(12.5, 400, G.ink2, lh: 1.4))
                     // a desk or the island turns, 15° a tap, about its middle
                     if canStandFree(f) || f.walls.contains(ISLAND) {
@@ -411,6 +426,7 @@ struct FPlaceScreen: View {
                     }
                     .accessibilityIdentifier("fz.place")
                 }
+                .scrollDisabled(holding)
             }
         }
     }

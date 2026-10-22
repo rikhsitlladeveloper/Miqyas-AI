@@ -134,7 +134,9 @@ enum Geo {
         guard let H else { return Areas(floor: floorF, perim: perimF, gross: nil, open: nil, net: nil) }
         let extra = fx.reduce(Int64(0)) { a, f in
             if f.type == "column" { return a + 2 * Int64(f.d) * Int64(H) }
-            let nh = Int64(min(f.h > 0 ? f.h : H - f.sill, H - f.sill))
+            // a niche the room's height no longer reaches has nothing inside (and never a negative area)
+            let nh = Int64(max(0, min(f.h > 0 ? f.h : H - f.sill, H - f.sill)))
+            if nh == 0 { return a }
             return a + 2 * Int64(f.d) * nh + (f.sill > 0 ? Int64(f.w) * Int64(f.d) : 0) + (Int64(f.sill) + nh < Int64(H) ? Int64(f.w) * Int64(f.d) : 0)
         }
         let gross = perim * Int64(H) + extra
@@ -173,8 +175,8 @@ enum Geo {
     static func openingIssue(_ r: Room, _ o: Opening, _ kindName: String, _ unit: LenUnit, _ en: Bool, _ snap: Bool = true) -> Issue? {
         let w = walls(r, snap).first { $0.id == o.wall }
         guard let L = w?.len else { return Issue(field: "wall", key: "op.needWall", vars: ["w": w?.derived == true ? w!.dimKey : o.wall]) }
-        if o.off + o.w > L { return Issue(field: "w", key: "op.exceeds", vars: ["o": kindName, "x": fmtLen(o.off + o.w - L, unit, en)]) }
-        if let H = r.dim("H").v, o.sill + o.h > H { return Issue(field: "h", key: "op.tooTall", vars: ["o": kindName, "x": fmtLen(o.sill + o.h - H, unit, en)]) }
+        if o.off + o.w > L { return Issue(field: "w", key: "op.exceeds", vars: ["o": kindName, "x": fmtLen(o.off + o.w - L, .m, en)]) }
+        if let H = r.dim("H").v, o.sill + o.h > H { return Issue(field: "h", key: "op.tooTall", vars: ["o": kindName, "x": fmtLen(o.sill + o.h - H, .m, en)]) }
         for x in r.openings where x.id != o.id && x.wall == o.wall && o.off < x.off + x.w && x.off < o.off + o.w {
             return Issue(field: "off", key: "op.overlap", vars: ["o": kindName])
         }
@@ -219,6 +221,7 @@ enum Geo {
         var computed: [String] = []
         var diagStatus: [String: String] = [:]
         var diagLen: [String: Int] = [:]
+        var gap = 0                     // how far the measured walls miss closing, mm (err closure)
     }
 
     static func snapAngle(_ a: Double) -> Double { let st = Double.pi / 4; return Double(kround(a / st)) * st }
@@ -335,8 +338,9 @@ enum Geo {
             }
             diagStatus[dg.id] = st
         }
+        let gap = s.err == "closure" ? (s.errVec.map { kround(hypot($0.0, $0.1)) } ?? 0) : 0
         return PolyGeo(verts: verts, walls: walls, solved: solved, err: solved ? nil : err, conflict: conflict, either: either,
-                       measure: s.measure.map { ids[$0] }, some: s.some, computed: solved ? computed : [], diagStatus: diagStatus, diagLen: diagLen)
+                       measure: s.measure.map { ids[$0] }, some: s.some, computed: solved ? computed : [], diagStatus: diagStatus, diagLen: diagLen, gap: gap)
     }
 
     /* ---------------- polygons: shape checks ---------------- */

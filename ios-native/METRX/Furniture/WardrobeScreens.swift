@@ -415,7 +415,8 @@ private struct PlaceStep: View {
             func moveTo(_ wall: String, _ len: Int?) {
                 guard let L = len else { return }
                 let pl = placeOn(L, wall, room.openings, m.h)
-                let w = min(m.w, L - 2 * W_GAP_SIDE)
+                // a short wall never makes it narrower than 300 (or than it is)
+                let w = max(min(m.w, 300), min(m.w, L - 2 * W_GAP_SIDE))
                 let x = pl.w >= w ? pl.x : W_GAP_SIDE
                 ward(p.id, f.id) { mm in
                     var n = mm; n.wall = wall; n.x = x; n.w = w
@@ -592,7 +593,9 @@ private struct DoorStep: View {
                     FToggle(label: tr("km.handles") + (!m.handles ? " · " + tr("wd.push") : ""), on: m.handles, id: "wd.handles") { ward(p.id, f.id) { x in var n = x; n.handles.toggle(); return n } }
                     FToggle(label: tr("km.soft"), on: m.soft, id: "wd.soft") { ward(p.id, f.id) { x in var n = x; n.soft.toggle(); return n } }
                     if let dh = frontSizes(Fronts("door", 1), s.w, m.h - wardBase(m), ws).first?.0 {
-                        T(tr("wd.hinges", ["v": dh, "n": hingesFor(dh)]) + " " + tr("wd.tapSec"), ui(12.5, 400, G.ink2, lh: 1.4))
+                        // how many hinges: workshop detail, the advanced app only
+                        let hinges = AppSettings.shared.advanced ? tr("wd.hinges", ["v": dh, "n": hingesFor(dh)]) + " " : ""
+                        T(hinges + tr("wd.tapSec"), ui(12.5, 400, G.ink2, lh: 1.4))
                     }
                 }
             }
@@ -624,16 +627,23 @@ private struct InsideStep: View {
         return out
     }
 
-    /// Row from dropped dy lower: moved to its new place, then they all spread evenly over the section.
-    private func drop(_ rows: [InsRow], _ from: Int, _ dy: CGFloat, _ ws: Workshop) {
-        guard from >= 0, from < rows.count else { return }
-        let to = min(max(from + Int((dy / INS_PITCH).rounded()), 0), rows.count - 1)
-        if to == from { return }
-        var order = rows.map(\.x)
-        let moved = order.remove(at: from)
-        order.insert(moved, at: to)
-        let spread = respaced(Array(order.reversed()), wardInnerH(m, ws.t), ws.t)
-        changeSec(p.id, f.id, sel) { y in var n = y; n.inserts = sortedByPos(spread); return n }
+    /// Row from dropped dy lower: moved to its new place, then they all spread evenly over the section. It reads the
+    /// section as it is when the drag ends (an edit, an undo or a first reorder may have changed it).
+    private func drop(_ from: Int, _ dy: CGFloat, _ ws: Workshop) {
+        guard from >= 0, dy.isFinite else { return }
+        let ih = wardInnerH(m, ws.t), t = ws.t
+        let step = Int((dy / INS_PITCH).rounded())
+        changeSec(p.id, f.id, sel) { y in
+            let now = rowsOf(y)
+            guard from < now.count else { return y }
+            let to = min(max(from + step, 0), now.count - 1)
+            if to == from { return y }
+            var order = now.map(\.x)
+            let moved = order.remove(at: from)
+            order.insert(moved, at: to)
+            let spread = respaced(Array(order.reversed()), ih, t)
+            var n = y; n.inserts = sortedByPos(spread); return n
+        }
     }
 
     var body: some View {
@@ -673,9 +683,10 @@ private struct InsideStep: View {
         let i = row.id, x = row.x, r = row.r
         let dragged = r == dragI
         let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
-        let drag = DragGesture(minimumDistance: 4)
+        // measured on the screen, not in the grip's own space (which moves with the row): the row keeps up with the finger
+        let drag = DragGesture(minimumDistance: 4, coordinateSpace: .global)
             .onChanged { v in dragI = r; dragDy = v.translation.height }
-            .onEnded { v in drop(rows, r, v.translation.height, ws); dragI = -1; dragDy = 0 }
+            .onEnded { v in drop(r, v.translation.height, ws); dragI = -1; dragDy = 0 }
         return HStack(spacing: 8) {
             if rows.count > 1 {
                 MIcon("grip", G.ink3, 20, 2).frame(width: 40, height: 40).contentShape(Rectangle())
@@ -685,7 +696,14 @@ private struct InsideStep: View {
             T(tr("wi." + x.kind), ui(14, 700)).frame(maxWidth: .infinity, alignment: .leading)
             T(blockH(x) > 0 ? tr("wi.atH", ["v": x.pos, "h": blockH(x)]) : tr("wi.at", ["v": x.pos]), num(13.5, 600, G.ink2))
             MIcon("x", G.ink3, 16, 2).frame(width: 40, height: 40).pressable(0.95, label: tr("common.delete")) {
-                changeSec(p.id, f.id, sel) { y in var n = y; n.inserts.remove(at: i); return n }
+                // the insert itself at the tap (the list may have changed since it was drawn)
+                changeSec(p.id, f.id, sel) { y in
+                    var n = y
+                    let k: Int?
+                    if i < y.inserts.count && y.inserts[i] == x { k = i } else { k = y.inserts.firstIndex(of: x) }
+                    if let k { n.inserts.remove(at: k) }
+                    return n
+                }
                 app.say("kt.deleted", ["m": tr("wi." + x.kind)], action: "common.undo") { KitOps.shared.undo(p.id, f.id) }
             }
         }
@@ -835,6 +853,8 @@ private struct WFieldSheet: View {
                 GBtn(tr("common.save"), enabled: vi != nil) { save() }.accessibilityIdentifier("wf.save")
             }
             .onChange(of: v) { _, x in let t = String(x.filter(\.isNumber).prefix(4)); if t != x { v = t } }
+            // the keyboard comes up with the sheet
+            .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focus = .a } }
         }
     }
 }

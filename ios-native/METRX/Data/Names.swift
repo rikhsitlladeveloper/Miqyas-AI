@@ -2,10 +2,24 @@ import Foundation
 
 /* Names, counts and small numbers shown about projects and workspaces (prototype: dn, floorName, wsSuggest, wsCounts, pcStats). */
 
-/// A stored name: typed text as it is, "@key" names in the current language.
+/// A stored name: typed text as it is, "@key" names in the language. "@key?w=300&a=12.5" fills the text's values (the
+/// trades' calculator lines); a decimal point is shown as the language's mark.
 func dn(_ s: String?, _ l: Lang = AppSettings.shared.lang) -> String {
     guard let s else { return "" }
-    return s.hasPrefix("@") ? Strings.t(String(s.dropFirst()), l) : s
+    guard s.hasPrefix("@") else { return s }
+    guard let q = s.firstIndex(of: "?") else { return Strings.t(String(s.dropFirst()), l) }
+    var vars: [String: Any] = [:]
+    for kv in s[s.index(after: q)...].split(separator: "&") where kv.contains("=") {
+        let v = String(kv.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)[1])
+        vars[String(kv.prefix { $0 != "=" })] = l == .en ? v : v.replacingOccurrences(of: ".", with: ",")
+    }
+    return Strings.t(String(s[s.index(after: s.startIndex)..<q]), l, vars)
+}
+
+/// The stored form of a text with values ("@key?w=300&a=12.5"), which dn shows in any language.
+func keyName(_ key: String, _ vars: [String: String]) -> String {
+    if vars.isEmpty { return "@" + key }
+    return "@" + key + "?" + vars.sorted { $0.key < $1.key }.map { $0.key + "=" + $0.value.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: " ", with: "") }.joined(separator: "&")
 }
 
 func floorName(_ w: Workspace, _ l: Lang = AppSettings.shared.lang) -> String {
@@ -19,15 +33,24 @@ func wsIcon(_ type: String) -> String { WS_TYPES.first { $0.0 == type }?.1 ?? "l
 
 /// The name offered for a new workspace of this type: "2-qavat", "Hammom", "Hammom 2"…
 func wsSuggest(_ p: Project, _ type: String, _ l: Lang = AppSettings.shared.lang) -> String {
-    if type == "floor" { return Strings.t("pr.floorName", l, ["n": p.floors.filter { $0.type == "floor" }.count + 1]) }
+    // never a name already there (after a delete)
+    let taken = Set(p.floors.map { floorName($0, l) })
+    if type == "floor" {
+        var k = p.floors.filter { $0.type == "floor" }.count + 1
+        while taken.contains(Strings.t("pr.floorName", l, ["n": k])) { k += 1 }
+        return Strings.t("pr.floorName", l, ["n": k])
+    }
     let base = Strings.t("ws.t." + type, l)
     let n = p.floors.filter { let nm = floorName($0, l); return nm == base || nm.hasPrefix(base + " ") }.count
-    return n > 0 ? "\(base) \(n + 1)" : base
+    if n == 0 && !taken.contains(base) { return base }
+    var k = max(2, n + 1)
+    while taken.contains("\(base) \(k)") { k += 1 }
+    return "\(base) \(k)"
 }
 
 /// Stores a suggested name as a key, so it follows the language later; typed names stay as typed.
 func wsStoreName(_ p: Project, _ nm: String, _ type: String, _ l: Lang = AppSettings.shared.lang) -> String {
-    if type == "floor" { for k in 1...(p.floors.count + 1) where nm == Strings.t("pr.floorName", l, ["n": k]) { return "@floor:\(k)" } }
+    if type == "floor" { for k in 1...(2 * p.floors.count + 1) where nm == Strings.t("pr.floorName", l, ["n": k]) { return "@floor:\(k)" } }
     return nm == Strings.t("ws.t." + type, l) ? "@ws.t." + type : nm
 }
 

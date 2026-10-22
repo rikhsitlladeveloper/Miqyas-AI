@@ -31,9 +31,9 @@ final class Furniture3DTests: XCTestCase {
         let opened = furniture3D([f], bases, ws, { _ in 0xCDBFAE }, [key])
         XCTAssertEqual(shut.parts.count, opened.parts.count)            // the camera keeps its place when a door opens
         let a = shut.picks.first { $0.key == key }!.box, b = opened.picks.first { $0.key == key }!.box
-        // closed, the door lies along the wall; open at 100°, it stands out into the room
+        // closed, the door lies along the wall; open (at 90°, a unit stands beside it) it stands straight out into the room
         XCTAssertTrue(abs(a.a.z) < 1e-9 && a.a.x > 0)
-        XCTAssertTrue(b.a.z > 0.9 * b.a.len && b.a.x < 0)
+        XCTAssertTrue(b.a.z > 0.99 * b.a.len && abs(b.a.x) < 1e-6)
         // a ray straight at the door's middle, from inside the room, hits it
         let mid = a.o + (a.a + a.b + a.c) * 0.5
         let eye = V3(mid.x, mid.y, 2)

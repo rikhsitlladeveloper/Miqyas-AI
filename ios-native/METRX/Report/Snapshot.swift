@@ -47,7 +47,8 @@ private func baseSnapshot(_ p: Project, _ s: AppSettings, pdf: PdfParts?) -> Sna
 /// What decides whether the draft still matches an issued quote (prototype fingerprint): the parties, currency,
 /// language, unit, notes, every room's name, measurements, openings, columns and niches, site points, shape and chosen
 /// views, the estimate and the extras. The parts added later (columns and niches, site points, the customer's phone, the
-/// angle snap) are only there when set, so a quote issued before them still matches its unchanged draft.
+/// angle snap, a furniture order's prepayment and printed handles) are only there when set or not the first default, so
+/// a quote issued before them still matches its unchanged draft.
 func fingerprint(_ sn: Snap) -> String {
     struct FRoom: Encodable {
         let name: String; let dims: [[String?]]; let openings: [Opening]; let poly: Poly?; let rot: Int; let views: [String]
@@ -60,6 +61,7 @@ func fingerprint(_ sn: Snap) -> String {
         /// furniture orders only (a builder's fingerprint stays as it was)
         var furniture: [Furniture]? = nil, ftotal: String? = nil, fdays: Int? = nil, finst: Int? = nil, fmats: [Mat]? = nil
         var phone: String? = nil, snap: Bool? = nil
+        var pp: Int? = nil, hd: String? = nil
     }
     let f = F(name: sn.name, customer: sn.customer, address: sn.address, currency: sn.currency, precision: sn.precision, lang: sn.lang,
               unit: sn.unit, notes: sn.notes, builder: [sn.builderName, sn.builderPhone],
@@ -74,6 +76,10 @@ func fingerprint(_ sn: Snap) -> String {
     if !sn.furniture.isEmpty { g.furniture = sn.furniture; g.ftotal = sn.ftotal; g.fdays = sn.fdays; g.finst = sn.finst; g.fmats = sn.fmats }
     if !sn.phone.isEmpty { g.phone = sn.phone }
     if !sn.snap { g.snap = false }
+    if !sn.furniture.isEmpty && sn.fprepay != 50 { g.pp = sn.fprepay }
+    // the handle the workshop's list starts with fingerprints as before handles were printed
+    let handlesPrinted = !sn.fhandles.trimmingCharacters(in: .whitespaces).isEmpty && sn.furniture.contains(where: { $0.modules.contains(where: \.handles) })
+    if handlesPrinted && sn.fhandles != "Tutqich skoba 128" { g.hd = sn.fhandles }
     let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
     return (try? enc.encode(g)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
 }

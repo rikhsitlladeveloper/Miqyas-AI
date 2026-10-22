@@ -49,7 +49,9 @@ private struct ProjectDelete: View {
     var body: some View {
         if let p = Store.shared.get(pid) {
             GlassSheet(tr("pj.delQ", ["n": dn(p.name)]), onClose: { app.sheet = nil }) {
-                T(p.quotes.isEmpty ? tr(p.isFurniture ? "fo.delB0" : "pj.delB0") : tr(p.isFurniture ? "fo.delB" : "pj.delB", ["q": p.quotes.count]), ui(15, 400, G.ink2, lh: 1.45))
+                // the simple furniture app has no quotes to count
+                let quotes = p.isFurniture && !AppSettings.shared.advanced ? 0 : p.quotes.count
+                T(quotes == 0 ? tr(p.isFurniture ? "fo.delB0" : "pj.delB0") : tr(p.isFurniture ? "fo.delB" : "pj.delB", ["q": quotes]), ui(15, 400, G.ink2, lh: 1.45))
             } footer: {
                 HStack(spacing: 8) {
                     GBtn(tr("common.cancel"), kind: .secondary) { app.sheet = nil }
@@ -172,12 +174,15 @@ private struct SpaceDelete: View {
                         let name = floorName(w)
                         let idx = p.floors.firstIndex(where: { $0.id == w.id }) ?? 0
                         let rooms = p.rooms.filter { $0.floorId == w.id }
+                        // Undo puts each room back where it was in the list
+                        let at = rooms.map { r in p.rooms.firstIndex { $0.id == r.id } ?? p.rooms.count }
                         let ids = Set(rooms.map(\.id))
                         let pieces = p.furniture.filter { $0.roomId.map(ids.contains) ?? false }
                         Store.shared.update(p.id) { pr in pr.furniture = outOfRooms(pr, ids); pr.floors.removeAll { $0.id == w.id }; pr.rooms.removeAll { $0.floorId == w.id } }
                         app.sheet = nil; app.dropMissing()
                         app.say("ws.deleted", ["n": name], action: "common.undo") {
-                            Store.shared.update(p.id) { pr in pr.floors.insert(w, at: min(idx, pr.floors.count)); pr.rooms.append(contentsOf: rooms)
+                            Store.shared.update(p.id) { pr in pr.floors.insert(w, at: min(idx, pr.floors.count))
+                                for (j, r) in rooms.enumerated() { pr.rooms.insert(r, at: min(at[j], pr.rooms.count)) }
                                 pr.furniture = pr.furniture.map { f in pieces.first { $0.id == f.id } ?? f } }
                         }
                     }

@@ -26,7 +26,12 @@ struct PlacePlan: View {
     let onCorner: (String) -> Void
     let onPose: (Pose) -> Void
     let onIsland: (Pose) -> Void
+    /// The finger holds the piece (true) or let it go: the page around stops scrolling while it is held.
+    var onHold: (Bool) -> Void = { _ in }
     @State private var grab: Grab? = nil
+    /// This touch was looked at already (on the piece or not): a touch elsewhere leaves the page to scroll.
+    @State private var tried = false
+    @GestureState private var touching = false
 
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -79,18 +84,19 @@ struct PlacePlan: View {
                 for ft in footsOf(g, walls, ws) { foot(ft, red ? Color(argb: 0xFFDC2626) : Color(argb: 0xFF3550E0), true) }
             }
             .contentShape(Rectangle())
-            .gesture(DragGesture(minimumDistance: 4).onChanged { v in
-                if grab == nil {
+            // alongside the page's scrolling: only a touch on the piece takes hold of it (and stops the page),
+            // anywhere else the page scrolls as usual
+            .simultaneousGesture(DragGesture(minimumDistance: 4).updating($touching) { _, t, _ in t = true }.onChanged { v in
+                if !tried {
+                    tried = true
                     let q = plan(v.startLocation)
-                    let isl = footsOf(g, walls, ws).first { $0.island }
-                    let onIsl = isl.map { near($0, q) } ?? false
-                    if let fr = onIsl ? islandPoseIn(g, walls).flatMap({ frameOf(walls, $0) }) : mainFrame(g, walls) {
-                        grab = Grab(island: onIsl, ga: (q - fr.o).dot(fr.u), gn: (q - fr.o).dot(fr.n))
-                    }
+                    grab = grabAt(q)
+                    if grab != nil { onHold(true) }
                 }
                 guard let gr = grab else { return }
                 move(gr, plan(v.location))
-            }.onEnded { _ in grab = nil })
+            }.onEnded { _ in release() })
+            .onChange(of: touching) { _, t in if !t { release() } }
         }
         .aspectRatio(1.2, contentMode: .fit)
         .frame(maxWidth: .infinity)
@@ -99,6 +105,25 @@ struct PlacePlan: View {
         .accessibilityElement()
         .accessibilityLabel(label)
         .accessibilityIdentifier("fz.plan")
+    }
+
+    /// Where the finger at q takes hold of the piece: its island or its main part; nil when it is not on the piece.
+    private func grabAt(_ q: PlanPt) -> Grab? {
+        let feet = footsOf(g, walls, ws)
+        let isl = feet.first { $0.island }
+        let onIsl = isl.map { near($0, q) } ?? false
+        let onMain = feet.contains { !$0.island && near($0, q) }
+        if !onIsl && !onMain { return nil }
+        let fr: Frame?
+        if onIsl { fr = islandPoseIn(g, walls).flatMap { frameOf(walls, $0) } } else { fr = mainFrame(g, walls) }
+        guard let fr else { return nil }
+        return Grab(island: onIsl, ga: (q - fr.o).dot(fr.u), gn: (q - fr.o).dot(fr.n))
+    }
+
+    private func release() {
+        let held = grab != nil
+        grab = nil; tried = false
+        if held { onHold(false) }
     }
 
     private func move(_ gr: Grab, _ q: PlanPt) {
@@ -128,18 +153,34 @@ struct PlacePlan: View {
         }
     }
 
-    /// The distance from w's start for a piece dragged to a: kept on the wall, snapped into a corner near one, to 10 mm.
+    /// The distance from w's start for a piece dragged to a: kept on the wall, snapped near a corner or beside another
+    /// piece on it (others), to 10 mm. Where a door hinges at the ends that meet it keeps 50 mm, so the door can open.
     private func slideX(_ f: Furniture, _ w: PlanWall, _ a: Double) -> Int {
         let first = f.kind == "kitchen" ? f.walls.first { $0 != ISLAND } : wardOfF(f)?.wall
-        let feet = footsOf(f, walls, ws).filter { $0.wall != nil && $0.wall == first }
+        // a kitchen's length is its units on the floor (the wall units over them may start or end elsewhere)
+        let feet = footsOf(f, walls, ws).filter { $0.wall != nil && $0.wall == first && $0.floor }
         let len = f.kind == "wardrobe" ? Double(wardOfF(f)?.w ?? 0) : (feet.isEmpty ? 0 : feet.map(\.a1).max()! - feet.map(\.a0).min()!)
-        let gap = f.kind == "wardrobe" ? Double(W_GAP_SIDE) : 0
-        let hi = max(gap, w.len - len - gap)
-        var x = min(max(a, gap), hi)
-        if abs(x - gap) < 150 { x = gap }
-        if abs(x - hi) < 150 { x = hi }
+        let ward = f.kind == "wardrobe"
+        let (hl, hr) = hingedEnds(f)
+        let clear = Double(HINGE_CLEAR)
+        let gap = ward ? Double(W_GAP_SIDE) : 0
+        let lo = gap, hi = max(gap, w.len - len - gap)
+        // a NaN (a degenerate wall or finger) would crash Int(...): the piece stays in the corner
+        guard a.isFinite, hi.isFinite, len.isFinite else { return Int(gap) }
+        var stops: [Double] = [ward && hl ? clear : gap, w.len - len - (ward && hr ? clear : gap)]
+        for o in others {
+            let (ol, orr) = hingedEnds(o)
+            for ft in footsOf(o, walls, ws) where ft.wall == w.id && ft.floor {
+                stops.append(ft.a1 + (hl || orr ? clear : 0))
+                stops.append(ft.a0 - len - (hr || ol ? clear : 0))
+            }
+        }
+        let x = min(max(a, lo), hi)
+        let near = stops.filter { $0 >= lo && $0 <= hi }.min { abs($0 - x) < abs($1 - x) }
+        if let s = near, abs(s - x) < 150 { return Int(s.rounded(.down)) }
+        // to 10 mm, never past the far corner (a wall of 3605 must not make a 1210 start for 1205)
         let r = Int((x / 10).rounded()) * 10
-        return abs(Double(r) - gap) < 10 ? Int(gap) : r
+        return min(max(r, Int(lo.rounded(.up))), Int(hi.rounded(.down)))
     }
 }
 

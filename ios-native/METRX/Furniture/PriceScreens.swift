@@ -251,6 +251,7 @@ struct CutScreen: View {
     @State private var sheet = 0
     var body: some View {
         let s = AppSettings.shared
+        if !s.advanced { Color.clear.onAppear { app.dropAdvanced() } } else
         if let p = Store.shared.get(pid) {
             let fs = p.furniture.filter { !$0.modules.isEmpty }
             let cost = costOf(fs, s.workshop, s.mats, s.hws)
@@ -368,6 +369,7 @@ struct PackScreen: View {
     @State private var viewer: Int? = nil
     var body: some View {
         let s = AppSettings.shared
+        if !s.advanced { Color.clear.onAppear { app.dropAdvanced() } } else
         if let p = Store.shared.get(pid) {
             let sn = snapshotOf(p)
             let pr = priceOf(sn.furniture, p.fprice, s.workshop, s.mats, s.hws)

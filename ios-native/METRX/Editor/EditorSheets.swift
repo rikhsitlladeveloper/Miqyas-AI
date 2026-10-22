@@ -496,6 +496,19 @@ struct Seg: View {
     var subs: [String: String] = [:]
     let onPick: (String) -> Void
     var body: some View {
+        // more than four items (a drawn room's walls) scroll sideways instead of squeezing
+        if items.count > 4 {
+            ScrollView(.horizontal, showsIndicators: false) { cells(scroll: true).padding(3) }
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(G.ink.opacity(0.06)))
+                .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        } else {
+            cells(scroll: false)
+                .padding(3)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(G.ink.opacity(0.06)))
+        }
+    }
+
+    private func cells(scroll: Bool) -> some View {
         HStack(spacing: 2) {
             ForEach(items, id: \.0) { k, label in
                 let on = k == cur
@@ -504,15 +517,13 @@ struct Seg: View {
                     if let s = subs[k] { T(s, num(11.5, 400, on ? G.ink : G.ink2), lines: 1) }
                 }
                 .padding(.horizontal, 6).padding(.vertical, 4)
-                .frame(maxWidth: .infinity, minHeight: 44)
+                .frame(minWidth: scroll ? 56 : nil, maxWidth: scroll ? nil : .infinity, minHeight: 44)
                 .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(on ? G.glass(0.9) : .clear))
                 .pressable(0.97) { onPick(k) }
                 .accessibilityAddTraits(on ? .isSelected : [])
                 .accessibilityIdentifier("seg." + k)
             }
         }
-        .padding(3)
-        .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(G.ink.opacity(0.06)))
     }
 }
 
@@ -566,12 +577,12 @@ private struct RoomInfoSheet: View {
             }()
             GlassSheet(dn(r.name), onClose: close) {
                 ListBox {
-                    Kv(label: tr("rp.floorArea"), value: a.map { Geo.fmtArea($0.floor, en) + " m²" } ?? "—")
+                    Kv(label: tr("rp.floorArea"), value: a.map { Geo.fmtArea($0.floor, en) + " " + tr("u.m2") } ?? "—")
                     Hairline(); Kv(label: tr("rp.perim"), value: a.map { Geo.fmtLen(Int($0.perim), unit, en) + " " + m } ?? "—")
                     Hairline(); Kv(label: tr("ri.height"), value: H.map { Geo.fmtLen($0, unit, en) + " " + m } ?? "—")
-                    Hairline(); Kv(label: tr("rp.gross"), value: a?.gross.map { Geo.fmtArea($0, en) + " m²" } ?? "—")
-                    Hairline(); Kv(label: tr("rp.openings"), value: a?.open.map { Geo.fmtArea($0, en) + " m²" } ?? "—")
-                    Hairline(); Kv(label: tr("rp.net"), value: a?.net.map { Geo.fmtArea($0, en) + " m²" } ?? "—")
+                    Hairline(); Kv(label: tr("rp.gross"), value: a?.gross.map { Geo.fmtArea($0, en) + " " + tr("u.m2") } ?? "—")
+                    Hairline(); Kv(label: tr("rp.openings"), value: a?.open.map { Geo.fmtArea($0, en) + " " + tr("u.m2") } ?? "—")
+                    Hairline(); Kv(label: tr("rp.net"), value: a?.net.map { Geo.fmtArea($0, en) + " " + tr("u.m2") } ?? "—")
                     Hairline(); Kv(label: tr("ri.volume"), value: vol, bold: true)
                 }
                 if n > 0 && a != nil { Warn(icon: "clock", text: tr("rp.prov", ["n": n])) }
@@ -612,10 +623,12 @@ private struct RenameSheet: View {
     var body: some View {
         if let r = RoomOps.shared.room(pid, rid) {
             let err = v.trimmingCharacters(in: .whitespaces).isEmpty ? tr("nr.nameReq") : nil
+            // an unchanged name that was a key stays a key, so it still follows the language
+            let name = v.trimmingCharacters(in: .whitespaces) == dn(r.name) ? r.name : v
             GlassSheet(tr("room.rename"), onClose: close) {
-                GField(label: tr("nr.name"), value: $v, error: err, showError: true, focus: $focus, me: .name, submit: .done, onSubmit: { if err == nil { RoomOps.shared.rename(pid, rid, v) } })
+                GField(label: tr("nr.name"), value: $v, error: err, showError: true, focus: $focus, me: .name, submit: .done, onSubmit: { if err == nil { RoomOps.shared.rename(pid, rid, name) } })
             } footer: {
-                GBtn(tr("common.save"), enabled: err == nil) { RoomOps.shared.rename(pid, rid, v) }
+                GBtn(tr("common.save"), enabled: err == nil) { RoomOps.shared.rename(pid, rid, name) }
             }
             .onAppear {
                 guard !loaded else { return }

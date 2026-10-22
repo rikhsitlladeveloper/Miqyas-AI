@@ -121,10 +121,10 @@ struct ReportScreen: View {
                         Spacer()
                         FloatingFooter {
                             if design {
-                                GBtn(tr("rpt.share"), icon: "share") { share(p, quote) }.accessibilityIdentifier("rp.share")
+                                GBtn(tr("rpt.share"), icon: "share") { share(p, quote, sn, key) }.accessibilityIdentifier("rp.share")
                             } else if quote == nil {
                                 HStack(spacing: 10) {
-                                    GBtn(tr("rp2.shareDraft"), kind: .secondary, icon: "share") { share(p, quote) }.accessibilityIdentifier("rp.shareDraft")
+                                    GBtn(tr("rp2.shareDraft"), kind: .secondary, icon: "share") { share(p, quote, sn, key) }.accessibilityIdentifier("rp.shareDraft")
                                     GBtn(tr("rpt.issue"), icon: "lock") {
                                         let n = p.isFurniture ? 0 : rowsMissing(p)
                                         if n > 0 { app.say("et.block", ["n": n], kind: .error) } else { app.sheet = .issue(pid: p.id) }
@@ -132,7 +132,7 @@ struct ReportScreen: View {
                                     .accessibilityIdentifier("rp.issue")
                                 }
                             } else {
-                                GBtn(tr("rpt.share"), icon: "share") { share(p, quote) }.accessibilityIdentifier("rp.share")
+                                GBtn(tr("rpt.share"), icon: "share") { share(p, quote, sn, key) }.accessibilityIdentifier("rp.share")
                             }
                         }
                     }
@@ -140,10 +140,7 @@ struct ReportScreen: View {
                 }
                 .task(id: key + "\(Int(w))") {
                     guard w > 0 else { return }
-                    let meta = quote.map { QuoteMeta(no: $0.no, ts: $0.ts) }
-                    // a furniture order's quote has its own pages (furniture plan section 10)
-                    let built = p.isFurniture ? furniturePages(sn, draft: quote == nil, meta: meta, image: viewLoader(), prices: !(quote == nil && !AppSettings.shared.advanced))
-                                              : reportPages(sn, draft: quote == nil, meta: meta, image: viewLoader())
+                    let built = layout(p, quote, sn)
                     pages = built
                     images = built.compactMap { pageImage($0, width: w) }
                     if page >= built.count { page = max(0, built.count - 1) }
@@ -153,12 +150,21 @@ struct ReportScreen: View {
         }
     }
 
-    private func share(_ p: Project, _ quote: Quote?) {
+    /// A furniture order's quote has its own pages (furniture plan section 10).
+    private func layout(_ p: Project, _ quote: Quote?, _ sn: Snap) -> [RPage] {
+        let meta = quote.map { QuoteMeta(no: $0.no, ts: $0.ts) }
+        return p.isFurniture ? furniturePages(sn, draft: quote == nil, meta: meta, image: viewLoader(), prices: !(quote == nil && !AppSettings.shared.advanced))
+                             : reportPages(sn, draft: quote == nil, meta: meta, image: viewLoader())
+    }
+
+    private func share(_ p: Project, _ quote: Quote?, _ sn: Snap, _ key: String) {
         guard !pages.isEmpty else { return }
         app.say("sh.making", kind: .info)
         let design = quote == nil && p.isFurniture && !AppSettings.shared.advanced
         let fname = pdfName(dn(p.name), quote.map { tr("q.no", ["n": $0.no]) } ?? tr(design ? "rpt.design" : "es.draft"))
-        if let url = pdfFile(pages, fname) { presentShare(url) } else { app.say("cm.shareErr", kind: .error) }
+        // just after a set-up change the pages on screen may be the old ones: the PDF is laid out from the report as it is
+        let pg = builtKey == key ? pages : layout(p, quote, sn)
+        if let url = pdfFile(pg, fname) { presentShare(url) } else { app.say("cm.shareErr", kind: .error) }
     }
 }
 
@@ -358,7 +364,10 @@ private struct ReportSetupSheet: View {
                     }
                 }
                 GField(label: tr("rpt.notes"), value: $notes, placeholder: tr("rpt.notesPh"), optional: true, focus: $focus, me: .notes, multiline: true)
-                HStack(alignment: .top, spacing: 8) { MIcon("info", G.ink2, 18, 2); T(tr("rpt.draftShare"), ui(13, 400, G.ink2, lh: 1.45)) }
+                // the simple furniture app's design has no DRAFT mark
+                if !(p.isFurniture && !AppSettings.shared.advanced) {
+                    HStack(alignment: .top, spacing: 8) { MIcon("info", G.ink2, 18, 2); T(tr("rpt.draftShare"), ui(13, 400, G.ink2, lh: 1.45)) }
+                }
             } footer: {
                 GBtn(tr("rp2.done")) { done(p) }.accessibilityIdentifier("rp.done")
             }

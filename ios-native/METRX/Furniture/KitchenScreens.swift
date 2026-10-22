@@ -178,7 +178,7 @@ private struct ExtrasCard: View {
             FToggle(label: tr("kx.led") + " · " + m(wu) + " m", on: x.led, id: "kx.led") { set { $0.led.toggle() } }
             FStepper(label: tr("kx.ends"), v: x.ends, lo: 0, hi: 8, id: "kx.ends") { v in set { $0.ends = v } }
             FStepper(label: tr("kx.endsUp"), v: x.endsUp, lo: 0, hi: 8, id: "kx.endsUp") { v in set { $0.endsUp = v } }
-            T(tr("kx.note"), ui(12.5, 400, G.ink2, lh: 1.4))
+            if AppSettings.shared.advanced { T(tr("kx.note"), ui(12.5, 400, G.ink2, lh: 1.4)) }
         }
         .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -292,8 +292,9 @@ private struct SelCard: View {
                 .accessibilityIdentifier("kt.del")
             }
             HStack(spacing: 8) {
-                GBtn(tr("kt.left"), kind: .secondary, icon: "back", enabled: i > 0, height: 44, corner: 14, fontSize: 14) { move(-1) }.accessibilityIdentifier("kt.moveL")
-                GBtn(tr("kt.right"), kind: .secondary, icon: "chev", enabled: i < row.count - 1, height: 44, corner: 14, fontSize: 14) { move(1) }.accessibilityIdentifier("kt.moveR")
+                // long words ("O‘ngga", "Вправо") take a second line rather than being cut
+                MoveBtn(label: tr("kt.left"), icon: "back", enabled: i > 0) { move(-1) }.accessibilityIdentifier("kt.moveL")
+                MoveBtn(label: tr("kt.right"), icon: "chev", enabled: i < row.count - 1) { move(1) }.accessibilityIdentifier("kt.moveR")
                 GBtn(tr("kt.setup"), icon: "sliders", height: 44, corner: 14, fontSize: 14) { app.sheet = .fModule(pid: p.id, fid: f.id, mid: m.id) }
                     .accessibilityIdentifier("kt.setup")
             }
@@ -509,7 +510,11 @@ private struct LegsSheet: View {
                 let dy = x - now
                 KitOps.shared.change(p.id, f.id) { g in
                     var n = g; n.baseH = x
-                    n.modules = g.modules.map { var m = $0; m.elev += dy; return m }
+                    // what stands on the legs or hangs over them moves; a free-standing fridge stays on the floor
+                    n.modules = g.modules.map { m0 in
+                        if m0.app == "fridge" || m0.elev == 0 { return m0 }
+                        var m = m0; m.elev += dy; return m
+                    }
                     return n
                 }
                 app.sheet = nil
@@ -522,7 +527,30 @@ private struct LegsSheet: View {
                 GBtn(tr("common.save"), enabled: vi != nil) { save() }.accessibilityIdentifier("kl.save")
             }
             .onChange(of: v) { _, x in let t = String(x.filter(\.isNumber).prefix(3)); if t != x { v = t } }
+            // the keyboard comes up with the sheet
+            .onAppear { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focus = .a } }
         }
+    }
+}
+
+/// A secondary button of the selected unit's row whose word may take two lines (GBtn keeps one).
+private struct MoveBtn: View {
+    let label: String
+    let icon: String
+    let enabled: Bool
+    let action: () -> Void
+    var body: some View {
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        HStack(spacing: 6) {
+            MIcon(icon, G.ink, 18, 2.2)
+            T(label, ui(13, 700, G.ink), align: .center, lines: 2)
+        }
+        .padding(.horizontal, 8)
+        .frame(maxWidth: .infinity, minHeight: 48)
+        .background(shape.fill(G.ink.opacity(0.06)))
+        .opacity(enabled ? 1 : 0.42)
+        .pressable(0.98) { if enabled { action() } }
+        .accessibilityAddTraits(enabled ? [] : .isStaticText)
     }
 }
 
@@ -805,20 +833,22 @@ private struct ModuleSheet: View {
                         if fr != "d" { FToggle(label: tr("km.soft"), on: soft, id: "km.soft") { soft.toggle() } }
                     }
                 }
-                // what the workshop will cut and fit for it
-                let parts = partsOf(next, ws)
-                Hairline()
-                T(tr("km.parts"), ui(15, 700))
-                if parts.isEmpty { T(tr("km.noParts"), ui(13, 400, G.ink2, lh: 1.4)) }
-                ForEach(Array(parts.enumerated()), id: \.offset) { _, pt in
-                    HStack {
-                        T(tr(pt.key), ui(13.5, 500), lines: 1).frame(maxWidth: .infinity, alignment: .leading)
-                        T("\(pt.L) × \(pt.W) × \(pt.qty)", num(13.5, 700))
+                // what the workshop will cut and fit for it: the advanced app only
+                if s.advanced {
+                    let parts = partsOf(next, ws)
+                    Hairline()
+                    T(tr("km.parts"), ui(15, 700))
+                    if parts.isEmpty { T(tr("km.noParts"), ui(13, 400, G.ink2, lh: 1.4)) }
+                    ForEach(Array(parts.enumerated()), id: \.offset) { _, pt in
+                        HStack {
+                            T(tr(pt.key), ui(13.5, 500), lines: 1).frame(maxWidth: .infinity, alignment: .leading)
+                            T("\(pt.L) × \(pt.W) × \(pt.qty)", num(13.5, 700))
+                        }
                     }
-                }
-                let hw = hardwareOf(next, ws).pairs
-                if !hw.isEmpty {
-                    T(tr("km.hw", ["v": hw.map { k, v in tr("hk." + k) + " × " + hwAmount(k, v, s.lang == .en) }.joined(separator: ", ")]), ui(12.5, 400, G.ink2, lh: 1.4))
+                    let hw = hardwareOf(next, ws).pairs
+                    if !hw.isEmpty {
+                        T(tr("km.hw", ["v": hw.map { k, v in tr("hk." + k) + " × " + hwAmount(k, v, s.lang == .en) }.joined(separator: ", ")]), ui(12.5, 400, G.ink2, lh: 1.4))
+                    }
                 }
             } footer: {
                 HStack(spacing: 8) {

@@ -37,7 +37,7 @@ struct ProfileScreen: View {
                         .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 8)
                         .pressable(0.99) { app.editMe = true }
                         .accessibilityIdentifier("profile.me")
-                        HStack(spacing: 7) { MIcon("doc", G.ink2, 16, 2); T(tr("pf.onQuote"), ui(12.5, 400, G.ink2, lh: 1.4)) }
+                        HStack(spacing: 7) { MIcon("doc", G.ink2, 16, 2); T(tr(s.furniture && !s.advanced ? "pf.onDesign" : "pf.onQuote"), ui(12.5, 400, G.ink2, lh: 1.4)) }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 10)
                             .overlay(alignment: .top) { Rectangle().fill(G.rim).frame(height: 0.67) }
@@ -50,7 +50,7 @@ struct ProfileScreen: View {
                         Group1(text: tr("wk.group"))
                         Card {
                             // off: the app is just the 3D design; on: prices, order stages, workshop rules, cutting lists
-                            SwitchRow(icon: "sliders", title: tr("adv.title"), on: s.advanced) { s.setAdvancedOn(!s.advanced); app.say(s.advanced ? "adv.on" : "adv.off") }
+                            SwitchRow(icon: "sliders", title: tr("adv.title"), on: s.advanced) { s.setAdvancedOn(!s.advanced); if !s.advanced { app.dropAdvanced() }; app.say(s.advanced ? "adv.on" : "adv.off") }
                                 .accessibilityIdentifier("pf.advanced")
                             if s.advanced {
                                 Row1(icon: "board", title: tr("wk.title"), value: nil, sub: tr("wk.titleS")) { app.push(.workshop) }.accessibilityIdentifier("pf.workshop")
@@ -64,8 +64,10 @@ struct ProfileScreen: View {
                         Row1(icon: "sliders", title: tr("ind.row"), value: tr(s.furniture ? "ind.furn" : isTrade(s.industry) ? "ind.\(s.industry ?? "")" : "ind.build")) { app.sheet = .industry }
                         Row1(icon: "globe", title: tr("se.lang"), value: s.lang.longName) { app.sheet = .language }
                         Row1(icon: "doc", title: tr("se.reportLang"), value: s.reportLang.longName) { app.sheet = .reportLang }
-                        Row1(icon: "layers", title: tr("se.pdf"), value: "\(pdfCount(s.pdf))/5") { app.sheet = .pdfParts }
-                        Row1(icon: "coin", title: tr("np.currency"), value: s.currency) { app.sheet = .currency }
+                        // the simple furniture app shares a design: no estimate in it, and no prices to have a currency
+                        let design = s.furniture && !s.advanced
+                        Row1(icon: "layers", title: tr("se.pdf"), value: "\(pdfCount(s.pdf, design))/\(pdfKeys(design).count)") { app.sheet = .pdfParts }
+                        if !design { Row1(icon: "coin", title: tr("np.currency"), value: s.currency) { app.sheet = .currency } }
                     }
                     // dark mode: this app's own (the prototype has only the light look)
                     Card { SwitchRow(icon: "moon", title: tr("nt.dark"), on: s.dark) { s.setDarkMode(!s.dark) } }.padding(.top, 10)
@@ -306,15 +308,20 @@ struct ProfileSheet: View {
     }
 }
 
-func pdfCount(_ p: PdfParts) -> Int { [p.plan, p.dims, p.views, p.estimate, p.sign].filter { $0 }.count }
+/// The PDF's parts the Profile offers; a simple furniture app's design has no estimate.
+func pdfKeys(_ design: Bool) -> [String] { design ? ["plan", "dims", "views", "sign"] : ["plan", "dims", "views", "estimate", "sign"] }
+func pdfCount(_ p: PdfParts, _ design: Bool = false) -> Int {
+    [("plan", p.plan), ("dims", p.dims), ("views", p.views), ("estimate", p.estimate), ("sign", p.sign)].filter { pdfKeys(design).contains($0.0) && $0.1 }.count
+}
 
 /// What the PDF shows (prototype SHEETS.pdf).
 private struct PdfPartsSheet: View {
     let app: AppModel
     var body: some View {
         let s = AppSettings.shared, p = s.pdf
+        let design = s.furniture && !s.advanced
         GlassSheet(tr("se.pdf"), onClose: { app.sheet = nil }) {
-            ForEach([("plan", p.plan), ("dims", p.dims), ("views", p.views), ("estimate", p.estimate), ("sign", p.sign)], id: \.0) { k, on in
+            ForEach([("plan", p.plan), ("dims", p.dims), ("views", p.views), ("estimate", p.estimate), ("sign", p.sign)].filter { pdfKeys(design).contains($0.0) }, id: \.0) { k, on in
                 HStack(spacing: 12) { MIcon(on ? "boxok" : "box", on ? G.cobalt : G.ink2, 24, 2); T(tr("pdf." + k), ui(16, 500)).frame(maxWidth: .infinity, alignment: .leading) }
                     .padding(.horizontal, 4).frame(minHeight: 52)
                     .pressable(0.98) {
@@ -325,7 +332,7 @@ private struct PdfPartsSheet: View {
                     .accessibilityAddTraits(on ? .isSelected : [])
                     .accessibilityIdentifier("pdf." + k)
             }
-            T(tr("se.pdfBody"), ui(13, 400, G.ink2, lh: 1.45))
+            T(tr(design ? "se.pdfBodyD" : "se.pdfBody"), ui(13, 400, G.ink2, lh: 1.45))
         }
     }
 }

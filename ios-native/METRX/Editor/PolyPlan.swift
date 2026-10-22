@@ -222,6 +222,11 @@ private func polyHit(_ r: Room, _ g: Geo.PolyGeo, _ lay: PolyLayout, _ p: CGPoin
         let rel = p - a, along = rel.dot(u), out = rel.dot(lay.normals[i])
         if along >= CGFloat(o.off - 150) * kk && along <= CGFloat(o.off + o.w + 150) * kk && out >= -30 && out <= lay.tw + 6 { return .op(o.id) }
     }
+    // a diagonal's pill opens its card again
+    for d in r.poly?.diags ?? [] where d.a < lay.n && d.b < lay.n {
+        let c = mid(lay.inner[d.a], lay.inner[d.b])
+        if abs(p.x - c.x) < 36 && abs(p.y - c.y) < 16 { return .dim(d.id) }
+    }
     for i in 0..<lay.n {
         let c = mid(lay.inner[i], lay.inner[(i + 1) % lay.n]) + lay.normals[i] * (lay.tw + 30)
         if abs(p.x - c.x) < 40 && abs(p.y - c.y) < 18 { return .dim(g.walls[i].id) }
@@ -391,8 +396,8 @@ struct PolyHint: View {
         let v: (String, Bool, String?)? = {
             if g.err == "negative" { return (tr("sk.negative", ["w": g.conflict.joined(separator: ", ")]), true, g.conflict.first) }
             if g.err == "cross" { return (tr("sk.crossSol"), true, g.conflict.first) }
-            if g.err == "closure" { return (tr("sk.conflict", ["w": g.conflict.joined(separator: ", "), "e": ""]), true, g.conflict.first) }
-            if let e = warn { return (tr("sk.diagWarn", ["d": e.key, "e": Geo.fmtLen(abs((r.dim(e.key).v ?? 0) - (g.diagLen[e.key] ?? 0)), unit, en)]), false, nil) }
+            if g.err == "closure" { return (tr("sk.conflict", ["w": g.conflict.joined(separator: ", "), "e": Geo.fmtLen(g.gap, .m, en)]), true, g.conflict.first) }
+            if let e = warn { return (tr("sk.diagWarn", ["d": e.key, "e": Geo.fmtLen(abs((r.dim(e.key).v ?? 0) - (g.diagLen[e.key] ?? 0)), .m, en)]), false, nil) }
             if g.either.count == 2 { return (tr("sk.needEither", ["a": g.either[0], "b": g.either[1]]), false, nil) }
             return nil
         }()

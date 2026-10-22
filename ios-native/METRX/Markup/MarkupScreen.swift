@@ -236,9 +236,9 @@ struct MarkupScreen: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     GlassIconButton("undo", tr("common.undo"), iconSize: 20) { ops.undo(pid, iid) }.opacity(ops.canUndo(iid) ? 1 : 0.4)
-                    GlassIconButton("redo", "redo", iconSize: 20) { ops.redo(pid, iid) }.opacity(ops.canRedo(iid) ? 1 : 0.4)
+                    GlassIconButton("redo", tr("common.redo"), iconSize: 20) { ops.redo(pid, iid) }.opacity(ops.canRedo(iid) ? 1 : 0.4)
                     if pid == nil { GlassIconButton("share", tr("cm.share"), iconSize: 20) { shareShot(it) } }
-                    GlassIconButton("more", "menu", iconSize: 20) {
+                    GlassIconButton("more", tr("common.menu"), iconSize: 20) {
                         app.sheet = pid == nil ? .shotMenu : .itemMenu(pid: pid!, wid: ops.wid(pid, iid) ?? "", iid: iid)
                     }
                     .accessibilityIdentifier("mk.menu")

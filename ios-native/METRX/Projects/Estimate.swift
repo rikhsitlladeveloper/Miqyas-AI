@@ -136,8 +136,9 @@ private struct StatTile: View {
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 6) { icon; T(label, ui(12, 600, G.ink2, lh: 1.4)) }.padding(.trailing, 14)
             HStack(alignment: .lastTextBaseline, spacing: 3) {
-                T(value ?? "—", ui(18, 800), lines: 1)
-                if value != nil { T(tr("u.m2"), ui(12, 600, G.ink2)) }
+                // a long area gets smaller and gives way first, so "m²" always shows
+                Text(value ?? "—").st(ui(18, 800)).lineLimit(1).minimumScaleFactor(0.7)
+                if value != nil { T(tr("u.m2"), ui(12, 600, G.ink2), lines: 1).fixedSize().layoutPriority(1) }
             }
         }
         .padding(.horizontal, 12).padding(.top, 11).padding(.bottom, 10)
@@ -389,6 +390,8 @@ private struct RowSheet: View {
     private func f(_ k: String) -> String { form[k] ?? "" }
     private func bind(_ k: String) -> Binding<String> { Binding(get: { form[k] ?? "" }, set: { form[k] = $0 }) }
     private func blank(_ k: String) -> Bool { f(k).trimmingCharacters(in: .whitespaces).isEmpty }
+    /// The +10 % spare is for m² only: another unit turns it off (its chip is gone, so it could not be seen).
+    private func setUnit(_ u: String) { form["eunit"] = u; if u != "@u.m2" { form["ereserve"] = "" } }
 
     private func initial(_ p: Project, _ k: String) -> [String: String] {
         let x = rid.flatMap { id in (k == "mat" ? p.estimate.materials : p.estimate.labor).first { $0.id == id } }
@@ -411,7 +414,7 @@ private struct RowSheet: View {
             let q: Dec = mat ? Money.parse(f("eqty"), 3) : .empty
             let pr = Money.parse(mat ? f("eprice") : f("eamount"), p.precision)
             let qErr = mat ? decErr(q) : nil, pErr = decErr(pr)
-            let reserve = f("ereserve") == "1"
+            let reserve = f("ereserve") == "1" && f("eunit") == "@u.m2"
             let qShown: String? = mat && q.value != nil ? Money.num(reserve ? Money.withSpare(f("eqty")) : Money.canon(f("eqty")), en) : nil
             let lt: Decimal? = mat ? (q.value != nil && pr.value != nil ? Money.line(reserve ? Money.withSpare(f("eqty")) : f("eqty"), f("eprice"), p.precision) : nil) : pr.value
             let formula = mat ? "\(qShown ?? "?") \(dn(f("eunit"))) × \(pr.value.map { Money.of($0, p) } ?? "?") \(Money.cur(p.currency))" + (reserve ? " · " + tr("gs.withRes") : "")
@@ -440,7 +443,7 @@ private struct RowSheet: View {
                                 T(n, ui(13, 600, G.cobalt2), lines: 1).padding(.horizontal, 12).frame(height: 34)
                                     .background(Capsule().fill(G.cobalt.opacity(0.07)))
                                     .overlay(Capsule().strokeBorder(G.cobalt.opacity(0.2), lineWidth: 0.67))
-                                    .pressable(0.97) { form["ename"] = n; if mat { form["eunit"] = i < SUG_UNITS.count ? SUG_UNITS[i] : f("eunit") } }
+                                    .pressable(0.97) { form["ename"] = n; if mat { setUnit(i < SUG_UNITS.count ? SUG_UNITS[i] : f("eunit")) } }
                             }
                         }
                     }
@@ -456,7 +459,7 @@ private struct RowSheet: View {
                                         .background(Capsule().fill(on ? G.cobalt : G.glass(0.85)))
                                         .overlay(Capsule().strokeBorder(on ? G.cobalt : G.ink.opacity(0.1), lineWidth: 0.67))
                                         .boxShadow(on ? G.cobalt.opacity(0.3) : .clear, blur: 14, y: 6)
-                                        .pressable(0.97) { form["eunit"] = "@" + u }
+                                        .pressable(0.97) { setUnit("@" + u) }
                                         .accessibilityAddTraits(on ? .isSelected : [])
                                         .accessibilityIdentifier("unit." + u)
                                 }
@@ -568,10 +571,16 @@ private struct RowSheet: View {
 
     private func save(_ p: Project, again: Bool, _ bad: Bool) {
         if bad { tried = true; return }
-        let reserve = f("ereserve") == "1"
+        let reserve = f("ereserve") == "1" && f("eunit") == "@u.m2"
         let qty = blank("eqty") ? "" : Money.canon(reserve ? Money.withSpare(f("eqty")) : f("eqty"))
-        let row = mat ? Row(id: rid ?? uid(), name: f("ename").trimmingCharacters(in: .whitespaces), unit: f("eunit"), qty: qty, price: blank("eprice") ? "" : Money.canon(f("eprice")))
-            : Row(id: rid ?? uid(), name: f("ename").trimmingCharacters(in: .whitespaces), amount: blank("eamount") ? "" : Money.canon(f("eamount")))
+        let old = rid.flatMap { id in (mat ? p.estimate.materials : p.estimate.labor).first { $0.id == id } }
+        // a calculator line changed by hand becomes the maker's own ("t-" lines are replaced on "Smetani yangilash")
+        let id = rid.map { $0.hasPrefix("t-") && form != initForm ? uid() : $0 } ?? uid()
+        // an untouched name keeps its key, so it still follows the language
+        let typed = f("ename").trimmingCharacters(in: .whitespaces)
+        let name = old.map { typed == dn($0.name) ? $0.name : typed } ?? typed
+        let row = mat ? Row(id: id, name: name, unit: f("eunit"), qty: qty, price: blank("eprice") ? "" : Money.canon(f("eprice")))
+            : Row(id: id, name: name, amount: blank("eamount") ? "" : Money.canon(f("eamount")))
         let m = mat, existing = rid
         Store.shared.update(p.id) { pp in
             if pp.stage == "measure" { pp.stage = "estimate" }
@@ -579,7 +588,7 @@ private struct RowSheet: View {
             if m { put(&pp.estimate.materials) } else { put(&pp.estimate.labor) }
         }
         st.setDraft(key(kind), nil)
-        if rid != nil { app.say("op.saved", ["o": row.name]) } else { app.say("re.added") }
+        if rid != nil { app.say("op.saved", ["o": dn(row.name)]) } else { app.say("re.added") }
         if again {
             // a fresh sheet for the next row of the same kind, without the suggested name and unit
             var i = initial(p, kind)
@@ -593,8 +602,18 @@ private struct RowSheet: View {
         closing = true
         st.setDraft(key(kind), nil)
         let m = mat, id = rid
+        guard let gone = (m ? p.estimate.materials : p.estimate.labor).first(where: { $0.id == id }) else { app.sheet = nil; return }
+        let idx = (m ? p.estimate.materials : p.estimate.labor).firstIndex { $0.id == id } ?? 0
         Store.shared.update(p.id) { pp in if m { pp.estimate.materials.removeAll { $0.id == id } } else { pp.estimate.labor.removeAll { $0.id == id } } }
-        app.say("re.deleted"); app.sheet = nil
+        app.sheet = nil
+        // Undo puts the row back where it was
+        let pid = p.id
+        app.say("re.deleted", action: "common.undo") {
+            Store.shared.update(pid) { pp in
+                func back(_ list: inout [Row]) { if !list.contains(where: { $0.id == gone.id }) { list.insert(gone, at: min(idx, list.count)) } }
+                if m { back(&pp.estimate.materials) } else { back(&pp.estimate.labor) }
+            }
+        }
     }
 }
 
