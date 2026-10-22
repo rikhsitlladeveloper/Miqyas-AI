@@ -134,8 +134,10 @@ fun areas(r: Room, snap: Boolean = true): Areas? {
     val extra = fx.sumOf { f ->
         if (f.type == "column") 2L * f.d * H
         else {
-            val nh = (if (f.h > 0) f.h else H - f.sill).coerceAtMost(H - f.sill).toLong()
-            2L * f.d * nh + (if (f.sill > 0) f.w.toLong() * f.d else 0L) + (if (f.sill + nh < H) f.w.toLong() * f.d else 0L)
+            // a niche the room's height no longer reaches has nothing inside (and never a negative area)
+            val nh = (if (f.h > 0) f.h else H - f.sill).coerceAtMost(H - f.sill).coerceAtLeast(0).toLong()
+            if (nh == 0L) 0L
+            else 2L * f.d * nh + (if (f.sill > 0) f.w.toLong() * f.d else 0L) + (if (f.sill + nh < H) f.w.toLong() * f.d else 0L)
         }
     }
     val gross = perim * H + extra
@@ -175,9 +177,9 @@ data class Issue(val field: String, val key: String, val vars: Map<String, Any?>
 fun openingIssue(r: Room, o: Opening, kindName: String, unit: LenUnit, english: Boolean, snap: Boolean = true): Issue? {
     val w = walls(r, snap).firstOrNull { it.id == o.wall }
     val L = w?.len ?: return Issue("wall", "op.needWall", mapOf("w" to if (w?.derived == true) w.dimKey else o.wall))
-    if (o.off + o.w > L) return Issue("w", "op.exceeds", mapOf("o" to kindName, "x" to fmtLen(o.off + o.w - L, unit, english)))
+    if (o.off + o.w > L) return Issue("w", "op.exceeds", mapOf("o" to kindName, "x" to fmtLen(o.off + o.w - L, LenUnit.M, english)))
     val H = r.dim("H").v
-    if (H != null && o.sill + o.h > H) return Issue("h", "op.tooTall", mapOf("o" to kindName, "x" to fmtLen(o.sill + o.h - H, unit, english)))
+    if (H != null && o.sill + o.h > H) return Issue("h", "op.tooTall", mapOf("o" to kindName, "x" to fmtLen(o.sill + o.h - H, LenUnit.M, english)))
     for (x in r.openings) if (x.id != o.id && x.wall == o.wall && o.off < x.off + x.w && x.off < o.off + o.w)
         return Issue("off", "op.overlap", mapOf("o" to kindName))
     return null
@@ -219,7 +221,8 @@ data class PolyGeo(
     val some: Int = 0,
     val computed: List<String> = emptyList(),
     val diagStatus: Map<String, String> = emptyMap(),
-    val diagLen: Map<String, Int> = emptyMap()
+    val diagLen: Map<String, Int> = emptyMap(),
+    val gap: Int = 0                   // how far the measured walls miss closing, mm (err closure)
 )
 
 fun snapAngle(a: Double): Double { val st = PI / 4; return (a / st).roundToInt() * st }
@@ -334,7 +337,8 @@ private fun computePolyGeo(r: Room, angleSnap: Boolean): PolyGeo {
         }
         diagStatus[dg.id] = st
     }
-    return PolyGeo(verts, walls, solved, if (solved) null else err, conflict, either, s.measure.map { ids[it] }, s.some, if (solved) computed else emptyList(), diagStatus, diagLen)
+    val gap = if (s.err == "closure" && s.errVec != null) hypot(s.errVec.first, s.errVec.second).roundToInt() else 0
+    return PolyGeo(verts, walls, solved, if (solved) null else err, conflict, either, s.measure.map { ids[it] }, s.some, if (solved) computed else emptyList(), diagStatus, diagLen, gap)
 }
 
 /* ---------------- polygons: shape checks ---------------- */

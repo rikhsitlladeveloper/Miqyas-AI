@@ -291,6 +291,7 @@ private fun BandGlyph(r: CutRow) {
 @Composable
 fun CutScreen(rt: Route.FCut) {
     val app = LocalApp.current
+    if (!app.settings.advanced) { LaunchedEffect(Unit) { app.dropAdvanced() }; return }
     val lang = LocalLang.current
     val s = app.settings
     val p = app.store.get(rt.pid) ?: return

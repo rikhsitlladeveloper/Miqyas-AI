@@ -201,6 +201,15 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     }
     fun t(key: String, vararg v: Pair<String, Any?>) = Strings.t(key, settings.lang, if (v.isEmpty()) null else v.toMap())
 
+    /** Advanced turned off: its pages (parts and pack, quotes, the workshop's rules and boards) leave every stack. */
+    fun dropAdvanced() {
+        stacks.values.forEach { st ->
+            val keep = st.filter { it !is Route.FCut && it !is Route.FPack && it !is Route.Quote && it != Route.Workshop && it != Route.Materials }
+            if (keep.size != st.size) { st.clear(); st.addAll(keep) }
+        }
+        if (calc.tool == "sheet") calc.tool = "area"
+    }
+
     /** Leaves pages of a project or workspace that no longer exists (after a delete). */
     fun dropMissing() {
         stacks.values.forEach { st ->

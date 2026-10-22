@@ -199,9 +199,11 @@ private fun StatTile(modifier: Modifier, icon: @Composable () -> Unit, label: St
             Row(Modifier.padding(end = 14.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 icon(); Text(label, style = ui(12f, 600, G.ink2, 1.4f))
             }
+            // a long area gets smaller and gives way first, so "m²" always shows
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(value ?: "—", style = ui(18f, 800), maxLines = 1)
-                if (value != null) Text(tr("u.m2"), style = ui(12f, 600, G.ink2), modifier = Modifier.padding(start = 3.dp, bottom = 3.dp))
+                Text(value ?: "—", style = ui(if ((value?.length ?: 0) > 6) 15f else 18f, 800), maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false))
+                if (value != null) Text(tr("u.m2"), style = ui(12f, 600, G.ink2), maxLines = 1, softWrap = false, modifier = Modifier.padding(start = 3.dp, bottom = 3.dp))
             }
         }
         MIcon("chev", Color(0xFF94A3B8), 14.dp, 2.2f, Modifier.align(Alignment.TopEnd))
@@ -380,7 +382,8 @@ fun RowSheet(s0: Sheet.Row) {
     var tried by remember { mutableStateOf(false) }
     var closing by remember { mutableStateOf(false) }   // saved or deleted: nothing to keep
     fun f(k: String) = form[k] ?: ""
-    fun set(k: String, v: String) { form = form + (k to v) }
+    // the +10 % spare is for m² only: another unit turns it off (its chip is gone, so it could not be seen)
+    fun set(k: String, v: String) { form = form + (k to v) + (if (k == "eunit" && v != "@u.m2") mapOf("ereserve" to "") else emptyMap()) }
     if (existing == null && s0.id != null) { app.sheet = null; return }
 
     // leaving the sheet (×, outside, Back, another tab) keeps what was typed; going to the background keeps it too
@@ -405,7 +408,7 @@ fun RowSheet(s0: Sheet.Row) {
     val pr = parseDec(if (mat) f("eprice") else f("eamount"), p.precision)
     val qErr = if (mat) decErr(q, t) else null
     val pErr = decErr(pr, t)
-    val reserve = f("ereserve") == "1"
+    val reserve = f("ereserve") == "1" && f("eunit") == "@u.m2"
     val qShown = if (mat && q is Dec.Ok) (if (reserve) fmtNumStr(withSpare(f("eqty")), en) else fmtNumStr(canonOf(f("eqty")), en)) else null
     val lt: BigInteger? = if (mat) { if (q is Dec.Ok && pr is Dec.Ok) lineTotal(if (reserve) withSpare(f("eqty")) else f("eqty"), f("eprice"), p.precision) else null } else pr.value()
     val formula = if (mat) "${qShown ?: "?"} ${dn(f("eunit"), lang)} × ${pr.value()?.let { money(it, p, lang) } ?: "?"} ${curSuffix(p.currency, lang)}" + (if (reserve) " · " + tr("gs.withRes") else "")
@@ -415,8 +418,12 @@ fun RowSheet(s0: Sheet.Row) {
     fun save(again: Boolean) {
         if (bad) { tried = true; return }
         val qty = if (f("eqty").isBlank()) "" else canonOf(if (reserve) withSpare(f("eqty")) else f("eqty"))
-        val row = if (mat) Row(s0.id ?: uid(), f("ename").trim(), f("eunit"), qty, if (f("eprice").isBlank()) "" else canonOf(f("eprice")))
-            else Row(s0.id ?: uid(), f("ename").trim(), amount = if (f("eamount").isBlank()) "" else canonOf(f("eamount")))
+        // a calculator line changed by hand becomes the maker's own ("t-" lines are replaced on "Smetani yangilash")
+        val id = s0.id?.let { if (it.startsWith("t-") && form != init) uid() else it } ?: uid()
+        // an untouched name keeps its key, so it still follows the language
+        val name = f("ename").trim().let { n -> if (existing != null && n == dn(existing.name, lang)) existing.name else n }
+        val row = if (mat) Row(id, name, f("eunit"), qty, if (f("eprice").isBlank()) "" else canonOf(f("eprice")))
+            else Row(id, name, amount = if (f("eamount").isBlank()) "" else canonOf(f("eamount")))
         app.store.update(p.id) { pp ->
             val e = pp.estimate
             fun List<Row>.put() = if (s0.id != null) map { if (it.id == s0.id) row else it } else this + row
@@ -424,7 +431,7 @@ fun RowSheet(s0: Sheet.Row) {
                 estimate = if (mat) e.copy(materials = e.materials.put()) else e.copy(labor = e.labor.put()))
         }
         app.settings.setDraft(key(kind), null)
-        if (s0.id != null) app.say("op.saved", "o" to row.name) else app.say("re.added")
+        if (s0.id != null) app.say("op.saved", "o" to dn(row.name, lang)) else app.say("re.added")
         // the same sheet stays open (a new Sheet.Row(p.id, kind) would equal this one), so its form starts again here
         if (again) { init = initial(kind, fresh = true); form = init; restored = false; touched = emptySet(); tried = false }
         else { closing = true; app.sheet = null }
@@ -432,8 +439,18 @@ fun RowSheet(s0: Sheet.Row) {
     fun delete() {
         closing = true
         app.settings.setDraft(key(kind), null)
+        val gone = existing ?: return
+        val idx = (if (mat) p.estimate.materials else p.estimate.labor).indexOfFirst { it.id == gone.id }
         app.store.update(p.id) { pp -> val e = pp.estimate; pp.copy(estimate = if (mat) e.copy(materials = e.materials.filter { it.id != s0.id }) else e.copy(labor = e.labor.filter { it.id != s0.id })) }
-        app.say("re.deleted"); app.sheet = null
+        app.sheet = null
+        // Undo puts the row back where it was
+        app.say("re.deleted", action = "common.undo") {
+            app.store.update(p.id) { pp ->
+                val e = pp.estimate
+                fun List<Row>.back() = if (any { it.id == gone.id }) this else toMutableList().apply { add(idx.coerceIn(0, size), gone) }
+                pp.copy(estimate = if (mat) e.copy(materials = e.materials.back()) else e.copy(labor = e.labor.back()))
+            }
+        }
     }
 
     val title = if (s0.id != null) tr("gs.edit") else tr(if (mat) "re.newMat" else "re.newLab")
@@ -471,7 +488,8 @@ fun RowSheet(s0: Sheet.Row) {
                 sugg.forEachIndexed { i, n ->
                     Text(n, style = ui(13f, 600, G.cobalt2), maxLines = 1, modifier = Modifier.height(34.dp).clip(RoundedCornerShape(17.dp)).background(G.cobalt.copy(alpha = .07f))
                         .border(.67.dp, G.cobalt.copy(alpha = .2f), RoundedCornerShape(17.dp)).clickable(role = Role.Button) {
-                            form = form + ("ename" to n) + (if (mat) mapOf("eunit" to (SUG_UNITS.getOrNull(i) ?: f("eunit"))) else emptyMap())
+                            form = form + ("ename" to n)
+                            if (mat) set("eunit", SUG_UNITS.getOrNull(i) ?: f("eunit"))
                         }.padding(horizontal = 12.dp, vertical = 7.dp))
                 }
             }

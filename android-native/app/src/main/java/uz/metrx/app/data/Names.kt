@@ -6,12 +6,23 @@ import java.util.Calendar
 
 /* Names, counts and small numbers shown about projects and workspaces (prototype: dn, floorName, wsSuggest, wsCounts, pcStats). */
 
-/** A stored name: typed text as it is, "@key" names in the current language. */
+/**
+ * A stored name: typed text as it is, "@key" names in the current language. "@key?w=300&a=12.5" fills the text's
+ * values (the trades' calculator lines); a decimal point is shown as the language's mark.
+ */
 fun dn(s: String?, l: Lang): String = when {
     s == null -> ""
+    s.startsWith("@") && '?' in s -> Strings.t(s.substring(1, s.indexOf('?')), l, keyVars(s.substringAfter('?'), l))
     s.startsWith("@") -> Strings.t(s.drop(1), l)
     else -> s
 }
+
+private fun keyVars(q: String, l: Lang): Map<String, Any?> = q.split('&').filter { '=' in it }
+    .associate { it.substringBefore('=') to it.substringAfter('=').let { v -> if (l == Lang.EN) v else v.replace('.', ',') } }
+
+/** The stored form of a text with values ("@key?w=300&a=12.5"), which [dn] shows in any language. */
+fun keyName(key: String, vars: Map<String, Any>): String =
+    "@" + key + if (vars.isEmpty()) "" else "?" + vars.entries.joinToString("&") { (k, v) -> k + "=" + v.toString().replace(",", "").replace(" ", "") }
 
 fun floorName(w: Workspace, l: Lang): String = when {
     w.name == "@floor1" -> Strings.t("pr.floorName", l, mapOf("n" to 1))
@@ -22,17 +33,25 @@ fun floorName(w: Workspace, l: Lang): String = when {
 val WS_TYPES = listOf("floor" to "layers", "room" to "room", "bath" to "bath", "kitchen" to "kitchen", "balcony" to "balcony", "outdoor" to "tree", "other" to "folder")
 fun wsIcon(type: String) = WS_TYPES.firstOrNull { it.first == type }?.second ?: "layers"
 
-/** The name offered for a new workspace of this type: "2-qavat", "Hammom", "Hammom 2"… */
+/** The name offered for a new workspace of this type: "2-qavat", "Hammom", "Hammom 2"…; never one already there (after a delete). */
 fun wsSuggest(p: Project, type: String, l: Lang): String {
-    if (type == "floor") return Strings.t("pr.floorName", l, mapOf("n" to p.floors.count { it.type == "floor" } + 1))
+    val taken = p.floors.map { floorName(it, l) }.toSet()
+    if (type == "floor") {
+        var k = p.floors.count { it.type == "floor" } + 1
+        while (Strings.t("pr.floorName", l, mapOf("n" to k)) in taken) k++
+        return Strings.t("pr.floorName", l, mapOf("n" to k))
+    }
     val base = Strings.t("ws.t.$type", l)
     val n = p.floors.count { val nm = floorName(it, l); nm == base || nm.startsWith("$base ") }
-    return if (n > 0) "$base ${n + 1}" else base
+    if (n == 0 && base !in taken) return base
+    var k = maxOf(2, n + 1)
+    while ("$base $k" in taken) k++
+    return "$base $k"
 }
 
 /** Stores a suggested name as a key, so it follows the language later; typed names stay as typed. */
 fun wsStoreName(p: Project, nm: String, type: String, l: Lang): String {
-    if (type == "floor") for (k in 1..p.floors.size + 1) if (nm == Strings.t("pr.floorName", l, mapOf("n" to k))) return "@floor:$k"
+    if (type == "floor") for (k in 1..2 * p.floors.size + 1) if (nm == Strings.t("pr.floorName", l, mapOf("n" to k))) return "@floor:$k"
     return if (nm == Strings.t("ws.t.$type", l)) "@ws.t.$type" else nm
 }
 

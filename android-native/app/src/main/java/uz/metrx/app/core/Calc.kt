@@ -33,8 +33,8 @@ val CALC_SLOTS = mapOf("area" to listOf("L", "W"), "wall" to listOf("L", "H", "o
     "sheet" to listOf("L", "W"))
 
 /**
- * Furniture makers' tool instead of bricks: whole sheets for a surface of [areaMm2] with [waste] % added. The sheet is
- * 2800 × 2070 mm until the workshop settings arrive (furniture plan section 6.2).
+ * Furniture makers' tool instead of bricks: whole sheets for a surface of [areaMm2] with [waste] % added, on the
+ * workshop's sheet (2800 × 2070 mm by default; furniture plan section 6.2).
  */
 fun sheetsFor(areaMm2: Double, sheetL: Int = 2800, sheetW: Int = 2070, waste: Int = 15): Int =
     ceil(areaMm2 * (100 + waste) / 100 / (sheetL.toDouble() * sheetW) - 1e-9).toInt()

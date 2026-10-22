@@ -35,8 +35,9 @@ fun parseDec(str: String?, maxDec: Int): Dec {
 
 fun Dec.value(): BigInteger? = (this as? Dec.Ok)?.v
 
-/** prototype canonOf: what is stored ("120 000" → "120000", "4,50" → "4.50", "007" → "7", "5." → "5"). */
-fun canonOf(str: String): String = str.replace(SPACES, "").replace(',', '.').replace(Regex("^0+(?=\\d)"), "").replace(Regex("\\.$"), "")
+/** prototype canonOf: what is stored ("120 000" → "120000", "4,50" → "4.50", "007" → "7", "5." → "5", ",5" → "0.5"). */
+fun canonOf(str: String): String = str.replace(SPACES, "").replace(',', '.').replace(Regex("^0+(?=\\d)"), "").replace(Regex("^\\.(?=\\d)"), "0.")
+    .replace(Regex("\\.$"), "")
 
 private fun dec(en: Boolean) = if (en) "." else ","
 private fun group(s: String, en: Boolean) = s.replace(Regex("\\B(?=(\\d{3})+(?!\\d))"), if (en) "," else " ")

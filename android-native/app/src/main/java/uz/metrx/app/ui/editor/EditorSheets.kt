@@ -4,6 +4,8 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -416,14 +418,19 @@ private fun OpeningSheet(s: Sheet.OpeningForm) {
     }
 }
 
-/** A segmented control (prototype .seg.wide) with an optional small value under each label. */
+/**
+ * A segmented control (prototype .seg.wide) with an optional small value under each label. More than four items (a
+ * drawn room's walls) scroll sideways instead of squeezing.
+ */
 @Composable
 internal fun Seg(items: List<Pair<String, String>>, cur: String, subs: Map<String, String> = emptyMap(), onPick: (String) -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(G.ink.copy(alpha = .06f)).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+    val scroll = items.size > 4; val sc = rememberScrollState()
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(G.ink.copy(alpha = .06f)).let { if (scroll) it.horizontalScroll(sc) else it }.padding(3.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         items.forEach { (k, label) ->
             val on = k == cur
             Column(
-                Modifier.weight(1f).heightIn(min = 44.dp).clip(RoundedCornerShape(9.dp)).background(if (on) G.glass(.9f) else Color.Transparent)
+                Modifier.let { if (scroll) it.widthIn(min = 56.dp) else it.weight(1f) }.heightIn(min = 44.dp).clip(RoundedCornerShape(9.dp)).background(if (on) G.glass(.9f) else Color.Transparent)
                     .clickable(role = Role.Tab) { onPick(k) }.padding(horizontal = 6.dp, vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
             ) {
@@ -474,12 +481,12 @@ private fun RoomInfoSheet(s: Sheet.RoomInfo) {
     val n = unconfCount(r, app.settings.angleSnap)
     GlassSheet(dn(r.name, lang), { app.close() }) {
         ListBox {
-            Kv(tr("rp.floorArea"), a?.let { fmtArea(it.floor, en) + " m²" } ?: "—")
+            Kv(tr("rp.floorArea"), a?.let { fmtArea(it.floor, en) + " " + tr("u.m2") } ?: "—")
             Hairline(); Kv(tr("rp.perim"), a?.let { fmtLen(it.perim.toInt(), unit, en) + " " + m } ?: "—")
             Hairline(); Kv(tr("ri.height"), if (H != null) fmtLen(H, unit, en) + " " + m else "—")
-            Hairline(); Kv(tr("rp.gross"), a?.gross?.let { fmtArea(it, en) + " m²" } ?: "—")
-            Hairline(); Kv(tr("rp.openings"), a?.open?.let { fmtArea(it, en) + " m²" } ?: "—")
-            Hairline(); Kv(tr("rp.net"), a?.net?.let { fmtArea(it, en) + " m²" } ?: "—")
+            Hairline(); Kv(tr("rp.gross"), a?.gross?.let { fmtArea(it, en) + " " + tr("u.m2") } ?: "—")
+            Hairline(); Kv(tr("rp.openings"), a?.open?.let { fmtArea(it, en) + " " + tr("u.m2") } ?: "—")
+            Hairline(); Kv(tr("rp.net"), a?.net?.let { fmtArea(it, en) + " " + tr("u.m2") } ?: "—")
             Hairline(); Kv(tr("ri.volume"), if (a != null && H != null) "%.2f".format(java.util.Locale.ROOT, a.floor.toDouble() * H / 1e9).replace('.', if (en) '.' else ',') + " m³" else "—", bold = true)
         }
         if (n > 0 && a != null) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.amberWash).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -514,7 +521,8 @@ private fun RenameSheet(s: Sheet.RoomRename) {
     val err = if (v.isBlank()) tr("nr.nameReq") else null
     val fr = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
-    fun save() { if (err == null) app.ops.rename(s.pid, s.rid, v) }
+    // an unchanged name that was a key stays a key, so it still follows the language
+    fun save() { if (err == null) app.ops.rename(s.pid, s.rid, if (v.trim() == dn(r.name, lang)) r.name else v) }
     GlassSheet(tr("room.rename"), { app.close() }, footer = { GBtn(tr("common.save"), ::save, enabled = err == null) }) {
         GField(tr("nr.name"), v, { v = it }, error = err, showError = true, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
     }

@@ -134,24 +134,27 @@ fun ReportScreen(pid: String, no: Int?) {
     var viewer by remember { mutableStateOf<Int?>(null) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wPx = with(density) { (maxWidth - 32.dp).roundToPx() }
-        // the pages are laid out and drawn away from the screen's thread, again whenever the report changes
-        val built by produceState<Pair<List<RPage>, List<ImageBitmap>>?>(null, key, wPx) {
-            value = withContext(Dispatchers.Default) {
-                val meta = quote?.let { QuoteMeta(it.no, it.ts) }
-                // a furniture order's quote has its own pages (furniture plan section 10)
-                val pages = if (p.isFurniture) uz.metrx.app.report.furniturePages(tm, sn, quote == null, meta, loader, prices = !design) else reportPages(tm, sn, quote == null, meta, loader)
-                pages to pages.map { pageBitmap(it, wPx) }
-            }
+        // a furniture order's quote has its own pages (furniture plan section 10)
+        fun layout(): List<RPage> {
+            val meta = quote?.let { QuoteMeta(it.no, it.ts) }
+            return if (p.isFurniture) uz.metrx.app.report.furniturePages(tm, sn, quote == null, meta, loader, prices = !design) else reportPages(tm, sn, quote == null, meta, loader)
         }
-        val pages = built?.first.orEmpty(); val bmps = built?.second.orEmpty()
+        // the pages are laid out and drawn away from the screen's thread, again whenever the report changes; each set
+        // carries the key it was made for
+        val built by produceState<Triple<String, List<RPage>, List<ImageBitmap>>?>(null, key, wPx) {
+            value = withContext(Dispatchers.Default) { val pages = layout(); Triple(key, pages, pages.map { pageBitmap(it, wPx) }) }
+        }
+        val pages = built?.second.orEmpty(); val bmps = built?.third.orEmpty()
         val total = quote?.total?.let { BigInteger(it) } ?: if (p.isFurniture) (sn.ftotal.toBigIntegerOrNull() ?: BigInteger.ZERO) else snapTotal(sn)
         val rl = Lang.of(sn.lang)
         fun share() {
-            val pg = built?.first ?: return
+            val b = built ?: return
             app.say("sh.making", kind = ToastKind.INFO)
             val fname = pdfName(dn(p.name, lang), if (quote != null) app.t("q.no", "n" to quote.no) else app.t(if (design) "rpt.design" else "es.draft"))
+            // just after a set-up change the pages on screen are the old ones: the PDF is laid out again from the report as it is
+            val fresh = b.first == key
             scope.launch {
-                runCatching { withContext(Dispatchers.Default) { pdfFile(ctx, pg, fname) } }
+                runCatching { withContext(Dispatchers.Default) { pdfFile(ctx, if (fresh) b.second else layout(), fname) } }
                     .onSuccess { sharePdf(ctx, it, app.t("sh.title")) }
                     .onFailure { app.say("cm.shareErr", kind = ToastKind.ERROR) }
             }
@@ -351,7 +354,8 @@ fun ReportSetupSheet(s: Sheet.ReportSetup) {
             }
         }
         GField(tr("rpt.notes"), notes, { notes = it }, placeholder = tr("rpt.notesPh"), optional = true, minLines = 3)
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        // the simple furniture app's design has no DRAFT mark
+        if (!(p.isFurniture && !app.settings.advanced)) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MIcon("info", G.ink2, 18.dp, 2f); Text(tr("rpt.draftShare"), style = ui(13f, 400, G.ink2, 1.45f), modifier = Modifier.weight(1f))
         }
     }
@@ -388,7 +392,8 @@ fun IssueSheet(s: Sheet.Issue) {
         return
     }
     val tt = totals(p)
-    val fsn = if (p.isFurniture) snapshotOf(p, app.settings) else null
+    // a furniture order's snapshot prices every piece: worked out again only when the order or the settings change
+    val fsn = remember(p, app.settings.unit, app.settings.builderName, app.settings.builderPhone, app.settings.pdf, app.settings.angleSnap, app.settings.workshop, app.settings.mats, app.settings.hws) { if (p.isFurniture) snapshotOf(p, app.settings) else null }
     val empty = if (fsn != null) fsn.furniture.isEmpty() else p.estimate.materials.isEmpty() && p.estimate.labor.isEmpty()
     val grand = fsn?.ftotal?.toBigIntegerOrNull() ?: tt.g
     fun issue() {

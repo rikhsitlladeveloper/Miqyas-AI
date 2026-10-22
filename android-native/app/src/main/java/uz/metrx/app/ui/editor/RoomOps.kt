@@ -102,7 +102,7 @@ class RoomOps(private val app: App) {
         val r = room(pid, rid) ?: return
         val w = walls(r, app.settings.angleSnap).firstOrNull { it.id == wall }
         if (w != null && w.derived && !r.isPoly) { app.say("ed.derived", "w" to wall, "s" to w.dimKey, kind = ToastKind.INFO); focus(rid, w.dimKey); return }
-        if (w != null && r.isPoly && w.status == "calc") app.say("sk.computedTap", "w" to wall, "v" to fmtLen(w.len, app.settings.unit, app.english()), kind = ToastKind.INFO)
+        if (w != null && r.isPoly && w.status == "calc") app.say("sk.computedTap", "w" to wall, "v" to fmtLen(w.len, uz.metrx.app.geo.LenUnit.M, app.english()), kind = ToastKind.INFO)
         focus(rid, if (w != null) w.dimKey else wall)
     }
 
@@ -127,6 +127,11 @@ class RoomOps(private val app: App) {
     /** Puts a reading on a wall or the height, waiting for confirmation (prototype trayAssign). */
     fun assignReading(pid: String, rid: String, id: String, k: String) {
         val x = app.settings.readings.firstOrNull { it.id == id } ?: return
+        // the same limit as a typed value (a 3 m reading is not a wall's thickness)
+        val max = uz.metrx.app.geo.dimMax(k)
+        if (x.mm > max) {
+            app.say("err.max", "max" to fmtLen(max, app.settings.unit, app.english()).replace(Regex("[.,]0+$"), "") + " " + app.unitName(), kind = ToastKind.ERROR); return
+        }
         change(pid, rid, hist = false) { it.copy(dims = it.dims + (k to it.dim(k).copy(pending = Pending(x.mm, x.src, "quick")))) }
         app.settings.markReadingUsed(id, dimLabel(k))
         focus(rid, k)
@@ -231,6 +236,7 @@ class RoomOps(private val app: App) {
     fun deleteFeature(pid: String, rid: String, f: uz.metrx.app.data.Feature) {
         change(pid, rid) { r -> r.copy(features = r.features.filter { it.id != f.id }) }
         app.sheet = null
+        app.say("op.deleted", "o" to app.t("ft.${f.type}"), action = "common.undo") { undo(pid, rid) }
     }
 
     /* ---------------- the room ---------------- */
@@ -249,20 +255,25 @@ class RoomOps(private val app: App) {
         val r = p.rooms.firstOrNull { it.id == rid } ?: return
         val idx = p.rooms.indexOf(r)
         val pieces = p.furniture.filter { it.roomId == rid }
+        val inReport = p.reportRooms[rid]   // left out of the report: Undo keeps it out
         app.store.update(pid) { it.copy(rooms = it.rooms.filter { x -> x.id != rid }, reportRooms = it.reportRooms - rid, furniture = with(app) { outOfRooms(it, setOf(rid)) }) }
         app.sheet = null
         app.popTo { it !is Route.Editor && it !is Route.WallView }
         app.dropMissing()   // the room's pages in the other tabs' stacks go too
         app.say("room.deleted", "n" to uz.metrx.app.data.dn(r.name, app.settings.lang), action = "common.undo") {
-            app.store.update(pid) { pr -> pr.copy(rooms = pr.rooms.toMutableList().apply { add(idx.coerceIn(0, size), r) }, furniture = pr.furniture.map { f -> pieces.firstOrNull { it.id == f.id } ?: f }) }
+            app.store.update(pid) { pr -> pr.copy(rooms = pr.rooms.toMutableList().apply { add(idx.coerceIn(0, size), r) },
+                reportRooms = if (inReport != null) pr.reportRooms + (rid to inReport) else pr.reportRooms, furniture = pr.furniture.map { f -> pieces.firstOrNull { it.id == f.id } ?: f }) }
         }
     }
 
     /** The card the editor shows (prototype ed2Focus): the picked measurement, a reading waiting, the next unmeasured one, a problem, or done. */
-    data class Focus(val kind: String, val k: String? = null, val issue: Opening? = null)
+    data class Focus(val kind: String, val k: String? = null, val issue: Opening? = null, val ft: uz.metrx.app.data.Feature? = null)
+
+    /** Every measurement of the room: its walls and height, then a drawn room's diagonals. */
+    fun measureKeys(r: Room): List<String> = stepKeys(r, app.settings.angleSnap) + (r.poly?.diags?.map { it.id } ?: emptyList())
 
     fun focusOf(r: Room): Focus {
-        val keys = stepKeys(r, app.settings.angleSnap)
+        val keys = measureKeys(r)
         val fk = focusKey
         if (fk != null && focusRoom == r.id && r.dims.containsKey(fk)) {
             val st = r.dim(fk).status
@@ -271,6 +282,8 @@ class RoomOps(private val app: App) {
         keys.firstOrNull { r.dim(it).status == "recv" }?.let { return Focus("recv", it) }
         keys.firstOrNull { r.dim(it).status == "unset" }?.let { return Focus("unset", it) }
         r.openings.firstOrNull { issue(r, it) != null }?.let { return Focus("bad", issue = it) }
+        // a column or niche that no longer fits (the wall or the height changed after it was added)
+        r.features.firstOrNull { uz.metrx.app.geo.featureIssue(r, it, app.settings.angleSnap) != null }?.let { return Focus("badFt", ft = it) }
         return Focus("ok")
     }
 
@@ -285,7 +298,7 @@ class RoomOps(private val app: App) {
         val a = uz.metrx.app.geo.areas(r, app.settings.angleSnap)
         return Next("ok", "check", when {
             a?.net != null -> app.t("ws.netWall", "v" to uz.metrx.app.geo.fmtArea(a.net, app.english()))
-            a != null -> uz.metrx.app.geo.fmtArea(a.floor, app.english()) + " m²"
+            a != null -> uz.metrx.app.geo.fmtArea(a.floor, app.english()) + " " + app.t("u.m2")
             else -> app.t("hm.next.ok")
         })
     }

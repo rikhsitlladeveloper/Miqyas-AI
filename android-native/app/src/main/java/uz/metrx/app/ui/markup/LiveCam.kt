@@ -131,6 +131,8 @@ fun LiveCamScreen() {
     LaunchedEffect(Unit) { if (!granted) ask.launch(Manifest.permission.CAMERA) }
     var view by remember { mutableStateOf<PreviewView?>(null) }
     val scope = rememberCoroutineScope()
+    // the photo is being written: a second tap on Save does not save it twice
+    var saving by remember { mutableStateOf(false) }
     val stateText = when {
         s.v != null -> tr(if (s.src == "laser") "cm.s2l" else "cm.s2m")
         s.line != null -> tr(if (bt) "cm.s1" else "cm.s1off")
@@ -188,13 +190,15 @@ fun LiveCamScreen() {
         Row(Modifier.fillMaxWidth().padding(10.dp, 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             LcBtn("kbd", tr("ed2.manual"), s.line != null, false, Modifier.weight(1f)) { app.sheet = Sheet.LcManual }
             LcBtn("laser", tr("qc.measure"), s.line != null && bt, true, Modifier.weight(1.3f)) { s.v = 600 + Random.nextInt(7601); s.src = "laser" }
-            LcBtn("save", tr("common.save"), s.v != null && on, false, Modifier.weight(1f)) {
+            LcBtn("save", tr("common.save"), s.v != null && on && !saving, false, Modifier.weight(1f)) {
+                if (saving) return@LcBtn
                 val pv = view ?: return@LcBtn; val ln = s.line ?: return@LcBtn; val v = s.v ?: return@LcBtn; val src = s.src
                 val frame = pv.bitmap ?: run { app.say("mk.photoErr", kind = ToastKind.INFO); return@LcBtn }
+                saving = true
                 scope.launch {
                     val id = uid()
                     val saved = withContext(Dispatchers.IO) { PhotoFiles.save(ctx, id, frame, 78) }
-                    if (saved == null) { app.say("mk.photoErr", kind = ToastKind.INFO); return@launch }
+                    if (saved == null) { saving = false; app.say("mk.photoErr", kind = ToastKind.INFO); return@launch }
                     val (path, w, h) = saved
                     val hh = (1000f * h / w)
                     val el = MkEl(uid(), "dim", listOf(listOf((ln[0] * 1000).roundToInt().toFloat(), (ln[1] * hh).roundToInt().toFloat()), listOf((ln[2] * 1000).roundToInt().toFloat(), (ln[3] * hh).roundToInt().toFloat())),

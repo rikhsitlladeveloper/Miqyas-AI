@@ -55,11 +55,17 @@ fun snapshotOf(p: Project, unit: LenUnit, builderName: String, builderPhone: Str
 
 private val json = Json { encodeDefaults = true }
 
+/** The handle the workshop's list starts with: an order that prints it fingerprints as before handles were printed. */
+private const val HANDLE_PRESET = "Tutqich skoba 128"
+/** The quote lists the handles (FurniturePages materials table). */
+private fun handlesPrinted(sn: Snap) = sn.fhandles.isNotBlank() && sn.furniture.any { f -> f.modules.any { it.handles } }
+
 /**
  * What decides whether the draft still matches an issued quote (prototype fingerprint): the parties, currency, language,
  * unit, notes, every room's name, measurements, openings, columns and niches, site points, shape and chosen views, the
  * estimate and the extras. The parts added later (columns and niches, site points, the customer's phone, the angle
- * snap) are tagged and only there when set, so a quote issued before them still matches its unchanged draft.
+ * snap, a furniture order's prepayment and printed handles) are tagged and only there when set or not the first
+ * default, so a quote issued before them still matches its unchanged draft.
  */
 fun fingerprint(sn: Snap): String {
     fun str(v: String?) = if (v == null) JsonNull else JsonPrimitive(v)
@@ -82,6 +88,8 @@ fun fingerprint(sn: Snap): String {
     ) + if (sn.furniture.isEmpty()) emptyList() else listOf(json.encodeToJsonElement(sn.furniture), str(sn.ftotal), JsonPrimitive(sn.fdays), JsonPrimitive(sn.finst),
         json.encodeToJsonElement(sn.fmats)) +
         (if (sn.phone.isBlank()) emptyList() else listOf(JsonArray(listOf(str("ph"), str(sn.phone))))) +
-        (if (sn.snap) emptyList() else listOf(JsonArray(listOf(str("snap"), JsonPrimitive(false)))))
+        (if (sn.snap) emptyList() else listOf(JsonArray(listOf(str("snap"), JsonPrimitive(false))))) +
+        (if (sn.furniture.isEmpty() || sn.fprepay == 50) emptyList() else listOf(JsonArray(listOf(str("pp"), JsonPrimitive(sn.fprepay))))) +
+        (if (handlesPrinted(sn) && sn.fhandles != HANDLE_PRESET) listOf(JsonArray(listOf(str("hd"), str(sn.fhandles)))) else emptyList())
     return JsonArray(all).toString()
 }

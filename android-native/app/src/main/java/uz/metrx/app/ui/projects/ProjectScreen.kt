@@ -133,7 +133,7 @@ private fun Header(p: Project, tab: String, lang: Lang) {
         if (p.isFurniture && tab != "rooms") Row(Modifier.padding(start = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(dn(p.name, lang), style = ui(17f, 800, G.ink, 1.2f), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             uz.metrx.app.ui.furniture.FStageChip(p.stage)
-            RoundIc("more", "menu") { app.sheet = Sheet.ProjectMenu(p.id) }
+            RoundIc("more", tr("common.menu")) { app.sheet = Sheet.ProjectMenu(p.id) }
         } else Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 // a furniture order's name is often long ("Kitchen and wardrobe — Akmal Yusupov"): a bit smaller, two lines
@@ -142,7 +142,7 @@ private fun Header(p: Project, tab: String, lang: Lang) {
                 if (p.isFurniture) uz.metrx.app.ui.furniture.CallButton(p)
                 else if (p.phone.isNotEmpty()) RoundIc("phone", tr("pl.call")) { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+998" + Phone.digits(p.phone)))) }
                 if (p.location != null) RoundIc("pin", tr("loc.open")) { openMap(context, p) }
-                RoundIc("more", "menu") { app.sheet = Sheet.ProjectMenu(p.id) }
+                RoundIc("more", tr("common.menu")) { app.sheet = Sheet.ProjectMenu(p.id) }
             }
             // the simple furniture app shows no stage: with no address either, the line goes
             if (!(p.isFurniture && sub == "—" && !app.settings.advanced)) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -207,7 +207,7 @@ private fun Nums(p: Project) {
         Hairline()
         Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min).padding(start = 4.dp, end = 4.dp, top = 10.dp)) {
             NumCell(tr("pl.wall"), when { p.rooms.isEmpty() -> "—"; st.nets == 0 -> "?"; else -> uz.metrx.app.geo.fmtArea(st.net, uz.metrx.app.ui.theme.LocalLang.current == Lang.EN) + if (st.nets < p.rooms.size) " +?" else "" },
-                Modifier.weight(1f), unit = if (st.nets > 0) "m²" else null)
+                Modifier.weight(1f), unit = if (st.nets > 0) tr("u.m2") else null)
             VLine()
             NumCell(tr("pl.meas"), if (st.need > 0) "${st.conf}/${st.need}" else "—", Modifier.weight(1f).padding(start = 12.dp))
             VLine()
@@ -267,7 +267,7 @@ private fun WorkspacesTab(p: Project, lang: Lang, route: Route.Project) {
                 }
                 val (net, nn) = uz.metrx.app.data.wsNet(p, w, app.settings.angleSnap)
                 if (nn > 0) Column(horizontalAlignment = Alignment.End) {
-                    Text(uz.metrx.app.geo.fmtArea(net, lang == Lang.EN) + " m²", style = num(14.5f, 700))
+                    Text(uz.metrx.app.geo.fmtArea(net, lang == Lang.EN) + " " + tr("u.m2"), style = num(14.5f, 700))
                     Text(tr("pj.wsNet"), style = ui(11.5f, 400, G.ink2))
                 }
                 MIcon("chev", G.ink3, 18.dp, 2f)
@@ -327,8 +327,8 @@ private fun InfoTab(p: Project, lang: Lang) {
             Kv(tr("pr.location"), p.location?.let { "%.5f, %.5f".format(java.util.Locale.ROOT, it.lat, it.lng) } ?: tr("loc.none")) {
                 if (p.location != null) GBtn(tr("loc.open"), { openMap(context, p) }, Btn.SECONDARY, icon = "pin", height = 40.dp, corner = 14.dp, fontSize = 14f, fill = false)
             }
-            Hairline()
-            Kv(tr("np.currency"), p.currency)
+            // the simple furniture app has no prices, so no currency either
+            if (!p.isFurniture || app.settings.advanced) { Hairline(); Kv(tr("np.currency"), p.currency) }
             Hairline()
             Kv(tr("rpt.lang"), Lang.of(p.reportLang).longName)
         }
@@ -366,7 +366,8 @@ private fun QuotesTab(p: Project, lang: Lang) {
         }
         return
     }
-    val now = uz.metrx.app.report.fingerprint(uz.metrx.app.report.snapshotOf(p, app.settings))
+    // a furniture order's snapshot prices every piece: worked out again only when the order or the settings change
+    val now = androidx.compose.runtime.remember(p, app.settings.unit, app.settings.builderName, app.settings.builderPhone, app.settings.pdf, app.settings.angleSnap, app.settings.workshop, app.settings.mats, app.settings.hws) { uz.metrx.app.report.fingerprint(uz.metrx.app.report.snapshotOf(p, app.settings)) }
     Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         p.quotes.reversed().forEach { q ->
             Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).pressable({ app.push(Route.Quote(p.id, q.no)) }).padding(14.dp),
@@ -430,7 +431,8 @@ private fun FIssueBar(p: Project, lang: Lang) {
         val (v, u) = uz.metrx.app.core.shortMoney(p, price, lang == Lang.EN, tr("pl.mln"))
         // a new quote only when something changed since the last one: otherwise it would be the same quote again
         val last = p.quotes.lastOrNull()
-        val changed = last == null || last.fp != uz.metrx.app.report.fingerprint(uz.metrx.app.report.snapshotOf(p, app.settings))
+        val fp = androidx.compose.runtime.remember(p, app.settings.unit, app.settings.builderName, app.settings.builderPhone, app.settings.pdf, app.settings.angleSnap, app.settings.workshop, app.settings.mats, app.settings.hws) { uz.metrx.app.report.fingerprint(uz.metrx.app.report.snapshotOf(p, app.settings)) }
+        val changed = last == null || last.fp != fp
         if (changed) GBtn(tr("fo.issueN", "n" to p.quotes.size + 1, "v" to v + (u?.let { " $it" } ?: "")), { app.sheet = Sheet.Issue(p.id) }, icon = "lock", maxLines = 2)
         GBtn(tr("fo.preview"), { app.push(Route.Report(p.id)) }, Btn.SECONDARY, icon = "doc", height = 46.dp, fontSize = 14.5f)
     }

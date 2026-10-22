@@ -106,9 +106,16 @@ fun SketchScreen(rt: Route.Sketch) {
         app.replaceTop(Route.Editor(rt.pid, room.id))
         app.say("sk.created", "n" to uz.metrx.app.data.dn(room.name, app.settings.lang))
     }
+    // a shape drawn and not made into a room: the first close says it is not kept, a second one (or the toast's button) leaves
+    var warned by remember { mutableStateOf(false) }
+    val drawn = stroke.isNotEmpty() || raw != null || taps.isNotEmpty()
+    fun close() {
+        if (drawn && !warned) { warned = true; app.say("sk.leaveQ", kind = ToastKind.INFO, action = "sk.leave") { if (app.top == rt) app.pop() } } else app.pop()
+    }
+    androidx.activity.compose.BackHandler(enabled = drawn && app.sheet == null) { close() }
     Column(Modifier.fillMaxSize().roomGrid().statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GlassIconButton("x", tr("common.close"), { app.pop() })
+            GlassIconButton("x", tr("common.close"), { close() })
             Column(Modifier.weight(1f)) {
                 Text(tr("sk.title"), style = ui(20f, 800)); Text(rt.name, style = ui(12f, 400, G.ink2))
             }

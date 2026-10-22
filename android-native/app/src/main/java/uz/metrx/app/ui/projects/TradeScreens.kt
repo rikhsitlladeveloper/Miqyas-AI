@@ -42,11 +42,15 @@ import uz.metrx.app.ui.theme.ui
  * button that puts it into the estimate. Its lines replace the ones it made before; lines typed by hand stay.
  */
 
-/** Puts the calculator's lines into the project's estimate, in place of the ones it made before. */
+/**
+ * Puts the calculator's lines into the project's estimate, in place of the ones it made before. Their names and units
+ * are stored as keys ("@tr.glue", "@u.m2"), so they follow the app's and the report's language like typed rows' units.
+ */
 fun App.applyTrade(p: Project) {
-    val r = tradeRows(p.industry, p.rooms, settings.trade, { k, v -> t(k, *v.toList().toTypedArray()) }, settings.angleSnap, english())
+    val r = tradeRows(p.industry, p.rooms, settings.trade, { k, v -> if (k.startsWith("tu.")) "@u." + k.removePrefix("tu.") else uz.metrx.app.data.keyName(k, v) },
+        settings.angleSnap, true)
     store.update(p.id) { pr ->
-        pr.copy(estimate = pr.estimate.copy(
+        pr.copy(stage = if (pr.stage == "measure") "estimate" else pr.stage, estimate = pr.estimate.copy(
             materials = pr.estimate.materials.filter { !it.id.startsWith("t-") } + r.mats.map { it.copy(id = "t-" + uz.metrx.app.data.uid()) },
             labor = pr.estimate.labor.filter { !it.id.startsWith("t-") } + r.labor.map { it.copy(id = "t-" + uz.metrx.app.data.uid()) }))
     }
@@ -72,9 +76,10 @@ fun TradeCard(p: Project) {
         Text(tr("trc.body." + p.industry), style = ui(12.5f, 400, G.ink2, 1.4f))
         if (p.rooms.none { uz.metrx.app.geo.ready3D(it, app.settings.angleSnap) }) Text(tr("trc.noRooms"), style = ui(13f, 500, G.amberInk, 1.4f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // half the width each: two lines rather than cut off
             GBtn(tr(if (made) "trc.update" else "trc.apply"), { app.applyTrade(p) }, enabled = r.mats.isNotEmpty() || r.labor.isNotEmpty(),
-                height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
-            GBtn(tr("trc.setB"), { app.sheet = Sheet.TradeCalc(p.id) }, Btn.SECONDARY, icon = "sliders", height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
+                height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f), maxLines = 2)
+            GBtn(tr("trc.setB"), { app.sheet = Sheet.TradeCalc(p.id) }, Btn.SECONDARY, icon = "sliders", height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f), maxLines = 2)
         }
     }
 }
@@ -86,14 +91,18 @@ fun TradeSheet(s: Sheet): Boolean {
     return true
 }
 
-/** One number of the calculator's settings: a label, the value as typed, its unit; [dec] decimals allowed (prices are whole), [max] for a count or size. */
-private class F(val key: String, val unit: String, val get: (TradeSet) -> String, val set: (TradeSet, String) -> TradeSet, val dec: Int = 0, val max: Long? = null)
+/**
+ * One number of the calculator's settings: a label, the value as typed, its unit; [dec] decimals allowed (prices are
+ * whole), [max] for a count or size, [pos] more than 0 (what a box holds: it divides).
+ */
+private class F(val key: String, val unit: String, val get: (TradeSet) -> String, val set: (TradeSet, String) -> TradeSet, val dec: Int = 0, val max: Long? = null,
+                val pos: Boolean = false)
 
 private fun fieldsOf(trade: String): List<F> = when (trade) {
     "tiler" -> listOf(
         F("tileW", "mm", { it.tileW.toString() }, { t, v -> t.copy(tileW = v.toIntOrNull() ?: t.tileW) }, max = 10_000),
         F("tileH", "mm", { it.tileH.toString() }, { t, v -> t.copy(tileH = v.toIntOrNull() ?: t.tileH) }, max = 10_000),
-        F("boxM2", "m²", { it.boxM2 }, { t, v -> t.copy(boxM2 = v) }, dec = 3),
+        F("boxM2", "m²", { it.boxM2 }, { t, v -> t.copy(boxM2 = v) }, dec = 3, pos = true),
         F("waste", "%", { it.waste.toString() }, { t, v -> t.copy(waste = v.toIntOrNull() ?: t.waste) }, max = 100),
         F("wallH", "mm", { it.wallH.toString() }, { t, v -> t.copy(wallH = v.toIntOrNull() ?: 0) }, max = 20_000),
         F("pTile", "/m²", { it.pTile }, { t, v -> t.copy(pTile = v) }),
@@ -128,7 +137,8 @@ private fun fieldsOf(trade: String): List<F> = when (trade) {
 /** What a typed setting is wrong with, in words; null when fine or empty (an empty one keeps the old value). */
 private fun fieldErr(f: F, v: String, t: (String, Array<out Pair<String, Any?>>) -> String): String? = when (val d = parseDec(v, f.dec)) {
     Dec.Empty -> null
-    is Dec.Ok -> if (f.max != null && d.v > f.max.toBigInteger()) t("err.max", arrayOf("max" to f.max)) else null
+    is Dec.Ok -> if (f.pos && d.v.signum() == 0) t("err.zero", emptyArray())
+        else if (f.max != null && d.v > f.max.toBigInteger()) t("err.max", arrayOf("max" to f.max)) else null
     Dec.Format -> t("err.format", emptyArray())
     Dec.Negative -> t("err.negative", emptyArray())
     is Dec.Precision -> if (d.n > 0) t("err.precision", arrayOf("n" to d.n)) else t("err.whole", emptyArray())
@@ -147,7 +157,8 @@ private fun TradeCalcSheet(pid: String) {
     val errs = fields.associate { f -> f.key to fieldErr(f, texts[f.key].orEmpty()) { k, v -> app.t(k, *v) } }
     fun save() {
         if (errs.values.any { it != null }) { tried = true; return }
-        val t = fields.fold(start.copy(floor = floorOn)) { acc, f -> f.set(acc, texts[f.key].orEmpty()) }
+        // a field left empty keeps its old value
+        val t = fields.fold(start.copy(floor = floorOn)) { acc, f -> texts[f.key].orEmpty().trim().let { v -> if (v.isEmpty()) acc else f.set(acc, v) } }
         app.settings.setTradeSet(t); app.sheet = null; app.applyTrade(app.store.get(pid) ?: p)
     }
     GlassSheet(tr("trc.set"), { app.sheet = null }, footer = { GBtn(tr("trc.saveApply"), ::save) }) {

@@ -98,7 +98,7 @@ fun Room3DScreen(r0: Route.Editor) {
             }
             HistIb("undo", tr("common.undo"), ops.canUndo(r.id)) { ops.undo(p.id, r.id) }
             Box(Modifier.width(8.dp))
-            HistIb("redo", "redo", ops.canRedo(r.id)) { ops.redo(p.id, r.id) }
+            HistIb("redo", tr("common.redo"), ops.canRedo(r.id)) { ops.redo(p.id, r.id) }
         }
         // sub-bar: Plan | 3D, the laser
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -113,7 +113,7 @@ fun Room3DScreen(r0: Route.Editor) {
             }
             return@Column
         }
-        val base = remember(r.dims, r.openings, r.poly, r.points, r.wallColor, r.floorColor, snap) { buildShell(listOf(r), true, snap) }
+        val base = remember(r.dims, r.openings, r.poly, r.points, r.features, r.wallColor, r.floorColor, snap) { buildShell(listOf(r), true, snap) }
         // a furniture order's furniture stands in its room; a tap opens a door or a drawer
         val mo = uz.metrx.app.ui.furniture.rememberDoorMotion(r.id)
         val (shell, fur) = if (p.isFurniture) uz.metrx.app.ui.furniture.rememberFurnShell(p, r, base, mo) else base to null

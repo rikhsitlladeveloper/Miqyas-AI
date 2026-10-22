@@ -102,7 +102,7 @@ fun SpaceScreen(r: Route.Space) {
             PageBar {
                 BackLink(dn(p.name, lang), { app.pop() }, Modifier.weight(1f, fill = false))
                 Spacer(Modifier.weight(1f))
-                GlassIconButton("more", "menu", { app.sheet = Sheet.SpaceMenu(p.id, w.id) })
+                GlassIconButton("more", tr("common.menu"), { app.sheet = Sheet.SpaceMenu(p.id, w.id) })
             }
             Row(Modifier.padding(start = 36.dp, end = 36.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Box(Modifier.size(40.dp).clip(RoundedCornerShape(12.dp)).background(G.cobalt.copy(alpha = .12f)), contentAlignment = Alignment.Center) { MIcon(wsIcon(w.type), G.cobalt, 22.dp, 2f) }
@@ -343,7 +343,7 @@ fun NoteScreen(r: Route.Note) {
                 GlassIconButton("back", tr("nt.back"), { focus.clearFocus(); app.pop() }, Modifier.padding(start = 6.dp))
                 Spacer(Modifier.width(6.dp))
                 BarTitle(tr("it.k.note"), sub = floorName(w, lang))
-                GlassIconButton("more", "menu", { app.sheet = Sheet.ItemMenu(p.id, w.id, it.id) })
+                GlassIconButton("more", tr("common.menu"), { app.sheet = Sheet.ItemMenu(p.id, w.id, it.id) })
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 40.dp).navigationBarsPadding(),
                 verticalArrangement = Arrangement.spacedBy(18.dp)) {

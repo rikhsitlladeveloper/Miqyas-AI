@@ -293,9 +293,9 @@ fun MarkupScreen(r: Route.Markup) {
                 Text(ops.place(r, lang), style = ui(12f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             GlassIconButton("undo", tr("common.undo"), { ops.undo(r) }, Modifier.alpha(if (ops.canUndo(it.id)) 1f else .4f), iconSize = 20.dp)
-            GlassIconButton("redo", "redo", { ops.redo(r) }, Modifier.alpha(if (ops.canRedo(it.id)) 1f else .4f), iconSize = 20.dp)
+            GlassIconButton("redo", tr("common.redo"), { ops.redo(r) }, Modifier.alpha(if (ops.canRedo(it.id)) 1f else .4f), iconSize = 20.dp)
             if (r.pid == null) GlassIconButton("share", tr("cm.share"), { shareShot(app, it) }, iconSize = 20.dp)
-            GlassIconButton("more", "menu", { app.sheet = if (r.pid == null) Sheet.ShotMenu else Sheet.ItemMenu(r.pid, ops.wid(r) ?: "", it.id) }, iconSize = 20.dp)
+            GlassIconButton("more", tr("common.menu"), { app.sheet = if (r.pid == null) Sheet.ShotMenu else Sheet.ItemMenu(r.pid, ops.wid(r) ?: "", it.id) }, iconSize = 20.dp)
         }
         val zm = remember(it.id) { MkZoom() }
         val haptic = androidx.compose.ui.platform.LocalHapticFeedback.current

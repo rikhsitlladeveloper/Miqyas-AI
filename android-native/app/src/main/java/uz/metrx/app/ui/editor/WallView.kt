@@ -167,7 +167,7 @@ fun WallViewScreen(rt: Route.WallView) {
                     Text(dn(r.name, lang), style = ui(12f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 GlassIconButton("undo", tr("common.undo"), { ops.undo(p.id, r.id) }, tint = if (ops.canUndo(r.id)) G.ink else OFF_ICON)
-                GlassIconButton("redo", "redo", { ops.redo(p.id, r.id) }, tint = if (ops.canRedo(r.id)) G.ink else OFF_ICON)
+                GlassIconButton("redo", tr("common.redo"), { ops.redo(p.id, r.id) }, tint = if (ops.canRedo(r.id)) G.ink else OFF_ICON)
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 // pager: previous, the dots, next, and the small room map that leads back to the plan

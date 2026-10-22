@@ -109,7 +109,10 @@ fun ProjectsList() {
     // each industry sees its own projects; the others stay one chip away (furniture plan section 3)
     val ps = all.filter { it.isFurniture == furniture }
     val others = all.filter { it.isFurniture != furniture }
-    var seg by rememberSaveable { mutableStateOf("active") }
+    // the simple furniture app has no stages: no "in work / finished", just all of them (and the other industry's)
+    val staged = !furniture || app.settings.advanced
+    var seg0 by rememberSaveable { mutableStateOf("active") }
+    val seg = if (!staged && seg0 != "other") "all" else seg0
     var q by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         GlassHeader({ app.sheet = Sheet.Device })
@@ -135,18 +138,19 @@ fun ProjectsList() {
             }
             // the chips share the width when they fit; a fourth one ("Other") scrolls into view rather than being cut off
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(end = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                (listOf("active" to "pl.active", "done" to "pl.doneSeg", "all" to "pl.allSeg") + (if (others.isNotEmpty()) listOf("other" to "fo.other") else emptyList())).forEach { (k, l) ->
+                ((if (staged) listOf("active" to "pl.active", "done" to "pl.doneSeg") else emptyList()) + listOf("all" to "pl.allSeg") + (if (others.isNotEmpty()) listOf("other" to "fo.other") else emptyList())).forEach { (k, l) ->
                     val on = seg == k
                     Text("${tr(l)} · ${if (k == "other") others.size else n[k]}", style = ui(14f, if (on) 700 else 600, if (on) G.solid else G.slate),
                         maxLines = 1, softWrap = false,
                         modifier = Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp))
                             .background(if (on) G.ink else G.idle(.45f))
                             .border(1.dp, if (on) G.ink else G.idleRim, RoundedCornerShape(20.dp))
-                            .clickable(role = Role.Tab) { seg = k }.padding(horizontal = 14.dp, vertical = 10.dp))
+                            .clickable(role = Role.Tab) { seg0 = k }.padding(horizontal = 14.dp, vertical = 10.dp))
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                (if (furniture && seg != "other") uz.metrx.app.data.sortOrders(list) else list).forEach { p -> if (p.isFurniture) uz.metrx.app.ui.furniture.OrderRow(p) { app.push(Route.Project(p.id)) } else ProjectRow(p) { app.push(Route.Project(p.id)) } }
+                // the simple app has no install dates: the newest first, as on Home
+                (if (furniture && seg != "other") (if (staged) uz.metrx.app.data.sortOrders(list) else list.sortedByDescending { it.created }) else list).forEach { p -> if (p.isFurniture) uz.metrx.app.ui.furniture.OrderRow(p) { app.push(Route.Project(p.id)) } else ProjectRow(p) { app.push(Route.Project(p.id)) } }
                 if (list.isEmpty()) Text(tr(if (needle.isNotEmpty()) "pl.noMatch" else "pl.none"), style = ui(14.5f, 400, G.ink2),
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
@@ -308,7 +312,9 @@ fun NewProjectScreen(editId: String?) {
                     MIcon("sliders", G.ink2, 18.dp, 2f)
                     val cur = edit?.currency ?: app.settings.currency
                     val rl = edit?.reportLang?.let { uz.metrx.app.core.Lang.of(it) } ?: app.settings.reportLang
-                    Text(tr("np.fromSettings", "c" to cur, "l" to rl.longName), style = ui(13.5f, 400, G.ink2, 1.4f), modifier = Modifier.weight(1f))
+                    // the simple furniture app has no prices, so no currency either
+                    Text(if (furn && !app.settings.advanced) tr("np.fromSettingsL", "l" to rl.longName) else tr("np.fromSettings", "c" to cur, "l" to rl.longName),
+                        style = ui(13.5f, 400, G.ink2, 1.4f), modifier = Modifier.weight(1f))
                     if (edit == null) Text(tr("np.change"), style = ui(13.5f, 700, G.cobalt), modifier = Modifier.clickable(role = Role.Button) { app.sheet = Sheet.Currency }.padding(horizontal = 4.dp, vertical = 2.dp))
                 }
             }

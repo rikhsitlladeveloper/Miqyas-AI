@@ -22,10 +22,12 @@ class KitchenTest {
     @Test fun autoFillUsesWholeUnitsAndPutsTheSinkOverTheWater() {
         val f = autoFill(f0, runs, ws, emptyList(), water)
         val lowA = f.modules.filter { it.wall == "A" && !isUpper(it) }
-        // A turns into B: its narrow piece at its start, a whole unit in the corner, blind behind B's first unit
-        assertEquals(listOf(400, 600, 600, 600, 600, 600), lowA.map { it.w })
-        assertEquals(listOf(0, 400, 1000, 1600, 2200, 2800), lowA.map { it.x })
-        assertEquals("sink", lowA[2].app)                       // 1000–1600 holds the water at 1300
+        // A turns into B: its narrow piece at its start, a 50 filler, then a whole unit in the corner, blind behind
+        // B's first unit (the filler keeps the door beside it clear of B's fronts)
+        assertEquals(listOf(350, 600, 600, 600, 600, 50, 600), lowA.map { it.w })
+        assertEquals(listOf(0, 350, 950, 1550, 2150, 2750, 2800), lowA.map { it.x })
+        assertEquals("filler", lowA[5].type)
+        assertEquals("sink", lowA[2].app)                       // 950–1550 holds the water at 1300
         assertEquals("panel", lowA.last().fronts.kind)
         // B starts past the corner with a 50 filler, so its doors and handles clear A's
         val lowB = f.modules.filter { it.wall == "B" && !isUpper(it) }

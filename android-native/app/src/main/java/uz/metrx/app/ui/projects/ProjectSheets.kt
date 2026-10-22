@@ -121,7 +121,9 @@ private fun ProjectDelete(s: Sheet.ProjectDelete) {
         }
     }) {
         val pre = if (p.isFurniture) "fo" else "pj"
-        Text(if (p.quotes.isNotEmpty()) tr("$pre.delB", "q" to p.quotes.size) else tr("$pre.delB0"), style = ui(15f, 400, G.ink2, 1.45f))
+        // the simple furniture app has no quotes to count
+        val quotes = if (p.isFurniture && !app.settings.advanced) 0 else p.quotes.size
+        Text(if (quotes > 0) tr("$pre.delB", "q" to quotes) else tr("$pre.delB0"), style = ui(15f, 400, G.ink2, 1.45f))
     }
 }
 
@@ -207,12 +209,14 @@ private fun SpaceDelete(s: Sheet.SpaceDelete) {
                 val name = floorName(w, lang)
                 val idx = p.floors.indexOf(w)
                 val rooms = p.rooms.filter { it.floorId == w.id }
+                val at = rooms.map { p.rooms.indexOf(it) }   // Undo puts each room back where it was in the list
                 val ids = rooms.map { it.id }.toSet()
                 val pieces = p.furniture.filter { it.roomId in ids }
                 app.store.update(p.id) { pr -> pr.copy(floors = pr.floors.filter { it.id != w.id }, rooms = pr.rooms.filter { it.floorId != w.id }, furniture = app.outOfRooms(pr, ids)) }
                 app.close(); app.dropMissing()
                 app.say("ws.deleted", "n" to name, action = "common.undo") {
-                    app.store.update(p.id) { pr -> pr.copy(floors = pr.floors.toMutableList().apply { add(idx.coerceIn(0, size), w) }, rooms = pr.rooms + rooms,
+                    app.store.update(p.id) { pr -> pr.copy(floors = pr.floors.toMutableList().apply { add(idx.coerceIn(0, size), w) },
+                        rooms = pr.rooms.toMutableList().apply { rooms.forEachIndexed { j, r -> add(at[j].coerceIn(0, size), r) } },
                         furniture = pr.furniture.map { f -> pieces.firstOrNull { it.id == f.id } ?: f }) }
                 }
             }, Btn.DANGER, icon = "trash", modifier = Modifier.weight(1f))

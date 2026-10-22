@@ -266,6 +266,11 @@ private fun polyHit(r: Room, g: PolyGeo, lay: PolyLayout, p: Offset): PlanHit? {
         val rel = p - a; val along = rel.x * u.x + rel.y * u.y; val out = rel.x * lay.normals[i].x + rel.y * lay.normals[i].y
         if (along in (o.off - 150) * kk..(o.off + o.w + 150) * kk && out in -30f..lay.tw + 6f) return PlanHit.Op(o.id)
     }
+    // a diagonal's pill opens its card again
+    r.poly!!.diags.forEach { d ->
+        val c = (lay.inner[d.a] + lay.inner[d.b]) / 2f
+        if (abs(p.x - c.x) < 36 && abs(p.y - c.y) < 16) return PlanHit.Dim(d.id)
+    }
     for (i in 0 until lay.n) {
         val a = lay.inner[i]; val b = lay.inner[(i + 1) % lay.n]
         val c = (a + b) / 2f + lay.normals[i] * (lay.tw + 30f)
@@ -460,10 +465,10 @@ fun PolyHint(pid: String, r: Room) {
     val (text, red, wall) = when {
         g.err == "negative" -> Triple(tr("sk.negative", "w" to g.conflict.joinToString(", ")), true, g.conflict.firstOrNull())
         g.err == "cross" -> Triple(tr("sk.crossSol"), true, g.conflict.firstOrNull())
-        g.err == "closure" -> Triple(tr("sk.conflict", "w" to g.conflict.joinToString(", "), "e" to ""), true, g.conflict.firstOrNull())
+        g.err == "closure" -> Triple(tr("sk.conflict", "w" to g.conflict.joinToString(", "), "e" to fmtLen(g.gap, LenUnit.M, en)), true, g.conflict.firstOrNull())
         g.diagStatus.entries.firstOrNull { it.value == "warn" } != null -> {
             val e = g.diagStatus.entries.first { it.value == "warn" }
-            Triple(tr("sk.diagWarn", "d" to e.key, "e" to fmtLen(abs((r.dim(e.key).v ?: 0) - (g.diagLen[e.key] ?: 0)), unit, en)), false, null)
+            Triple(tr("sk.diagWarn", "d" to e.key, "e" to fmtLen(abs((r.dim(e.key).v ?: 0) - (g.diagLen[e.key] ?: 0)), LenUnit.M, en)), false, null)
         }
         g.either.size == 2 -> Triple(tr("sk.needEither", "a" to g.either[0], "b" to g.either[1]), false, null)
         else -> return

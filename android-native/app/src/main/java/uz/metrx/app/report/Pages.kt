@@ -284,8 +284,10 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
             }
         }
         r.openings.forEach { o ->
-            rows += listOf(cell(t("r.op", "o" to t(if (o.type == "door") "op.door" else "op.window"), "w" to o.wall, "wd" to len(o.w), "h" to len(o.h),
-                "off" to (if (o.offDrag) "≈ " else "") + len(o.off), "s" to if (o.type == "window") t("r.sill", "s" to len(o.sill)) else ""), span = 2))
+            // the line says "m": its sizes are in metres whatever the length unit
+            fun lm(mm: Int) = fmtLen(mm, LenUnit.M, en)
+            rows += listOf(cell(t("r.op", "o" to t(if (o.type == "door") "op.door" else "op.window"), "w" to o.wall, "wd" to lm(o.w), "h" to lm(o.h),
+                "off" to (if (o.offDrag) "≈ " else "") + lm(o.off), "s" to if (o.type == "window") t("r.sill", "s" to lm(o.sill)) else ""), span = 2))
         }
         val H = r.dim("H").v
         if (a?.net != null && H != null) {
@@ -473,22 +475,28 @@ fun reportPages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, im
     val d = Doc(tm, sn, draft, meta, image, now)
     val rooms = sn.rooms
     d.newPage(); d.parties()
-    rooms.firstOrNull()?.let { d.roomBlock(it.room, 1, it.floorLabel) }
-    d.fn(d.t("r.geoNote"))
-    var i = 1
-    while (i < rooms.size) {
-        d.newPage()
-        d.roomBlock(rooms[i].room, i + 1, rooms[i].floorLabel)
-        rooms.getOrNull(i + 1)?.let { d.roomBlock(it.room, i + 2, it.floorLabel) }
-        i += 2
+    // with the plans and the measurements both off the rooms print nothing: no empty pages for them
+    val roomsOn = sn.pdf.plan || sn.pdf.dims
+    if (roomsOn) {
+        rooms.firstOrNull()?.let { d.roomBlock(it.room, 1, it.floorLabel) }
+        d.fn(d.t("r.geoNote"))
+        var i = 1
+        while (i < rooms.size) {
+            d.newPage()
+            d.roomBlock(rooms[i].room, i + 1, rooms[i].floorLabel)
+            rooms.getOrNull(i + 1)?.let { d.roomBlock(it.room, i + 2, it.floorLabel) }
+            i += 2
+        }
     }
     d.figurePages()
     d.notesPages()
-    d.newPage()
+    // the first page holding only the parties has room for the rest
+    if (roomsOn || d.pages.size > 1) d.newPage()
     if (sn.pdf.views) d.views()
     if (sn.pdf.estimate) d.estimate(sn.estimate)
     if (sn.notes.isNotBlank()) { d.h2(d.t("rpt.notes")); d.para(AnnotatedString(sn.notes), d.ui(10f), 10f, 10f) }
-    d.fn(d.t("r.qtyNote")); d.fn(d.t("r.moneyNote", "c" to sn.currency))
+    // the notes on quantities and money are the estimate's
+    if (sn.pdf.estimate) { d.fn(d.t("r.qtyNote")); d.fn(d.t("r.moneyNote", "c" to sn.currency)) }
     if (sn.pdf.sign) d.signatures()
     return d.finish()
 }

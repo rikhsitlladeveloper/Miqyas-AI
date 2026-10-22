@@ -46,6 +46,8 @@ import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
@@ -55,7 +57,7 @@ import uz.metrx.app.data.floorName
 import uz.metrx.app.geo.areas
 import uz.metrx.app.geo.fmtArea
 import uz.metrx.app.geo.fmtLen
-import uz.metrx.app.geo.stepKeys
+import uz.metrx.app.geo.LenUnit
 import uz.metrx.app.geo.wallCorner
 import uz.metrx.app.geo.wallStats
 import uz.metrx.app.geo.walls
@@ -109,7 +111,7 @@ fun EditorScreen(r0: Route.Editor) {
                     Text(dn(p.name, lang) + (if (w != null) " › " + floorName(w, lang) else ""), style = ui(12f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 Box(Modifier.size(44.dp)) { LaserButton { app.sheet = Sheet.Device } }
-                GlassIconButton("more", "menu", { app.sheet = Sheet.RoomInfo(p.id, r.id) })
+                GlassIconButton("more", tr("common.menu"), { app.sheet = Sheet.RoomInfo(p.id, r.id) })
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
                 if (r.isPoly) PolyPlan(r, sel, selOp, Modifier.fillMaxSize())
@@ -133,9 +135,9 @@ fun EditorScreen(r0: Route.Editor) {
                 }
                 GlassPill(Modifier.align(Alignment.BottomEnd).padding(end = 16.dp, bottom = 12.dp)) {
                     Row(Modifier.padding(horizontal = 4.dp).fillMaxHeight(), verticalAlignment = Alignment.CenterVertically) {
-                        HistBtn("undo", ops.canUndo(r.id)) { ops.undo(p.id, r.id) }
+                        HistBtn("undo", tr("common.undo"), ops.canUndo(r.id)) { ops.undo(p.id, r.id) }
                         Box(Modifier.width(1.dp).height(20.dp).background(G.ink.copy(alpha = .12f)))
-                        HistBtn("redo", ops.canRedo(r.id)) { ops.redo(p.id, r.id) }
+                        HistBtn("redo", tr("common.redo"), ops.canRedo(r.id)) { ops.redo(p.id, r.id) }
                     }
                 }
             }
@@ -155,8 +157,9 @@ private fun GlassPill(modifier: Modifier, content: @Composable () -> Unit) {
 }
 
 @Composable
-private fun HistBtn(icon: String, on: Boolean, onClick: () -> Unit) {
-    Box(Modifier.size(44.dp, 42.dp).clickable(enabled = on, role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) {
+private fun HistBtn(icon: String, label: String, on: Boolean, onClick: () -> Unit) {
+    Box(Modifier.size(44.dp, 42.dp).clickable(enabled = on, role = Role.Button, onClick = onClick)
+        .semantics { contentDescription = label }, contentAlignment = Alignment.Center) {
         MIcon(icon, if (on) G.ink else OFF_ICON, 20.dp, 2f)
     }
 }
@@ -209,7 +212,7 @@ private fun StepCard(pid: String, r: Room, f: RoomOps.Focus) {
     val unit = app.settings.unit; val en = app.english()
     val m = app.unitName()
     val k = f.k
-    val keys = stepKeys(r, app.settings.angleSnap)
+    val keys = ops.measureKeys(r)
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         when (f.kind) {
             "ok" -> {
@@ -217,7 +220,7 @@ private fun StepCard(pid: String, r: Room, f: RoomOps.Focus) {
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     Box(Modifier.size(42.dp).clip(CircleShape).background(G.green.copy(alpha = .14f)), contentAlignment = Alignment.Center) { MIcon("check", OK_GREEN, 22.dp, 2.4f) }
                     Column(Modifier.weight(1f)) {
-                        Text(tr("ed2.done"), style = ui(16f, 800), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(tr("ed2.done"), style = ui(16f, 800), maxLines = 2, overflow = TextOverflow.Ellipsis)
                         if (a != null) Text(if (a.net != null) tr("ed2.sum", "f" to fmtArea(a.floor, en), "w" to fmtArea(a.net, en)) else tr("ed2.sumNoH", "f" to fmtArea(a.floor, en)), style = ui(12.5f, 400, G.ink2))
                     }
                     AllPill()
@@ -251,6 +254,14 @@ private fun StepCard(pid: String, r: Room, f: RoomOps.Focus) {
                     Text(tr("ed.fix"), style = ui(14f, 700, G.err), modifier = Modifier.clickable(role = Role.Button) { app.sheet = Sheet.OpeningForm(pid, r.id, o.id) }.padding(8.dp))
                 }
             }
+            "badFt" -> {
+                val x = f.ft!!; val iss = uz.metrx.app.geo.featureIssue(r, x, app.settings.angleSnap)
+                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.errWash).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    MIcon("alert", G.err, 20.dp, 2f)
+                    Text(tr("ft.${x.type}") + ": " + (iss?.let { tr(it) } ?: ""), style = ui(13.5f, 500, G.err, 1.35f), modifier = Modifier.weight(1f))
+                    Text(tr("ed.fix"), style = ui(14f, 700, G.err), modifier = Modifier.clickable(role = Role.Button) { app.sheet = Sheet.FeatureForm(pid, r.id, x.id, x.type) }.padding(8.dp))
+                }
+            }
             else -> {
                 val d = r.dim(k!!)
                 val name = ops.dimLabel(k)
@@ -282,7 +293,7 @@ private fun StepCard(pid: String, r: Room, f: RoomOps.Focus) {
                         else -> StatusPill(tr("ed2.notMeasured"), G.ink.copy(alpha = .06f), G.ink2, null)
                     }
                 }
-                if (f.kind == "again") Text(tr("ed2.cur", "v" to fmtLen(d.v, unit, en)), style = ui(13f, 400, G.ink2))
+                if (f.kind == "again") Text(tr("ed2.cur", "v" to fmtLen(d.v, LenUnit.M, en)), style = ui(13f, 400, G.ink2))
                 if (f.kind == "unset" || f.kind == "again") {
                     if (ops.laserOn) Text(tr("ed2.pressLaser"), style = ui(13f, 400, G.ink2))
                     else Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -355,7 +366,9 @@ internal fun CardBtn(label: String, icon: String, primary: Boolean, modifier: Mo
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically
     ) {
         MIcon(icon, if (primary) Color.White else G.cobalt, 18.dp, 2.2f)
-        Text(label, style = ui(15f, 700, if (primary) Color.White else G.ink), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        // two lines rather than cut off with a large font or a long word
+        Text(label, style = ui(15f, 700, if (primary) Color.White else G.ink), maxLines = 2, overflow = TextOverflow.Ellipsis,
+            textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.weight(1f, fill = false))
     }
 }
 
@@ -368,7 +381,7 @@ private fun FullList(pid: String, r: Room, f: RoomOps.Focus) {
     val snap = app.settings.angleSnap
     Column(Modifier.padding(top = 12.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Section(tr("ed2.meas")) {
-            stepKeys(r, snap).forEach { k ->
+            ops.measureKeys(r).forEach { k ->
                 val d = r.dim(k); val st = d.status
                 Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(enabled = st == "conf") { ops.focus(r.id, k) }.padding(vertical = 6.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {

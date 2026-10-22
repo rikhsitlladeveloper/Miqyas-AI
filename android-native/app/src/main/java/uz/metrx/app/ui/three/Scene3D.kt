@@ -489,14 +489,17 @@ fun BoxScope.Labels3D(cam: Cam3D, points: List<V3>, content: @Composable (Int) -
     }
 }
 
+/** The labels' ink: they are white in dark mode too, so their text and rim stay dark. */
+private val LBL_INK = Color(0xFF0F172A)
+
 /** A wall letter or a room name over the picture (prototype .three .lbl). */
 @Composable
 fun Lbl3D(text: String) {
     Box(
         Modifier.defaultMinSize(minWidth = 24.dp).height(24.dp).clip(RoundedCornerShape(12.dp)).background(Color.White)
-            .border(1.33.dp, G.ink, RoundedCornerShape(12.dp)).padding(horizontal = 6.dp),
+            .border(1.33.dp, LBL_INK, RoundedCornerShape(12.dp)).padding(horizontal = 6.dp),
         contentAlignment = Alignment.Center
-    ) { Text(text, style = ui(12f, 600), maxLines = 1) }
+    ) { Text(text, style = ui(12f, 600, LBL_INK), maxLines = 1) }
 }
 
 /** A room name that zooms to the room (ux .lbl.go); [on] while the view is on that room. The touch area reaches past it. */
@@ -511,8 +514,8 @@ fun RoomLbl3D(text: String, on: Boolean, onClick: () -> Unit) {
         Box(
             Modifier.dropShadow(shape, Shadow(8.dp, Color(0x1F101828), offset = DpOffset(0.dp, 2.dp)))
                 .defaultMinSize(minHeight = 28.dp).clip(shape).background(if (on) G.cobalt else Color.White)
-                .border(1.33.dp, if (on) G.cobalt else G.ink, shape).padding(horizontal = 10.dp),
+                .border(1.33.dp, if (on) G.cobalt else LBL_INK, shape).padding(horizontal = 10.dp),
             contentAlignment = Alignment.Center
-        ) { Text(text, style = ui(12.5f, 700, if (on) Color.White else G.ink), maxLines = 1) }
+        ) { Text(text, style = ui(12.5f, 700, if (on) Color.White else LBL_INK), maxLines = 1) }
     }
 }

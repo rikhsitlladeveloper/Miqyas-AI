@@ -101,7 +101,7 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                     Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(G.ink.copy(alpha = .06f)), contentAlignment = Alignment.Center) { MIcon("edit", G.ink, 18.dp, 2f) }
                 }
                 Row(Modifier.fillMaxWidth().topRule().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
-                    MIcon("doc", G.ink2, 16.dp, 2f); Text(tr("pf.onQuote"), style = ui(12.5f, 400, G.ink2, 1.4f))
+                    MIcon("doc", G.ink2, 16.dp, 2f); Text(tr(if (s.furniture && !s.advanced) "pf.onDesign" else "pf.onQuote"), style = ui(12.5f, 400, G.ink2, 1.4f))
                 }
             }
             ProCard { app.push(Route.Subscription) }
@@ -110,7 +110,7 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                 Group(tr("wk.group"))
                 Card {
                     // off: the app is just the 3D design; on: prices, order stages, workshop rules, cutting lists
-                    SwitchRow("sliders", tr("adv.title"), s.advanced) { s.setAdvancedOn(!s.advanced); app.say(if (s.advanced) "adv.on" else "adv.off") }
+                    SwitchRow("sliders", tr("adv.title"), s.advanced) { s.setAdvancedOn(!s.advanced); if (!s.advanced) app.dropAdvanced(); app.say(if (s.advanced) "adv.on" else "adv.off") }
                     if (s.advanced) {
                         Row1("board", tr("wk.title"), null, sub = tr("wk.titleS")) { app.push(Route.Workshop) }
                         Row1("layers", tr("wk.mats"), null, sub = tr("wk.matsS", "m" to s.mats.size, "h" to s.hws.size)) { app.push(Route.Materials) }
@@ -123,9 +123,11 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                 Row1("sliders", tr("ind.row"), tr(when { s.furniture -> "ind.furn"; uz.metrx.app.trades.isTrade(s.industry) -> "ind.${s.industry}"; else -> "ind.build" })) { app.sheet = Sheet.Industry }
                 Row1("globe", tr("se.lang"), s.lang.longName) { nav.languages() }
                 Row1("doc", tr("se.reportLang"), s.reportLang.longName) { app.sheet = Sheet.ReportLang }
-                val pdfN = listOf(s.pdf.plan, s.pdf.dims, s.pdf.views, s.pdf.estimate, s.pdf.sign).count { it }
-                Row1("layers", tr("se.pdf"), "$pdfN/5") { app.sheet = Sheet.PdfParts }
-                Row1("coin", tr("np.currency"), s.currency) { app.sheet = Sheet.Currency }
+                // the simple furniture app shares a design: no estimate in it, and no prices to have a currency
+                val design = s.furniture && !s.advanced
+                val parts = pdfKeys(design).map { k -> when (k) { "plan" -> s.pdf.plan; "dims" -> s.pdf.dims; "views" -> s.pdf.views; "estimate" -> s.pdf.estimate; else -> s.pdf.sign } }
+                Row1("layers", tr("se.pdf"), "${parts.count { it }}/${parts.size}") { app.sheet = Sheet.PdfParts }
+                if (!design) Row1("coin", tr("np.currency"), s.currency) { app.sheet = Sheet.Currency }
             }
             // dark mode: this app's own (the prototype has only the light look)
             Card(Modifier.padding(top = 10.dp)) { SwitchRow("moon", tr("nt.dark"), s.dark) { s.setDarkMode(!s.dark) } }
@@ -323,17 +325,21 @@ private fun ReportLangSheet() {
 private fun PdfSheet() {
     val app = LocalApp.current
     val p = app.settings.pdf
+    val design = app.settings.furniture && !app.settings.advanced
     GlassSheet(tr("se.pdf"), { app.sheet = null }) {
-        listOf("plan" to p.plan, "dims" to p.dims, "views" to p.views, "estimate" to p.estimate, "sign" to p.sign).forEach { (k, on) ->
+        listOf("plan" to p.plan, "dims" to p.dims, "views" to p.views, "estimate" to p.estimate, "sign" to p.sign).filter { it.first in pdfKeys(design) }.forEach { (k, on) ->
             Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(14.dp)).clickable(role = Role.Checkbox) {
                 app.settings.setPdfParts(when (k) { "plan" -> p.copy(plan = !on); "dims" -> p.copy(dims = !on); "views" -> p.copy(views = !on); "estimate" -> p.copy(estimate = !on); else -> p.copy(sign = !on) })
             }.padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MIcon(if (on) "boxok" else "box", if (on) G.cobalt else G.ink2, 24.dp, 2f); Text(tr("pdf.$k"), style = ui(16f, 500))
             }
         }
-        Text(tr("se.pdfBody"), style = ui(13f, 400, G.ink2, 1.45f))
+        Text(tr(if (design) "se.pdfBodyD" else "se.pdfBody"), style = ui(13f, 400, G.ink2, 1.45f))
     }
 }
+
+/** The PDF's parts the Profile offers; a simple furniture app's design has no estimate. */
+private fun pdfKeys(design: Boolean) = if (design) listOf("plan", "dims", "views", "sign") else listOf("plan", "dims", "views", "estimate", "sign")
 
 @Composable
 private fun UnitsSheet() {

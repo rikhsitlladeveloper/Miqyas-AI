@@ -25,7 +25,8 @@ class Store private constructor(context: Context) {
     private val db = Db(context.applicationContext)
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
     // one thread, so writes run in the order they were asked for (a delete, then its Undo's re-insert)
-    private val io = CoroutineScope(SupervisorJob() + java.util.concurrent.Executors.newSingleThreadExecutor().asCoroutineDispatcher())
+    private val ioThread = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val io = CoroutineScope(SupervisorJob() + ioThread.asCoroutineDispatcher())
     private val pending = HashMap<String, Job>()
     /** The newest unsaved version of each project, written by its job or by [flush]. */
     private val unsaved = java.util.concurrent.ConcurrentHashMap<String, Project>()
@@ -114,7 +115,9 @@ class Store private constructor(context: Context) {
     /** Writes every change still waiting, right now (the app is going to the background). */
     fun flush() {
         pending.values.forEach { it.cancel() }; pending.clear()
-        unsaved.keys.toList().forEach { id -> unsaved.remove(id)?.let { if (get(id) != null) write(it) } }
+        val live = projects.map { it.id }.toSet()
+        // on the writer's own thread and waited for: after a write it is in the middle of, so an older version cannot land last
+        ioThread.submit { unsaved.keys.toList().forEach { id -> unsaved.remove(id)?.let { if (it.id in live) write(it) } } }.get()
     }
 
     private class Db(context: Context) : SQLiteOpenHelper(context, "metrx.db", null, 1) {

@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
@@ -73,6 +74,7 @@ import uz.metrx.app.ui.theme.ui
 @Composable
 fun PackScreen(pid: String) {
     val app = LocalApp.current
+    if (!app.settings.advanced) { LaunchedEffect(Unit) { app.dropAdvanced() }; return }
     val ctx = LocalContext.current
     val lang = LocalLang.current
     val p = app.store.get(pid) ?: return

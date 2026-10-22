@@ -152,10 +152,11 @@ fun MeasureScreen(calcTitle: Boolean) {
     val rs = s.readings.reversed()
     val last = if (on && c.cont && c.liveVal != null) c.liveVal else rs.firstOrNull()?.mm
     fun add(mm: Int, src: String) { val r = s.addReading(mm, src); c.fill(r) }
-    // furniture makers have the sheets tool where builders have bricks
-    LaunchedEffect(s.furniture) {
-        if (s.furniture && c.tool == "brick") c.tool = "sheet"
-        if (!s.furniture && c.tool == "sheet") c.tool = "area"
+    // furniture makers have the sheets tool where builders have bricks; it is the advanced app's (simple mode has neither)
+    val sheets = s.furniture && s.advanced
+    LaunchedEffect(s.furniture, sheets) {
+        if (sheets && c.tool == "brick") c.tool = "sheet"
+        if ((s.furniture && c.tool == "brick") || (!sheets && c.tool == "sheet")) c.tool = "area"
     }
     Box(Modifier.fillMaxSize()) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
@@ -238,9 +239,11 @@ private fun Meter(on: Boolean, c: MeasureCalc, last: Int?, u: LenUnit, en: Boole
 
 @Composable
 private fun Tools(c: MeasureCalc) {
-    val furniture = LocalApp.current.settings.furniture
+    val s = LocalApp.current.settings
+    // the fifth tool: bricks for builders, sheets for a furniture maker's advanced app, none in simple mode
+    val fifth = if (!s.furniture) "brick" else if (s.advanced) "sheet" else null
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        listOf("area" to "room", "wall" to "walls", "vol" to "cube", "sum" to "dim", (if (furniture) "sheet" else "brick") to "").forEach { (k, ic) ->
+        (listOf("area" to "room", "wall" to "walls", "vol" to "cube", "sum" to "dim") + listOfNotNull(fifth?.let { it to "" })).forEach { (k, ic) ->
             val on = c.tool == k; val sh = RoundedCornerShape(12.dp)
             Column(Modifier.weight(1f).height(54.dp).let { if (on) it.dropShadow(sh, Shadow(12.dp, Color(0x401C4BD1), offset = DpOffset(0.dp, 4.dp))) else it }.clip(sh)
                 .background(if (on) G.cobalt else G.idle(.55f)).border(if (on) 0.dp else 1.dp, if (on) Color.Transparent else G.idleRim, sh)
@@ -314,9 +317,10 @@ private fun CalcCard(c: MeasureCalc, u: LenUnit, en: Boolean, m: String) {
                     sub = (tr("qb.mortar") + " " + "%.2f".format(java.util.Locale.ROOT, mo).replace('.', if (en) '.' else ',') + " " + tr("u.m") + "³") to (fmtArea(net, en) + " " + m2) }
             }
             "sheet" -> if (g(0) != null && g(1) != null) {
-                val a = g(0)!!.toLong() * g(1)!!
-                txt = uz.metrx.app.core.sheetsFor(a.toDouble()).toString() + " " + tr("u.sheet")
-                sub = tr("qs.spec") to (fmtArea(a, en) + " " + m2)
+                // the workshop's sheet size (Profile → Ustaxona sozlamalari)
+                val a = g(0)!!.toLong() * g(1)!!; val ws = app.settings.workshop
+                txt = uz.metrx.app.core.sheetsFor(a.toDouble(), ws.sheetL, ws.sheetW).toString() + " " + tr("u.sheet")
+                sub = tr("qs.spec", "l" to ws.sheetL, "w" to ws.sheetW) to (fmtArea(a, en) + " " + m2)
             }
         }
         Row(Modifier.fillMaxWidth().drawBehind { drawLine(Color.White.copy(alpha = .12f), Offset(0f, 0f), Offset(size.width, 0f), 1.dp.toPx()) }.padding(top = 8.dp),
@@ -324,7 +328,9 @@ private fun CalcCard(c: MeasureCalc, u: LenUnit, en: Boolean, m: String) {
             Text(tr(mapOf("area" to "qc.rArea", "wall" to "qc.rWall", "vol" to "qc.rVol", "sum" to "qc.rSum", "brick" to "qc.rBrick", "sheet" to "qc.rSheet").getValue(c.tool)), style = ui(13f, 400, MUTED))
             Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                 if (err != null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) { MIcon("alert", Color(0xFFFFB4A8), 16.dp, 2f); Text(err, style = ui(13f, 600, Color(0xFFFFB4A8))) }
-                else Text(txt ?: "—", style = ui(30f, 700, if (txt != null) Color.White else MUTED, 1f).copy(fontFamily = PlexCond), maxLines = 1)
+                // a long result (bricks, a big sum in cm) gets smaller rather than cut off
+                else Text(txt ?: "—", style = ui(if ((txt?.length ?: 0) > 10) 22f else 30f, 700, if (txt != null) Color.White else MUTED, 1f).copy(fontFamily = PlexCond), maxLines = 1,
+                    softWrap = false, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
             }
             Text(tr("qc.clear"), style = ui(13f, 400, MUTED), modifier = Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(10.dp)).clickable { v.clear(); c.act = null }.padding(horizontal = 4.dp, vertical = 12.dp))
         }
@@ -493,8 +499,8 @@ private fun SendSheet(s: Sheet.SendReading) {
                             app.store.update(p.id) { pp -> pp.copy(rooms = pp.rooms.map { rr -> if (rr.id != r.id) rr else rr.copy(dims = rr.dims + (k to rr.dim(k).copy(pending = Pending(x.mm, x.src, "quick")))) }) }
                             app.settings.markReadingUsed(x.id, label)
                             app.sheet = null
-                            // to the room, with that measurement chosen (prototype doSend)
-                            app.tab = Tab.PROJECTS; val st = app.stack; st.clear(); st.add(Route.Root); st.add(Route.Project(p.id)); st.add(Route.Editor(p.id, r.id))
+                            // to the room, with that measurement chosen (prototype doSend); the Projects tab keeps its pages under it
+                            app.tab = Tab.PROJECTS; app.push(Route.Editor(p.id, r.id))
                             app.ops.focusKey = k; app.ops.focusRoom = r.id
                             app.say("qm.sent", kind = ToastKind.INFO)
                         }.padding(horizontal = 12.dp), contentAlignment = Alignment.Center) { Text(label, style = ui(14f, 600)) }

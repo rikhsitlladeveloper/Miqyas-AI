@@ -30,6 +30,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.input.pointer.PointerEventPass
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -225,6 +227,10 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.Markup -> uz.metrx.app.ui.markup.MarkupScreen(route)
                                     Route.LiveCam -> uz.metrx.app.ui.markup.LiveCamScreen()
                                 }
+                                // the page sliding away takes no taps, so a second tap cannot create or go back twice
+                                if (t != app.tab || pageKey(route) != pageKey(app.top)) Box(Modifier.matchParentSize().pointerInput(Unit) {
+                                    awaitPointerEventScope { while (true) awaitPointerEvent(PointerEventPass.Initial).changes.forEach { it.consume() } }
+                                })
                             }
                         }
                     }
