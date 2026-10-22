@@ -140,7 +140,7 @@ fun orderSub(p: Project, lang: Lang, sep: String): String {
 /* ---------------- rooms made behind the scenes ---------------- */
 
 /** The room kinds a furniture maker adds (string keys fr.*); the first two decide kitchen or wardrobe. */
-val F_ROOMS = listOf("kitchen", "bedroom", "living", "kids", "hall", "other")
+val F_ROOMS = listOf("kitchen", "bedroom", "living", "kids", "hall", "bath", "other")
 
 /** What furniture a room is for: the kitchen room gets a kitchen, the others a wardrobe. */
 fun roomKind(w: Workspace?): String = if (w?.type == "kitchen") "kitchen" else "wardrobe"
@@ -255,7 +255,8 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                 }
                 furn.forEach { f ->
                     val ward = f.kind == "wardrobe"
-                    val sub = if (ward) wardOf(f)?.let { m -> uz.metrx.app.geo.fmtLen(m.w, uz.metrx.app.geo.LenUnit.M, en) + " × " +
+                    val sub = if (ward && (uz.metrx.app.furniture.isItemPiece(f) || uz.metrx.app.furniture.boxes(f).size > 1)) freeSub(f, en)
+                        else if (ward) uz.metrx.app.furniture.wardOfF(f)?.let { m -> uz.metrx.app.geo.fmtLen(m.w, uz.metrx.app.geo.LenUnit.M, en) + " × " +
                         uz.metrx.app.geo.fmtLen(uz.metrx.app.furniture.valsOf(f, s.workshop)["h"] ?: m.h, uz.metrx.app.geo.LenUnit.M, en) + " m" } ?: ""
                         else tr("kt.l" + f.layout) + " · " + "%.1f".format(java.util.Locale.ROOT, runMm(f) / 1000.0).replace('.', if (en) '.' else ',') + " " + tr("kt.pm")
                     val amount = priced.lines.firstOrNull { it.key == f.id }?.amount?.takeIf { s.advanced }

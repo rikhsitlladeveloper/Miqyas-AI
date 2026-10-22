@@ -61,6 +61,11 @@ private const val OPEN_DEG = 100.0
 private const val SHUT_DEG = 90.0
 private const val MIRROR = 0xC9D3DD
 private const val GLASS_P = 0x8FA9C4
+/** A vitrina's clear glass, seen through; a bed's mattress and slats; an LED strip's light. */
+private const val CLEAR = 0xBFD8E8
+private const val MATTRESS = 0xF1F3F6
+private const val LAMEL = 0xD9C29A
+private const val LED = 0xFFF3C4
 
 /** The faces of a box, each facing out. */
 private fun obbFaces(p: Part, x: Obb) {
@@ -103,7 +108,8 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
     fs.forEach { f ->
         val colors = mapOf("carcass" to rgb(f.mats.carcass), "front" to rgb(f.mats.front), "back" to rgb(f.mats.back), "top" to rgb("wt38"),
             "mirror" to MIRROR, "glass" to GLASS_P, "splash" to rgb("splash6"),
-            "metal" to METAL, "dark" to DARK, "handle" to HANDLE, "white" to WHITE)
+            "metal" to METAL, "dark" to DARK, "handle" to HANDLE, "white" to WHITE,
+            "clear" to CLEAR, "mattress" to MATTRESS, "lamel" to LAMEL, "led" to LED)
         val fws = uz.metrx.app.furniture.wsOf(f, ws)
         val B = Builder3(fws, colors, parts, edges, picks, keys, how)
         val first = f.walls.firstOrNull { it != ISLAND }
@@ -115,21 +121,26 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             val p = f.pose?.takeIf { f.kind == "kitchen" } ?: uz.metrx.app.furniture.islandPose(f, (w.len * 1000).toInt())
             (bases[p.ref] ?: w).let { poseBasis(it, p, len / 1000.0) }
         }
+        val main = uz.metrx.app.furniture.wardOfF(f)
         f.modules.forEach { m ->
-            // a piece standing free (a desk in the middle of the room) has its own frame, its box from its start
-            val free = f.pose?.takeIf { f.kind == "wardrobe" && m.type == "wardrobe" }?.let { p -> bases[p.ref]?.let { poseBasis(it, p, m.w / 1000.0) } }
+            // a piece standing free (a desk, a bed in the middle of the room) has its own frame from its main box's start
+            val box = uz.metrx.app.furniture.isBox(m)
+            val free = f.pose?.takeIf { f.kind == "wardrobe" && box }?.let { p -> bases[p.ref]?.let { poseBasis(it, p, m.w / 1000.0) } }
             val b = free ?: (if (m.wall == ISLAND) island else bases[m.wall ?: ""]) ?: return@forEach
+            val mm = if (free != null) m.copy(x = m.x - (main?.x ?: m.x)) else m
             B.wall = m.wall
             if (m.type == "wardrobe") {
-                // what stands past each end along its wall: the wall's corner, or another piece close by
+                // what stands past each end along its wall: the wall's corner, or another box close by (of another piece or this one)
                 val L = bases[m.wall ?: ""]?.let { (it.len * 1000).toInt() }
-                fun near(at: Int) = fs.any { o -> o.id != f.id && o.pose == null && o.modules.any { it.wall == m.wall && (kotlin.math.abs(it.x + it.w - at) < 60 || kotlin.math.abs(it.x - at) < 60) } }
+                fun near(at: Int) = fs.any { o -> o.pose == null && o.modules.any { it.id != m.id && it.wall == m.wall && (o.id != f.id || !uz.metrx.app.furniture.hung(it)) &&
+                    (kotlin.math.abs(it.x + it.w - at) < 60 || kotlin.math.abs(it.x - at) < 60) } }
                 B.freeL = free != null || (m.x > uz.metrx.app.furniture.W_GAP_SIDE + 40 && !near(m.x))
                 B.freeR = free != null || (L != null && m.x + m.w < L - uz.metrx.app.furniture.W_GAP_SIDE - 40 && !near(m.x + m.w))
-                B.wardrobe(b, if (free != null) m.copy(x = 0) else m)
-            } else B.kitchenUnit(b, m)
+                B.wardrobe(b, mm)
+            } else if (m.type in uz.metrx.app.furniture.ITEM_MODS) B.item(b, mm)
+            else B.kitchenUnit(b, m)
             // a bathroom vanity carries its basin and tap on top
-            if (f.type == "vanity" && m.type == "wardrobe") B.basin(b, if (free != null) m.copy(x = 0) else m)
+            if (f.type == "sinkV" && m.type == "wardrobe") B.basin(b, mm)
         }
         // the worktop over the lower row of each wall (and over the corner it turns into)
         if (f.kind == "kitchen") {
@@ -191,7 +202,8 @@ private class Builder3(
     var freeL = false; var freeR = false
     private fun p(k: String): Part {
         val c = colors.getValue(k); val w = if (wall == ISLAND) null else wall
-        return parts.getOrPut(w to c) { Part(0, w, Role.FURN, c, 1f) }
+        // clear glass is seen through
+        return parts.getOrPut(w to c) { Part(0, w, Role.FURN, c, if (k == "clear") .38f else 1f) }
     }
     val carcass get() = p("carcass"); val front get() = p("front"); val back get() = p("back"); val top get() = p("top")
     val metal get() = p("metal"); val dark get() = p("dark"); val handle get() = p("handle"); val white get() = p("white")
@@ -216,13 +228,26 @@ private class Builder3(
      * its handle's middle [hy] above the door's bottom.
      */
     fun door(w: WallBasis, key: String, ha: Double, n: Double, y0: Double, h: Double, fw: Double, s: Int, handles: Boolean, hy: Double, p: Part = front,
-             deg: Double = SHUT_DEG) {
+             deg: Double = SHUT_DEG, face: String = "") {
         keys += key
         val th = Math.toRadians(deg) * how(key)
         val e = w.dir(s * cos(th), sin(th)); val tn = w.dir(-s * sin(th), cos(th))
         val o = w.at(ha / 1000, y0 / 1000, n / 1000)
         val x = Obb(o, e * (fw / 1000), V3(0.0, h / 1000, 0.0), tn * (t / 1000.0))
-        obb(p, x, true); picks += Pick(key, x)
+        val up = V3(0.0, 1.0, 0.0)
+        when (face) {
+            // glass in an aluminium frame: the frame's four sides round a clear pane
+            "glass" -> {
+                val fr = .02; val W = fw / 1000; val H = h / 1000; val T = t / 1000.0
+                obb(metal, Obb(o, e * fr, up * H, tn * T), true); obb(metal, Obb(o + e * (W - fr), e * fr, up * H, tn * T), true)
+                obb(metal, Obb(o + e * fr, e * (W - 2 * fr), up * fr, tn * T), true); obb(metal, Obb(o + e * fr + up * (H - fr), e * (W - 2 * fr), up * fr, tn * T), true)
+                obb(p("clear"), Obb(o + e * fr + up * fr + tn * (T / 2 - .002), e * (W - 2 * fr), up * (H - 2 * fr), tn * .004), false)
+                picks += Pick(key, x)
+            }
+            // a mirror on the board door's face
+            "mirror" -> { obb(p, x, true); obb(p("mirror"), Obb(o + e * .005 + up * .005 + tn * (t / 1000.0), e * (fw / 1000 - .01), up * (h / 1000 - .01), tn * .004), false); picks += Pick(key, x) }
+            else -> { obb(p, x, true); picks += Pick(key, x) }
+        }
         if (handles) {
             val ho = o + e * ((fw - 40) / 1000) + tn * (t / 1000.0) + V3(0.0, (hy - 64) / 1000, 0.0)
             obb(handle, Obb(ho, e * .012, V3(0.0, .128, 0.0), tn * .025), false)
@@ -349,7 +374,8 @@ private class Builder3(
         val x0 = m.x.toDouble(); val x1 = x0 + m.w; val d = m.d.toDouble()
         // sliding doors take the front of the depth: the inside is shallower
         val di = uz.metrx.app.furniture.innerD(m).toDouble()
-        val z0 = uz.metrx.app.furniture.legsOf(m, ws).toDouble()
+        // on legs, on a plinth, or hung (its bottom above the floor)
+        val z0 = uz.metrx.app.furniture.legsOf(m, ws).toDouble() + m.elev
         val base = wardBase(m).toDouble()
         val yb = z0 + base; val yt = z0 + m.h
         val sl = if (m.sideL) t else 0; val sr = if (m.sideR) t else 0
@@ -359,9 +385,11 @@ private class Builder3(
         if (m.sections.none { it.knee }) box(w, carcass, x0 + sl, x1 - sr, yb, yb + t, 0, d, true)
         else { var a = x0; m.sections.forEach { s -> if (!s.knee) box(w, carcass, maxOf(a, x0 + sl), minOf(a + s.w, x1 - sr), yb, yb + t, 0, d, true); a += s.w } }
         box(w, carcass, x0 + sl, x1 - sr, yt - t, yt, 0, d, true)
-        if (!m.legs) box(w, carcass, x0 + sl, x1 - sr, 0, wardBase(m), d - 60, d - 44, true)
+        if (!m.legs) box(w, carcass, x0 + sl, x1 - sr, z0, z0 + wardBase(m), d - 60, d - 44, true)
         // on legs: a pair under each side and each divider, as the hardware list counts them
-        else (listOf(x0 + 20) + m.sections.runningFold(x0) { a, s -> a + s.w }.drop(1).dropLast(1).map { it - 18 } + listOf(x1 - 56)).forEach { a ->
+        // (none at an end without a side: a corner desk's second arm rests on the first there)
+        else ((if (m.sideL) listOf(x0 + 20) else emptyList()) + m.sections.runningFold(x0) { a, s -> a + s.w }.drop(1).dropLast(1).map { it - 18 } +
+            (if (m.sideR) listOf(x1 - 56) else emptyList())).forEach { a ->
             box(w, metal, a, a + 36, 0, z0, 40, 76); box(w, metal, a, a + 36, 0, z0, d - 76, d - 40)
         }
         var acc = x0
@@ -383,6 +411,7 @@ private class Builder3(
                 val y = floor + x.pos
                 when (x.kind) {
                     "shelf" -> box(w, carcass, il, il + iw, y, y + t, 3, di - 17, true)
+                    "glass" -> box(w, p("clear"), il, il + iw, y, y + 6, 3, di - 17, true)
                     "rail" -> box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, di / 2 - 12, di / 2 + 12)
                     "lift" -> { box(w, metal, il + 20, il + iw - 20, y + 30, y + 54, di / 2 - 12, di / 2 + 12); box(w, metal, il + 5, il + 25, y + 54, y + blockH(x), di / 2 - 15, di / 2 + 15) }
                     // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
@@ -404,22 +433,81 @@ private class Builder3(
                 }
             }
             // the section's doors over its width, from the bottom panel up
-            val fs = frontSizes(s.fronts, s.w, m.h - wardBase(m), ws)
+            val fs = frontSizes(s.fronts, uz.metrx.app.furniture.frontW(s), m.h - wardBase(m), ws)
             if (s.fronts.kind == "door" && m.slide == null) fs.forEachIndexed { j, (fh, fw) ->
                 val a = a0 + edge + j * (fw + g)
                 // a pair hinges on its outer edges; single doors pair up two by two, the last one hinged on the wardrobe's end
                 val right = if (fs.size == 2) j == 1 else uz.metrx.app.furniture.hingeRight(m, i)
                 // only a hinge at the piece's free end opens wide; beside a divider, a wall or a neighbour it stops at 90°
                 val wide = if (right) i == secs.lastIndex && j == fs.lastIndex && freeR else i == 0 && j == 0 && freeL
-                door(w, "${m.id}:s$i:f$j", if (right) a + fw else a, d, yb + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, m.handles,
-                    (1000 - yb).coerceIn(minOf(150.0, fh / 2.0), maxOf(fh / 2.0, fh - 150.0)), deg = if (wide) OPEN_DEG else SHUT_DEG)
+                door(w, "${m.id}:s$i:f$j", if (right) a + fw else a, d, yb + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, m.handles && s.face != "glass",
+                    (1000 - yb).coerceIn(minOf(150.0, fh / 2.0), maxOf(fh / 2.0, fh - 150.0)), deg = if (wide) OPEN_DEG else SHUT_DEG, face = s.face)
             }
             acc = a1
         }
+        // a vitrina's light along the inside of its top
+        if (m.led) box(w, p("led"), x0 + sl + 10, x1 - sr - 10, yt - t - 8, yt - t, di - 70, di - 50)
         m.slide?.let { sl -> slidingDoors(w, m, sl, x0 + sl0(m), yb + t, d) }
     }
 
     private fun sl0(m: Module) = if (m.sideL) t else 0
+
+    /** A box [b] of an item, tilted [th] about a line across it at [pivotY] up and [pivotN] out (a lift-up bed's base rising). */
+    private fun tilted(w: WallBasis, p: Part, x0: Int, b: uz.metrx.app.furniture.Board, pivotY: Double, pivotN: Double, th: Double, line: Boolean) {
+        val c = cos(th); val s = sin(th)
+        fun pt(y: Double, n: Double): Pair<Double, Double> { val dy = y - pivotY; val dn = n - pivotN; return (pivotY + dn * s + dy * c) to (pivotN + dn * c - dy * s) }
+        val (oy, on) = pt(b.y0.toDouble(), b.n0.toDouble())
+        val lb = (b.y1 - b.y0) / 1000.0; val lc = (b.n1 - b.n0) / 1000.0
+        val up = V3(0.0, 1.0, 0.0)
+        obb(p, Obb(w.at((x0 + b.a0) / 1000.0, oy / 1000, on / 1000), w.dir((b.a1 - b.a0) / 1000.0, 0.0),
+            w.dir(0.0, -lb * s) + up * (lb * c), w.dir(0.0, lc * c) + up * (lc * s)), line)
+    }
+
+    /** A table top's rounded corner [r]: a cross of two boards and an octagon in each corner. */
+    private fun roundTop(w: WallBasis, p: Part, x0: Int, b: uz.metrx.app.furniture.Board) {
+        val r = b.round; val a0 = x0 + b.a0; val a1 = x0 + b.a1
+        box(w, p, a0 + r, a1 - r, b.y0, b.y1, b.n0, b.n1, true); box(w, p, a0, a1, b.y0, b.y1, b.n0 + r, b.n1 - r, true)
+        val up = V3(0.0, (b.y1 - b.y0) / 1000.0, 0.0); val R = r / 1000.0; val q = R * .7071
+        listOf(a0 + r to b.n0 + r, a1 - r to b.n0 + r, a0 + r to b.n1 - r, a1 - r to b.n1 - r).forEach { (ca, cn) ->
+            val c = w.at(ca / 1000.0, b.y0 / 1000.0, cn / 1000.0)
+            obb(p, Obb(c - w.dir(q, q), w.dir(2 * q, 0.0), up, w.dir(0.0, 2 * q)), false)
+            obb(p, Obb(c - w.dir(R, 0.0), w.dir(R, -R), up, w.dir(R, R)), false)
+        }
+    }
+
+    /**
+     * A bed, a table, a bar counter, a mirror panel or a mirror: its boards (Items.kt); a bed's drawers pull out of its
+     * long sides and a lift-up base rises on a tap.
+     */
+    fun item(w: WallBasis, m: Module) {
+        val x0 = m.x
+        val bs = uz.metrx.app.furniture.itemBoards(m, ws)
+        val liftKey = "${m.id}:lift"
+        val lifts = bs.any { it.lift }
+        if (lifts) keys += liftKey
+        val th = Math.toRadians(38.0) * (if (lifts) how(liftKey) else 0.0)
+        val pivotY = (m.h - uz.metrx.app.furniture.BED_SINK - 30).toDouble(); val pivotN = t + 4.0
+        bs.forEach { b ->
+            val part = when (b.role) { "carcass" -> carcass; "top" -> top; "metal" -> metal; "white" -> white; "mattress" -> p("mattress"); "lamel" -> p("lamel"); "mirror" -> p("mirror"); else -> front }
+            val line = b.key.isNotEmpty() || b.role == "mirror"
+            when {
+                b.lift && th > 1e-6 -> tilted(w, part, x0, b, pivotY, pivotN, th, line)
+                b.round > 0 -> roundTop(w, part, x0, b)
+                else -> box(w, part, x0 + b.a0, x0 + b.a1, b.y0, b.y1, b.n0, b.n1, line)
+            }
+        }
+        if (lifts) bs.firstOrNull { it.role == "mattress" }?.let { b ->
+            picks += Pick(liftKey, Obb(w.at((x0 + b.a0) / 1000.0, b.y0 / 1000.0, b.n0 / 1000.0), w.dir((b.a1 - b.a0) / 1000.0, 0.0), V3(0.0, (b.y1 - b.y0) / 1000.0, 0.0), w.dir(0.0, (b.n1 - b.n0) / 1000.0)))
+        }
+        // a bed's drawers: each side's own frame, along the bed and out of that side
+        uz.metrx.app.furniture.bedDrawers(m, ws).forEachIndexed { i, dr ->
+            val right = dr.side > 0
+            val o = w.at((x0 + if (right) m.w else 0) / 1000.0, 0.0, (if (right) m.d else 0) / 1000.0)
+            val sb = if (right) WallBasis(o.x, o.z, -w.nx, -w.nz, w.ux, w.uz, m.d / 1000.0) else WallBasis(o.x, o.z, w.nx, w.nz, -w.ux, -w.uz, m.d / 1000.0)
+            val a = if (right) m.d - dr.n1 else dr.n0
+            drawer(sb, "${m.id}:bd$i", a.toDouble(), (dr.n1 - dr.n0).toDouble(), dr.y0.toDouble(), (dr.y1 - dr.y0).toDouble(), -t.toDouble(), dr.depth.toDouble(), m.handles)
+        }
+    }
 
     /**
      * Sliding doors: [n] in two tracks at the front, each overlapping the next; a frame of profiles round its filling

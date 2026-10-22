@@ -35,8 +35,12 @@ sealed interface Route {
     data object Materials : Route
     /** A furniture order's kitchen designer: [wall] the run shown (null: the first). */
     data class Kitchen(val pid: String, val fid: String, val wall: String? = null, val d3: Boolean = false) : Route
-    /** A furniture order's wardrobe designer: [step] 1–5 (place, sizes, doors, inside, material), [sec] the selected section. */
-    data class Wardrobe(val pid: String, val fid: String, val step: Int = 1, val sec: Int = 0, val d3: Boolean = false) : Route
+    /**
+     * A furniture order's wardrobe designer: [step] 1–5 (place, sizes, doors, inside, material), [sec] the selected section.
+     * A bed, a table, a bar counter or a mirror panel opens its own short designer here, unless [mod] (a loft bed's
+     * desk or cabinet under it) is to be designed.
+     */
+    data class Wardrobe(val pid: String, val fid: String, val step: Int = 1, val sec: Int = 0, val d3: Boolean = false, val mod: String? = null) : Route
     /**
      * Adding furniture (gallery v5, 21 Oct 2026): the models by room ([rid] a room it is for, [fromNew] right after a new
      * order); a model's sizes step by step ([fid]: changing a piece's); which room; into a room. [FPlace] places piece
@@ -151,6 +155,8 @@ sealed interface Sheet {
     data class WField(val pid: String, val fid: String, val key: String, val sec: Int = 0) : Sheet
     data class WInsert(val pid: String, val fid: String, val sec: Int, val idx: Int) : Sheet
     data class WMore(val pid: String, val fid: String, val sec: Int) : Sheet
+    /** A bed's, a table's, a mirror's… size ([key]) of box [mid] (furniture/Items.kt itemSet). */
+    data class IField(val pid: String, val fid: String, val mid: String, val key: String) : Sheet
     data class FMats(val pid: String, val fid: String) : Sheet
     /** The Narx tab: a rate, the fixed price or the lead time ([key] rRun, rTall, fixed, days). */
     data class FPriceField(val pid: String, val key: String) : Sheet

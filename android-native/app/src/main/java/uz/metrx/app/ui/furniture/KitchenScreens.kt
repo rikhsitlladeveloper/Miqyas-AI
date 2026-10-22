@@ -1105,7 +1105,8 @@ fun FurnitureCard(p: Project, f: Furniture, modifier: Modifier) {
                 }
                 Text(dn(f.name, lang), style = ui(14.5f, 600, G.ink, 1.25f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 val wm = wardOf(f)
-                Text(if (ward && wm != null) tr("wd.card", "w" to wm.w, "h" to uz.metrx.app.furniture.outerH(wm, app.settings.workshop), "n" to wm.sections.size)
+                Text(if (ward && (uz.metrx.app.furniture.isItemPiece(f) || uz.metrx.app.furniture.boxes(f).size > 1)) pieceLine(f, app.settings.workshop)
+                    else if (ward && wm != null) tr("wd.card", "w" to wm.w, "h" to uz.metrx.app.furniture.outerH(wm, app.settings.workshop), "n" to wm.sections.size)
                     else tr("kt.card", "n" to f.modules.size, "l" to tr("kt.l" + f.layout)), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }

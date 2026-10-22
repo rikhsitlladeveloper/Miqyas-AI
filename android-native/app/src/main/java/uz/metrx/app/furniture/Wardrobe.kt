@@ -207,7 +207,7 @@ fun wardrobeChecks(m: Module, wallL: Int?, roomH: Int?, ws: Workshop, openings: 
         val n = i + 1
         val iw = wardInner(m, m.sections, i, t)
         if (iw > 1000 && s.inserts.any { it.kind == "shelf" }) out += FCheck("warn", "wc.shelfWide", mapOf("s" to n, "v" to iw), m.id)
-        if (m.slide == null) frontSizes(s.fronts, s.w, m.h - wardBase(m), ws).maxOfOrNull { it.second }?.let { fw ->
+        if (m.slide == null) frontSizes(s.fronts, frontW(s), m.h - wardBase(m), ws).maxOfOrNull { it.second }?.let { fw ->
             if (s.fronts.kind == "door" && fw > 600) out += FCheck("warn", "wc.doorWide", mapOf("s" to n, "v" to fw), m.id)
         }
         // inside: everything within the section, blocks apart, room under the rails to hang clothes

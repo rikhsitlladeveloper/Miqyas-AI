@@ -122,11 +122,45 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
         }
         if (w0 != null) { dims["h"] = DimLine(w0.at(0.0, 0.0, .04), w0.at(0.0, H, .04), w0.dir(1.0, 0.0)); tint["h"] = "wall" }
     } else wardOfF(f)?.let { m ->
-        val bas = b["A"] ?: return@let
-        val xa = m.x / 1000.0; val w = m.w / 1000.0; val d = m.d / 1000.0; val h = outerH(m, ws) / 1000.0
-        dims["w"] = DimLine(bas.at(xa, .02, d + .2), bas.at(xa + w, .02, d + .2), UP)
-        dims["h"] = DimLine(bas.at(xa + w + .15, 0.0, d), bas.at(xa + w + .15, h, d), bas.dir(1.0, 0.0))
+        val bas = b[f.walls.firstOrNull() ?: "A"] ?: b["A"] ?: return@let
+        // the run on the first wall (a stenka's pieces, a corner piece's first arm), its depth and its top
+        val bs = uz.metrx.app.furniture.boxes(f)
+        val run = uz.metrx.app.furniture.firstRun(f).ifEmpty { listOf(m) }
+        val xa = run.minOf { it.x } / 1000.0; val w = (run.maxOf { it.x + it.w } - run.minOf { it.x }) / 1000.0
+        val d = run.maxOf { it.d } / 1000.0
+        val h = bs.maxOf { uz.metrx.app.furniture.topOf(it, ws) } / 1000.0
+        // a hung cabinet's (or a mirror panel's) height is its own, from its bottom
+        val lo = if (f.type in uz.metrx.app.furniture.HUNG_TYPES || f.type == "mirrorP") m.elev / 1000.0 else 0.0
+        dims["w"] = DimLine(bas.at(xa, lo + .02, d + .2), bas.at(xa + w, lo + .02, d + .2), UP)
+        dims["h"] = DimLine(bas.at(xa + w + .15, lo, d), bas.at(xa + w + .15, h, d), bas.dir(1.0, 0.0))
         dims["d"] = DimLine(bas.at(xa + w + .08, h + .08, 0.0), bas.at(xa + w + .08, h + .08, d), UP)
+        if (lo > 0) dims["e"] = DimLine(bas.at(xa + w + .15, 0.0, d), bas.at(xa + w + .15, lo, d), bas.dir(1.0, 0.0))
+        // a corner piece's second arm, from the corner
+        f.walls.getOrNull(1)?.let { wb -> b[wb]?.let { bb ->
+            val on = bs.filter { it.wall == wb }
+            if (on.isNotEmpty()) { val db = on.maxOf { it.d } / 1000.0; dims["w2"] = DimLine(bb.at(0.0, .02, db + .2), bb.at(on.maxOf { it.x + it.w } / 1000.0, .02, db + .2), UP) }
+        } }
+        val o = m.opt
+        when (m.type) {
+            "bed" -> {
+                val W = m.w / 1000.0; val D = m.d / 1000.0; val H = m.h / 1000.0
+                dims["mw"] = DimLine(bas.at(xa, H + .05, D + .12), bas.at(xa + W, H + .05, D + .12), UP)
+                dims["ml"] = DimLine(bas.at(xa + W + .12, H + .05, 0.0), bas.at(xa + W + .12, H + .05, D), UP)
+                dims["h"] = DimLine(bas.at(xa + W + .12, 0.0, D), bas.at(xa + W + .12, H, D), bas.dir(1.0, 0.0))
+                dims["hb"] = DimLine(bas.at(xa - .12, 0.0, .02), bas.at(xa - .12, (o?.hb ?: 1000) / 1000.0, .02), bas.dir(1.0, 0.0))
+            }
+            "bunk", "loft" -> {
+                val W = m.w / 1000.0; val D = m.d / 1000.0; val H = m.h / 1000.0
+                dims["ml"] = DimLine(bas.at(xa, .02, D + .15), bas.at(xa + W, .02, D + .15), UP)
+                dims["mw"] = DimLine(bas.at(xa + W + .1, H + .05, 0.0), bas.at(xa + W + .1, H + .05, D - uz.metrx.app.furniture.LADDER_D / 1000.0), UP)
+            }
+        }
+        // a dressing table's mirror
+        f.modules.firstOrNull { it.type == "mirror" }?.let { r ->
+            val x0 = r.x / 1000.0; val x1 = (r.x + r.w) / 1000.0; val e = r.elev / 1000.0; val t = (r.elev + r.h) / 1000.0
+            dims["rw"] = DimLine(bas.at(x0, t + .06, .03), bas.at(x1, t + .06, .03), UP)
+            dims["rh"] = DimLine(bas.at(x1 + .08, e, .03), bas.at(x1 + .08, t, .03), bas.dir(1.0, 0.0))
+        }
     }
     val center = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     val radius = max(.45, V3(x1 - x0, y1 - y0, z1 - z0).len() / 2)
@@ -136,7 +170,7 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
     val dimCenter = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     val dimRadius = max(.45, V3(x1 - x0, y1 - y0, z1 - z0).len() / 2)
     // an L turns into the right-hand wall: seen from the left so both runs show from inside
-    val az0 = when (f.layout.takeIf { f.kind == "kitchen" }) { "L" -> -.6; "U" -> .15; null -> .55; else -> .6 }
+    val az0 = when (f.layout.takeIf { f.kind == "kitchen" } ?: "L".takeIf { f.type in uz.metrx.app.furniture.CORNER_TYPES }) { "L" -> -.6; "U" -> .15; null -> .55; else -> .6 }
     return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter, dimRadius, ext, corners(x0, y0, z0, x1, y1, z1))
 }
 

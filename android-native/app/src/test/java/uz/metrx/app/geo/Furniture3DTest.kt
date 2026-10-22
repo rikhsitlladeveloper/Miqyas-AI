@@ -13,6 +13,10 @@ import uz.metrx.app.furniture.autoFill
 import uz.metrx.app.furniture.cabinetTemplate
 import uz.metrx.app.furniture.runsOf
 import uz.metrx.app.furniture.wardrobeTemplate
+import uz.metrx.app.furniture.GALLERY
+import uz.metrx.app.furniture.fModel
+import uz.metrx.app.furniture.freeRoom
+import uz.metrx.app.furniture.pieceOf
 import kotlin.math.abs
 
 /** Furniture in 3D (furniture plan section 9): placed on its wall, doors that swing, taps that find them. */
@@ -66,5 +70,35 @@ class Furniture3DTest {
         assertEquals(6 * 6, legs.size)
         assertTrue(legs.flatMap { it.pts }.all { it.y in -1e-9..ws.legH / 1000.0 + 1e-9 })
         assertTrue(fr.parts.filter { it.rgb != 0xC5CBD4 }.flatMap { p -> p.faces.flatMap { it.pts } }.all { it.y >= ws.legH / 1000.0 - 1e-9 })
+    }
+
+    @Test fun everyGalleryPieceBuildsIn3DAndOpens() {
+        GALLERY.flatMap { it.second }.forEach { id ->
+            val f = pieceOf(fModel(id)!!, emptyMap(), ws, id)
+            val sh = buildShell(listOf(freeRoom(f)), true)
+            val shut = furniture3D(listOf(f), sh.bases, ws, { 0xCDBFAE }, emptySet())
+            assertTrue(id, shut.parts.sumOf { it.faces.size } > 0)
+            shut.parts.forEach { p -> p.faces.forEach { fc -> fc.pts.forEach { q -> assertTrue(id, q.x.isFinite() && q.y.isFinite() && q.z.isFinite()) } } }
+            val open = furniture3D(listOf(f), sh.bases, ws, { 0xCDBFAE }, shut.keys.toSet())
+            open.parts.forEach { p -> p.faces.forEach { fc -> fc.pts.forEach { q -> assertTrue(id, q.x.isFinite() && q.y.isFinite() && q.z.isFinite()) } } }
+        }
+    }
+
+    @Test fun aLiftUpBedRisesAndABedsDrawersPullOutSideways() {
+        val lift = pieceOf(fModel("bed")!!, mapOf("bt" to 2), ws, "Karavot")
+        val sh = buildShell(listOf(freeRoom(lift)), true)
+        val shut = furniture3D(listOf(lift), sh.bases, ws, { 0xCDBFAE }, emptySet())
+        val key = shut.keys.single { it.endsWith(":lift") }
+        fun top(d: Furn3D) = d.parts.flatMap { it.faces }.flatMap { it.pts }.maxOf { it.y }
+        val open = furniture3D(listOf(lift), sh.bases, ws, { 0xCDBFAE }, setOf(key))
+        assertTrue(top(open) > top(shut) + .5)
+        val dr = pieceOf(fModel("bed")!!, mapOf("bt" to 1), ws, "Karavot")
+        val sh2 = buildShell(listOf(freeRoom(dr)), true)
+        val d0 = furniture3D(listOf(dr), sh2.bases, ws, { 0xCDBFAE }, emptySet())
+        assertEquals(4, d0.keys.count { ":bd" in it })
+        val k = d0.keys.first { ":bd" in it }
+        val a = d0.picks.single { it.key == k }.box; val b = furniture3D(listOf(dr), sh2.bases, ws, { 0xCDBFAE }, setOf(k)).picks.single { it.key == k }.box
+        // out of the bed's side: along the wall, not out from it
+        assertTrue(abs(b.o.x - a.o.x) > .3 && abs(b.o.z - a.o.z) < 1e-6)
     }
 }

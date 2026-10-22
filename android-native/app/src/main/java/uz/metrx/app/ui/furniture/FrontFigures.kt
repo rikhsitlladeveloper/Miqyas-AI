@@ -19,9 +19,10 @@ class FrontFig(val wall: String?, val vw: Float, val vh: Float, val draw: DrawSc
 fun frontFigures(f: Furniture, room: Room?, ws0: Workshop, mats: List<Mat>): List<FrontFig> {
     val ws = uz.metrx.app.furniture.wsOf(f, ws0)
     if (f.kind == "wardrobe") {
-        val m = wardOf(f) ?: return emptyList()
+        // each cabinet of the piece (a stenka's, a corner wardrobe's), drawn from its own bottom; a bed or a table has none
+        return f.modules.filter { it.type == "wardrobe" }.map { it.copy(elev = 0) }.map { m ->
         val lay = KLay(m.w, outerH(m, ws), 360f, true)
-        return listOf(FrontFig(null, lay.vw, lay.vh) { tm ->
+        FrontFig(null, lay.vw, lay.vh) { tm ->
             Theme.onPaper {
                 val front = hex(mats.firstOrNull { it.id == f.mats.front }?.rgb ?: "#CDBFAE")
                 val carcass = hex(mats.firstOrNull { it.id == f.mats.carcass }?.rgb ?: "#F5F5F2")
@@ -30,7 +31,7 @@ fun frontFigures(f: Furniture, room: Room?, ws0: Workshop, mats: List<Mat>): Lis
                 var acc = 0
                 wardDims(lay, listOf(0) + m.sections.map { s -> acc += s.w; acc }, m.w, outerH(m, ws), 0, tm)
             }
-        })
+        } }
     }
     return kRuns(f, room, true).filter { r -> f.modules.any { it.wall == r.wall } }.map { run ->
         val lay = KLay(runLen(f, run), roomH(room), 360f, true, runExt(f, run))

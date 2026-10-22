@@ -21,7 +21,7 @@ data class Bands(val l1: Int = 0, val l2: Int = 0, val s1: Int = 0, val s2: Int 
 data class FPart(val key: String, val mod: String, val role: String, val L: Int, val W: Int, val qty: Int, val bands: Bands = Bands(), val grain: Boolean = false)
 
 /** A part from two sizes and the banding of the edges that run along each: normalised so [FPart.L] is the longer one. */
-private fun part(key: String, mod: String, role: String, a: Int, b: Int, qty: Int, ea: Pair<Int, Int> = 0 to 0, eb: Pair<Int, Int> = 0 to 0, grain: Boolean = false): FPart =
+internal fun part(key: String, mod: String, role: String, a: Int, b: Int, qty: Int, ea: Pair<Int, Int> = 0 to 0, eb: Pair<Int, Int> = 0 to 0, grain: Boolean = false): FPart =
     if (grain || a >= b) FPart(key, mod, role, a, b, qty, Bands(ea.first, ea.second, eb.first, eb.second), grain)
     else FPart(key, mod, role, b, a, qty, Bands(eb.first, eb.second, ea.first, ea.second), grain)
 
@@ -45,9 +45,9 @@ fun wardInner(m: Module, secs: List<Section>, i: Int, t: Int): Int {
 
 /** A wardrobe section's inside height: between the bottom and the top panels. */
 fun wardInnerH(m: Module, t: Int) = m.h - wardBase(m) - 2 * t
-private val THICK = 2 to 0
-private val ALL = 2 to 2
-private const val THIN = 1
+internal val THICK = 2 to 0
+internal val ALL = 2 to 2
+internal const val THIN = 1
 
 /** The runner length for a box [d] deep: 50 mm steps, 300 to 600. */
 fun runnerLen(d: Int) = ((d - 10) / 50 * 50).coerceIn(300, 600)
@@ -69,7 +69,7 @@ internal fun frontSizes(f: Fronts, w: Int, h: Int, ws: Workshop): List<Pair<Int,
 }
 
 /** A drawer's box behind a front [fh] high in an opening [iw] wide (between the sides) and [d] deep: sides, front and back, bottom. */
-private fun drawerBox(mod: String, iw: Int, d: Int, fh: Int, t: Int): List<FPart> {
+internal fun drawerBox(mod: String, iw: Int, d: Int, fh: Int, t: Int): List<FPart> {
     val rl = runnerLen(d)
     val bh = (fh - 40).coerceIn(80, 150)
     val inner = iw - 26                       // 13 mm runner clearance each side
@@ -84,9 +84,9 @@ private fun backPanel(mod: String, w: Int, h: Int, ws: Workshop): FPart =
     if (ws.back == "groove") part("fp.back", mod, "back", h - 2 * ws.t + 16, w - 2 * ws.t + 16, 1)
     else part("fp.back", mod, "back", h - 4, w - 4, 1)
 
-/** Fronts: doors and panels with the grain upright (length = height), drawer faces with it across (length = width). */
-private fun fronts(mod: String, f: Fronts, w: Int, h: Int, ws: Workshop): List<FPart> =
-    frontSizes(f, w, h, ws).groupingBy { it }.eachCount().map { (sz, n) ->
+/** Fronts: doors and panels with the grain upright (length = height), drawer faces with it across (length = width); glass doors are bought, not cut. */
+private fun fronts(mod: String, f: Fronts, w: Int, h: Int, ws: Workshop, face: String = ""): List<FPart> =
+    if (face == "glass" && f.kind == "door") emptyList() else frontSizes(f, w, h, ws).groupingBy { it }.eachCount().map { (sz, n) ->
         if (f.kind == "drawer") part("fp.dFace", mod, "front", sz.second, sz.first, n, ALL, ALL, grain = true)
         else part(if (f.kind == "panel") "fp.panel" else "fp.door", mod, "front", sz.first, sz.second, n, ALL, ALL, grain = true)
     }
@@ -101,6 +101,7 @@ fun partsOf(m: Module, ws: Workshop): List<FPart> {
     when (m.type) {
         "gap" -> out += fronts(id, m.fronts, m.w, m.h, ws)
         "filler" -> out += part("fp.filler", id, "front", m.h, m.w, 1, ALL, ALL, grain = true)
+        in ITEM_MODS -> out += itemParts(m, ws)
         "wardrobe" -> {
             val secs = m.sections.ifEmpty { listOf(Section(m.w)) }
             val base = wardBase(m)
@@ -121,7 +122,7 @@ fun partsOf(m: Module, ws: Workshop): List<FPart> {
                     out += part("fp.divider", id, "carcass", if (toFloor) m.h - t else m.h - base - 2 * t, if (toFloor) m.d else dIn, 1, THICK)
                 }
             }
-            if (!m.legs) out += part("fp.plinth", id, "carcass", inW, wardBase(m), 1, THICK)
+            if (!m.legs && wardBase(m) > 0) out += part("fp.plinth", id, "carcass", inW, wardBase(m), 1, THICK)
             secs.forEachIndexed { i, s ->
                 val iw = wardInner(m, secs, i, t)
                 val sid = "$id/${i + 1}"
@@ -135,7 +136,7 @@ fun partsOf(m: Module, ws: Workshop): List<FPart> {
                     out += drawerBox(sid, iw, dIn, fh, t)
                 }
                 // sliding doors close the whole front; the sections have none of their own
-                if (m.slide == null) out += fronts(sid, s.fronts, s.w, m.h - base, ws)
+                if (m.slide == null) out += fronts(sid, s.fronts, frontW(s), m.h - base, ws, s.face)
             }
             // the board fillings of the sliding doors (mirror and glass are bought by the m², in the hardware list)
             m.slide?.let { sl ->

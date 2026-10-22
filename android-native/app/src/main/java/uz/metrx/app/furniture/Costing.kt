@@ -39,7 +39,9 @@ fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, or
         lines += CostLine("mat", l.mat, n.toDouble(), "sheet", p ?: BigInteger.ZERO, (p ?: BigInteger.ZERO) * BigInteger.valueOf(n.toLong()), p == null)
     }
     // kitchens: the worktop as one simple item by the running metre (plan section 7; joints and cut-outs in Stage 1b)
-    val wtMm = fs.filter { it.kind == "kitchen" }.sumOf { f -> worktopRuns(f).values.sum() }
+    val wtMm = fs.filter { it.kind == "kitchen" }.sumOf { f -> worktopRuns(f).values.sum() } +
+        // a table's or bar counter's top of worktop board
+        fs.sumOf { f -> f.modules.sumOf { itemWorktopMm(it) } }
     if (wtMm > 0) {
         val p = money(mat("wt38")?.price)
         lines += CostLine("mat", "wt38", wtMm / 1000.0, "m", p ?: BigInteger.ZERO,

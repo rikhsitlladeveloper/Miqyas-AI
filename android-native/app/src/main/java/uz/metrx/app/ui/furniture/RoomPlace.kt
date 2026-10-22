@@ -104,7 +104,7 @@ internal fun PlacePlan(room: Room, walls: List<PlanWall>, g: Furniture, others: 
                     isle(poseOf(walls, p.ref, Frame(q - fr.u * gr.ga - fr.n * gr.gn, fr.u, fr.n)))
                     return
                 }
-                val mode = when { f.kind == "kitchen" && f.walls.count { it != ISLAND } > 1 -> Drag.CORNER; canStandFree(f) -> Drag.FREE; else -> Drag.SLIDE }
+                val mode = when { (f.kind == "kitchen" || f.type in uz.metrx.app.furniture.CORNER_TYPES) && f.walls.count { it != ISLAND } > 1 -> Drag.CORNER; canStandFree(f) -> Drag.FREE; else -> Drag.SLIDE }
                 when (mode) {
                     Drag.CORNER -> {
                         // an L goes into the corner nearest the finger; a U takes the wall nearest it as its back wall
@@ -203,7 +203,7 @@ private fun mine(f: Furniture, walls: List<PlanWall>, ws: Workshop): List<Foot> 
 private fun slideX(f: Furniture, feet: List<Foot>, w: PlanWall, a: Double, others: List<Furniture>, walls: List<PlanWall>, ws: Workshop): Int {
     // a kitchen's length is its units on the floor (the wall units over them may start or end elsewhere)
     val low = feet.filter { it.floor }
-    val len = if (f.kind == "wardrobe") wardOfF(f)?.w?.toDouble() ?: 0.0 else low.takeIf { it.isNotEmpty() }?.let { it.maxOf { ft -> ft.a1 } - it.minOf { ft -> ft.a0 } } ?: 0.0
+    val len = if (f.kind == "wardrobe") uz.metrx.app.furniture.runLen(f).toDouble() else low.takeIf { it.isNotEmpty() }?.let { it.maxOf { ft -> ft.a1 } - it.minOf { ft -> ft.a0 } } ?: 0.0
     val ward = f.kind == "wardrobe"
     val (hl, hr) = hingedEnds(f)
     val gap = if (ward) W_GAP_SIDE.toDouble() else 0.0

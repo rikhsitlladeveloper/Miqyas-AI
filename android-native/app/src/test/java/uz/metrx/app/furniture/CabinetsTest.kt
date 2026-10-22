@@ -49,7 +49,7 @@ class CabinetsTest {
     @Test fun roomLessCabinetsAndTheGallery() {
         val f = newFreeCabinet("TV tumba 1", "tv", 1800, 500, 450, ws)
         assertEquals("wardrobe", f.kind); assertEquals("tv", f.type); assertEquals("other", kindKey(f))
-        assertEquals(CASE_TYPES.size, modelsOf("other").size)
+        assertEquals(CASE_TYPES.size + PIECE_TYPES.size + ITEM_TYPES.size, modelsOf("other").size)
         assertTrue(modelsOf("wardrobe").none { it.type.isNotEmpty() })
     }
 }

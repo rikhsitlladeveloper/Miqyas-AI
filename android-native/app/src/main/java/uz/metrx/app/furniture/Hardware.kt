@@ -6,9 +6,9 @@ package uz.metrx.app.furniture
  */
 
 /** Kinds counted in millimetres and bought by the metre. */
-val METRE_KINDS = setOf("rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK")
+val METRE_KINDS = setOf("rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail")
 /** Kinds counted in square millimetres and bought by the m². */
-val AREA_KINDS = setOf("mirror", "glass")
+val AREA_KINDS = setOf("mirror", "glass", "glassShelf", "glassDoor")
 
 /** How a kind is bought: "m", "m2" or "pcs" (the strings key fu.*). */
 fun hwUnit(kind: String) = when (kind) { in METRE_KINDS -> "m"; in AREA_KINDS -> "m2"; else -> "pcs" }
@@ -24,10 +24,14 @@ fun hardwareOf(m: Module, ws: Workshop): Map<String, Int> {
     val n = HashMap<String, Int>()
     fun add(k: String, v: Int) { if (v > 0) n[k] = (n[k] ?: 0) + v }
     val hinge = if (m.soft) "hingeSoft" else "hinge"
-    fun fronts(f: Fronts, w: Int, h: Int) {
+    fun fronts(f: Fronts, w: Int, h: Int, face: String = "") {
         val fs = frontSizes(f, w, h, ws)
         when (f.kind) {
-            "door" -> fs.forEach { (fh, _) -> add(hinge, hingesFor(fh)); if (m.handles) add("handle", 1) }
+            "door" -> fs.forEach { (fh, fw) ->
+                add(hinge, hingesFor(fh)); if (m.handles) add("handle", 1)
+                // a vitrina's glass door in its frame, a mirror glued on a board door
+                when (face) { "glass" -> add("glassDoor", fh * fw); "mirror" -> add("mirror", (fh - 10) * (fw - 10)) }
+            }
             "drawer" -> { add("runner", fs.size); if (m.handles) add("handle", fs.size) }
         }
     }
@@ -35,6 +39,7 @@ fun hardwareOf(m: Module, ws: Workshop): Map<String, Int> {
         ins.forEach { x ->
             when (x.kind) {
                 "shelf" -> add("pin", 4 * x.qty)
+                "glass" -> { add("pin", 4 * x.qty); add("glassShelf", (iw - 4) * (innerD(m) - 25) * x.qty) }
                 "rail" -> { add("rail", iw); add("railEnd", 2) }
                 "drawer", "trouser", "shoe" -> add("runner", 1)
                 "lift" -> add("lift", 1)
@@ -43,11 +48,12 @@ fun hardwareOf(m: Module, ws: Workshop): Map<String, Int> {
     }
     val t = ws.t
     if (m.type == "gap" || m.type == "filler") return n
+    if (m.type in ITEM_MODS) { itemHardware(m, ws, ::add); return n }
     when (m.type) {
         "wardrobe" -> {
             val secs = m.sections.ifEmpty { listOf(Section(m.w)) }
             secs.forEachIndexed { i, s ->
-                if (m.slide == null) fronts(s.fronts, s.w, m.h - wardBase(m)); inside(s.inserts, wardInner(m, secs, i, t))
+                if (m.slide == null) fronts(s.fronts, frontW(s), m.h - wardBase(m), s.face); inside(s.inserts, wardInner(m, secs, i, t))
                 // drawers in an open section are pulled by a handle of their own
                 if (s.fronts.kind == "open" && m.handles) add("handle", s.inserts.count { it.kind == "drawer" })
             }
@@ -64,6 +70,9 @@ fun hardwareOf(m: Module, ws: Workshop): Map<String, Int> {
             }
             add("confirmat", 4 * (4 + 2 * (secs.size - 1)))
             if (m.legs) add("leg", 2 * (secs.size + 1))
+            // a hung cabinet (or one standing on another) is held by two hangers
+            else if (m.elev > 0) add("hanger", 2)
+            if (m.led) { add("led", m.w - 2 * t); add("ledPsu", 1) }
         }
         else -> {
             fronts(m.fronts, m.w, m.h); inside(m.inserts, m.w - 2 * t)

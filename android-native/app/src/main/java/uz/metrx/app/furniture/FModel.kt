@@ -84,7 +84,33 @@ data class Module(
     /** Wardrobes: sliding (купе) doors over the whole front instead of each section's doors (plan 1b-2); null: hinged. */
     val slide: Slide? = null,
     /** Wardrobes: the plinth's or the legs' height, mm; null: a plinth of 80, or the workshop's legs. */
-    val base: Int? = null
+    val base: Int? = null,
+    /** An LED strip along the top inside (a vitrina's). */
+    val led: Boolean = false,
+    /** A board-built piece that is not a cabinet (bed, table, bar counter, mirror panel, mirror): its options (Items.kt). */
+    val opt: Opt? = null
+)
+
+/**
+ * A bed's, a table's, a bar counter's or a mirror panel's few options (Items.kt). Sizes are the module's own: across
+ * ([Module.w]), out from the wall ([Module.d]) and up ([Module.h]).
+ */
+@Serializable
+data class Opt(
+    /** Beds: "legs" plain on legs, "drawers" drawers under, "lift" a lift-up base over a storage box. */
+    val bed: String = "legs",
+    /** Beds: the mattress, mm; the headboard's top above the floor. */
+    val mw: Int = 1600, val ml: Int = 2000, val hb: Int = 1000,
+    /** Tables: "board" panel legs, "metal4" four straight metal legs, "frame" a metal frame. */
+    val legs: String = "board",
+    /** Tables and bar counters: the top of "ldsp" (the front board) or "wt" (worktop board); rounded corners. */
+    val top: String = "ldsp", val round: Boolean = false,
+    /** Bunk and loft beds: the ladder at the "L" or "R" end of the front; a loft bed's space under it: "desk", "ward" or "open". */
+    val ladder: String = "R", val under: String = "desk",
+    /** Mirror panels: coat hooks, a hat shelf on top, the mirror's size (0: none). */
+    val hooks: Int = 5, val shelf: Boolean = true, val mirW: Int = 0, val mirH: Int = 0,
+    /** Bar counters: open shelves on the kitchen side, the top's overhang on the seating side, a footrest. */
+    val shelves: Boolean = true, val over: Int = 300, val foot: Boolean = true
 )
 
 /**
@@ -113,4 +139,11 @@ data class Section(val w: Int, val fronts: Fronts = Fronts("door", 2), val inser
                    /** A desk's knee space: no bottom, back or inside (Cabinets.kt). */
                    val knee: Boolean = false,
                    /** A single door's hinge edge: "L" it opens to the left, "R" to the right; "" as usual (Wardrobe.kt hingeRight). */
-                   val hinge: String = "")
+                   val hinge: String = "",
+                   /** A corner unit's blind part: this many mm at the right end of the front have no door (the other arm closes them). */
+                   val blind: Int = 0,
+                   /** The doors' face: "" the front board, "mirror" a mirror on the board, "glass" glass in an aluminium frame (a vitrina's). */
+                   val face: String = "")
+
+/** The width the section's doors (or drawers) cover: all of it but a corner unit's blind part. */
+fun frontW(s: Section) = (s.w - s.blind).coerceAtLeast(0)

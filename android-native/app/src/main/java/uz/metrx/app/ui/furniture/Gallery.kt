@@ -142,6 +142,8 @@ private fun App.groupOf(p: Project, rid: String?): String? {
     return when {
         named("fr.living") -> "living"
         named("fr.hall") -> "hall"
+        named("fr.kids") -> "kids"
+        named("fr.bath") -> "bath"
         else -> "bedroom"
     }
 }
@@ -279,7 +281,8 @@ fun FStepsScreen(rt: Route.FSteps) {
     val steps = remember(m) { stepsOf(m) }
     val n = steps.size
     val had = rt.vals?.let { decodeVals(it) } ?: edit?.let { valsOf(it, ws) } ?: emptyMap()
-    var texts by rememberSaveable(rt) { mutableStateOf(steps.map { s -> had[s.key]?.let { fmtField(it, unit, en) } ?: "" }) }
+    // a choice step keeps the index of what was chosen ("" the usual one)
+    var texts by rememberSaveable(rt) { mutableStateOf(steps.map { s -> had[s.key]?.let { if (s.choice) "$it" else fmtField(it, unit, en) } ?: "" }) }
     // 0 … n-1 a size, n the summary; back: the step was opened from the summary, was: its text then
     var at by rememberSaveable(rt) { mutableIntStateOf(if (rt.vals != null) n else 0) }
     var back by rememberSaveable(rt) { mutableStateOf(false) }
@@ -287,15 +290,17 @@ fun FStepsScreen(rt: Route.FSteps) {
     var laser by remember { mutableStateOf<String?>(null) }   // "busy", or the reading's words
     val scope = rememberCoroutineScope()
     // only sizes within their range reach the piece: a typed 99999 would otherwise build a 100 m kitchen on every key
-    val vals = steps.indices.mapNotNull { i -> parseMm(texts[i], unit)?.takeIf { stepIssue(steps[i], it) == null }?.let { steps[i].key to it } }.toMap()
+    fun typed(i: Int): Int? = if (steps[i].choice) texts[i].toIntOrNull() else parseMm(texts[i], unit)
+    val vals = steps.indices.mapNotNull { i -> typed(i)?.takeIf { stepIssue(steps[i], it) == null }?.let { steps[i].key to it } }.toMap()
     val piece = remember(vals, ws) { if (edit != null) resized(edit, vals, ws) else pieceOf(m, vals, ws, "") }
     val scene = remember(piece, mats) { pieceScene(piece, ws, mats) }
     val uw = unitWord(unit)
     fun issueOf(i: Int): String? {
+        if (steps[i].choice) return null
         val mm = parseMm(texts[i], unit) ?: return null
         return stepIssue(steps[i], mm)?.let { (k, v) -> app.t(k, "v" to fmtLen(v, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m")) }
     }
-    fun ok(i: Int) = parseMm(texts[i], unit) != null && issueOf(i) == null
+    fun ok(i: Int) = steps[i].choice || (parseMm(texts[i], unit) != null && issueOf(i) == null)
     fun next() {
         if (at >= n || !ok(at)) return
         laser = null
@@ -313,7 +318,7 @@ fun FStepsScreen(rt: Route.FSteps) {
     BackHandler { prev() }
 
     fun reading() {
-        if (laser == "busy" || at >= n) return
+        if (laser == "busy" || at >= n || steps[at].choice) return
         val s = steps[at]; val i = at
         scope.launch {
             laser = "busy"
@@ -361,15 +366,19 @@ fun FStepsScreen(rt: Route.FSteps) {
                         Box(Modifier.size(if (i == at) 22.dp else 8.dp, 8.dp).clip(CircleShape).background(when { i == at -> G.cobalt; i < at -> G.cobalt.copy(alpha = .45f); else -> G.ink.copy(alpha = .15f) }))
                     }
                 }
-                val hi = if (at < n) steps[at].key else null
-                val label = if (at < n) parseMm(texts[at], unit)?.let { fmtLen(it, unit, en) + " " + uw } ?: "?" else null
+                val hi = if (at < n && !steps[at].choice) steps[at].key else null
+                val label = if (hi != null) parseMm(texts[at], unit)?.let { fmtLen(it, unit, en) + " " + uw } ?: "?" else null
                 // with the keyboard up the picture gets lower, so the field and the laser stay in sight
                 Box(Modifier.fillMaxWidth().aspectRatio(if (imeOn && at < n) 2.1f else 1f / .92f).clip(RoundedCornerShape(22.dp)).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {
                     PieceView(scene, hi, label, Modifier.fillMaxSize())
                     Text(tr("fx.drag"), style = ui(11f, 600, G.ink3), modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp))
                 }
-                if (at < n) StepAsk(steps[at], texts[at], { v -> texts = texts.toMutableList().also { it[at] = v }; laser = null }, issueOf(at), uw, at, ::next, laser, ::reading)
-                else Summary(steps, steps.indices.map { i -> parseMm(texts[i], unit)?.let { fmtLen(it, unit, en) } ?: texts[i] }, uw, m.kind == "kitchen") { i -> was = texts[i]; back = true; at = i }
+                if (at < n && steps[at].choice) ChoiceAsk(steps[at], texts[at].toIntOrNull() ?: steps[at].usual) { v -> texts = texts.toMutableList().also { it[at] = "$v" } }
+                else if (at < n) StepAsk(steps[at], texts[at], { v -> texts = texts.toMutableList().also { it[at] = v }; laser = null }, issueOf(at), uw, at, ::next, laser, ::reading)
+                else Summary(steps, steps.indices.map { i ->
+                    val s = steps[i]
+                    if (s.choice) app.t(s.opts.getOrElse(texts[i].toIntOrNull() ?: s.usual) { s.opts[0] }) else (parseMm(texts[i], unit)?.let { fmtLen(it, unit, en) } ?: texts[i]) + " " + uw
+                }, when { m.kind == "kitchen" -> "fx.noteK"; m.type in uz.metrx.app.furniture.ITEM_TYPES -> "fx.noteI"; else -> "fx.noteW" }) { i -> was = texts[i]; back = true; at = i }
             }
             if (imeOn) footer(Modifier)
         }
@@ -402,7 +411,36 @@ private fun StepAsk(s: uz.metrx.app.furniture.SizeStep, text: String, onText: (S
             if (app.settings.laser == Laser.CONNECTED) GBtn(tr("fx.laser"), onRead, icon = "laser", enabled = laser != "busy", height = 44.dp, corner = 14.dp, fontSize = 13.5f, fill = false)
         }
         if (issue != null) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { MIcon("alert", G.err, 18.dp, 2f); Text(issue, style = ui(13.5f, 500, G.err)) }
+        // the usual sizes (a mattress's) a tap away
+        if (s.picks.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            s.picks.forEach { v -> Chip(fmtLen(v, app.settings.unit, en), parseMm(text, app.settings.unit) == v) { onText(fmtField(v, app.settings.unit, en)) } }
+        }
         LaserLine(app, laser)
+    }
+}
+
+/** A choice on its own step (a bed's kind, a table's legs): one card an option, the chosen one marked. */
+@Composable
+private fun ChoiceAsk(s: uz.metrx.app.furniture.SizeStep, cur: Int, onPick: (Int) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(tr(s.label), style = ui(21f, 800, G.ink, 1.2f), modifier = Modifier.padding(top = 4.dp))
+        Text(tr(s.help), style = ui(13f, 400, G.ink2, 1.4f))
+        s.opts.forEachIndexed { i, k ->
+            val on = i == cur
+            val shape = RoundedCornerShape(16.dp)
+            Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(shape).background(if (on) G.cobalt.copy(alpha = .1f) else G.glass(.75f))
+                .border(if (on) 2.dp else 1.dp, if (on) G.cobalt else G.rim, shape).semantics { selected = on }
+                .clickable(role = Role.RadioButton) { onPick(i) }.padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                Box(Modifier.size(20.dp).clip(CircleShape).border(2.dp, if (on) G.cobalt else G.ink3, CircleShape), contentAlignment = Alignment.Center) {
+                    if (on) Box(Modifier.size(10.dp).clip(CircleShape).background(G.cobalt))
+                }
+                Column(Modifier.weight(1f)) {
+                    Text(tr(k), style = ui(15f, 700, if (on) G.cobalt2 else G.ink))
+                    Text(tr("$k.s"), style = ui(12.5f, 400, G.ink2, 1.35f))
+                }
+            }
+        }
     }
 }
 
@@ -419,17 +457,17 @@ private fun LaserLine(app: App, laser: String?) {
 }
 
 @Composable
-private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<String>, uw: String, kitchen: Boolean, onChange: (Int) -> Unit) {
+private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<String>, note: String, onChange: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         steps.forEachIndexed { i, s ->
             Row(Modifier.fillMaxWidth().heightIn(min = 54.dp).clip(RoundedCornerShape(14.dp)).background(G.glass(.7f)).clickable(role = Role.Button) { onChange(i) }
                 .padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(tr(s.label), style = ui(14.5f, 600), modifier = Modifier.weight(1f))
-                Text(texts[i] + " " + uw, style = num(17f, 700))
+                Text(texts[i], style = num(17f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 Text(tr("fz.change"), style = ui(12.5f, 700, G.cobalt2))
             }
         }
-        Text(tr(if (kitchen) "fx.noteK" else "fx.noteW"), style = ui(12.5f, 400, G.ink2, 1.45f), modifier = Modifier.padding(top = 4.dp, start = 4.dp))
+        Text(tr(note), style = ui(12.5f, 400, G.ink2, 1.45f), modifier = Modifier.padding(top = 4.dp, start = 4.dp))
     }
 }
 
@@ -448,7 +486,7 @@ fun FWhereScreen(rt: Route.FWhere) {
     val vals = remember(rt) { decodeVals(rt.vals) }
     val probe = remember(rt) { pieceOf(m, vals, ws, "") }
     fun made(): uz.metrx.app.furniture.Furniture = pieceOf(m, vals, ws, app.pieceName(p, m), System.currentTimeMillis())
-    val sizes = stepsOf(m).filter { it.key != "h" || m.kind != "kitchen" }.joinToString(if (m.kind == "kitchen") " + " else " × ") { s -> vals[s.key]?.let { fmtLen(it, unit, en) } ?: "?" } + " " + unitWord(unit)
+    val sizes = stepsOf(m).filter { !it.choice && (it.key != "h" || m.kind != "kitchen") }.joinToString(if (m.kind == "kitchen") " + " else " × ") { s -> vals[s.key]?.let { fmtLen(it, unit, en) } ?: "?" } + " " + unitWord(unit)
 
     FPage(tr("fz.m.${m.id}"), tr("fq.title"), { app.pop() }) {
         Text(tr("fz.m.${m.id}") + ": " + sizes, style = ui(13.5f, 500, G.ink2))

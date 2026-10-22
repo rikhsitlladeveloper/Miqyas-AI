@@ -96,7 +96,9 @@ fun mainFrame(f: Furniture, walls: List<PlanWall>): Frame? {
     if (f.kind == "wardrobe") {
         f.pose?.let { return frameOf(walls, it) }
         val m = wardOfF(f) ?: return null
-        return walls.firstOrNull { it.id == m.wall }?.let { w -> Frame(w.at(m.x.toDouble(), 0.0), w.u, w.n) }
+        // a piece of several boxes from where its run starts
+        val x = if (boxes(f).size > 1) runStart(f) else m.x
+        return walls.firstOrNull { it.id == m.wall }?.let { w -> Frame(w.at(x.toDouble(), 0.0), w.u, w.n) }
     }
     val w = walls.firstOrNull { it.id == f.walls.firstOrNull { id -> id != ISLAND } } ?: return null
     return Frame(w.at(leadOf(f).toDouble(), 0.0), w.u, w.n)
@@ -114,13 +116,20 @@ fun footsOf(f: Furniture, walls: List<PlanWall>, ws0: Workshop): List<Foot> {
     val ws = wsOf(f, ws0)
     val out = ArrayList<Foot>()
     if (f.kind == "wardrobe") {
-        val m = wardOfF(f) ?: return out
-        val hi = outerH(m, ws)
+        val main = wardOfF(f) ?: return out
         val p = f.pose
-        if (p != null) frameOf(walls, p)?.let { out += Foot(box(it, 0.0, m.w.toDouble(), m.d.toDouble()), 0, hi, null, 0.0, 0.0, true) }
-        else walls.firstOrNull { it.id == m.wall }?.let { w ->
-            val a0 = m.x.toDouble(); val a1 = (m.x + m.w).toDouble()
-            out += Foot(box(wallFrame(w), a0, a1, m.d.toDouble()), 0, hi, w.id, a0, a1, true)
+        // every box: one standing free moves with the main one, the others on their walls; a hung one off the floor
+        boxes(f).forEach { m ->
+            val lo = if (hung(m)) m.elev else 0
+            val hi = topOf(m, ws)
+            if (p != null) frameOf(walls, p)?.let { fr ->
+                val a0 = (m.x - main.x).toDouble()
+                out += Foot(box(fr, a0, a0 + m.w, m.d.toDouble()), lo, hi, null, 0.0, 0.0, !hung(m))
+            }
+            else walls.firstOrNull { it.id == m.wall }?.let { w ->
+                val a0 = m.x.toDouble(); val a1 = (m.x + m.w).toDouble()
+                out += Foot(box(wallFrame(w), a0, a1, m.d.toDouble()), lo, hi, w.id, a0, a1, !hung(m))
+            }
         }
         return out
     }
@@ -153,13 +162,17 @@ const val HINGE_CLEAR = 50
 /** Whether [f]'s left and right ends (along its wall) have a door hinged right at them. A kitchen's run ends may. */
 fun hingedEnds(f: Furniture): Pair<Boolean, Boolean> {
     if (f.kind != "wardrobe") return true to true
-    val m = wardOfF(f) ?: return false to false
-    if (m.slide != null || m.sections.isEmpty()) return false to false
-    fun at(i: Int, right: Boolean): Boolean {
+    // the boxes standing at the run's two ends (a corner piece's right end is its second arm's)
+    val ms = f.modules.filter { it.type == "wardrobe" && !hung(it) }
+    val l = ms.filter { it.wall == (f.walls.firstOrNull() ?: it.wall) }.minByOrNull { it.x }
+    val r = ms.filter { it.wall == (f.walls.lastOrNull() ?: it.wall) }.maxByOrNull { it.x + it.w }
+    fun at(m: Module?, right: Boolean): Boolean {
+        if (m == null || m.slide != null || m.sections.isEmpty()) return false
+        val i = if (right) m.sections.lastIndex else 0
         val s = m.sections[i]
         return s.fronts.kind == "door" && (s.fronts.n >= 2 || hingeRight(m, i) == right)
     }
-    return at(0, false) to at(m.sections.lastIndex, true)
+    return at(l, false) to at(r, true)
 }
 
 /** How far from the corner a cabinet stands at its left (or right) end: 50 where a door hinges there, else 10. */
@@ -183,18 +196,33 @@ fun swingsOf(f: Furniture, walls: List<PlanWall>, ws0: Workshop): List<Foot> {
         Foot(quad(fr, a0 - (if (hingeR) 0.0 else past), a1 + (if (hingeR) past else 0.0), d, d + (a1 - a0)), lo, hi, null, a0, a1, true)
     fun drawer(fr: Frame, a0: Double, a1: Double, d: Double, lo: Int, hi: Int) = Foot(quad(fr, a0, a1, d, d + d * .75), lo, hi, null, a0, a1, true)
     if (f.kind == "wardrobe") {
-        val m = wardOfF(f) ?: return out
-        if (m.slide != null) return out
-        val fr = mainFrame(f, walls) ?: return out
-        val lo = legsOf(m, ws) + wardBase(m); val hi = legsOf(m, ws) + m.h
-        var a = 0.0
-        m.sections.forEachIndexed { i, s ->
-            val n = s.fronts.n.coerceAtLeast(1); val dw = s.w.toDouble() / n
-            when (s.fronts.kind) {
-                "door" -> repeat(n) { j -> out += door(fr, a + j * dw, a + (j + 1) * dw, m.d.toDouble(), if (n == 2) j == 1 else hingeRight(m, i), lo, hi) }
-                "drawer" -> out += drawer(fr, a, a + s.w, m.d.toDouble(), lo, hi)
+        val main = wardOfF(f) ?: return out
+        val p = f.pose
+        // each box's frame: where the main one stands free, else its own wall at its start
+        fun frame(m: Module): Frame? =
+            if (p != null) frameOf(walls, p)?.let { fr -> Frame(fr.o + fr.u * (m.x - main.x).toDouble(), fr.u, fr.n) }
+            else walls.firstOrNull { it.id == m.wall }?.let { w -> Frame(w.at(m.x.toDouble(), 0.0), w.u, w.n) }
+        f.modules.forEach { m ->
+            val fr = frame(m) ?: return@forEach
+            if (m.type == "bed") {
+                // a bed's drawers pull out sideways from its long sides
+                bedDrawers(m, ws).forEach { d ->
+                    val a0 = if (d.side < 0) -d.depth * .75 else m.w.toDouble(); val a1 = if (d.side < 0) 0.0 else m.w + d.depth * .75
+                    out += Foot(quad(fr, a0, a1, d.n0.toDouble(), d.n1.toDouble()), d.y0, d.y1, null, 0.0, 0.0, true)
+                }
             }
-            a += s.w
+            if (m.type != "wardrobe" || m.slide != null) return@forEach
+            val z = legsOf(m, ws) + m.elev
+            val lo = z + wardBase(m); val hi = z + m.h
+            var a = 0.0
+            m.sections.forEachIndexed { i, s ->
+                val n = s.fronts.n.coerceAtLeast(1); val dw = frontW(s).toDouble() / n
+                when (s.fronts.kind) {
+                    "door" -> repeat(n) { j -> out += door(fr, a + j * dw, a + (j + 1) * dw, m.d.toDouble(), if (n == 2) j == 1 else hingeRight(m, i), lo, hi) }
+                    "drawer" -> out += drawer(fr, a, a + frontW(s), m.d.toDouble(), lo, hi)
+                }
+                a += s.w
+            }
         }
         return out
     }

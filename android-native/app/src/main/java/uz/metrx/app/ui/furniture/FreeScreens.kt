@@ -218,8 +218,14 @@ fun freeSub(f: Furniture, en: Boolean): String {
     if (f.kind == "wardrobe") {
         val w = wardOfF(f) ?: return ""
         // the height as asked: a cabinet's with its legs
-        val h = uz.metrx.app.furniture.valsOf(f, LocalApp.current.settings.workshop)["h"] ?: w.h
-        return listOfNotNull(f.model.takeIf { it.isNotEmpty() }?.let { tr(if (f.type.isNotEmpty()) "ft.$it" else "fz.m.$it") }, m(w.w) + " × " + m(h) + " × " + m(w.d) + " m").joinToString(" · ")
+        val v = uz.metrx.app.furniture.valsOf(f, LocalApp.current.settings.workshop)
+        val h = v["h"] ?: w.h
+        val sizes = when {
+            "mw" in v -> m(v.getValue("mw")) + " × " + m(v["ml"] ?: 0) + " m"
+            "w2" in v -> m(v.getValue("w")) + " + " + m(v.getValue("w2")) + " × " + m(h) + " m"
+            else -> m(v["w"] ?: w.w) + " × " + m(h) + " × " + m(v["d"] ?: w.d) + " m"
+        }
+        return listOfNotNull(f.model.takeIf { it.isNotEmpty() }?.let { tr(if (f.type.isNotEmpty()) "ft.$it" else "fz.m.$it") }, sizes).joinToString(" · ")
     }
     val fs = f.free
     val run = fs?.let { freeRunMm(f.layout, it.sides, it.island) } ?: uz.metrx.app.furniture.runMm(f)
@@ -350,11 +356,12 @@ fun FPlaceScreen(rt: Route.FPlace) {
     if (existing == null && model == null) return
     val name = remember(rt) { existing?.name ?: app.pieceName(p, model!!) }
     val typed = remember(rt) { decodeVals(rt.vals) }
-    val taken = p.furniture.filter { it.roomId == room.id && it.id != rt.fid }.flatMap { it.walls }.filter { it != ISLAND }
+    // a piece standing free in the room (a bed, a table) takes no wall
+    val taken = p.furniture.filter { it.roomId == room.id && it.id != rt.fid && (it.pose == null || it.kind == "kitchen") }.flatMap { it.walls }.filter { it != ISLAND }
     // a piece already in this room starts where it stands
     val here = existing?.takeIf { it.roomId == room.id }
     var first by rememberSaveable { mutableStateOf(here?.walls?.firstOrNull { it != ISLAND && it in ids } ?: ids.firstOrNull { it !in taken } ?: ids.first()) }
-    var off by rememberSaveable { mutableStateOf(here?.let { wardOfF(it) }?.x?.takeIf { it != uz.metrx.app.furniture.cornerGap(here) }?.toString() ?: "") }   // a wardrobe's distance from the corner; "" = in the corner
+    var off by rememberSaveable { mutableStateOf(here?.takeIf { it.kind == "wardrobe" }?.let { uz.metrx.app.furniture.runStart(it) }?.takeIf { it != uz.metrx.app.furniture.cornerGap(here) }?.toString() ?: "") }   // a wardrobe's distance from the corner; "" = in the corner
     var start by rememberSaveable { mutableStateOf(here?.let { uz.metrx.app.furniture.leadOf(it) }?.takeIf { here.walls.count { w -> w != ISLAND } == 1 } ?: 0) }   // a one-wall kitchen's
     var poseS by rememberSaveable { mutableStateOf(here?.pose?.let { "${it.ref},${it.a},${it.n},${it.deg}" } ?: "") }   // dragged off the walls: a desk, the island
     val pose = poseS.split(',').takeIf { it.size == 4 }?.let { Pose(it[0], it[1].toInt(), it[2].toInt(), it[3].toInt()) }
@@ -371,7 +378,9 @@ fun FPlaceScreen(rt: Route.FPlace) {
             else -> pieceOf(model!!, typed, ws, name, System.currentTimeMillis())
         }
     }
-    val ward = base.kind == "wardrobe"
+    // a corner piece goes into a corner like a corner kitchen; the other cabinets stand along one wall
+    val corner = base.type in uz.metrx.app.furniture.CORNER_TYPES
+    val ward = base.kind == "wardrobe" && !corner
     val offMm = off.filter { it.isDigit() }.toIntOrNull()?.takeIf { it > 0 }
     val f = fitted ?: base
     val on = placeWalls(f, ids, first)
@@ -429,12 +438,12 @@ fun FPlaceScreen(rt: Route.FPlace) {
         }
         if (!ward && on.count { it != ISLAND } > 1) Text(tr("fz.nextWalls", "w" to on.drop(1).filter { it != ISLAND }.joinToString(", ")), style = ui(13f, 400, G.ink2, 1.4f))
         // a kitchen for a measured room takes its walls whole
-        if (known && !ward) Text(tr("fq.whole", "v" to (f.free?.sides ?: emptyList()).joinToString(" + ") { fmtLen(it, unit, en) } + " " + unitWord(unit),
+        if (known && base.kind == "kitchen") Text(tr("fq.whole", "v" to (f.free?.sides ?: emptyList()).joinToString(" + ") { fmtLen(it, unit, en) } + " " + unitWord(unit),
             "h" to fmtLen(roomH, unit, en) + " " + unitWord(unit)), style = ui(13f, 400, G.ink2, 1.4f))
-        if (on.any { it in taken }) Text(tr("kt.wallTaken", "w" to on.first { it in taken }, "n" to dn(p.furniture.first { it.roomId == room.id && it.id != rt.fid && on.any { w -> w != ISLAND && w in it.walls } }.name, lang)),
+        if (on.any { it in taken }) Text(tr("kt.wallTaken", "w" to on.first { it in taken }, "n" to dn(p.furniture.first { it.roomId == room.id && it.id != rt.fid && (it.pose == null || it.kind == "kitchen") && on.any { w -> w != ISLAND && w in it.walls } }.name, lang)),
             style = ui(12.5f, 500, G.amberInk, 1.4f))
         if (ward) {
-            if (known) GField(tr("wd.w"), wTxt, { wTxt = it.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(6); reset() }, wardOfF(base)?.let { fmtField(it.w, unit, en) } ?: "",
+            if (known && model != null && model.type !in uz.metrx.app.furniture.ITEM_TYPES) GField(tr("wd.w"), wTxt, { wTxt = it.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(6); reset() }, wardOfF(base)?.let { fmtField(it.w, unit, en) } ?: "",
                 labelRight = unitWord(unit))
             // standing free it has no distance from a corner
             if (pose == null) Text(tr("fz.offset"), style = ui(15f, 700))

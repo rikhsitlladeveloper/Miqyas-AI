@@ -13,7 +13,7 @@ class StepsTest {
         val ids = GALLERY.flatMap { it.second }
         assertEquals(ids.size, ids.toSet().size)
         assertEquals(F_MODELS.map { it.id }.toSet(), ids.toSet())
-        assertEquals(listOf("kitchen", "bedroom", "living", "hall", "office"), GALLERY.map { it.first })
+        assertEquals(listOf("kitchen", "bedroom", "living", "hall", "kids", "office", "bath"), GALLERY.map { it.first })
     }
 
     @Test fun aKitchenAsksItsSidesItsIslandAndTheCeiling() {
