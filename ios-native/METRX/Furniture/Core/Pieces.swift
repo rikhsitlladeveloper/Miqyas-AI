@@ -173,7 +173,7 @@ func stackPack(_ f: Furniture, _ changed: String?, _ ws: Workshop) -> Furniture 
 func loftPack(_ f: Furniture, _ ws: Workshop) -> Furniture {
     guard let bed = f.modules.first(where: { $0.type == "loft" }) else { return f }
     let t = ws.t
-    let o = bed.opt ?? Opt()
+    let o = bed.opt ?? ItemOpt()
     var g = f
     g.modules = f.modules.map { m in
         guard m.type == "wardrobe" else { return m }
@@ -327,7 +327,7 @@ func loftUnder(_ k: String, _ ws: Workshop, _ bed: Module) -> Module? {
 /// A loft bed with k under it.
 func withUnder(_ f: Furniture, _ k: String, _ ws: Workshop) -> Furniture {
     guard let bed = f.modules.first(where: { $0.type == "loft" }) else { return f }
-    var o = bed.opt ?? Opt(); o.under = k
+    var o = bed.opt ?? ItemOpt(); o.under = k
     var nb = bed; nb.opt = o
     var g = f
     g.modules = [nb]
@@ -359,22 +359,22 @@ func newPiece(_ type: String, _ v: (String) -> Int, _ ws: Workshop, _ name: Stri
     let mods: [Module]
     switch type {
     case "bed":
-        let o = Opt(bed: optAt(v("bt"), BED_KINDS), mw: v("mw"), ml: v("ml"), hb: v("hb"))
+        let o = ItemOpt(bed: optAt(v("bt"), BED_KINDS), mw: v("mw"), ml: v("ml"), hb: v("hb"))
         mods = [itemModule("bed", ws, "A", x, 0, v("h"), 0, o)]
     case "bunk":
-        let o = Opt(mw: v("mw"), ml: v("ml"), ladder: optAt(v("lad"), ["L", "R"]))
+        let o = ItemOpt(mw: v("mw"), ml: v("ml"), ladder: optAt(v("lad"), ["L", "R"]))
         mods = [itemModule("bunk", ws, "A", x, 0, v("h"), 0, o)]
     case "loft":
-        let o = Opt(mw: v("mw"), ml: v("ml"), ladder: optAt(v("lad"), ["L", "R"]), under: optAt(v("und"), UNDER_KINDS))
+        let o = ItemOpt(mw: v("mw"), ml: v("ml"), ladder: optAt(v("lad"), ["L", "R"]), under: optAt(v("und"), UNDER_KINDS))
         let bed = itemModule("loft", ws, "A", x, 0, v("h"), 0, o)
         var l = [bed]
         if let u = loftUnder(o.under, ws, bed) { l.append(u) }
         mods = l
     case "dining", "coffee":
-        let o = Opt(legs: optAt(v("lg"), LEG_KINDS), top: v("tp") == 1 ? "wt" : "ldsp", round: v("rc") == 1)
+        let o = ItemOpt(legs: optAt(v("lg"), LEG_KINDS), top: v("tp") == 1 ? "wt" : "ldsp", round: v("rc") == 1)
         mods = [itemModule("table", ws, "A", x, v("w"), v("h"), v("d"), o)]
-    case "bar": mods = [itemModule("bar", ws, "A", x, v("w"), v("h"), v("d"), Opt(top: "wt"))]
-    case "mirrorP": mods = [itemModule("hooks", ws, "A", x, v("w"), v("h"), 0, Opt(hooks: 4, shelf: true, mirW: 450, mirH: 1000), elev: 300)]
+    case "bar": mods = [itemModule("bar", ws, "A", x, v("w"), v("h"), v("d"), ItemOpt(top: "wt"))]
+    case "mirrorP": mods = [itemModule("hooks", ws, "A", x, v("w"), v("h"), 0, ItemOpt(hooks: 4, shelf: true, mirW: 450, mirH: 1000), elev: 300)]
     case "stenka": mods = stenka(ws, v("w"), v("h"), v("d"))
     case "cornerW": walls = ["A", "B"]; mods = cornerWard(ws, v("w"), v("w2"), v("h"), v("d"))
     case "cornerDesk": walls = ["A", "B"]; mods = cornerDesk(ws, v("w"), v("w2"), v("h"), v("d"))
@@ -403,7 +403,7 @@ private func cabinetVals(_ f: Furniture, _ main: Module, _ ws: Workshop) -> [Str
 /// A newer model's piece as step values (Steps.swift valsOf).
 func pieceVals(_ f: Furniture, _ ws: Workshop) -> [String: Int] {
     guard let main = wardOfF(f) else { return [:] }
-    let o = main.opt ?? Opt()
+    let o = main.opt ?? ItemOpt()
     let bs = boxes(f)
     switch f.type {
     case "bed": return ["bt": indexIn(BED_KINDS, o.bed), "mw": o.mw, "ml": o.ml, "h": main.h, "hb": o.hb]
@@ -438,7 +438,7 @@ func pieceVals(_ f: Furniture, _ ws: Workshop) -> [String: Int] {
 private func itemResized(_ f: Furniture, _ main: Module, _ v: [String: Int], _ ws: Workshop) -> Furniture {
     var m = main
     for k in ["w", "h", "d", "mw", "ml", "hb"] { if let x = v[k] { m = itemSet(m, k, x, ws) } }
-    var o = m.opt ?? Opt()
+    var o = m.opt ?? ItemOpt()
     if let i = v["bt"], i >= 0, i < BED_KINDS.count { o.bed = BED_KINDS[i] }
     if let i = v["lad"] { o.ladder = i == 0 ? "L" : "R" }
     if let i = v["lg"], i >= 0, i < LEG_KINDS.count { o.legs = LEG_KINDS[i] }

@@ -113,10 +113,10 @@ struct Module: Codable, Equatable, Identifiable {
     /// An LED strip along the top inside (a vitrina's).
     var led = false
     /// A board-built piece that is not a cabinet (bed, table, bar counter, mirror panel, mirror): its options (Items.swift).
-    var opt: Opt? = nil
+    var opt: ItemOpt? = nil
     init(id: String, type: String, w: Int, h: Int, d: Int, x: Int = 0, wall: String? = nil, elev: Int = 0, fronts: Fronts = Fronts(), inserts: [Insert] = [],
          sections: [Section] = [], legs: Bool = true, soft: Bool = true, handles: Bool = true, label: String = "", app: String = "", sideL: Bool = true, sideR: Bool = true,
-         slide: Slide? = nil, base: Int? = nil, led: Bool = false, opt: Opt? = nil) {
+         slide: Slide? = nil, base: Int? = nil, led: Bool = false, opt: ItemOpt? = nil) {
         self.id = id; self.type = type; self.w = w; self.h = h; self.d = d; self.x = x; self.wall = wall; self.elev = elev; self.fronts = fronts
         self.inserts = inserts; self.sections = sections; self.legs = legs; self.soft = soft; self.handles = handles; self.label = label; self.app = app
         self.sideL = sideL; self.sideR = sideR; self.slide = slide; self.base = base; self.led = led; self.opt = opt
@@ -133,7 +133,7 @@ struct Module: Codable, Equatable, Identifiable {
 
 /// A bed's, a table's, a bar counter's or a mirror panel's few options (Items.swift). Sizes are the module's own: across
 /// (Module.w), out from the wall (Module.d) and up (Module.h).
-struct Opt: Codable, Equatable, Hashable {
+struct ItemOpt: Codable, Equatable, Hashable {
     /// Beds: "legs" plain on legs, "drawers" drawers under, "lift" a lift-up base over a storage box.
     var bed = "legs"
     /// Beds: the mattress, mm; the headboard's top above the floor.

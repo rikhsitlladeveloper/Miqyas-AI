@@ -3,7 +3,7 @@ import Foundation
 /*
  * Board-built furniture that is not a cabinet (decided 22 Oct 2026; Android furniture/Items.kt): beds (plain on legs,
  * drawers under, a lift-up base over a storage box), bunk and loft beds, tables (dining, coffee), the bar counter, the
- * hallway's mirror panel with hooks, and the mirror over a dressing table. Each is one module with a few options (Opt);
+ * hallway's mirror panel with hooks, and the mirror over a dressing table. Each is one module with a few options (ItemOpt);
  * its boards (itemBoards) make both its parts and its 3D, so the cut list and the picture always agree. Pure Swift,
  * unit-tested (PiecesTests). The sizes and the construction are defaults for the founder's makers to check.
  */
@@ -63,13 +63,13 @@ func frameD(_ m: Module) -> Int { m.type == "bunk" || m.type == "loft" ? m.d - L
 
 /// A table's or bar counter's top: 38 of worktop board, or the front board (twice, glued, on a dining table or a bar).
 func topT(_ m: Module, _ ws: Workshop) -> Int {
-    let o = m.opt ?? Opt()
+    let o = m.opt ?? ItemOpt()
     return o.top == "wt" ? 38 : ws.t * (m.h >= 650 ? 2 : 1)
 }
 
 /// A bed's boards.
 private func bedBoards(_ m: Module, _ ws: Workshop, _ out: inout [Board]) {
-    let t = ws.t, o = m.opt ?? Opt()
+    let t = ws.t, o = m.opt ?? ItemOpt()
     let W = m.w, D = m.d, H = m.h
     let hb = max(o.hb, H + 100)
     let yb = o.bed == "legs" ? max(0, H - 260) : 0
@@ -122,7 +122,7 @@ private func bedBoards(_ m: Module, _ ws: Workshop, _ out: inout [Board]) {
 
 /// A bunk or loft bed's boards.
 private func bunkBoards(_ m: Module, _ ws: Workshop, _ out: inout [Board]) {
-    let t = ws.t, o = m.opt ?? Opt()
+    let t = ws.t, o = m.opt ?? ItemOpt()
     let W = m.w, D = m.d, H = m.h
     let fd = frameD(m)
     let yu = upperDeck(m)
@@ -160,7 +160,7 @@ private func bunkBoards(_ m: Module, _ ws: Workshop, _ out: inout [Board]) {
 
 /// A table's boards (and its metal legs or frame).
 private func tableBoards(_ m: Module, _ ws: Workshop, _ out: inout [Board]) {
-    let t = ws.t, o = m.opt ?? Opt()
+    let t = ws.t, o = m.opt ?? ItemOpt()
     let W = m.w, D = m.d, H = m.h
     let tt = topT(m, ws)
     let wt = o.top == "wt"
@@ -195,7 +195,7 @@ private func tableBoards(_ m: Module, _ ws: Workshop, _ out: inout [Board]) {
 
 /// A bar counter's boards.
 private func barBoards(_ m: Module, _ ws: Workshop, _ out: inout [Board]) {
-    let t = ws.t, o = m.opt ?? Opt()
+    let t = ws.t, o = m.opt ?? ItemOpt()
     let W = m.w, D = m.d, H = m.h
     let tt = topT(m, ws)
     let db = max(250, D - o.over)
@@ -226,7 +226,7 @@ private func barBoards(_ m: Module, _ ws: Workshop, _ out: inout [Board]) {
 
 /// A mirror panel's boards: the panel, its mirror, hooks and hat shelf.
 private func hooksBoards(_ m: Module, _ ws: Workshop, _ out: inout [Board]) {
-    let t = ws.t, o = m.opt ?? Opt()
+    let t = ws.t, o = m.opt ?? ItemOpt()
     let W = m.w, H = m.h, E = m.elev
     out.append(Board("fp.panel", "front", 0, W, E, E + H, 0, t))
     var mirR = 0
@@ -284,7 +284,7 @@ func itemParts(_ m: Module, _ ws: Workshop) -> [FPart] {
 
 /// An item module's hardware.
 func itemHardware(_ m: Module, _ ws: Workshop, _ add: (String, Int) -> Void) {
-    let o = m.opt ?? Opt()
+    let o = m.opt ?? ItemOpt()
     switch m.type {
     case "bed":
         add("confirmat", o.mw >= 1400 ? 24 : 16)
@@ -337,7 +337,7 @@ func itemSized(_ m: Module, _ ws: Workshop) -> Module {
 }
 
 /// A new item module of type on wall at x: w × h × d where they are its own (tables, the bar, panels), o its options.
-func itemModule(_ type: String, _ ws: Workshop, _ wall: String, _ x: Int, _ w: Int, _ h: Int, _ d: Int, _ o: Opt, elev: Int = 0) -> Module {
+func itemModule(_ type: String, _ ws: Workshop, _ wall: String, _ x: Int, _ w: Int, _ h: Int, _ d: Int, _ o: ItemOpt, elev: Int = 0) -> Module {
     itemSized(Module(id: uid(), type: type, w: w, h: h, d: d, x: x, wall: wall, elev: elev, fronts: Fronts("open", 0), legs: false, base: 0, opt: o), ws)
 }
 
@@ -372,7 +372,7 @@ func itemRange(_ m: Module, _ key: String) -> ClosedRange<Int> {
 /// An item module with one size changed (and its outer size following).
 func itemSet(_ m: Module, _ key: String, _ v: Int, _ ws: Workshop) -> Module {
     var n = m
-    var o = m.opt ?? Opt()
+    var o = m.opt ?? ItemOpt()
     var opt = false
     switch key {
     case "w": n.w = v
@@ -394,7 +394,7 @@ func itemSet(_ m: Module, _ key: String, _ v: Int, _ ws: Workshop) -> Module {
 
 /// What a size of an item module is now (the designer's rows).
 func itemGet(_ m: Module, _ key: String) -> Int {
-    let o = m.opt ?? Opt()
+    let o = m.opt ?? ItemOpt()
     switch key {
     case "w": return m.w
     case "h": return m.h

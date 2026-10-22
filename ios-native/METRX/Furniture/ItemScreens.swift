@@ -156,15 +156,15 @@ private struct ItemOptions: View {
 }
 
 /// The main box's options changed (its outer size following).
-private func setOpt(_ p: Project, _ f: Furniture, _ m: Module, _ fn: @escaping (Opt) -> Opt) {
-    changeItem(p, f, m.id) { x in var n = x; n.opt = fn(x.opt ?? Opt()); return n }
+private func setOpt(_ p: Project, _ f: Furniture, _ m: Module, _ fn: @escaping (ItemOpt) -> ItemOpt) {
+    changeItem(p, f, m.id) { x in var n = x; n.opt = fn(x.opt ?? ItemOpt()); return n }
 }
 
 private struct BedOptions: View {
     let app: AppModel
     let p: Project, f: Furniture, m: Module
     var body: some View {
-        let o = m.opt ?? Opt()
+        let o = m.opt ?? ItemOpt()
         let kinds: [(String, String)] = BED_KINDS.map { ($0, tr("fb.bt." + $0)) }
         VStack(alignment: .leading, spacing: 10) {
             T(tr("fb.bt"), ui(14.5, 700))
@@ -182,7 +182,7 @@ private struct BunkOptions: View {
     let app: AppModel
     let p: Project, f: Furniture, m: Module
     var body: some View {
-        let o = m.opt ?? Opt()
+        let o = m.opt ?? ItemOpt()
         VStack(alignment: .leading, spacing: 10) {
             ForEach(["mw", "ml", "h"], id: \.self) { k in ISize(app: app, p: p, f: f, m: m, key: k) }
             T(tr("fb.lad"), ui(14.5, 700))
@@ -220,7 +220,7 @@ private struct TableOptions: View {
     let app: AppModel
     let p: Project, f: Furniture, m: Module
     var body: some View {
-        let o = m.opt ?? Opt()
+        let o = m.opt ?? ItemOpt()
         let legs: [(String, String)] = LEG_KINDS.map { ($0, tr("fb.lg." + $0)) }
         VStack(alignment: .leading, spacing: 10) {
             ForEach(["w", "d", "h"], id: \.self) { k in ISize(app: app, p: p, f: f, m: m, key: k) }
@@ -237,7 +237,7 @@ private struct BarOptions: View {
     let app: AppModel
     let p: Project, f: Furniture, m: Module
     var body: some View {
-        let o = m.opt ?? Opt()
+        let o = m.opt ?? ItemOpt()
         VStack(alignment: .leading, spacing: 10) {
             ForEach(["w", "d", "h", "over"], id: \.self) { k in ISize(app: app, p: p, f: f, m: m, key: k) }
             T(tr("fb.tp"), ui(14.5, 700))
@@ -252,7 +252,7 @@ private struct HooksOptions: View {
     let app: AppModel
     let p: Project, f: Furniture, m: Module
     var body: some View {
-        let o = m.opt ?? Opt()
+        let o = m.opt ?? ItemOpt()
         VStack(alignment: .leading, spacing: 10) {
             ForEach(["w", "h", "e"], id: \.self) { k in ISize(app: app, p: p, f: f, m: m, key: k) }
             FStepper(label: tr("fb.hooks"), v: o.hooks, lo: 0, hi: 10, id: "it.hooks") { v in setOpt(p, f, m) { var x = $0; x.hooks = v; return x } }
