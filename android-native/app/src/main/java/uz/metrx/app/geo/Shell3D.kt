@@ -147,7 +147,7 @@ internal fun pieces(a0: Double, a1: Double, ops: List<DoubleArray>, H: Double): 
 }
 
 /** A rectangular room at x offset [ox] (prototype build3D, one room). Returns its extent along x. */
-private fun rectRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolean, name: String): DoubleArray {
+private fun rectRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolean, name: String, bare: Set<String> = emptySet()): DoubleArray {
     val L = room.dim("A").v!! / 1000.0; val W = room.dim("B").v!! / 1000.0; val H = room.dim("H").v!! / 1000.0
     val T = (room.dim("T").v ?: 200) / 1000.0
     fun X(x: Double) = x + ox + T
@@ -160,7 +160,7 @@ private fun rectRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
     fun opsOn(w: String) = room.openings.filter { it.wall == w }.map { o ->
         val off = o.off / 1000.0; val wd = o.w / 1000.0
         val (a, bb) = when (w) { "A", "B" -> off to off + wd; "C" -> L - off - wd to L - off; else -> W - off - wd to W - off }
-        doubleArrayOf(a, bb, o.sill / 1000.0, o.h / 1000.0, if (o.type == "door") 1.0 else 0.0)
+        doubleArrayOf(a, bb, o.sill / 1000.0, o.h / 1000.0, if (o.type == "door") 1.0 else 0.0, if (o.id in bare) 1.0 else 0.0)
     }
     // niches: cut out of the wall like an opening [a, b, sill, height, 2] and closed at their depth
     fun nichesOn(w: String) = room.features.filter { it.wall == w && it.type == "niche" }.map { f ->
@@ -179,7 +179,8 @@ private fun rectRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
             "B" -> pieces(0.0, W, ops, H).forEach { box(w, L, L + T, it[2], it[3], it[0], it[1], p) }
             else -> pieces(0.0, W, ops, H).forEach { box(w, -T, 0.0, it[2], it[3], it[0], it[1], p) }
         }
-        ops.filter { it[4] != 2.0 }.forEach { openingModel(b, gi, w, it, T, L, W, ::X) }
+        // an opening a windows-and-doors maker filled has the product drawn in it instead ([bare])
+        ops.filter { it[4] != 2.0 && it[5] != 1.0 }.forEach { openingModel(b, gi, w, it, T, L, W, ::X) }
         // the niche's back, its depth into the wall
         niches.forEach { n ->
             val dd = n[5]
@@ -335,7 +336,7 @@ internal fun earClip(v: List<Pair<Double, Double>>): List<Int> {
 }
 
 /** A drawn room (prototype sketch build3D): each wall extruded along the solved polygon, windows as glass, the floor as the polygon. */
-private fun polyRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolean, name: String, snap: Boolean): DoubleArray {
+private fun polyRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolean, name: String, snap: Boolean, bare: Set<String> = emptySet()): DoubleArray {
     val H = room.dim("H").v!! / 1000.0; val T = (room.dim("T").v ?: 200) / 1000.0
     val ws = walls(room, snap); val n = ws.size
     val ip = ws.map { it.p0.x / 1000.0 to it.p0.y / 1000.0 }
@@ -352,7 +353,7 @@ private fun polyRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
         val a = ip[i]; val c = ip[(i + 1) % n]; val u = uu[i]; val len = u.third; val q = no[i]
         fun at(d: Double) = a.first + u.first * d to a.second + u.second * d
         fun off(p: Pair<Double, Double>, k: Double) = p.first + q.first * k to p.second + q.second * k
-        val ops = room.openings.filter { it.wall == w.id }.map { o -> doubleArrayOf(o.off / 1000.0, (o.off + o.w) / 1000.0, o.sill / 1000.0, o.h / 1000.0, if (o.type == "door") 1.0 else 0.0) }
+        val ops = room.openings.filter { it.wall == w.id }.map { o -> doubleArrayOf(o.off / 1000.0, (o.off + o.w) / 1000.0, o.sill / 1000.0, o.h / 1000.0, if (o.type == "door") 1.0 else 0.0, if (o.id in bare) 1.0 else 0.0) }
         val p = b.part(gi, w.id, Role.WALL, wallRgb); val e = b.edgesOf(gi, w.id)
         pieces(0.0, len, ops, H).forEach { pc ->
             val s0 = max(0.0, pc[0]); val s1 = min(len, pc[1]); if (s1 - s0 < 1e-4) return@forEach
@@ -360,7 +361,7 @@ private fun polyRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
             val i1 = if (s1 > len - 1e-6) c else at(s1); val o1 = if (s1 > len - 1e-6) op[(i + 1) % n] else off(at(s1), T)
             prism(p, e, listOf(pt(i0), pt(i1), pt(o1), pt(o0)), pc[2], pc[3])
         }
-        ops.filter { it[4] == 0.0 }.forEach { o ->
+        ops.filter { it[4] == 0.0 && it[5] != 1.0 }.forEach { o ->
             val g = b.part(gi, null, Role.GLASS, GLASS, .5f)
             prism(g, null, listOf(pt(off(at(o[0]), T / 2 - .01)), pt(off(at(o[1]), T / 2 - .01)), pt(off(at(o[1]), T / 2 + .01)), pt(off(at(o[0]), T / 2 + .01))), o[2], o[2] + o[3])
         }
@@ -385,11 +386,11 @@ private fun polyRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
 }
 
 /** Rooms in one line (prototype build3D), as the prototype's sketch override does: any drawn room sends all rooms the polygon way. */
-private fun base(rooms: List<Room>, single: Boolean, snap: Boolean, name: (Room) -> String): Pair<Builder, DoubleArray> {
+private fun base(rooms: List<Room>, single: Boolean, snap: Boolean, name: (Room) -> String, bare: Set<String> = emptySet()): Pair<Builder, DoubleArray> {
     val b = Builder(); var ox = 0.0; var maxW = 0.0; var maxH = 0.0; val gap = 1.2
     val poly = rooms.any { it.isPoly }
     rooms.forEachIndexed { gi, room ->
-        val ext = if (poly) polyRoom(b, room, gi, ox, single, name(room), snap) else rectRoom(b, room, gi, ox, single, name(room))
+        val ext = if (poly) polyRoom(b, room, gi, ox, single, name(room), snap, bare) else rectRoom(b, room, gi, ox, single, name(room), bare)
         ox += ext[0] + gap; maxW = max(maxW, ext[1]); maxH = max(maxH, ext[2])
     }
     return b to doubleArrayOf(max(ox - gap, 1.0), maxW, maxH)
@@ -399,11 +400,12 @@ private fun lightTowards(span: Double, maxW: Double, maxH: Double) = V3(span * .
 
 /**
  * The scene for one room ([single], with wall letters) or for the rooms of a workspace (names that zoom to a room),
- * with the ux module's limits: the view's middle stays over the rooms and the zoom inside a range.
+ * with the ux module's limits: the view's middle stays over the rooms and the zoom inside a range. Openings in [bare]
+ * (filled by a windows-and-doors maker's products, drawn by its own app) get no standard window or door.
  */
-fun buildShell(rooms: List<Room>, single: Boolean, snap: Boolean = true, name: (Room) -> String = { it.name }): Shell3D {
+fun buildShell(rooms: List<Room>, single: Boolean, snap: Boolean = true, bare: Set<String> = emptySet(), name: (Room) -> String = { it.name }): Shell3D {
     if (single || rooms.size < 2) {
-        val (b, d) = base(rooms, single, snap, name)
+        val (b, d) = base(rooms, single, snap, name, bare)
         val span = d[0]; val maxW = d[1]; val maxH = d[2]; val gs = max(span, maxW) + 4
         return Shell3D(
             b.parts, b.edges, b.groups, b.labels, null, span, maxW, maxH,

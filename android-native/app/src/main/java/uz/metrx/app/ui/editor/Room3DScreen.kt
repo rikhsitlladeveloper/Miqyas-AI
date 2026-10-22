@@ -119,7 +119,8 @@ fun Room3DScreen(r0: Route.Editor) {
         val (shell, fur) = if (p.isFurniture) uz.metrx.app.ui.furniture.rememberFurnShell(p, r, base, mo)
             else if (p.isTiler) uz.metrx.app.ui.tiles.rememberTileShell(p, r, base, snap) to null
             else if (p.isElec) uz.metrx.app.ui.elec.rememberElecShell(p, r, snap) to null
-            else if (p.isPlumb) uz.metrx.app.ui.plumb.rememberPlumbShell(p, r, snap) to null else base to null
+            else if (p.isPlumb) uz.metrx.app.ui.plumb.rememberPlumbShell(p, r, snap) to null
+            else if (p.isWin) uz.metrx.app.ui.win.rememberWinShell(p, r, snap) to null else base to null
         val cam = remember(r.id) { Cam3D() }
         val shot = remember { Shot3D() }
         var taking by remember { mutableStateOf(false) }   // a second tap while a picture is being taken does nothing

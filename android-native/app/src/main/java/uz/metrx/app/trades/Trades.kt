@@ -51,7 +51,9 @@ data class TradeSet(
     val pMeter: String = "250000", val pFilter: String = "120000", val pManif: String = "1500000",
     val lPPt: String = "120000", val lPFix: String = "150000", val lPM: String = "15000", val lPRad: String = "200000", val lPChase: String = "25000",
     // windows and doors
-    val pWinM2: String = "900000", val pDoorM2: String = "1200000", val pSillM: String = "150000", val pRevealM: String = "60000", val lWin: String = "250000"
+    val pWinM2: String = "900000", val pDoorM2: String = "1200000", val pSillM: String = "150000", val pRevealM: String = "60000", val lWin: String = "250000",
+    // the windows-and-doors app's prices from the parts, a list per profile system (win/Count.kt)
+    val win: uz.metrx.app.win.WinPrices = uz.metrx.app.win.WinPrices()
 )
 
 /** What a calculator worked out: material and labour lines for the estimate (ids start with "t-"), and how much of what. */

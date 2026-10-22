@@ -22,7 +22,8 @@ import uz.metrx.app.geo.LenUnit
  * and notes chosen for the report; the builder, the estimate and the PDF parts.
  */
 fun snapshotOf(p: Project, s: Settings, pdf: PdfParts = s.pdf): Snap =
-    snapshotOf(p, s.unit, s.builderName, s.builderPhone, pdf, s.angleSnap).let { if (p.isFurniture) furnSnap(it, p, s.workshop, s.mats, s.hws) else if (p.isElec) elecSnap(it, p, s.angleSnap) else if (p.isPlumb) plumbSnap(it, p, s.angleSnap) else it }
+    snapshotOf(p, s.unit, s.builderName, s.builderPhone, pdf, s.angleSnap).let { if (p.isFurniture) furnSnap(it, p, s.workshop, s.mats, s.hws) else if (p.isElec) elecSnap(it, p, s.angleSnap) else if (p.isPlumb) plumbSnap(it, p, s.angleSnap)
+        else if (p.isWin) winSnap(it, p, if (s.advanced) s.trade.win else null) else it }
 
 /** An electrician's order's part of the snapshot: its devices, panel and rooms, each room's kind written down. */
 fun elecSnap(sn: Snap, p: Project, snap: Boolean): Snap {
@@ -38,6 +39,13 @@ fun plumbSnap(sn: Snap, p: Project, snap: Boolean): Snap {
     val kinds = p.rooms.mapNotNull { r -> uz.metrx.app.plumb.ctxOf(p, r.id, snap)?.let { r.id to it.kind } }.toMap()
     val rooms = kinds.map { (id, k) -> p.plumb.room(id).copy(kind = k) } + p.plumb.rooms.filter { it.roomId !in kinds }
     return sn.copy(plumb = p.plumb.copy(rooms = rooms))
+}
+
+/** A windows-and-doors order's part of the snapshot: its products, and with [prices] (the advanced app) each one's price. */
+fun winSnap(sn: Snap, p: Project, prices: uz.metrx.app.win.WinPrices?): Snap {
+    if (p.win.empty) return sn
+    val cost = if (prices == null) emptyMap() else uz.metrx.app.win.withReveals(p).associate { (it, r) -> it.id to Math.round(uz.metrx.app.win.itemCost(it, r, prices)) }
+    return sn.copy(win = p.win, winPrice = cost)
 }
 
 /** A furniture order's part of the snapshot: the furniture, its materials, the price lines and the terms. */
@@ -108,6 +116,7 @@ fun fingerprint(sn: Snap): String {
         (if (sn.furniture.isEmpty() || sn.fprepay == 50) emptyList() else listOf(JsonArray(listOf(str("pp"), JsonPrimitive(sn.fprepay))))) +
         (if (handlesPrinted(sn) && sn.fhandles != HANDLE_PRESET) listOf(JsonArray(listOf(str("hd"), str(sn.fhandles)))) else emptyList()) +
         (if (sn.elec == null) emptyList() else listOf(JsonArray(listOf(str("el"), json.encodeToJsonElement(sn.elec))))) +
-        (if (sn.plumb == null) emptyList() else listOf(JsonArray(listOf(str("pl"), json.encodeToJsonElement(sn.plumb)))))
+        (if (sn.plumb == null) emptyList() else listOf(JsonArray(listOf(str("pl"), json.encodeToJsonElement(sn.plumb))))) +
+        (if (sn.win == null) emptyList() else listOf(JsonArray(listOf(str("dw"), json.encodeToJsonElement(sn.win), json.encodeToJsonElement(sn.winPrice)))))
     return JsonArray(all).toString()
 }

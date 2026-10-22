@@ -101,7 +101,7 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                     Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(G.ink.copy(alpha = .06f)), contentAlignment = Alignment.Center) { MIcon("edit", G.ink, 18.dp, 2f) }
                 }
                 Row(Modifier.fillMaxWidth().topRule().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(7.dp), verticalAlignment = Alignment.CenterVertically) {
-                    MIcon("doc", G.ink2, 16.dp, 2f); Text(tr(if ((s.furniture || s.tiler || s.elec || s.plumb) && !s.advanced) "pf.onDesign" else "pf.onQuote"), style = ui(12.5f, 400, G.ink2, 1.4f))
+                    MIcon("doc", G.ink2, 16.dp, 2f); Text(tr(if ((s.furniture || s.tiler || s.elec || s.plumb || s.win) && !s.advanced) "pf.onDesign" else "pf.onQuote"), style = ui(12.5f, 400, G.ink2, 1.4f))
                 }
             }
             ProCard { app.push(Route.Subscription) }
@@ -145,13 +145,22 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                 }
                 Text(tr("sx.advSub"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 8.dp))
             }
+            // windows and doors: the same switch; on, the parts, prices per profile system, estimate and quotes (off: only the drawings and 3D)
+            if (s.win) {
+                Group(tr("dw.gWork"))
+                Card {
+                    SwitchRow("sliders", tr("adv.title"), s.advanced) { s.setAdvancedOn(!s.advanced); if (!s.advanced) app.dropAdvanced(); app.say(if (s.advanced) "adv.on" else "adv.off") }
+                    if (s.advanced) Row1("coin", tr("tl.prices"), null, sub = tr("dw.pricesS")) { app.sheet = Sheet.WPrices(null) }
+                }
+                Text(tr("dw.advSub"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 8.dp))
+            }
             Group(tr("pf.gReport"))
             Card {
                 Row1("sliders", tr("ind.row"), tr(when { s.furniture -> "ind.furn"; uz.metrx.app.trades.isTrade(s.industry) -> "ind.${s.industry}"; else -> "ind.build" })) { app.sheet = Sheet.Industry }
                 Row1("globe", tr("se.lang"), s.lang.longName) { nav.languages() }
                 Row1("doc", tr("se.reportLang"), s.reportLang.longName) { app.sheet = Sheet.ReportLang }
                 // the simple furniture app shares a design: no estimate in it, and no prices to have a currency
-                val design = (s.furniture || s.tiler || s.elec || s.plumb) && !s.advanced
+                val design = (s.furniture || s.tiler || s.elec || s.plumb || s.win) && !s.advanced
                 val parts = pdfKeys(design).map { k -> when (k) { "plan" -> s.pdf.plan; "dims" -> s.pdf.dims; "views" -> s.pdf.views; "estimate" -> s.pdf.estimate; else -> s.pdf.sign } }
                 Row1("layers", tr("se.pdf"), "${parts.count { it }}/${parts.size}") { app.sheet = Sheet.PdfParts }
                 if (!design) Row1("coin", tr("np.currency"), s.currency) { app.sheet = Sheet.Currency }
@@ -352,7 +361,7 @@ private fun ReportLangSheet() {
 private fun PdfSheet() {
     val app = LocalApp.current
     val p = app.settings.pdf
-    val design = (app.settings.furniture || app.settings.tiler || app.settings.elec || app.settings.plumb) && !app.settings.advanced
+    val design = (app.settings.furniture || app.settings.tiler || app.settings.elec || app.settings.plumb || app.settings.win) && !app.settings.advanced
     GlassSheet(tr("se.pdf"), { app.sheet = null }) {
         listOf("plan" to p.plan, "dims" to p.dims, "views" to p.views, "estimate" to p.estimate, "sign" to p.sign).filter { it.first in pdfKeys(design) }.forEach { (k, on) ->
             Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(14.dp)).clickable(role = Role.Checkbox) {

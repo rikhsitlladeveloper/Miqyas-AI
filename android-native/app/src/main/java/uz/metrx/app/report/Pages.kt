@@ -495,6 +495,8 @@ fun reportPages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, im
     sn.elec?.let { e -> if (!e.empty) d.elecPages(e) }
     // a plumber's order: the pipe plan with the fixtures, the walls with their outlets, the heating and the legend
     sn.plumb?.let { e -> if (!e.empty) d.plumbPages(e) }
+    // a windows-and-doors order: the summary table, then each product's drawing from inside with its sizes and make
+    sn.win?.let { e -> if (!e.empty) d.winPages(e) }
     d.figurePages()
     d.notesPages()
     // the first page holding only the parties has room for the rest

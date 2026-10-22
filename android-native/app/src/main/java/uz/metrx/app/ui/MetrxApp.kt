@@ -205,7 +205,8 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.NewProject -> if (route.editId == null && app.settings.furniture) uz.metrx.app.ui.furniture.NewOrderScreen()
                                         else if (route.editId == null && app.settings.tiler) uz.metrx.app.ui.furniture.NewOrderScreen("tiler")
                                         else if (route.editId == null && app.settings.elec) uz.metrx.app.ui.furniture.NewOrderScreen("elec")
-                                        else if (route.editId == null && app.settings.plumb) uz.metrx.app.ui.furniture.NewOrderScreen("plumb") else NewProjectScreen(route.editId)
+                                        else if (route.editId == null && app.settings.plumb) uz.metrx.app.ui.furniture.NewOrderScreen("plumb")
+                                        else if (route.editId == null && app.settings.win) uz.metrx.app.ui.furniture.NewOrderScreen("win") else NewProjectScreen(route.editId)
                                     is Route.Project -> ProjectScreen(route)
                                     is Route.Space -> SpaceScreen(route)
                                     is Route.Note -> NoteScreen(route)
@@ -233,6 +234,10 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.PGallery -> uz.metrx.app.ui.plumb.PGalleryScreen(route)
                                     is Route.PSteps -> uz.metrx.app.ui.plumb.PStepsScreen(route)
                                     is Route.PView -> uz.metrx.app.ui.plumb.PViewScreen(route)
+                                    is Route.WGallery -> uz.metrx.app.ui.win.WGalleryScreen(route)
+                                    is Route.WPlace -> uz.metrx.app.ui.win.WPlaceScreen(route)
+                                    is Route.WDesign -> uz.metrx.app.ui.win.WDesignScreen(route)
+                                    is Route.WView -> uz.metrx.app.ui.win.WViewScreen(route)
                                     is Route.FCut -> uz.metrx.app.ui.furniture.CutScreen(route)
                                     is Route.FPack -> uz.metrx.app.ui.report.PackScreen(route.pid)
                                     is Route.Measure -> uz.metrx.app.ui.measure.MeasureScreen(route.calc)
@@ -259,7 +264,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                         onDisconnect = { settings.laser = Laser.DISCONNECTED; app.sheet = null }
                     )
                     null -> {}
-                    else -> if (!uz.metrx.app.ui.plumb.PlumbSheet(sh) && !uz.metrx.app.ui.elec.ElecSheet(sh) && !uz.metrx.app.ui.tiles.TileSheet(sh) && !uz.metrx.app.ui.furniture.OrderFlowSheet(sh) && !uz.metrx.app.ui.furniture.FreeSheet(sh) && !uz.metrx.app.ui.projects.TradeSheet(sh) && !uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
+                    else -> if (!uz.metrx.app.ui.win.WinSheet(sh) && !uz.metrx.app.ui.plumb.PlumbSheet(sh) && !uz.metrx.app.ui.elec.ElecSheet(sh) && !uz.metrx.app.ui.tiles.TileSheet(sh) && !uz.metrx.app.ui.furniture.OrderFlowSheet(sh) && !uz.metrx.app.ui.furniture.FreeSheet(sh) && !uz.metrx.app.ui.projects.TradeSheet(sh) && !uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
                 }
                 if (soon) SoonSheet(onLocal = { soon = false; authNav.local() }, onClose = { soon = false })
                 ToastHost(app.toast) { app.toast = null }

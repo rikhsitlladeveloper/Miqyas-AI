@@ -73,6 +73,15 @@ sealed interface Route {
     data class PGallery(val pid: String, val rid: String? = null, val fromNew: Boolean = false) : Route
     data class PSteps(val pid: String, val kit: String, val rid: String? = null) : Route
     data class PView(val pid: String, val rid: String) : Route
+    /**
+     * A windows-and-doors order: the gallery of products ([rid] the room, [oid] the opening it is for, [fromNew] right
+     * after a new order); where a type goes (openings or a typed size); a product's designer ([iid]); a room's products in
+     * 3D and from above ([rid] a room, or "free:<id>" a product without a room).
+     */
+    data class WGallery(val pid: String, val rid: String? = null, val oid: String? = null, val fromNew: Boolean = false) : Route
+    data class WPlace(val pid: String, val kind: String, val rid: String? = null, val oid: String? = null) : Route
+    data class WDesign(val pid: String, val iid: String) : Route
+    data class WView(val pid: String, val rid: String) : Route
     /** A furniture order's parts and sheet layout, and its workshop pack. */
     data class FCut(val pid: String) : Route
     data class FPack(val pid: String) : Route
@@ -203,6 +212,10 @@ sealed interface Sheet {
     data class PSystem(val pid: String) : Sheet
     data class PPrices(val pid: String?) : Sheet
     data class PFree(val pid: String, val fid: String?) : Sheet
+    /** A windows-and-doors order: a new room, the fitting gap, the prices. */
+    data class WNewRoom(val pid: String) : Sheet
+    data class WGap(val pid: String) : Sheet
+    data class WPrices(val pid: String?) : Sheet
     /** The Narx tab: a rate, the fixed price or the lead time ([key] rRun, rTall, fixed, days). */
     data class FPriceField(val pid: String, val key: String) : Sheet
 }
@@ -291,6 +304,10 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.PGallery -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
                     is Route.PSteps -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
                     is Route.PView -> store.get(r.pid)?.let { p -> p.rooms.any { it.id == r.rid } || p.plumb.free.any { "free:" + it.id == r.rid } } == true
+                    is Route.WGallery -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
+                    is Route.WPlace -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
+                    is Route.WDesign -> store.get(r.pid)?.win?.item(r.iid) != null
+                    is Route.WView -> store.get(r.pid)?.let { p -> p.rooms.any { it.id == r.rid } || p.win.items.any { "free:" + it.id == r.rid } } == true
                     is Route.FCut -> store.get(r.pid) != null
                     is Route.FPack -> store.get(r.pid) != null
                     Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, is Route.Measure, Route.LiveCam -> true

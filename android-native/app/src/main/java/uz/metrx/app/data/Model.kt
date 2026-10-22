@@ -58,7 +58,9 @@ data class Project(
     /** Electricians' orders: the devices, the panel, the rooms' settings and the rooms typed by size (elec/Elec.kt). */
     val elec: uz.metrx.app.elec.ElecOrder = uz.metrx.app.elec.ElecOrder(),
     /** Plumbers' orders: the fixtures, outlets, riser, the rooms' settings and the rooms typed by size (plumb/Plumb.kt). */
-    val plumb: uz.metrx.app.plumb.PlumbOrder = uz.metrx.app.plumb.PlumbOrder()
+    val plumb: uz.metrx.app.plumb.PlumbOrder = uz.metrx.app.plumb.PlumbOrder(),
+    /** Windows-and-doors orders: the windows and doors filling the rooms' openings, and those without a room (win/Win.kt). */
+    val win: uz.metrx.app.win.WinOrder = uz.metrx.app.win.WinOrder()
 ) {
     val isFurniture get() = industry == "furniture"
     /** A tiler's order (its own app: layouts in 3D, like the furniture maker's). */
@@ -67,6 +69,8 @@ data class Project(
     val isElec get() = industry == "elec"
     /** A plumber's order (its own app: fixtures, pipes and heating in 3D). */
     val isPlumb get() = industry == "plumb"
+    /** A windows-and-doors order (its own app: products from a gallery fitted in the openings, in 3D). */
+    val isWin get() = industry == "win"
 }
 
 /** Money received for a furniture order: [amount] in the smallest unit; [pre] marks the prepayment. */
@@ -248,7 +252,10 @@ data class Snap(
     /** Electricians' orders: the devices, panel and rooms' settings (each room's kind filled in), for the wiring pages. */
     val elec: uz.metrx.app.elec.ElecOrder? = null,
     /** Plumbers' orders: the fixtures, outlets, riser and rooms' settings (each room's kind filled in), for the plumbing pages. */
-    val plumb: uz.metrx.app.plumb.PlumbOrder? = null
+    val plumb: uz.metrx.app.plumb.PlumbOrder? = null,
+    /** Windows-and-doors orders: the products, for the drawings; [winPrice] each product's price (the advanced app's, else empty). */
+    val win: uz.metrx.app.win.WinOrder? = null,
+    val winPrice: Map<String, Long> = emptyMap()
 )
 
 /** A line of a furniture order's price in the customer's PDF: [key] a furniture id or "deliver". */

@@ -41,6 +41,8 @@ class Settings(context: Context) {
     val elec get() = industry == "elec"
     /** A plumber: own home, orders, fixtures, pipes and heating (plumb/Plumb.kt). */
     val plumb get() = industry == "plumb"
+    /** A windows-and-doors maker: own home, orders, products fitted in the openings (win/Win.kt). */
+    val win get() = industry == "win"
     fun setIndustryKind(v: String) { industry = v; p.edit().putString("industry", v).apply() }
     /** A furniture maker's prices, order stages, workshop rules and cutting lists (Profile → Advanced); off, the app is just the 3D design. */
     var advanced by mutableStateOf(p.getBoolean("advanced", false)); private set
