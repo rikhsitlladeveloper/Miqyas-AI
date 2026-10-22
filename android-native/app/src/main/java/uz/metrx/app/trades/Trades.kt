@@ -30,6 +30,8 @@ data class TradeSet(
     val floor: Boolean = true, val wallH: Int = 0,
     val pTile: String = "120000", val glueKg: String = "5", val pGlue: String = "65000", val groutKg: String = "0.4", val pGrout: String = "25000",
     val lTile: String = "80000",
+    // the tiler's layouts (tiles/Count.kt): corner profile and waterproofing per metre and m², labour for skirting, profiles, waterproofing
+    val pProf: String = "15000", val pWp: String = "45000", val lSkirt: String = "20000", val lProf: String = "15000", val lWp: String = "25000",
     // electrician
     val lights: Int = 1, val pSocket: String = "35000", val pSwitch: String = "30000", val pLight: String = "40000",
     val pCable: String = "9000", val pConduit: String = "3000", val pBreaker: String = "45000", val lPoint: String = "60000",

@@ -168,7 +168,7 @@ fun App.drawRoomIn(pid: String, w: Workspace, lang: Lang) {
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
-fun NewOrderScreen() {
+fun NewOrderScreen(industry: String = "furniture") {
     val app = LocalApp.current
     val lang = LocalLang.current
     var who by rememberSaveable { mutableStateOf("") }
@@ -188,10 +188,11 @@ fun NewOrderScreen() {
         focus.clearFocus()
         // named after the customer; "Oshxona — Akmal" once they say what they need (renameOrder)
         val name = who.trim()
-        val p = newProject(name, name, Phone.digits(phone), address.trim(), null, app.settings.currency, app.settings.reportLang.code).copy(industry = "furniture", autoName = true)
+        val p = newProject(name, name, Phone.digits(phone), address.trim(), null, app.settings.currency, app.settings.reportLang.code).copy(industry = industry, autoName = industry == "furniture")
         app.store.add(p)
         app.replaceTop(Route.Project(p.id))
-        app.push(Route.FGallery(p.id, fromNew = true))
+        // a tiler picks the layout first (tiles/Tiles.kt), a furniture maker the furniture
+        app.push(if (industry == "tiler") Route.TGallery(p.id, fromNew = true) else Route.FGallery(p.id, fromNew = true))
         app.say("np.created", "n" to name)
     }
 

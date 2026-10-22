@@ -120,7 +120,8 @@ class Cam3D {
 
     /** A new scene: the camera starts over unless only colours changed (the prototype starts over on every rebuild). */
     fun load(s: Shell3D) {
-        val key = listOf(s.L, s.W, s.H, s.parts.size.toDouble())
+        // a tiler's tiles changing is not a new room: the camera stays
+        val key = listOf(s.L, s.W, s.H, s.parts.count { !it.tile }.toDouble())
         if (key == shellKey) return
         shellKey = key
         anim?.cancel(); focus = null

@@ -93,7 +93,7 @@ fun GlassNav(cur: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifier) {
                 .border(1.dp, G.rim, shape).padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {
-            val furniture = LocalSettings.current.furniture
+            val furniture = LocalSettings.current.furniture || LocalSettings.current.tiler
             Tab.entries.forEach { t ->
                 val on = t == cur
                 val label = if (t == Tab.PROJECTS && furniture) "fo.tab" else t.label
@@ -126,6 +126,7 @@ private const val CALC = "M8 2.5h8a3 3 0 0 1 3 3v13a3 3 0 0 1-3 3H8a3 3 0 0 1-3-
 fun HomeScreen(nav: MainNav) {
     val settings = LocalSettings.current
     if (settings.furniture) { uz.metrx.app.ui.furniture.FurnitureHome(nav); return }
+    if (settings.tiler) { uz.metrx.app.ui.tiles.TilerHome(nav); return }
     val first = settings.builderName.trim().split(Regex("\\s+")).firstOrNull().orEmpty()
     val lines = tr("gl.lines").split('|')
     val line = lines[settings.visit % lines.size]

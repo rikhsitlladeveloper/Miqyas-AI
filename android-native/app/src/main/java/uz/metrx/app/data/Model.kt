@@ -36,7 +36,7 @@ data class Project(
     val reportNotes: String = "",                       // the report's own note (prototype p.report.notes)
     val created: Long = 0,
     val edited: Long = 0,
-    /** "build" (a builder's project) or "furniture" (a furniture order); older projects are builders'. */
+    /** "build" (a builder's project), "furniture" (a furniture order), "tiler" or another trade; older projects are builders'. */
     val industry: String = "build",
     /** Furniture: the price agreed with the customer in the smallest unit, "" until the order is approved. */
     val agreed: String = "",
@@ -51,9 +51,14 @@ data class Project(
     /** Furniture orders: what the customer wants (kitchen, wardrobe), null until chosen ("Nima kerak?"). */
     val want: List<String>? = null,
     /** Furniture orders: the name follows the furniture ("Oshxona — Akmal") until the maker renames it. */
-    val autoName: Boolean = false
+    val autoName: Boolean = false,
+    /** Tilers' orders: the tile layouts (tiles/Tiles.kt), and each room's tray, bath and waterproofing. */
+    val tiles: List<uz.metrx.app.tiles.TileLayout> = emptyList(),
+    val troom: List<uz.metrx.app.tiles.TileRoom> = emptyList()
 ) {
     val isFurniture get() = industry == "furniture"
+    /** A tiler's order (its own app: layouts in 3D, like the furniture maker's). */
+    val isTiler get() = industry == "tiler"
 }
 
 /** Money received for a furniture order: [amount] in the smallest unit; [pre] marks the prepayment. */

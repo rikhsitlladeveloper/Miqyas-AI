@@ -105,18 +105,20 @@ fun ProjectsList() {
     val app = LocalApp.current
     val lang = LocalLang.current
     val furniture = app.settings.furniture
+    val tiler = app.settings.tiler
     val all = app.store.projects
-    // each industry sees its own projects; the others stay one chip away (furniture plan section 3)
-    val ps = all.filter { it.isFurniture == furniture }
-    val others = all.filter { it.isFurniture != furniture }
-    // the simple furniture app has no stages: no "in work / finished", just all of them (and the other industry's)
-    val staged = !furniture || app.settings.advanced
+    // each industry sees its own projects (furniture orders, tilers' orders, the rest); the others stay one chip away (furniture plan section 3)
+    fun mine(p: Project) = if (furniture) p.isFurniture else if (tiler) p.isTiler else !p.isFurniture && !p.isTiler
+    val ps = all.filter { mine(it) }
+    val others = all.filter { !mine(it) }
+    // the simple furniture and tiler apps have no stages: no "in work / finished", just all of them (and the other industry's)
+    val staged = !(furniture || tiler) || app.settings.advanced
     var seg0 by rememberSaveable { mutableStateOf("active") }
     val seg = if (!staged && seg0 != "other") "all" else seg0
     var q by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         GlassHeader({ app.sheet = Sheet.Device })
-        PageTitle(tr(if (furniture) "fo.tab" else "tab.projects"), Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp))
+        PageTitle(tr(if (furniture || tiler) "fo.tab" else "tab.projects"), Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp))
         if (all.isEmpty()) { ProjectsEmpty { app.push(Route.NewProject()) }; return@Column }
         val n = mapOf("active" to ps.count { stageOf(it) != "done" }, "done" to ps.count { stageOf(it) == "done" }, "all" to ps.size)
         val needle = q.trim().lowercase()
@@ -150,7 +152,8 @@ fun ProjectsList() {
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 // the simple app has no install dates: the newest first, as on Home
-                (if (furniture && seg != "other") (if (staged) uz.metrx.app.data.sortOrders(list) else list.sortedByDescending { it.created }) else list).forEach { p -> if (p.isFurniture) uz.metrx.app.ui.furniture.OrderRow(p) { app.push(Route.Project(p.id)) } else ProjectRow(p) { app.push(Route.Project(p.id)) } }
+                (if ((furniture || tiler) && seg != "other") (if (staged && furniture) uz.metrx.app.data.sortOrders(list) else list.sortedByDescending { it.created }) else list).forEach { p -> if (p.isFurniture) uz.metrx.app.ui.furniture.OrderRow(p) { app.push(Route.Project(p.id)) }
+                    else if (p.isTiler && !staged) uz.metrx.app.ui.tiles.TOrderRow(p) { app.push(Route.Project(p.id)) } else ProjectRow(p) { app.push(Route.Project(p.id)) } }
                 if (list.isEmpty()) Text(tr(if (needle.isNotEmpty()) "pl.noMatch" else "pl.none"), style = ui(14.5f, 400, G.ink2),
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }

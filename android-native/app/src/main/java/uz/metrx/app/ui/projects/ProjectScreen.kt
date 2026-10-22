@@ -83,6 +83,12 @@ private val TABS = listOf("rooms" to "pj.t.rooms", "estimate" to "pr.estimate", 
 private val F_TABS = listOf("rooms" to "fo.rooms", "price" to "fo.price", "quotes" to "pj.t.quotes", "info" to "pj.info")
 // the simple furniture app: the rooms with their furniture, and who it is for
 private val F_TABS_SIMPLE = listOf("rooms" to "fo.rooms", "info" to "pj.info")
+/** A tiler's order: its rooms with their tile layouts; the estimate and quotes in the advanced app only. */
+private val T_TABS = listOf("rooms" to "fo.rooms", "estimate" to "pr.estimate", "quotes" to "pj.t.quotes", "info" to "pj.info")
+
+/** An order of the simple furniture or tiler app: no prices, stages or quotes. */
+@Composable
+private fun simpleOrder(p: Project) = (p.isFurniture || p.isTiler) && !LocalApp.current.settings.advanced
 
 /** Project page: name, customer and stage, three numbers, four tabs (prototype project.js + glass stage 2). */
 @Composable
@@ -93,14 +99,15 @@ fun ProjectScreen(r: Route.Project) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         // the pill names the page underneath: the orders list on that tab, or Home or Profile when opened from there
         val under = app.tab.takeIf { app.stack.size >= 2 && app.stack[app.stack.size - 2] == uz.metrx.app.ui.Route.Root && it != uz.metrx.app.ui.main.Tab.PROJECTS }
-        PageBar { BackPill(tr(under?.label ?: if (p.isFurniture) "fo.tab" else "tab.projects"), { app.pop() }) }
+        PageBar { BackPill(tr(under?.label ?: if (p.isFurniture || p.isTiler) "fo.tab" else "tab.projects"), { app.pop() }) }
         val withTotal = r.tab == "estimate" && (p.estimate.materials.isNotEmpty() || p.estimate.labor.isNotEmpty())
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = if (withTotal) 0.dp else 24.dp + NAV_SPACE).let { if (withTotal) it else it.navigationBarsPadding() }) {
             // price and quotes are the advanced app's; a link to them opens the rooms
-            val tab = if (p.isFurniture && !app.settings.advanced && (r.tab == "price" || r.tab == "quotes")) "rooms" else r.tab
+            val tab = if (simpleOrder(p) && (r.tab == "price" || r.tab == "quotes" || r.tab == "estimate")) "rooms" else r.tab
             Header(p, tab, lang)
             // a furniture order: what to do now, with the one button that does it
             if (p.isFurniture) uz.metrx.app.ui.furniture.NextStep(p)
+            if (p.isTiler) uz.metrx.app.ui.tiles.TNextStep(p)
             when (tab) {
                 "info" -> { if (p.isFurniture) uz.metrx.app.ui.furniture.FurnitureInfo(p); InfoTab(p, lang) }
                 "price" -> uz.metrx.app.ui.furniture.FPriceTab(p)
@@ -109,7 +116,7 @@ fun ProjectScreen(r: Route.Project) {
                 else -> if (r.view != "list" && p.rooms.isNotEmpty()) Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp)) {
                     ViewSeg(r.view) { app.setTop(r.copy(view = it)) }
                     if (r.view == "2d") Plans2D(p, lang) else Project3D(p, r, lang)
-                } else if (p.isFurniture) uz.metrx.app.ui.furniture.FRoomsTab(p, lang, r) else WorkspacesTab(p, lang, r)
+                } else if (p.isFurniture) uz.metrx.app.ui.furniture.FRoomsTab(p, lang, r) else if (p.isTiler) uz.metrx.app.ui.tiles.TRoomsTab(p, lang, r) else WorkspacesTab(p, lang, r)
             }
         }
         // the total floats over the tab bar, the rows scroll above it (prototype .footer.gs-tot)
@@ -121,7 +128,7 @@ fun ProjectScreen(r: Route.Project) {
 private fun Header(p: Project, tab: String, lang: Lang) {
     val app = LocalApp.current
     val context = LocalContext.current
-    val sub = (if (p.isFurniture) uz.metrx.app.ui.furniture.orderSub(p, lang, ", ") else listOf(dn(p.customer, lang), dn(p.address, lang)).filter { it.isNotBlank() }.joinToString(", ")).ifEmpty { "—" }
+    val sub = (if (p.isFurniture || p.isTiler) uz.metrx.app.ui.furniture.orderSub(p, lang, ", ") else listOf(dn(p.customer, lang), dn(p.address, lang)).filter { it.isNotBlank() }.joinToString(", ")).ifEmpty { "—" }
     val shape = RoundedCornerShape(30.dp)
     Column(
         Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp).fillMaxWidth()
@@ -145,17 +152,17 @@ private fun Header(p: Project, tab: String, lang: Lang) {
                 RoundIc("more", tr("common.menu")) { app.sheet = Sheet.ProjectMenu(p.id) }
             }
             // the simple furniture app shows no stage: with no address either, the line goes
-            if (!(p.isFurniture && sub == "—" && !app.settings.advanced)) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if (p.isFurniture && sub == "—") "" else sub, style = ui(13.5f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                if (p.isFurniture) uz.metrx.app.ui.furniture.FStageChip(p.stage) else StageChip(p.stage)
+            if (!((p.isFurniture || p.isTiler) && sub == "—" && !app.settings.advanced)) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if ((p.isFurniture || p.isTiler) && sub == "—") "" else sub, style = ui(13.5f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                if (p.isFurniture) uz.metrx.app.ui.furniture.FStageChip(p.stage) else if (!simpleOrder(p)) StageChip(p.stage)
             }
         }
-        if (tab == "rooms") { if (p.isFurniture) uz.metrx.app.ui.furniture.FNums(p) else Nums(p) }
+        if (tab == "rooms") { if (p.isFurniture) uz.metrx.app.ui.furniture.FNums(p) else if (p.isTiler) uz.metrx.app.ui.tiles.TNums(p) else Nums(p) }
         Row(
             Modifier.padding(top = 12.dp).fillMaxWidth().height(44.dp).clip(RoundedCornerShape(22.dp)).background(G.ink.copy(alpha = .06f)).padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            (if (!p.isFurniture) TABS else if (app.settings.advanced) F_TABS else F_TABS_SIMPLE).forEach { (k, l) ->
+            (if (p.isTiler) (if (app.settings.advanced) T_TABS else F_TABS_SIMPLE) else if (!p.isFurniture) TABS else if (app.settings.advanced) F_TABS else F_TABS_SIMPLE).forEach { (k, l) ->
                 val on = tab == k
                 val bubble = RoundedCornerShape(18.dp)
                 Box(
@@ -328,7 +335,7 @@ private fun InfoTab(p: Project, lang: Lang) {
                 if (p.location != null) GBtn(tr("loc.open"), { openMap(context, p) }, Btn.SECONDARY, icon = "pin", height = 40.dp, corner = 14.dp, fontSize = 14f, fill = false)
             }
             // the simple furniture app has no prices, so no currency either
-            if (!p.isFurniture || app.settings.advanced) { Hairline(); Kv(tr("np.currency"), p.currency) }
+            if (!simpleOrder(p)) { Hairline(); Kv(tr("np.currency"), p.currency) }
             Hairline()
             Kv(tr("rpt.lang"), Lang.of(p.reportLang).longName)
         }

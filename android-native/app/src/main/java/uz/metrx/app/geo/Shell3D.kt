@@ -44,8 +44,8 @@ class WallBasis(val ox: Double, val oz: Double, val ux: Double, val uz: Double, 
 /** A flat face: a convex polygon ([tris] null, drawn as a fan) or a triangulated polygon (the floor of a drawn room). */
 class Face(val n: V3, val pts: List<V3>, val tris: List<Int>? = null)
 
-/** Faces with one colour and opacity, belonging to one wall of one room ([group]); floors and loose glass have no wall. */
-class Part(val group: Int, val wall: String?, val role: Role, val rgb: Int, val op: Float) { val faces = ArrayList<Face>() }
+/** Faces with one colour and opacity, belonging to one wall of one room ([group]); floors and loose glass have no wall. [tile]: a tiler's tiles. */
+class Part(val group: Int, val wall: String?, val role: Role, val rgb: Int, val op: Float, val tile: Boolean = false) { val faces = ArrayList<Face>() }
 
 /** A wall's outline as line segments (pairs of points), like the prototype's EdgesGeometry lines. */
 class Edges(val group: Int, val wall: String) { val segs = ArrayList<V3>() }

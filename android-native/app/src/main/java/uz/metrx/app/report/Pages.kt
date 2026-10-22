@@ -471,8 +471,11 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
  * The report's pages for [sn]: the parties and the first room, two rooms a page after that, the notes, then the views,
  * the estimate, the notes to the customer and the signatures. A [draft] says so in its title and across every page.
  */
-fun reportPages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, image: (String) -> ImageBitmap?, now: Long = System.currentTimeMillis()): List<RPage> {
-    val d = Doc(tm, sn, draft, meta, image, now)
+fun reportPages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, image: (String) -> ImageBitmap?, now: Long = System.currentTimeMillis(),
+                design: Boolean = false): List<RPage> {
+    // [design]: a tiler's simple app shares the design: dated, no draft mark (its snapshot has no estimate)
+    val d = Doc(tm, sn, draft && !design, meta, image, now)
+    if (design) { d.quoteTitle = "rpt.design"; d.subLine = uz.metrx.app.data.fmtDate(now) }
     val rooms = sn.rooms
     d.newPage(); d.parties()
     // with the plans and the measurements both off the rooms print nothing: no empty pages for them

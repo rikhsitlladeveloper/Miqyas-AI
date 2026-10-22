@@ -51,6 +51,14 @@ sealed interface Route {
     data class FSteps(val pid: String, val model: String, val fid: String? = null, val vals: String? = null) : Route
     data class FWhere(val pid: String, val model: String, val vals: String) : Route
     data class FPlace(val pid: String, val fid: String?, val rid: String, val model: String? = null, val vals: String? = null) : Route
+    /**
+     * A tiler's order: the gallery of layouts ([rid] the room it is for, [fromNew] right after a new order); a layout's
+     * steps (a new one from gallery card [model], or layout [lid]); a room's tiles in 3D ([rid]), or a layout without
+     * a room ([rid] null, layout [lid]).
+     */
+    data class TGallery(val pid: String, val rid: String? = null, val fromNew: Boolean = false) : Route
+    data class TSteps(val pid: String, val model: String, val lid: String? = null, val rid: String? = null) : Route
+    data class TView(val pid: String, val rid: String?, val lid: String? = null) : Route
     /** A furniture order's parts and sheet layout, and its workshop pack. */
     data class FCut(val pid: String) : Route
     data class FPack(val pid: String) : Route
@@ -158,6 +166,11 @@ sealed interface Sheet {
     /** A bed's, a table's, a mirror's… size ([key]) of box [mid] (furniture/Items.kt itemSet). */
     data class IField(val pid: String, val fid: String, val mid: String, val key: String) : Sheet
     data class FMats(val pid: String, val fid: String) : Sheet
+    /** A tiler's order: a new room, a shower tray or bath ([fid] null: a new one of [type]), a layout's counting, the prices. */
+    data class TNewRoom(val pid: String) : Sheet
+    data class TFixForm(val pid: String, val rid: String, val fid: String?, val type: String = "tray") : Sheet
+    data class TCount(val pid: String, val lid: String) : Sheet
+    data class TPrices(val pid: String?) : Sheet
     /** The Narx tab: a rate, the fixed price or the lead time ([key] rRun, rTall, fixed, days). */
     data class FPriceField(val pid: String, val key: String) : Sheet
 }
@@ -237,6 +250,9 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.FSteps -> store.get(r.pid)?.let { p -> r.fid == null || p.furniture.any { it.id == r.fid } } == true
                     is Route.FWhere -> store.get(r.pid) != null
                     is Route.FPlace -> store.get(r.pid)?.let { p -> (r.fid == null || p.furniture.any { it.id == r.fid }) && p.rooms.any { it.id == r.rid } } == true
+                    is Route.TGallery -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
+                    is Route.TSteps -> store.get(r.pid)?.let { p -> r.lid == null || p.tiles.any { it.id == r.lid } } == true
+                    is Route.TView -> store.get(r.pid)?.let { p -> if (r.rid != null) p.rooms.any { it.id == r.rid } else p.tiles.any { it.id == r.lid } } == true
                     is Route.FCut -> store.get(r.pid) != null
                     is Route.FPack -> store.get(r.pid) != null
                     Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, is Route.Measure, Route.LiveCam -> true

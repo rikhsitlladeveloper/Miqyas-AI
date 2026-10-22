@@ -17,8 +17,9 @@ fun dn(s: String?, l: Lang): String = when {
     else -> s
 }
 
+// a value "~key" is itself a strings key (a tile's look in the tiler's lines), shown in the language too
 private fun keyVars(q: String, l: Lang): Map<String, Any?> = q.split('&').filter { '=' in it }
-    .associate { it.substringBefore('=') to it.substringAfter('=').let { v -> if (l == Lang.EN) v else v.replace('.', ',') } }
+    .associate { it.substringBefore('=') to it.substringAfter('=').let { v -> if (v.startsWith("~")) Strings.t(v.drop(1), l) else if (l == Lang.EN) v else v.replace('.', ',') } }
 
 /** The stored form of a text with values ("@key?w=300&a=12.5"), which [dn] shows in any language. */
 fun keyName(key: String, vars: Map<String, Any>): String =

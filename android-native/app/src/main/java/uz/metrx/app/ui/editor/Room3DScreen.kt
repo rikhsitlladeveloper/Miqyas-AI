@@ -116,7 +116,8 @@ fun Room3DScreen(r0: Route.Editor) {
         val base = remember(r.dims, r.openings, r.poly, r.points, r.features, r.wallColor, r.floorColor, snap) { buildShell(listOf(r), true, snap) }
         // a furniture order's furniture stands in its room; a tap opens a door or a drawer
         val mo = uz.metrx.app.ui.furniture.rememberDoorMotion(r.id)
-        val (shell, fur) = if (p.isFurniture) uz.metrx.app.ui.furniture.rememberFurnShell(p, r, base, mo) else base to null
+        val (shell, fur) = if (p.isFurniture) uz.metrx.app.ui.furniture.rememberFurnShell(p, r, base, mo)
+            else if (p.isTiler) uz.metrx.app.ui.tiles.rememberTileShell(p, r, base, snap) to null else base to null
         val cam = remember(r.id) { Cam3D() }
         val shot = remember { Shot3D() }
         var taking by remember { mutableStateOf(false) }   // a second tap while a picture is being taken does nothing
