@@ -55,7 +55,7 @@ struct EstimateTab: View {
                 let same = fingerprint(snapshotOf(p)) == q.fp
                 QuoteBanner(same: same, text: tr(same ? "es.same" : "es.changed", ["n": q.no]))
             }
-            if p.isTiler { TilesCard(app: app, p: p) } else if p.isElec { ElecCard(app: app, p: p) } else if p.isPlumb { PlumbCard(app: app, p: p) } else if isTrade(p.industry) { TradeCard(app: app, p: p) }
+            if p.isTiler { TilesCard(app: app, p: p) } else if p.isElec { ElecCard(app: app, p: p) } else if p.isPlumb { PlumbCard(app: app, p: p) } else if p.isWin { WinCard(app: app, p: p) } else if isTrade(p.industry) { TradeCard(app: app, p: p) }
             if mats.isEmpty && labs.isEmpty { EmptyEstimate(app: app, p: p) }
             else {
                 RowsCard(title: tr("es.mat"), n: mats.count, total: Money.of(tt.m, p), addKey: "gs.addMat",

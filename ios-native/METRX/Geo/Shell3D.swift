@@ -159,7 +159,7 @@ func wallPieces(_ a0: Double, _ a1: Double, _ ops: [[Double]], _ H: Double) -> [
 }
 
 /// A rectangular room at x offset ox (prototype build3D, one room). Returns its extent: along x, along z, height.
-private func rectRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ single: Bool, _ name: String) -> [Double] {
+private func rectRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ single: Bool, _ name: String, _ bare: Set<String> = []) -> [Double] {
     let L = Double(room.dim("A").v!) / 1000, W = Double(room.dim("B").v!) / 1000, H = Double(room.dim("H").v!) / 1000
     let T = Double(room.dim("T").v ?? 200) / 1000
     let X = { (x: Double) in x + ox + T }
@@ -173,7 +173,9 @@ private func rectRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
         room.openings.filter { $0.wall == w }.map { o in
             let off = Double(o.off) / 1000, wd = Double(o.w) / 1000
             let ab: (Double, Double) = w == "A" || w == "B" ? (off, off + wd) : w == "C" ? (L - off - wd, L - off) : (W - off - wd, W - off)
-            return [ab.0, ab.1, Double(o.sill) / 1000, Double(o.h) / 1000, o.type == "door" ? 1 : 0]
+            let door: Double = o.type == "door" ? 1 : 0
+            let filled: Double = bare.contains(o.id) ? 1 : 0
+            return [ab.0, ab.1, Double(o.sill) / 1000, Double(o.h) / 1000, door, filled]
         }
     }
     // niches: cut out of the wall like an opening [a, b, sill, height, 2] and closed at their depth
@@ -195,7 +197,8 @@ private func rectRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
         case "B": for pc in wallPieces(0, W, ops, H) { box(w, L, L + T, pc[2], pc[3], pc[0], pc[1], p) }
         default: for pc in wallPieces(0, W, ops, H) { box(w, -T, 0, pc[2], pc[3], pc[0], pc[1], p) }
         }
-        for o in ops where o[4] != 2 { openingModel(b, gi, w, o, T, L, W, X) }
+        // an opening a windows-and-doors maker filled has the product drawn in it instead (bare)
+        for o in ops where o[4] != 2 && !(o.count > 5 && o[5] == 1) { openingModel(b, gi, w, o, T, L, W, X) }
         // the niche's back, its depth into the wall
         for n in niches {
             let dd = n[5]
@@ -363,7 +366,7 @@ func earClip(_ v: [P2]) -> [Int] {
 }
 
 /// A drawn room (prototype sketch build3D): each wall extruded along the solved polygon, windows as glass, the floor as the polygon.
-private func polyRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ single: Bool, _ name: String, _ snap: Bool) -> [Double] {
+private func polyRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ single: Bool, _ name: String, _ snap: Bool, _ bare: Set<String> = []) -> [Double] {
     let H = Double(room.dim("H").v!) / 1000, T = Double(room.dim("T").v ?? 200) / 1000
     let ws = Geo.walls(room, snap), n = ws.count
     let ip: [P2] = ws.map { ($0.p0.x / 1000, $0.p0.y / 1000) }
@@ -383,8 +386,10 @@ private func polyRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
         let a = ip[i], c = ip[(i + 1) % n], u = uu[i], len = u.2, q = no[i]
         let at = { (d: Double) -> P2 in (a.0 + u.0 * d, a.1 + u.1 * d) }
         let off = { (p: P2, k: Double) -> P2 in (p.0 + q.0 * k, p.1 + q.1 * k) }
-        let ops: [[Double]] = room.openings.filter { $0.wall == w.id }.map { o in
-            [Double(o.off) / 1000, Double(o.off + o.w) / 1000, Double(o.sill) / 1000, Double(o.h) / 1000, o.type == "door" ? 1 : 0]
+        let ops: [[Double]] = room.openings.filter { $0.wall == w.id }.map { o -> [Double] in
+            let door: Double = o.type == "door" ? 1 : 0
+            let filled: Double = bare.contains(o.id) ? 1 : 0
+            return [Double(o.off) / 1000, Double(o.off + o.w) / 1000, Double(o.sill) / 1000, Double(o.h) / 1000, door, filled]
         }
         let p = b.part(gi, w.id, .wall, wallRgb), e = b.edgesOf(gi, w.id)
         for pc in wallPieces(0, len, ops, H) {
@@ -394,7 +399,7 @@ private func polyRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
             let i1 = s1 > len - 1e-6 ? c : at(s1), o1 = s1 > len - 1e-6 ? op[(i + 1) % n] : off(at(s1), T)
             prism(p, e, [pt(i0), pt(i1), pt(o1), pt(o0)], pc[2], pc[3])
         }
-        for o in ops where o[4] == 0 {
+        for o in ops where o[4] == 0 && o[5] != 1 {
             let g = b.part(gi, nil, .glass, GLASS, 0.5)
             prism(g, nil, [pt(off(at(o[0]), T / 2 - 0.01)), pt(off(at(o[1]), T / 2 - 0.01)), pt(off(at(o[1]), T / 2 + 0.01)), pt(off(at(o[0]), T / 2 + 0.01))], o[2], o[2] + o[3])
         }
@@ -419,13 +424,13 @@ private func polyRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
 }
 
 /// Rooms in one line (prototype build3D), as the prototype's sketch override does: any drawn room sends all rooms the polygon way.
-private func base(_ rooms: [Room], _ single: Bool, _ snap: Bool, _ name: (Room) -> String) -> (Builder3, [Double]) {
+private func base(_ rooms: [Room], _ single: Bool, _ snap: Bool, _ name: (Room) -> String, _ bare: Set<String> = []) -> (Builder3, [Double]) {
     let b = Builder3()
     var ox = 0.0, maxW = 0.0, maxH = 0.0
     let gap = 1.2
     let poly = rooms.contains { $0.isPoly }
     for (gi, room) in rooms.enumerated() {
-        let ext = poly ? polyRoom(b, room, gi, ox, single, name(room), snap) : rectRoom(b, room, gi, ox, single, name(room))
+        let ext = poly ? polyRoom(b, room, gi, ox, single, name(room), snap, bare) : rectRoom(b, room, gi, ox, single, name(room), bare)
         ox += ext[0] + gap; maxW = max(maxW, ext[1]); maxH = max(maxH, ext[2])
     }
     return (b, [max(ox - gap, 1), maxW, maxH])
@@ -434,10 +439,11 @@ private func base(_ rooms: [Room], _ single: Bool, _ snap: Bool, _ name: (Room) 
 private func lightTowards(_ span: Double, _ maxW: Double, _ maxH: Double) -> V3 { V3(span * 0.7 + 3, maxH * 3 + 4, maxW * 1.6 + 3).unit }
 
 /// The scene for one room (single, with wall letters) or for the rooms of a workspace (names that zoom to a room), with
-/// the ux module's limits: the view's middle stays over the rooms and the zoom inside a range.
-func buildShell(_ rooms: [Room], single: Bool, snap: Bool = true, name: (Room) -> String = { $0.name }) -> Shell3D {
+/// the ux module's limits: the view's middle stays over the rooms and the zoom inside a range. Openings in bare (filled by
+/// a windows-and-doors maker's products, drawn by its own app) get no standard window or door.
+func buildShell(_ rooms: [Room], single: Bool, snap: Bool = true, bare: Set<String> = [], name: (Room) -> String = { $0.name }) -> Shell3D {
     if single || rooms.count < 2 {
-        let (b, d) = base(rooms, single, snap, name)
+        let (b, d) = base(rooms, single, snap, name, bare)
         let span = d[0], maxW = d[1], maxH = d[2], gs = max(span, maxW) + 4
         return Shell3D(
             parts: b.parts, edges: b.edges, groups: b.groups, labels: b.labels, rooms3: nil, L: span, W: maxW, H: maxH,

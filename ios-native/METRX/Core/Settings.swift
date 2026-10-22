@@ -26,6 +26,10 @@ final class AppSettings {
     var elec: Bool { industry == "elec" }
     /// A plumber: own home, orders, fixtures, pipes and heating (Plumb/Plumb.swift).
     var plumb: Bool { industry == "plumb" }
+    /// A windows-and-doors maker: own home, orders, products fitted in the openings (Win/Win.swift).
+    var win: Bool { industry == "win" }
+    /// The order apps (furniture and the trades with their own app): projects are orders, the simple app has no prices.
+    var orderApp: Bool { furniture || tiler || elec || plumb || win }
     /// A furniture maker's prices, order stages, workshop rules and cutting lists (Profile → Advanced); off, the app is just the 3D design.
     private(set) var advanced: Bool
     /// The trades' calculator: options and prices (Trades/Trades.swift), one set for all.

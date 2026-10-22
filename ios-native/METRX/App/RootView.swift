@@ -134,6 +134,7 @@ struct RootView: View {
             else if e == nil && AppSettings.shared.tiler { NewOrderScreen(app: app, industry: "tiler") }
             else if e == nil && AppSettings.shared.elec { NewOrderScreen(app: app, industry: "elec") }
             else if e == nil && AppSettings.shared.plumb { NewOrderScreen(app: app, industry: "plumb") }
+            else if e == nil && AppSettings.shared.win { NewOrderScreen(app: app, industry: "win") }
             else { NewProjectScreen(app: app, editId: e) }
         case .project(let id, let tab, let view, let floor): ProjectScreen(app: app, id: id, tab: tab, view: view, floor: floor)
         case .space(let pid, let wid): SpaceScreen(app: app, pid: pid, wid: wid)
@@ -162,6 +163,10 @@ struct RootView: View {
         case .pGallery(let pid, let rid, let fromNew): PGalleryScreen(app: app, pid: pid, rid: rid, fromNew: fromNew)
         case .pSteps(let pid, let kit, let rid): PStepsScreen(app: app, pid: pid, kit: kit, rid: rid)
         case .pView(let pid, let rid): PViewScreen(app: app, pid: pid, rid: rid)
+        case .wGallery(let pid, let rid, let oid, let fromNew): WGalleryScreen(app: app, pid: pid, rid: rid, oid: oid, fromNew: fromNew)
+        case .wPlace(let pid, let kind, let rid, let oid): WPlaceScreen(app: app, pid: pid, kind: kind, rid: rid, oid: oid)
+        case .wDesign(let pid, let iid): WDesignScreen(app: app, pid: pid, iid: iid)
+        case .wView(let pid, let rid): WViewScreen(app: app, pid: pid, rid: rid)
         }
     }
 
@@ -170,7 +175,8 @@ struct RootView: View {
         case .language: LanguageSheet(app: app)
         case .device: DeviceSheet(app: app)
         default:
-            if PlumbSheet.handles(s) { PlumbSheet(app: app, sheet: s) }
+            if WinSheet.handles(s) { WinSheet(app: app, sheet: s) }
+            else if PlumbSheet.handles(s) { PlumbSheet(app: app, sheet: s) }
             else if ElecSheet.handles(s) { ElecSheet(app: app, sheet: s) }
             else if TileSheet.handles(s) { TileSheet(app: app, sheet: s) }
             else if OrderFlowSheet.handles(s) { OrderFlowSheet(app: app, sheet: s) }

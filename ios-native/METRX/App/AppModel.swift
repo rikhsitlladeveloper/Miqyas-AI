@@ -66,6 +66,14 @@ enum Route: Hashable {
     case pGallery(pid: String, rid: String? = nil, fromNew: Bool = false)
     case pSteps(pid: String, kit: String, rid: String? = nil)
     case pView(pid: String, rid: String)
+    /// A windows-and-doors order (Android WinScreens / WGallery / WDesign / WView): the gallery of products (rid the room,
+    /// oid the opening it is for, fromNew right after a new order); where a type goes (openings or a typed size); a
+    /// product's designer (iid); a room's products in 3D and from above (rid a room, or "free:<id>" a product without a
+    /// room).
+    case wGallery(pid: String, rid: String? = nil, oid: String? = nil, fromNew: Bool = false)
+    case wPlace(pid: String, kind: String, rid: String? = nil, oid: String? = nil)
+    case wDesign(pid: String, iid: String)
+    case wView(pid: String, rid: String)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -158,6 +166,10 @@ enum Sheet: Equatable {
     case pSystem(pid: String)
     case pPrices(pid: String?)
     case pFree(pid: String, fid: String?)
+    /// A windows-and-doors order: a new room, the fitting gap, the prices.
+    case wNewRoom(pid: String)
+    case wGap(pid: String)
+    case wPrices(pid: String?)
 }
 
 /// Screens of the sign-in flow.
@@ -239,6 +251,12 @@ final class AppModel {
                     return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
                 case .pView(let pid, let rid):
                     return store.get(pid).map { p in p.rooms.contains { $0.id == rid } || p.plumb.free.contains { "free:" + $0.id == rid } } == true
+                case .wGallery(let pid, let rid, _, _), .wPlace(let pid, _, let rid, _):
+                    return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
+                case .wDesign(let pid, let iid):
+                    return store.get(pid)?.win.item(iid) != nil
+                case .wView(let pid, let rid):
+                    return store.get(pid).map { p in p.rooms.contains { $0.id == rid } || p.win.items.contains { "free:" + $0.id == rid } } == true
                 default: return true
                 }
             }

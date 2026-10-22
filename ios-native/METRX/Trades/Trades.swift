@@ -36,6 +36,8 @@ struct TradeSet: Codable, Equatable {
     var lPPt = "120000", lPFix = "150000", lPM = "15000", lPRad = "200000", lPChase = "25000"
     // windows and doors
     var pWinM2 = "900000", pDoorM2 = "1200000", pSillM = "150000", pRevealM = "60000", lWin = "250000"
+    // the windows-and-doors app's prices from the parts, a list per profile system (Win/WinCount.swift)
+    var win = WinPrices()
     init() {}
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -57,6 +59,7 @@ struct TradeSet: Codable, Equatable {
         pMeter = c.v(.pMeter, z.pMeter); pFilter = c.v(.pFilter, z.pFilter); pManif = c.v(.pManif, z.pManif)
         lPPt = c.v(.lPPt, z.lPPt); lPFix = c.v(.lPFix, z.lPFix); lPM = c.v(.lPM, z.lPM); lPRad = c.v(.lPRad, z.lPRad); lPChase = c.v(.lPChase, z.lPChase)
         pWinM2 = c.v(.pWinM2, z.pWinM2); pDoorM2 = c.v(.pDoorM2, z.pDoorM2); pSillM = c.v(.pSillM, z.pSillM); pRevealM = c.v(.pRevealM, z.pRevealM); lWin = c.v(.lWin, z.lWin)
+        win = c.v(.win, z.win)
     }
 }
 

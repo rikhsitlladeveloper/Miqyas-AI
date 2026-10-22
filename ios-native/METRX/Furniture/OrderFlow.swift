@@ -178,6 +178,7 @@ struct NewOrderScreen: View {
         if industry == "tiler" { next = .tGallery(pid: p.id, fromNew: true) }
         else if industry == "elec" { next = .eGallery(pid: p.id, fromNew: true) }
         else if industry == "plumb" { next = .pGallery(pid: p.id, fromNew: true) }
+        else if industry == "win" { next = .wGallery(pid: p.id, fromNew: true) }
         app.push(next)
         app.say("np.created", ["n": name])
     }

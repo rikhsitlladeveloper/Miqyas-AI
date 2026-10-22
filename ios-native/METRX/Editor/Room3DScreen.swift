@@ -20,6 +20,8 @@ struct Room3DScreen: View {
     @State private var eb = ElecShellBox()
     /// A plumber's order: its fixtures and pipes in the room, worked out away from the screen's thread.
     @State private var pb = PlumbShellBox()
+    /// A windows-and-doors order: its products fitted in the room's openings, worked out away from the screen's thread.
+    @State private var wb = WinShellBox()
     private var ops: RoomOps { RoomOps.shared }
 
     /// A trade's order in its room: a tiler's tiles, an electrician's devices and routes; nil for the rest.
@@ -27,6 +29,7 @@ struct Room3DScreen: View {
         if p.isTiler { return tb.shell(p, r, base, snap) }
         if p.isElec { return eb.shell(p, r, snap) }
         if p.isPlumb { return pb.shell(p, r, snap) }
+        if p.isWin { return wb.shell(p, r, snap) }
         return nil
     }
 

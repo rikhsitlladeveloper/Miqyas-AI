@@ -37,7 +37,7 @@ struct ProfileScreen: View {
                         .padding(.horizontal, 12).padding(.top, 12).padding(.bottom, 8)
                         .pressable(0.99) { app.editMe = true }
                         .accessibilityIdentifier("profile.me")
-                        HStack(spacing: 7) { MIcon("doc", G.ink2, 16, 2); T(tr((s.furniture || s.tiler || s.elec || s.plumb) && !s.advanced ? "pf.onDesign" : "pf.onQuote"), ui(12.5, 400, G.ink2, lh: 1.4)) }
+                        HStack(spacing: 7) { MIcon("doc", G.ink2, 16, 2); T(tr(s.orderApp && !s.advanced ? "pf.onDesign" : "pf.onQuote"), ui(12.5, 400, G.ink2, lh: 1.4)) }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 10)
                             .overlay(alignment: .top) { Rectangle().fill(G.rim).frame(height: 0.67) }
@@ -97,13 +97,26 @@ struct ProfileScreen: View {
                         }
                         T(tr("sx.advSub"), ui(12.5, 400, G.ink2, lh: 1.4)).padding(.horizontal, 28).padding(.top, 8)
                     }
+                    // windows and doors: the same switch; on, the parts, prices per profile system, estimate and quotes (off: only
+                    // the drawings and 3D)
+                    if s.win {
+                        Group1(text: tr("dw.gWork"))
+                        Card {
+                            SwitchRow(icon: "sliders", title: tr("adv.title"), on: s.advanced) { s.setAdvancedOn(!s.advanced); if !s.advanced { app.dropAdvanced() }; app.say(s.advanced ? "adv.on" : "adv.off") }
+                                .accessibilityIdentifier("pf.advanced")
+                            if s.advanced {
+                                Row1(icon: "coin", title: tr("tl.prices"), value: nil, sub: tr("dw.pricesS")) { app.sheet = .wPrices(pid: nil) }.accessibilityIdentifier("pf.wPrices")
+                            }
+                        }
+                        T(tr("dw.advSub"), ui(12.5, 400, G.ink2, lh: 1.4)).padding(.horizontal, 28).padding(.top, 8)
+                    }
                     Group1(text: tr("pf.gReport"))
                     Card {
                         Row1(icon: "sliders", title: tr("ind.row"), value: tr(s.furniture ? "ind.furn" : isTrade(s.industry) ? "ind.\(s.industry ?? "")" : "ind.build")) { app.sheet = .industry }
                         Row1(icon: "globe", title: tr("se.lang"), value: s.lang.longName) { app.sheet = .language }
                         Row1(icon: "doc", title: tr("se.reportLang"), value: s.reportLang.longName) { app.sheet = .reportLang }
                         // the simple furniture app shares a design: no estimate in it, and no prices to have a currency
-                        let design = (s.furniture || s.tiler || s.elec || s.plumb) && !s.advanced
+                        let design = s.orderApp && !s.advanced
                         Row1(icon: "layers", title: tr("se.pdf"), value: "\(pdfCount(s.pdf, design))/\(pdfKeys(design).count)") { app.sheet = .pdfParts }
                         if !design { Row1(icon: "coin", title: tr("np.currency"), value: s.currency) { app.sheet = .currency } }
                     }
@@ -357,7 +370,7 @@ private struct PdfPartsSheet: View {
     let app: AppModel
     var body: some View {
         let s = AppSettings.shared, p = s.pdf
-        let design = (s.furniture || s.tiler || s.elec || s.plumb) && !s.advanced
+        let design = s.orderApp && !s.advanced
         GlassSheet(tr("se.pdf"), onClose: { app.sheet = nil }) {
             ForEach([("plan", p.plan), ("dims", p.dims), ("views", p.views), ("estimate", p.estimate), ("sign", p.sign)].filter { pdfKeys(design).contains($0.0) }, id: \.0) { k, on in
                 HStack(spacing: 12) { MIcon(on ? "boxok" : "box", on ? G.cobalt : G.ink2, 24, 2); T(tr("pdf." + k), ui(16, 500)).frame(maxWidth: .infinity, alignment: .leading) }

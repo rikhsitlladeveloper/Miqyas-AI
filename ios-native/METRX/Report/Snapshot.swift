@@ -10,7 +10,24 @@ func snapshotOf(_ p: Project, _ s: AppSettings = .shared, pdf: PdfParts? = nil) 
     if p.isFurniture { return furnSnap(sn, p, s.workshop, s.mats, s.hws) }
     if p.isElec { return elecSnap(sn, p, s.angleSnap) }
     if p.isPlumb { return plumbSnap(sn, p, s.angleSnap) }
+    if p.isWin { return winSnap(sn, p, s.advanced ? s.trade.win : nil) }
     return sn
+}
+
+/// A windows-and-doors order's part of the snapshot: its products, and with prices (the advanced app) each one's price.
+func winSnap(_ sn: Snap, _ p: Project, _ prices: WinPrices?) -> Snap {
+    if p.win.empty { return sn }
+    var cost: [String: Int64] = [:]
+    if let prices {
+        for (it, r) in wWithReveals(p) {
+            let v = eMathRoundP(wItemCost(it, r, prices))
+            cost[it.id] = v.isFinite ? Int64(min(max(v, -9e15), 9e15)) : 0
+        }
+    }
+    var out = sn
+    out.win = p.win
+    out.winPrice = cost
+    return out
 }
 
 /// A plumber's order's part of the snapshot: its fixtures, outlets, riser and rooms, each room's kind written down.
@@ -107,6 +124,8 @@ func fingerprint(_ sn: Snap) -> String {
         var el: ElecOrder? = nil
         /// plumbers' orders only
         var pl: PlumbOrder? = nil
+        /// windows-and-doors orders only: the products and each one's price
+        var dw: WinOrder? = nil, dwp: [String: Int64]? = nil
     }
     let f = F(name: sn.name, customer: sn.customer, address: sn.address, currency: sn.currency, precision: sn.precision, lang: sn.lang,
               unit: sn.unit, notes: sn.notes, builder: [sn.builderName, sn.builderPhone],
@@ -127,6 +146,7 @@ func fingerprint(_ sn: Snap) -> String {
     if handlesPrinted && sn.fhandles != "Tutqich skoba 128" { g.hd = sn.fhandles }
     if let e = sn.elec { g.el = e }
     if let e = sn.plumb { g.pl = e }
+    if let e = sn.win { g.dw = e; g.dwp = sn.winPrice }
     let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
     return (try? enc.encode(g)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
 }
