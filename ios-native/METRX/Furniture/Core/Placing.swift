@@ -91,7 +91,9 @@ func mainFrame(_ f: Furniture, _ walls: [PlanWall]) -> Frame? {
     if f.kind == "wardrobe" {
         if let p = f.pose { return frameOf(walls, p) }
         guard let m = wardOfF(f), let w = walls.first(where: { $0.id == m.wall }) else { return nil }
-        return Frame(o: w.at(Double(m.x), 0), u: w.u, n: w.n)
+        // a piece of several boxes from where its run starts
+        let x = boxes(f).count > 1 ? runStart(f) : m.x
+        return Frame(o: w.at(Double(x), 0), u: w.u, n: w.n)
     }
     guard let w = walls.first(where: { $0.id == f.walls.first { $0 != ISLAND } }) else { return nil }
     return Frame(o: w.at(Double(leadOf(f)), 0), u: w.u, n: w.n)
@@ -109,13 +111,21 @@ func footsOf(_ f: Furniture, _ walls: [PlanWall], _ ws0: Workshop) -> [Foot] {
     let ws = wsOf(f, ws0)
     var out: [Foot] = []
     if f.kind == "wardrobe" {
-        guard let m = wardOfF(f) else { return out }
-        let hi = outerH(m, ws)
-        if let p = f.pose {
-            if let fr = frameOf(walls, p) { out.append(Foot(pts: box(fr, 0, Double(m.w), Double(m.d)), lo: 0, hi: hi, wall: nil, a0: 0, a1: 0, floor: true)) }
-        } else if let w = walls.first(where: { $0.id == m.wall }) {
-            let a0 = Double(m.x), a1 = Double(m.x + m.w)
-            out.append(Foot(pts: box(wallFrame(w), a0, a1, Double(m.d)), lo: 0, hi: hi, wall: w.id, a0: a0, a1: a1, floor: true))
+        guard let main = wardOfF(f) else { return out }
+        // every box: one standing free moves with the main one, the others on their walls; a hung one off the floor
+        for m in boxes(f) {
+            let lo = hung(m) ? m.elev : 0
+            let hi = topOf(m, ws)
+            let floor = !hung(m)
+            if let p = f.pose {
+                if let fr = frameOf(walls, p) {
+                    let a0 = Double(m.x - main.x)
+                    out.append(Foot(pts: box(fr, a0, a0 + Double(m.w), Double(m.d)), lo: lo, hi: hi, wall: nil, a0: 0, a1: 0, floor: floor))
+                }
+            } else if let w = walls.first(where: { $0.id == m.wall }) {
+                let a0 = Double(m.x), a1 = Double(m.x + m.w)
+                out.append(Foot(pts: box(wallFrame(w), a0, a1, Double(m.d)), lo: lo, hi: hi, wall: w.id, a0: a0, a1: a1, floor: floor))
+            }
         }
         return out
     }
@@ -151,13 +161,18 @@ let HINGE_CLEAR = 50
 /// Whether f's left and right ends (along its wall) have a door hinged right at them. A kitchen's run ends may.
 func hingedEnds(_ f: Furniture) -> (Bool, Bool) {
     if f.kind != "wardrobe" { return (true, true) }
-    guard let m = wardOfF(f) else { return (false, false) }
-    if m.slide != nil || m.sections.isEmpty { return (false, false) }
-    func at(_ i: Int, _ right: Bool) -> Bool {
+    // the boxes standing at the run's two ends (a corner piece's right end is its second arm's)
+    let ms = f.modules.filter { $0.type == "wardrobe" && !hung($0) }
+    let wl = f.walls.first, wr = f.walls.last
+    let l = ms.filter { $0.wall == (wl ?? $0.wall) }.min(by: { $0.x < $1.x })
+    let r = ms.filter { $0.wall == (wr ?? $0.wall) }.max(by: { $0.x + $0.w < $1.x + $1.w })
+    func at(_ m: Module?, _ right: Bool) -> Bool {
+        guard let m, m.slide == nil, !m.sections.isEmpty else { return false }
+        let i = right ? m.sections.count - 1 : 0
         let s = m.sections[i]
         return s.fronts.kind == "door" && (s.fronts.n >= 2 || hingeRight(m, i) == right)
     }
-    return (at(0, false), at(m.sections.count - 1, true))
+    return (at(l, false), at(r, true))
 }
 
 /// How far from the corner a cabinet stands at its left (or right) end: 50 where a door hinges there, else 10.
@@ -187,21 +202,45 @@ func swingsOf(_ f: Furniture, _ walls: [PlanWall], _ ws0: Workshop) -> [Foot] {
         Foot(pts: quad(fr, a0, a1, d, d + d * 0.75), lo: lo, hi: hi, wall: nil, a0: a0, a1: a1, floor: true)
     }
     if f.kind == "wardrobe" {
-        guard let m = wardOfF(f), m.slide == nil, let fr = mainFrame(f, walls) else { return out }
-        let lo = legsOf(m, ws) + wardBase(m), hi = legsOf(m, ws) + m.h
-        let d = Double(m.d)
-        var a = 0.0
-        for (i, s) in m.sections.enumerated() {
-            let n = max(1, s.fronts.n), dw = Double(s.w) / Double(n)
-            if s.fronts.kind == "door" {
-                for j in 0..<n {
-                    let right = n == 2 ? j == 1 : hingeRight(m, i)
-                    out.append(door(fr, a + Double(j) * dw, a + Double(j + 1) * dw, d, right, lo, hi))
-                }
-            } else if s.fronts.kind == "drawer" {
-                out.append(drawer(fr, a, a + Double(s.w), d, lo, hi))
+        guard let main = wardOfF(f) else { return out }
+        let p = f.pose
+        // each box's frame: where the main one stands free, else its own wall at its start
+        func frame(_ m: Module) -> Frame? {
+            if let p {
+                guard let fr = frameOf(walls, p) else { return nil }
+                return Frame(o: fr.o + fr.u * Double(m.x - main.x), u: fr.u, n: fr.n)
             }
-            a += Double(s.w)
+            guard let w = walls.first(where: { $0.id == m.wall }) else { return nil }
+            return Frame(o: w.at(Double(m.x), 0), u: w.u, n: w.n)
+        }
+        for m in f.modules {
+            guard let fr = frame(m) else { continue }
+            if m.type == "bed" {
+                // a bed's drawers pull out sideways from its long sides
+                for d in bedDrawers(m, ws) {
+                    let reach = Double(d.depth) * 0.75
+                    let a0 = d.side < 0 ? -reach : Double(m.w)
+                    let a1 = d.side < 0 ? 0.0 : Double(m.w) + reach
+                    out.append(Foot(pts: quad(fr, a0, a1, Double(d.n0), Double(d.n1)), lo: d.y0, hi: d.y1, wall: nil, a0: 0, a1: 0, floor: true))
+                }
+            }
+            if m.type != "wardrobe" || m.slide != nil { continue }
+            let z = legsOf(m, ws) + m.elev
+            let lo = z + wardBase(m), hi = z + m.h
+            let d = Double(m.d)
+            var a = 0.0
+            for (i, s) in m.sections.enumerated() {
+                let n = max(1, s.fronts.n), dw = Double(frontW(s)) / Double(n)
+                if s.fronts.kind == "door" {
+                    for j in 0..<n {
+                        let right = n == 2 ? j == 1 : hingeRight(m, i)
+                        out.append(door(fr, a + Double(j) * dw, a + Double(j + 1) * dw, d, right, lo, hi))
+                    }
+                } else if s.fronts.kind == "drawer" {
+                    out.append(drawer(fr, a, a + Double(frontW(s)), d, lo, hi))
+                }
+                a += Double(s.w)
+            }
         }
         return out
     }

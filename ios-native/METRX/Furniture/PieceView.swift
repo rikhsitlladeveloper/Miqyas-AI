@@ -113,11 +113,8 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> PieceScene {
             dims["isl"] = DimLine(a: ib.at(0, y, -0.40), b: ib.at(isl, y, -0.40), tick: PV_UP); tint["isl"] = ISLAND
         }
         if let w0 { dims["h"] = DimLine(a: w0.at(0, 0, 0.04), b: w0.at(0, H, 0.04), tick: w0.dir(1, 0)); tint["h"] = "wall" }
-    } else if let m = wardOfF(f), let bas = b["A"] {
-        let xa = Double(m.x) / 1000, w = Double(m.w) / 1000, d = Double(m.d) / 1000, h = Double(outerH(m, ws)) / 1000
-        dims["w"] = DimLine(a: bas.at(xa, 0.02, d + 0.2), b: bas.at(xa + w, 0.02, d + 0.2), tick: PV_UP)
-        dims["h"] = DimLine(a: bas.at(xa + w + 0.15, 0, d), b: bas.at(xa + w + 0.15, h, d), tick: bas.dir(1, 0))
-        dims["d"] = DimLine(a: bas.at(xa + w + 0.08, h + 0.08, 0), b: bas.at(xa + w + 0.08, h + 0.08, d), tick: PV_UP)
+    } else if let m = wardOfF(f), let bas = b[f.walls.first ?? "A"] ?? b["A"] {
+        pieceDims(f, m, ws, b, bas, &dims)
     }
     let center = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     let radius = max(0.45, V3(x1 - x0, y1 - y0, z1 - z0).len / 2)
@@ -127,8 +124,60 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> PieceScene {
     let dimCenter = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     let dimRadius = max(0.45, V3(x1 - x0, y1 - y0, z1 - z0).len / 2)
     // an L turns into the right-hand wall: seen from the left so both runs show from inside
-    let az0 = f.kind != "kitchen" ? 0.55 : f.layout == "L" ? -0.6 : f.layout == "U" ? 0.15 : 0.6
+    let az0: Double
+    if f.kind != "kitchen" { az0 = CORNER_TYPES.contains(f.type) ? -0.6 : 0.55 }
+    else { az0 = f.layout == "L" ? -0.6 : f.layout == "U" ? 0.15 : 0.6 }
     return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter: dimCenter, dimRadius: dimRadius, ext: ext, dimExt: pvCorners(x0, y0, z0, x1, y1, z1))
+}
+
+/// A cabinet-like piece's dimension lines on its first wall bas (walls b): the run there (a stenka's pieces, a corner
+/// piece's first arm), its depth and its top; a hung one's height above the floor, a corner piece's second arm, a bed's
+/// mattress and headboard, a dressing table's mirror.
+private func pieceDims(_ f: Furniture, _ m: Module, _ ws: Workshop, _ b: [String: WallBasis], _ bas: WallBasis, _ dims: inout [String: DimLine]) {
+    let bs = boxes(f)
+    let run0 = firstRun(f)
+    let run = run0.isEmpty ? [m] : run0
+    let rx0: Int = run.map(\.x).min() ?? m.x
+    let rx1: Int = run.map { $0.x + $0.w }.max() ?? (m.x + m.w)
+    let xa = Double(rx0) / 1000, w = Double(rx1 - rx0) / 1000
+    let d = Double(run.map(\.d).max() ?? m.d) / 1000
+    let h = Double(bs.map { topOf($0, ws) }.max() ?? outerH(m, ws)) / 1000
+    // a hung cabinet's (or a mirror panel's) height is its own, from its bottom
+    let lo: Double = HUNG_TYPES.contains(f.type) || f.type == "mirrorP" ? Double(m.elev) / 1000 : 0
+    let side = bas.dir(1, 0)
+    dims["w"] = DimLine(a: bas.at(xa, lo + 0.02, d + 0.2), b: bas.at(xa + w, lo + 0.02, d + 0.2), tick: PV_UP)
+    dims["h"] = DimLine(a: bas.at(xa + w + 0.15, lo, d), b: bas.at(xa + w + 0.15, h, d), tick: side)
+    dims["d"] = DimLine(a: bas.at(xa + w + 0.08, h + 0.08, 0), b: bas.at(xa + w + 0.08, h + 0.08, d), tick: PV_UP)
+    if lo > 0 { dims["e"] = DimLine(a: bas.at(xa + w + 0.15, 0, d), b: bas.at(xa + w + 0.15, lo, d), tick: side) }
+    // a corner piece's second arm, from the corner
+    if f.walls.count > 1, let bb = b[f.walls[1]] {
+        let wb = f.walls[1]
+        let on = bs.filter { $0.wall == wb }
+        if let dm = on.map(\.d).max(), let end = on.map({ $0.x + $0.w }).max() {
+            let db = Double(dm) / 1000
+            dims["w2"] = DimLine(a: bb.at(0, 0.02, db + 0.2), b: bb.at(Double(end) / 1000, 0.02, db + 0.2), tick: PV_UP)
+        }
+    }
+    let W = Double(m.w) / 1000, D = Double(m.d) / 1000, H = Double(m.h) / 1000
+    switch m.type {
+    case "bed":
+        let hb = Double(m.opt?.hb ?? 1000) / 1000
+        dims["mw"] = DimLine(a: bas.at(xa, H + 0.05, D + 0.12), b: bas.at(xa + W, H + 0.05, D + 0.12), tick: PV_UP)
+        dims["ml"] = DimLine(a: bas.at(xa + W + 0.12, H + 0.05, 0), b: bas.at(xa + W + 0.12, H + 0.05, D), tick: PV_UP)
+        dims["h"] = DimLine(a: bas.at(xa + W + 0.12, 0, D), b: bas.at(xa + W + 0.12, H, D), tick: side)
+        dims["hb"] = DimLine(a: bas.at(xa - 0.12, 0, 0.02), b: bas.at(xa - 0.12, hb, 0.02), tick: side)
+    case "bunk", "loft":
+        let fd = D - Double(LADDER_D) / 1000
+        dims["ml"] = DimLine(a: bas.at(xa, 0.02, D + 0.15), b: bas.at(xa + W, 0.02, D + 0.15), tick: PV_UP)
+        dims["mw"] = DimLine(a: bas.at(xa + W + 0.1, H + 0.05, 0), b: bas.at(xa + W + 0.1, H + 0.05, fd), tick: PV_UP)
+    default: break
+    }
+    // a dressing table's mirror
+    if let r = f.modules.first(where: { $0.type == "mirror" }) {
+        let x0 = Double(r.x) / 1000, x1 = Double(r.x + r.w) / 1000, e = Double(r.elev) / 1000, t = Double(r.elev + r.h) / 1000
+        dims["rw"] = DimLine(a: bas.at(x0, t + 0.06, 0.03), b: bas.at(x1, t + 0.06, 0.03), tick: PV_UP)
+        dims["rh"] = DimLine(a: bas.at(x1 + 0.08, e, 0.03), b: bas.at(x1 + 0.08, t, 0.03), tick: side)
+    }
 }
 
 /// A camera round the piece: az turns it from the scene's own angle, the piece filling the picture.

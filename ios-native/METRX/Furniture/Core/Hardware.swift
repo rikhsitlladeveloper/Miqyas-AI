@@ -15,9 +15,9 @@ struct Counts: Equatable {
 }
 
 /// Kinds counted in millimetres and bought by the metre.
-let METRE_KINDS: Set<String> = ["rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK"]
+let METRE_KINDS: Set<String> = ["rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail"]
 /// Kinds counted in square millimetres and bought by the m².
-let AREA_KINDS: Set<String> = ["mirror", "glass"]
+let AREA_KINDS: Set<String> = ["mirror", "glass", "glassShelf", "glassDoor"]
 
 /// How a kind is bought: "m", "m2" or "pcs" (the strings key fu.*).
 func hwUnit(_ kind: String) -> String { METRE_KINDS.contains(kind) ? "m" : AREA_KINDS.contains(kind) ? "m2" : "pcs" }
@@ -34,10 +34,15 @@ func hwAmount(_ kind: String, _ v: Int, _ en: Bool) -> String {
 func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
     var n = Counts()
     let hinge = m.soft ? "hingeSoft" : "hinge"
-    func fronts(_ f: Fronts, _ w: Int, _ h: Int) {
+    func fronts(_ f: Fronts, _ w: Int, _ h: Int, _ face: String = "") {
         let fs = frontSizes(f, w, h, ws)
         switch f.kind {
-        case "door": for (fh, _) in fs { n.add(hinge, hingesFor(fh)); if m.handles { n.add("handle", 1) } }
+        case "door":
+            for (fh, fw) in fs {
+                n.add(hinge, hingesFor(fh)); if m.handles { n.add("handle", 1) }
+                // a vitrina's glass door in its frame, a mirror glued on a board door
+                if face == "glass" { n.add("glassDoor", fh * fw) } else if face == "mirror" { n.add("mirror", (fh - 10) * (fw - 10)) }
+            }
         case "drawer": n.add("runner", fs.count); if m.handles { n.add("handle", fs.count) }
         default: break
         }
@@ -46,6 +51,7 @@ func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
         for x in ins {
             switch x.kind {
             case "shelf": n.add("pin", 4 * x.qty)
+            case "glass": n.add("pin", 4 * x.qty); n.add("glassShelf", (iw - 4) * (innerD(m) - 25) * x.qty)
             case "rail": n.add("rail", iw); n.add("railEnd", 2)
             case "drawer", "trouser", "shoe": n.add("runner", 1)
             case "lift": n.add("lift", 1)
@@ -55,10 +61,11 @@ func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
     }
     let t = ws.t
     if m.type == "gap" || m.type == "filler" { return n }
+    if ITEM_MODS.contains(m.type) { itemHardware(m, ws) { n.add($0, $1) }; return n }
     if m.type == "wardrobe" {
         let secs = m.sections.isEmpty ? [Section(m.w)] : m.sections
         for (i, s) in secs.enumerated() {
-            if m.slide == nil { fronts(s.fronts, s.w, m.h - wardBase(m)) }
+            if m.slide == nil { fronts(s.fronts, frontW(s), m.h - wardBase(m), s.face) }
             inside(s.inserts, wardInner(m, secs, i, t))
             // drawers in an open section are pulled by a handle of their own
             if s.fronts.kind == "open" && m.handles { n.add("handle", s.inserts.filter { $0.kind == "drawer" }.count) }
@@ -74,6 +81,9 @@ func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
         }
         n.add("confirmat", 4 * (4 + 2 * (secs.count - 1)))
         if m.legs { n.add("leg", 2 * (secs.count + 1)) }
+        // a hung cabinet (or one standing on another) is held by two hangers
+        else if m.elev > 0 { n.add("hanger", 2) }
+        if m.led { n.add("led", m.w - 2 * t); n.add("ledPsu", 1) }
     } else {
         fronts(m.fronts, m.w, m.h); inside(m.inserts, m.w - 2 * t)
         n.add("confirmat", m.type == "base" ? 24 : 16)

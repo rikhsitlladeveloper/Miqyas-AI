@@ -890,7 +890,9 @@ struct FurnitureCard: View {
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 4) { MIcon(ward ? "board" : "kitchen", G.ink3, 15, 2); T(f.type.isEmpty ? tr(ward ? "kt.wardrobe" : "kt.kitchen") : tr("ft." + f.type), ui(12, 400, G.ink3), lines: 1) }
                     T(dn(f.name), ui(14.5, 600, G.ink, lh: 1.25), lines: 1)
-                    if ward, let wm = wardOf(f) {
+                    if ward && (isItemPiece(f) || boxes(f).count > 1) {
+                        T(pieceLine(f, AppSettings.shared.workshop), ui(12.5, 400, G.ink2), lines: 1)
+                    } else if ward, let wm = wardOf(f) {
                         T(tr("wd.card", ["w": wm.w, "h": outerH(wm, AppSettings.shared.workshop), "n": wm.sections.count]), ui(12.5, 400, G.ink2), lines: 1)
                     } else {
                         T(tr("kt.card", ["n": f.modules.count, "l": tr("kt.l" + f.layout)]), ui(12.5, 400, G.ink2), lines: 1)

@@ -40,6 +40,8 @@ private func groupOf(_ p: Project, _ rid: String?) -> String? {
     let named = { (key: String) in Lang.allCases.contains { n.hasPrefix(Strings.t(key, $0)) } }
     if named("fr.living") { return "living" }
     if named("fr.hall") { return "hall" }
+    if named("fr.kids") { return "kids" }
+    if named("fr.bath") { return "bath" }
     return "bedroom"
 }
 
@@ -222,7 +224,8 @@ struct FStepsScreen: View {
         let st = fModel(model).map { stepsOf($0) } ?? []
         let edit = fid.flatMap { id in Store.shared.get(pid)?.furniture.first { $0.id == id } }
         let have = vals.map { decodeVals($0) } ?? edit.map { valsOf($0, s.workshop) } ?? [:]
-        _texts = State(initialValue: st.map { have[$0.key].map { Geo.fmtField($0, s.unit, s.lang == .en) } ?? "" })
+        // a choice step keeps the index of what was chosen ("" the usual one)
+        _texts = State(initialValue: st.map { step in have[step.key].map { step.choice ? "\($0)" : Geo.fmtField($0, s.unit, s.lang == .en) } ?? "" })
         _at = State(initialValue: vals != nil ? st.count : 0)
     }
 
@@ -232,12 +235,12 @@ struct FStepsScreen: View {
             let steps = stepsOf(m), n = steps.count
             let edit = fid.flatMap { id in p.furniture.first { $0.id == id } }
             // only sizes within their range reach the piece: a typed 99999 would otherwise build a 100 m kitchen on every key
-            let vals = Dictionary(uniqueKeysWithValues: steps.indices.compactMap { i in parseLen(texts[i], unit).flatMap { stepIssue(steps[i], $0) == nil ? (steps[i].key, $0) : nil } })
+            let vals = typedVals(steps, unit)
             let piece = edit.map { resized($0, vals, ws) } ?? pieceOf(m, vals, ws, "")
             let scene = pieceScene(piece, ws, s.mats)
             let uw = unitWord(unit)
-            let hi = at < n ? steps[at].key : nil
-            let label: String? = at < n ? (parseLen(texts[at], unit).map { Geo.fmtLen($0, unit, en) + " " + uw } ?? "?") : nil
+            let hi: String? = at < n && !steps[at].choice ? steps[at].key : nil
+            let label: String? = hi != nil ? (parseLen(texts[at], unit).map { Geo.fmtLen($0, unit, en) + " " + uw } ?? "?") : nil
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
                     HStack(spacing: 6) {
@@ -264,7 +267,9 @@ struct FStepsScreen: View {
                             .aspectRatio(typing && at < n ? 2.1 : 1 / 0.92, contentMode: .fit)
                             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(G.rim, lineWidth: 1))
-                            if at < n { ask(steps[at], unit, uw) } else { summary(steps, unit, uw, m.kind == "kitchen") }
+                            if at < n && steps[at].choice { choiceAsk(steps[at]) }
+                            else if at < n { ask(steps[at], unit, uw) }
+                            else { summary(steps, unit, uw, m.kind == "kitchen" ? "fx.noteK" : ITEM_TYPES.contains(m.type) ? "fx.noteI" : "fx.noteW") }
                         }
                         .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 120)
                     }
@@ -291,22 +296,35 @@ struct FStepsScreen: View {
                     }
                 }
             }
-            .onChange(of: at) { _, v in typing = v < n }
+            .onChange(of: at) { _, v in typing = v < n && !steps[v].choice }
             .onAppear {
                 BackOwner.seq += 1; backToken = BackOwner.seq; BackOwner.last = backToken
                 app.backOverride = { prev(n) }
                 // the keyboard waits until the page has slid in, or iOS drops the focus
-                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { if at < n { typing = true } }
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { if at < n && !steps[at].choice { typing = true } }
             }
             .onDisappear { if BackOwner.last == backToken { app.backOverride = nil; BackOwner.last = 0 } }
         }
     }
 
+    /// A step's value as typed: a choice's index, or a size in mm.
+    private func typed(_ s: SizeStep, _ text: String, _ unit: LenUnit) -> Int? { s.choice ? Int(text) : parseLen(text, unit) }
+
+    /// The values typed so far that are within their ranges.
+    private func typedVals(_ steps: [SizeStep], _ unit: LenUnit) -> [String: Int] {
+        var out: [String: Int] = [:]
+        for i in steps.indices where i < texts.count {
+            if let v = typed(steps[i], texts[i], unit), stepIssue(steps[i], v) == nil { out[steps[i].key] = v }
+        }
+        return out
+    }
+
     private func issue(_ s: SizeStep, _ text: String, _ unit: LenUnit) -> String? {
+        if s.choice { return nil }
         guard let mm = parseLen(text, unit), let r = stepIssue(s, mm) else { return nil }
         return tr(r.0, ["v": Geo.fmtLen(r.1, unit, en) + " " + unitWord(unit)])
     }
-    private func ok(_ steps: [SizeStep], _ i: Int, _ unit: LenUnit) -> Bool { parseLen(texts[i], unit) != nil && issue(steps[i], texts[i], unit) == nil }
+    private func ok(_ steps: [SizeStep], _ i: Int, _ unit: LenUnit) -> Bool { steps[i].choice || (parseLen(texts[i], unit) != nil && issue(steps[i], texts[i], unit) == nil) }
     private func next(_ steps: [SizeStep], _ unit: LenUnit) {
         guard at < steps.count, ok(steps, at, unit) else { return }
         laser = nil
@@ -344,6 +362,8 @@ struct FStepsScreen: View {
             .background(shape.fill(G.glass(0.85)))
             .overlay(shape.strokeBorder(bad != nil ? G.err : G.cobalt, lineWidth: 2))
             if let bad { HStack(alignment: .top, spacing: 6) { MIcon("alert", G.err, 18, 2); T(bad, ui(13.5, 500, G.err)) } }
+            // the usual sizes (a mattress's) a tap away
+            if !s.picks.isEmpty { picksRow(s, i, unit) }
             // one line under the field: the laser's state or its reading; without a laser, the way to connect one
             HStack(spacing: 8) {
                 Circle().fill(on ? Color(argb: 0xFF16A34A) : G.ink3).frame(width: 9, height: 9)
@@ -356,9 +376,54 @@ struct FStepsScreen: View {
         }
     }
 
+    private func picksRow(_ s: SizeStep, _ i: Int, _ unit: LenUnit) -> some View {
+        let cur = i < texts.count ? parseLen(texts[i], unit) : nil
+        return ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(s.picks, id: \.self) { v in
+                    FChip(label: Geo.fmtLen(v, unit, en), on: cur == v) { if i < texts.count { texts[i] = Geo.fmtField(v, unit, en); laser = nil } }
+                        .accessibilityIdentifier("fx.pick.\(v)")
+                }
+            }
+        }
+    }
+
+    /// A choice on its own step (a bed's kind, a table's legs): one card an option, the chosen one marked.
+    @ViewBuilder private func choiceAsk(_ s: SizeStep) -> some View {
+        let i = at
+        let cur = (i < texts.count ? Int(texts[i]) : nil) ?? s.usual
+        VStack(alignment: .leading, spacing: 8) {
+            T(tr(s.label), ui(21, 800, G.ink, lh: 1.2)).padding(.top, 4)
+            T(tr(s.help), ui(13, 400, G.ink2, lh: 1.4))
+            ForEach(Array(s.opts.enumerated()), id: \.offset) { k, key in choiceCard(key, k == cur) { if i < texts.count { texts[i] = "\(k)" } } }
+        }
+    }
+
+    private func choiceCard(_ key: String, _ on: Bool, _ pick: @escaping () -> Void) -> some View {
+        let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
+        return HStack(spacing: 10) {
+            ZStack {
+                Circle().strokeBorder(on ? G.cobalt : G.ink3, lineWidth: 2).frame(width: 20, height: 20)
+                if on { Circle().fill(G.cobalt).frame(width: 10, height: 10) }
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                T(tr(key), ui(15, 700, on ? G.cobalt2 : G.ink))
+                T(tr(key + ".s"), ui(12.5, 400, G.ink2, lh: 1.35))
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 14).padding(.vertical, 10).frame(minHeight: 56)
+        .background(shape.fill(on ? G.cobalt.opacity(0.1) : G.glass(0.75)))
+        .overlay(shape.strokeBorder(on ? G.cobalt : G.rim, lineWidth: on ? 2 : 1))
+        .pressable(0.98, pick)
+        .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+        .accessibilityIdentifier("fx.opt." + key)
+    }
+
     /// The simulated laser: a reading near the usual size fills the field, and the next step opens.
     private func reading(_ s: SizeStep, _ unit: LenUnit) {
-        guard laser != "busy" else { return }
+        guard laser != "busy", !s.choice else { return }
         let i = at
         laser = "busy"
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
@@ -372,12 +437,22 @@ struct FStepsScreen: View {
         }
     }
 
-    @ViewBuilder private func summary(_ steps: [SizeStep], _ unit: LenUnit, _ uw: String, _ kitchen: Bool) -> some View {
+    /// What a step's value reads as in the summary: a choice's name, or a size with its unit.
+    private func shown(_ s: SizeStep, _ i: Int, _ unit: LenUnit, _ uw: String) -> String {
+        let text = i < texts.count ? texts[i] : ""
+        if s.choice {
+            let k = Int(text) ?? s.usual
+            return tr(k >= 0 && k < s.opts.count ? s.opts[k] : s.opts[0])
+        }
+        return (parseLen(text, unit).map { Geo.fmtLen($0, unit, en) } ?? text) + " " + uw
+    }
+
+    @ViewBuilder private func summary(_ steps: [SizeStep], _ unit: LenUnit, _ uw: String, _ note: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(steps.enumerated()), id: \.offset) { i, s in
                 HStack(spacing: 10) {
                     T(tr(s.label), ui(14.5, 600)).frame(maxWidth: .infinity, alignment: .leading)
-                    T((parseLen(texts[i], unit).map { Geo.fmtLen($0, unit, en) } ?? texts[i]) + " " + uw, num(17, 700))
+                    T(shown(s, i, unit, uw), num(17, 700), lines: 1)
                     T(tr("fz.change"), ui(12.5, 700, G.cobalt2))
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8).frame(minHeight: 54)
@@ -386,7 +461,7 @@ struct FStepsScreen: View {
                 .accessibilityElement(children: .combine).accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("fx.row.\(i)")
             }
-            T(tr(kitchen ? "fx.noteK" : "fx.noteW"), ui(12.5, 400, G.ink2, lh: 1.45)).padding(.top, 4).padding(.leading, 4)
+            T(tr(note), ui(12.5, 400, G.ink2, lh: 1.45)).padding(.top, 4).padding(.leading, 4)
         }
     }
 }
@@ -404,7 +479,7 @@ struct FWhereScreen: View {
             let s = AppSettings.shared, ws = s.workshop, snap = s.angleSnap, unit = s.unit
             let v = decodeVals(vals)
             let probe = pieceOf(m, v, ws, "")
-            let sizes = stepsOf(m).filter { $0.key != "h" || m.kind != "kitchen" }.map { st in v[st.key].map { Geo.fmtLen($0, unit, en) } ?? "?" }
+            let sizes = stepsOf(m).filter { !$0.choice && ($0.key != "h" || m.kind != "kitchen") }.map { st in v[st.key].map { Geo.fmtLen($0, unit, en) } ?? "?" }
                 .joined(separator: m.kind == "kitchen" ? " + " : " × ") + " " + unitWord(unit)
             FPage(eyebrow: tr("fz.m." + m.id), title: tr("fq.title"), back: { app.pop() }) {
                 T(tr("fz.m." + m.id) + ": " + sizes, ui(13.5, 500, G.ink2))

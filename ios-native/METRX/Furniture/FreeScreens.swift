@@ -120,8 +120,13 @@ func freeSub(_ f: Furniture, _ en: Bool) -> String {
         guard let w = wardOfF(f) else { return "" }
         let name: String? = f.model.isEmpty ? nil : tr(!f.type.isEmpty ? "ft." + f.model : "fz.m." + f.model)
         // the height as asked: a cabinet's with its legs
-        let h = valsOf(f, AppSettings.shared.workshop)["h"] ?? w.h
-        return [name, m(w.w) + " × " + m(h) + " × " + m(w.d) + " m"].compactMap { $0 }.joined(separator: " · ")
+        let v = valsOf(f, AppSettings.shared.workshop)
+        let h = v["h"] ?? w.h
+        let sizes: String
+        if let mw = v["mw"] { sizes = m(mw) + " × " + m(v["ml"] ?? 0) + " m" }
+        else if let w2 = v["w2"] { sizes = m(v["w"] ?? w.w) + " + " + m(w2) + " × " + m(h) + " m" }
+        else { sizes = m(v["w"] ?? w.w) + " × " + m(h) + " × " + m(v["d"] ?? w.d) + " m" }
+        return [name, sizes].compactMap { $0 }.joined(separator: " · ")
     }
     let fs = f.free
     let run = fs.map { freeRunMm(f.layout, $0.sides, $0.island) } ?? runMm(f)
@@ -270,12 +275,17 @@ struct FPlaceScreen: View {
         let p = Store.shared.get(pid)
         let room = p?.rooms.first { $0.id == rid }
         let ids = room.map { Geo.walls($0, AppSettings.shared.angleSnap).map(\.id) } ?? []
-        let taken = p?.furniture.filter { $0.roomId == rid && $0.id != fid }.flatMap(\.walls).filter { $0 != ISLAND } ?? []
+        // a piece standing free in the room (a bed, a table) takes no wall
+        let taken = p?.furniture.filter { $0.roomId == rid && $0.id != fid && ($0.pose == nil || $0.kind == "kitchen") }.flatMap(\.walls).filter { $0 != ISLAND } ?? []
         let existing = fid.flatMap { id in p?.furniture.first { $0.id == id } }
         // a piece already in this room starts where it stands
         let here = existing.flatMap { $0.roomId == rid ? $0 : nil }
         _first = State(initialValue: here?.walls.first { $0 != ISLAND && ids.contains($0) } ?? ids.first { !taken.contains($0) } ?? ids.first ?? "A")
-        _off = State(initialValue: here.flatMap { h in wardOfF(h).map { $0.x == cornerGap(h) ? "" : String($0.x) } } ?? "")
+        _off = State(initialValue: here.flatMap { h -> String? in
+            guard h.kind == "wardrobe" else { return nil }
+            let x = runStart(h)
+            return x == cornerGap(h) ? "" : String(x)
+        } ?? "")
         _start = State(initialValue: here.map { $0.walls.filter { $0 != ISLAND }.count == 1 ? leadOf($0) : 0 } ?? 0)
         _pose = State(initialValue: here?.pose)
         _name = State(initialValue: existing?.name ?? (p.flatMap { pp in model.flatMap { fModel($0) }.map { pieceName(pp, $0) } } ?? ""))
@@ -306,8 +316,12 @@ struct FPlaceScreen: View {
             let base: Furniture? = existing.map { withoutLead($0, len) } ?? memo.get(first + "|" + wTxt + "|" + (model ?? "") + "|" + (vals ?? ""), fresh)
             if let base {
                 let others = p.furniture.filter { $0.roomId == room.id && $0.id != base.id }
-                let taken = others.flatMap(\.walls).filter { $0 != ISLAND }
-                let ward = base.kind == "wardrobe"
+                // a piece standing free in the room (a bed, a table) takes no wall
+                let onWall = others.filter { $0.pose == nil || $0.kind == "kitchen" }
+                let taken = onWall.flatMap(\.walls).filter { $0 != ISLAND }
+                // a corner piece goes into a corner like a corner kitchen; the other cabinets stand along one wall
+                let corner = CORNER_TYPES.contains(base.type)
+                let ward = base.kind == "wardrobe" && !corner
                 let offMm: Int? = { let v = mm(off); return v > 0 ? v : nil }()
                 let f = fitted ?? base
                 let on = placeWalls(f, ids, first)
@@ -363,15 +377,15 @@ struct FPlaceScreen: View {
                     let next = on.dropFirst().filter { $0 != ISLAND }
                     if !ward && !next.isEmpty { T(tr("fz.nextWalls", ["w": next.joined(separator: ", ")]), ui(13, 400, G.ink2, lh: 1.4)) }
                     // a kitchen for a measured room takes its walls whole
-                    if known && !ward {
+                    if known && base.kind == "kitchen" {
                         T(tr("fq.whole", ["v": (f.free?.sides ?? []).map { Geo.fmtLen($0, unit, en) }.joined(separator: " + ") + " " + unitWord(unit),
                                           "h": Geo.fmtLen(roomH, unit, en) + " " + unitWord(unit)]), ui(13, 400, G.ink2, lh: 1.4))
                     }
-                    if let clash, let who = others.first(where: { $0.walls.contains(clash) }) {
+                    if let clash, let who = onWall.first(where: { $0.walls.contains(clash) }) {
                         T(tr("kt.wallTaken", ["w": clash, "n": dn(who.name)]), ui(12.5, 500, G.amberInk, lh: 1.4))
                     }
                     if ward {
-                        if known {
+                        if known, let m, !ITEM_TYPES.contains(m.type) {
                             GField(label: tr("wd.w"), value: Binding(get: { wTxt }, set: { wTxt = String($0.filter { $0.isNumber || $0 == "," || $0 == "." }.prefix(6)); reset() }),
                                    placeholder: wardOfF(base).map { Geo.fmtLen($0.w, unit, en, full: $0.w % 10 != 0) } ?? "", focus: $focus, me: .w, onSubmit: { focus = .off },
                                    labelRight: unitWord(unit), decimal: true, id: "fz.width")

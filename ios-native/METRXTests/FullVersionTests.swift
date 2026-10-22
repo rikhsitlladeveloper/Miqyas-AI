@@ -169,7 +169,7 @@ final class CabinetsTests: XCTestCase {
         let ps = partsOf(desk, ws)
         XCTAssertEqual(ps.filter { $0.key == "fp.bottom" }.reduce(0) { $0 + $1.qty }, 1)
         XCTAssertEqual(ps.first { $0.key == "fp.divider" }?.L, 750 - ws.legH - 16)
-        XCTAssertEqual(modelsOf("other").count, CASE_TYPES.count)
+        XCTAssertEqual(modelsOf("other").count, CASE_TYPES.count + PIECE_TYPES.count + ITEM_TYPES.count)
         XCTAssertEqual(kindKey(newFreeCabinet("TV 1", "tv", 1800, 500, 450, ws)), "other")
     }
 }

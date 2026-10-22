@@ -80,6 +80,8 @@ let MAT_PRESETS: [Mat] = [
     Mat("ldsp16k", "board", "LDSP 16 · Kashmir", 16, price: "690000", grain: true, rgb: "#CDBFAE", preset: true),
     Mat("ldsp18a", "board", "LDSP 18 · Antratsit", 18, price: "720000", rgb: "#4B4F58", preset: true),
     Mat("mdf18", "board", "MDF 18 · bo‘yalgan", 18, price: "980000", rgb: "#E8E4DC", preset: true),
+    // bathrooms (22 Oct 2026): moisture-resistant board for vanities, mirror cabinets and tall cabinets
+    Mat("ldsp16mr", "board", "LDSP 16 · namga chidamli", 16, price: "780000", rgb: "#EEF0EC", preset: true),
     Mat("hdf3", "back", "DVP 3,2 · Oq", 3, price: "210000", rgb: "#FFFFFF", preset: true),
     Mat("wt38", "worktop", "Stoleshnitsa 38 · Antratsit", 38, l: 4100, w: 600, price: "360000", rgb: "#4B4F58", preset: true),
     Mat("splash6", "splash", "Stenovaya panel 6 mm (fartuk)", 6, l: 4100, w: 600, price: "190000", rgb: "#E8E2D8", preset: true),
@@ -115,5 +117,15 @@ let HW_PRESETS: [Hw] = [
     Hw("plinthCorner", "plinthCorner", "Tsokol burchagi", "12000", true),
     Hw("cornice", "cornice", "Karniz (metr)", "65000", true),
     Hw("led", "led", "LED lenta (metr)", "35000", true),
-    Hw("ledPsu", "ledPsu", "LED bloki (5 m gacha)", "120000", true)
+    Hw("ledPsu", "ledPsu", "LED bloki (5 m gacha)", "120000", true),
+    // beds, tables, the bar counter, hallway panels and vitrinas (22 Oct 2026)
+    Hw("bedBase", "bedBase", "Ortopedik asos (lamel)", "450000", true),
+    Hw("bedLift", "bedLift", "Ko‘tarish mexanizmi (karavot)", "950000", true),
+    Hw("tableLeg", "tableLeg", "Stol oyog‘i, metall", "60000", true),
+    Hw("tableFrame", "tableFrame", "Stol metall ramkasi (juft)", "450000", true),
+    Hw("barRail", "barRail", "Bar oyoq trubasi (metr)", "120000", true),
+    Hw("hook", "hook", "Kiyim ilgagi", "15000", true),
+    Hw("clip", "clip", "Oyna ushlagichi", "5000", true),
+    Hw("glassShelf", "glassShelf", "Shisha tokcha 6 mm (m²)", "300000", true),
+    Hw("glassDoor", "glassDoor", "Shisha eshik, alyumin ramka (m²)", "900000", true)
 ]

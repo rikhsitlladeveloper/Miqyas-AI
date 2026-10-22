@@ -134,7 +134,8 @@ struct PlacePlan: View {
             return
         }
         let sides = f.walls.filter { $0 != ISLAND }.count
-        let mode: PDrag = f.kind == "kitchen" && sides > 1 ? .corner : canStandFree(f) ? .free : .slide
+        let cornerLike = f.kind == "kitchen" || CORNER_TYPES.contains(f.type)
+        let mode: PDrag = cornerLike && sides > 1 ? .corner : canStandFree(f) ? .free : .slide
         switch mode {
         case .corner:
             // an L goes into the corner nearest the finger; a U takes the wall nearest it as its back wall
@@ -159,7 +160,7 @@ struct PlacePlan: View {
         let first = f.kind == "kitchen" ? f.walls.first { $0 != ISLAND } : wardOfF(f)?.wall
         // a kitchen's length is its units on the floor (the wall units over them may start or end elsewhere)
         let feet = footsOf(f, walls, ws).filter { $0.wall != nil && $0.wall == first && $0.floor }
-        let len = f.kind == "wardrobe" ? Double(wardOfF(f)?.w ?? 0) : (feet.isEmpty ? 0 : feet.map(\.a1).max()! - feet.map(\.a0).min()!)
+        let len = f.kind == "wardrobe" ? Double(runLen(f)) : (feet.isEmpty ? 0 : feet.map(\.a1).max()! - feet.map(\.a0).min()!)
         let ward = f.kind == "wardrobe"
         let (hl, hr) = hingedEnds(f)
         let clear = Double(HINGE_CLEAR)

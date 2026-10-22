@@ -40,7 +40,9 @@ func costOf(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], order
         lines.append(CostLine(group: "mat", key: l.mat, qty: Double(n), unit: "sheet", price: p ?? 0, amount: (p ?? 0) * Decimal(n), missing: p == nil))
     }
     // kitchens: the worktop as one simple item by the running metre (plan section 7; joints and cut-outs in Stage 1b)
-    let wtMm = fs.filter { $0.kind == "kitchen" }.reduce(0) { $0 + worktopRuns($1).values.reduce(0, +) }
+    var wtMm = fs.filter { $0.kind == "kitchen" }.reduce(0) { $0 + worktopRuns($1).values.reduce(0, +) }
+    // a table's or bar counter's top of worktop board
+    for f in fs { for m in f.modules { wtMm += itemWorktopMm(m) } }
     if wtMm > 0 {
         let p = money(mat("wt38")?.price)
         lines.append(CostLine(group: "mat", key: "wt38", qty: Double(wtMm) / 1000, unit: "m", price: p ?? 0,

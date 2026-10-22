@@ -9,7 +9,7 @@ final class StepsTests: XCTestCase {
         let ids = GALLERY.flatMap { $0.1 }
         XCTAssertEqual(ids.count, Set(ids).count)
         XCTAssertEqual(Set(F_MODELS.map(\.id)), Set(ids))
-        XCTAssertEqual(GALLERY.map { $0.0 }, ["kitchen", "bedroom", "living", "hall", "office"])
+        XCTAssertEqual(GALLERY.map { $0.0 }, ["kitchen", "bedroom", "living", "hall", "kids", "office", "bath"])
     }
 
     func testAKitchenAsksItsSidesItsIslandAndTheCeiling() {

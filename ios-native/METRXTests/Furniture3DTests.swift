@@ -51,4 +51,41 @@ final class Furniture3DTests: XCTestCase {
         XCTAssertTrue(pts.allSatisfy { $0.z >= -1e-6 && $0.z <= 2.6 + 1e-6 && $0.x <= 3.6 + 1e-6 })
         XCTAssertTrue(fr.parts.allSatisfy { $0.role == .furn })
     }
+
+    private func allFinite(_ d: Furn3D) -> Bool {
+        for p in d.parts { for fc in p.faces { for q in fc.pts where !(q.x.isFinite && q.y.isFinite && q.z.isFinite) { return false } } }
+        return true
+    }
+
+    func testEveryGalleryPieceBuildsIn3DAndOpens() {
+        for id in GALLERY.flatMap({ $0.1 }) {
+            let f = pieceOf(fModel(id)!, [:], ws, id)
+            let sh = buildShell([freeRoom(f)], single: true)
+            let shut = furniture3D([f], sh.bases, ws, { _ in 0xCDBFAE }, [])
+            XCTAssertTrue(shut.parts.reduce(0) { $0 + $1.faces.count } > 0, id)
+            XCTAssertTrue(allFinite(shut), id)
+            let open = furniture3D([f], sh.bases, ws, { _ in 0xCDBFAE }, Set(shut.keys))
+            XCTAssertTrue(allFinite(open), id)
+        }
+    }
+
+    func testALiftUpBedRisesAndABedsDrawersPullOutSideways() {
+        let lift = pieceOf(fModel("bed")!, ["bt": 2], ws, "Karavot")
+        let sh = buildShell([freeRoom(lift)], single: true)
+        let shut = furniture3D([lift], sh.bases, ws, { _ in 0xCDBFAE }, [])
+        let lifts = shut.keys.filter { $0.hasSuffix(":lift") }
+        XCTAssertEqual(lifts.count, 1)
+        func top(_ d: Furn3D) -> Double { d.parts.flatMap { $0.faces }.flatMap { $0.pts }.map(\.y).max() ?? 0 }
+        let open = furniture3D([lift], sh.bases, ws, { _ in 0xCDBFAE }, Set(lifts))
+        XCTAssertTrue(top(open) > top(shut) + 0.5)
+        let dr = pieceOf(fModel("bed")!, ["bt": 1], ws, "Karavot")
+        let sh2 = buildShell([freeRoom(dr)], single: true)
+        let d0 = furniture3D([dr], sh2.bases, ws, { _ in 0xCDBFAE }, [])
+        XCTAssertEqual(d0.keys.filter { $0.contains(":bd") }.count, 4)
+        let k = d0.keys.first { $0.contains(":bd") }!
+        let a = d0.picks.first { $0.key == k }!.box
+        let b = furniture3D([dr], sh2.bases, ws, { _ in 0xCDBFAE }, [k]).picks.first { $0.key == k }!.box
+        // out of the bed's side: along the wall, not out from it
+        XCTAssertTrue(abs(b.o.x - a.o.x) > 0.3 && abs(b.o.z - a.o.z) < 1e-6)
+    }
 }

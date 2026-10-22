@@ -34,8 +34,10 @@ enum Route: Hashable {
     case liveCam
     /// Furniture makers: the kitchen designer on wall (nil: the first).
     case kitchen(pid: String, fid: String, wall: String?, d3: Bool = false)
-    /// The wardrobe designer at step 1–5 (place, sizes, doors, inside, material), section sec picked.
-    case wardrobe(pid: String, fid: String, step: Int, sec: Int, d3: Bool = false)
+    /// The wardrobe designer at step 1–5 (place, sizes, doors, inside, material), section sec picked. A bed, a table, a
+    /// bar counter or a mirror panel opens its own short designer here, unless mod (a loft bed's desk or cabinet under it)
+    /// is to be designed.
+    case wardrobe(pid: String, fid: String, step: Int, sec: Int, d3: Bool = false, mod: String? = nil)
     /// Furniture orders: the parts and sheet layout, and the workshop pack.
     case fCut(pid: String), fPack(pid: String)
     /// Adding furniture (gallery v5, 21 Oct 2026; Android Gallery.kt): the models by room (rid a room it is for,
@@ -53,7 +55,7 @@ enum Route: Hashable {
         case .project(let id, _, _, _): return "project:" + id
         case .editor(let pid, let rid, _): return "editor:" + pid + ":" + rid
         case .kitchen(let pid, let fid, _, _): return "kitchen:" + pid + ":" + fid
-        case .wardrobe(let pid, let fid, _, _, _): return "wardrobe:" + pid + ":" + fid
+        case .wardrobe(let pid, let fid, _, _, _, let mod): return "wardrobe:" + pid + ":" + fid + (mod.map { ":" + $0 } ?? "")
         default: return "\(self)"
         }
     }
@@ -114,6 +116,8 @@ enum Sheet: Equatable {
     /// Narx tab: a price, a rate or the lead time (key fixed, rRun, rTall or days).
     case fPriceField(pid: String, key: String)
     case wField(pid: String, fid: String, key: String, sec: Int), wInsert(pid: String, fid: String, sec: Int, idx: Int), wMore(pid: String, fid: String, sec: Int)
+    /// A bed's, a table's, a mirror's… size (key) of box mid (Furniture/Core/Items.swift itemSet).
+    case iField(pid: String, fid: String, mid: String, key: String)
 }
 
 /// Screens of the sign-in flow.
@@ -176,7 +180,7 @@ final class AppModel {
                 case .markup(let pid, let iid):
                     return pid.map { store.get($0)?.floors.contains { w in w.items.contains { $0.id == iid } } == true } ?? AppSettings.shared.shots.contains { $0.id == iid }
                 case .report(let pid, let no): return store.get(pid).map { p in no == nil || p.quotes.contains { $0.no == no } } == true
-                case .kitchen(let pid, let fid, _, _), .wardrobe(let pid, let fid, _, _, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
+                case .kitchen(let pid, let fid, _, _), .wardrobe(let pid, let fid, _, _, _, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
                 case .fCut(let pid), .fPack(let pid), .fWhere(let pid, _, _): return store.get(pid) != nil
                 case .fGallery(let pid, let rid, _): return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
                 case .fSteps(let pid, _, let fid, _): return store.get(pid).map { p in fid == nil || p.furniture.contains { $0.id == fid } } == true

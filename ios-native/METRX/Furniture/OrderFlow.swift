@@ -74,7 +74,7 @@ func orderSub(_ p: Project, _ sep: String) -> String {
 /* ---------------- rooms made behind the scenes ---------------- */
 
 /// The room kinds a furniture maker adds (string keys fr.*); the first two decide kitchen or wardrobe.
-let F_ROOMS = ["kitchen", "bedroom", "living", "kids", "hall", "other"]
+let F_ROOMS = ["kitchen", "bedroom", "living", "kids", "hall", "bath", "other"]
 
 /// What furniture a room is for: the kitchen room gets a kitchen, the others a wardrobe.
 func roomKind(_ w: Workspace?) -> String { w?.type == "kitchen" ? "kitchen" : "wardrobe" }
@@ -247,8 +247,10 @@ struct FRoomsTab: View {
 
     private func pieceRow(_ f: Furniture, _ amount: Decimal?) -> some View {
         let ward = f.kind == "wardrobe"
-        let sub = ward ? (wardOf(f).map { Geo.fmtLen($0.w, .m, en) + " × " + Geo.fmtLen(valsOf(f, AppSettings.shared.workshop)["h"] ?? $0.h, .m, en) + " m" } ?? "")
-            : tr("kt.l" + f.layout) + " · " + runMetres(f, en) + " " + tr("kt.pm")
+        let sub: String
+        if ward && (isItemPiece(f) || boxes(f).count > 1) { sub = freeSub(f, en) }
+        else if ward { sub = wardOfF(f).map { Geo.fmtLen($0.w, .m, en) + " × " + Geo.fmtLen(valsOf(f, AppSettings.shared.workshop)["h"] ?? $0.h, .m, en) + " m" } ?? "" }
+        else { sub = tr("kt.l" + f.layout) + " · " + runMetres(f, en) + " " + tr("kt.pm") }
         return HStack(spacing: 10) {
             MIcon(ward ? "board" : "kitchen", G.ink3, 18, 2)
             VStack(alignment: .leading, spacing: 1) {

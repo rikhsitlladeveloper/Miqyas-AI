@@ -49,7 +49,12 @@ let F_MODELS: [FModelDef] = [
 ] + CASE_TYPES.map { t in
     let s = typeSize(t)
     return FModelDef(id: t, kind: "wardrobe", h: s.h, w: s.w, d: s.d, doors: "type", type: t, group: LIVING_TYPES.contains(t) ? "living" : "bedroom")
-}
+} + NEWER_DEFS
+
+/// The gallery's later pieces of several boxes and items, in a fixed order (Pieces.swift PIECE_TYPES + ITEM_TYPES).
+let NEWER_MODELS: [String] = ["stenka", "cornerW", "cornerDesk", "vitrina", "washer", "bed", "bunk", "loft", "dining", "coffee", "bar", "mirrorP"]
+/// the gallery's later pieces (Pieces.swift): their sizes come from their steps
+private let NEWER_DEFS: [FModelDef] = NEWER_MODELS.map { t in FModelDef(id: t, kind: "wardrobe", doors: "type", type: t, group: "more") }
 
 func fModel(_ id: String) -> FModelDef? { F_MODELS.first { $0.id == id } }
 
@@ -96,17 +101,25 @@ func freeLens(_ f: Furniture) -> [String: Int] {
 /// A run's length for a room-less piece (nil when it stands in a room, or for the island).
 func freeLen(_ f: Furniture, _ wall: String) -> Int? { f.roomId == nil && f.kind == "kitchen" ? freeLens(f)[wall] : nil }
 
-func wardOfF(_ f: Furniture) -> Module? { f.modules.first { $0.type == "wardrobe" } }
+/// A cabinet-like piece's main box: its (first) cabinet, or its bed, table, bar counter or mirror panel.
+func wardOfF(_ f: Furniture) -> Module? { f.modules.first { $0.type == "wardrobe" || (ITEM_MODS.contains($0.type) && $0.type != "mirror") } }
 
 /// The made-up room of room-less furniture: a rectangle whose walls carry the kitchen's sides (the U's first side sets
 /// its depth) or that fits the wardrobe with its usual gaps; no doors, windows or site points.
 func freeRoom(_ f: Furniture) -> Room {
     let a: Int, b: Int, h: Int
     if f.kind == "wardrobe" {
-        let m = wardOfF(f)
-        a = m.map { $0.x + $0.w + W_GAP_SIDE } ?? 2000
-        b = max(2000, (m?.d ?? W_DEPTH) + 1400)
-        h = (m?.h ?? 2200) + 300
+        // the first wall carries the piece (a corner piece's first arm), the second a corner piece's other arm
+        let bs = boxes(f)
+        let w0 = f.walls.first ?? "A"
+        let w1: String? = f.walls.count > 1 ? f.walls[1] : nil
+        let onA = bs.filter { $0.wall == w0 }
+        let onB = bs.filter { $0.wall == w1 }
+        a = onA.map { $0.x + $0.w + W_GAP_SIDE }.max() ?? 2000
+        if let bEnd = onB.map({ $0.x + $0.w }).max() { b = max(2000, bEnd + 600) }
+        else { b = max(2000, (bs.map(\.d).max() ?? W_DEPTH) + 1400) }
+        let ws0 = Workshop()
+        h = (bs.map { topOf($0, ws0) }.max() ?? 2200) + 300
     } else {
         let lens = freeLens(f), ws = f.walls.filter { $0 != ISLAND }
         func len(_ i: Int) -> Int { i < ws.count ? (lens[ws[i]] ?? 3000) : 3000 }
@@ -186,6 +199,8 @@ func newFreeCabinet(_ name: String, _ type: String, _ w: Int, _ h: Int, _ d: Int
 /// The walls the piece takes in a room whose walls go ids (clockwise), its first side on first.
 func placeWalls(_ f: Furniture, _ ids: [String], _ first: String) -> [String] {
     let i0 = max(0, ids.firstIndex(of: first) ?? 0)
+    // a corner piece takes the wall it starts on and the next one round the corner
+    if CORNER_TYPES.contains(f.type) && ids.count > 1 { return [ids[i0], ids[(i0 + 1) % ids.count]] }
     if f.kind != "kitchen" { return [i0 < ids.count ? ids[i0] : first] }
     let n = f.walls.filter { $0 != ISLAND }.count
     // a room with no walls yet: the piece keeps the one it was given (no % 0)
@@ -211,11 +226,25 @@ struct FitIssue: Equatable { let key: String; let vars: [String: String] }
 func fitIssues(_ f: Furniture, _ walls: [String], _ len: (String) -> Int?, _ roomH: Int?, _ ws: Workshop, off: Int? = nil, start: Int? = nil) -> [FitIssue] {
     var out: [FitIssue] = []
     if f.kind == "wardrobe" {
-        guard let m = wardOfF(f) else { return out }
+        let bs = boxes(f)
+        if bs.isEmpty { return out }
         let x = off ?? cornerGap(f)
-        // standing free (a desk in the room) it is not held to a wall's length
-        if let L = len(walls[0]), f.pose == nil, x + m.w > L { out.append(FitIssue(key: "fz.wide", vars: ["n": f.name, "v": "\(x + m.w)", "w": walls[0], "d": "\(x + m.w - L)", "l": "\(L)"])) }
-        let H = outerH(m, ws)
+        if CORNER_TYPES.contains(f.type) {
+            // each arm along its own wall: the first ends in the corner, the second starts past the first's depth
+            for (i, fw) in f.walls.prefix(2).enumerated() {
+                guard i < walls.count, let l = len(walls[i]) else { continue }
+                let on = bs.filter { $0.wall == fw }
+                let need: Int
+                if i == 0 { need = on.reduce(0, { $0 + $1.w }) + 2 * W_GAP_SIDE }
+                else { need = (on.map { $0.x + $0.w }.max() ?? 0) + W_GAP_SIDE }
+                if need > l { out.append(FitIssue(key: "fz.wide", vars: ["n": f.name, "v": "\(need)", "w": walls[i], "d": "\(need - l)", "l": "\(l)"])) }
+            }
+        } else if let L = len(walls[0]), f.pose == nil, x + runLen(f) > L {
+            // standing free (a desk in the room) it is not held to a wall's length
+            let v = x + runLen(f)
+            out.append(FitIssue(key: "fz.wide", vars: ["n": f.name, "v": "\(v)", "w": walls[0], "d": "\(v - L)", "l": "\(L)"]))
+        }
+        let H = bs.map { topOf($0, ws) }.max() ?? 0
         if let roomH, H > roomH { out.append(FitIssue(key: "fz.high", vars: ["n": f.name, "v": "\(H)", "d": "\(H - roomH)", "l": "\(roomH)"])) }
         return out
     }
@@ -248,25 +277,71 @@ private func fitRow(_ f: Furniture, _ wall: String, _ upper: Bool, _ start: Int,
 /// The piece made to fit walls: kitchen rows cut to each wall, a wardrobe narrowed to the wall and lowered under the ceiling.
 func fitTo(_ f: Furniture, _ walls: [String], _ len: (String) -> Int?, _ roomH: Int?, _ ws0: Workshop, off: Int? = nil) -> Furniture {
     let ws = wsOf(f, ws0)
-    if f.kind == "wardrobe" {
-        guard let m = wardOfF(f) else { return f }
-        // a door hinged at an end next to the wall needs 50 mm there to open
-        let x = off ?? cornerGap(f)
-        let gapR = cornerGap(f, right: true)
-        let w = len(walls[0]).map { max(min(m.w, 300), min(m.w, $0 - x - gapR)) } ?? m.w
-        let legs = legsOf(m, ws)
-        let h = roomH.map { min(m.h, $0 - W_GAP_TOP - legs) } ?? m.h
-        var nm = m; nm.w = w; nm.h = h
-        if w != m.w { nm.sections = splitSections(w, m.sections.map { var s = $0; s.lock = false; return s }) }
-        var g = f; g.modules = f.modules.map { $0.id == m.id ? nm : $0 }
-        return g
-    }
+    if f.kind == "wardrobe" { return fitPiece(f, walls, len, roomH, ws, off: off) }
     var g = f
     for r in runsOf(f, len) where r.wall != ISLAND && r.len != nil {
         g = fitRow(g, r.wall, false, r.lowStart, r.len!, ws)
         g = fitRow(g, r.wall, true, r.upStart, r.len!, ws)
     }
     return pack(g, runsOf(g, len))
+}
+
+/// A cabinet-like piece made to fit walls: lowered under the ceiling, its widest box narrowed to the wall; a corner
+/// piece into its corner, a piece of several boxes packed again.
+private func fitPiece(_ f: Furniture, _ walls: [String], _ len: (String) -> Int?, _ roomH: Int?, _ ws: Workshop, off: Int?) -> Furniture {
+    guard let m = wardOfF(f) else { return f }
+    // lower under the ceiling: a cabinet's carcass, not a bed or a table
+    func lower(_ b: Module) -> Module {
+        guard let roomH, b.type == "wardrobe", topOf(b, ws) > roomH - W_GAP_TOP else { return b }
+        var n = b; n.h = max(300, roomH - W_GAP_TOP - legsOf(b, ws) - b.elev)
+        return n
+    }
+    // narrower to the wall: a cabinet's widest box gives way (a door hinged at an end next to the wall needs 50 mm there)
+    func narrow(_ g: Furniture, _ wall: String, _ room: Int?) -> Furniture {
+        let on = boxes(g).filter { $0.wall == wall && !hung($0) && $0.type == "wardrobe" }
+        guard let room, !on.isEmpty else { return g }
+        let ext = CORNER_TYPES.contains(g.type) ? on.reduce(0, { $0 + $1.w }) : runLen(g)
+        let over = ext - room
+        if over <= 0 { return g }
+        let open = on.filter { b in !b.sections.contains { $0.blind > 0 } }
+        guard let big = open.max(by: { $0.w < $1.w }) else { return g }
+        let w = max(min(big.w, 300), big.w - over)
+        var out = g
+        out.modules = g.modules.map { x in
+            guard x.id == big.id else { return x }
+            var n = x; n.w = w; n.sections = splitSections(w, x.sections.map { var s = $0; s.lock = false; return s })
+            return n
+        }
+        return out
+    }
+    var g = f
+    g.modules = f.modules.map { isBox($0) ? lower($0) : $0 }
+    let L0 = len(walls[0])
+    if boxes(f).count == 1 && m.type == "wardrobe" {
+        let x = off ?? cornerGap(f)
+        let gapR = cornerGap(f, right: true)
+        let w = L0.map { max(min(m.w, 300), min(m.w, $0 - x - gapR)) } ?? m.w
+        g.modules = g.modules.map { b in
+            guard b.id == m.id else { return b }
+            var n = b; n.w = w
+            if w != m.w { n.sections = splitSections(w, b.sections.map { var s = $0; s.lock = false; return s }) }
+            return n
+        }
+        return g
+    }
+    if CORNER_TYPES.contains(f.type) {
+        let wa = f.walls[0]
+        let wb = f.walls.count > 1 ? f.walls[1] : f.walls[0]
+        g = narrow(g, wa, L0.map { $0 - 2 * W_GAP_SIDE })
+        let lastD = boxes(g).last(where: { $0.wall == wa })?.d ?? 0
+        let roomB: Int? = walls.count > 1 ? len(walls[1]).map { $0 - W_GAP_SIDE - lastD } : nil
+        g = narrow(g, wb, roomB)
+        return cornerFit(g, L0)
+    }
+    let x0 = off ?? cornerGap(f)
+    let gapR = cornerGap(f, right: true)
+    g = narrow(g, f.walls.first ?? "A", L0.map { $0 - x0 - gapR })
+    return packPiece(g, L0, ws: ws)
 }
 
 /// Where a corner kitchen's first side starts on its wall: its units end in the corner, an empty stretch before them.
@@ -279,7 +354,7 @@ func firstStart(_ f: Furniture, _ wallLen: Int?) -> Int {
 /// corner; keep its size kept. A corner kitchen's first side shorter than its wall gets an empty stretch at the wall's
 /// start, so its last unit stands in the corner where the next side turns.
 /// Pieces that may stand away from the walls, turned any way (a kitchen's island always may): a desk, shelving as a divider.
-let FREE_TYPES: Set<String> = ["desk", "shelving"]
+let FREE_TYPES: Set<String> = ["desk", "shelving", "bed", "bunk", "loft", "dining", "coffee", "bar"]
 
 func canStandFree(_ f: Furniture) -> Bool { f.kind == "wardrobe" && FREE_TYPES.contains(f.type) }
 
@@ -321,13 +396,13 @@ func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String,
             start: Int? = nil, pose: Pose? = nil) -> Furniture {
     var g = onWalls(withoutLead(f, len), walls); g.roomId = roomId; g.ws = wsId; g.keep = keep; g.pose = pose
     if g.kind == "wardrobe" {
+        // a corner piece fills its corner; the others stand off from the wall's start
+        let wallLen = len(walls[0]), free = pose != nil
+        if CORNER_TYPES.contains(g.type) { return cornerFit(g, wallLen) }
+        g = packPiece(shiftRun(g, off ?? cornerGap(g)), wallLen, ws: ws)
         // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
-        let wallLen = len(walls[0]), free = pose != nil, gap0 = cornerGap(g)
-        g.modules = g.modules.map { m in
-            guard m.type == "wardrobe" else { return m }
-            var x = m; x.x = off ?? gap0
-            return withSides(x, wallLen, free: free)
-        }
+        if boxes(g).count > 1 { return g }
+        g.modules = g.modules.map { $0.type == "wardrobe" ? withSides($0, wallLen, free: free) : $0 }
         return g
     }
     let gap = walls.filter { $0 != ISLAND }.count == 1 ? start ?? 0 : firstStart(g, len(walls[0]))
@@ -345,11 +420,22 @@ func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String,
 /// The piece taken out of its room: sizes from what is on each wall now, back on the made-up room's walls.
 func takenOut(_ f0: Furniture, _ len: (String) -> Int?, _ roomH: Int?) -> Furniture {
     if f0.kind == "wardrobe" {
-        var g = onWalls(f0, ["A"]); g.roomId = nil; g.ws = ""; g.keep = false; g.pose = nil
+        let corner = CORNER_TYPES.contains(f0.type)
+        var g = onWalls(f0, corner ? ["A", "B"] : ["A"]); g.roomId = nil; g.ws = ""; g.keep = false; g.pose = nil
+        if corner {
+            g.modules = g.modules.map { m in
+                var x = m
+                if m.wall == "A" { x.x = W_GAP_SIDE }
+                return x
+            }
+            return cornerFit(g, nil)
+        }
+        if boxes(g).count > 1 { return packPiece(shiftRun(g, W_GAP_SIDE)) }
         g.modules = g.modules.map { m in
-            guard m.type == "wardrobe" else { return m }
-            var x = m; x.x = W_GAP_SIDE
-            return withSides(x, m.w + 2 * W_GAP_SIDE)
+            var x = m
+            if m.type == "wardrobe" { x.x = W_GAP_SIDE; return withSides(x, m.w + 2 * W_GAP_SIDE) }
+            if isBox(m) { x.x = W_GAP_SIDE }
+            return x
         }
         return g
     }

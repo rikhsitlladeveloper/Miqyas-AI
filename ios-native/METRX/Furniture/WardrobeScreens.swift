@@ -9,21 +9,32 @@ import SwiftUI
 
 func wardOf(_ f: Furniture) -> Module? { f.modules.first { $0.type == "wardrobe" } }
 
-/// Changes the wardrobe of furniture fid (on the designer's undo list).
+/// The box the designer works on: the one picked (a stenka's piece, a corner wardrobe's arm), else the first.
+func curWard(_ f: Furniture) -> Module? {
+    let sel = KitOps.shared.sel
+    return f.modules.first { $0.id == sel && $0.type == "wardrobe" } ?? wardOf(f)
+}
+
+/// Changes the wardrobe (the picked box of a piece of several) of furniture fid (on the designer's undo list).
 private func ward(_ pid: String, _ fid: String, _ fn: @escaping (Module) -> Module) {
-    let snap = AppSettings.shared.angleSnap
+    let snap = AppSettings.shared.angleSnap, ws = AppSettings.shared.workshop
     KitOps.shared.change(pid, fid) { x in
-        // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
+        guard let cur = curWard(x) else { return x }
         let room: Room? = x.roomId == nil ? nil : Store.shared.get(pid).flatMap { roomOf($0, x) }
         let free = x.pose != nil
+        let many = boxes(x).count > 1
         var y = x
         y.modules = x.modules.map { mod in
-            guard mod.type == "wardrobe" else { return mod }
+            guard mod.id == cur.id else { return mod }
             let m = fn(mod)
+            if many { return m }
+            // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
             let len = room.flatMap { wallLen($0, snap, m.wall ?? "") } ?? (m.x + m.w + W_GAP_SIDE)
             return withSides(m, len, free: free)
         }
-        return y
+        // the other boxes make room: a stenka's pieces side by side, a corner's arms, a box on another
+        let lenA = room.flatMap { wallLen($0, snap, x.walls.first ?? "") }
+        return packPiece(y, lenA, changed: cur.id, ws: ws)
     }
 }
 
@@ -74,12 +85,12 @@ private func opaque(_ rgb: Int) -> Color { Color(argb: 0xFF00_0000 | UInt32(rgb)
 /// (unless the doors are shown), doors, problem outlines and the selected section.
 func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: Workshop, _ carcassRgb: Int, _ frontRgb: Int, _ sel: Int, _ doors: Bool,
               _ bad: [Int: String], labels: Bool) {
-    let t = ws.t, z0 = legsOf(m, ws), base = wardBase(m)
+    let t = ws.t, z0 = legsOf(m, ws) + m.elev, base = wardBase(m)
     func X(_ mm: Int) -> CGFloat { lay.x(mm - ox) }
     let l = X(m.x), r = X(m.x + m.w), top = lay.y(z0 + m.h), bot = lay.y(z0)
     let carcass = opaque(carcassRgb), front = opaque(frontRgb), onC = lineOn(carcassRgb), onF = lineOn(frontRgb)
     c.fill(rect(l, top, r - l, bot - top), with: .color(carcass))
-    if !m.legs { c.fill(rect(l, lay.y(base), r - l, CGFloat(base) * lay.s), with: .color(PC.greyLine.opacity(0.4))) }
+    if !m.legs { c.fill(rect(l, lay.y(z0 + base), r - l, CGFloat(base) * lay.s), with: .color(PC.greyLine.opacity(0.4))) }
     else {
         var acc = m.x
         for x in [m.x] + m.sections.map({ acc += $0.w; return acc }) { c.fill(rect(X(x) - 1.5, bot, 3, lay.yF - bot), with: .color(PC.greyLine)) }
@@ -105,6 +116,7 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
                 let y0 = z0 + base + t + x.pos, h = blockH(x)
                 switch x.kind {
                 case "shelf": c.fill(rect(il, lay.y(y0 + t), ir - il, max(1.4, CGFloat(t) * lay.s)), with: .color(onC))
+                case "glass": c.fill(rect(il, lay.y(y0 + 6), ir - il, max(1.4, 6 * lay.s)), with: .color(GLASS_C))
                 case "rail": c.line(PC.greyLine, CGPoint(x: il + 3, y: lay.y(y0)), CGPoint(x: ir - 3, y: lay.y(y0)), 2.4, round: true)
                 case "lift":
                     c.stroke(rect(il + 3, lay.y(y0 + h), ir - il - 6, CGFloat(h) * lay.s), with: .color(PC.greyLine), style: StrokeStyle(lineWidth: 1, dash: DASH))
@@ -123,17 +135,23 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
             }
         }
         if doors && !open && !slide {
-            let n = frontSizes(s.fronts, s.w, m.h - base, ws).count
+            let n = frontSizes(s.fronts, frontW(s), m.h - base, ws).count
             if n > 0 {
                 let g = max(0.8, CGFloat(ws.gap10) / 10 * lay.s)
                 let ft = top + g, fb = lay.y(z0 + base) - g
-                let fw = (sr - sl - g * CGFloat(n + 1)) / CGFloat(n)
+                // a corner unit's blind part has no door (the other arm closes it)
+                let blind = CGFloat(s.blind) * lay.s
+                let fw = (sr - sl - blind - g * CGFloat(n + 1)) / CGFloat(n)
+                let fill: Color = s.face == "mirror" ? MIRROR_C : s.face == "glass" ? GLASS_C.opacity(0.45) : front
                 for j in 0..<n {
                     let fx = sl + g + CGFloat(j) * (fw + g)
-                    c.fill(rect(fx, ft, fw, fb - ft), with: .color(front)); c.stroke(rect(fx, ft, fw, fb - ft), with: .color(onF), lineWidth: 0.8)
+                    c.fill(rect(fx, ft, fw, fb - ft), with: .color(fill)); c.stroke(rect(fx, ft, fw, fb - ft), with: .color(onF), lineWidth: 0.8)
+                    if s.face == "glass" { c.stroke(rect(fx, ft, fw, fb - ft), with: .color(PROFILE_C), lineWidth: max(1.2, 20 * lay.s)) }
                     if m.handles {
                         let hx = n == 2 ? (j == 0 ? fx + fw - 3 : fx + 3) : (!hingeRight(m, i) ? fx + fw - 3 : fx + 3)
-                        let hy = lay.y(z0 + 1000)
+                        // about 1 m up, but on the door of a low or hung cabinet
+                        let hmm = max(min(z0 + 1000, z0 + m.h - 90), z0 + base + 90)
+                        let hy = lay.y(hmm)
                         c.line(onF, CGPoint(x: hx, y: hy - 9), CGPoint(x: hx, y: hy + 9), 1.6, round: true)
                     }
                 }
@@ -231,7 +249,7 @@ private struct WardDrawing: View {
         let doors = step == 1 || step == 3 || step == 5
         let ox = onWall ? 0 : m.x
         let L = onWall ? max(cx.wallL ?? (m.x + m.w + W_GAP_SIDE), m.x + m.w) : m.w
-        let H = onWall ? max(cx.roomH ?? 2700, outerH(m, ws)) : outerH(m, ws)
+        let H = onWall ? max(cx.roomH ?? 2700, topOf(m, ws)) : outerH(m, ws)
         let lay = KLay(L, H, 360, true)
         let front = rgbOf(mats.first { $0.id == f.mats.front }?.rgb ?? "#CDBFAE"), carcass = rgbOf(mats.first { $0.id == f.mats.carcass }?.rgb ?? "#F5F5F2")
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
@@ -240,7 +258,15 @@ private struct WardDrawing: View {
                 var c = ctx; let k = size.width / lay.vw; c.scaleBy(x: k, y: k)
                 if onWall { drawWallFace(c, lay, cx.room, m.wall ?? "") }
                 c.line(PC.ink, CGPoint(x: lay.x0 - 10, y: lay.yF), CGPoint(x: lay.x(L) + 10, y: lay.yF), 2)
-                drawWard(c, lay, m, ox, ws, carcass, front, (step == 3 && m.slide == nil) || step == 4 ? sel : -1, doors, cx.bad, labels: true)
+                // on its wall the piece's other boxes stand beside it; alone, a hung box is drawn from its own bottom
+                if onWall {
+                    for o in f.modules where o.type == "wardrobe" && o.id != m.id && o.wall == m.wall {
+                        drawWard(c, lay, o, ox, ws, carcass, front, -1, true, [:], labels: false)
+                    }
+                }
+                var shown = m
+                if !onWall { shown.elev = 0 }
+                drawWard(c, lay, shown, ox, ws, carcass, front, (step == 3 && m.slide == nil) || step == 4 ? sel : -1, doors, cx.bad, labels: true)
                 if onWall {
                     for p in cx.room?.points ?? [] where p.wall == m.wall { drawSitePoint(c, p, CGPoint(x: lay.x(p.off), y: lay.y(p.h)), lay.s, 6) }
                     wardDims(c, lay, Array(Set([0, m.x, m.x + m.w, L])).sorted(), L, outerH(m, ws), m.x)
@@ -271,8 +297,11 @@ private struct WardDrawing: View {
 struct WardThumb: View {
     let f: Furniture
     var body: some View {
+        if isItemPiece(f) || boxes(f).count > 1 { PieceThumb(f: f) } else { frontPic }
+    }
+    private var frontPic: some View {
         let s = AppSettings.shared
-        Canvas { ctx, size in
+        return Canvas { ctx, size in
             guard let m = wardOf(f) else { return }
             let ws = s.workshop
             let front = rgbOf(s.mats.first { $0.id == f.mats.front }?.rgb ?? "#CDBFAE"), carcass = rgbOf(s.mats.first { $0.id == f.mats.carcass }?.rgb ?? "#F5F5F2")
@@ -292,14 +321,31 @@ struct WardrobeScreen: View {
     let app: AppModel
     let pid: String, fid: String, step: Int, sec: Int
     var d3 = false
+    /// A loft bed's desk or cabinet under it, designed here; nil: the piece's own designer.
+    var mod: String? = nil
     var body: some View {
         let kit = KitOps.shared
         let _ = kit.tick
-        if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }), let m = wardOf(f) {
-            let s = AppSettings.shared, ws = s.workshop, mats = s.mats
-            let cx = WardCtx(p, f, m, ws, s.angleSnap)
-            let sel = min(max(sec, 0), max(0, m.sections.count - 1))
-            let pick = { (i: Int) in app.setTop(.wardrobe(pid: pid, fid: fid, step: step, sec: i)) }
+        if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }) {
+            // a bed, a table, a bar counter or a mirror panel has its own short designer
+            if isItemPiece(f) && mod == nil { ItemScreen(app: app, p: p, f: f, d3: d3) }
+            else if let m = boxOf(f) { designer(p, f, m) }
+        }
+    }
+
+    private func boxOf(_ f: Furniture) -> Module? {
+        if let id = self.mod, let b = f.modules.first(where: { $0.id == id && $0.type == "wardrobe" }) { return b }
+        return curWard(f)
+    }
+
+    @ViewBuilder private func designer(_ p: Project, _ f: Furniture, _ m: Module) -> some View {
+        let kit = KitOps.shared
+        let s = AppSettings.shared, ws = s.workshop, mats = s.mats
+        let cx = WardCtx(p, f, m, ws, s.angleSnap)
+        let sel = min(max(sec, 0), max(0, m.sections.count - 1))
+        let modId = self.mod
+        let pick = { (i: Int) in app.setTop(.wardrobe(pid: pid, fid: fid, step: step, sec: i, mod: modId)) }
+        let many = f.modules.filter { $0.type == "wardrobe" }.count > 1 || f.type == "stenka"
             ZStack {
                 RoomGrid().ignoresSafeArea()
                 VStack(spacing: 0) {
@@ -316,12 +362,13 @@ struct WardrobeScreen: View {
                     }
                     .padding(.horizontal, 16).frame(height: 64)
                     if let room = cx.room {
-                        HStack { DimSeg(d3: d3) { app.setTop(.wardrobe(pid: pid, fid: fid, step: step, sec: sel, d3: $0)) }; Spacer() }
+                        HStack { DimSeg(d3: d3) { app.setTop(.wardrobe(pid: pid, fid: fid, step: step, sec: sel, d3: $0, mod: modId)) }; Spacer() }
                             .padding(.horizontal, 16).padding(.bottom, 10)
                         if d3 { Furniture3DPane(app: app, p: p, room: room) } else {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 12) {
-                                Steps(cur: step) { app.setTop(.wardrobe(pid: pid, fid: fid, step: $0, sec: sel)) }
+                                Steps(cur: step) { app.setTop(.wardrobe(pid: pid, fid: fid, step: $0, sec: sel, mod: modId)) }
+                                if many { BoxPicker(app: app, p: p, f: f, cur: m) { app.setTop(.wardrobe(pid: pid, fid: fid, step: step, sec: 0, d3: d3, mod: modId)) } }
                                 WardDrawing(m: m, f: f, cx: cx, ws: ws, mats: mats, step: step, sel: sel, onSec: pick)
                                 VStack(alignment: .leading, spacing: 10) {
                                     switch step {
@@ -347,6 +394,94 @@ struct WardrobeScreen: View {
                     }
                 }
             }
+    }
+}
+
+/// The boxes of a piece of several (a stenka's pieces, a corner wardrobe's arms, a vitrina's halves): which one the steps
+/// below change. A stenka's pieces can be added, moved along and taken away.
+private struct BoxPicker: View {
+    let app: AppModel
+    let p: Project, f: Furniture, cur: Module
+    let onPick: () -> Void
+
+    /// A stenka's boxes changed, then packed side by side again.
+    private func edit(_ fn: @escaping ([Module]) -> [Module]) {
+        let s = AppSettings.shared, ws = s.workshop, snap = s.angleSnap, proj = p
+        KitOps.shared.change(proj.id, f.id) { x in
+            let room: Room? = x.roomId == nil ? nil : roomOf(proj, x)
+            var y = x; y.modules = fn(x.modules)
+            return packPiece(y, room.flatMap { wallLen($0, snap, x.walls.first ?? "") }, ws: ws)
+        }
+    }
+
+    private func add(_ k: String) {
+        let nb = stenkaPart(f, k, AppSettings.shared.workshop)
+        let id = cur.id
+        edit { l in
+            var o = l
+            let i = l.firstIndex { $0.id == id }
+            o.insert(nb, at: i.map { $0 + 1 } ?? l.count)
+            return o
+        }
+        KitOps.shared.sel = nb.id
+        app.say("kt.added", ["m": tr("pc.add." + k)])
+    }
+
+    /// Along the wall: before or after the next piece in the list.
+    private func move(_ dlt: Int) {
+        let id = cur.id
+        edit { l in
+            guard let i = l.firstIndex(where: { $0.id == id }) else { return l }
+            let j = i + dlt
+            if j < 0 || j >= l.count { return l }
+            var o = l
+            let b = o.remove(at: i)
+            o.insert(b, at: j)
+            return o
+        }
+    }
+
+    private func remove(_ n: Int) {
+        if n <= 1 { return }
+        let id = cur.id, role = tr(boxRole(f, cur)), pid = p.id, fid = f.id
+        edit { l in l.filter { $0.id != id } }
+        KitOps.shared.sel = nil
+        app.say("kt.deleted", ["m": role], action: "common.undo") { KitOps.shared.undo(pid, fid) }
+    }
+
+    var body: some View {
+        let ms = f.modules.filter { $0.type == "wardrobe" }
+        VStack(alignment: .leading, spacing: 8) {
+            T(tr("pc.title"), ui(14.5, 800))
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(Array(ms.enumerated()), id: \.element.id) { i, b in
+                        FChip(label: "\(i + 1) · " + tr(boxRole(f, b)) + " \(b.w)", on: b.id == cur.id) {
+                            KitOps.shared.sel = b.id; KitOps.shared.tick += 1; onPick()
+                        }
+                        .accessibilityIdentifier("pc.box\(i + 1)")
+                    }
+                }
+            }
+            if f.type == "stenka" { stenkaTools(ms.count) }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .glassCard(RoundedRectangle(cornerRadius: 18, style: .continuous), fill: G.glass(0.6))
+    }
+
+    @ViewBuilder private func stenkaTools(_ n: Int) -> some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(STENKA_PARTS, id: \.self) { k in
+                    FChip(label: "+ " + tr("pc.add." + k), on: false) { add(k) }.accessibilityIdentifier("pc.add." + k)
+                }
+            }
+        }
+        HStack(spacing: 8) {
+            GBtn(tr("pc.left"), kind: .secondary, icon: "undo", height: 42, corner: 14, fontSize: 14) { move(-1) }.accessibilityIdentifier("pc.left")
+            GBtn(tr("pc.right"), kind: .secondary, icon: "redo", height: 42, corner: 14, fontSize: 14) { move(1) }.accessibilityIdentifier("pc.right")
+            GBtn(tr("common.delete"), kind: .danger, icon: "trash", enabled: n > 1, height: 42, corner: 14, fontSize: 14) { remove(n) }.accessibilityIdentifier("pc.delete")
         }
     }
 }
@@ -375,7 +510,8 @@ private struct Steps: View {
     }
 }
 
-private struct WValRow: View {
+/// A value row (the wardrobe's steps and the item designer).
+struct WValRow: View {
     let label: String, value: String, id: String
     let action: () -> Void
     var body: some View {
@@ -410,6 +546,13 @@ private struct PlaceStep: View {
     var body: some View {
         let snap = AppSettings.shared.angleSnap
         if f.roomId == nil { return AnyView(FreeBanner(app: app, p: p, f: f)) }
+        if let room = cx.room, boxes(f).count > 1 {
+            return AnyView(VStack(alignment: .leading, spacing: 10) {
+                T(tr("pc.placeNote"), ui(13, 400, G.ink2, lh: 1.4))
+                GBtn(tr("fz.move"), kind: .secondary, icon: "room", height: 44, corner: 14, fontSize: 14) { app.push(.fPlace(pid: p.id, fid: f.id, rid: room.id)) }
+                    .accessibilityIdentifier("wd.move")
+            })
+        }
         if let room = cx.room {
             // to another wall: its width kept where it fits, at the wall's longest stretch clear of doors and windows
             func moveTo(_ wall: String, _ len: Int?) {
@@ -463,18 +606,7 @@ private struct WardSizeStep: View {
             WValRow(label: tr("wd.h"), value: "\(m.h) mm", id: "wd.h") { app.sheet = .wField(pid: p.id, fid: f.id, key: "h", sec: 0) }
             WValRow(label: tr("wd.d"), value: "\(m.d) mm", id: "wd.d") { app.sheet = .wField(pid: p.id, fid: f.id, key: "d", sec: 0) }
             T(tr("wd.base"), ui(14.5, 700))
-            // plinth or legs, each with its height; the whole height stays, the carcass gives way
-            Seg(items: [("plinth", tr("wd.plinth")), ("legs", tr("wd.legs"))], cur: m.legs ? "legs" : "plinth") { k in
-                if (k == "legs") != m.legs {
-                    ward(p.id, f.id) { mm in
-                        let legs = k == "legs" ? ws.legH : 0
-                        var n = mm; n.legs = k == "legs"; n.base = nil; n.h = max(300, outerH(mm, ws) - legs)
-                        return n
-                    }
-                }
-            }
-            let baseV = m.legs ? legsOf(m, ws) : wardBase(m)
-            WValRow(label: tr(m.legs ? "wd.legsH" : "wd.plinthH"), value: "\(baseV) mm", id: "wd.base") { app.sheet = .wField(pid: p.id, fid: f.id, key: "base", sec: 0) }
+            WardBase(app: app, p: p, f: f, m: m)
             FStepper(label: tr("wd.secCount"), v: m.sections.count, lo: 1, hi: 8, id: "wd.secs") { n in
                 ward(p.id, f.id) { mm in
                     let ih = wardInnerH(mm, ws.t)
@@ -509,9 +641,58 @@ private struct WardSizeStep: View {
                     ForEach(0..<(4 - row.count), id: \.self) { _ in Color.clear.frame(maxWidth: .infinity, maxHeight: 1) }
                 }
             }
+            // a dressing table's mirror on the wall over it
+            if let r = f.modules.first(where: { $0.type == "mirror" }) {
+                T(tr("pc.mirror"), ui(14.5, 700))
+                WValRow(label: tr("fz.mirW"), value: "\(r.w) mm", id: "pc.mirW") { app.sheet = .iField(pid: p.id, fid: f.id, mid: r.id, key: "w") }
+                WValRow(label: tr("fz.mirH"), value: "\(r.h) mm", id: "pc.mirH") { app.sheet = .iField(pid: p.id, fid: f.id, mid: r.id, key: "h") }
+                WValRow(label: tr("fz.elev"), value: "\(r.elev) mm", id: "pc.mirE") { app.sheet = .iField(pid: p.id, fid: f.id, mid: r.id, key: "e") }
+            }
             let carcass = AppSettings.shared.mats.first { $0.id == f.mats.carcass }?.name ?? f.mats.carcass
             T(tr("wd.sizeNote", ["d": m.d, "b": m.legs ? tr("wd.legs") : tr("wd.plinth"), "m": carcass]), ui(12.5, 400, G.ink2, lh: 1.4))
         }
+    }
+}
+
+/// Plinth or legs, each with its height; the whole height stays, the carcass gives way. A cabinet can hang on the wall (a
+/// stacked box stands on the one under it).
+private struct WardBase: View {
+    let app: AppModel
+    let p: Project, f: Furniture, m: Module
+    var body: some View {
+        let ws = AppSettings.shared.workshop
+        let isHung = hung(m)
+        let stacked = STACK_TYPES.contains(f.type) && isHung
+        let cur = isHung ? "wall" : m.legs ? "legs" : "plinth"
+        let hang: [(String, String)] = f.type.isEmpty ? [] : [("wall", tr("wd.hang"))]
+        let items: [(String, String)] = [("plinth", tr("wd.plinth")), ("legs", tr("wd.legs"))] + hang
+        let pid = p.id, fid = f.id
+        VStack(alignment: .leading, spacing: 10) {
+            if !stacked {
+                Seg(items: items, cur: cur) { k in
+                    if k != cur { ward(pid, fid) { mm in WardBase.based(mm, k, ws) } }
+                }
+            }
+            if isHung && !stacked {
+                WValRow(label: tr("fz.elev"), value: "\(m.elev) mm", id: "wd.elev") { app.sheet = .wField(pid: pid, fid: fid, key: "e", sec: 0) }
+            } else if !isHung {
+                let baseV = m.legs ? legsOf(m, ws) : wardBase(m)
+                WValRow(label: tr(m.legs ? "wd.legsH" : "wd.plinthH"), value: "\(baseV) mm", id: "wd.base") { app.sheet = .wField(pid: pid, fid: fid, key: "base", sec: 0) }
+            }
+        }
+    }
+
+    /// The box standing as k says: hung on the wall, or on legs or a plinth with its whole height kept.
+    static func based(_ mm: Module, _ k: String, _ ws: Workshop) -> Module {
+        var n = mm
+        if k == "wall" {
+            n.legs = false; n.base = 0; n.elev = max(100, legsOf(mm, ws) + wardBase(mm))
+            return n
+        }
+        let legs = k == "legs" ? ws.legH : 0
+        let whole = hung(mm) ? mm.h + (k == "legs" ? legs : PLINTH) : outerH(mm, ws)
+        n.legs = k == "legs"; n.base = nil; n.elev = 0; n.h = max(300, whole - legs)
+        return n
     }
 }
 
@@ -572,6 +753,12 @@ private struct DoorStep: View {
                     T(tr("wd.doors", ["s": sel + 1]), ui(15.5, 800))
                     SecChips(m: m, sel: sel, onPick: onSec)
                     Seg(items: [("2", tr("wd.d2")), ("1", tr("wd.d1")), ("0", tr("wd.d0"))], cur: cur) { k in changeSec(p.id, f.id, sel) { x in var n = x; n.fronts = fr(k); return n } }
+                    // what the doors are: the front board, a mirror on it, or glass in an aluminium frame
+                    if cur != "0" {
+                        Seg(items: [("", tr("wd.face.ldsp")), ("mirror", tr("wd.face.mirror")), ("glass", tr("wd.face.glass"))], cur: s.face) { k in
+                            changeSec(p.id, f.id, sel) { x in var n = x; n.face = k; return n }
+                        }
+                    }
                     // one door: which way it opens, its handle on the other edge
                     if cur == "1" {
                         Seg(items: [("L", tr("wd.openL")), ("R", tr("wd.openR"))], cur: hingeRight(m, sel) ? "R" : "L") { k in
@@ -674,6 +861,7 @@ private struct InsideStep: View {
                     }
                     .accessibilityIdentifier("wd.spread")
                 }
+                FToggle(label: tr("wd.led"), on: m.led, id: "wd.led") { ward(p.id, f.id) { x in var n = x; n.led.toggle(); return n } }
             }
             .onChange(of: sel) { _, _ in dragI = -1; dragDy = 0 }
         }
@@ -716,7 +904,7 @@ private struct InsideStep: View {
     }
 }
 
-private struct MatStep: View {
+struct MatStep: View {
     let app: AppModel
     let p: Project, f: Furniture
     var body: some View {
@@ -745,13 +933,14 @@ struct WardrobeSheet: View {
     let app: AppModel
     let sheet: Sheet
     static func handles(_ s: Sheet) -> Bool {
-        switch s { case .wField, .wInsert, .wMore: return true; default: return false }
+        switch s { case .wField, .wInsert, .wMore, .iField: return true; default: return false }
     }
     var body: some View {
         switch sheet {
         case .wField(let pid, let fid, let key, let sec): WFieldSheet(app: app, pid: pid, fid: fid, key: key, sec: sec)
         case .wInsert(let pid, let fid, let sec, let idx): WInsertSheet(app: app, pid: pid, fid: fid, sec: sec, idx: idx)
         case .wMore(let pid, let fid, let sec): WMoreSheet(app: app, pid: pid, fid: fid, sec: sec)
+        case .iField(let pid, let fid, let mid, let key): IFieldSheet(app: app, pid: pid, fid: fid, mid: mid, key: key)
         default: EmptyView()
         }
     }
@@ -766,9 +955,9 @@ private struct WFieldSheet: View {
     @FocusState private var focus: WF2?
     init(app: AppModel, pid: String, fid: String, key: String, sec: Int) {
         self.app = app; self.pid = pid; self.fid = fid; self.key = key; self.sec = sec
-        let m = Store.shared.get(pid)?.furniture.first { $0.id == fid }.flatMap(wardOf)
+        let m = Store.shared.get(pid)?.furniture.first { $0.id == fid }.flatMap(curWard)
         let ws = AppSettings.shared.workshop
-        let start: Int = { switch key { case "h": return m?.h ?? 0; case "d": return m?.d ?? 0; case "x": return m?.x ?? 0
+        let start: Int = { switch key { case "h": return m?.h ?? 0; case "e": return m?.elev ?? 0; case "d": return m?.d ?? 0; case "x": return m?.x ?? 0
                                         case "base": return m.map { $0.legs ? legsOf($0, ws) : wardBase($0) } ?? 0
                                         case "secW": return m.flatMap { sec < $0.sections.count ? $0.sections[sec].w : nil } ?? 0; default: return m?.w ?? 0 } }()
         _v = State(initialValue: String(start))
@@ -781,9 +970,10 @@ private struct WFieldSheet: View {
         let give = locked.count == o.count ? (locked.last?.w ?? 150) - 150 : 0
         return 150...max(150, m.w - locked.reduce(0) { $0 + $1.w } - 150 * (o.count - locked.count) + give)
     }
-    private func rangeOf(_ m: Module, _ wallL: Int?) -> ClosedRange<Int> {
+    private func rangeOf(_ m: Module, _ wallL: Int?, _ typed: Bool) -> ClosedRange<Int> {
         switch key {
-        case "h": return 600...3000
+        case "h": return typed ? 150...3000 : 600...3000
+        case "e": return 50...2400
         case "d": return 250...900
         case "x": return 0...max(0, (wallL ?? 10000) - 300)
         case "base": return m.legs ? 50...250 : 50...200
@@ -796,18 +986,19 @@ private struct WFieldSheet: View {
         case "h": return tr("wd.h")
         case "d": return tr("wd.d")
         case "x": return tr("wd.x")
+        case "e": return tr("fz.elev")
         case "base": return tr(m.legs ? "wd.legsH" : "wd.plinthH")
         case "secW": return tr("wd.secT", ["n": sec + 1])
         default: return tr("wd.w")
         }
     }
     var body: some View {
-        if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }), let m = wardOf(f) {
+        if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }), let m = curWard(f) {
             let wallL = roomOf(p, f).flatMap { wallLen($0, AppSettings.shared.angleSnap, m.wall ?? "") }
             let n = m.sections.count
             let secLock = sec < n && m.sections[sec].lock
             let ws = AppSettings.shared.workshop
-            let range: ClosedRange<Int> = rangeOf(m, wallL)
+            let range: ClosedRange<Int> = rangeOf(m, wallL, !f.type.isEmpty)
             let vi = Int(v).flatMap { range.contains($0) ? $0 : nil }
             let title = titleOf(m)
             let save = {
@@ -816,6 +1007,7 @@ private struct WFieldSheet: View {
                     var out = mm
                     switch key {
                     case "h": out.h = x
+                    case "e": out.elev = x
                     case "d": out.d = x
                     case "x": out.x = x
                     // the whole height stays: taller legs, a shorter carcass (a plinth is inside the carcass)
@@ -867,12 +1059,12 @@ private struct WInsertSheet: View {
     @FocusState private var focus: WF2?
     init(app: AppModel, pid: String, fid: String, sec: Int, idx: Int) {
         self.app = app; self.pid = pid; self.fid = fid; self.sec = sec; self.idx = idx
-        let m = Store.shared.get(pid)?.furniture.first { $0.id == fid }.flatMap(wardOf)
+        let m = Store.shared.get(pid)?.furniture.first { $0.id == fid }.flatMap(curWard)
         let x = m.flatMap { sec < $0.sections.count && idx < $0.sections[sec].inserts.count ? $0.sections[sec].inserts[idx] : nil }
         _pos = State(initialValue: String(x?.pos ?? 0)); _h = State(initialValue: String(x.map(blockH) ?? 0))
     }
     var body: some View {
-        if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }), let m = wardOf(f),
+        if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }), let m = curWard(f),
            sec < m.sections.count, idx < m.sections[sec].inserts.count {
             let x = m.sections[sec].inserts[idx]
             let ih = wardInnerH(m, AppSettings.shared.workshop.t)
@@ -916,14 +1108,14 @@ private struct WMoreSheet: View {
     let app: AppModel
     let pid: String, fid: String, sec: Int
     var body: some View {
-        if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }), let m = wardOf(f) {
+        if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }), let m = curWard(f) {
             GlassSheet(tr("wd.moreT"), onClose: { app.sheet = nil }) {
                 VStack(spacing: 8) {
-                    ForEach(["trouser", "shoe", "lift"], id: \.self) { k in
+                    ForEach(["trouser", "shoe", "lift", "glass"], id: \.self) { k in
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 1) {
                                 T(tr("wi." + k), ui(15, 700))
-                                T(tr("wid." + k) + " · \(blockH(Insert(k))) mm", ui(12.5, 400, G.ink2))
+                                T(tr("wid." + k) + (blockH(Insert(k)) > 0 ? " · \(blockH(Insert(k))) mm" : ""), ui(12.5, 400, G.ink2))
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             MIcon("plus", G.cobalt2, 20, 2.4)

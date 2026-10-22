@@ -26,7 +26,7 @@ struct FPart: Equatable, Hashable {
 }
 
 /// A part from two sizes and the banding of the edges that run along each: normalised so L is the longer one.
-private func part(_ key: String, _ mod: String, _ role: String, _ a: Int, _ b: Int, _ qty: Int, _ ea: (Int, Int) = (0, 0), _ eb: (Int, Int) = (0, 0), grain: Bool = false) -> FPart {
+func part(_ key: String, _ mod: String, _ role: String, _ a: Int, _ b: Int, _ qty: Int, _ ea: (Int, Int) = (0, 0), _ eb: (Int, Int) = (0, 0), grain: Bool = false) -> FPart {
     grain || a >= b ? FPart(key: key, mod: mod, role: role, L: a, W: b, qty: qty, bands: Bands(l1: ea.0, l2: ea.1, s1: eb.0, s2: eb.1), grain: grain)
                     : FPart(key: key, mod: mod, role: role, L: b, W: a, qty: qty, bands: Bands(l1: eb.0, l2: eb.1, s1: ea.0, s2: ea.1), grain: grain)
 }
@@ -34,9 +34,9 @@ private func part(_ key: String, _ mod: String, _ role: String, _ a: Int, _ b: I
 private let RAIL = 100
 /// The plinth under a wardrobe without legs: the bottom panel sits on it, the sides go down to the floor.
 let PLINTH = 80
-private let THICK = (2, 0)
-private let ALL = (2, 2)
-private let THIN = 1
+let THICK = (2, 0)
+let ALL = (2, 2)
+let THIN = 1
 
 /// Where a wardrobe's inside starts: the plinth, or nothing on legs.
 func wardBase(_ m: Module) -> Int { m.legs ? 0 : (m.base ?? PLINTH) }
@@ -75,7 +75,7 @@ func frontSizes(_ f: Fronts, _ w: Int, _ h: Int, _ ws: Workshop) -> [(Int, Int)]
 }
 
 /// A drawer's box behind a front fh high in an opening iw wide (between the sides) and d deep: sides, front and back, bottom.
-private func drawerBox(_ mod: String, _ iw: Int, _ d: Int, _ fh: Int, _ t: Int) -> [FPart] {
+func drawerBox(_ mod: String, _ iw: Int, _ d: Int, _ fh: Int, _ t: Int) -> [FPart] {
     let rl = runnerLen(d)
     let bh = min(150, max(80, fh - 40))
     let inner = iw - 26                       // 13 mm runner clearance each side
@@ -90,8 +90,9 @@ private func backPanel(_ mod: String, _ w: Int, _ h: Int, _ ws: Workshop) -> FPa
     ws.back == "groove" ? part("fp.back", mod, "back", h - 2 * ws.t + 16, w - 2 * ws.t + 16, 1) : part("fp.back", mod, "back", h - 4, w - 4, 1)
 }
 
-/// Fronts: doors and panels with the grain upright (length = height), drawer faces with it across (length = width).
-private func fronts(_ mod: String, _ f: Fronts, _ w: Int, _ h: Int, _ ws: Workshop) -> [FPart] {
+/// Fronts: doors and panels with the grain upright (length = height), drawer faces with it across (length = width); glass doors are bought, not cut.
+private func fronts(_ mod: String, _ f: Fronts, _ w: Int, _ h: Int, _ ws: Workshop, _ face: String = "") -> [FPart] {
+    if face == "glass" && f.kind == "door" { return [] }
     // equal sizes counted, in the order they first come (Kotlin's groupingBy)
     var order: [[Int]] = []; var count: [[Int]: Int] = [:]
     for (a, b) in frontSizes(f, w, h, ws) { let k = [a, b]; if count[k] == nil { order.append(k) }; count[k, default: 0] += 1 }
@@ -113,6 +114,7 @@ func partsOf(_ m: Module, _ ws: Workshop) -> [FPart] {
     switch m.type {
     case "gap": out += fronts(id, m.fronts, m.w, m.h, ws)
     case "filler": out.append(part("fp.filler", id, "front", m.h, m.w, 1, ALL, ALL, grain: true))
+    case _ where ITEM_MODS.contains(m.type): out += itemParts(m, ws)
     case "wardrobe":
         let secs = m.sections.isEmpty ? [Section(m.w)] : m.sections
         let base = wardBase(m)
@@ -133,7 +135,7 @@ func partsOf(_ m: Module, _ ws: Workshop) -> [FPart] {
                 out.append(part("fp.divider", id, "carcass", toFloor ? m.h - t : m.h - base - 2 * t, toFloor ? m.d : dIn, 1, THICK))
             }
         }
-        if !m.legs { out.append(part("fp.plinth", id, "carcass", inW, wardBase(m), 1, THICK)) }
+        if !m.legs && wardBase(m) > 0 { out.append(part("fp.plinth", id, "carcass", inW, wardBase(m), 1, THICK)) }
         for (i, s) in secs.enumerated() {
             let iw = wardInner(m, secs, i, t)
             let sid = "\(id)/\(i + 1)"
@@ -149,7 +151,7 @@ func partsOf(_ m: Module, _ ws: Workshop) -> [FPart] {
                 out += drawerBox(sid, iw, dIn, fh, t)
             }
             // sliding doors close the whole front; the sections have none of their own
-            if m.slide == nil { out += fronts(sid, s.fronts, s.w, m.h - base, ws) }
+            if m.slide == nil { out += fronts(sid, s.fronts, frontW(s), m.h - base, ws, s.face) }
         }
         // the board fillings of the sliding doors (mirror and glass are bought by the m², in the hardware list)
         if let sl = m.slide {
@@ -173,11 +175,11 @@ func partsOf(_ m: Module, _ ws: Workshop) -> [FPart] {
         out += fronts(id, m.fronts, m.w, m.h, ws)
         if m.fronts.kind == "drawer" { for (fh, _) in frontSizes(m.fronts, m.w, m.h, ws) { out += drawerBox(id, m.w - 2 * t, m.d, fh, t) } }
     }
-    return merge(out)
+    return mergeParts(out)
 }
 
 /// Equal parts of one module become one line with their counts added, in the order they first come.
-private func merge(_ ps: [FPart]) -> [FPart] {
+func mergeParts(_ ps: [FPart]) -> [FPart] {
     var order: [FPart] = []; var count: [FPart: Int] = [:]
     for p in ps { var k = p; k.qty = 0; if count[k] == nil { order.append(k) }; count[k, default: 0] += p.qty }
     return order.map { var p = $0; p.qty = count[$0]!; return p }

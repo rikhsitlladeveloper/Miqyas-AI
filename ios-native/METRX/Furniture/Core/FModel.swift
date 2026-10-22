@@ -110,12 +110,16 @@ struct Module: Codable, Equatable, Identifiable {
     var slide: Slide? = nil
     /// Wardrobes: the plinth's or the legs' height, mm; nil: a plinth of 80, or the workshop's legs.
     var base: Int? = nil
+    /// An LED strip along the top inside (a vitrina's).
+    var led = false
+    /// A board-built piece that is not a cabinet (bed, table, bar counter, mirror panel, mirror): its options (Items.swift).
+    var opt: Opt? = nil
     init(id: String, type: String, w: Int, h: Int, d: Int, x: Int = 0, wall: String? = nil, elev: Int = 0, fronts: Fronts = Fronts(), inserts: [Insert] = [],
          sections: [Section] = [], legs: Bool = true, soft: Bool = true, handles: Bool = true, label: String = "", app: String = "", sideL: Bool = true, sideR: Bool = true,
-         slide: Slide? = nil, base: Int? = nil) {
+         slide: Slide? = nil, base: Int? = nil, led: Bool = false, opt: Opt? = nil) {
         self.id = id; self.type = type; self.w = w; self.h = h; self.d = d; self.x = x; self.wall = wall; self.elev = elev; self.fronts = fronts
         self.inserts = inserts; self.sections = sections; self.legs = legs; self.soft = soft; self.handles = handles; self.label = label; self.app = app
-        self.sideL = sideL; self.sideR = sideR; self.slide = slide; self.base = base
+        self.sideL = sideL; self.sideR = sideR; self.slide = slide; self.base = base; self.led = led; self.opt = opt
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -123,7 +127,40 @@ struct Module: Codable, Equatable, Identifiable {
         x = c.v(.x, 0); wall = c.v(.wall, nil); elev = c.v(.elev, 0); fronts = c.v(.fronts, Fronts()); inserts = c.v(.inserts, [])
         sections = c.v(.sections, []); legs = c.v(.legs, true); soft = c.v(.soft, true); handles = c.v(.handles, true); label = c.v(.label, "")
         app = c.v(.app, ""); sideL = c.v(.sideL, true); sideR = c.v(.sideR, true); slide = c.v(.slide, nil)
-        base = c.v(.base, nil)
+        base = c.v(.base, nil); led = c.v(.led, false); opt = c.v(.opt, nil)
+    }
+}
+
+/// A bed's, a table's, a bar counter's or a mirror panel's few options (Items.swift). Sizes are the module's own: across
+/// (Module.w), out from the wall (Module.d) and up (Module.h).
+struct Opt: Codable, Equatable, Hashable {
+    /// Beds: "legs" plain on legs, "drawers" drawers under, "lift" a lift-up base over a storage box.
+    var bed = "legs"
+    /// Beds: the mattress, mm; the headboard's top above the floor.
+    var mw = 1600, ml = 2000, hb = 1000
+    /// Tables: "board" panel legs, "metal4" four straight metal legs, "frame" a metal frame.
+    var legs = "board"
+    /// Tables and bar counters: the top of "ldsp" (the front board) or "wt" (worktop board); rounded corners.
+    var top = "ldsp", round = false
+    /// Bunk and loft beds: the ladder at the "L" or "R" end of the front; a loft bed's space under it: "desk", "ward" or "open".
+    var ladder = "R", under = "desk"
+    /// Mirror panels: coat hooks, a hat shelf on top, the mirror's size (0: none).
+    var hooks = 5, shelf = true, mirW = 0, mirH = 0
+    /// Bar counters: open shelves on the kitchen side, the top's overhang on the seating side, a footrest.
+    var shelves = true, over = 300, foot = true
+    init(bed: String = "legs", mw: Int = 1600, ml: Int = 2000, hb: Int = 1000, legs: String = "board", top: String = "ldsp", round: Bool = false,
+         ladder: String = "R", under: String = "desk", hooks: Int = 5, shelf: Bool = true, mirW: Int = 0, mirH: Int = 0,
+         shelves: Bool = true, over: Int = 300, foot: Bool = true) {
+        self.bed = bed; self.mw = mw; self.ml = ml; self.hb = hb; self.legs = legs; self.top = top; self.round = round
+        self.ladder = ladder; self.under = under; self.hooks = hooks; self.shelf = shelf; self.mirW = mirW; self.mirH = mirH
+        self.shelves = shelves; self.over = over; self.foot = foot
+    }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        bed = c.v(.bed, "legs"); mw = c.v(.mw, 1600); ml = c.v(.ml, 2000); hb = c.v(.hb, 1000); legs = c.v(.legs, "board")
+        top = c.v(.top, "ldsp"); round = c.v(.round, false); ladder = c.v(.ladder, "R"); under = c.v(.under, "desk")
+        hooks = c.v(.hooks, 5); shelf = c.v(.shelf, true); mirW = c.v(.mirW, 0); mirH = c.v(.mirH, 0)
+        shelves = c.v(.shelves, true); over = c.v(.over, 300); foot = c.v(.foot, true)
     }
 }
 
@@ -166,12 +203,21 @@ struct Section: Codable, Equatable, Hashable {
     var knee = false
     /// A single door's hinge edge: "L" it opens to the left, "R" to the right; "" as usual (Wardrobe.swift hingeRight).
     var hinge = ""
-    init(_ w: Int, fronts: Fronts = Fronts("door", 2), inserts: [Insert] = [], lock: Bool = false, knee: Bool = false, hinge: String = "") {
+    /// A corner unit's blind part: this many mm at the right end of the front have no door (the other arm closes them).
+    var blind = 0
+    /// The doors' face: "" the front board, "mirror" a mirror on the board, "glass" glass in an aluminium frame (a vitrina's).
+    var face = ""
+    init(_ w: Int, fronts: Fronts = Fronts("door", 2), inserts: [Insert] = [], lock: Bool = false, knee: Bool = false, hinge: String = "",
+         blind: Int = 0, face: String = "") {
         self.w = w; self.fronts = fronts; self.inserts = inserts; self.lock = lock; self.knee = knee; self.hinge = hinge
+        self.blind = blind; self.face = face
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         w = c.v(.w, 600); fronts = c.v(.fronts, Fronts("door", 2)); inserts = c.v(.inserts, []); lock = c.v(.lock, false); knee = c.v(.knee, false)
-        hinge = c.v(.hinge, "")
+        hinge = c.v(.hinge, ""); blind = c.v(.blind, 0); face = c.v(.face, "")
     }
 }
+
+/// The width the section's doors (or drawers) cover: all of it but a corner unit's blind part.
+func frontW(_ s: Section) -> Int { max(0, s.w - s.blind) }
