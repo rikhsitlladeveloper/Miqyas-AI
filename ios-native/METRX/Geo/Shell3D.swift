@@ -35,10 +35,14 @@ struct WallBasis: Equatable {
 struct Face3 { let n: V3; let pts: [V3]; var tris: [Int]? = nil }
 
 /// Faces with one colour and opacity, belonging to one wall of one room (group); floors and loose glass have no wall.
+/// tile: a tiler's tiles (Tiles/Mesh.swift).
 final class Part3 {
     let group: Int, wall: String?, role: Role3, rgb: Int, op: Double
+    let tile: Bool
     var faces: [Face3] = []
-    init(_ group: Int, _ wall: String?, _ role: Role3, _ rgb: Int, _ op: Double) { self.group = group; self.wall = wall; self.role = role; self.rgb = rgb; self.op = op }
+    init(_ group: Int, _ wall: String?, _ role: Role3, _ rgb: Int, _ op: Double, tile: Bool = false) {
+        self.group = group; self.wall = wall; self.role = role; self.rgb = rgb; self.op = op; self.tile = tile
+    }
 }
 
 /// A wall's outline as line segments (pairs of points), like the prototype's EdgesGeometry lines.

@@ -10,20 +10,36 @@ struct ProjectsList: View {
     /// A paid furniture order counts as done in the chips.
     private func stageOf(_ p: Project) -> String { p.isFurniture && p.stage == "paid" ? "done" : p.stage }
 
+    /// This industry's own projects: a furniture maker's orders, a tiler's, or the builders' and the other trades'.
+    private func mine(_ p: Project, _ furniture: Bool, _ tiler: Bool) -> Bool {
+        if furniture { return p.isFurniture }
+        if tiler { return p.isTiler }
+        return !p.isFurniture && !p.isTiler
+    }
+
+    /// The list in its order: furniture orders by install date (advanced), the simple apps' newest first, as on Home.
+    private func listOrder(_ list: [Project], _ furniture: Bool, _ tiler: Bool, _ staged: Bool, _ seg: String) -> [Project] {
+        if !(furniture || tiler) || seg == "other" { return list }
+        if staged && furniture { return sortOrders(list) }
+        return list.sorted { $0.created > $1.created }
+    }
+
     var body: some View {
         let furniture = AppSettings.shared.furniture
+        let tiler = AppSettings.shared.tiler
         let all = Store.shared.projects
-        // each industry sees its own projects; the others stay one chip away (furniture plan section 3)
-        let ps = all.filter { $0.isFurniture == furniture }
-        let others = all.filter { $0.isFurniture != furniture }
-        // the simple furniture app has no stages: no "in work / finished", just all of them (and the other industry's)
-        let staged = !furniture || AppSettings.shared.advanced
+        // each industry sees its own projects (furniture orders, tilers' orders, the rest); the others stay one chip away
+        // (furniture plan section 3)
+        let ps = all.filter { mine($0, furniture, tiler) }
+        let others = all.filter { !mine($0, furniture, tiler) }
+        // the simple furniture and tiler apps have no stages: no "in work / finished", just all of them (and the other industry's)
+        let staged = !(furniture || tiler) || AppSettings.shared.advanced
         let seg = !staged && self.seg != "other" ? "all" : self.seg
         let stages: [(String, String)] = staged ? [("active", "pl.active"), ("done", "pl.doneSeg")] : []
         let chips: [(String, String)] = stages + [("all", "pl.allSeg")] + (others.isEmpty ? [] : [("other", "fo.other")])
         VStack(alignment: .leading, spacing: 0) {
             GlassHeader { app.sheet = .device }
-            PageTitle(text: tr(furniture ? "fo.tab" : "tab.projects")).padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
+            PageTitle(text: tr(furniture || tiler ? "fo.tab" : "tab.projects")).padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
             if all.isEmpty {
                 ProjectsEmpty(app: app)
             } else {
@@ -58,8 +74,9 @@ struct ProjectsList: View {
                         }
                         VStack(spacing: 10) {
                             // the simple app has no install dates: the newest first, as on Home
-                            ForEach(furniture && seg != "other" ? (staged ? sortOrders(list) : list.sorted { $0.created > $1.created }) : list) { p in
+                            ForEach(listOrder(list, furniture, tiler, staged, seg)) { p in
                                 if p.isFurniture { OrderRow(p: p) { app.push(.project(id: p.id, tab: "rooms")) } }
+                                else if p.isTiler && !staged { TOrderRow(p: p) { app.push(.project(id: p.id, tab: "rooms")) } }
                                 else { ProjectRow(p: p) { app.push(.project(id: p.id, tab: "rooms")) } }
                             }
                             if list.isEmpty {

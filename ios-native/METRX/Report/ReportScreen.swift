@@ -35,9 +35,9 @@ struct ReportScreen: View {
     var body: some View {
         if let p = Store.shared.get(pid) {
             let quote = no.flatMap { n in p.quotes.first { $0.no == n } }
-            let sn = quote?.sn ?? snapshotOf(p)
-            // a furniture maker in the simple app shares the design: no price, nothing to issue
-            let design = quote == nil && p.isFurniture && !AppSettings.shared.advanced
+            // a furniture maker or a tiler in the simple app shares the design: no price, nothing to issue (a tiler's has no estimate)
+            let design = isDesign(p, quote)
+            let sn = quote?.sn ?? designSnap(p, design)
             let key = quote.map { "q\($0.no)" } ?? (design ? "d" : "") + fingerprint(sn) + "\(sn.pdf)" + sn.lang + sn.extras.map { $0.text + "\($0.checks)" }.joined()
             let total = quote.flatMap { Decimal(string: $0.total) } ?? (p.isFurniture ? Decimal(string: sn.ftotal) ?? 0 : snapTotal(sn))
             let lang = AppSettings.shared.lang
@@ -150,17 +150,27 @@ struct ReportScreen: View {
         }
     }
 
+    /// The simple furniture or tiler app's draft: the design, shared without a price.
+    private func isDesign(_ p: Project, _ quote: Quote?) -> Bool { quote == nil && (p.isFurniture || p.isTiler) && !AppSettings.shared.advanced }
+
+    /// The draft's snapshot; a tiler's design has no estimate in it.
+    private func designSnap(_ p: Project, _ design: Bool) -> Snap {
+        var s = snapshotOf(p)
+        if design && p.isTiler { s.pdf.estimate = false }
+        return s
+    }
+
     /// A furniture order's quote has its own pages (furniture plan section 10).
     private func layout(_ p: Project, _ quote: Quote?, _ sn: Snap) -> [RPage] {
         let meta = quote.map { QuoteMeta(no: $0.no, ts: $0.ts) }
         return p.isFurniture ? furniturePages(sn, draft: quote == nil, meta: meta, image: viewLoader(), prices: !(quote == nil && !AppSettings.shared.advanced))
-                             : reportPages(sn, draft: quote == nil, meta: meta, image: viewLoader())
+                             : reportPages(sn, draft: quote == nil, meta: meta, image: viewLoader(), design: isDesign(p, quote))
     }
 
     private func share(_ p: Project, _ quote: Quote?, _ sn: Snap, _ key: String) {
         guard !pages.isEmpty else { return }
         app.say("sh.making", kind: .info)
-        let design = quote == nil && p.isFurniture && !AppSettings.shared.advanced
+        let design = isDesign(p, quote)
         let fname = pdfName(dn(p.name), quote.map { tr("q.no", ["n": $0.no]) } ?? tr(design ? "rpt.design" : "es.draft"))
         // just after a set-up change the pages on screen may be the old ones: the PDF is laid out from the report as it is
         let pg = builtKey == key ? pages : layout(p, quote, sn)
@@ -365,7 +375,7 @@ private struct ReportSetupSheet: View {
                 }
                 GField(label: tr("rpt.notes"), value: $notes, placeholder: tr("rpt.notesPh"), optional: true, focus: $focus, me: .notes, multiline: true)
                 // the simple furniture app's design has no DRAFT mark
-                if !(p.isFurniture && !AppSettings.shared.advanced) {
+                if !((p.isFurniture || p.isTiler) && !AppSettings.shared.advanced) {
                     HStack(alignment: .top, spacing: 8) { MIcon("info", G.ink2, 18, 2); T(tr("rpt.draftShare"), ui(13, 400, G.ink2, lh: 1.45)) }
                 }
             } footer: {

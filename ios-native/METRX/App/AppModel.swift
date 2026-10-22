@@ -48,6 +48,12 @@ enum Route: Hashable {
     case fSteps(pid: String, model: String, fid: String? = nil, vals: String? = nil)
     case fWhere(pid: String, model: String, vals: String)
     case fPlace(pid: String, fid: String?, rid: String, model: String? = nil, vals: String? = nil)
+    /// A tiler's order (Android TilerScreens / TGallery / TView): the gallery of layouts (rid the room it is for, fromNew
+    /// right after a new order); a layout's steps (a new one from gallery card model, or layout lid); a room's tiles in 3D
+    /// (rid), or a layout without a room (rid nil, layout lid).
+    case tGallery(pid: String, rid: String? = nil, fromNew: Bool = false)
+    case tSteps(pid: String, model: String, lid: String? = nil, rid: String? = nil)
+    case tView(pid: String, rid: String?, lid: String? = nil)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -118,6 +124,11 @@ enum Sheet: Equatable {
     case wField(pid: String, fid: String, key: String, sec: Int), wInsert(pid: String, fid: String, sec: Int, idx: Int), wMore(pid: String, fid: String, sec: Int)
     /// A bed's, a table's, a mirror's… size (key) of box mid (Furniture/Core/Items.swift itemSet).
     case iField(pid: String, fid: String, mid: String, key: String)
+    /// A tiler's order: a new room, a shower tray or bath (fid nil: a new one of type), a layout's counting, the prices.
+    case tNewRoom(pid: String)
+    case tFixForm(pid: String, rid: String, fid: String?, type: String = "tray")
+    case tCount(pid: String, lid: String)
+    case tPrices(pid: String?)
 }
 
 /// Screens of the sign-in flow.
@@ -185,6 +196,12 @@ final class AppModel {
                 case .fGallery(let pid, let rid, _): return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
                 case .fSteps(let pid, _, let fid, _): return store.get(pid).map { p in fid == nil || p.furniture.contains { $0.id == fid } } == true
                 case .fPlace(let pid, let fid, let rid, _, _): return store.get(pid).map { p in (fid == nil || p.furniture.contains { $0.id == fid }) && p.rooms.contains { $0.id == rid } } == true
+                case .tGallery(let pid, let rid, _): return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
+                case .tSteps(let pid, _, let lid, _): return store.get(pid).map { p in lid == nil || p.tiles.contains { $0.id == lid } } == true
+                case .tView(let pid, let rid, let lid):
+                    guard let p = store.get(pid) else { return false }
+                    if rid != nil { return p.rooms.contains(where: { $0.id == rid }) }
+                    return p.tiles.contains(where: { $0.id == lid })
                 default: return true
                 }
             }

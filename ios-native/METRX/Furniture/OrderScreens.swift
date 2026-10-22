@@ -400,7 +400,9 @@ private struct IndustrySheet: View {
     var body: some View {
         let s = AppSettings.shared
         GlassSheet(tr("ind.row"), onClose: { app.sheet = nil }) {
-            ForEach([("build", "ind.build", "ind.buildS"), ("furniture", "ind.furn", "ind.furnS")], id: \.0) { k, t, sub in
+            // the trades too (Android Orders.kt IndustrySheet): a tiler gets its own app (Tiles/Tiles.swift)
+            let kinds: [(String, String, String)] = [("build", "ind.build", "ind.buildS"), ("furniture", "ind.furn", "ind.furnS")] + TRADES.map { ($0, "ind." + $0, "ind." + $0 + "S") }
+            ForEach(kinds, id: \.0) { k, t, sub in
                 Opt(title: tr(t), on: s.industry == k, sub: tr(sub)) {
                     s.setIndustryKind(k); app.sheet = nil
                     if k == "furniture" && MeasureCalc.shared.tool == "brick" { MeasureCalc.shared.tool = "sheet" }

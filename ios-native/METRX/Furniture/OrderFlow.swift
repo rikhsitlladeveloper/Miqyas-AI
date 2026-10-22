@@ -115,6 +115,8 @@ private enum OF: Hashable { case who, phone, addr }
 
 struct NewOrderScreen: View {
     let app: AppModel
+    /// "furniture", or "tiler" for a tiler's order (Tiles/Tiles.swift).
+    var industry = "furniture"
     @State private var who = ""
     @State private var phone = ""
     @State private var address = ""
@@ -168,10 +170,11 @@ struct NewOrderScreen: View {
         // named after the customer; "Oshxona — Akmal" once they say what they need (renameOrder)
         let name = who.trimmingCharacters(in: .whitespaces)
         var p = newProject(name, name, Phone.digits(phone), address.trimmingCharacters(in: .whitespaces), nil, AppSettings.shared.currency, AppSettings.shared.reportLang.code)
-        p.industry = "furniture"; p.autoName = true
+        p.industry = industry; p.autoName = industry == "furniture"
         Store.shared.add(p)
         app.replaceTop(.project(id: p.id, tab: "rooms"))
-        app.push(.fGallery(pid: p.id, fromNew: true))
+        // a tiler picks the layout first (Tiles/Tiles.swift), a furniture maker the furniture
+        app.push(industry == "tiler" ? .tGallery(pid: p.id, fromNew: true) : .fGallery(pid: p.id, fromNew: true))
         app.say("np.created", ["n": name])
     }
 }

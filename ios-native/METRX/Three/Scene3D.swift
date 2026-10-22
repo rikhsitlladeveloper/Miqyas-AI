@@ -47,7 +47,8 @@ final class Cam3D {
 
     /// A new scene: the camera starts over unless only colours changed (the prototype starts over on every rebuild).
     func load(_ s: Shell3D) {
-        let key = [s.L, s.W, s.H, Double(s.parts.count)]
+        // a tiler's tiles changing is not a new room: the camera stays
+        let key = [s.L, s.W, s.H, Double(s.parts.filter { !$0.tile }.count)]
         if key == shellKey { return }
         shellKey = key
         stop(); focus = nil

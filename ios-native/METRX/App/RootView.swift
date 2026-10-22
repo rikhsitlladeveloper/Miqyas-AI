@@ -130,7 +130,9 @@ struct RootView: View {
         case .materials: MaterialsScreen(app: app)
         case .newProject(let e):
             // a furniture maker's new order asks only who it is for (furniture orders UX, 20 Oct 2026)
-            if e == nil && AppSettings.shared.furniture { NewOrderScreen(app: app) } else { NewProjectScreen(app: app, editId: e) }
+            if e == nil && AppSettings.shared.furniture { NewOrderScreen(app: app) }
+            else if e == nil && AppSettings.shared.tiler { NewOrderScreen(app: app, industry: "tiler") }
+            else { NewProjectScreen(app: app, editId: e) }
         case .project(let id, let tab, let view, let floor): ProjectScreen(app: app, id: id, tab: tab, view: view, floor: floor)
         case .space(let pid, let wid): SpaceScreen(app: app, pid: pid, wid: wid)
         case .note(let pid, let wid, let iid): NoteScreen(app: app, pid: pid, wid: wid, iid: iid)
@@ -149,6 +151,9 @@ struct RootView: View {
         case .fSteps(let pid, let model, let fid, let vals): FStepsScreen(app: app, pid: pid, model: model, fid: fid, vals: vals)
         case .fWhere(let pid, let model, let vals): FWhereScreen(app: app, pid: pid, model: model, vals: vals)
         case .fPlace(let pid, let fid, let rid, let model, let vals): FPlaceScreen(app: app, pid: pid, fid: fid, rid: rid, model: model, vals: vals)
+        case .tGallery(let pid, let rid, let fromNew): TGalleryScreen(app: app, pid: pid, rid: rid, fromNew: fromNew)
+        case .tSteps(let pid, let model, let lid, let rid): TStepsScreen(app: app, pid: pid, model: model, lid: lid, rid: rid)
+        case .tView(let pid, let rid, let lid): TViewScreen(app: app, pid: pid, rid: rid, lid: lid)
         }
     }
 
@@ -157,7 +162,8 @@ struct RootView: View {
         case .language: LanguageSheet(app: app)
         case .device: DeviceSheet(app: app)
         default:
-            if OrderFlowSheet.handles(s) { OrderFlowSheet(app: app, sheet: s) }
+            if TileSheet.handles(s) { TileSheet(app: app, sheet: s) }
+            else if OrderFlowSheet.handles(s) { OrderFlowSheet(app: app, sheet: s) }
             else if TradeSheet.handles(s) { TradeSheet(app: app, sheet: s) }
             else if FurnitureSheet.handles(s) { FurnitureSheet(app: app, sheet: s) }
             else if WorkshopSheet.handles(s) { WorkshopSheet(app: app, sheet: s) }

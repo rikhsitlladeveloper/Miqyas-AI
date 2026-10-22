@@ -15,6 +15,8 @@ struct TradeSet: Codable, Equatable {
     // tiler
     var tileW = 300, tileH = 600, boxM2 = "1.44", waste = 10, floor = true, wallH = 0
     var pTile = "120000", glueKg = "5", pGlue = "65000", groutKg = "0.4", pGrout = "25000", lTile = "80000"
+    // the tiler's layouts (Tiles/Count.swift): corner profile and waterproofing per metre and m², labour for skirting, profiles, waterproofing
+    var pProf = "15000", pWp = "45000", lSkirt = "20000", lProf = "15000", lWp = "25000"
     // electrician
     var lights = 1, pSocket = "35000", pSwitch = "30000", pLight = "40000", pCable = "9000", pConduit = "3000", pBreaker = "45000", lPoint = "60000"
     // plumber
@@ -29,6 +31,7 @@ struct TradeSet: Codable, Equatable {
         floor = c.v(.floor, z.floor); wallH = c.v(.wallH, z.wallH)
         pTile = c.v(.pTile, z.pTile); glueKg = c.v(.glueKg, z.glueKg); pGlue = c.v(.pGlue, z.pGlue); groutKg = c.v(.groutKg, z.groutKg)
         pGrout = c.v(.pGrout, z.pGrout); lTile = c.v(.lTile, z.lTile)
+        pProf = c.v(.pProf, z.pProf); pWp = c.v(.pWp, z.pWp); lSkirt = c.v(.lSkirt, z.lSkirt); lProf = c.v(.lProf, z.lProf); lWp = c.v(.lWp, z.lWp)
         lights = c.v(.lights, z.lights); pSocket = c.v(.pSocket, z.pSocket); pSwitch = c.v(.pSwitch, z.pSwitch); pLight = c.v(.pLight, z.pLight)
         pCable = c.v(.pCable, z.pCable); pConduit = c.v(.pConduit, z.pConduit); pBreaker = c.v(.pBreaker, z.pBreaker); lPoint = c.v(.lPoint, z.lPoint)
         pPipe = c.v(.pPipe, z.pPipe); pSewer = c.v(.pSewer, z.pSewer); pFitting = c.v(.pFitting, z.pFitting); pTap = c.v(.pTap, z.pTap); lPlumb = c.v(.lPlumb, z.lPlumb)

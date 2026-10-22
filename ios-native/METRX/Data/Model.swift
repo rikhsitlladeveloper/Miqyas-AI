@@ -44,7 +44,7 @@ struct Project: Codable, Equatable, Identifiable {
     var reportNotes = ""                    // the report's own note (prototype p.report.notes)
     var created: Ms = 0
     var edited: Ms = 0
-    /// "build" (a builder's project) or "furniture" (a furniture order); older projects are builders'.
+    /// "build" (a builder's project), "furniture" (a furniture order), "tiler" or another trade; older projects are builders'.
     var industry = "build"
     /// Furniture: the price agreed with the customer in the smallest unit, "" until the order is approved.
     var agreed = ""
@@ -60,8 +60,13 @@ struct Project: Codable, Equatable, Identifiable {
     var want: [String]? = nil
     /// Furniture orders: the name follows the furniture ("Oshxona — Akmal") until the maker renames it.
     var autoName = false
+    /// Tilers' orders: the tile layouts (Tiles/Tiles.swift), and each room's tray, bath and waterproofing.
+    var tiles: [TileLayout] = []
+    var troom: [TileRoom] = []
 
     var isFurniture: Bool { industry == "furniture" }
+    /// A tiler's order (its own app: layouts in 3D, like the furniture maker's).
+    var isTiler: Bool { industry == "tiler" }
 
     init(id: String, name: String, customer: String = "", phone: String = "", address: String = "", location: Location? = nil,
          currency: String = "UZS", reportLang: String = "uz", created: Ms = 0, edited: Ms = 0) {
@@ -80,6 +85,7 @@ struct Project: Codable, Equatable, Identifiable {
         industry = c.v(.industry, "build"); agreed = c.v(.agreed, ""); payments = c.v(.payments, [])
         furniture = c.v(.furniture, []); fprice = c.v(.fprice, FPrice())
         approvedAt = c.v(.approvedAt, 0); install = c.v(.install, 0); want = c.v(.want, nil); autoName = c.v(.autoName, false)
+        tiles = c.v(.tiles, []); troom = c.v(.troom, [])
     }
 }
 

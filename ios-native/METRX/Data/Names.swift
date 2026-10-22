@@ -11,7 +11,10 @@ func dn(_ s: String?, _ l: Lang = AppSettings.shared.lang) -> String {
     var vars: [String: Any] = [:]
     for kv in s[s.index(after: q)...].split(separator: "&") where kv.contains("=") {
         let v = String(kv.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)[1])
-        vars[String(kv.prefix { $0 != "=" })] = l == .en ? v : v.replacingOccurrences(of: ".", with: ",")
+        // a value "~key" is itself a strings key (a tile's look in the tiler's lines), shown in the language too
+        let shown: String
+        if v.hasPrefix("~") { shown = Strings.t(String(v.dropFirst()), l) } else { shown = l == .en ? v : v.replacingOccurrences(of: ".", with: ",") }
+        vars[String(kv.prefix { $0 != "=" })] = shown
     }
     return Strings.t(String(s[s.index(after: s.startIndex)..<q]), l, vars)
 }
