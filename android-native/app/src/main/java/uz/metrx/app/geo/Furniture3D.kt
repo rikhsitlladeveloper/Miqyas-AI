@@ -57,6 +57,8 @@ private const val DARK = 0x1E293B
 private const val HANDLE = 0x4B5563
 private const val WHITE = 0xE8EAEE
 private const val OPEN_DEG = 100.0
+/** A door with a wall, another piece or a door beside its hinge stops at a right angle, not swinging into it. */
+private const val SHUT_DEG = 90.0
 private const val MIRROR = 0xC9D3DD
 private const val GLASS_P = 0x8FA9C4
 
@@ -118,7 +120,14 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             val free = f.pose?.takeIf { f.kind == "wardrobe" && m.type == "wardrobe" }?.let { p -> bases[p.ref]?.let { poseBasis(it, p, m.w / 1000.0) } }
             val b = free ?: (if (m.wall == ISLAND) island else bases[m.wall ?: ""]) ?: return@forEach
             B.wall = m.wall
-            if (m.type == "wardrobe") B.wardrobe(b, if (free != null) m.copy(x = 0) else m) else B.kitchenUnit(b, m)
+            if (m.type == "wardrobe") {
+                // what stands past each end along its wall: the wall's corner, or another piece close by
+                val L = bases[m.wall ?: ""]?.let { (it.len * 1000).toInt() }
+                fun near(at: Int) = fs.any { o -> o.id != f.id && o.pose == null && o.modules.any { it.wall == m.wall && (kotlin.math.abs(it.x + it.w - at) < 60 || kotlin.math.abs(it.x - at) < 60) } }
+                B.freeL = free != null || (m.x > uz.metrx.app.furniture.W_GAP_SIDE + 40 && !near(m.x))
+                B.freeR = free != null || (L != null && m.x + m.w < L - uz.metrx.app.furniture.W_GAP_SIDE - 40 && !near(m.x + m.w))
+                B.wardrobe(b, if (free != null) m.copy(x = 0) else m)
+            } else B.kitchenUnit(b, m)
             // a bathroom vanity carries its basin and tap on top
             if (f.type == "vanity" && m.type == "wardrobe") B.basin(b, if (free != null) m.copy(x = 0) else m)
         }
@@ -178,6 +187,8 @@ private class Builder3(
      * never does). Parts are one per wall and colour, so opening a door does not change how many there are.
      */
     var wall: String? = null
+    /** The piece being built has nothing past its left / right end (no wall, no neighbour): a door hinged there opens wide. */
+    var freeL = false; var freeR = false
     private fun p(k: String): Part {
         val c = colors.getValue(k); val w = if (wall == ISLAND) null else wall
         return parts.getOrPut(w to c) { Part(0, w, Role.FURN, c, 1f) }
@@ -204,9 +215,10 @@ private class Builder3(
      * A door hinged at [ha] (the back corner of its hinge edge), [fw] wide, opening to the right ([s] +1) or left (-1);
      * its handle's middle [hy] above the door's bottom.
      */
-    fun door(w: WallBasis, key: String, ha: Double, n: Double, y0: Double, h: Double, fw: Double, s: Int, handles: Boolean, hy: Double, p: Part = front) {
+    fun door(w: WallBasis, key: String, ha: Double, n: Double, y0: Double, h: Double, fw: Double, s: Int, handles: Boolean, hy: Double, p: Part = front,
+             deg: Double = SHUT_DEG) {
         keys += key
-        val th = Math.toRadians(OPEN_DEG) * how(key)
+        val th = Math.toRadians(deg) * how(key)
         val e = w.dir(s * cos(th), sin(th)); val tn = w.dir(-s * sin(th), cos(th))
         val o = w.at(ha / 1000, y0 / 1000, n / 1000)
         val x = Obb(o, e * (fw / 1000), V3(0.0, h / 1000, 0.0), tn * (t / 1000.0))
@@ -397,8 +409,10 @@ private class Builder3(
                 val a = a0 + edge + j * (fw + g)
                 // a pair hinges on its outer edges; single doors pair up two by two, the last one hinged on the wardrobe's end
                 val right = if (fs.size == 2) j == 1 else uz.metrx.app.furniture.hingeRight(m, i)
+                // only a hinge at the piece's free end opens wide; beside a divider, a wall or a neighbour it stops at 90°
+                val wide = if (right) i == secs.lastIndex && j == fs.lastIndex && freeR else i == 0 && j == 0 && freeL
                 door(w, "${m.id}:s$i:f$j", if (right) a + fw else a, d, yb + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, m.handles,
-                    (1000 - yb).coerceIn(minOf(150.0, fh / 2.0), maxOf(fh / 2.0, fh - 150.0)))
+                    (1000 - yb).coerceIn(minOf(150.0, fh / 2.0), maxOf(fh / 2.0, fh - 150.0)), deg = if (wide) OPEN_DEG else SHUT_DEG)
             }
             acc = a1
         }

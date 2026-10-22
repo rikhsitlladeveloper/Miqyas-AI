@@ -354,7 +354,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
     // a piece already in this room starts where it stands
     val here = existing?.takeIf { it.roomId == room.id }
     var first by rememberSaveable { mutableStateOf(here?.walls?.firstOrNull { it != ISLAND && it in ids } ?: ids.firstOrNull { it !in taken } ?: ids.first()) }
-    var off by rememberSaveable { mutableStateOf(here?.let { wardOfF(it) }?.x?.takeIf { it != uz.metrx.app.furniture.W_GAP_SIDE }?.toString() ?: "") }   // a wardrobe's distance from the corner; "" = in the corner
+    var off by rememberSaveable { mutableStateOf(here?.let { wardOfF(it) }?.x?.takeIf { it != uz.metrx.app.furniture.cornerGap(here) }?.toString() ?: "") }   // a wardrobe's distance from the corner; "" = in the corner
     var start by rememberSaveable { mutableStateOf(here?.let { uz.metrx.app.furniture.leadOf(it) }?.takeIf { here.walls.count { w -> w != ISLAND } == 1 } ?: 0) }   // a one-wall kitchen's
     var poseS by rememberSaveable { mutableStateOf(here?.pose?.let { "${it.ref},${it.a},${it.n},${it.deg}" } ?: "") }   // dragged off the walls: a desk, the island
     val pose = poseS.split(',').takeIf { it.size == 4 }?.let { Pose(it[0], it[1].toInt(), it[2].toInt(), it[3].toInt()) }
@@ -401,7 +401,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
         PlacePlan(room, pw, g, others, ws, warns.isNotEmpty() || issues.isNotEmpty(), tr("fz.planLabel"),
             onSlide = { w, x ->
                 if (w != first) { first = w; reset() }
-                if (ward) off = if (x == uz.metrx.app.furniture.W_GAP_SIDE) "" else x.toString() else start = x
+                if (ward) off = if (x == uz.metrx.app.furniture.cornerGap(f)) "" else x.toString() else start = x
                 if (ward) setPose(null)
             },
             onCorner = { w -> if (w != first) { first = w; setPose(null); reset() } },

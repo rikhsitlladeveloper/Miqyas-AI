@@ -22,12 +22,15 @@ class KitchenTest {
     @Test fun autoFillUsesWholeUnitsAndPutsTheSinkOverTheWater() {
         val f = autoFill(f0, runs, ws, emptyList(), water)
         val lowA = f.modules.filter { it.wall == "A" && !isUpper(it) }
-        assertEquals(listOf(600, 600, 600, 600, 600, 400), lowA.map { it.w })
-        assertEquals(listOf(0, 600, 1200, 1800, 2400, 3000), lowA.map { it.x })
-        assertEquals("sink", lowA[2].app)                       // 1200–1800 holds the water at 1300
+        // A turns into B: its narrow piece at its start, a whole unit in the corner, blind behind B's first unit
+        assertEquals(listOf(400, 600, 600, 600, 600, 600), lowA.map { it.w })
+        assertEquals(listOf(0, 400, 1000, 1600, 2200, 2800), lowA.map { it.x })
+        assertEquals("sink", lowA[2].app)                       // 1000–1600 holds the water at 1300
+        assertEquals("panel", lowA.last().fronts.kind)
+        // B starts past the corner with a 50 filler, so its doors and handles clear A's
         val lowB = f.modules.filter { it.wall == "B" && !isUpper(it) }
-        assertEquals(listOf(600, 600, 600, 200), lowB.map { it.w })
-        assertEquals("filler", lowB.last().type)
+        assertEquals(listOf(50, 600, 600, 600, 150), lowB.map { it.w })
+        assertEquals("filler", lowB.first().type); assertEquals("filler", lowB.last().type)
         assertEquals(600, lowB.first().x)
         assertEquals(Fill(3400, 3400), fillOf(f, runs[0], false))
         val c = checks(f, runs, ws, emptyList(), water)
@@ -39,8 +42,9 @@ class KitchenTest {
         val win = listOf(Opening("o", "window", "B", 1200, 1400, 1000, 900))
         val f = autoFill(f0, runs, ws, win, emptyList())
         val upB = f.modules.filter { it.wall == "B" && isUpper(it) }
-        // B's upper row from 320: 320–920 is clear; 920–1520, 1520–2120 and 2120–2600 meet the window at 1000–2200
-        assertEquals(listOf("wall", "gap", "gap", "gap"), upB.map { it.type })
+        // B's upper row past the corner: a 50 filler, then 370–970 is clear; 970–1570, 1570–2170 and 2170–2600 meet
+        // the window at 1000–2200
+        assertEquals(listOf("filler", "wall", "gap", "gap", "gap"), upB.map { it.type })
     }
 
     @Test fun tooLongAndGapsAreReported() {

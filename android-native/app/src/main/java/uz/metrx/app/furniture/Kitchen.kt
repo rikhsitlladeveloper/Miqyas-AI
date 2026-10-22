@@ -23,6 +23,9 @@ const val K_WALL_D = 300
 const val K_SPLASH = 600
 /** Where the next wall's lower and upper rows start, past the corner unit of the wall before. */
 const val K_CORNER = 600
+
+/** The filler a run starts with past a corner, so its doors and handles clear the run before (mm). */
+const val CORNER_FILLER = 50
 const val K_UP_CORNER = 320
 const val ISLAND = "island"
 
@@ -123,37 +126,61 @@ fun kindOf(m: Module): String = when {
  */
 fun autoFill(f: Furniture, runs: List<Run>, ws: Workshop, openings: List<Opening>, points: List<SitePoint>): Furniture {
     val added = ArrayList<Module>()
-    runs.filter { it.wall != ISLAND && it.len != null }.forEach { r ->
+    runs.forEachIndexed { ri, r ->
+        if (r.wall == ISLAND || r.len == null) return@forEachIndexed
         val hasLow = f.modules.any { it.wall == r.wall && !isUpper(it) }
         val hasUp = f.modules.any { it.wall == r.wall && isUpper(it) }
+        // a run that ends where the next one turns (or a peninsula joins): its last unit stands behind the next run's
+        // first, so it is a blind corner unit (a panel, no door), and any narrower piece goes at the run's start instead
+        val corner = runs.getOrNull(ri + 1)?.let { it.wall != ISLAND } == true || (f.layout == "P" && ri == 0)
+        // a run that starts past a corner: a 50 mm filler first, so its doors and handles clear the run before
+        val pad = if (r.lowStart > 0) CORNER_FILLER else 0
         fun slots(avail: Int): List<Int> {
             val n = avail / 600; val rem = avail - n * 600
-            return List(n) { 600 } + if (rem > 0) listOf(rem) else emptyList()
+            return if (corner) (if (rem > 0) listOf(rem) else emptyList()) + List(n) { 600 } else List(n) { 600 } + if (rem > 0) listOf(rem) else emptyList()
         }
         if (!hasLow) {
-            var x = r.lowStart
+            if (pad > 0) added += template("fillerLow", ws, r.wall, pad)
+            var x = r.lowStart + pad
             val water = points.firstOrNull { it.wall == r.wall && (it.t == "cold" || it.t == "sewer") }
             val gas = points.firstOrNull { it.wall == r.wall && it.t == "gas" }
             var sink = false; var hob = false
-            slots(r.len!! - r.lowStart).forEach { w ->
+            val row = slots(r.len - r.lowStart - pad)
+            val mine = ArrayList<Module>()
+            row.forEachIndexed { k, w ->
                 val inside = { p: SitePoint? -> p != null && p.off in x until x + w }
-                added += when {
+                mine += when {
                     w < 300 -> template("fillerLow", ws, r.wall, w)
+                    corner && k == row.lastIndex -> template("base", ws, r.wall, w).copy(fronts = Fronts("panel", 1))
                     !sink && inside(water) -> { sink = true; template("sink", ws, r.wall, w) }
                     !hob && inside(gas) -> { hob = true; template("hob", ws, r.wall, w) }
                     else -> template("base", ws, r.wall, w)
                 }
                 x += w
             }
+            // the water or the gas behind the blind corner: the sink or the hob goes in the nearest open unit
+            fun near(p: SitePoint, kind: String) {
+                var at = r.lowStart + pad
+                val i = mine.mapIndexed { k, m -> val c = at + m.w / 2; at += m.w; k to kotlin.math.abs(c - p.off) }
+                    .filter { (k, _) -> mine[k].type == "base" && mine[k].app.isEmpty() && mine[k].fronts.kind != "panel" }.minByOrNull { it.second }?.first ?: return
+                mine[i] = template(kind, ws, r.wall, mine[i].w)
+            }
+            if (water != null && !sink) near(water, "sink")
+            if (gas != null && !hob) near(gas, "hob")
+            added += mine
         }
         if (!hasUp) {
-            var x = r.upStart
+            val upPad = if (r.upStart > 0) CORNER_FILLER else 0
+            if (upPad > 0) added += template("fillerUp", ws, r.wall, upPad)
+            var x = r.upStart + upPad
             val up0 = wallElev(ws); val up1 = up0 + K_WALL_H
-            slots(r.len!! - r.upStart).forEach { w ->
+            val row = slots(r.len - r.upStart - upPad)
+            row.forEachIndexed { k, w ->
                 val window = openings.any { o -> o.wall == r.wall && o.type == "window" && o.off < x + w && o.off + o.w > x && o.sill < up1 && o.sill + o.h > up0 }
                 added += when {
                     window -> template("spaceUp", ws, r.wall, w)
                     w < 300 -> template("fillerUp", ws, r.wall, w)
+                    corner && k == row.lastIndex && runs.getOrNull(ri + 1)?.let { it.wall != ISLAND } == true -> template("wall", ws, r.wall, w).copy(fronts = Fronts("panel", 1))
                     else -> template("wall", ws, r.wall, w)
                 }
                 x += w

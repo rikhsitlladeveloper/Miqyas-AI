@@ -26,7 +26,7 @@ class MoneyTest {
         assertEquals(Dec.Format, parseDec("12a", 0)); assertEquals(Dec.Format, parseDec(",", 3)); assertEquals(Dec.Format, parseDec("1,2,3", 3))
         assertEquals(Dec.Negative, parseDec("-5", 0))
         assertEquals(Dec.Precision(0), parseDec("12,5", 0)); assertEquals(Dec.Precision(3), parseDec("1,2345", 3))
-        assertEquals("120000", canonOf("120 000")); assertEquals("4.50", canonOf("4,50")); assertEquals("7", canonOf("007")); assertEquals("5", canonOf("5."))
+        assertEquals("120000", canonOf("120 000")); assertEquals("4.50", canonOf("4,50")); assertEquals("7", canonOf("007")); assertEquals("5", canonOf("5.")); assertEquals("0.5", canonOf(",5"))
     }
 
     @Test fun roundingHalfUp() {

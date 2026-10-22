@@ -50,13 +50,16 @@ class PlacingTest {
     @Test fun twoPiecesOnTopOfEachOtherAndOneOutside() {
         val a = placed(newFreeWardrobe("Shkaf 1", "h3", 1200, 2200, 600, false, "door", ws), listOf("B"), "r1", "w1", off = 200)
         val b = placed(newFreeWardrobe("Shkaf 2", "h3", 1200, 2200, 600, false, "door", ws), listOf("B"), "r1", "w1", off = 900)
-        assertEquals(listOf("fz.hitPiece"), placeWarnings(b, listOf(a), room, walls, ws).map { it.key })
-        // side by side they only touch
+        assertTrue("fz.hitPiece" in placeWarnings(b, listOf(a), room, walls, ws).map { it.key })
+        // side by side they only touch, but a door hinged where they meet would hit the other's fronts…
         val c = placed(newFreeWardrobe("Shkaf 2", "h3", 1200, 2200, 600, false, "door", ws), listOf("B"), "r1", "w1", off = 1400)
-        assertTrue(placeWarnings(c, listOf(a), room, walls, ws).isEmpty())
+        assertEquals(listOf("fz.doorsHit"), placeWarnings(c, listOf(a), room, walls, ws).map { it.key })
+        // …so 50 mm between them lets it open
+        val c2 = placed(newFreeWardrobe("Shkaf 2", "h3", 1200, 2200, 600, false, "door", ws), listOf("B"), "r1", "w1", off = 1450)
+        assertTrue(placeWarnings(c2, listOf(a), room, walls, ws).isEmpty())
         // a desk dragged half through wall C
         val desk = newFreeCabinet("Stol 1", "desk", 1200, 750, 600, ws).copy(roomId = "r1", pose = Pose("A", 2500, 2700, 0))
-        assertEquals(listOf("fz.outside"), placeWarnings(desk, emptyList(), room, walls, ws).map { it.key })
+        assertTrue("fz.outside" in placeWarnings(desk, emptyList(), room, walls, ws).map { it.key })
     }
 
     @Test fun aOneWallKitchenSlidesAlongItsWall() {

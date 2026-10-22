@@ -39,9 +39,9 @@ class Furniture3DTest {
         val opened = furniture3D(listOf(f), shell.bases, ws, { 0xCDBFAE }, setOf(key))
         assertEquals(shut.parts.size, opened.parts.size)             // the camera keeps its place when a door opens
         val a = shut.picks.single { it.key == key }.box; val b = opened.picks.single { it.key == key }.box
-        // closed, the door lies along the wall; open at 100°, it stands out into the room
+        // closed, the door lies along the wall; open (at 90°, a unit stands beside it) it stands straight out into the room
         assertTrue(abs(a.a.z) < 1e-9 && a.a.x > 0)
-        assertTrue(b.a.z > .9 * b.a.len() && b.a.x < 0)
+        assertTrue(b.a.z > .99 * b.a.len() && abs(b.a.x) < 1e-6)
         // a ray straight at the door's middle, from inside the room, hits it
         val mid = a.o + (a.a + a.b + a.c) * .5
         val eye = V3(mid.x, mid.y, 2.0)

@@ -45,6 +45,8 @@ import uz.metrx.app.furniture.W_GAP_SIDE
 import uz.metrx.app.furniture.Workshop
 import uz.metrx.app.furniture.canStandFree
 import uz.metrx.app.furniture.footsOf
+import uz.metrx.app.furniture.hingedEnds
+import uz.metrx.app.furniture.HINGE_CLEAR
 import uz.metrx.app.furniture.frameOf
 import uz.metrx.app.furniture.inside
 import uz.metrx.app.furniture.islandPoseIn
@@ -76,6 +78,7 @@ internal fun PlacePlan(room: Room, walls: List<PlanWall>, g: Furniture, others: 
     val mine = footsOf(g, walls, ws)
     val theirs = others.flatMap { footsOf(it, walls, ws) }
     val cur by rememberUpdatedState(g)
+    val oth by rememberUpdatedState(others)
     val slide by rememberUpdatedState(onSlide); val corner by rememberUpdatedState(onCorner)
     val pose by rememberUpdatedState(onPose); val isle by rememberUpdatedState(onIsland)
     var size by remember { mutableStateOf(IntSize.Zero) }
@@ -111,7 +114,7 @@ internal fun PlacePlan(room: Room, walls: List<PlanWall>, g: Furniture, others: 
                     }
                     Drag.SLIDE -> {
                         val w = walls.minByOrNull { it.dist(q) } ?: return
-                        slide(w.id, slideX(f, mine(f, walls, ws), w, w.along(q) - gr.ga))
+                        slide(w.id, slideX(f, mine(f, walls, ws), w, w.along(q) - gr.ga, oth, walls, ws))
                     }
                     Drag.FREE -> {
                         val fr = mainFrame(f, walls) ?: return
@@ -120,7 +123,7 @@ internal fun PlacePlan(room: Room, walls: List<PlanWall>, g: Furniture, others: 
                         // its back near a wall: back on that wall; else where the finger is, turned as it was
                         val mid = o + fr.u * (m.w / 2.0)
                         val w = walls.minByOrNull { it.dist(mid) }
-                        if (w != null && w.dist(mid) < 250) slide(w.id, slideX(f, mine(f, walls, ws), w, w.along(mid) - m.w / 2.0))
+                        if (w != null && w.dist(mid) < 250) slide(w.id, slideX(f, mine(f, walls, ws), w, w.along(mid) - m.w / 2.0, oth, walls, ws))
                         else pose(poseOf(walls, f.pose?.ref ?: walls[0].id, Frame(o, fr.u, fr.n)))
                     }
                 }
@@ -193,17 +196,28 @@ private fun mine(f: Furniture, walls: List<PlanWall>, ws: Workshop): List<Foot> 
     return footsOf(f, walls, ws).filter { it.wall == first && it.wall != null }
 }
 
-/** The distance from [w]'s start for a piece dragged to [a]: kept on the wall, snapped into a corner near one, to 10 mm. */
-private fun slideX(f: Furniture, feet: List<Foot>, w: PlanWall, a: Double): Int {
+/**
+ * The distance from [w]'s start for a piece dragged to [a]: kept on the wall, snapped near a corner or beside another
+ * piece on it ([others]), to 10 mm. Where a door hinges at the ends that meet it keeps 50 mm, so the door can open.
+ */
+private fun slideX(f: Furniture, feet: List<Foot>, w: PlanWall, a: Double, others: List<Furniture>, walls: List<PlanWall>, ws: Workshop): Int {
     // a kitchen's length is its units on the floor (the wall units over them may start or end elsewhere)
     val low = feet.filter { it.floor }
     val len = if (f.kind == "wardrobe") wardOfF(f)?.w?.toDouble() ?: 0.0 else low.takeIf { it.isNotEmpty() }?.let { it.maxOf { ft -> ft.a1 } - it.minOf { ft -> ft.a0 } } ?: 0.0
-    val gap = if (f.kind == "wardrobe") W_GAP_SIDE.toDouble() else 0.0
-    val hi = (w.len - len - gap).coerceAtLeast(gap)
-    var x = a.coerceIn(gap, hi)
-    if (abs(x - gap) < 150) x = gap
-    if (abs(x - hi) < 150) x = hi
+    val ward = f.kind == "wardrobe"
+    val (hl, hr) = hingedEnds(f)
+    val gap = if (ward) W_GAP_SIDE.toDouble() else 0.0
+    val lo = gap; val hi = (w.len - len - gap).coerceAtLeast(gap)
+    val stops = arrayListOf(if (ward && hl) HINGE_CLEAR.toDouble() else gap, w.len - len - (if (ward && hr) HINGE_CLEAR.toDouble() else gap))
+    others.forEach { o ->
+        val (ol, or) = hingedEnds(o)
+        footsOf(o, walls, ws).filter { it.wall == w.id && it.floor }.forEach { ft ->
+            stops += ft.a1 + if (hl || or) HINGE_CLEAR else 0
+            stops += ft.a0 - len - if (hr || ol) HINGE_CLEAR else 0
+        }
+    }
+    val x = a.coerceIn(lo, hi)
+    stops.filter { it in lo..hi }.minByOrNull { abs(it - x) }?.takeIf { abs(it - x) < 150 }?.let { return kotlin.math.floor(it).toInt() }
     // to 10 mm, never past the far corner (a wall of 3605 must not make a 1210 start for 1205)
-    if (x == hi) return kotlin.math.floor(hi).toInt()
-    return ((x / 10).roundToInt() * 10).let { if (abs(it - gap) < 10) gap.toInt() else minOf(it, kotlin.math.floor(hi).toInt()) }
+    return ((x / 10).roundToInt() * 10).coerceIn(kotlin.math.ceil(lo).toInt(), kotlin.math.floor(hi).toInt())
 }

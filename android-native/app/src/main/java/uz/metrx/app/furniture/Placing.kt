@@ -147,6 +147,81 @@ fun footsOf(f: Furniture, walls: List<PlanWall>, ws0: Workshop): List<Foot> {
     return out
 }
 
+/** What a hinged door needs beside its hinge to open: its own thickness swinging past the hinge, and the handle there. */
+const val HINGE_CLEAR = 50
+
+/** Whether [f]'s left and right ends (along its wall) have a door hinged right at them. A kitchen's run ends may. */
+fun hingedEnds(f: Furniture): Pair<Boolean, Boolean> {
+    if (f.kind != "wardrobe") return true to true
+    val m = wardOfF(f) ?: return false to false
+    if (m.slide != null || m.sections.isEmpty()) return false to false
+    fun at(i: Int, right: Boolean): Boolean {
+        val s = m.sections[i]
+        return s.fronts.kind == "door" && (s.fronts.n >= 2 || hingeRight(m, i) == right)
+    }
+    return at(0, false) to at(m.sections.lastIndex, true)
+}
+
+/** How far from the corner a cabinet stands at its left (or right) end: 50 where a door hinges there, else 10. */
+fun cornerGap(f: Furniture, right: Boolean = false): Int =
+    if (f.kind == "wardrobe" && hingedEnds(f).let { if (right) it.second else it.first }) HINGE_CLEAR else W_GAP_SIDE
+
+/** A box in [fr] from [a0] to [a1] along and [n0] to [n1] out. */
+private fun quad(fr: Frame, a0: Double, a1: Double, n0: Double, n1: Double) =
+    listOf(fr.o + fr.u * a0 + fr.n * n0, fr.o + fr.u * a1 + fr.n * n0, fr.o + fr.u * a1 + fr.n * n1, fr.o + fr.u * a0 + fr.n * n1)
+
+/**
+ * Where [f]'s doors and drawers sweep when they open, in front of it: a door as far out as it is wide and, past its
+ * hinge, its own thickness; a drawer as far as it pulls out.
+ */
+fun swingsOf(f: Furniture, walls: List<PlanWall>, ws0: Workshop): List<Foot> {
+    val ws = wsOf(f, ws0)
+    val out = ArrayList<Foot>()
+    // a kitchen's units stand unit to unit with their own hinges, so only a cabinet's door is held to its thickness past the hinge
+    val past = if (f.kind == "wardrobe") 20.0 else 0.0
+    fun door(fr: Frame, a0: Double, a1: Double, d: Double, hingeR: Boolean, lo: Int, hi: Int) =
+        Foot(quad(fr, a0 - (if (hingeR) 0.0 else past), a1 + (if (hingeR) past else 0.0), d, d + (a1 - a0)), lo, hi, null, a0, a1, true)
+    fun drawer(fr: Frame, a0: Double, a1: Double, d: Double, lo: Int, hi: Int) = Foot(quad(fr, a0, a1, d, d + d * .75), lo, hi, null, a0, a1, true)
+    if (f.kind == "wardrobe") {
+        val m = wardOfF(f) ?: return out
+        if (m.slide != null) return out
+        val fr = mainFrame(f, walls) ?: return out
+        val lo = legsOf(m, ws) + wardBase(m); val hi = legsOf(m, ws) + m.h
+        var a = 0.0
+        m.sections.forEachIndexed { i, s ->
+            val n = s.fronts.n.coerceAtLeast(1); val dw = s.w.toDouble() / n
+            when (s.fronts.kind) {
+                "door" -> repeat(n) { j -> out += door(fr, a + j * dw, a + (j + 1) * dw, m.d.toDouble(), if (n == 2) j == 1 else hingeRight(m, i), lo, hi) }
+                "drawer" -> out += drawer(fr, a, a + s.w, m.d.toDouble(), lo, hi)
+            }
+            a += s.w
+        }
+        return out
+    }
+    // a kitchen: each unit's doors (a single one hinged on its left, a pair on the outer edges) or drawers
+    fun unit(fr: Frame, m: Module) {
+        val n = m.fronts.n.coerceAtLeast(1); val dw = m.w.toDouble() / n
+        val a0 = m.x.toDouble()
+        when (m.fronts.kind) {
+            "door" -> repeat(n) { j -> out += door(fr, a0 + j * dw, a0 + (j + 1) * dw, m.d.toDouble(), n == 2 && j == 1, m.elev, m.elev + m.h) }
+            "drawer" -> out += drawer(fr, a0, a0 + m.w, m.d.toDouble(), m.elev, m.elev + m.h)
+        }
+    }
+    f.walls.filter { it != ISLAND }.forEach { id ->
+        val w = walls.firstOrNull { it.id == id } ?: return@forEach
+        f.modules.filter { it.wall == id && it.type != "gap" && it.type != "filler" }.forEach { unit(wallFrame(w), it) }
+    }
+    islandPoseIn(f, walls)?.let { frameOf(walls, it) }?.let { fr -> f.modules.filter { it.wall == ISLAND && it.type != "gap" && it.type != "filler" }.forEach { unit(fr, it) } }
+    return out
+}
+
+/** The strip in front of a piece where its doors and handles stand out (40 mm), the height of the piece. */
+private fun frontBand(ft: Foot): Foot {
+    val p = ft.pts
+    val out = (p[3] - p[0]).let { val l = hypot(it.x, it.y).coerceAtLeast(1e-9); it * (40.0 / l) }
+    return Foot(listOf(p[3], p[2], p[2] + out, p[3] + out), ft.lo, ft.hi, ft.wall, ft.a0, ft.a1, ft.floor)
+}
+
 /** Whether two convex boxes overlap by more than a few millimetres (pieces side by side only touch). */
 fun overlaps(a: List<PlanPt>, b: List<PlanPt>, eps: Double = 5.0): Boolean {
     for (poly in listOf(a, b)) for (i in poly.indices) {
@@ -172,6 +247,14 @@ fun placeWarnings(f: Furniture, others: List<Furniture>, room: Room, walls: List
         val theirs = footsOf(o, walls, ws)
         if (mine.any { a -> theirs.any { b -> a.lo < b.hi && b.lo < a.hi && overlaps(a.pts, b.pts) } }) out += FitIssue("fz.hitPiece", mapOf("n" to o.name))
     }
+    // doors and drawers that hit something when they open: another piece or its fronts, or the room's walls
+    val mySw = swingsOf(f, walls, ws)
+    fun hits(sw: List<Foot>, feet: List<Foot>) = sw.any { a -> feet.any { b -> a.lo < b.hi && b.lo < a.hi && overlaps(a.pts, b.pts) } }
+    others.forEach { o ->
+        val theirs = footsOf(o, walls, ws)
+        if (hits(mySw, theirs + theirs.map(::frontBand)) || hits(swingsOf(o, walls, ws), mine + mine.map(::frontBand))) out += FitIssue("fz.doorsHit", mapOf("n" to o.name))
+    }
+    if (mySw.any { ft -> ft.pts.any { q -> !inside(poly, q) && walls.minOf { it.dist(q) } > 5 } }) out += FitIssue("fz.doorRoom", mapOf("n" to f.name))
     room.openings.forEach { op ->
         val w = walls.firstOrNull { it.id == op.wall } ?: return@forEach
         val a0 = op.off.toDouble(); val a1 = (op.off + op.w).toDouble()

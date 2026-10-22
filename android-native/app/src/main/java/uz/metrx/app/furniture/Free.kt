@@ -137,7 +137,12 @@ fun newFreeKitchen(name: String, model: String, layout: String, sides: List<Int>
         kx = kExtrasFor(layout))
     val runs = runsOf(f) { freeLen(f, it) }
     f = autoFill(f, runs, ws, emptyList(), usualPoints(runs))
-    if (ISLAND in walls && island > 0) f = f.copy(modules = f.modules + slots(island).map { w -> template(if (w < 300) "fillerLow" else "base", ws, ISLAND, w) })
+    if (ISLAND in walls && island > 0) {
+        // a peninsula starts with a filler where it joins the side, so its doors clear the side's units
+        val pad = if (layout == "P") CORNER_FILLER else 0
+        f = f.copy(modules = f.modules + (if (pad > 0) listOf(template("fillerLow", ws, ISLAND, pad)) else emptyList()) +
+            slots(island - pad).map { w -> template(if (w < 300) "fillerLow" else "base", ws, ISLAND, w) })
+    }
     return pack(f, runs)
 }
 
@@ -200,7 +205,7 @@ fun fitIssues(f: Furniture, walls: List<String>, len: (String) -> Int?, roomH: I
     val out = ArrayList<FitIssue>()
     if (f.kind == "wardrobe") {
         val m = wardOfF(f) ?: return out
-        val L = len(walls[0]); val x = off ?: W_GAP_SIDE
+        val L = len(walls[0]); val x = off ?: cornerGap(f)
         // standing free (a desk in the room) it is not held to a wall's length
         if (L != null && f.pose == null && x + m.w > L) out += FitIssue("fz.wide", mapOf("n" to f.name, "v" to x + m.w, "w" to walls[0], "d" to x + m.w - L, "l" to L))
         val H = outerH(m, ws)
@@ -237,8 +242,9 @@ fun fitTo(f: Furniture, walls: List<String>, len: (String) -> Int?, roomH: Int?,
     val ws = wsOf(f, ws0)
     if (f.kind == "wardrobe") {
         val m = wardOfF(f) ?: return f
-        val x = off ?: W_GAP_SIDE
-        val w = len(walls[0])?.let { min(m.w, it - x - W_GAP_SIDE).coerceAtLeast(min(m.w, 300)) } ?: m.w
+        // a door hinged at an end next to the wall needs 50 mm there to open
+        val x = off ?: cornerGap(f)
+        val w = len(walls[0])?.let { min(m.w, it - x - cornerGap(f, right = true)).coerceAtLeast(min(m.w, 300)) } ?: m.w
         val legs = legsOf(m, ws)
         val h = roomH?.let { min(m.h, it - W_GAP_TOP - legs) } ?: m.h
         val nm = m.copy(w = w, h = h, sections = if (w != m.w) splitSections(w, m.sections.map { it.copy(lock = false) }) else m.sections)
@@ -307,7 +313,7 @@ fun placed(f: Furniture, walls: List<String>, roomId: String, wsId: String, off:
            start: Int? = null, pose: Pose? = null): Furniture {
     var g = onWalls(withoutLead(f, len), walls).copy(roomId = roomId, ws = wsId, keep = keep, pose = pose)
     // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
-    if (g.kind == "wardrobe") return g.copy(modules = g.modules.map { if (it.type == "wardrobe") withSides(it.copy(x = off ?: W_GAP_SIDE), len(walls[0]), pose != null) else it })
+    if (g.kind == "wardrobe") return g.copy(modules = g.modules.map { if (it.type == "wardrobe") withSides(it.copy(x = off ?: cornerGap(g)), len(walls[0]), pose != null) else it })
     val gap = if (walls.count { it != ISLAND } == 1) start ?: 0 else firstStart(g, len(walls[0]))
     if (gap > 0) {
         val w0 = walls[0]
