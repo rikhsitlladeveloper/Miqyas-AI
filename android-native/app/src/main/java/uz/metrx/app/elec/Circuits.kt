@@ -60,8 +60,8 @@ fun circuitsOf(p: Project, cs: List<ECtx>): List<Circuit> {
 /* ---------------- the walls as one loop ---------------- */
 
 /** A room's walls end to end: a point on them as one length round the room from wall 1's start corner. */
-class Perim(val c: ECtx) {
-    private val ws = c.g.walls
+class Perim(private val ws: List<TWall>) {
+    constructor(c: ECtx) : this(c.g.walls)
     private val st = DoubleArray(ws.size).also { a -> var s = 0.0; ws.forEachIndexed { i, w -> a[i] = s; s += w.len } }
     val P = ws.sumOf { it.len }
     fun s(wall: String, a: Double): Double { val i = ws.indexOfFirst { it.id == wall }.coerceAtLeast(0); return st[i] + a.coerceIn(0.0, ws[i].len) }

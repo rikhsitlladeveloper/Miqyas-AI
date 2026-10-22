@@ -66,6 +66,13 @@ sealed interface Route {
     data class EGallery(val pid: String, val rid: String? = null, val fromNew: Boolean = false) : Route
     data class ESteps(val pid: String, val kit: String, val rid: String? = null) : Route
     data class EView(val pid: String, val rid: String) : Route
+    /**
+     * A plumber's order: the gallery of room kits ([rid] the room it is for, [fromNew] right after a new order); a kit's
+     * steps; a room's fixtures and pipes in 3D, from above and wall by wall ([rid] a room, or "free:<id>" one typed by size).
+     */
+    data class PGallery(val pid: String, val rid: String? = null, val fromNew: Boolean = false) : Route
+    data class PSteps(val pid: String, val kit: String, val rid: String? = null) : Route
+    data class PView(val pid: String, val rid: String) : Route
     /** A furniture order's parts and sheet layout, and its workshop pack. */
     data class FCut(val pid: String) : Route
     data class FPack(val pid: String) : Route
@@ -185,6 +192,17 @@ sealed interface Sheet {
     data class EMethod(val pid: String) : Sheet
     data class EPrices(val pid: String?) : Sheet
     data class EFree(val pid: String, val fid: String?) : Sheet
+    /**
+     * A plumber's order: a new room, a fixture ([fid] null: a new one, on wall [wall]), a loose outlet ([ptId] null: a new
+     * one), a room's settings, the pipe system, the prices, a room typed by size.
+     */
+    data class PNewRoom(val pid: String) : Sheet
+    data class PFix(val pid: String, val rid: String, val fid: String?, val wall: String? = null) : Sheet
+    data class PPoint(val pid: String, val rid: String, val ptId: String?, val wall: String? = null) : Sheet
+    data class PRoomSet(val pid: String, val rid: String) : Sheet
+    data class PSystem(val pid: String) : Sheet
+    data class PPrices(val pid: String?) : Sheet
+    data class PFree(val pid: String, val fid: String?) : Sheet
     /** The Narx tab: a rate, the fixed price or the lead time ([key] rRun, rTall, fixed, days). */
     data class FPriceField(val pid: String, val key: String) : Sheet
 }
@@ -270,6 +288,9 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.EGallery -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
                     is Route.ESteps -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
                     is Route.EView -> store.get(r.pid)?.let { p -> p.rooms.any { it.id == r.rid } || p.elec.free.any { "free:" + it.id == r.rid } } == true
+                    is Route.PGallery -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
+                    is Route.PSteps -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
+                    is Route.PView -> store.get(r.pid)?.let { p -> p.rooms.any { it.id == r.rid } || p.plumb.free.any { "free:" + it.id == r.rid } } == true
                     is Route.FCut -> store.get(r.pid) != null
                     is Route.FPack -> store.get(r.pid) != null
                     Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, is Route.Measure, Route.LiveCam -> true

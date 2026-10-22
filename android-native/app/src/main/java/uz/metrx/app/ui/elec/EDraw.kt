@@ -107,8 +107,8 @@ fun DrawScope.devSymbol(t: String, c: Offset, r: Float, col: Color, ink: Color =
 }
 
 /** How the room from above maps into a box: plan mm → pixels, the room fitted and centred with [margin] round it. */
-class PlanMap(c: ECtx, box: Rect, margin: Float) {
-    private val f = c.g.floor
+class PlanMap(private val f: List<V2>, box: Rect, margin: Float) {
+    constructor(c: ECtx, box: Rect, margin: Float) : this(c.g.floor, box, margin)
     private val x0 = f.minOf { it.x }; private val y0 = f.minOf { it.y }
     private val x1 = f.maxOf { it.x }; private val y1 = f.maxOf { it.y }
     val k = min((box.width - 2 * margin) / (x1 - x0), (box.height - 2 * margin) / (y1 - y0)).toFloat()

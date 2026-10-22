@@ -229,8 +229,10 @@ fun rowOf(c: ECtx, n: Int): List<V2> {
 }
 
 /** The middle of the room's floor (its centroid; inside it). */
-fun centreOf(c: ECtx): V2 {
-    val f = c.g.floor
+fun centreOf(c: ECtx): V2 = centreOf(c.g.floor)
+
+/** The middle of floor outline [f] (its centroid; inside it). */
+fun centreOf(f: List<V2>): V2 {
     var a = 0.0; var cx = 0.0; var cy = 0.0
     f.indices.forEach { i -> val p = f[i]; val q = f[(i + 1) % f.size]; val k = p.x * q.y - q.x * p.y; a += k; cx += (p.x + q.x) * k; cy += (p.y + q.y) * k }
     val m = if (abs(a) < 1e-6) V2(f.sumOf { it.x } / f.size, f.sumOf { it.y } / f.size) else V2(cx / (3 * a), cy / (3 * a))
@@ -440,7 +442,10 @@ fun snapPanel(c: ECtx, pn: ElecPanel, rawOff: Int, rawH: Int): ElecPanel {
 }
 
 /** Nearest distance from plan point [q] to the walls: the wall, how far along it, how far away. */
-fun nearestWall(c: ECtx, q: V2): Triple<TWall, Double, Double> = c.g.walls.map { w ->
+fun nearestWall(c: ECtx, q: V2): Triple<TWall, Double, Double> = nearestWall(c.g.walls, q)
+
+/** Nearest distance from plan point [q] to walls [ws]: the wall, how far along it, how far away. */
+fun nearestWall(ws: List<TWall>, q: V2): Triple<TWall, Double, Double> = ws.map { w ->
     val a = (q - w.p0).dot(w.t).coerceIn(0.0, w.len)
     Triple(w, a, hypot(q.x - w.at(a).x, q.y - w.at(a).y))
 }.minBy { it.third }

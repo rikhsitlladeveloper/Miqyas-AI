@@ -192,7 +192,7 @@ fun NewOrderScreen(industry: String = "furniture") {
         app.store.add(p)
         app.replaceTop(Route.Project(p.id))
         // a tiler picks the layout first (tiles/Tiles.kt), a furniture maker the furniture
-        app.push(if (industry == "tiler") Route.TGallery(p.id, fromNew = true) else if (industry == "elec") Route.EGallery(p.id, fromNew = true) else Route.FGallery(p.id, fromNew = true))
+        app.push(if (industry == "tiler") Route.TGallery(p.id, fromNew = true) else if (industry == "elec") Route.EGallery(p.id, fromNew = true) else if (industry == "plumb") Route.PGallery(p.id, fromNew = true) else Route.FGallery(p.id, fromNew = true))
         app.say("np.created", "n" to name)
     }
 

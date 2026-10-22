@@ -22,7 +22,7 @@ import uz.metrx.app.geo.LenUnit
  * and notes chosen for the report; the builder, the estimate and the PDF parts.
  */
 fun snapshotOf(p: Project, s: Settings, pdf: PdfParts = s.pdf): Snap =
-    snapshotOf(p, s.unit, s.builderName, s.builderPhone, pdf, s.angleSnap).let { if (p.isFurniture) furnSnap(it, p, s.workshop, s.mats, s.hws) else if (p.isElec) elecSnap(it, p, s.angleSnap) else it }
+    snapshotOf(p, s.unit, s.builderName, s.builderPhone, pdf, s.angleSnap).let { if (p.isFurniture) furnSnap(it, p, s.workshop, s.mats, s.hws) else if (p.isElec) elecSnap(it, p, s.angleSnap) else if (p.isPlumb) plumbSnap(it, p, s.angleSnap) else it }
 
 /** An electrician's order's part of the snapshot: its devices, panel and rooms, each room's kind written down. */
 fun elecSnap(sn: Snap, p: Project, snap: Boolean): Snap {
@@ -30,6 +30,14 @@ fun elecSnap(sn: Snap, p: Project, snap: Boolean): Snap {
     val kinds = p.rooms.mapNotNull { r -> uz.metrx.app.elec.ctxOf(p, r.id, snap)?.let { r.id to it.kind } }.toMap()
     val rooms = kinds.map { (id, k) -> p.elec.room(id).copy(kind = k) } + p.elec.rooms.filter { it.roomId !in kinds }
     return sn.copy(elec = p.elec.copy(rooms = rooms))
+}
+
+/** A plumber's order's part of the snapshot: its fixtures, outlets, riser and rooms, each room's kind written down. */
+fun plumbSnap(sn: Snap, p: Project, snap: Boolean): Snap {
+    if (p.plumb.empty) return sn
+    val kinds = p.rooms.mapNotNull { r -> uz.metrx.app.plumb.ctxOf(p, r.id, snap)?.let { r.id to it.kind } }.toMap()
+    val rooms = kinds.map { (id, k) -> p.plumb.room(id).copy(kind = k) } + p.plumb.rooms.filter { it.roomId !in kinds }
+    return sn.copy(plumb = p.plumb.copy(rooms = rooms))
 }
 
 /** A furniture order's part of the snapshot: the furniture, its materials, the price lines and the terms. */
@@ -99,6 +107,7 @@ fun fingerprint(sn: Snap): String {
         (if (sn.snap) emptyList() else listOf(JsonArray(listOf(str("snap"), JsonPrimitive(false))))) +
         (if (sn.furniture.isEmpty() || sn.fprepay == 50) emptyList() else listOf(JsonArray(listOf(str("pp"), JsonPrimitive(sn.fprepay))))) +
         (if (handlesPrinted(sn) && sn.fhandles != HANDLE_PRESET) listOf(JsonArray(listOf(str("hd"), str(sn.fhandles)))) else emptyList()) +
-        (if (sn.elec == null) emptyList() else listOf(JsonArray(listOf(str("el"), json.encodeToJsonElement(sn.elec)))))
+        (if (sn.elec == null) emptyList() else listOf(JsonArray(listOf(str("el"), json.encodeToJsonElement(sn.elec))))) +
+        (if (sn.plumb == null) emptyList() else listOf(JsonArray(listOf(str("pl"), json.encodeToJsonElement(sn.plumb)))))
     return JsonArray(all).toString()
 }

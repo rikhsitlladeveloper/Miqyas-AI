@@ -140,7 +140,7 @@ fun EstimateTab(p: Project, lang: Lang) {
             val same = uz.metrx.app.report.fingerprint(uz.metrx.app.report.snapshotOf(p, app.settings)) == q.fp
             QuoteBanner(same, tr(if (same) "es.same" else "es.changed", "n" to q.no))
         }
-        if (p.isTiler) uz.metrx.app.ui.tiles.TilesCard(p) else if (p.isElec) uz.metrx.app.ui.elec.ElecCard(p) else if (uz.metrx.app.trades.isTrade(p.industry)) uz.metrx.app.ui.projects.TradeCard(p)
+        if (p.isTiler) uz.metrx.app.ui.tiles.TilesCard(p) else if (p.isElec) uz.metrx.app.ui.elec.ElecCard(p) else if (p.isPlumb) uz.metrx.app.ui.plumb.PlumbCard(p) else if (uz.metrx.app.trades.isTrade(p.industry)) uz.metrx.app.ui.projects.TradeCard(p)
         if (mats.isEmpty() && labs.isEmpty()) { EmptyEstimate(p); return@Column }
         RowsCard(tr("es.mat"), mats.size, money(tt.m, p, lang), "gs.addMat", app.settings.rowDrafts.containsKey(p.id + "|mat|new"), { app.sheet = Sheet.Row(p.id, "mat") }) {
             if (mats.isEmpty()) None(tr("gs.noMat"))

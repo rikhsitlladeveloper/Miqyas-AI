@@ -56,13 +56,17 @@ data class Project(
     val tiles: List<uz.metrx.app.tiles.TileLayout> = emptyList(),
     val troom: List<uz.metrx.app.tiles.TileRoom> = emptyList(),
     /** Electricians' orders: the devices, the panel, the rooms' settings and the rooms typed by size (elec/Elec.kt). */
-    val elec: uz.metrx.app.elec.ElecOrder = uz.metrx.app.elec.ElecOrder()
+    val elec: uz.metrx.app.elec.ElecOrder = uz.metrx.app.elec.ElecOrder(),
+    /** Plumbers' orders: the fixtures, outlets, riser, the rooms' settings and the rooms typed by size (plumb/Plumb.kt). */
+    val plumb: uz.metrx.app.plumb.PlumbOrder = uz.metrx.app.plumb.PlumbOrder()
 ) {
     val isFurniture get() = industry == "furniture"
     /** A tiler's order (its own app: layouts in 3D, like the furniture maker's). */
     val isTiler get() = industry == "tiler"
     /** An electrician's order (its own app: devices, circuits and cable routes in 3D). */
     val isElec get() = industry == "elec"
+    /** A plumber's order (its own app: fixtures, pipes and heating in 3D). */
+    val isPlumb get() = industry == "plumb"
 }
 
 /** Money received for a furniture order: [amount] in the smallest unit; [pre] marks the prepayment. */
@@ -242,7 +246,9 @@ data class Snap(
     /** The angle snap the plans and areas are worked out with (Settings.angleSnap), kept with a quote. */
     val snap: Boolean = true,
     /** Electricians' orders: the devices, panel and rooms' settings (each room's kind filled in), for the wiring pages. */
-    val elec: uz.metrx.app.elec.ElecOrder? = null
+    val elec: uz.metrx.app.elec.ElecOrder? = null,
+    /** Plumbers' orders: the fixtures, outlets, riser and rooms' settings (each room's kind filled in), for the plumbing pages. */
+    val plumb: uz.metrx.app.plumb.PlumbOrder? = null
 )
 
 /** A line of a furniture order's price in the customer's PDF: [key] a furniture id or "deliver". */

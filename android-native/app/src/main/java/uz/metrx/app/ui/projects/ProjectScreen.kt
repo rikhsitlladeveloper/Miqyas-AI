@@ -88,7 +88,7 @@ private val T_TABS = listOf("rooms" to "fo.rooms", "estimate" to "pr.estimate", 
 
 /** An order of the simple furniture or tiler app: no prices, stages or quotes. */
 @Composable
-private fun simpleOrder(p: Project) = (p.isFurniture || p.isTiler || p.isElec) && !LocalApp.current.settings.advanced
+private fun simpleOrder(p: Project) = (p.isFurniture || p.isTiler || p.isElec || p.isPlumb) && !LocalApp.current.settings.advanced
 
 /** Project page: name, customer and stage, three numbers, four tabs (prototype project.js + glass stage 2). */
 @Composable
@@ -99,7 +99,7 @@ fun ProjectScreen(r: Route.Project) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         // the pill names the page underneath: the orders list on that tab, or Home or Profile when opened from there
         val under = app.tab.takeIf { app.stack.size >= 2 && app.stack[app.stack.size - 2] == uz.metrx.app.ui.Route.Root && it != uz.metrx.app.ui.main.Tab.PROJECTS }
-        PageBar { BackPill(tr(under?.label ?: if (p.isFurniture || p.isTiler || p.isElec) "fo.tab" else "tab.projects"), { app.pop() }) }
+        PageBar { BackPill(tr(under?.label ?: if (p.isFurniture || p.isTiler || p.isElec || p.isPlumb) "fo.tab" else "tab.projects"), { app.pop() }) }
         val withTotal = r.tab == "estimate" && (p.estimate.materials.isNotEmpty() || p.estimate.labor.isNotEmpty())
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = if (withTotal) 0.dp else 24.dp + NAV_SPACE).let { if (withTotal) it else it.navigationBarsPadding() }) {
             // price and quotes are the advanced app's; a link to them opens the rooms
@@ -109,6 +109,7 @@ fun ProjectScreen(r: Route.Project) {
             if (p.isFurniture) uz.metrx.app.ui.furniture.NextStep(p)
             if (p.isTiler) uz.metrx.app.ui.tiles.TNextStep(p)
             if (p.isElec) uz.metrx.app.ui.elec.ENextStep(p)
+            if (p.isPlumb) uz.metrx.app.ui.plumb.PNextStep(p)
             when (tab) {
                 "info" -> { if (p.isFurniture) uz.metrx.app.ui.furniture.FurnitureInfo(p); InfoTab(p, lang) }
                 "price" -> uz.metrx.app.ui.furniture.FPriceTab(p)
@@ -118,7 +119,7 @@ fun ProjectScreen(r: Route.Project) {
                     ViewSeg(r.view) { app.setTop(r.copy(view = it)) }
                     if (r.view == "2d") Plans2D(p, lang) else Project3D(p, r, lang)
                 } else if (p.isFurniture) uz.metrx.app.ui.furniture.FRoomsTab(p, lang, r) else if (p.isTiler) uz.metrx.app.ui.tiles.TRoomsTab(p, lang, r)
-                    else if (p.isElec) uz.metrx.app.ui.elec.ERoomsTab(p, lang, r) else WorkspacesTab(p, lang, r)
+                    else if (p.isElec) uz.metrx.app.ui.elec.ERoomsTab(p, lang, r) else if (p.isPlumb) uz.metrx.app.ui.plumb.PRoomsTab(p, lang, r) else WorkspacesTab(p, lang, r)
             }
         }
         // the total floats over the tab bar, the rows scroll above it (prototype .footer.gs-tot)
@@ -130,7 +131,7 @@ fun ProjectScreen(r: Route.Project) {
 private fun Header(p: Project, tab: String, lang: Lang) {
     val app = LocalApp.current
     val context = LocalContext.current
-    val sub = (if (p.isFurniture || p.isTiler || p.isElec) uz.metrx.app.ui.furniture.orderSub(p, lang, ", ") else listOf(dn(p.customer, lang), dn(p.address, lang)).filter { it.isNotBlank() }.joinToString(", ")).ifEmpty { "—" }
+    val sub = (if (p.isFurniture || p.isTiler || p.isElec || p.isPlumb) uz.metrx.app.ui.furniture.orderSub(p, lang, ", ") else listOf(dn(p.customer, lang), dn(p.address, lang)).filter { it.isNotBlank() }.joinToString(", ")).ifEmpty { "—" }
     val shape = RoundedCornerShape(30.dp)
     Column(
         Modifier.padding(start = 20.dp, end = 20.dp, top = 6.dp).fillMaxWidth()
@@ -154,17 +155,17 @@ private fun Header(p: Project, tab: String, lang: Lang) {
                 RoundIc("more", tr("common.menu")) { app.sheet = Sheet.ProjectMenu(p.id) }
             }
             // the simple furniture app shows no stage: with no address either, the line goes
-            if (!((p.isFurniture || p.isTiler || p.isElec) && sub == "—" && !app.settings.advanced)) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(if ((p.isFurniture || p.isTiler || p.isElec) && sub == "—") "" else sub, style = ui(13.5f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+            if (!((p.isFurniture || p.isTiler || p.isElec || p.isPlumb) && sub == "—" && !app.settings.advanced)) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(if ((p.isFurniture || p.isTiler || p.isElec || p.isPlumb) && sub == "—") "" else sub, style = ui(13.5f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                 if (p.isFurniture) uz.metrx.app.ui.furniture.FStageChip(p.stage) else if (!simpleOrder(p)) StageChip(p.stage)
             }
         }
-        if (tab == "rooms") { if (p.isFurniture) uz.metrx.app.ui.furniture.FNums(p) else if (p.isTiler) uz.metrx.app.ui.tiles.TNums(p) else if (p.isElec) uz.metrx.app.ui.elec.ENums(p) else Nums(p) }
+        if (tab == "rooms") { if (p.isFurniture) uz.metrx.app.ui.furniture.FNums(p) else if (p.isTiler) uz.metrx.app.ui.tiles.TNums(p) else if (p.isElec) uz.metrx.app.ui.elec.ENums(p) else if (p.isPlumb) uz.metrx.app.ui.plumb.PNums(p) else Nums(p) }
         Row(
             Modifier.padding(top = 12.dp).fillMaxWidth().height(44.dp).clip(RoundedCornerShape(22.dp)).background(G.ink.copy(alpha = .06f)).padding(4.dp),
             horizontalArrangement = Arrangement.spacedBy(2.dp)
         ) {
-            (if (p.isTiler || p.isElec) (if (app.settings.advanced) T_TABS else F_TABS_SIMPLE) else if (!p.isFurniture) TABS else if (app.settings.advanced) F_TABS else F_TABS_SIMPLE).forEach { (k, l) ->
+            (if (p.isTiler || p.isElec || p.isPlumb) (if (app.settings.advanced) T_TABS else F_TABS_SIMPLE) else if (!p.isFurniture) TABS else if (app.settings.advanced) F_TABS else F_TABS_SIMPLE).forEach { (k, l) ->
                 val on = tab == k
                 val bubble = RoundedCornerShape(18.dp)
                 Box(

@@ -42,6 +42,14 @@ data class TradeSet(
     val lChase: String = "20000", val lMetre: String = "3000", val lPanel: String = "300000",
     // plumber
     val pPipe: String = "12000", val pSewer: String = "18000", val pFitting: String = "6000", val pTap: String = "90000", val lPlumb: String = "120000",
+    // the plumber's routes (plumb/Count.kt): water pipe 20, 25 and 32 a metre, heating and underfloor pipe a metre, drain 50 and 110 a
+    // metre; elbow, tee, coupling, drain bend and tee, wall plate, ball valve, main valve, meter, filter, the manifold; labour per outlet,
+    // per fixture, per metre of pipe, per radiator and per metre of chase
+    val pX20: String = "8000", val pX25: String = "12000", val pX32: String = "18000", val pHeat: String = "12000", val pUfh: String = "9000",
+    val pD50: String = "10000", val pD110: String = "22000", val pElbow: String = "3000", val pTee: String = "4000", val pCoup: String = "2000",
+    val pDBend: String = "6000", val pDTee: String = "9000", val pPlate: String = "15000", val pBall: String = "45000", val pMainV: String = "90000",
+    val pMeter: String = "250000", val pFilter: String = "120000", val pManif: String = "1500000",
+    val lPPt: String = "120000", val lPFix: String = "150000", val lPM: String = "15000", val lPRad: String = "200000", val lPChase: String = "25000",
     // windows and doors
     val pWinM2: String = "900000", val pDoorM2: String = "1200000", val pSillM: String = "150000", val pRevealM: String = "60000", val lWin: String = "250000"
 )

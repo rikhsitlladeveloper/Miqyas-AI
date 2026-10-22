@@ -124,8 +124,8 @@ fun ReportScreen(pid: String, no: Int?) {
     val p = app.store.get(pid) ?: return
     val quote = no?.let { n -> p.quotes.firstOrNull { it.no == n } } ?: if (no != null) return else null
     // a furniture maker or a tiler in the simple app shares the design: no price, nothing to issue (a tiler's has no estimate)
-    val design = quote == null && (p.isFurniture || p.isTiler || p.isElec) && !app.settings.advanced
-    val sn = quote?.sn ?: snapshotOf(p, app.settings).let { if (design && (p.isTiler || p.isElec)) it.copy(pdf = it.pdf.copy(estimate = false)) else it }
+    val design = quote == null && (p.isFurniture || p.isTiler || p.isElec || p.isPlumb) && !app.settings.advanced
+    val sn = quote?.sn ?: snapshotOf(p, app.settings).let { if (design && (p.isTiler || p.isElec || p.isPlumb)) it.copy(pdf = it.pdf.copy(estimate = false)) else it }
     val key = if (quote != null) "q${quote.no}" else (if (design) "d" else "") + fingerprint(sn) + sn.pdf + sn.lang + sn.extras.joinToString { it.text + it.checks }
     val tm = remember { reportMeasurer(ctx) }
     val loader = remember { viewLoader(ctx) }
@@ -355,7 +355,7 @@ fun ReportSetupSheet(s: Sheet.ReportSetup) {
         }
         GField(tr("rpt.notes"), notes, { notes = it }, placeholder = tr("rpt.notesPh"), optional = true, minLines = 3)
         // the simple furniture app's design has no DRAFT mark
-        if (!((p.isFurniture || p.isTiler || p.isElec) && !app.settings.advanced)) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (!((p.isFurniture || p.isTiler || p.isElec || p.isPlumb) && !app.settings.advanced)) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MIcon("info", G.ink2, 18.dp, 2f); Text(tr("rpt.draftShare"), style = ui(13f, 400, G.ink2, 1.45f), modifier = Modifier.weight(1f))
         }
     }
