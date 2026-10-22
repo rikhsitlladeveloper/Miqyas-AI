@@ -302,8 +302,10 @@ func rowOf(_ c: ECtx, _ n: Int) -> [V2] {
 }
 
 /// The middle of the room's floor (its centroid; inside it).
-func centreOf(_ c: ECtx) -> V2 {
-    let f = c.g.floor
+func centreOf(_ c: ECtx) -> V2 { centreOf(c.g.floor) }
+
+/// The middle of floor outline f (its centroid; inside it).
+func centreOf(_ f: [V2]) -> V2 {
     let n = f.count
     var a = 0.0, cx = 0.0, cy = 0.0, sx = 0.0, sy = 0.0
     for i in 0..<n {
@@ -603,10 +605,13 @@ func snapPanel(_ c: ECtx, _ pn: ElecPanel, _ rawOff: Int, _ rawH: Int) -> ElecPa
 }
 
 /// Nearest distance from plan point q to the walls: the wall, how far along it, how far away.
-func nearestWall(_ c: ECtx, _ q: V2) -> (TWall, Double, Double) {
-    var best = (c.g.walls[0], 0.0, Double.greatestFiniteMagnitude)
+func nearestWall(_ c: ECtx, _ q: V2) -> (TWall, Double, Double) { nearestWall(c.g.walls, q) }
+
+/// Nearest distance from plan point q to walls ws: the wall, how far along it, how far away.
+func nearestWall(_ ws: [TWall], _ q: V2) -> (TWall, Double, Double) {
+    var best = (ws[0], 0.0, Double.greatestFiniteMagnitude)
     var first = true
-    for w in c.g.walls {
+    for w in ws {
         let a = eClamp((q - w.p0).dot(w.t), 0, w.len)
         let p = w.at(a)
         let d = hypot(q.x - p.x, q.y - p.y)

@@ -12,7 +12,7 @@ struct GlassNav: View {
                 VStack(spacing: 3) {
                     MIcon(t.icon, on ? G.cobalt2 : G.slate, 22, 2)
                     // a furniture maker's, a tiler's and an electrician's projects are orders
-                    T(tr(t == .projects && (AppSettings.shared.furniture || AppSettings.shared.tiler || AppSettings.shared.elec) ? "fo.tab" : t.label), ui(11, on ? 700 : 600, on ? G.cobalt2 : G.slate), lines: 1)
+                    T(tr(t == .projects && (AppSettings.shared.furniture || AppSettings.shared.tiler || AppSettings.shared.elec || AppSettings.shared.plumb) ? "fo.tab" : t.label), ui(11, on ? 700 : 600, on ? G.cobalt2 : G.slate), lines: 1)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(RoundedRectangle(cornerRadius: 28, style: .continuous).fill(on ? G.glass(0.85) : .clear)
@@ -44,7 +44,8 @@ struct HomeScreen: View {
     let app: AppModel
     var body: some View {
         if AppSettings.shared.furniture { FurnitureHome(app: app) } else if AppSettings.shared.tiler { TilerHome(app: app) }
-        else if AppSettings.shared.elec { ElecHome(app: app) } else { builder }
+        else if AppSettings.shared.elec { ElecHome(app: app) }
+        else if AppSettings.shared.plumb { PlumbHome(app: app) } else { builder }
     }
     @ViewBuilder private var builder: some View {
         let s = AppSettings.shared

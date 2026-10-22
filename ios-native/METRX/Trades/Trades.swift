@@ -26,6 +26,14 @@ struct TradeSet: Codable, Equatable {
     var lChase = "20000", lMetre = "3000", lPanel = "300000"
     // plumber
     var pPipe = "12000", pSewer = "18000", pFitting = "6000", pTap = "90000", lPlumb = "120000"
+    // the plumber's routes (Plumb/PlumbCount.swift): water pipe 20, 25 and 32 a metre, heating and underfloor pipe a metre,
+    // drain 50 and 110 a metre; elbow, tee, coupling, drain bend and tee, wall plate, ball valve, main valve, meter, filter,
+    // the manifold; labour per outlet, per fixture, per metre of pipe, per radiator and per metre of chase
+    var pX20 = "8000", pX25 = "12000", pX32 = "18000", pHeat = "12000", pUfh = "9000"
+    var pD50 = "10000", pD110 = "22000", pElbow = "3000", pTee = "4000", pCoup = "2000"
+    var pDBend = "6000", pDTee = "9000", pPlate = "15000", pBall = "45000", pMainV = "90000"
+    var pMeter = "250000", pFilter = "120000", pManif = "1500000"
+    var lPPt = "120000", lPFix = "150000", lPM = "15000", lPRad = "200000", lPChase = "25000"
     // windows and doors
     var pWinM2 = "900000", pDoorM2 = "1200000", pSillM = "150000", pRevealM = "60000", lWin = "250000"
     init() {}
@@ -43,6 +51,11 @@ struct TradeSet: Codable, Equatable {
         pBox = c.v(.pBox, z.pBox); pJBox = c.v(.pJBox, z.pJBox); pRcd = c.v(.pRcd, z.pRcd); pMain = c.v(.pMain, z.pMain); pPanelM = c.v(.pPanelM, z.pPanelM)
         lChase = c.v(.lChase, z.lChase); lMetre = c.v(.lMetre, z.lMetre); lPanel = c.v(.lPanel, z.lPanel)
         pPipe = c.v(.pPipe, z.pPipe); pSewer = c.v(.pSewer, z.pSewer); pFitting = c.v(.pFitting, z.pFitting); pTap = c.v(.pTap, z.pTap); lPlumb = c.v(.lPlumb, z.lPlumb)
+        pX20 = c.v(.pX20, z.pX20); pX25 = c.v(.pX25, z.pX25); pX32 = c.v(.pX32, z.pX32); pHeat = c.v(.pHeat, z.pHeat); pUfh = c.v(.pUfh, z.pUfh)
+        pD50 = c.v(.pD50, z.pD50); pD110 = c.v(.pD110, z.pD110); pElbow = c.v(.pElbow, z.pElbow); pTee = c.v(.pTee, z.pTee); pCoup = c.v(.pCoup, z.pCoup)
+        pDBend = c.v(.pDBend, z.pDBend); pDTee = c.v(.pDTee, z.pDTee); pPlate = c.v(.pPlate, z.pPlate); pBall = c.v(.pBall, z.pBall); pMainV = c.v(.pMainV, z.pMainV)
+        pMeter = c.v(.pMeter, z.pMeter); pFilter = c.v(.pFilter, z.pFilter); pManif = c.v(.pManif, z.pManif)
+        lPPt = c.v(.lPPt, z.lPPt); lPFix = c.v(.lPFix, z.lPFix); lPM = c.v(.lPM, z.lPM); lPRad = c.v(.lPRad, z.lPRad); lPChase = c.v(.lPChase, z.lPChase)
         pWinM2 = c.v(.pWinM2, z.pWinM2); pDoorM2 = c.v(.pDoorM2, z.pDoorM2); pSillM = c.v(.pSillM, z.pSillM); pRevealM = c.v(.pRevealM, z.pRevealM); lWin = c.v(.lWin, z.lWin)
     }
 }

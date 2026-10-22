@@ -151,12 +151,12 @@ struct ReportScreen: View {
     }
 
     /// The simple furniture, tiler or electrician app's draft: the design, shared without a price.
-    private func isDesign(_ p: Project, _ quote: Quote?) -> Bool { quote == nil && (p.isFurniture || p.isTiler || p.isElec) && !AppSettings.shared.advanced }
+    private func isDesign(_ p: Project, _ quote: Quote?) -> Bool { quote == nil && (p.isFurniture || p.isTiler || p.isElec || p.isPlumb) && !AppSettings.shared.advanced }
 
     /// The draft's snapshot; a tiler's or an electrician's design has no estimate in it.
     private func designSnap(_ p: Project, _ design: Bool) -> Snap {
         var s = snapshotOf(p)
-        if design && (p.isTiler || p.isElec) { s.pdf.estimate = false }
+        if design && (p.isTiler || p.isElec || p.isPlumb) { s.pdf.estimate = false }
         return s
     }
 
@@ -375,7 +375,7 @@ private struct ReportSetupSheet: View {
                 }
                 GField(label: tr("rpt.notes"), value: $notes, placeholder: tr("rpt.notesPh"), optional: true, focus: $focus, me: .notes, multiline: true)
                 // the simple furniture app's design has no DRAFT mark
-                if !((p.isFurniture || p.isTiler || p.isElec) && !AppSettings.shared.advanced) {
+                if !((p.isFurniture || p.isTiler || p.isElec || p.isPlumb) && !AppSettings.shared.advanced) {
                     HStack(alignment: .top, spacing: 8) { MIcon("info", G.ink2, 18, 2); T(tr("rpt.draftShare"), ui(13, 400, G.ink2, lh: 1.45)) }
                 }
             } footer: {

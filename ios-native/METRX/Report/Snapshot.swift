@@ -9,7 +9,27 @@ func snapshotOf(_ p: Project, _ s: AppSettings = .shared, pdf: PdfParts? = nil) 
     let sn = baseSnapshot(p, s, pdf: pdf)
     if p.isFurniture { return furnSnap(sn, p, s.workshop, s.mats, s.hws) }
     if p.isElec { return elecSnap(sn, p, s.angleSnap) }
+    if p.isPlumb { return plumbSnap(sn, p, s.angleSnap) }
     return sn
+}
+
+/// A plumber's order's part of the snapshot: its fixtures, outlets, riser and rooms, each room's kind written down.
+func plumbSnap(_ sn: Snap, _ p: Project, _ snap: Bool) -> Snap {
+    if p.plumb.empty { return sn }
+    var kinds: [(String, String)] = []
+    for r in p.rooms { if let c = pCtxOf(p, r.id, snap) { kinds.append((r.id, c.kind)) } }
+    let ids = Set(kinds.map(\.0))
+    var rooms: [PlRoom] = kinds.map { k in
+        var pr = p.plumb.room(k.0)
+        pr.kind = k.1
+        return pr
+    }
+    rooms += p.plumb.rooms.filter { !ids.contains($0.roomId) }
+    var e = p.plumb
+    e.rooms = rooms
+    var out = sn
+    out.plumb = e
+    return out
 }
 
 /// An electrician's order's part of the snapshot: its devices, panel and rooms, each room's kind written down.
@@ -85,6 +105,8 @@ func fingerprint(_ sn: Snap) -> String {
         var pp: Int? = nil, hd: String? = nil
         /// electricians' orders only
         var el: ElecOrder? = nil
+        /// plumbers' orders only
+        var pl: PlumbOrder? = nil
     }
     let f = F(name: sn.name, customer: sn.customer, address: sn.address, currency: sn.currency, precision: sn.precision, lang: sn.lang,
               unit: sn.unit, notes: sn.notes, builder: [sn.builderName, sn.builderPhone],
@@ -104,6 +126,7 @@ func fingerprint(_ sn: Snap) -> String {
     let handlesPrinted = !sn.fhandles.trimmingCharacters(in: .whitespaces).isEmpty && sn.furniture.contains(where: { $0.modules.contains(where: \.handles) })
     if handlesPrinted && sn.fhandles != "Tutqich skoba 128" { g.hd = sn.fhandles }
     if let e = sn.elec { g.el = e }
+    if let e = sn.plumb { g.pl = e }
     let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
     return (try? enc.encode(g)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
 }

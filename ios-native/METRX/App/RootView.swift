@@ -133,6 +133,7 @@ struct RootView: View {
             if e == nil && AppSettings.shared.furniture { NewOrderScreen(app: app) }
             else if e == nil && AppSettings.shared.tiler { NewOrderScreen(app: app, industry: "tiler") }
             else if e == nil && AppSettings.shared.elec { NewOrderScreen(app: app, industry: "elec") }
+            else if e == nil && AppSettings.shared.plumb { NewOrderScreen(app: app, industry: "plumb") }
             else { NewProjectScreen(app: app, editId: e) }
         case .project(let id, let tab, let view, let floor): ProjectScreen(app: app, id: id, tab: tab, view: view, floor: floor)
         case .space(let pid, let wid): SpaceScreen(app: app, pid: pid, wid: wid)
@@ -158,6 +159,9 @@ struct RootView: View {
         case .eGallery(let pid, let rid, let fromNew): EGalleryScreen(app: app, pid: pid, rid: rid, fromNew: fromNew)
         case .eSteps(let pid, let kit, let rid): EStepsScreen(app: app, pid: pid, kit: kit, rid: rid)
         case .eView(let pid, let rid): EViewScreen(app: app, pid: pid, rid: rid)
+        case .pGallery(let pid, let rid, let fromNew): PGalleryScreen(app: app, pid: pid, rid: rid, fromNew: fromNew)
+        case .pSteps(let pid, let kit, let rid): PStepsScreen(app: app, pid: pid, kit: kit, rid: rid)
+        case .pView(let pid, let rid): PViewScreen(app: app, pid: pid, rid: rid)
         }
     }
 
@@ -166,7 +170,8 @@ struct RootView: View {
         case .language: LanguageSheet(app: app)
         case .device: DeviceSheet(app: app)
         default:
-            if ElecSheet.handles(s) { ElecSheet(app: app, sheet: s) }
+            if PlumbSheet.handles(s) { PlumbSheet(app: app, sheet: s) }
+            else if ElecSheet.handles(s) { ElecSheet(app: app, sheet: s) }
             else if TileSheet.handles(s) { TileSheet(app: app, sheet: s) }
             else if OrderFlowSheet.handles(s) { OrderFlowSheet(app: app, sheet: s) }
             else if TradeSheet.handles(s) { TradeSheet(app: app, sheet: s) }

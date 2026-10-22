@@ -18,12 +18,15 @@ struct Room3DScreen: View {
     @State private var tb = TileShellBox()
     /// An electrician's order: its devices and routes in the room, worked out away from the screen's thread.
     @State private var eb = ElecShellBox()
+    /// A plumber's order: its fixtures and pipes in the room, worked out away from the screen's thread.
+    @State private var pb = PlumbShellBox()
     private var ops: RoomOps { RoomOps.shared }
 
     /// A trade's order in its room: a tiler's tiles, an electrician's devices and routes; nil for the rest.
     private func tradeShell(_ p: Project, _ r: Room, _ base: Shell3D, _ snap: Bool) -> (Shell3D, String)? {
         if p.isTiler { return tb.shell(p, r, base, snap) }
         if p.isElec { return eb.shell(p, r, snap) }
+        if p.isPlumb { return pb.shell(p, r, snap) }
         return nil
     }
 

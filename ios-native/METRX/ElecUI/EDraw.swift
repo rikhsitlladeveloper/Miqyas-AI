@@ -174,8 +174,11 @@ func devSymbol(_ cg: CGContext, _ t: String, _ c: CGPoint, _ r: CGFloat, _ col: 
 /// How the room from above maps into a box: plan mm → points, the room fitted and centred with margin round it.
 struct EPlanMap {
     let x0: Double, y0: Double, k: Double, ox: Double, oy: Double
-    init(_ c: ECtx, _ box: CGRect, _ margin: CGFloat) {
-        let b = tBoxOf(c.g.floor)
+    init(_ c: ECtx, _ box: CGRect, _ margin: CGFloat) { self.init(c.g.floor, box, margin) }
+
+    /// Floor outline f fitted into box (a plumber's room uses it too).
+    init(_ f: [V2], _ box: CGRect, _ margin: CGFloat) {
+        let b = tBoxOf(f)
         x0 = b.x0; y0 = b.y0
         let w = max(1, b.x1 - b.x0), h = max(1, b.y1 - b.y0)
         let m = Double(margin)

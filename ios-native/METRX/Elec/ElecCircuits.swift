@@ -81,8 +81,11 @@ struct Perim {
     let st: [Double]
     let P: Double
 
-    init(_ c: ECtx) {
-        ws = c.g.walls
+    init(_ c: ECtx) { self.init(c.g.walls) }
+
+    /// The walls ws end to end (a plumber's room uses it too).
+    init(_ ws: [TWall]) {
+        self.ws = ws
         var a: [Double] = []
         var s = 0.0
         for w in ws { a.append(s); s += w.len }

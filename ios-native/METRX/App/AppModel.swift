@@ -60,6 +60,12 @@ enum Route: Hashable {
     case eGallery(pid: String, rid: String? = nil, fromNew: Bool = false)
     case eSteps(pid: String, kit: String, rid: String? = nil)
     case eView(pid: String, rid: String)
+    /// A plumber's order (Android PlumbScreens / PGallery / PView): the gallery of room kits (rid the room it is for,
+    /// fromNew right after a new order); a kit's steps; a room's fixtures and pipes in 3D, from above and wall by wall
+    /// (rid a room, or "free:<id>" one typed by size).
+    case pGallery(pid: String, rid: String? = nil, fromNew: Bool = false)
+    case pSteps(pid: String, kit: String, rid: String? = nil)
+    case pView(pid: String, rid: String)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -143,6 +149,15 @@ enum Sheet: Equatable {
     case eMethod(pid: String)
     case ePrices(pid: String?)
     case eFree(pid: String, fid: String?)
+    /// A plumber's order: a new room, a fixture (fid nil: a new one, on wall), a loose outlet (ptId nil: a new one), a
+    /// room's settings, the pipe system, the prices, a room typed by size (fid nil: a new one).
+    case pNewRoom(pid: String)
+    case pFix(pid: String, rid: String, fid: String?, wall: String? = nil)
+    case pPoint(pid: String, rid: String, ptId: String?, wall: String? = nil)
+    case pRoomSet(pid: String, rid: String)
+    case pSystem(pid: String)
+    case pPrices(pid: String?)
+    case pFree(pid: String, fid: String?)
 }
 
 /// Screens of the sign-in flow.
@@ -220,6 +235,10 @@ final class AppModel {
                     return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
                 case .eView(let pid, let rid):
                     return store.get(pid).map { p in p.rooms.contains { $0.id == rid } || p.elec.free.contains { "free:" + $0.id == rid } } == true
+                case .pGallery(let pid, let rid, _), .pSteps(let pid, _, let rid):
+                    return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
+                case .pView(let pid, let rid):
+                    return store.get(pid).map { p in p.rooms.contains { $0.id == rid } || p.plumb.free.contains { "free:" + $0.id == rid } } == true
                 default: return true
                 }
             }
