@@ -35,6 +35,11 @@ data class TradeSet(
     // electrician
     val lights: Int = 1, val pSocket: String = "35000", val pSwitch: String = "30000", val pLight: String = "40000",
     val pCable: String = "9000", val pConduit: String = "3000", val pBreaker: String = "45000", val lPoint: String = "60000",
+    // the electrician's routes (elec/Count.kt): cable 3×1,5, 3×6 and UTP a metre, channel a metre, low-voltage point, socket and
+    // junction box, RCD, main switch, the panel a module; labour per metre of chase and of cable, and the panel's assembly
+    val pCab15: String = "6000", val pCab6: String = "25000", val pUtp: String = "3500", val pChan: String = "9000", val pLow: String = "40000",
+    val pBox: String = "2500", val pJBox: String = "7000", val pRcd: String = "200000", val pMain: String = "150000", val pPanelM: String = "12000",
+    val lChase: String = "20000", val lMetre: String = "3000", val lPanel: String = "300000",
     // plumber
     val pPipe: String = "12000", val pSewer: String = "18000", val pFitting: String = "6000", val pTap: String = "90000", val lPlumb: String = "120000",
     // windows and doors
