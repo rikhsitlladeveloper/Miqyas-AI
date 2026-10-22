@@ -63,10 +63,14 @@ struct Project: Codable, Equatable, Identifiable {
     /// Tilers' orders: the tile layouts (Tiles/Tiles.swift), and each room's tray, bath and waterproofing.
     var tiles: [TileLayout] = []
     var troom: [TileRoom] = []
+    /// Electricians' orders: the devices, the panel, the rooms' settings and the rooms typed by size (Elec/Elec.swift).
+    var elec = ElecOrder()
 
     var isFurniture: Bool { industry == "furniture" }
     /// A tiler's order (its own app: layouts in 3D, like the furniture maker's).
     var isTiler: Bool { industry == "tiler" }
+    /// An electrician's order (its own app: devices, circuits and cable routes in 3D).
+    var isElec: Bool { industry == "elec" }
 
     init(id: String, name: String, customer: String = "", phone: String = "", address: String = "", location: Location? = nil,
          currency: String = "UZS", reportLang: String = "uz", created: Ms = 0, edited: Ms = 0) {
@@ -85,7 +89,7 @@ struct Project: Codable, Equatable, Identifiable {
         industry = c.v(.industry, "build"); agreed = c.v(.agreed, ""); payments = c.v(.payments, [])
         furniture = c.v(.furniture, []); fprice = c.v(.fprice, FPrice())
         approvedAt = c.v(.approvedAt, 0); install = c.v(.install, 0); want = c.v(.want, nil); autoName = c.v(.autoName, false)
-        tiles = c.v(.tiles, []); troom = c.v(.troom, [])
+        tiles = c.v(.tiles, []); troom = c.v(.troom, []); elec = c.v(.elec, ElecOrder())
     }
 }
 
@@ -401,6 +405,8 @@ struct Snap: Codable, Equatable {
     var fws: Workshop? = nil
     /// The angle snap the plans and areas are worked out with (AppSettings.angleSnap), kept with a quote.
     var snap = true
+    /// Electricians' orders: the devices, panel and rooms' settings (each room's kind filled in), for the wiring pages.
+    var elec: ElecOrder? = nil
 }
 
 extension Snap {
@@ -413,7 +419,7 @@ extension Snap {
         estimate = c.v(.estimate, Estimate()); extras = c.v(.extras, [])
         furniture = c.v(.furniture, []); fmats = c.v(.fmats, []); flines = c.v(.flines, []); ftotal = c.v(.ftotal, "")
         fprepay = c.v(.fprepay, 50); fdays = c.v(.fdays, 0); finst = c.v(.finst, 0); fhandles = c.v(.fhandles, ""); fws = c.v(.fws, nil)
-        snap = c.v(.snap, true)
+        snap = c.v(.snap, true); elec = c.v(.elec, nil)
     }
 }
 

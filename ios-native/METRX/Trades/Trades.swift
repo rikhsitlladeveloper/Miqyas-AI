@@ -19,6 +19,11 @@ struct TradeSet: Codable, Equatable {
     var pProf = "15000", pWp = "45000", lSkirt = "20000", lProf = "15000", lWp = "25000"
     // electrician
     var lights = 1, pSocket = "35000", pSwitch = "30000", pLight = "40000", pCable = "9000", pConduit = "3000", pBreaker = "45000", lPoint = "60000"
+    // the electrician's routes (Elec/Count.swift): cable 3×1,5, 3×6 and UTP a metre, channel a metre, low-voltage point, socket and
+    // junction box, RCD, main switch, the panel a module; labour per metre of chase and of cable, and the panel's assembly
+    var pCab15 = "6000", pCab6 = "25000", pUtp = "3500", pChan = "9000", pLow = "40000"
+    var pBox = "2500", pJBox = "7000", pRcd = "200000", pMain = "150000", pPanelM = "12000"
+    var lChase = "20000", lMetre = "3000", lPanel = "300000"
     // plumber
     var pPipe = "12000", pSewer = "18000", pFitting = "6000", pTap = "90000", lPlumb = "120000"
     // windows and doors
@@ -34,6 +39,9 @@ struct TradeSet: Codable, Equatable {
         pProf = c.v(.pProf, z.pProf); pWp = c.v(.pWp, z.pWp); lSkirt = c.v(.lSkirt, z.lSkirt); lProf = c.v(.lProf, z.lProf); lWp = c.v(.lWp, z.lWp)
         lights = c.v(.lights, z.lights); pSocket = c.v(.pSocket, z.pSocket); pSwitch = c.v(.pSwitch, z.pSwitch); pLight = c.v(.pLight, z.pLight)
         pCable = c.v(.pCable, z.pCable); pConduit = c.v(.pConduit, z.pConduit); pBreaker = c.v(.pBreaker, z.pBreaker); lPoint = c.v(.lPoint, z.lPoint)
+        pCab15 = c.v(.pCab15, z.pCab15); pCab6 = c.v(.pCab6, z.pCab6); pUtp = c.v(.pUtp, z.pUtp); pChan = c.v(.pChan, z.pChan); pLow = c.v(.pLow, z.pLow)
+        pBox = c.v(.pBox, z.pBox); pJBox = c.v(.pJBox, z.pJBox); pRcd = c.v(.pRcd, z.pRcd); pMain = c.v(.pMain, z.pMain); pPanelM = c.v(.pPanelM, z.pPanelM)
+        lChase = c.v(.lChase, z.lChase); lMetre = c.v(.lMetre, z.lMetre); lPanel = c.v(.lPanel, z.lPanel)
         pPipe = c.v(.pPipe, z.pPipe); pSewer = c.v(.pSewer, z.pSewer); pFitting = c.v(.pFitting, z.pFitting); pTap = c.v(.pTap, z.pTap); lPlumb = c.v(.lPlumb, z.lPlumb)
         pWinM2 = c.v(.pWinM2, z.pWinM2); pDoorM2 = c.v(.pDoorM2, z.pDoorM2); pSillM = c.v(.pSillM, z.pSillM); pRevealM = c.v(.pRevealM, z.pRevealM); lWin = c.v(.lWin, z.lWin)
     }

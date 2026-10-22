@@ -7,7 +7,28 @@ import Foundation
  */
 func snapshotOf(_ p: Project, _ s: AppSettings = .shared, pdf: PdfParts? = nil) -> Snap {
     let sn = baseSnapshot(p, s, pdf: pdf)
-    return p.isFurniture ? furnSnap(sn, p, s.workshop, s.mats, s.hws) : sn
+    if p.isFurniture { return furnSnap(sn, p, s.workshop, s.mats, s.hws) }
+    if p.isElec { return elecSnap(sn, p, s.angleSnap) }
+    return sn
+}
+
+/// An electrician's order's part of the snapshot: its devices, panel and rooms, each room's kind written down.
+func elecSnap(_ sn: Snap, _ p: Project, _ snap: Bool) -> Snap {
+    if p.elec.empty { return sn }
+    var kinds: [(String, String)] = []
+    for r in p.rooms { if let c = ctxOf(p, r.id, snap) { kinds.append((r.id, c.kind)) } }
+    let ids = Set(kinds.map(\.0))
+    var rooms: [ElecRoom] = kinds.map { k in
+        var er = p.elec.room(k.0)
+        er.kind = k.1
+        return er
+    }
+    rooms += p.elec.rooms.filter { !ids.contains($0.roomId) }
+    var e = p.elec
+    e.rooms = rooms
+    var out = sn
+    out.elec = e
+    return out
 }
 
 /// A furniture order's part of the snapshot: the furniture, its materials, the price lines and the terms.
@@ -62,6 +83,8 @@ func fingerprint(_ sn: Snap) -> String {
         var furniture: [Furniture]? = nil, ftotal: String? = nil, fdays: Int? = nil, finst: Int? = nil, fmats: [Mat]? = nil
         var phone: String? = nil, snap: Bool? = nil
         var pp: Int? = nil, hd: String? = nil
+        /// electricians' orders only
+        var el: ElecOrder? = nil
     }
     let f = F(name: sn.name, customer: sn.customer, address: sn.address, currency: sn.currency, precision: sn.precision, lang: sn.lang,
               unit: sn.unit, notes: sn.notes, builder: [sn.builderName, sn.builderPhone],
@@ -80,6 +103,7 @@ func fingerprint(_ sn: Snap) -> String {
     // the handle the workshop's list starts with fingerprints as before handles were printed
     let handlesPrinted = !sn.fhandles.trimmingCharacters(in: .whitespaces).isEmpty && sn.furniture.contains(where: { $0.modules.contains(where: \.handles) })
     if handlesPrinted && sn.fhandles != "Tutqich skoba 128" { g.hd = sn.fhandles }
+    if let e = sn.elec { g.el = e }
     let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
     return (try? enc.encode(g)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
 }

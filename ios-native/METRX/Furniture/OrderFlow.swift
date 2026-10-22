@@ -174,7 +174,8 @@ struct NewOrderScreen: View {
         Store.shared.add(p)
         app.replaceTop(.project(id: p.id, tab: "rooms"))
         // a tiler picks the layout first (Tiles/Tiles.swift), a furniture maker the furniture
-        app.push(industry == "tiler" ? .tGallery(pid: p.id, fromNew: true) : .fGallery(pid: p.id, fromNew: true))
+        let next: Route = industry == "tiler" ? .tGallery(pid: p.id, fromNew: true) : industry == "elec" ? .eGallery(pid: p.id, fromNew: true) : .fGallery(pid: p.id, fromNew: true)
+        app.push(next)
         app.say("np.created", ["n": name])
     }
 }

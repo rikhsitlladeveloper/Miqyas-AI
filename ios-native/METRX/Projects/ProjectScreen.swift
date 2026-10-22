@@ -8,13 +8,13 @@ private let F_TABS_SIMPLE = [("rooms", "fo.rooms"), ("info", "pj.info")]
 /// A tiler's order: its rooms with their tile layouts; the estimate and quotes in the advanced app only.
 private let T_TABS = [("rooms", "fo.rooms"), ("estimate", "pr.estimate"), ("quotes", "pj.t.quotes"), ("info", "pj.info")]
 
-/// An order of the simple furniture or tiler app: no prices, stages or quotes.
-private func simpleOrder(_ p: Project) -> Bool { (p.isFurniture || p.isTiler) && !AppSettings.shared.advanced }
+/// An order of the simple furniture, tiler or electrician app: no prices, stages or quotes.
+private func simpleOrder(_ p: Project) -> Bool { (p.isFurniture || p.isTiler || p.isElec) && !AppSettings.shared.advanced }
 
 /// The project page's tabs: a builder's, a furniture order's or a tiler's, the simple apps' fewer.
 private func tabsOf(_ p: Project) -> [(String, String)] {
     let adv = AppSettings.shared.advanced
-    if p.isTiler { return adv ? T_TABS : F_TABS_SIMPLE }
+    if p.isTiler || p.isElec { return adv ? T_TABS : F_TABS_SIMPLE }
     if !p.isFurniture { return TABS }
     return adv ? F_TABS : F_TABS_SIMPLE
 }
@@ -32,7 +32,7 @@ struct ProjectScreen: View {
     private func backLabel(_ p: Project) -> String {
         let st = app.stack
         if app.tab != .projects, st.count >= 2, st[st.count - 2] == .root { return app.tab.label }
-        return p.isFurniture || p.isTiler ? "fo.tab" : "tab.projects"
+        return p.isFurniture || p.isTiler || p.isElec ? "fo.tab" : "tab.projects"
     }
 
     var body: some View {
@@ -49,6 +49,7 @@ struct ProjectScreen: View {
                             // a furniture order: what to do now, with the one button that does it
                             if p.isFurniture { NextStep(app: app, p: p) }
                             if p.isTiler { TNextStep(app: app, p: p) }
+                            if p.isElec { ENextStep(app: app, p: p) }
                             switch tab {
                             case "info":
                                 if p.isFurniture { FurnitureInfo(app: app, p: p) }
@@ -65,6 +66,7 @@ struct ProjectScreen: View {
                                     .padding(.horizontal, 20).padding(.top, 12)
                                 } else if p.isFurniture { FRoomsTab(app: app, p: p) }
                                 else if p.isTiler { TRoomsTab(app: app, p: p, view: view) }
+                                else if p.isElec { ERoomsTab(app: app, p: p, view: view) }
                                 else { WorkspacesTab(app: app, p: p) }
                             }
                         }
@@ -86,7 +88,7 @@ struct ProjectScreen: View {
 
     /// tab: the tab shown (a price or quotes link in the simple app shows the rooms).
     private func header(_ p: Project, _ tab: String) -> some View {
-        let sub = p.isFurniture || p.isTiler ? orderSub(p, ", ") : [dn(p.customer), dn(p.address)].filter { !$0.isEmpty }.joined(separator: ", ")
+        let sub = p.isFurniture || p.isTiler || p.isElec ? orderSub(p, ", ") : [dn(p.customer), dn(p.address)].filter { !$0.isEmpty }.joined(separator: ", ")
         let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
         return VStack(alignment: .leading, spacing: 0) {
             // a furniture order's other tabs: one line, so the tab's own content starts higher
@@ -109,16 +111,16 @@ struct ProjectScreen: View {
                         RoundIc(icon: "more", label: tr("common.menu")) { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
                     }
                     // the simple furniture app shows no stage: with no address either, the line goes
-                    if !((p.isFurniture || p.isTiler) && sub.isEmpty && !AppSettings.shared.advanced) {
+                    if !((p.isFurniture || p.isTiler || p.isElec) && sub.isEmpty && !AppSettings.shared.advanced) {
                         HStack(spacing: 8) {
-                            T(p.isFurniture || p.isTiler ? sub : sub.isEmpty ? "—" : sub, ui(13.5, 400, G.ink2), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
+                            T(p.isFurniture || p.isTiler || p.isElec ? sub : sub.isEmpty ? "—" : sub, ui(13.5, 400, G.ink2), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
                             if p.isFurniture { FStageChip(stage: p.stage) } else if !simpleOrder(p) { StageChip(stage: p.stage) }
                         }
                     }
                 }
                 .padding(.horizontal, 4)
             }
-            if tab == "rooms" { if p.isFurniture { FNums(p: p) } else if p.isTiler { TNums(p: p) } else { Nums(p: p) } }
+            if tab == "rooms" { if p.isFurniture { FNums(p: p) } else if p.isTiler { TNums(p: p) } else if p.isElec { ENums(p: p) } else { Nums(p: p) } }
             HStack(spacing: 2) {
                 ForEach(tabsOf(p), id: \.0) { k, l in
                     let on = tab == k

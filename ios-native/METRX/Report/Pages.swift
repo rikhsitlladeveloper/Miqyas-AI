@@ -544,6 +544,8 @@ func reportPages(_ sn: Snap, draft: Bool, meta: QuoteMeta?, image: @escaping (St
             i += 2
         }
     }
+    // an electrician's order: the wiring plan, the walls with their points and the legend
+    if let e = sn.elec, !e.empty { d.elecPages(e) }
     d.figurePages()
     d.notesPages()
     // the first page holding only the parties has room for the rest

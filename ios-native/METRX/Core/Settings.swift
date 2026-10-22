@@ -22,6 +22,8 @@ final class AppSettings {
     var furniture: Bool { industry == "furniture" }
     /// A tiler: own home, orders and tile layouts (Tiles/Tiles.swift).
     var tiler: Bool { industry == "tiler" }
+    /// An electrician: own home, orders, devices and cable routes (Elec/Elec.swift).
+    var elec: Bool { industry == "elec" }
     /// A furniture maker's prices, order stages, workshop rules and cutting lists (Profile → Advanced); off, the app is just the 3D design.
     private(set) var advanced: Bool
     /// The trades' calculator: options and prices (Trades/Trades.swift), one set for all.

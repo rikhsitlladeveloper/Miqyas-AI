@@ -16,7 +16,16 @@ struct Room3DScreen: View {
     @State private var f3 = Furn3DCache()
     /// A tiler's order: its layouts' tiles in the room, worked out away from the screen's thread.
     @State private var tb = TileShellBox()
+    /// An electrician's order: its devices and routes in the room, worked out away from the screen's thread.
+    @State private var eb = ElecShellBox()
     private var ops: RoomOps { RoomOps.shared }
+
+    /// A trade's order in its room: a tiler's tiles, an electrician's devices and routes; nil for the rest.
+    private func tradeShell(_ p: Project, _ r: Room, _ base: Shell3D, _ snap: Bool) -> (Shell3D, String)? {
+        if p.isTiler { return tb.shell(p, r, base, snap) }
+        if p.isElec { return eb.shell(p, r, snap) }
+        return nil
+    }
 
     var body: some View {
         let snap = AppSettings.shared.angleSnap
@@ -53,8 +62,8 @@ struct Room3DScreen: View {
                 let base = f3.base(r, snap)
                 // a furniture order's furniture stands in its room; a tap opens a door or a drawer
                 let fur: (Shell3D, Furn3D, String)? = p.isFurniture ? furnShell(p, r, base, mo.prog, snap, cache: f3) : nil
-                // a tiler's order: every tile of the room's layouts at its place
-                let tiled: (Shell3D, String)? = p.isTiler ? tb.shell(p, r, base, snap) : nil
+                // a tiler's order: every tile of the room's layouts at its place; an electrician's: its devices and routes
+                let tiled: (Shell3D, String)? = tradeShell(p, r, base, snap)
                 let shell = fur?.0 ?? tiled?.0 ?? base
                 Scene3D(shell: shell, key: fur?.2 ?? tiled?.1 ?? shellKey([r], snap), baseKey: fur == nil ? nil : f3.key, cam: cam, shot: shot, points: shell.labels.map(\.p),
                         label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
