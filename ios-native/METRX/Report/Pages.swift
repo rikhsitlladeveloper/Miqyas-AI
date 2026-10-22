@@ -327,6 +327,7 @@ final class Doc {
         }
         for o in r.openings {
             // the line says "m": its sizes are in metres whatever the length unit
+            let en = en
             let lm = { (mm: Int) in Geo.fmtLen(mm, .m, en) }
             rows.append([cell(t("r.op", ["o": t(o.type == "door" ? "op.door" : "op.window"), "w": o.wall, "wd": lm(o.w), "h": lm(o.h),
                                          "off": (o.offDrag ? "≈ " : "") + lm(o.off), "s": o.type == "window" ? t("r.sill", ["s": lm(o.sill)]) : ""]), span: 2)])
