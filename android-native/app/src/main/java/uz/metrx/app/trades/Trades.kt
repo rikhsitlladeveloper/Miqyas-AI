@@ -20,6 +20,13 @@ val TRADES = listOf("tiler", "elec", "plumb", "win")
 fun isTrade(industry: String?) = industry in TRADES
 
 /**
+ * Whether order [p]'s estimate already has the lines its trade's own count makes: "t-" lines named by [prefix]
+ * ("tl.e.", "el.e.", "sx.e.", "dw.e."). The older trades' calculator's "t-" lines ("tr.…") do not count.
+ */
+fun madeBy(p: uz.metrx.app.data.Project, prefix: String, labourToo: Boolean = true): Boolean =
+    (p.estimate.materials + (if (labourToo) p.estimate.labor else emptyList())).any { it.id.startsWith("t-") && it.name.startsWith("@$prefix") }
+
+/**
  * The calculator's settings, one set for all trades. Lengths in mm; money as typed (whole currency units); amounts per
  * unit: tile per m², adhesive per 25 kg bag, grout per kg, cable and pipes per metre, the rest per piece.
  */
@@ -100,7 +107,8 @@ fun tradeRows(trade: String, rooms: List<Room>, t: TradeSet, name: (String, Map<
             mat("tile", "m2", boxes * box, t.pTile, mapOf("w" to t.tileW, "h" to t.tileH, "n" to boxes.toLong()))
             mat("glue", "bag", ceil(area * num(t.glueKg) / 25.0 - 1e-9), t.pGlue)
             mat("grout", "kg", ceil(area * num(t.groutKg) - 1e-9), t.pGrout)
-            lab("tileLab", area * num(t.lTile), mapOf("a" to uz.metrx.app.core.fmtNumStr(qty(Math.round(area * 10) / 10.0), english)))
+            // priced by the area it shows, so quantity × rate is its amount
+            lab("tileLab", Math.round(area * 10) / 10.0 * num(t.lTile), mapOf("a" to uz.metrx.app.core.fmtNumStr(qty(Math.round(area * 10) / 10.0), english)))
         }
         "elec" -> {
             val sockets = measured.sumOf { r -> r.points.count { it.t == "socket" } }

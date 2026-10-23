@@ -133,6 +133,8 @@ fun Room3DScreen(r0: Route.Editor) {
                     // at most 4 views: counted on the room as saved now, not as this screen last drew it
                     fun full() = (ops.room(p.id, r.id)?.views?.size ?: 4) >= 4
                     if (taking) return@ShotPill
+                    // a double tap takes one picture, not two alike
+                    if (!app.once()) return@ShotPill
                     if (full()) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
                     taking = true
                     shot.take { bmp ->

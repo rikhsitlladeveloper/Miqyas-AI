@@ -21,9 +21,15 @@ import kotlin.math.sin
  * All lengths are millimetres (Int), areas mm² (Long). Plan y points down; corners and walls run clockwise.
  */
 
-/** Limits of a typed dimension, mm (prototype DIM_MAX). */
-val DIM_MAX = mapOf("A" to 100_000, "B" to 100_000, "H" to 20_000, "T" to 2_000)
+/** Limits of a typed dimension, mm (prototype DIM_MAX); a room is at most 6 m high. */
+val DIM_MAX = mapOf("A" to 100_000, "B" to 100_000, "H" to 6_000, "T" to 2_000)
 fun dimMax(k: String) = DIM_MAX[k] ?: 100_000
+
+/** The least a room's measurement may be, mm: a rectangle's side 0,5 m, the height 1,8 m (a drawn room's walls may be short). */
+fun dimMin(k: String, poly: Boolean) = when { k == "H" -> 1_800; !poly && (k == "A" || k == "B") -> 500; else -> 0 }
+
+/** A height above this is unusual: said under the field (it may be right: a hall, a loft). */
+const val H_TALL = 4_500
 
 /* ---------------- units and number formats ---------------- */
 
@@ -73,11 +79,15 @@ fun parseDec(str: String?, maxDec: Int): Parsed {
 fun unitDecimals(unit: LenUnit) = if (unit == LenUnit.CM) 1 else 3
 
 /** A typed length in mm, or the error (key + values) to show. [max] in mm; [zeroOk] for an offset or a sill. */
-fun lenErr(str: String?, max: Int, unit: LenUnit, english: Boolean, zeroOk: Boolean = false): Parsed {
+fun lenErr(str: String?, max: Int, unit: LenUnit, english: Boolean, zeroOk: Boolean = false, min: Int = 0): Parsed {
     val r = parseDec(str, unitDecimals(unit))
     if (r is Parsed.Err) return r
     val mm = (r as Parsed.Ok).value
     if (mm == 0L && !zeroOk) return Parsed.Err("err.zero")
+    if (mm in 1 until min) {
+        val m = fmtLen(min, unit, english).replace(Regex("[.,]0+$"), "")
+        return Parsed.Err("err.min", mapOf("min" to m + " " + (if (unit == LenUnit.CM) "@u.cm" else "@u.m")))
+    }
     if (mm > max) {
         val m = fmtLen(max, unit, english).replace(Regex("[.,]0+$"), "")
         return Parsed.Err("err.max", mapOf("max" to m + " " + (if (unit == LenUnit.CM) "@u.cm" else "@u.m")))
@@ -179,7 +189,8 @@ fun openingIssue(r: Room, o: Opening, kindName: String, unit: LenUnit, english: 
     val L = w?.len ?: return Issue("wall", "op.needWall", mapOf("w" to if (w?.derived == true) w.dimKey else o.wall))
     if (o.off + o.w > L) return Issue("w", "op.exceeds", mapOf("o" to kindName, "x" to fmtLen(o.off + o.w - L, LenUnit.M, english)))
     val H = r.dim("H").v
-    if (H != null && o.sill + o.h > H) return Issue("h", "op.tooTall", mapOf("o" to kindName, "x" to fmtLen(o.sill + o.h - H, LenUnit.M, english)))
+    // a door has no sill: only its height can give way
+    if (H != null && o.sill + o.h > H) return Issue("h", if (o.type == "door") "op.tooTallDoor" else "op.tooTall", mapOf("o" to kindName, "x" to fmtLen(o.sill + o.h - H, LenUnit.M, english)))
     for (x in r.openings) if (x.id != o.id && x.wall == o.wall && o.off < x.off + x.w && x.off < o.off + o.w)
         return Issue("off", "op.overlap", mapOf("o" to kindName))
     return null

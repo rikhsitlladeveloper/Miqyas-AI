@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.win
 
 import androidx.compose.foundation.background
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -258,8 +259,9 @@ fun WRoomsTab(p: Project, lang: Lang, route: Route.Project) {
         if (p.floors.isEmpty() && p.win.items.isEmpty()) Text(tr("dw.empty"), style = ui(14.5f, 400, G.ink2), textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(22.dp))
         if (p.win.items.isNotEmpty()) OrderCard(p, calc)
-        p.floors.forEach { w ->
-            val room = p.rooms.firstOrNull { it.floorId == w.id }
+        // every room of each workspace (an older project may have several in one), a workspace without one once
+        p.floors.flatMap { w -> p.rooms.filter { it.floorId == w.id }.ifEmpty { listOf(null) }.map { w to it } }.forEach { (w, room) ->
+            val several = p.rooms.count { it.floorId == w.id } > 1
             val ready = room != null && uz.metrx.app.geo.ready3D(room, s.angleSnap)
             val items = if (room == null) emptyList() else p.win.items.filter { it.roomId == room.id }
             Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -269,10 +271,10 @@ fun WRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                         if (room != null) uz.metrx.app.editorThumb(room, Modifier.fillMaxSize().padding(4.dp)) else MIcon("room", G.cobalt, 24.dp, 2f)
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(floorName(w, lang), style = ui(16f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(floorName(w, lang) + (if (several && room != null) " · " + dn(room.name, lang) else ""), style = ui(16f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val a = room?.dim("A")?.v; val b = room?.dim("B")?.v
                         val ops = room?.openings?.size ?: 0
-                        Text(if (ready && a != null && b != null && room?.isPoly != true) fmtLen(a, LenUnit.M, en) + " × " + fmtLen(b, LenUnit.M, en) + " m · " + tr("dw.opsN", "n" to ops)
+                        Text(if (ready && a != null && b != null && room?.isPoly != true) fmtLen(a, LenUnit.M, en) + " × " + fmtLen(b, LenUnit.M, en) + " " + tr("u.m") + " · " + tr("dw.opsN", "n" to ops)
                             else if (ready) tr("tl.measured") + " · " + tr("dw.opsN", "n" to ops) else tr(if (room != null) "fo.notMeasured" else "fo.notDrawn"), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     if (ready) Text("3D", style = ui(13f, 800, G.cobalt2), modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(G.cobalt.copy(alpha = .1f)).padding(horizontal = 10.dp, vertical = 6.dp))
@@ -377,7 +379,7 @@ fun WNextStep(p: Project) {
     val unmeasured = rooms.firstOrNull { (_, r) -> stepKeys(r, s.angleSnap).any { r.dim(it).status != "conf" } }
     val noOps = rooms.firstOrNull { (_, r) -> r.openings.isEmpty() && p.win.items.none { it.roomId == r.id } }
     val unfilled = rooms.firstOrNull { (_, r) -> ctxOf(p, r.id, s.angleSnap) != null && r.openings.any { o -> p.win.items.none { it.roomId == r.id && it.opening == o.id } } }
-    val made = p.estimate.materials.any { it.id.startsWith("t-") }
+    val made = uz.metrx.app.trades.madeBy(p, "dw.e.")
     data class Step(val title: String, val sub: String?, val button: String, val go: () -> Unit)
     val step: Step? = when {
         p.floors.isEmpty() && p.win.items.isEmpty() -> Step(tr("dw.ns.pickT"), tr("dw.ns.pickS"), tr("ns.needB")) { app.push(Route.WGallery(p.id)) }
@@ -452,7 +454,7 @@ fun WinCard(p: Project) {
     val app = LocalApp.current
     val lang = LocalLang.current
     val c = rememberWCalc(p).count
-    val made = p.estimate.materials.any { it.id.startsWith("t-") } || p.estimate.labor.any { it.id.startsWith("t-") }
+    val made = uz.metrx.app.trades.madeBy(p, "dw.e.")
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(tr("dw.cardT"), style = ui(16f, 800))
         Text(tr("dw.cardN", "n" to c.pieces, "a" to uz.metrx.app.core.Num.fixed(c.winM2, 1, lang)), style = num(14.5f, 700))
@@ -479,13 +481,13 @@ fun WCountCard(title: String, c: WCount, price: Double?) {
             val names = sc.hw.keys.associateWith { k -> tr("dw.t.$k") }
             if (sc.hw.isNotEmpty()) Kv(tr("dw.c.hw"), sc.hw.entries.joinToString(", ") { (k, n) -> names[k] + " " + n })
         }
-        if (c.glassM2 > 0) Kv(tr("dw.c.glass"), listOfNotNull(if (c.glass1 > 0) tr("dw.g.1") + " " + d2(c.glass1) else null, if (c.glass2 > 0) tr("dw.g.2") + " " + d2(c.glass2) else null).joinToString(", ") + " m²")
-        if (c.panel > 0) Kv(tr("dw.t.panel"), d2(c.panel) + " m²")
-        if (c.lamM > 0) Kv(tr("dw.c.lam"), d1(c.lamM) + " m")
+        if (c.glassM2 > 0) Kv(tr("dw.c.glass"), listOfNotNull(if (c.glass1 > 0) tr("dw.g.1") + " " + d2(c.glass1) else null, if (c.glass2 > 0) tr("dw.g.2") + " " + d2(c.glass2) else null).joinToString(", ") + " " + tr("u.m2"))
+        if (c.panel > 0) Kv(tr("dw.t.panel"), d2(c.panel) + " " + tr("u.m2"))
+        if (c.lamM > 0) Kv(tr("dw.c.lam"), d1(c.lamM) + " " + tr("u.m"))
         c.doors.forEach { (k, v) -> Kv(tr("dw.k.$k"), tr("dw.c.doorV", "n" to v.first, "a" to d2(v.second))) }
-        if (c.sillM > 0) Kv(tr("dw.x.sill"), d1(c.sillM) + " m")
-        if (c.dripM > 0) Kv(tr("dw.x.drip"), d1(c.dripM) + " m")
-        if (c.revealM2 > 0) Kv(tr("dw.x.reveals"), d2(c.revealM2) + " m²")
+        if (c.sillM > 0) Kv(tr("dw.x.sill"), d1(c.sillM) + " " + tr("u.m"))
+        if (c.dripM > 0) Kv(tr("dw.x.drip"), d1(c.dripM) + " " + tr("u.m"))
+        if (c.revealM2 > 0) Kv(tr("dw.x.reveals"), d2(c.revealM2) + " " + tr("u.m2"))
         if (c.nets > 0) Kv(tr("dw.x.net"), "${c.nets}")
         if (c.handles > 0) Kv(tr("dw.x.handles"), "${c.handles}")
         if (price != null) { Hairline(); Kv(tr("dw.c.price"), uz.metrx.app.core.fmtNumStr(Math.round(price).toString(), lang == uz.metrx.app.core.Lang.EN) + " " + LocalApp.current.settings.currency) }
@@ -509,16 +511,16 @@ fun WinSheet(s: Sheet): Boolean {
 private fun NewRoomSheet(pid: String) {
     val app = LocalApp.current
     val p = app.store.get(pid) ?: run { app.sheet = null; return }
-    val base = app.t("dw.roomName")
-    var name by rememberSaveable { mutableStateOf(p.floors.count { it.name.startsWith(base) }.let { n -> if (n > 0) "$base ${n + 1}" else base }) }
+    var name by rememberSaveable { mutableStateOf(uz.metrx.app.data.nextName(p, "dw.roomName", app.settings.lang)) }
     fun create() {
         if (name.isBlank() || !app.once()) return
-        val rid = app.addWinRoom(pid, name.trim())
+        // a suggested name is kept as its key, so it follows the language
+        val rid = app.addWinRoom(pid, uz.metrx.app.data.suggestedName(name, "dw.roomName", app.settings.lang))
         app.sheet = null
         app.openRoom(pid, rid)
     }
     GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fo.drawRoom"), ::create, enabled = name.isNotBlank()) }) {
-        GField(tr("fr.name"), name, { name = it }, base, imeAction = ImeAction.Done, onIme = ::create)
+        GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr("dw.roomName"), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
         Text(tr("dw.roomB"), style = ui(12.5f, 400, G.ink2, 1.4f))
     }
 }
@@ -540,7 +542,7 @@ private fun GapSheet(pid: String) {
     }) {
         GField(tr("dw.gapEach"), t, { s -> t = s.filter { it.isDigit() }.take(2) }, "20", number = true, labelRight = tr("dw.mm"))
         Text(tr("dw.gapB"), style = ui(12.5f, 400, G.ink2, 1.4f))
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.7f)).clickable(role = Role.Switch) { all = !all }
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.7f)).switchState(all).clickable(role = Role.Switch) { all = !all }
             .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(tr("dw.gapAll"), style = ui(15f, 700), modifier = Modifier.weight(1f)); GSwitch(all)
         }
@@ -585,7 +587,7 @@ private fun PricesSheet(pid: String?) {
     fun save() {
         val w = all.foldIndexed(t0.win) { i, acc, f -> texts[i].trim().let { v -> if (v.isEmpty()) acc else f.set(acc, v) } }
         app.settings.setTradeSet(t0.copy(win = w)); app.sheet = null
-        pid?.let { id -> app.store.get(id)?.takeIf { pr -> pr.estimate.materials.any { it.id.startsWith("t-") } }?.let { app.applyWinRows(it) } } ?: app.say("common.save")
+        pid?.let { id -> app.store.get(id)?.takeIf { pr -> uz.metrx.app.trades.madeBy(pr, "dw.e.") }?.let { app.applyWinRows(it) } } ?: app.say("common.save")
     }
     GlassSheet(tr("tl.prices"), { app.sheet = null }, footer = { GBtn(tr("common.save"), ::save) }) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -598,7 +600,7 @@ private fun PricesSheet(pid: String?) {
                 row.forEach { f ->
                     val i = all.indexOf(f)
                     GField(tr("dw.pr.${f.key}"), texts[i], { v -> texts = texts.toMutableList().also { it[i] = v.filter { c -> c.isDigit() }.take(12) } }, "0",
-                        number = true, labelRight = f.unit.ifEmpty { null }, modifier = Modifier.weight(1f))
+                        number = true, labelRight = f.unit.ifEmpty { null }?.let { uz.metrx.app.ui.projects.unitText(it) }, modifier = Modifier.weight(1f))
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }

@@ -33,6 +33,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.toggleableState
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
@@ -344,3 +345,6 @@ fun Dot(color: Color, size: Dp) = Canvas(Modifier.size(size)) { drawCircle(color
 
 @Composable
 fun HSpacer(w: Dp) = Spacer(Modifier.width(w))
+
+/** A row that works as a switch tells TalkBack whether it is on or off (the visual [GSwitch] inside it cannot). */
+fun Modifier.switchState(on: Boolean): Modifier = semantics { toggleableState = androidx.compose.ui.state.ToggleableState(on) }

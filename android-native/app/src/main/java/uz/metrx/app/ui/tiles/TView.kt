@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.tiles
 
 import androidx.compose.foundation.Canvas
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,6 +30,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.drawscope.clipPath
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -186,7 +189,9 @@ fun TViewScreen(rt: Route.TView) {
                     Extras(p, room, ls)
                     if (app.settings.advanced) CountCard(rememberCount(p, room.id), tr("tl.countRoom"))
                 } else if (app.settings.advanced && panel != null) {
-                    val c = remember(panel) { countLayout(p, panel, snap) }
+                    // the trade's adhesive a m², as the order's count uses it
+                    val glue = uz.metrx.app.tiles.glueBaseOf(app.settings.trade.glueKg)
+                    val c = remember(panel, snap, glue) { countLayout(p, panel, snap, glue) }
                     CountCard(c, tr("tl.countT")) { app.sheet = Sheet.TCount(p.id, panel.id) }
                 }
             }
@@ -208,6 +213,8 @@ private fun Room3D(p: Project, r: Room, snap: Boolean) {
         ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
             fun full() = (app.store.get(p.id)?.rooms?.firstOrNull { it.id == r.id }?.views?.size ?: 4) >= 4
             if (taking) return@ShotPill
+            // a double tap takes one picture, not two alike
+            if (!app.once()) return@ShotPill
             if (full()) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
             taking = true
             shot.take { bmp ->
@@ -250,8 +257,10 @@ private fun RoomPlan(p: Project, r: Room, ls: List<TileLayout>, sel0: TileLayout
     // the start point being dragged: the floor layout picked, or the room's first one
     val fl = sel0?.takeIf { l -> l.surfs.any { it.id == "floor" } } ?: floorLayout(ls, r.id)
     var drag by remember(fl?.id) { mutableStateOf<Pair<Int, Int>?>(null) }
-    val live = fl?.let { l -> drag?.let { (x, y) -> l.copy(ox = x, oy = y) } ?: l }
-    val floors = ls.filter { l -> l.surfs.any { it.id == "floor" } }.map { l -> if (l.id == live?.id) live else l }
+    // the gesture reads the layout as it is now (a second drag starts where the first one left it)
+    val flNow by androidx.compose.runtime.rememberUpdatedState(fl)
+    // laid out once per change, not on every move of a drag: the dragged layout's tiles move with the finger until it lets go
+    val floors = ls.filter { l -> l.surfs.any { it.id == "floor" } }
     val laid = remember(floors, g) { floors.map { l -> l to floorOnly(layRoom(l, g, null, uz.metrx.app.tiles.drawInset(l))) } }
     val tm = rememberTextMeasurer()
     val en = LocalLang.current == Lang.EN
@@ -263,7 +272,7 @@ private fun RoomPlan(p: Project, r: Room, ls: List<TileLayout>, sel0: TileLayout
             val m = 28.dp.toPx()
             val k = min((size.width - 2 * m) / (x1 - x0), (size.height - 2 * m) / (y1 - y0))
             var ox = 0.0; var oy = 0.0
-            detectDragGestures(onDragStart = { ox = (drag?.first ?: fl.ox).toDouble(); oy = (drag?.second ?: fl.oy).toDouble() },
+            detectDragGestures(onDragStart = { val f0 = flNow ?: fl; ox = (drag?.first ?: f0.ox).toDouble(); oy = (drag?.second ?: f0.oy).toDouble() },
                 onDragEnd = {
                     drag?.let { (x, y) -> app.updateLayout(p.id, fl.id) { it.copy(ox = x, oy = y) } }
                     drag = null
@@ -280,7 +289,13 @@ private fun RoomPlan(p: Project, r: Room, ls: List<TileLayout>, sel0: TileLayout
             fun at(q: V2) = Offset(cx + ((q.x - x0) * k).toFloat(), cy + ((q.y - y0) * k).toFloat())
             val outline = Path().apply { val o = bx.map { at(it) }; moveTo(o[0].x, o[0].y); o.drop(1).forEach { lineTo(it.x, it.y) }; close() }
             drawPath(outline, Color(0xFFE9EDF3))
-            laid.forEach { (l, ld) -> drawLaid(ld, l, { _ -> { q -> at(q) } }, ld.pieces.size < 500, outline = true) }
+            val dragged = drag?.let { (x, y) -> flNow?.let { f0 -> Offset(((x - f0.ox) * k).toFloat(), ((y - f0.oy) * k).toFloat()) } }
+            laid.forEach { (l, ld) ->
+                val move = if (l.id == fl?.id) dragged else null
+                fun paint() = if (ld.pieces.size > uz.metrx.app.ui.tiles.MAX_DRAWN_2D) drawLaidCapped(ld, l, { _ -> { q -> at(q) } }, outline = true)
+                    else drawLaid(ld, l, { _ -> { q -> at(q) } }, ld.pieces.size < 500, outline = true)
+                if (move == null) paint() else clipPath(outline) { translate(move.x, move.y) { paint() } }
+            }
             drawPath(outline, Color(0xFF0E1C36), style = Stroke(5.dp.toPx(), join = androidx.compose.ui.graphics.StrokeJoin.Miter))
             // doors and windows on the walls
             r.openings.forEach { o ->
@@ -300,6 +315,7 @@ private fun RoomPlan(p: Project, r: Room, ls: List<TileLayout>, sel0: TileLayout
                 drawText(lay, topLeft = Offset(c.x - lay.size.width / 2f, c.y - lay.size.height / 2f))
             }
             // the floor's start point
+            val live = fl?.let { l -> drag?.let { (x, y) -> l.copy(ox = x, oy = y) } ?: l }
             if (live != null) {
                 val s = at(floorStart(live, g))
                 drawCircle(G.cobalt.copy(alpha = .22f), 18.dp.toPx(), s)
@@ -341,6 +357,8 @@ private fun LayoutCard(p: Project, l: TileLayout, on: Boolean, onPick: () -> Uni
             if (app.settings.advanced) GBtn(tr("tl.countB"), { app.sheet = Sheet.TCount(p.id, l.id) }, Btn.SECONDARY, icon = "sliders", height = 42.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
             Box(Modifier.size(42.dp).clip(CircleShape).background(G.ink.copy(alpha = .06f)).clickable(role = Role.Button, onClickLabel = tr("common.delete")) {
                 val before = app.store.get(p.id) ?: return@clickable
+                // a second tap finds it gone: nothing more is deleted and no other page is left
+                if (before.tiles.none { it.id == l.id }) return@clickable
                 app.store.update(p.id) { pr -> pr.copy(tiles = pr.tiles.filter { it.id != l.id }) }
                 if (l.roomId == null) app.pop()
                 app.say("tl.deleted", action = "common.undo", onAction = { app.store.update(p.id) { before } })
@@ -353,7 +371,7 @@ private fun LayoutCard(p: Project, l: TileLayout, on: Boolean, onPick: () -> Uni
 @Composable
 private fun surfText(p: Project, l: TileLayout): String {
     val en = LocalLang.current == Lang.EN
-    l.panel?.takeIf { l.roomId == null }?.let { pn -> return uz.metrx.app.geo.fmtLen(pn.a, uz.metrx.app.geo.LenUnit.M, en) + " × " + uz.metrx.app.geo.fmtLen(pn.b, uz.metrx.app.geo.LenUnit.M, en) + " m" }
+    l.panel?.takeIf { l.roomId == null }?.let { pn -> return uz.metrx.app.geo.fmtLen(pn.a, uz.metrx.app.geo.LenUnit.M, en) + " × " + uz.metrx.app.geo.fmtLen(pn.b, uz.metrx.app.geo.LenUnit.M, en) + " " + tr("u.m") }
     return l.surfs.map { s ->
         when {
             s.id == "floor" -> tr("tl.pk.floor")
@@ -392,7 +410,7 @@ private fun Extras(p: Project, r: Room, ls: List<TileLayout>) {
         if (tr0.wp) {
             Text(tr("tl.showerH"), style = ui(13f, 600, G.ink2), modifier = Modifier.padding(horizontal = 14.dp))
             FlowRow(Modifier.padding(horizontal = 14.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(1800, 2000, 2200).forEach { h -> Chip(uz.metrx.app.geo.fmtLen(h, uz.metrx.app.geo.LenUnit.M, en) + " m", tr0.showerH == h) { app.updateTileRoom(p.id, r.id) { it.copy(showerH = h) } } }
+                listOf(1800, 2000, 2200).forEach { h -> Chip(uz.metrx.app.geo.fmtLen(h, uz.metrx.app.geo.LenUnit.M, en) + " " + tr("u.m"), tr0.showerH == h) { app.updateTileRoom(p.id, r.id) { it.copy(showerH = h) } } }
             }
         }
         Hairline()
@@ -416,7 +434,7 @@ private fun Extras(p: Project, r: Room, ls: List<TileLayout>) {
 
 @Composable
 private fun Sw(title: String, sub: String, on: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Switch, onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).switchState(on).clickable(role = Role.Switch, onClick = onClick).padding(horizontal = 14.dp, vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.weight(1f)) {
             Text(title, style = ui(15f, 600))

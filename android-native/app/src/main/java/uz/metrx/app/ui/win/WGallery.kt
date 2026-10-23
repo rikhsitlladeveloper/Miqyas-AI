@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -177,6 +178,7 @@ private fun KindCard(k: WKind, modifier: Modifier, wide: Boolean, onClick: () ->
 
 /* ---------------- where it goes ---------------- */
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun WPlaceScreen(rt: Route.WPlace) {
     val app = LocalApp.current
@@ -187,7 +189,9 @@ fun WPlaceScreen(rt: Route.WPlace) {
     val snap = app.settings.angleSnap
     val uw = tr("dw.mm")
     // the chosen openings ("room|opening"), or "free" for a typed size
-    var picks by rememberSaveable(rt) { mutableStateOf(listOfNotNull(if (rt.rid != null && rt.oid != null) rt.rid + "|" + rt.oid else null)) }
+    // the opening it came from, when this type fills it (no window in a door's opening, no door in a window's)
+    var picks by rememberSaveable(rt) { mutableStateOf(listOfNotNull(if (rt.rid != null && rt.oid != null &&
+        p.rooms.firstOrNull { it.id == rt.rid }?.openings?.firstOrNull { it.id == rt.oid }?.let { uz.metrx.app.win.fillsType(k.id, it.type) } == true) rt.rid + "|" + rt.oid else null)) }
     var free by rememberSaveable(rt) { mutableStateOf(p.rooms.isEmpty()) }
     var tw by rememberSaveable(rt) { mutableStateOf("${k.w}") }
     var th by rememberSaveable(rt) { mutableStateOf("${k.h}") }
@@ -209,7 +213,7 @@ fun WPlaceScreen(rt: Route.WPlace) {
         val made = picks.mapNotNull { pk ->
             val (rid, oid) = pk.split('|').let { it[0] to it[1] }
             val c = ctxOf(p, rid, snap) ?: return@mapNotNull null
-            val o = c.opening(oid) ?: return@mapNotNull null
+            val o = c.opening(oid)?.takeIf { uz.metrx.app.win.fillsType(k.id, it.type) } ?: return@mapNotNull null
             fillOpening(uid(), k, c, o, p.win.gap)
         }
         if (made.isEmpty()) return
@@ -219,6 +223,8 @@ fun WPlaceScreen(rt: Route.WPlace) {
         if (made.size == 1) app.push(Route.WDesign(p.id, made[0].id)) else app.push(Route.WView(p.id, made[0].roomId!!))
         app.say("dw.placed", "n" to made.size)
     }
+    // with the keyboard up the footer goes under the fields (not over them), so the one typed in stays in sight
+    val imeOn = androidx.compose.foundation.layout.WindowInsets.isImeVisible
     Box(Modifier.fillMaxSize().imePadding()) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             PageBar(frosted = true) {
@@ -226,7 +232,7 @@ fun WPlaceScreen(rt: Route.WPlace) {
                 Spacer(Modifier.width(6.dp))
                 BarTitle(tr("dw.k.${k.id}"), eyebrow = tr("dw.whereE"))
             }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = if (imeOn) 16.dp else 168.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 val spec = remember(k.id) { samplePic(k.id) }
                 Box(Modifier.fillMaxWidth().aspectRatio(1.5f).clip(RoundedCornerShape(22.dp)).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {
                     Canvas(Modifier.fillMaxSize().pointerInput(Unit) { detectHorizontalDragGestures { ch, dx -> ch.consume(); az = (az - dx / 400f).coerceIn(-.9f, .5f) } }) { drawProductPic(spec, az) }
@@ -271,8 +277,11 @@ fun WPlaceScreen(rt: Route.WPlace) {
                     }
                 }
             }
+            if (imeOn) FloatingFooter(Modifier) {
+            GBtn(if (free) tr("dw.putFree") else tr("dw.putN", "n" to picks.size), ::save, enabled = ok)
+            }
         }
-        FloatingFooter(Modifier.align(Alignment.BottomCenter)) {
+        if (!imeOn) FloatingFooter(Modifier.align(Alignment.BottomCenter)) {
             GBtn(if (free) tr("dw.putFree") else tr("dw.putN", "n" to picks.size), ::save, enabled = ok)
         }
     }

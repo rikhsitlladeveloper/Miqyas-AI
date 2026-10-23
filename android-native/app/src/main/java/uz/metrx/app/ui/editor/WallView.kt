@@ -265,9 +265,9 @@ private fun Stats(r: Room, w: Wall, ops: List<Opening>, fr: WallFrame, en: Boole
     val st = wallStats(if (fr.lenKnown) fr.L else r.dim(w.dimKey).pending?.mm, r.dim("H").v ?: r.dim("H").pending?.mm, ops)
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(20.dp), fill = G.glass(.55f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row {
-            StatCell(tr("wv.gross"), st.gross?.let { fmtArea(it, en) + " m²" } ?: "—", Modifier.weight(1f))
-            StatCell(tr("rp.openings"), if (ops.isEmpty()) "—" else fmtArea(st.open, en) + " m²", Modifier.weight(1f))
-            StatCell(tr("wv.net"), st.net?.let { fmtArea(it, en) + " m²" } ?: "—", Modifier.weight(1f), bold = true)
+            StatCell(tr("wv.gross"), st.gross?.let { fmtArea(it, en) + " " + tr("u.m2") } ?: "—", Modifier.weight(1f))
+            StatCell(tr("rp.openings"), if (ops.isEmpty()) "—" else fmtArea(st.open, en) + " " + tr("u.m2"), Modifier.weight(1f))
+            StatCell(tr("wv.net"), st.net?.let { fmtArea(it, en) + " " + tr("u.m2") } ?: "—", Modifier.weight(1f), bold = true)
         }
         if (st.gross == null) Text(tr("wv.missing"), style = ui(12.5f, 400, G.ink2))
         else if (fr.provisional) Text(tr("wv.prov"), style = ui(12.5f, 500, AMBER))

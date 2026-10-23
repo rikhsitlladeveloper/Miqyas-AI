@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.furniture
 
 import androidx.compose.foundation.background
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -165,7 +166,7 @@ fun WorkshopScreen() {
             }
             listOf("gap", "edge", "band", "legH").forEach { k -> ValRow(tr(f(k).label), shown(f(k), w)) { app.sheet = Sheet.WsField(k) } }
             Hairline()
-            Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(role = Role.Switch) { s.setWorkshopRules(w.copy(bandOff = !w.bandOff)) }.padding(vertical = 6.dp),
+            Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).switchState(w.bandOff).clickable(role = Role.Switch) { s.setWorkshopRules(w.copy(bandOff = !w.bandOff)) }.padding(vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(tr("wk.bandOff"), style = ui(14.5f, 500), modifier = Modifier.weight(1f)); GSwitch(w.bandOff)
             }
@@ -306,7 +307,7 @@ private fun FieldSheet(key: String) {
     fun save() { if (parsed == null) return; s.setWorkshopRules(f.set(s.workshop, parsed)); app.sheet = null; app.say("wk.saved") }
     GlassSheet(tr(f.label), { app.sheet = null }, footer = { GBtn(tr("common.save"), ::save, enabled = parsed != null) }) {
         GField(tr(f.label), v, { v = it }, "0", error = tr("wk.bad"), showError = parsed == null && v.isNotEmpty(), number = f.kind != WKind.MM10, money = f.kind == WKind.MONEY,
-            labelRight = when (f.kind) { WKind.MM, WKind.MM10 -> "mm"; WKind.PCT -> "%"; WKind.MONEY -> curSuffix(s.currency, LocalLang.current) },
+            labelRight = when (f.kind) { WKind.MM, WKind.MM10 -> tr("u.mm"); WKind.PCT -> "%"; WKind.MONEY -> curSuffix(s.currency, LocalLang.current) },
             imeAction = ImeAction.Done, onIme = ::save, focusRequester = focus)
     }
     // one value to change: the keyboard opens with the sheet
@@ -350,15 +351,15 @@ private fun MatSheet(id: String?) {
             Seg(listOf("board" to tr("mt.board"), "back" to tr("mt.backK")), kind) { kind = it }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GField(tr("mt.t"), t, { t = it.filter(Char::isDigit) }, "16", number = true, labelRight = if (band) "0,1 mm" else "mm", modifier = Modifier.weight(1f))
+            GField(tr("mt.t"), t, { t = it.filter(Char::isDigit) }, "16", number = true, labelRight = if (band) "0,1 " + tr("u.mm") else tr("u.mm"), modifier = Modifier.weight(1f))
             GField(tr("mt.price"), price, { price = it.filter { c -> c.isDigit() } }, "0", number = true, money = true,
                 labelRight = tr(if (band || kind == "worktop" || kind == "splash") "mt.perM" else "mt.perSheet"), modifier = Modifier.weight(1f))
         }
         if (!band) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GField(tr("mt.l"), l, { l = it.filter(Char::isDigit) }, "2800", number = true, labelRight = "mm", modifier = Modifier.weight(1f))
-            GField(tr("mt.w"), w, { w = it.filter(Char::isDigit) }, "2070", number = true, labelRight = "mm", modifier = Modifier.weight(1f))
+            GField(tr("mt.l"), l, { l = it.filter(Char::isDigit) }, "2800", number = true, labelRight = tr("u.mm"), modifier = Modifier.weight(1f))
+            GField(tr("mt.w"), w, { w = it.filter(Char::isDigit) }, "2070", number = true, labelRight = tr("u.mm"), modifier = Modifier.weight(1f))
         }
-        if (kind == "board") Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(role = Role.Switch) { grain = !grain }, verticalAlignment = Alignment.CenterVertically) {
+        if (kind == "board") Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).switchState(grain).clickable(role = Role.Switch) { grain = !grain }, verticalAlignment = Alignment.CenterVertically) {
             Text(tr("mt.grain"), style = ui(14.5f, 500), modifier = Modifier.weight(1f)); GSwitch(grain)
         }
         if (!band) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {

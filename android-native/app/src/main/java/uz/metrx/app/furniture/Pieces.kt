@@ -75,7 +75,7 @@ fun packPiece(f: Furniture, lenA: Int? = null, changed: String? = null, ws: Work
     f.type in CORNER_TYPES -> cornerFit(f, lenA)
     f.type == "stenka" -> stenkaPack(f)
     f.type in STACK_TYPES -> stackPack(f, changed, ws)
-    f.type == "loft" -> loftPack(f, ws)
+    f.type == "loft" -> loftPack(f, ws, changed)
     f.modules.any { it.type == "mirror" } -> mirrorPack(f, ws)
     else -> f
 }
@@ -98,19 +98,43 @@ fun cornerFit(f: Furniture, lenA: Int?): Furniture {
     } })
 }
 
-/** A stenka: the floor pieces side by side in their order; each hung shelf centred over the floor piece before it. */
+/** A stenka: the floor pieces side by side in their order; each hung shelf centred over the low piece nearest it in the list. */
 fun stenkaPack(f: Furniture): Furniture {
     val bs = boxes(f); if (bs.isEmpty()) return f
     val floor = bs.filter { !hung(it) }
     var x = floor.minOfOrNull { it.x } ?: W_GAP_SIDE
     val xs = HashMap<String, Int>()
     floor.forEach { m -> xs[m.id] = x; x += m.w }
-    var under: Module? = floor.firstOrNull()
-    bs.forEach { m ->
-        if (!hung(m)) under = m
-        else under?.let { u -> xs[m.id] = xs.getValue(u.id) + (u.w - m.w) / 2 }
+    bs.forEachIndexed { i, m ->
+        if (hung(m)) stenkaUnder(bs, i)?.let { u -> xs[m.id] = xs.getValue(u.id) + (u.w - m.w) / 2 }
     }
     return f.copy(modules = f.modules.map { m -> xs[m.id]?.let { m.copy(x = it) } ?: m })
+}
+
+/** A stenka's floor piece lower than this is a low one (a shelf may hang over it); taller ones are its tall cabinets. */
+const val STENKA_TALL = 1200
+
+/**
+ * The floor piece the stenka's shelf at [i] (of its boxes [bs]) hangs over: the low piece nearest it in the list (the
+ * one before it first), never a tall cabinet; with no low piece, the floor piece before it.
+ */
+fun stenkaUnder(bs: List<Module>, i: Int): Module? {
+    val low = bs.indices.filter { !hung(bs[it]) && bs[it].h < STENKA_TALL }
+    val j = low.minByOrNull { j -> kotlin.math.abs(j - i) * 2 + (if (j < i) 0 else 1) }
+    return j?.let { bs[it] } ?: bs.take(i).lastOrNull { !hung(it) } ?: bs.firstOrNull { !hung(it) }
+}
+
+/** Where a new shelf goes in a stenka's modules [bs] when the one at [cur] is picked: just after the low piece nearest it (else after it). */
+fun stenkaShelfAt(bs: List<Module>, cur: Int): Int {
+    val low = bs.indices.filter { isBox(bs[it]) && !hung(bs[it]) && bs[it].h < STENKA_TALL }
+    val j = low.minByOrNull { kotlin.math.abs(it - cur) } ?: return if (cur < 0) bs.size else cur + 1
+    return j + 1
+}
+
+/** A stenka's floor piece can be taken away only while another one stays (the shelves hang over them). */
+fun canDropBox(f: Furniture, m: Module): Boolean {
+    val bs = boxes(f)
+    return bs.size > 1 && (hung(m) || bs.count { !hung(it) } > 1)
 }
 
 /** A box on another: the upper one as wide as the lower and on it; the one just changed leads. */
@@ -124,16 +148,21 @@ fun stackPack(f: Furniture, changed: String?, ws: Workshop): Furniture {
     return f.copy(modules = f.modules.map { when (it.id) { lo.id -> nlo; up.id -> nup; else -> it } })
 }
 
-/** A loft bed: the desk or wardrobe under it at the end away from the ladder, under its platform, inside its frame. */
-fun loftPack(f: Furniture, ws: Workshop): Furniture {
+/**
+ * A loft bed: the desk or wardrobe under it at the end away from the ladder, under its platform, inside its frame. When
+ * the bed itself changed ([changed] its id) the under-part takes its usual size again where the frame allows (it grows
+ * back as well as shrinks); a change to the under-part only keeps it inside the frame.
+ */
+fun loftPack(f: Furniture, ws: Workshop, changed: String? = null): Furniture {
     val bed = f.modules.firstOrNull { it.type == "loft" } ?: return f
     val t = ws.t
     val o = bed.opt ?: Opt()
+    val usual = if (changed == bed.id) loftUnder(o.under, ws, bed) else null
     return f.copy(modules = f.modules.map { m ->
         if (m.type != "wardrobe") m else {
-            val w = min(m.w, bed.w - 2 * t - 10); val d = min(m.d, frameD(bed) - 2 * t)
             val room = upperDeck(bed) - 160 - (if (m.legs) legsOf(m, ws) else 0)
-            val h = min(m.h, room)
+            val w = min(usual?.w ?: m.w, bed.w - 2 * t - 10); val d = min(usual?.d ?: m.d, frameD(bed) - 2 * t)
+            val h = min(usual?.h ?: m.h, room)
             val x = if (o.ladder == "R") bed.x + t + 5 else bed.x + bed.w - t - 5 - w
             m.copy(x = x, w = w, d = d, h = h, wall = bed.wall, sections = if (w != m.w) splitSections(w, m.sections.map { it.copy(lock = false) }) else m.sections)
         }
@@ -194,9 +223,8 @@ private fun stenka(ws: Workshop, w: Int, h: Int, d: Int): List<Module> {
     return out
 }
 
-/** A corner unit [d] + 400 wide: a door beside its blind part (the other arm closes it), a rail and a shelf inside. */
-private fun cornerUnit(ws: Workshop, x: Int, h: Int, d: Int): Module {
-    val cw = d + 400
+/** A corner unit [cw] wide (usually [d] + 400): a door beside its blind part (the other arm closes it), a rail and a shelf inside. */
+private fun cornerUnit(ws: Workshop, x: Int, h: Int, d: Int, cw: Int = d + 400): Module {
     val base = Module(uid(), "wardrobe", cw, h, d, x = x, wall = "A", legs = false)
     val ih = wardInnerH(base, ws.t)
     val rail = minOf(ih - 420, 1800 - wardBase(base) - ws.t)
@@ -208,8 +236,11 @@ private fun cornerWard(ws: Workshop, w: Int, w2: Int, h: Int, d: Int): List<Modu
     val cw = d + 400
     val out = ArrayList<Module>()
     val aw = w - cw
-    if (aw >= 300) out += wardrobeTemplate(ws, "A", W_GAP_SIDE, aw, h, false, d)
-    out += cornerUnit(ws, W_GAP_SIDE + max(0, aw), h, d)
+    // too short for a wardrobe beside the corner unit: the corner unit takes the whole typed length (its door narrower)
+    if (aw >= 300) {
+        out += wardrobeTemplate(ws, "A", W_GAP_SIDE, aw, h, false, d)
+        out += cornerUnit(ws, W_GAP_SIDE + aw, h, d)
+    } else out += cornerUnit(ws, W_GAP_SIDE, h, d, max(d + 300, w))
     val bw = w2 - d
     if (bw >= 300) out += wardrobeTemplate(ws, "B", d, bw, h, false, d)
     return out
@@ -218,7 +249,8 @@ private fun cornerWard(ws: Workshop, w: Int, w2: Int, h: Int, d: Int): List<Modu
 /** A corner desk: a desk along each wall, the knee space going round the corner (the second arm has no side there). */
 private fun cornerDesk(ws: Workshop, w: Int, w2: Int, h: Int, d: Int): List<Module> {
     val a = cabinetTemplate("desk", ws, "A", W_GAP_SIDE, w, h, d)
-    val b0 = cabinetTemplate("desk", ws, "B", d, max(450, w2 - d), h, d)
+    // the second arm keeps the typed length (the steps ask at least the deepest desk + 300)
+    val b0 = cabinetTemplate("desk", ws, "B", d, max(300, w2 - d), h, d)
     val b = b0.copy(sections = b0.sections.reversed(), sideL = false)
     return listOf(a, b)
 }
@@ -311,15 +343,16 @@ fun pieceVals(f: Furniture, ws: Workshop): Map<String, Int> {
         "bar" -> mapOf("w" to main.w, "h" to main.h, "d" to main.d)
         "mirrorP" -> mapOf("w" to main.w, "h" to main.h)
         "stenka" -> {
-            val fl = boxes(f).filter { !hung(it) }
-            mapOf("w" to runLen(f), "h" to fl.maxOf { topOf(it, ws) }, "d" to fl.maxOf { it.d })
+            // no floor piece left (an older order): the shelves' sizes, else the usual ones
+            val fl = boxes(f).filter { !hung(it) }.ifEmpty { boxes(f) }
+            mapOf("w" to runLen(f), "h" to (fl.maxOfOrNull { topOf(it, ws) } ?: 2200), "d" to (fl.maxOfOrNull { it.d } ?: 400))
         }
         "cornerW", "cornerDesk" -> {
             val a = boxes(f).filter { it.wall == f.walls.getOrNull(0) }; val b = boxes(f).filter { it.wall == f.walls.getOrNull(1) }
             val d = a.lastOrNull()?.d ?: main.d
-            mapOf("w" to a.sumOf { it.w }, "w2" to d + b.sumOf { it.w }, "h" to boxes(f).maxOf { topOf(it, ws) }, "d" to d)
+            mapOf("w" to a.sumOf { it.w }, "w2" to d + b.sumOf { it.w }, "h" to (boxes(f).maxOfOrNull { topOf(it, ws) } ?: main.h), "d" to d)
         }
-        "vitrina", "washer" -> mapOf("w" to main.w, "h" to boxes(f).maxOf { topOf(it, ws) }, "d" to main.d)
+        "vitrina", "washer" -> mapOf("w" to main.w, "h" to (boxes(f).maxOfOrNull { topOf(it, ws) } ?: main.h), "d" to main.d)
         else -> buildMap {
             put("w", main.w); put("d", main.d)
             when {

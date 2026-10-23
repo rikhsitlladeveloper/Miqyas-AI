@@ -132,7 +132,8 @@ fun ToastHost(msg: ToastMsg?, onGone: () -> Unit) {
     LaunchedEffect(msg?.id) {
         if (msg == null) return@LaunchedEffect
         shown = msg; visible = true
-        delay(if (msg.kind == ToastKind.ERROR || msg.action != null) 5200 else 3400)
+        // a toast with Undo stays long enough to reach it (about 6 s)
+        delay(if (msg.action != null) 6500 else if (msg.kind == ToastKind.ERROR) 5200 else 3400)
         visible = false; delay(260); onGone()
     }
     Box(Modifier.fillMaxSize().statusBarsPadding().padding(start = 10.dp, end = 10.dp, top = 8.dp), contentAlignment = Alignment.TopCenter) {

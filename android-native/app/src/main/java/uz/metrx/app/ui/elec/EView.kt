@@ -229,6 +229,8 @@ private fun Room3D(p: Project, c: ECtx, room: Room?, snap: Boolean) {
         if (room != null) ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
             fun full() = (app.store.get(p.id)?.rooms?.firstOrNull { it.id == r.id }?.views?.size ?: 4) >= 4
             if (taking) return@ShotPill
+            // a double tap takes one picture, not two alike
+            if (!app.once()) return@ShotPill
             if (full()) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
             taking = true
             shot.take { bmp ->
@@ -391,7 +393,7 @@ private fun Circuits(calc: uz.metrx.app.elec.ElecCalc, runs: List<CRun>) {
                     Text((if (cc.amps > 0) tr("el.brkV", "a" to cc.amps) + " · " else "") + cableName(cc.cable).let { if (lang == Lang.EN) it else it.replace('.', ',') } +
                         (if (cc.rcd) " · " + tr("el.rcdS") else "") + " · " + tr("el.ptsV", "n" to cc.devs.size), style = ui(12.5f, 400, G.ink2), maxLines = 2)
                 }
-                if (app.settings.advanced) Text(uz.metrx.app.core.Num.fixed(calc.routes.cableOf(cc) / 1000, 1, lang) + " m", style = num(13.5f, 700))
+                if (app.settings.advanced) Text(uz.metrx.app.core.Num.fixed(calc.routes.cableOf(cc) / 1000, 1, lang) + " " + tr("u.m"), style = num(13.5f, 700))
             }
         }
         Text(tr("el.m.${calc.routes.method}S"), style = ui(12f, 400, G.ink3, 1.35f))
@@ -418,7 +420,7 @@ private fun Devices(p: Project, c: ECtx, ds: List<ElecDev>, byDev: Map<String, C
                     Column(Modifier.weight(1f)) {
                         Text(tr("el.t.${d.t}") + (if (d.own) " · " + tr("el.ownShort") else ""), style = ui(14f, 700, if (d.id in bad) G.amberInk else G.ink), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(if (d.onCeiling) tr("el.onCeil") else tr("tl.wallN", "w" to (d.wall ?: "")) + " · " + tr("el.atH", "h" to fmtLen(d.h, LenUnit.M, en)) +
-                            (if (d.t == "led") " · " + fmtLen(d.len, LenUnit.M, en) + " m" else ""), style = ui(12f, 400, G.ink2), maxLines = 1)
+                            (if (d.t == "led") " · " + fmtLen(d.len, LenUnit.M, en) + " " + tr("u.m") else ""), style = ui(12f, 400, G.ink2), maxLines = 1)
                     }
                     byDev[d.id]?.let { Text("№${it.no}", style = num(12.5f, 700, G.ink2)) }
                     MIcon("chev", G.ink3, 14.dp, 2f)
@@ -436,9 +438,9 @@ private fun FreeCard(p: Project, c: ECtx) {
     val en = LocalLang.current == Lang.EN
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(20.dp), fill = G.glass(.55f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(tr("el.freeT"), style = ui(15f, 800))
-        Kv(tr("el.size"), fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " × " + fmtLen(f.H, LenUnit.M, en) + " m")
+        Kv(tr("el.size"), fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " × " + fmtLen(f.H, LenUnit.M, en) + " " + tr("u.m"))
         listOf("sock" to f.sock, "sw" to f.sw, "light" to f.light, "low" to f.low, "power" to f.power).filter { it.second > 0 }.forEach { (k, n) -> Kv(tr("el.fc.$k"), "$n") }
-        Kv(tr("el.link"), fmtLen(f.link, LenUnit.M, en) + " m")
+        Kv(tr("el.link"), fmtLen(f.link, LenUnit.M, en) + " " + tr("u.m"))
         Text(tr("el.freeNote"), style = ui(12.5f, 400, G.ink2, 1.4f))
         GBtn(tr("fz.change"), { app.sheet = Sheet.EFree(p.id, f.id) }, Btn.SECONDARY, icon = "edit", height = 44.dp, corner = 14.dp, fontSize = 14f)
     }

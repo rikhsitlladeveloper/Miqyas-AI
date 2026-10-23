@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.editor
 
 import androidx.compose.foundation.Canvas
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -127,7 +128,7 @@ fun SketchScreen(rt: Route.Sketch) {
             }
             Text("90°/45°", style = ui(13.5f, 700, if (snap) Color.White else G.ink),
                 modifier = Modifier.heightIn(min = 44.dp).clip(CircleShape).background(if (snap) G.cobalt else G.idle(.7f))
-                    .border(1.dp, if (snap) G.cobalt else G.idleRim, CircleShape).clickable(role = Role.Switch) { app.settings.setSnap(!snap) }.padding(horizontal = 14.dp, vertical = 12.dp))
+                    .border(1.dp, if (snap) G.cobalt else G.idleRim, CircleShape).switchState(snap).clickable(role = Role.Switch) { app.settings.setSnap(!snap) }.padding(horizontal = 14.dp, vertical = 12.dp))
         }
         // the pad
         Box(Modifier.weight(1f).fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(22.dp)).background(G.glass(.5f)).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {

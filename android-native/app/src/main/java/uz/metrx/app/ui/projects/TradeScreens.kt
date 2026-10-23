@@ -98,6 +98,13 @@ fun TradeSheet(s: Sheet): Boolean {
 private class F(val key: String, val unit: String, val get: (TradeSet) -> String, val set: (TradeSet, String) -> TradeSet, val dec: Int = 0, val max: Long? = null,
                 val pos: Boolean = false)
 
+/** A unit as "kg/m²", "/m", "mm" in the app's script ("кг/м²"). */
+@Composable
+internal fun unitText(u: String): String {
+    val w = mapOf("mm" to tr("u.mm"), "m²" to tr("u.m2"), "kg" to tr("u.kg"), "m" to tr("u.m"))
+    return Regex("mm|m²|kg|m").replace(u) { w[it.value] ?: it.value }
+}
+
 private fun fieldsOf(trade: String): List<F> = when (trade) {
     "tiler" -> listOf(
         F("tileW", "mm", { it.tileW.toString() }, { t, v -> t.copy(tileW = v.toIntOrNull() ?: t.tileW) }, max = 10_000),
@@ -170,7 +177,7 @@ private fun TradeCalcSheet(pid: String) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { f ->
                     GField(tr("trf.${f.key}"), texts[f.key].orEmpty(), { v -> texts = texts + (f.key to v.filter { c -> c.isDigit() || c == ',' || c == '.' }.replace(',', '.').take(12)) }, "0",
-                        error = errs[f.key], showError = tried, number = f.dec == 0, decimal = f.dec > 0, labelRight = f.unit.ifEmpty { null }, modifier = Modifier.weight(1f))
+                        error = errs[f.key], showError = tried, number = f.dec == 0, decimal = f.dec > 0, labelRight = f.unit.ifEmpty { null }?.let { unitText(it) }, modifier = Modifier.weight(1f))
                 }
                 if (row.size == 1) androidx.compose.foundation.layout.Spacer(Modifier.weight(1f))
             }

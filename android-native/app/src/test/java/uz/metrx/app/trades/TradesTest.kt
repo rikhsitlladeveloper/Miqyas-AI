@@ -27,7 +27,8 @@ class TradesTest {
         assertEquals(boxes, r.facts["boxes"]!!, 1e-9)
         assertEquals(listOf("t-tile", "t-glue", "t-grout"), r.mats.map { it.id })
         assertTrue(lineTotal(r.mats[0].qty, r.mats[0].price, 0).signum() > 0)
-        assertEquals(Math.round(area * 80000).toString(), r.labor.single().amount)
+        // priced by the area the line shows (to 0,1 m²), so quantity × rate is its amount
+        assertEquals(Math.round(Math.round(area * 10) / 10.0 * 80000).toString(), r.labor.single().amount)
     }
 
     @Test fun electricianCountsPointsAndCable() {

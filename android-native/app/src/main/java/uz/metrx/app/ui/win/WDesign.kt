@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.win
 
 import androidx.compose.foundation.Canvas
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -240,7 +241,7 @@ private fun CardBox(title: String, sub: String? = null, body: @Composable () -> 
 
 @Composable
 private fun SwitchLine(title: String, sub: String?, on: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 54.dp).clip(RoundedCornerShape(14.dp)).background(G.glass(.7f)).clickable(role = Role.Switch, onClick = onClick)
+    Row(Modifier.fillMaxWidth().heightIn(min = 54.dp).clip(RoundedCornerShape(14.dp)).background(G.glass(.7f)).switchState(on).clickable(role = Role.Switch, onClick = onClick)
         .padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(title, style = ui(14.5f, 700))
@@ -269,8 +270,12 @@ private fun SashCard(it: WinItem, ci: Int, ri: Int, onSel: (Int, Int) -> Unit, u
         }
         Text(tr("dw.tS.${s.t}"), style = ui(12.5f, 400, G.ink2, 1.35f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GBtn(tr("dw.addV"), { upd { w -> splitCol(w, ci) } }, Btn.SECONDARY, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.weight(1f), maxLines = 2)
-            GBtn(tr("dw.addH"), { upd { w -> splitRow(w, ci, ri) } }, Btn.SECONDARY, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.weight(1f), maxLines = 2)
+            // too narrow (low) to split: it says why instead of making a sash with no room for its glass
+            val app = LocalApp.current
+            GBtn(tr("dw.addV"), { if (uz.metrx.app.win.canSplitCol(it, ci)) upd { w -> splitCol(w, ci) } else app.say("dw.tooNarrow", "n" to 2 * uz.metrx.app.win.SPLIT_MIN, kind = uz.metrx.app.ui.components.ToastKind.ERROR) },
+                Btn.SECONDARY, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.weight(1f), maxLines = 2)
+            GBtn(tr("dw.addH"), { if (uz.metrx.app.win.canSplitRow(it, ci, ri)) upd { w -> splitRow(w, ci, ri) } else app.say("dw.tooLow", "n" to 2 * uz.metrx.app.win.SPLIT_MIN, kind = uz.metrx.app.ui.components.ToastKind.ERROR) },
+                Btn.SECONDARY, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.weight(1f), maxLines = 2)
             GBtn(tr("dw.merge"), { upd { w -> mergeAt(w, ci, ri) }; onSel(0, 0) }, Btn.SECONDARY, enabled = ss.size > 1, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.weight(1f), maxLines = 2)
         }
     }
@@ -294,13 +299,9 @@ private fun SizeCard(pid: String, it: WinItem, o: uz.metrx.app.data.Opening?, ci
     fun apply() {
         if (!ok) return
         app.updateItem(pid, it.id) { x ->
-            var y = x
-            if (o != null && g != null && g != x.gap) { y = y.copy(gap = g); if (y.fit) y = refit(y, o.w, o.h, o.type) }
-            if (W != y.w || H != y.h) y = resized(y, W!!, H!!).copy(fit = o == null || (W to H) == sizeFor(o.w, o.h, o.type, y.gap))
-            if (!x.inRoom) y = y.copy(name = tName.trim(), freeT = (tT.toIntOrNull() ?: x.freeT).coerceIn(80, 800))
-            cols.dropLast(1).forEachIndexed { i, s -> s.toIntOrNull()?.let { v -> if (v != y.cols.getOrNull(i)?.w) y = setColW(y, i, v) } }
-            rows.dropLast(1).forEachIndexed { j, s -> s.toIntOrNull()?.let { v -> if (v != y.cols.getOrNull(ci)?.rows?.getOrNull(j)?.h) y = setRowH(y, ci, j, v) } }
-            y
+            val y = uz.metrx.app.win.sizeApplied(x, o, W!!, H!!, g, it.cols.map { c -> "${c.w}" } to cols,
+                ci, (it.cols.getOrNull(ci)?.rows?.map { r -> "${r.h}" } ?: emptyList()) to rows)
+            if (!x.inRoom) y.copy(name = tName.trim(), freeT = (tT.toIntOrNull() ?: x.freeT).coerceIn(80, 800)) else y
         }
         app.say("common.save")
     }
@@ -333,7 +334,7 @@ private fun SizeCard(pid: String, it: WinItem, o: uz.metrx.app.data.Opening?, ci
         }
         if (it.cols.size > 1 || rows.size > 1) Text(tr("dw.lastTakes"), style = ui(12f, 400, G.ink3, 1.3f))
         if (!it.inRoom) {
-            GField(tr("fr.name"), tName, { tName = it }, tr("dw.k.${it.kind}"), optional = true)
+            GField(tr("fr.name"), tName, { tName = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr("dw.k.${it.kind}"), optional = true)
             Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(tr("dw.qty"), style = ui(15f, 600), modifier = Modifier.weight(1f))
                 Stepper(it.qty) { v -> app.updateItem(pid, it.id) { x -> x.copy(qty = v.coerceIn(1, 99)) } }

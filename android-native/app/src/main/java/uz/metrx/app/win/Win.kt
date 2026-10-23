@@ -201,19 +201,30 @@ fun resized(it: WinItem, w: Int, h: Int): WinItem = it.copy(w = w, h = h, cols =
 
 /* ---------------- changing the sashes ---------------- */
 
-/** Splits column [ci] in two halves (a new vertical mullion); the new half copies the sash. */
+/** The narrowest column or sash a split may leave (between the mullions' axes), mm: a narrower one has no room for its sash. */
+const val SPLIT_MIN = 300
+
+/** Whether column [ci] can take another vertical mullion (each half at least [SPLIT_MIN]). */
+fun canSplitCol(it: WinItem, ci: Int) = (it.cols.getOrNull(ci)?.w ?: 0) / 2 >= SPLIT_MIN
+
+/** Whether sash [ri] of column [ci] can take another transom (each half at least [SPLIT_MIN]). */
+fun canSplitRow(it: WinItem, ci: Int, ri: Int) = (it.cols.getOrNull(ci)?.rows?.getOrNull(ri)?.h ?: 0) / 2 >= SPLIT_MIN
+
+/** Splits column [ci] in two halves (a new vertical mullion); the new half copies the sash. Too narrow to split: as it was. */
 fun splitCol(it: WinItem, ci: Int): WinItem {
     val c = it.cols.getOrNull(ci) ?: return it
+    if (!canSplitCol(it, ci)) return it
     val a = (c.w / 2 / 5) * 5
     val cs = it.cols.toMutableList()
     cs[ci] = c.copy(w = a); cs.add(ci + 1, c.copy(w = c.w - a, rows = c.rows.map { r -> r.copy(hinge = if (r.hinge == "L") "R" else "L") }))
     return it.copy(cols = cs)
 }
 
-/** Splits sash [ri] of column [ci] in two (a new transom), the upper half fixed. */
+/** Splits sash [ri] of column [ci] in two (a new transom), the upper half fixed. Too low to split: as it was. */
 fun splitRow(it: WinItem, ci: Int, ri: Int): WinItem {
     val c = it.cols.getOrNull(ci) ?: return it
     val r = c.rows.getOrNull(ri) ?: return it
+    if (!canSplitRow(it, ci, ri)) return it
     val top = (r.h / 2 / 5) * 5
     val rows = c.rows.toMutableList()
     rows[ri] = r.copy(h = r.h - top); rows.add(ri, WCell(top, "fix"))
@@ -244,6 +255,8 @@ fun moveMullion(it: WinItem, ci: Int, x: Int, min: Int = 150): WinItem {
     if (ci < 0 || ci >= it.cols.size - 1) return it
     val start = it.cols.take(ci).sumOf { it.w }
     val pair = it.cols[ci].w + it.cols[ci + 1].w
+    // two columns narrower together than two of the least: nothing to move
+    if (pair < 2 * min) return it
     val a = (x - start).coerceIn(min, pair - min)
     return it.copy(cols = it.cols.mapIndexed { i, c -> when (i) { ci -> c.copy(w = a); ci + 1 -> c.copy(w = pair - a); else -> c } })
 }
@@ -254,6 +267,7 @@ fun moveTransom(it: WinItem, ci: Int, ri: Int, y: Int, min: Int = 150): WinItem 
     if (ri < 0 || ri >= c.rows.size - 1) return it
     val start = c.rows.take(ri).sumOf { it.h }
     val pair = c.rows[ri].h + c.rows[ri + 1].h
+    if (pair < 2 * min) return it
     val a = (y - start).coerceIn(min, pair - min)
     return it.copy(cols = it.cols.mapIndexed { i, x -> if (i != ci) x else x.copy(rows = x.rows.mapIndexed { j, r -> when (j) { ri -> r.copy(h = a); ri + 1 -> r.copy(h = pair - a); else -> r } }) })
 }
@@ -271,6 +285,21 @@ fun setRowH(it: WinItem, ci: Int, ri: Int, h: Int): WinItem {
     if (c.rows.size < 2 || ri !in c.rows.indices) return it
     return if (ri < c.rows.size - 1) moveTransom(it, ci, ri, c.rows.take(ri).sumOf { it.h } + h)
     else moveTransom(it, ci, ri - 1, c.rows.sumOf { it.h } - h)
+}
+
+/**
+ * The size card's fields applied to [x] (in opening [o], or none): a new gap [g] refits it to the opening; [W] × [H] are
+ * a size by hand only when they differ from its size as it was; a column's or (in column [ci]) a sash's field only
+ * when its text was changed ([cols], [rows]: the texts shown first and now).
+ */
+fun sizeApplied(x: WinItem, o: uz.metrx.app.data.Opening?, W: Int, H: Int, g: Int?, cols: Pair<List<String>, List<String>>, ci: Int,
+                rows: Pair<List<String>, List<String>>): WinItem {
+    var y = x
+    if (o != null && g != null && g != x.gap) { y = y.copy(gap = g); if (y.fit) y = refit(y, o.w, o.h, o.type) }
+    if (W != x.w || H != x.h) y = resized(y, W, H).copy(fit = o == null || (W to H) == sizeFor(o.w, o.h, o.type, y.gap))
+    cols.second.dropLast(1).forEachIndexed { i, s -> if (s != cols.first.getOrNull(i)) s.toIntOrNull()?.let { v -> if (v != y.cols.getOrNull(i)?.w) y = setColW(y, i, v) } }
+    rows.second.dropLast(1).forEachIndexed { j, s -> if (s != rows.first.getOrNull(j)) s.toIntOrNull()?.let { v -> if (v != y.cols.getOrNull(ci)?.rows?.getOrNull(j)?.h) y = setRowH(y, ci, j, v) } }
+    return y
 }
 
 /** Changes sash [ri] of column [ci]. */

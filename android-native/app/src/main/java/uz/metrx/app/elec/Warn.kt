@@ -29,7 +29,9 @@ fun devWarnings(c: ECtx, ds: List<ElecDev>): List<EWarn> {
         if (!d.onCeiling && w == null) continue
         if (w != null && (d.off > w.len || d.h > c.g.H)) { out += EWarn("el.w.out", c.id, d.id, mapOf("w" to w.id)); continue }
         val sockish = ty.cat == "sock"
-        if (c.kind == "bath" && sockish) {
+        // the water heater's own socket goes high beside the heater, made for it: not a splash-zone socket
+        if (c.kind == "bath" && sockish && d.t == "pwh") Unit
+        else if (c.kind == "bath" && sockish) {
             val wet = c.wet.filter { it.t in WATER }.mapNotNull { distTo(c, d, it) }.minOrNull()
             if (d.t != "sw" || (wet != null && wet < WATER_MM)) out += EWarn("el.w.splash", c.id, d.id)
         } else if (sockish) {
@@ -60,6 +62,9 @@ fun warningsOf(p: Project, cs: List<ECtx>, circuits: List<Circuit>): List<EWarn>
         if (d.amps > 0 && cc.load > d.amps * 230) out += EWarn("el.w.load", cc.rooms.singleOrNull(), null,
             mapOf("g" to cc.no, "kw" to String.format(java.util.Locale.ROOT, "%.1f", cc.load / 1000.0), "a" to d.amps))
     }
-    if (p.elec.panel == null && p.elec.devs.isNotEmpty()) out += EWarn("el.w.noPanel", null, null)
+    if (livePanel(p) == null && p.elec.devs.isNotEmpty()) out += EWarn("el.w.noPanel", null, null)
     return out
 }
+
+/** The order's panel while its room is there (a panel left on a deleted room counts as none). */
+fun livePanel(p: Project): ElecPanel? = p.elec.panel?.takeIf { pn -> p.rooms.any { it.id == pn.roomId } }

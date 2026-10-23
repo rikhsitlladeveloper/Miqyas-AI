@@ -265,6 +265,8 @@ private fun Room3D(p: Project, c: PCtx, room: Room?, snap: Boolean) {
         if (room != null) ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
             fun full() = (app.store.get(p.id)?.rooms?.firstOrNull { it.id == r.id }?.views?.size ?: 4) >= 4
             if (taking) return@ShotPill
+            // a double tap takes one picture, not two alike
+            if (!app.once()) return@ShotPill
             if (full()) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
             taking = true
             shot.take { bmp ->
@@ -505,7 +507,7 @@ private fun Fixtures(p: Project, c: PCtx, fs: List<PlFix>, pts: List<APt>, bad: 
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Canvas(Modifier.size(30.dp)) { fixSymbol(f.t, center, size.minDimension / 2.3f, if (f.id in bad) Color(0xFFDC2626) else P_INK) }
                     Column(Modifier.weight(1f)) {
-                        Text(tr("sx.t.${f.t}") + (if (f.t == "rad") " · " + fmtLen(fixW(f), LenUnit.M, en) + " m" else ""), style = ui(14f, 700, if (f.id in bad) G.amberInk else G.ink), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(tr("sx.t.${f.t}") + (if (f.t == "rad") " · " + fmtLen(fixW(f), LenUnit.M, en) + " " + tr("u.m") else ""), style = ui(14f, 700, if (f.id in bad) G.amberInk else G.ink), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(tr("tl.wallN", "w" to f.wall) + " · " + f.pts.joinToString(", ") { app.t("sx.o.${it.t}") + " " + fmtLen(it.h, LenUnit.M, en) }, style = ui(12f, 400, G.ink2), maxLines = 2)
                     }
                     MIcon("chev", G.ink3, 14.dp, 2f)
@@ -537,11 +539,12 @@ private fun FreeCard(p: Project, c: PCtx) {
     val en = LocalLang.current == Lang.EN
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(20.dp), fill = G.glass(.55f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(tr("el.freeT"), style = ui(15f, 800))
-        Kv(tr("el.size"), fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " × " + fmtLen(f.H, LenUnit.M, en) + " m")
-        listOf("wc" to f.wc, "bs" to f.basin, "bath" to f.bath, "sh" to f.shower, "sink" to f.sink, "wm" to f.wm, "dw" to f.dw, "wh" to f.wh, "gb" to f.gb, "rad" to f.rad)
+        Kv(tr("el.size"), fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " × " + fmtLen(f.H, LenUnit.M, en) + " " + tr("u.m"))
+        listOf("wc" to f.wc, (if (f.small) "bsm" else "bs") to f.basin, "bath" to f.bath, (if (f.cabin) "cab" else "sh") to f.shower, "sink" to f.sink, "wm" to f.wm, "dw" to f.dw,
+            "wh" to f.wh, "gb" to f.gb, "rad" to f.rad, "tr" to f.tr)
             .filter { it.second > 0 }.forEach { (k, n) -> Kv(tr("sx.t.$k"), "$n") }
         if (f.ufh) Kv(tr("sx.s.ufh"), "✓")
-        Kv(tr("sx.freeLink"), fmtLen(f.link, LenUnit.M, en) + " m")
+        Kv(tr("sx.freeLink"), fmtLen(f.link, LenUnit.M, en) + " " + tr("u.m"))
         Text(tr("sx.freeNote"), style = ui(12.5f, 400, G.ink2, 1.4f))
         GBtn(tr("fz.change"), { app.sheet = Sheet.PFree(p.id, f.id) }, Btn.SECONDARY, icon = "edit", height = 44.dp, corner = 14.dp, fontSize = 14f)
     }
@@ -588,7 +591,7 @@ private fun HeatCard(p: Project, c: PCtx, calc: PlumbCalc) {
         if (rads.isNotEmpty()) Kv(tr("sx.t.rad"), tr("sx.radsV", "n" to rads.size, "w" to rads.sumOf { uz.metrx.app.plumb.radWatts(it) }))
         if (loop != null) {
             Kv(tr("sx.s.ufh"), tr("sx.loopV", "n" to loop.n, "s" to loop.step / 10, "a" to d1(loop.area)))
-            Kv(tr("sx.loopLen"), d1(loop.each / 1000) + " m" + (if (loop.n > 1) " × ${loop.n}" else ""))
+            Kv(tr("sx.loopLen"), d1(loop.each / 1000) + " " + tr("u.m") + (if (loop.n > 1) " × ${loop.n}" else ""))
         }
         if (calc.routes.heat == null) Text(tr("sx.w.noBoiler"), style = ui(12.5f, 500, G.amberInk, 1.35f))
     }
@@ -608,7 +611,7 @@ private fun PRoomCount(c: PCtx, runs: List<PRun>, calc: PlumbCalc) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.size(12.dp).clip(CircleShape).background(rgbC(kindRgb(k))))
                 Text(tr("sx.o.$k") + " · Ø" + rs.maxOf { it.dia }, style = ui(14f, 600), modifier = Modifier.weight(1f))
-                Text(d1(rs.sumOf { it.len } / 1000) + " m", style = num(13.5f, 700))
+                Text(d1(rs.sumOf { it.len } / 1000) + " " + tr("u.m"), style = num(13.5f, 700))
             }
         }
         val ds = calc.routes.drains.filter { it.pt.roomId == c.id }

@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.projects
 
 import androidx.compose.foundation.background
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -48,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import uz.metrx.app.core.Dec
@@ -298,9 +300,11 @@ fun EstimateTotal(p: Project, lang: Lang) {
                 Text(tr("es.grand"), style = ui(13f, 400, G.ink2))
                 Text(tr("gs.split", "m" to money(tt.m, p, lang), "l" to money(tt.l, p, lang)), style = ui(12f, 400, G.ink2, 1.35f))
             }
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(money(tt.g, p, lang), style = ui(24f, 800), maxLines = 1)
-                Text(" " + curSuffix(p.currency, lang), style = ui(14f, 700), modifier = Modifier.padding(bottom = 4.dp))
+            // a long total shrinks to stay on its line instead of squeezing the words beside it
+            Row(Modifier.weight(1.4f, fill = false), verticalAlignment = Alignment.Bottom) {
+                androidx.compose.foundation.text.BasicText(money(tt.g, p, lang), Modifier.weight(1f, fill = false), style = ui(24f, 800), maxLines = 1,
+                    autoSize = androidx.compose.foundation.text.TextAutoSize.StepBased(minFontSize = 12.sp, maxFontSize = 24.sp, stepSize = .5.sp))
+                Text(" " + curSuffix(p.currency, lang), style = ui(14f, 700), maxLines = 1, modifier = Modifier.padding(bottom = 4.dp))
             }
         }
         GBtn(tr("es.preview"), { app.push(uz.metrx.app.ui.Route.Report(p.id)) }, icon = "doc", height = 54.dp, corner = 27.dp, fontSize = 16f)
@@ -406,8 +410,11 @@ fun RowSheet(s0: Sheet.Row) {
     val nameErr = if (f("ename").isBlank()) tr("re.nameReq") else null
     val q = if (mat) parseDec(f("eqty"), 3) else Dec.Empty
     val pr = parseDec(if (mat) f("eprice") else f("eamount"), p.precision)
-    val qErr = if (mat) decErr(q, t) else null
-    val pErr = decErr(pr, t)
+    // a sensible most: a million of a unit, a price or a labour line of a trillion (a longer number is a slip and breaks the layout)
+    val qBig = mat && q is Dec.Ok && q.v > BigInteger.valueOf(1_000_000L * 1000)
+    val pBig = pr is Dec.Ok && pr.v > BigInteger.TEN.pow(12 + p.precision.coerceIn(0, 4))
+    val qErr = if (mat) (if (qBig) t("err.most", arrayOf("max" to "1 000 000")) else decErr(q, t)) else null
+    val pErr = if (pBig) t("err.most", arrayOf("max" to "1 000 000 000 000")) else decErr(pr, t)
     val reserve = f("ereserve") == "1" && f("eunit") == "@u.m2"
     val qShown = if (mat && q is Dec.Ok) (if (reserve) fmtNumStr(withSpare(f("eqty")), en) else fmtNumStr(canonOf(f("eqty")), en)) else null
     val lt: BigInteger? = if (mat) { if (q is Dec.Ok && pr is Dec.Ok) lineTotal(if (reserve) withSpare(f("eqty")) else f("eqty"), f("eprice"), p.precision) else null } else pr.value()
@@ -576,7 +583,7 @@ private fun ReserveChip(on: Boolean, onClick: () -> Unit) {
             drawRoundRect(if (on) G.cobalt else G.ink.copy(alpha = .2f), Offset(w / 2, w / 2), androidx.compose.ui.geometry.Size(size.width - w, size.height - w), androidx.compose.ui.geometry.CornerRadius(19.dp.toPx()),
                 style = Stroke(if (on) 1.5.dp.toPx() else w, pathEffect = if (on) null else PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))))
         }
-        .clickable(role = Role.Switch, onClick = onClick).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
+        .switchState(on).clickable(role = Role.Switch, onClick = onClick).padding(horizontal = 12.dp), contentAlignment = Alignment.Center) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
             if (on) MIcon("check", G.cobalt, 14.dp, 2.6f)
             Text(tr("gs.reserve"), style = ui(13f, 700, if (on) G.cobalt2 else G.slate), maxLines = 1)

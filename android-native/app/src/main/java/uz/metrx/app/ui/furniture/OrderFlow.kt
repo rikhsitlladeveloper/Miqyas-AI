@@ -248,7 +248,7 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                     Column(Modifier.weight(1f)) {
                         Text(floorName(w, lang), style = ui(16f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val a = room?.dim("A")?.v; val b = room?.dim("B")?.v; val h = room?.dim("H")?.v
-                        Text(if (drawn && a != null && b != null) uz.metrx.app.geo.fmtLen(a, uz.metrx.app.geo.LenUnit.M, en) + " × " + uz.metrx.app.geo.fmtLen(b, uz.metrx.app.geo.LenUnit.M, en) + " m" +
+                        Text(if (drawn && a != null && b != null) uz.metrx.app.geo.fmtLen(a, uz.metrx.app.geo.LenUnit.M, en) + " × " + uz.metrx.app.geo.fmtLen(b, uz.metrx.app.geo.LenUnit.M, en) + " " + tr("u.m") +
                                 (h?.let { " · h " + uz.metrx.app.geo.fmtLen(it, uz.metrx.app.geo.LenUnit.M, en) } ?: "")
                             else tr(if (room != null) "fo.notMeasured" else "fo.notDrawn"), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
@@ -258,7 +258,7 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                     val ward = f.kind == "wardrobe"
                     val sub = if (ward && (uz.metrx.app.furniture.isItemPiece(f) || uz.metrx.app.furniture.boxes(f).size > 1)) freeSub(f, en)
                         else if (ward) uz.metrx.app.furniture.wardOfF(f)?.let { m -> uz.metrx.app.geo.fmtLen(m.w, uz.metrx.app.geo.LenUnit.M, en) + " × " +
-                        uz.metrx.app.geo.fmtLen(uz.metrx.app.furniture.valsOf(f, s.workshop)["h"] ?: m.h, uz.metrx.app.geo.LenUnit.M, en) + " m" } ?: ""
+                        uz.metrx.app.geo.fmtLen(uz.metrx.app.furniture.valsOf(f, s.workshop)["h"] ?: m.h, uz.metrx.app.geo.LenUnit.M, en) + " " + tr("u.m") } ?: ""
                         else tr("kt.l" + f.layout) + " · " + "%.1f".format(java.util.Locale.ROOT, runMm(f) / 1000.0).replace('.', if (en) '.' else ',') + " " + tr("kt.pm")
                     val amount = priced.lines.firstOrNull { it.key == f.id }?.amount?.takeIf { s.advanced }
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.glass(.75f)).clickable { app.kit.sel = null; app.push(if (ward) Route.Wardrobe(p.id, f.id) else Route.Kitchen(p.id, f.id)) }
@@ -331,12 +331,13 @@ private fun NewRoomSheet(s: Sheet.FNewRoom) {
     val app = LocalApp.current
     val pid = s.pid
     val p = app.store.get(pid) ?: run { app.sheet = null; return }
-    fun nameFor(t: String): String { val base = app.t("fr.$t"); val n = p.floors.count { it.name.startsWith(base) }; return if (n > 0) "$base ${n + 1}" else base }
+    fun nameFor(t: String): String = uz.metrx.app.data.nextName(p, "fr.$t", app.settings.lang)
     var type by rememberSaveable { mutableStateOf(when (s.kind) { "kitchen" -> "kitchen"; "wardrobe" -> "bedroom"; "other" -> "living"; else -> if (p.floors.none { it.type == "kitchen" }) "kitchen" else "bedroom" }) }
     var name by rememberSaveable { mutableStateOf(nameFor(type)) }
     fun create() {
         if (name.isBlank() || !app.once()) return
-        val rid = app.addFurnRoom(pid, type, name.trim())
+        // a suggested name is kept as its key, so it follows the language
+        val rid = app.addFurnRoom(pid, type, uz.metrx.app.data.suggestedName(name, "fr.$type", app.settings.lang))
         if (s.fid != null) app.placeAfter = rid to s.fid
         app.sheet = null
         app.openRoom(pid, rid)
@@ -346,7 +347,7 @@ private fun NewRoomSheet(s: Sheet.FNewRoom) {
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             F_ROOMS.forEach { t -> Chip(tr("fr.$t"), t == type) { type = t; name = nameFor(t) } }
         }
-        GField(tr("fr.name"), name, { name = it }, tr("fr.$type"), imeAction = ImeAction.Done, onIme = ::create)
+        GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr("fr.$type"), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
     }
 }
 

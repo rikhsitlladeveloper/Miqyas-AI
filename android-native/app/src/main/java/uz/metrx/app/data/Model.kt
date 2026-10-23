@@ -255,7 +255,14 @@ data class Snap(
     val plumb: uz.metrx.app.plumb.PlumbOrder? = null,
     /** Windows-and-doors orders: the products, for the drawings; [winPrice] each product's price (the advanced app's, else empty). */
     val win: uz.metrx.app.win.WinOrder? = null,
-    val winPrice: Map<String, Long> = emptyMap()
+    val winPrice: Map<String, Long> = emptyMap(),
+    /** The order's trade ("build", "tiler", "elec", "plumb", "win"; "" an older quote): the maker's word and the notes in the PDF. */
+    val industry: String = "",
+    /** Rooms left out of the report: a trade's circuits, pipes and windows are still worked out with them, but not drawn. */
+    val calcRooms: List<SnapRoom> = emptyList(),
+    /** Tilers' orders: the tile layouts and each room's tray, bath and waterproofing, for the layout drawings. */
+    val tiles: List<uz.metrx.app.tiles.TileLayout>? = null,
+    val troom: List<uz.metrx.app.tiles.TileRoom> = emptyList()
 )
 
 /** A line of a furniture order's price in the customer's PDF: [key] a furniture id or "deliver". */

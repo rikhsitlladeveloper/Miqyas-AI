@@ -175,7 +175,8 @@ private fun BigCard(onClick: () -> Unit) {
             ) { MIcon("plus", Color.White, 30.dp, 2.4f) }
             Row(Modifier.fillMaxWidth().padding(top = 28.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(tr("hm.t.new"), style = ui(30f, 800, G.ink, 1.1f, -.02f))
+                    // a furniture maker or a tradesman makes orders, a builder projects
+                    Text(tr(if (orderWords()) "fo.new" else "hm.t.new"), style = ui(30f, 800, G.ink, 1.1f, -.02f))
                     Text(tr("gl.newS"), style = ui(15f, 400, G.ink2))
                 }
                 Box(Modifier.size(44.dp).clip(CircleShape).background(G.glass(.7f)), contentAlignment = Alignment.Center) {
@@ -209,6 +210,10 @@ fun PageTitle(text: String, modifier: Modifier = Modifier) {
     Text(text, style = ui(36f, 800, G.ink, 1.15f, -.02f), modifier = modifier)
 }
 
+/** Whether the app speaks of orders (a furniture maker's or a tradesman's) rather than a builder's projects. */
+@Composable
+fun orderWords(): Boolean = uz.metrx.app.ui.LocalApp.current.settings.industry.let { it != null && it != "build" }
+
 /** Projects with no project yet: one card that invites the first one (prototype plEmpty). */
 @Composable
 fun ProjectsEmpty(onNew: () -> Unit) {
@@ -225,11 +230,11 @@ fun ProjectsEmpty(onNew: () -> Unit) {
                     MIcon("plus", Color.White, 16.dp, 2.4f)
                 }
             }
-            Text(tr("pl.e.t"), style = ui(21f, 800, G.ink, 1.2f, -.01f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-            Text(tr("pl.e.b"), style = ui(15f, 400, G.ink2, 1.5f), textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.widthIn(max = 300.dp).padding(bottom = 10.dp))
-            GlassButton(tr("pl.e.new"), onNew, icon = "plus")
+            Text(tr(if (orderWords()) "fo.e.t" else "pl.e.t"), style = ui(21f, 800, G.ink, 1.2f, -.01f), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+            Text(tr(if (orderWords()) "fo.e.b" else "pl.e.b"), style = ui(15f, 400, G.ink2, 1.5f), textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.widthIn(max = 300.dp).padding(bottom = 10.dp))
+            GlassButton(tr(if (orderWords()) "fo.e.new" else "pl.e.new"), onNew, icon = "plus")
         }
-        Text(tr("pl.e.foot"), style = ui(13.5f, 400, G.ink3), textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
+        Text(tr(if (orderWords()) "fo.e.foot" else "pl.e.foot"), style = ui(13.5f, 400, G.ink3), textAlign = androidx.compose.ui.text.style.TextAlign.Center, modifier = Modifier.fillMaxWidth().padding(top = 8.dp))
     }
 }
 

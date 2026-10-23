@@ -55,7 +55,7 @@ private fun newSteps(m: FModelDef): List<SizeStep>? {
         "mirrorP" -> listOf(w(1000, 400, 2000), SizeStep("h", "fz.wH", "fb.hPanel", 1600, 600, 2200))
         "stenka" -> listOf(w(3000, 1500, 6000, "fz.wAll"), h(2200, 1500, 3000), d(400, 300, 650))
         "cornerW" -> listOf(SizeStep("w", "fz.wA", "fz.wA.h", 1800, 1000, 4000), SizeStep("w2", "fz.wB", "fz.wB.h", 1600, 1000, 4000), h(2200, 1500, 3000), d(600, 400, 700))
-        "cornerDesk" -> listOf(SizeStep("w", "fz.wA", "fz.wA.h", 1400, 900, 3000), SizeStep("w2", "fz.wB", "fz.wB.h", 1200, 900, 3000), h(750, 650, 850, "fx.hHLegs"), d(600, 450, 800))
+        "cornerDesk" -> listOf(SizeStep("w", "fz.wA", "fz.wA.h", 1400, 900, 3000), SizeStep("w2", "fz.wB", "fz.wB.h", 1200, 1100, 3000), h(750, 650, 850, "fx.hHLegs"), d(600, 450, 800))
         "vitrina" -> listOf(w(800, 400, 1600), h(2000, 1400, 2500), d(400, 300, 600))
         "washer" -> listOf(w(650, 600, 900), h(2000, 1500, 2600), d(600, 550, 700))
         "vanity" -> listOf(w(1000, 600, 1800), h(750, 650, 850, "fx.hHLegs"), d(450, 350, 600),
@@ -128,6 +128,18 @@ fun valsOf(f: Furniture, ws: Workshop): Map<String, Int> {
     if (isNewModel(f.type)) return pieceVals(f, ws)
     val m = wardOfF(f) ?: return emptyMap()
     return mapOf("w" to m.w, "h" to if (f.type.isNotEmpty()) outerH(m, ws) else m.h, "d" to m.d)
+}
+
+/** A piece's sizes in a line: a bed's mattress, a corner piece's two arms, else width × height × depth; [mm] the unit's word. */
+fun sizeLine(f: Furniture, ws: Workshop, mm: String): String {
+    val v = valsOf(f, ws)
+    val m = wardOfF(f)
+    return when {
+        "mw" in v -> "${v["mw"]} × ${v["ml"]} · h ${v["h"]} $mm"
+        "w2" in v -> "${v["w"]} + ${v["w2"]} × ${v["h"]} × ${v["d"]} $mm"
+        m != null -> "${v["w"] ?: m.w} × ${v["h"] ?: m.h} × ${v["d"] ?: m.d} $mm"
+        else -> ""
+    }
 }
 
 /** The model a piece was made from (a kitchen made before the gallery: its layout's model; a wardrobe: two doors). */

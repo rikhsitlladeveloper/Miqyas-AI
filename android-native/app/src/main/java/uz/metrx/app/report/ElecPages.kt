@@ -30,19 +30,24 @@ import uz.metrx.app.ui.elec.rgbC
 private val FRAME = Color(0xFFC3CEDF)
 
 internal fun Doc.elecPages(e: ElecOrder) {
-    val p = Project("snap", sn.name, rooms = sn.rooms.map { it.room }, industry = "elec", elec = e)
+    // worked out with every room (the circuits and cable stay the same when a room is left out); only the report's rooms are drawn
+    val all = sn.rooms + sn.calcRooms
+    val p = Project("snap", sn.name, rooms = all.map { it.room }, industry = "elec", elec = e)
     val calc = calcOf(p, sn.snap)
+    val shown = sn.rooms.map { it.room.id }.toSet()
+    fun drawn(c: uz.metrx.app.elec.ECtx) = c.free != null || c.id in shown
     if (calc.ctxs.none { devsIn(p, it).isNotEmpty() }) return
     val byDev = calc.circuits.flatMap { cc -> cc.devs.map { it.id to cc } }.toMap()
     val dec = { s: String -> if (en) s else s.replace('.', ',') }
-    newPage()
+    // on the page in hand when it has room (no near-empty first page)
+    ensure(260f)
     h2(t("el.r.title"))
     para(androidx.compose.ui.text.AnnotatedString(t("el.r.method", "m" to t("el.m.${e.method}")) + " " + t("el.m.${e.method}S")), ui(9.5f, 400), 2f, 6f)
     // the circuits
     val withLen = sn.pdf.estimate
     val rows = ArrayList<List<Cell>>()
     rows += listOfNotNull(th(t("r.c.no")), th(t("el.r.group")), th(t("el.r.brk")), th(t("el.r.cable")), th(t("el.r.rooms")), if (withLen) th(t("el.r.len"), true) else null)
-    val names = calc.ctxs.associate { c -> c.id to (c.free?.name?.ifBlank { t("el.k.${c.free.kind}") } ?: sn.rooms.firstOrNull { it.room.id == c.id }?.let { it.floorLabel.ifBlank { dn(it.room.name, l) } } ?: "") }
+    val names = calc.ctxs.associate { c -> c.id to (c.free?.name?.ifBlank { t("el.k.${c.free.kind}") } ?: all.firstOrNull { it.room.id == c.id }?.let { it.floorLabel.ifBlank { dn(it.room.name, l) } } ?: "") }
     calc.circuits.forEach { cc ->
         rows += listOfNotNull(cell("${cc.no}"), cell(t("el.g.${cc.group}")), cell(if (cc.amps > 0) t("el.brkV", "a" to cc.amps) + (if (cc.rcd) ", " + t("el.rcdS") else "") else "—"),
             cell(dec(if (cc.cable == "utp") "UTP" else "VVG " + cableName(cc.cable))), cell(cc.rooms.mapNotNull { names[it] }.joinToString(", ")),
@@ -85,7 +90,7 @@ internal fun Doc.elecPages(e: ElecOrder) {
     calc.ctxs.forEach { c ->
         val ds = devsIn(p, c)
         val runs = calc.routes.inRoom(c.id)
-        if (ds.isEmpty() && runs.isEmpty()) return@forEach
+        if (ds.isEmpty() && runs.isEmpty() || !drawn(c)) return@forEach
         newPage()
         h2(t("el.r.room", "r" to (names[c.id] ?: "")))
         space(0f)

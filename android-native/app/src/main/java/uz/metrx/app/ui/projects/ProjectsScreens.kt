@@ -116,8 +116,9 @@ fun ProjectsList() {
     val others = all.filter { !mine(it) }
     // the simple furniture and tiler apps have no stages: no "in work / finished", just all of them (and the other industry's)
     val staged = !(furniture || tiler || elec || plumb || win) || app.settings.advanced
-    var seg0 by rememberSaveable { mutableStateOf("active") }
-    val seg = if (!staged && seg0 != "other") "all" else seg0
+    // the filter lives with the app, so opening or deleting an order does not reset it
+    val seg0 = app.ordersSeg
+    val seg = if (seg0 == "other" && others.isEmpty()) (if (staged) "active" else "all") else if (!staged && seg0 != "other") "all" else seg0
     var q by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         GlassHeader({ app.sheet = Sheet.Device })
@@ -137,7 +138,7 @@ fun ProjectsList() {
                 SearchBox(q, { q = it }, tr("gl.search"), Modifier.weight(1f))
                 Box(
                     Modifier.size(52.dp).dropShadow(CircleShape, Shadow(22.dp, G.cobalt.copy(alpha = .38f), offset = DpOffset(0.dp, 10.dp)))
-                        .clip(CircleShape).background(G.cobalt).topHighlight(.4f).pressable({ app.push(Route.NewProject()) }, .95f, label = tr("hm.t.new")),
+                        .clip(CircleShape).background(G.cobalt).topHighlight(.4f).pressable({ app.push(Route.NewProject()) }, .95f, label = tr(if (uz.metrx.app.ui.main.orderWords()) "fo.new" else "hm.t.new")),
                     contentAlignment = Alignment.Center
                 ) { MIcon("plus", Color.White, 24.dp, 2.4f) }
             }
@@ -150,7 +151,7 @@ fun ProjectsList() {
                         modifier = Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp))
                             .background(if (on) G.ink else G.idle(.45f))
                             .border(1.dp, if (on) G.ink else G.idleRim, RoundedCornerShape(20.dp))
-                            .clickable(role = Role.Tab) { seg0 = k }.padding(horizontal = 14.dp, vertical = 10.dp))
+                            .clickable(role = Role.Tab) { app.ordersSeg = k }.padding(horizontal = 14.dp, vertical = 10.dp))
                 }
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -160,7 +161,7 @@ fun ProjectsList() {
                     else if (p.isElec && !staged) uz.metrx.app.ui.elec.EOrderRow(p) { app.push(Route.Project(p.id)) }
                     else if (p.isPlumb && !staged) uz.metrx.app.ui.plumb.POrderRow(p) { app.push(Route.Project(p.id)) }
                     else if (p.isWin && !staged) uz.metrx.app.ui.win.WOrderRow(p) { app.push(Route.Project(p.id)) } else ProjectRow(p) { app.push(Route.Project(p.id)) } }
-                if (list.isEmpty()) Text(tr(if (needle.isNotEmpty()) "pl.noMatch" else "pl.none"), style = ui(14.5f, 400, G.ink2),
+                if (list.isEmpty()) Text(tr(if (uz.metrx.app.ui.main.orderWords()) (if (needle.isNotEmpty()) "fo.noMatch" else "fo.none") else if (needle.isNotEmpty()) "pl.noMatch" else "pl.none"), style = ui(14.5f, 400, G.ink2),
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         }
@@ -294,7 +295,7 @@ fun NewProjectScreen(editId: String?) {
             PageBar(frosted = true) {
                 GlassIconButton(if (edit != null) "back" else "x", tr(if (edit != null) "nt.back" else "common.close"), { app.pop() }, Modifier.padding(start = 6.dp))
                 Spacer(Modifier.width(6.dp))
-                val fu = if (edit != null) edit.isFurniture else app.settings.furniture
+                val fu = if (edit != null) edit.industry != "build" else uz.metrx.app.ui.main.orderWords()
                 BarTitle(tr(if (fu) "fo.details" else "np.editTitle"), eyebrow = if (edit == null) tr(if (fu) "fo.new" else "np.title") else null)
             }
             Column(

@@ -35,13 +35,18 @@ import uz.metrx.app.ui.plumb.runsIn
 private val FRAME = Color(0xFFC3CEDF)
 
 internal fun Doc.plumbPages(e: PlumbOrder) {
-    val p = Project("snap", sn.name, rooms = sn.rooms.map { it.room }, industry = "plumb", plumb = e)
+    // worked out with every room (the riser's room may be left out of the report); only the report's rooms are drawn
+    val all = sn.rooms + sn.calcRooms
+    val p = Project("snap", sn.name, rooms = all.map { it.room }, industry = "plumb", plumb = e)
     val calc = calcOf(p, sn.snap)
+    val shown = sn.rooms.map { it.room.id }.toSet()
+    fun drawn(c: uz.metrx.app.plumb.PCtx) = c.free != null || c.id in shown
     if (calc.ctxs.none { fixesIn(p, it).isNotEmpty() || pointsIn(p, it).isNotEmpty() || it.pr.ufh }) return
     val dec = { s: String -> if (en) s else s.replace('.', ',') }
     fun d1(v: Double) = dec(String.format(java.util.Locale.ROOT, "%.1f", v))
-    val names = calc.ctxs.associate { c -> c.id to (c.free?.name?.ifBlank { t("sx.k.${c.free.kind}") } ?: sn.rooms.firstOrNull { it.room.id == c.id }?.let { it.floorLabel.ifBlank { dn(it.room.name, l) } } ?: "") }
-    newPage()
+    val names = calc.ctxs.associate { c -> c.id to (c.free?.name?.ifBlank { t("sx.k.${c.free.kind}") } ?: all.firstOrNull { it.room.id == c.id }?.let { it.floorLabel.ifBlank { dn(it.room.name, l) } } ?: "") }
+    // on the page in hand when it has room (no near-empty first page)
+    ensure(260f)
     h2(t("sx.r.title"))
     val rs = calc.routes.riser
     para(androidx.compose.ui.text.AnnotatedString(t("sx.r.system", "s" to t("sx.sys.${e.water}"), "r" to t("sx.run.${e.run}"), "h" to t("sx.run.${e.hrun}")) +
@@ -53,7 +58,7 @@ internal fun Doc.plumbPages(e: PlumbOrder) {
     calc.ctxs.forEach { c ->
         val fs = fixesIn(p, c)
         val pts = pointsIn(p, c, fs)
-        if (fs.isEmpty() && pts.isEmpty() && !c.pr.ufh) return@forEach
+        if (fs.isEmpty() && pts.isEmpty() && !c.pr.ufh || !drawn(c)) return@forEach
         val what = uz.metrx.app.plumb.FIX_TYPES.mapNotNull { ty -> fs.count { it.t == ty.id }.takeIf { it > 0 }?.let { n -> (if (n > 1) "$n × " else "") + t("sx.t.${ty.id}") } } +
             (if (c.pr.ufh) listOf(t("sx.s.ufh")) else emptyList())
         rows += listOfNotNull(cell(names[c.id] ?: ""), cell(what.joinToString(", ").ifEmpty { "—" }), rcell("${pts.size}"),
@@ -111,7 +116,7 @@ internal fun Doc.plumbPages(e: PlumbOrder) {
         calc.ctxs.forEach { c ->
             val rr = rads.filter { it.first.id == c.id }.map { it.second }
             val lp = calc.routes.loops.firstOrNull { it.roomId == c.id }
-            if (rr.isEmpty() && lp == null) return@forEach
+            if (rr.isEmpty() && lp == null || !drawn(c)) return@forEach
             hr += listOf(cell(names[c.id] ?: ""), rcell("${(c.areaM2 * uz.metrx.app.plumb.W_M2).toInt()} W"),
                 rcell(if (rr.isEmpty()) "—" else "${rr.size} · ${rr.sumOf { radWatts(it) }} W"),
                 cell(lp?.let { t("sx.loopV", "n" to it.n, "s" to it.step / 10, "a" to d1(it.area)) + " · " + d1(it.each / 1000) + " " + t("u.m") } ?: "—"))
@@ -127,7 +132,7 @@ internal fun Doc.plumbPages(e: PlumbOrder) {
         val pts = pointsIn(p, c, fs)
         val runs = runsIn(calc.routes, c.id)
         val loop = calc.routes.loops.firstOrNull { it.roomId == c.id }
-        if (fs.isEmpty() && pts.isEmpty() && runs.isEmpty() && loop == null) return@forEach
+        if (fs.isEmpty() && pts.isEmpty() && runs.isEmpty() && loop == null || !drawn(c)) return@forEach
         newPage()
         h2(t("sx.r.roomT", "r" to (names[c.id] ?: "")))
         space(0f)

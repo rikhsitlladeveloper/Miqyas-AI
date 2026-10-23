@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.elec
 
 import androidx.activity.compose.BackHandler
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -8,6 +9,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -328,6 +330,7 @@ private fun KitCard(k: Kit, modifier: Modifier, wide: Boolean, onClick: () -> Un
 
 /* ---------------- the steps ---------------- */
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun EStepsScreen(rt: Route.ESteps) {
     val app = LocalApp.current
@@ -368,8 +371,8 @@ fun EStepsScreen(rt: Route.ESteps) {
                 app.push(Route.EView(p.id, "free:" + f.id)); app.say("el.kitAdded", "n" to kitName)
             }
             "new" -> {
-                val base = app.t(kindKey(k.kind)); val cnt = p.floors.count { it.name.startsWith(base) }
-                val rid = app.addElecRoom(p.id, k.kind, if (cnt > 0) "$base ${cnt + 1}" else base)
+                // the suggested name kept as its key, so it follows the language
+                val rid = app.addElecRoom(p.id, k.kind, uz.metrx.app.data.suggestedName(uz.metrx.app.data.nextName(p, kindKey(k.kind), app.settings.lang), kindKey(k.kind), app.settings.lang))
                 app.updateERoom(p.id, rid) { it.copy(pend = it.pend + pickOf(k, o)) }
                 app.popTo { it is Route.Project && it.id == p.id }
                 app.openRoom(p.id, rid); app.say("el.kitPend")
@@ -378,8 +381,10 @@ fun EStepsScreen(rt: Route.ESteps) {
                 val r = p.rooms.firstOrNull { it.id == where } ?: return
                 app.popTo { it is Route.Project && it.id == p.id }
                 if (ready3D(r, app.settings.angleSnap)) {
+                    val want = uz.metrx.app.elec.ctxOf(p, r.id, app.settings.angleSnap)?.let { uz.metrx.app.elec.kitWanted(k, it, o) } ?: 0
                     val got = app.applyKit(p.id, r.id, k, o)
-                    app.push(Route.EView(p.id, r.id)); app.say("el.kitPlaced", "n" to got)
+                    // fewer than the kit has: the room had no clear place for the rest (doors, windows, water)
+                    app.push(Route.EView(p.id, r.id)); if (got < want) app.say("el.kitFewer", "n" to got, "m" to want, kind = uz.metrx.app.ui.components.ToastKind.INFO) else app.say("el.kitPlaced", "n" to got)
                 } else {
                     app.updateERoom(p.id, r.id) { it.copy(pend = it.pend + pickOf(k, o)) }
                     app.say("el.kitPend")
@@ -387,6 +392,8 @@ fun EStepsScreen(rt: Route.ESteps) {
             }
         }
     }
+    // with the keyboard up the footer goes under the fields (not over them), so the one typed in stays in sight
+    val imeOn = androidx.compose.foundation.layout.WindowInsets.isImeVisible
     Box(Modifier.fillMaxSize().imePadding()) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             PageBar(frosted = true) {
@@ -394,7 +401,7 @@ fun EStepsScreen(rt: Route.ESteps) {
                 Spacer(Modifier.width(6.dp))
                 BarTitle(tr("el.kit.${k.id}"), eyebrow = tr("tl.stepN", "i" to at + 1, "n" to n))
             }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = if (imeOn) 16.dp else 168.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (0 until n).forEach { i -> Box(Modifier.size(if (i == at) 22.dp else 8.dp, 8.dp).clip(CircleShape).background(when { i == at -> G.cobalt; i < at -> G.cobalt.copy(alpha = .45f); else -> G.ink.copy(alpha = .15f) })) }
                 }
@@ -419,7 +426,7 @@ fun EStepsScreen(rt: Route.ESteps) {
                         p.rooms.forEach { r ->
                             val w = p.floors.firstOrNull { it.id == r.floorId }
                             val ready = measuredRoom(r, app.settings.angleSnap)
-                            Option(w?.let { floorName(it, lang) } ?: dn(r.name, lang), if (ready && !r.isPoly) fmtLen(r.dim("A").v, LenUnit.M, en) + " × " + fmtLen(r.dim("B").v, LenUnit.M, en) + " m"
+                            Option(w?.let { floorName(it, lang) } ?: dn(r.name, lang), if (ready && !r.isPoly) fmtLen(r.dim("A").v, LenUnit.M, en) + " × " + fmtLen(r.dim("B").v, LenUnit.M, en) + " " + tr("u.m")
                                 else tr(if (ready) "tl.measured" else "el.s.later"), where == r.id) { where = r.id }
                         }
                         Option(tr("fz.newRoom"), tr("el.s.newS", "k" to tr(kindKey(k.kind))), where == "new") { where = "new" }
@@ -433,8 +440,12 @@ fun EStepsScreen(rt: Route.ESteps) {
                     }
                 }
             }
+            if (imeOn) FloatingFooter(Modifier) {
+            if (at < n - 1) GBtn(tr("common.next"), { if (ok(step)) at += 1 }, enabled = ok(step))
+            else GBtn(tr(if (where == "" || where == "free" || p.rooms.firstOrNull { it.id == where }?.let { ready3D(it, app.settings.angleSnap) } == true) "el.s.put" else "el.s.putLater"), ::save, enabled = steps.all { ok(it) })
+            }
         }
-        FloatingFooter(Modifier.align(Alignment.BottomCenter)) {
+        if (!imeOn) FloatingFooter(Modifier.align(Alignment.BottomCenter)) {
             if (at < n - 1) GBtn(tr("common.next"), { if (ok(step)) at += 1 }, enabled = ok(step))
             else GBtn(tr(if (where == "" || where == "free" || p.rooms.firstOrNull { it.id == where }?.let { ready3D(it, app.settings.angleSnap) } == true) "el.s.put" else "el.s.putLater"), ::save, enabled = steps.all { ok(it) })
         }
@@ -469,7 +480,7 @@ internal fun Option(title: String, sub: String, on: Boolean, onClick: () -> Unit
 
 @Composable
 internal fun Toggle(title: String, sub: String, on: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.75f)).clickable(role = Role.Switch, onClick = onClick)
+    Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.75f)).switchState(on).clickable(role = Role.Switch, onClick = onClick)
         .padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.weight(1f)) { Text(title, style = ui(15f, 700)); Text(sub, style = ui(12.5f, 400, G.ink2, 1.3f)) }
         GSwitch(on)

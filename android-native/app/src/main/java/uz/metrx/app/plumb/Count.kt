@@ -80,7 +80,11 @@ fun countOf(p: Project, cs: List<PCtx>, rt: PRoutes): PCount {
     val pieces = pipes.filter { it.kind != "ufh" }
     val all = cs.flatMap { c -> pointsIn(p, c) }
     val fixes = cs.flatMap { fixesIn(p, it) }
-    val riserKinds = rt.riser?.let { if (it.hot) 2 else 1 } ?: 0
+    // the riser's meter, filter and main valve: one set for its cold when cold water runs from it, another for its hot only
+    // when the hot water comes up it (not from a gas boiler or a water heater); a heating-only order needs none
+    val coldOut = rt.runs.any { it.kind == "cold" }
+    val hotOut = rt.riser?.hot == true && rt.hot != null && rt.hot.fix == null && rt.runs.any { it.kind == "hot" }
+    val riserKinds = if (rt.riser == null) 0 else (if (coldOut) 1 else 0) + (if (hotOut) 1 else 0)
     return PCount(
         pipes = pipes,
         drain50 = m(d50), drain110 = m(d110),
@@ -90,7 +94,8 @@ fun countOf(p: Project, cs: List<PCtx>, rt: PRoutes): PCount {
         couplings = if (pl.water == "ppr") pieces.sumOf { it.pieces } else 0,
         plates = ws.sumOf { it.branches }, balls = sup.sumOf { it.branches },
         mainValves = riserKinds, meters = riserKinds, filters = riserKinds,
-        manifolds = if (rt.loops.isNotEmpty()) 1 else 0, manifOuts = rt.loops.sumOf { it.n }, loops = rt.loops.sumOf { it.n },
+        // each manifold placed (a typed room with underfloor heating has its own)
+        manifolds = if (rt.loops.isNotEmpty()) maxOf(1, fixes.count { it.t == "manif" }) else 0, manifOuts = rt.loops.sumOf { it.n }, loops = rt.loops.sumOf { it.n },
         points = all.size, fixtures = fixes.size, radiators = fixes.count { it.t == "rad" },
         waterM = m(ws.sumOf { it.len }), heatM = m(sup.filter { it.kind == "hs" || it.kind == "hr" }.sumOf { it.len }), ufhM = ufhM,
         chaseM = m(sup.sumOf { it.chase })
@@ -145,8 +150,10 @@ fun plumbRows(p: Project, t: TradeSet, snap: Boolean, name: (String, Map<String,
     mat("manif", "pcs", c.manifolds.toDouble(), t.pManif, mapOf("n" to c.manifOuts))
     lab("lPts", c.points * num(t.lPPt), mapOf("n" to c.points))
     lab("lFix", c.fixtures * num(t.lPFix), mapOf("n" to c.fixtures))
-    lab("lMetre", c.pipeM * num(t.lPM), mapOf("a" to qty(Math.round(c.pipeM * 10) / 10.0)))
+    // the metres the line shows are the ones it is priced by, so quantity × rate is its amount
+    val pipeM = Math.round(c.pipeM * 10) / 10.0; val chaseM = Math.round(c.chaseM * 10) / 10.0
+    lab("lMetre", pipeM * num(t.lPM), mapOf("a" to qty(pipeM)))
     lab("lRad", c.radiators * num(t.lPRad), mapOf("n" to c.radiators))
-    lab("lChase", c.chaseM * num(t.lPChase), mapOf("a" to qty(Math.round(c.chaseM * 10) / 10.0)))
+    lab("lChase", chaseM * num(t.lPChase), mapOf("a" to qty(chaseM)))
     return TradeResult(mats, labor, mapOf("points" to c.points.toDouble(), "pipe" to c.pipeM))
 }

@@ -34,7 +34,10 @@ fun fixWarnings(c: PCtx, fs: List<PlFix>, pts: List<APt>): List<PWarn> {
 fun warningsOf(p: Project, cs: List<PCtx>, rt: PRoutes): List<PWarn> {
     val out = ArrayList<PWarn>()
     val all = ArrayList<APt>()
-    cs.forEach { c -> val fs = fixesIn(p, c); val pts = pointsIn(p, c, fs); all += pts; out += fixWarnings(c, fs, pts) }
+    cs.forEach { c -> val fs = fixesIn(p, c); val pts = pointsIn(p, c, fs); all += pts; out += fixWarnings(c, fs, pts)
+        // a typed room too small for what it was given
+        c.free?.let { f -> freeMissing(f, fs).forEach { (t, n) -> out += PWarn("sx.w.noFit", c.id, null, mapOf("t" to "~sx.t.$t", "n" to n)) } }
+    }
     val fixType = cs.flatMap { fixesIn(p, it) }.associate { it.id to it.t }
     for (d in rt.drains) {
         val who = d.pt.fix ?: d.pt.id
@@ -44,8 +47,17 @@ fun warningsOf(p: Project, cs: List<PCtx>, rt: PRoutes): List<PWarn> {
         if (wc && d.horiz > p.plumb.wcMax) out += PWarn("sx.w.wcFar", d.pt.roomId, who, mapOf("m" to m1(d.horiz), "x" to m1(p.plumb.wcMax.toDouble())))
         else if (d.dia < 100 && d.horiz > p.plumb.drainMax) out += PWarn("sx.w.long", d.pt.roomId, who, mapOf("m" to m1(d.horiz), "x" to m1(p.plumb.drainMax.toDouble())))
     }
-    if (rt.riser == null && all.isNotEmpty()) out += PWarn("sx.w.noRiser", null, null)
+    // heating alone (radiators, underfloor) needs no riser: only water or a drain does
+    if (rt.riser == null && all.any { it.t == "cold" || it.t == "drain" }) out += PWarn("sx.w.noRiser", null, null)
     if (rt.riser != null && rt.hot == null && all.any { it.t == "hot" }) out += PWarn("sx.w.noHot", null, null)
     if (rt.heat == null && (all.any { it.t == "hs" || it.t == "hr" } || cs.any { it.pr.ufh })) out += PWarn("sx.w.noBoiler", null, null)
     return out
 }
+
+/** The order's riser while its room is there (a riser left on a deleted room counts as none). */
+fun liveRiser(p: Project): PlRiser? = p.plumb.riser?.takeIf { r -> p.rooms.any { it.id == r.roomId } }
+
+/** Whether order [p] has water or a drain to bring (a cold or drain outlet): a heating-only order needs no riser. */
+fun needsRiser(p: Project): Boolean =
+    p.plumb.fixes.any { f -> fixPoints(f).any { it.t == "cold" || it.t == "drain" } } || p.plumb.points.any { it.t == "cold" || it.t == "drain" } ||
+        p.plumb.free.any { it.wc + it.basin + it.bath + it.shower + it.sink + it.wm + it.dw + it.wh + it.gb > 0 }

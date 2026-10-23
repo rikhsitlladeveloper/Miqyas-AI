@@ -72,7 +72,6 @@ import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
 import kotlin.math.max
-import kotlin.random.Random
 
 /*
  * Stage 1a part 2 (furniture plan section 5; design canvas screen 6): sockets, switches, water, sewer, gas pipe and
@@ -231,9 +230,15 @@ fun PointSheet(s: Sheet.PointForm) {
             NumField(tr("op.offset", "c" to corner), offv, { offv = it; src = "manual" }, app.unitName(), errText(po), tried, modifier = Modifier.weight(1f))
             NumField(tr("pt.h"), hv, { hv = it; src = "manual" }, app.unitName(), errText(ph), tried, modifier = Modifier.weight(1f))
         }
+        // the laser's newest reading not used yet (its readings' inbox); with none, nothing is made up: it says so
+        fun fromLaser(where: String, put: (String) -> Unit) {
+            val rd = app.settings.readings.lastOrNull { it.used == null && it.src != "manual" }
+            if (rd == null) { app.say("fx.noReading", kind = uz.metrx.app.ui.components.ToastKind.INFO); return }
+            app.settings.markReadingUsed(rd.id, where); put(fmtField(rd.mm, unit, en)); src = "sim"
+        }
         if (ops.laserOn) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            LaserLink(tr("pt.laserOff")) { offv = fmtField(Random.nextInt(200, max(400, (L ?: 3000) - 100)) / 10 * 10, unit, en); src = "sim" }
-            LaserLink(tr("pt.laserH")) { hv = fmtField(pointDefaults(type).first + Random.nextInt(-30, 31), unit, en); src = "sim" }
+            LaserLink(tr("pt.laserOff")) { fromLaser(app.t("pt.laserOff")) { offv = it } }
+            LaserLink(tr("pt.laserH")) { fromLaser(app.t("pt.laserH")) { hv = it } }
         }
         if (src == "sim") Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MIcon("clock", G.amberInk, 16.dp, 2f); Text(tr("pt.fromLaser"), style = ui(13f, 500, G.amberInk))

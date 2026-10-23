@@ -18,9 +18,11 @@ import kotlin.math.min
 
 /** One tile (look and size) a layout or an order needs: tiles laid whole, cut ones, cuts taken from offcuts, then the boxes. */
 data class TileNeed(val look: String, val a: Int, val b: Int, val whole: Int, val cut: Int, val reused: Int, val tiles: Int, val skirtTiles: Int,
-                    val spare: Int, val withSpare: Int, val perBox: Int, val boxes: Int, val m2: Double, val price: String = "") {
+                    val spare: Int, val withSpare: Int, val perBox: Int, val boxes: Int, val m2: Double, val price: String = "",
+                    /** Layouts of one tile merged with different box sizes: what their boxes hold together, m² (-1: from [boxes] × [perBox]). */
+                    val boxed: Double = -1.0) {
     /** What the boxes hold, m². */
-    val boxedM2 get() = boxes * perBox * a.toDouble() * b / 1e6
+    val boxedM2 get() = if (boxed >= 0) boxed else boxes * perBox * a.toDouble() * b / 1e6
 }
 
 /** What a layout, a room or an order takes. Areas m², lengths m, weights kg. [tooMany]: a surface with too many tiles to count. */
@@ -32,8 +34,14 @@ data class TileCount(val needs: List<TileNeed> = emptyList(), val m2: Double = 0
     operator fun plus(o: TileCount): TileCount {
         val merged = (needs + o.needs).groupBy { Triple(it.look, it.a, it.b) }.map { (_, ns) ->
             val f = ns[0]; val ws = ns.sumOf { it.withSpare }
+            // one box size: the boxes of the whole; layouts with their own box sizes: each one's boxes, added up.
+            // The spare % is said only when it is the same for all ([spare] -1: they differ)
+            val onePb = ns.all { it.perBox == f.perBox }
             f.copy(whole = ns.sumOf { it.whole }, cut = ns.sumOf { it.cut }, reused = ns.sumOf { it.reused }, tiles = ns.sumOf { it.tiles },
-                skirtTiles = ns.sumOf { it.skirtTiles }, withSpare = ws, boxes = ceil(ws.toDouble() / f.perBox - 1e-9).toInt(), m2 = ns.sumOf { it.m2 })
+                skirtTiles = ns.sumOf { it.skirtTiles }, withSpare = ws, m2 = ns.sumOf { it.m2 },
+                spare = if (ns.all { it.spare == f.spare }) f.spare else -1,
+                boxes = if (onePb) ceil(ws.toDouble() / f.perBox - 1e-9).toInt() else ns.sumOf { it.boxes },
+                perBox = if (onePb) f.perBox else 0, boxed = if (onePb) -1.0 else ns.sumOf { it.boxedM2 })
         }
         return TileCount(merged, m2 + o.m2, glueKg + o.glueKg, groutKg + o.groutKg, skirtM + o.skirtM, profileM + o.profileM, wpM2 + o.wpM2, tooMany || o.tooMany)
     }
@@ -209,6 +217,9 @@ fun geoFor(p: Project, roomId: String?, snap: Boolean, dx: Double = 0.0, dz: Dou
 }
 
 /** What layout [l] of order [p] takes; zero until its room is measured. */
+/** The adhesive's kg a m² as typed in the trade's prices; 0 is kept (no adhesive bought), blank or wrong is the usual 5. */
+fun glueBaseOf(s: String) = s.replace(" ", "").replace(',', '.').toDoubleOrNull()?.takeIf { it >= 0 } ?: 5.0
+
 fun countLayout(p: Project, l: TileLayout, snap: Boolean, glueBase: Double = 5.0): TileCount {
     if (l.roomId == null) {
         val s = panelSurf(l, panelFrame(l.panel?.kind ?: "floor")) ?: return TileCount()
@@ -238,7 +249,7 @@ private fun money(v: Double) = Math.round(v).toString()
  * stored words (strings key, values).
  */
 fun tileRows(p: Project, t: TradeSet, snap: Boolean, name: (String, Map<String, Any>) -> String): TradeResult {
-    val c = countOrder(p, snap, num(t.glueKg).takeIf { it > 0 } ?: 5.0)
+    val c = countOrder(p, snap, glueBaseOf(t.glueKg))
     val mats = ArrayList<Row>(); val labor = ArrayList<Row>()
     fun mat(key: String, unit: String, q: Double, price: String, vars: Map<String, Any> = emptyMap(), id: String = key) {
         if (q > 0) mats += Row("t-$id", name("tl.e.$key", vars), name("tu.$unit", emptyMap()), qty(q), price.replace(" ", "").let { if (it.isEmpty()) it else money(num(it)) })
@@ -251,10 +262,12 @@ fun tileRows(p: Project, t: TradeSet, snap: Boolean, name: (String, Map<String, 
     mat("grout", "kg", ceil(c.groutKg - 1e-9), t.pGrout)
     mat("prof", "m", ceil(c.profileM * 1.05 * 10 - 1e-9) / 10, t.pProf)
     mat("wp", "m2", ceil(c.wpM2 * 10 - 1e-9) / 10, t.pWp)
-    val m2r = Math.round(c.m2 * 10) / 10.0
-    lab("lab", c.m2 * num(t.lTile), mapOf("a" to qty(m2r)))
-    lab("labSkirt", c.skirtM * num(t.lSkirt), mapOf("a" to qty(Math.round(c.skirtM * 10) / 10.0)))
-    lab("labProf", c.profileM * num(t.lProf), mapOf("a" to qty(Math.round(c.profileM * 10) / 10.0)))
-    lab("labWp", c.wpM2 * num(t.lWp), mapOf("a" to qty(Math.round(c.wpM2 * 10) / 10.0)))
+    // each labour line is priced by the quantity it shows, so quantity × rate is its amount
+    fun r1(v: Double) = Math.round(v * 10) / 10.0
+    val m2r = r1(c.m2)
+    lab("lab", m2r * num(t.lTile), mapOf("a" to qty(m2r)))
+    lab("labSkirt", r1(c.skirtM) * num(t.lSkirt), mapOf("a" to qty(r1(c.skirtM))))
+    lab("labProf", r1(c.profileM) * num(t.lProf), mapOf("a" to qty(r1(c.profileM))))
+    lab("labWp", r1(c.wpM2) * num(t.lWp), mapOf("a" to qty(r1(c.wpM2))))
     return TradeResult(mats, labor, mapOf("area" to c.m2, "boxes" to c.boxes.toDouble()))
 }

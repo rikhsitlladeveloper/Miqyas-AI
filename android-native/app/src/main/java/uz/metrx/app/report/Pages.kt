@@ -309,9 +309,12 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
             val cw = widths(rows, tw, null)
             rows.sumOf { r0 -> var c = 0; r0.maxOf { cell -> val w = (c until c + cell.span).sumOf { cw[it].toDouble() }.toFloat(); c += cell.span; cellHeight(cell, w) }.toDouble() }.toFloat() + 16f
         } else 0f
-        val title = measure(t("r.room", "i" to i, "n" to dn(r.name, l), "f" to floorLabel), ui(12f, 600), CW)
+        // "1. Oshxona, Oshxona": a workspace named as its room (or none) is not said twice
+        val head = if (floorLabel.isBlank() || floorLabel.trim().equals(dn(r.name, l).trim(), ignoreCase = true)) "$i. " + dn(r.name, l)
+            else t("r.room", "i" to i, "n" to dn(r.name, l), "f" to floorLabel)
+        val title = measure(head, ui(12f, 600), CW)
         if (!fits(12f + title.size.height + 4f + max(planH, tableH))) newPage()
-        h2(t("r.room", "i" to i, "n" to dn(r.name, l), "f" to floorLabel))
+        h2(head)
         space(0f)
         val top = y
         if (pf.plan) {
@@ -436,9 +439,9 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
     }
 
     /** Builder's and customer's signature lines (prototype .sig). */
-    fun signatures() {
+    fun signatures(maker: String = "r.sigB") {
         val w = (CW - 30f) / 2
-        val a = measure(t("r.sigB"), ui(9f, 400, INK3), w); val b = measure(t("r.sigC"), ui(9f, 400, INK3), w)
+        val a = measure(t(maker), ui(9f, 400, INK3), w); val b = measure(t("r.sigC"), ui(9f, 400, INK3), w)
         val h = .75f + 3f + max(a.size.height, b.size.height)
         space(22f); if (y + h > LIMIT) { newPage(); space(22f) }
         val top = y
@@ -476,13 +479,17 @@ fun reportPages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, im
     // [design]: a tiler's simple app shares the design: dated, no draft mark (its snapshot has no estimate)
     val d = Doc(tm, sn, draft && !design, meta, image, now)
     if (design) { d.quoteTitle = "rpt.design"; d.subLine = uz.metrx.app.data.fmtDate(now) }
+    // a trade's order names its own maker (tiler, electrician…), not the builder
+    val trade = sn.industry in uz.metrx.app.trades.TRADES
+    if (trade) d.makerKey = "rpt.maker.${sn.industry}"
     val rooms = sn.rooms
     d.newPage(); d.parties()
     // with the plans and the measurements both off the rooms print nothing: no empty pages for them
     val roomsOn = sn.pdf.plan || sn.pdf.dims
     if (roomsOn) {
         rooms.firstOrNull()?.let { d.roomBlock(it.room, 1, it.floorLabel) }
-        d.fn(d.t("r.geoNote"))
+        // the note on the room model only with a room printed (an order without rooms has nothing it is about)
+        if (rooms.isNotEmpty()) d.fn(d.t("r.geoNote"))
         var i = 1
         while (i < rooms.size) {
             d.newPage()
@@ -497,6 +504,8 @@ fun reportPages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, im
     sn.plumb?.let { e -> if (!e.empty) d.plumbPages(e) }
     // a windows-and-doors order: the summary table, then each product's drawing from inside with its sizes and make
     sn.win?.let { e -> if (!e.empty) d.winPages(e) }
+    // a tiler's order: the layouts, each room's floor from above and its tiled walls
+    sn.tiles?.let { ls -> d.tilePages(ls, sn.troom) }
     d.figurePages()
     d.notesPages()
     // the first page holding only the parties has room for the rest
@@ -505,8 +514,9 @@ fun reportPages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, im
     if (sn.pdf.estimate) d.estimate(sn.estimate)
     if (sn.notes.isNotBlank()) { d.h2(d.t("rpt.notes")); d.para(AnnotatedString(sn.notes), d.ui(10f), 10f, 10f) }
     // the notes on quantities and money are the estimate's
-    if (sn.pdf.estimate) { d.fn(d.t("r.qtyNote")); d.fn(d.t("r.moneyNote", "c" to sn.currency)) }
-    if (sn.pdf.sign) d.signatures()
+    // a trade's quantities are worked out by the app from the sizes; a builder's are typed
+    if (sn.pdf.estimate) { d.fn(d.t(if (trade) "r.qtyCalc" else "r.qtyNote")); d.fn(d.t("r.moneyNote", "c" to sn.currency)) }
+    if (sn.pdf.sign) d.signatures(if (trade) "r.sig.${sn.industry}" else "r.sigB")
     return d.finish()
 }
 

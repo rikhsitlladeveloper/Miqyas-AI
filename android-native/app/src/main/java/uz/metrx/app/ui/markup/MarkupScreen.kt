@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.markup
 
 import android.content.Context
+import uz.metrx.app.ui.components.switchState
 import android.content.Intent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -486,7 +487,7 @@ fun MarkupScreen(r: Route.Markup) {
             // the "Qirralar" switch: shows the photo's edges and snaps line ends to them
             if (ph) Row(
                 Modifier.align(Alignment.TopStart).padding(8.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xCC0F1626))
-                    .clickable(role = Role.Switch) { ops.edgesOn = !ops.edgesOn }.padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp)
+                    .switchState(ops.edgesOn).clickable(role = Role.Switch) { ops.edgesOn = !ops.edgesOn }.padding(start = 8.dp, end = 12.dp, top = 6.dp, bottom = 6.dp)
                     .semantics { stateDescription = if (ops.edgesOn) "on" else "off" },
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {

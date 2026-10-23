@@ -100,10 +100,10 @@ fun ProjectScreen(r: Route.Project) {
         // the pill names the page underneath: the orders list on that tab, or Home or Profile when opened from there
         val under = app.tab.takeIf { app.stack.size >= 2 && app.stack[app.stack.size - 2] == uz.metrx.app.ui.Route.Root && it != uz.metrx.app.ui.main.Tab.PROJECTS }
         PageBar { BackPill(tr(under?.label ?: if (p.isFurniture || p.isTiler || p.isElec || p.isPlumb || p.isWin) "fo.tab" else "tab.projects"), { app.pop() }) }
-        val withTotal = r.tab == "estimate" && (p.estimate.materials.isNotEmpty() || p.estimate.labor.isNotEmpty())
+        // price and quotes are the advanced app's; a link to them opens the rooms (and the total goes with the tab shown)
+        val tab = if (simpleOrder(p) && (r.tab == "price" || r.tab == "quotes" || r.tab == "estimate")) "rooms" else r.tab
+        val withTotal = tab == "estimate" && (p.estimate.materials.isNotEmpty() || p.estimate.labor.isNotEmpty())
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = if (withTotal) 0.dp else 24.dp + NAV_SPACE).let { if (withTotal) it else it.navigationBarsPadding() }) {
-            // price and quotes are the advanced app's; a link to them opens the rooms
-            val tab = if (simpleOrder(p) && (r.tab == "price" || r.tab == "quotes" || r.tab == "estimate")) "rooms" else r.tab
             Header(p, tab, lang)
             // a furniture order: what to do now, with the one button that does it
             if (p.isFurniture) uz.metrx.app.ui.furniture.NextStep(p)

@@ -28,13 +28,15 @@ import java.math.BigInteger
 private val FRAME = Color(0xFFC3CEDF)
 
 internal fun Doc.winPages(e: WinOrder) {
-    val p = Project("snap", sn.name, rooms = sn.rooms.map { it.room }, industry = "win", win = e)
+    // every room (a window in a room left out of the report still has its room and opening)
+    val all = sn.rooms + sn.calcRooms
+    val p = Project("snap", sn.name, rooms = all.map { it.room }, industry = "win", win = e)
     val items = e.items
     if (items.isEmpty()) return
     val withPrice = sn.pdf.estimate && sn.winPrice.isNotEmpty()
     val scale = BigInteger.TEN.pow(sn.precision.coerceIn(0, 4))
     fun price(id: String) = sn.winPrice[id]?.let { money(BigInteger.valueOf(it) * scale) + " " + sn.currency }
-    val roomOf = sn.rooms.associate { it.room.id to it.floorLabel.ifBlank { dn(it.room.name, l) } }
+    val roomOf = all.associate { it.room.id to it.floorLabel.ifBlank { dn(it.room.name, l) } }
     fun title(it: WinItem) = it.name.ifBlank { t("dw.k.${it.kind}") }
     fun where(it: WinItem): String {
         if (!it.inRoom) return t("dw.noRoom")
@@ -42,7 +44,8 @@ internal fun Doc.winPages(e: WinOrder) {
         val o = r.openings.firstOrNull { o -> o.id == it.opening }
         return (roomOf[r.id] ?: dn(r.name, l)) + (o?.let { x -> val (k, n) = openingKey(r, x); " · " + t(k, "n" to n) + " · " + t("tl.wallN", "w" to x.wall) } ?: "")
     }
-    newPage()
+    // on the page in hand when it has room (no near-empty first page)
+    ensure(260f)
     h2(t("dw.r.title"))
     val rows = ArrayList<List<Cell>>()
     rows += listOfNotNull(th("№"), th(t("dw.r.item")), th(t("dw.r.where")), th(t("dw.r.size"), true), th(t("dw.r.qty"), true), if (withPrice) th(t("dw.r.price"), true) else null)
@@ -79,7 +82,7 @@ internal fun Doc.winPages(e: WinOrder) {
 private fun Doc.specOf(it: WinItem, where: String, price: String?): String {
     val lines = ArrayList<String>()
     lines += t("dw.r.at", "w" to where)
-    val c = if (it.inRoom) ctxOf(Project("s", "", rooms = sn.rooms.map { r -> r.room }), it.roomId!!, sn.snap) else null
+    val c = if (it.inRoom) ctxOf(Project("s", "", rooms = (sn.rooms + sn.calcRooms).map { r -> r.room }), it.roomId!!, sn.snap) else null
     val o = c?.let { x -> placed(x, it)?.o }
     if (o != null) lines += t("dw.r.op", "s" to "${o.w} × ${o.h}", "g" to it.gap)
     lines += t("dw.r.sizeL", "s" to "${it.w} × ${it.h}") + if (!it.inRoom && it.qty > 1) " · " + t("dw.qtyN", "n" to it.qty) else ""

@@ -28,7 +28,8 @@ fun hardwareOf(m: Module, ws: Workshop): Map<String, Int> {
         val fs = frontSizes(f, w, h, ws)
         when (f.kind) {
             "door" -> fs.forEach { (fh, fw) ->
-                add(hinge, hingesFor(fh)); if (m.handles) add("handle", 1)
+                // a glass door in its frame opens by push (no handle, as the 3D shows it)
+                add(hinge, hingesFor(fh)); if (m.handles && face != "glass") add("handle", 1)
                 // a vitrina's glass door in its frame, a mirror glued on a board door
                 when (face) { "glass" -> add("glassDoor", fh * fw); "mirror" -> add("mirror", (fh - 10) * (fw - 10)) }
             }

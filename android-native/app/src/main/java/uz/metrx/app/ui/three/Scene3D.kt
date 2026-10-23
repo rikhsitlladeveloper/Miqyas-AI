@@ -29,6 +29,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.dropShadow
 import androidx.compose.ui.geometry.Offset
@@ -481,11 +482,16 @@ fun Cam3D.go(scope: kotlinx.coroutines.CoroutineScope, t: V3, r1: Double, th: Do
 fun BoxScope.Labels3D(cam: Cam3D, points: List<V3>, content: @Composable (Int) -> Unit) {
     @Suppress("UNUSED_VARIABLE") val t = cam.tick
     val at = points.map { cam.project(it) }
-    Layout(content = { points.indices.forEach { i -> if (at[i] != null) Box { content(i) } } }, modifier = Modifier.fillMaxSize()) { ms, c ->
+    Layout(content = { points.indices.forEach { i -> if (at[i] != null) Box { content(i) } } }, modifier = Modifier.fillMaxSize().clipToBounds()) { ms, c ->
         val pl = ms.map { it.measure(c.copy(minWidth = 0, minHeight = 0)) }
+        // kept inside the picture, under the buttons along its top (a wall letter must not sit on the tabs above or under a button)
+        val top = 56.dp.roundToPx(); val pad = 4.dp.roundToPx()
         layout(c.maxWidth, c.maxHeight) {
             var j = 0
-            points.indices.forEach { i -> val p = at[i] ?: return@forEach; val q = pl[j++]; q.place((p.x - q.width / 2f).toInt(), (p.y - q.height / 2f).toInt()) }
+            points.indices.forEach { i -> val p = at[i] ?: return@forEach; val q = pl[j++]
+                val x = (p.x - q.width / 2f).toInt().coerceIn(pad, maxOf(pad, c.maxWidth - q.width - pad))
+                val y = (p.y - q.height / 2f).toInt().coerceIn(minOf(top, maxOf(0, c.maxHeight - q.height)), maxOf(top, c.maxHeight - q.height - pad))
+                q.place(x, y) }
         }
     }
 }

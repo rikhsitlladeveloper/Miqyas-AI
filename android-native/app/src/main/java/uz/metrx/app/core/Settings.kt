@@ -147,9 +147,11 @@ class Settings(context: Context) {
     fun saveShots(v: List<uz.metrx.app.data.Item>) { shots = v; p.edit().putString("shots", kotlinx.serialization.json.Json.encodeToString(shotSer, v)).apply() }
 
     fun setLanguage(l: Lang) {
-        // as in the prototype, choosing the app language also sets the report language
-        lang = l; reportLang = l
-        p.edit().putString("lang", l.code).putString("reportLang", l.code).apply()
+        // the report language is its own setting: only the first choice (no report language set yet) sets it too
+        lang = l
+        val first = p.getString("reportLang", null) == null
+        if (first) reportLang = l
+        p.edit().putString("lang", l.code).apply { if (first) putString("reportLang", l.code) }.apply()
     }
     fun setCurrencyDefault(c: String) { currency = c; p.edit().putString("currency", c).apply() }
     fun changeUnit(u: uz.metrx.app.geo.LenUnit) { unit = u; p.edit().putString("unit", if (u == uz.metrx.app.geo.LenUnit.CM) "cm" else "m").apply() }

@@ -138,6 +138,27 @@ fun DrawScope.drawLaid(laid: Laid, l: TileLayout, map: (Surf) -> ((V2) -> Offset
     }
 }
 
+/** Above this many pieces a 2D drawing fills the surfaces in their look's colour instead of tile by tile (a mosaic stays quick). */
+const val MAX_DRAWN_2D = 4000
+
+/**
+ * Like [drawLaid], but with more than [most] pieces each surface is filled in its tile's colour; a surface whose tiles
+ * were too many to work out is filled so too (not left in the grout's colour).
+ */
+fun DrawScope.drawLaidCapped(laid: Laid, l: TileLayout, map: (Surf) -> ((V2) -> Offset?), most: Int = MAX_DRAWN_2D, outline: Boolean = false) {
+    val flat = laid.pieces.size > most
+    if (!flat) drawLaid(laid, l, map, false, outline = outline)
+    laid.surfs.forEachIndexed { si, s ->
+        if (!flat && si !in laid.tooMany) return@forEachIndexed
+        val m = map(s)
+        val main = lookFor(l, if (s.alt) 1 else 0)
+        convexParts(s.outline).flatMap { part -> s.holes.fold(listOf(part)) { acc, h -> acc.flatMap { subtract(it, h) } } }.forEach { poly ->
+            val pts = poly.map { m(it) ?: return@forEach }
+            drawPath(pathOf(pts), rgbColor(main.rgb))
+        }
+    }
+}
+
 private fun DrawScope.drawPiece(pc: Piece, l: TileLayout, m: (V2) -> Offset?, textures: Boolean, px: Float, cutK: Double, line: Color?) {
     val lk = lookFor(l, pc.prod)
     val rgb = if (pc.cut && cutK > 0) cutRgb(lk.rgb, cutK) else toneOf(lk, pc.seed)
@@ -224,7 +245,9 @@ fun DrawScope.drawPreview(pv: TPreview, az: Float = 0f, textures: Boolean = true
         val fr = g.wallFrame(w)
         quad(listOf(fr.at(0.0, 0.0), fr.at(w.len, 0.0), fr.at(w.len, g.H), fr.at(0.0, g.H)), rgbColor(if (id == "A") WALL_RGB else scaleRgb(WALL_RGB, .96)))
     }
-    drawLaid(pv.laid, pv.l, { s -> { q -> cam.p(s.frame.at(q.x, q.y, .002)) } }, textures, cutK, outline = true)
+    // a mosaic (thousands of small tiles) is filled flat, so a drag stays smooth
+    if (pv.laid.pieces.size > MAX_DRAWN_2D) drawLaidCapped(pv.laid, pv.l, { s -> { q -> cam.p(s.frame.at(q.x, q.y, .002)) } })
+    else drawLaid(pv.laid, pv.l, { s -> { q -> cam.p(s.frame.at(q.x, q.y, .002)) } }, textures, cutK, outline = true)
     // the corner's line
     g.wall("A")?.let { w -> val fr = g.wallFrame(w); val p0 = cam.p(fr.at(0.0, 0.0)); val p1 = cam.p(fr.at(0.0, g.H)); if (p0 != null && p1 != null) drawLine(Color(0x33101828), p0, p1, density) }
     // a bath, or the worktop and the units under it

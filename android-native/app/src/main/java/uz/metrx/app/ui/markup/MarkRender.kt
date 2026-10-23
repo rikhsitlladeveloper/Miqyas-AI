@@ -179,7 +179,11 @@ fun DrawScope.drawMark(e: MkEl, f: MkFmt, tm: TextMeasurer, alpha: Float = 1f, z
     when (e.t) {
         "pen" -> drawPath(polyPath(e.pts), c, alpha = alpha, style = Stroke(if (e.w == 2) 18f else 8f, cap = StrokeCap.Round, join = StrokeJoin.Round))
         "text" -> {
-            val lay = tm.measure(dn(e.txt ?: "", f.lang), TextStyle(fontFamily = f.face, fontSize = 50.sp, fontWeight = FontWeight.SemiBold), density = Density(1f), softWrap = false)
+            // a long label wraps to stay inside the picture (1000 units wide), centred where it was put
+            val room = (2 * minOf(e.pts[0][0], 1000f - e.pts[0][0]) - 20f).coerceIn(300f, 980f)
+            val lay = tm.measure(dn(e.txt ?: "", f.lang), TextStyle(fontFamily = f.face, fontSize = 50.sp, fontWeight = FontWeight.SemiBold,
+                textAlign = androidx.compose.ui.text.style.TextAlign.Center), density = Density(1f),
+                constraints = androidx.compose.ui.unit.Constraints(maxWidth = room.toInt()))
             val tl = Offset(e.pts[0][0] - lay.size.width / 2f, e.pts[0][1] - lay.size.height / 2f)
             drawText(lay, Color.White, tl, alpha = alpha, drawStyle = Stroke(11f, join = StrokeJoin.Round))
             drawText(lay, c, tl, alpha = alpha, drawStyle = androidx.compose.ui.graphics.drawscope.Fill)

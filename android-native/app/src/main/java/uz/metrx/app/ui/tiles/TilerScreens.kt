@@ -233,8 +233,9 @@ fun TRoomsTab(p: Project, lang: Lang, route: Route.Project) {
     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (p.floors.isEmpty() && p.tiles.isEmpty()) Text(tr("tl.empty"), style = ui(14.5f, 400, G.ink2), textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(22.dp))
-        p.floors.forEach { w ->
-            val room = p.rooms.firstOrNull { it.floorId == w.id }
+        // every room of each workspace (an older project may have several in one), a workspace without one once
+        p.floors.flatMap { w -> p.rooms.filter { it.floorId == w.id }.ifEmpty { listOf(null) }.map { w to it } }.forEach { (w, room) ->
+            val several = p.rooms.count { it.floorId == w.id } > 1
             val measured = room != null && measuredRoom(room, s.angleSnap)
             val ls = if (room == null) emptyList() else p.tiles.filter { it.roomId == room.id }
             Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -244,9 +245,9 @@ fun TRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                         if (room != null) uz.metrx.app.editorThumb(room, Modifier.fillMaxSize().padding(4.dp)) else MIcon("room", G.cobalt, 24.dp, 2f)
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(floorName(w, lang), style = ui(16f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(floorName(w, lang) + (if (several && room != null) " · " + dn(room.name, lang) else ""), style = ui(16f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val a = room?.dim("A")?.v; val b = room?.dim("B")?.v; val h = room?.dim("H")?.v
-                        Text(if (measured && a != null && b != null && room?.isPoly != true) fmtLen(a, LenUnit.M, en) + " × " + fmtLen(b, LenUnit.M, en) + " m" + (h?.let { " · h " + fmtLen(it, LenUnit.M, en) } ?: "")
+                        Text(if (measured && a != null && b != null && room?.isPoly != true) fmtLen(a, LenUnit.M, en) + " × " + fmtLen(b, LenUnit.M, en) + " " + tr("u.m") + (h?.let { " · h " + fmtLen(it, LenUnit.M, en) } ?: "")
                             else if (measured) tr("tl.measured") else tr(if (room != null) "fo.notMeasured" else "fo.notDrawn"), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     if (measured) Text("3D", style = ui(13f, 800, G.cobalt2), modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(G.cobalt.copy(alpha = .1f)).padding(horizontal = 10.dp, vertical = 6.dp))
@@ -308,6 +309,9 @@ private fun TodoRow(label: String, onClick: () -> Unit) {
 
 /** Draws the first room of a workspace that has none yet. */
 fun App.drawTileRoom(pid: String, w: Workspace, lang: Lang) {
+    // a second tap does not add a second room
+    store.get(pid)?.rooms?.firstOrNull { it.floorId == w.id }?.let { openRoom(pid, it.id); return }
+    if (!once()) return
     val r = Room(uid(), w.id, floorName(w, lang), created = System.currentTimeMillis())
     store.update(pid) { it.copy(rooms = it.rooms + r) }
     openRoom(pid, r.id)
@@ -325,7 +329,7 @@ fun TNextStep(p: Project) {
     val undrawn = p.floors.firstOrNull { w -> p.rooms.none { it.floorId == w.id } }
     val unmeasured = rooms.firstOrNull { (_, r) -> stepKeys(r, s.angleSnap).any { r.dim(it).status != "conf" } }
     val bare = rooms.firstOrNull { (_, r) -> p.tiles.none { it.roomId == r.id } }
-    val made = p.estimate.materials.any { it.id.startsWith("t-") }
+    val made = uz.metrx.app.trades.madeBy(p, "tl.e.")
     data class Step(val title: String, val sub: String?, val button: String, val go: () -> Unit)
     val step: Step? = when {
         p.floors.isEmpty() && p.tiles.isEmpty() -> Step(tr("tl.ns.pickT"), tr("tl.ns.pickS"), tr("ns.needB")) { app.push(Route.TGallery(p.id)) }
@@ -358,10 +362,20 @@ fun TNextStep(p: Project) {
 @Composable
 fun rememberCount(p: Project, roomId: String? = null): TileCount {
     val s = LocalApp.current.settings
-    return remember(p.tiles, p.troom, p.rooms, s.angleSnap, s.trade.glueKg, roomId) {
-        countOrder(p, s.angleSnap, s.trade.glueKg.replace(',', '.').toDoubleOrNull()?.takeIf { it > 0 } ?: 5.0, roomId, roomId == null)
+    val glue = uz.metrx.app.tiles.glueBaseOf(s.trade.glueKg)
+    // worked out off the main thread (a mosaic is many thousand tiles) and kept: the last count shows until the new one is ready
+    val key = listOf(p.tiles, p.troom, p.rooms, s.angleSnap, glue, roomId)
+    val st = androidx.compose.runtime.produceState(countCache[key] ?: TileCount(), key) {
+        value = countCache[key] ?: kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { countOrder(p, s.angleSnap, glue, roomId, roomId == null) }
+            .also { countCache[key] = it }
     }
+    return countCache[key] ?: st.value
 }
+
+/** The counts worked out lately, by what they were worked out from. */
+private val countCache: MutableMap<List<Any?>, TileCount> = java.util.Collections.synchronizedMap(object : LinkedHashMap<List<Any?>, TileCount>(16, .75f, true) {
+    override fun removeEldestEntry(eldest: MutableMap.MutableEntry<List<Any?>, TileCount>?) = size > 24
+})
 
 /** The order page's three numbers in the advanced app: tiled area, boxes, the estimate. */
 @Composable
@@ -412,14 +426,16 @@ fun TilesCard(p: Project) {
     val app = LocalApp.current
     val lang = LocalLang.current
     val c = rememberCount(p)
-    val made = p.estimate.materials.any { it.id.startsWith("t-") } || p.estimate.labor.any { it.id.startsWith("t-") }
+    val made = uz.metrx.app.trades.madeBy(p, "tl.e.")
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(tr("tl.cardT"), style = ui(16f, 800))
         Text(tr("trc.tiler", "a" to uz.metrx.app.core.Num.fixed(c.m2, 1, lang), "b" to c.boxes), style = num(14.5f, 700))
         Text(tr("tl.cardB"), style = ui(12.5f, 400, G.ink2, 1.4f))
         if (p.tiles.isEmpty()) Text(tr("tl.noLayouts"), style = ui(13f, 500, G.amberInk, 1.4f))
+        // a surface of too many tiles to count is not in these numbers: said before they go into the estimate
+        if (c.tooMany) Text(tr("tl.tooMany"), style = ui(12.5f, 600, G.amberInk, 1.4f))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GBtn(tr(if (made) "trc.update" else "trc.apply"), { app.applyTiles(p) }, enabled = c.m2 > 0, height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f), maxLines = 2)
+            GBtn(tr(if (made) "trc.update" else "trc.apply"), { app.applyTiles(p); if (c.tooMany) app.say("tl.tooMany", kind = uz.metrx.app.ui.components.ToastKind.INFO) }, enabled = c.m2 > 0, height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f), maxLines = 2)
             GBtn(tr("tl.prices"), { app.sheet = Sheet.TPrices(p.id) }, Btn.SECONDARY, icon = "sliders", height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f), maxLines = 2)
         }
     }
@@ -443,19 +459,21 @@ fun CountCard(c: TileCount, title: String, onLayout: (() -> Unit)? = null) {
                 Column(Modifier.weight(1f)) {
                     Text("${n.a} × ${n.b} · " + tr("tl.lk.${n.look}"), style = ui(13.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(tr("tl.cnt", "w" to n.whole, "c" to n.cut, "r" to n.reused) + (if (n.skirtTiles > 0) " · " + tr("tl.cntSk", "n" to n.skirtTiles) else ""), style = ui(12f, 400, G.ink2, 1.35f))
-                    Text(tr("tl.cntSpare", "t" to n.tiles + n.skirtTiles, "p" to n.spare, "s" to n.withSpare), style = ui(12f, 400, G.ink2, 1.35f))
+                    // layouts of this tile with different spares: no single % to show
+                    Text(if (n.spare >= 0) tr("tl.cntSpare", "t" to n.tiles + n.skirtTiles, "p" to n.spare, "s" to n.withSpare)
+                        else tr("tl.cntSpareMix", "t" to n.tiles + n.skirtTiles, "s" to n.withSpare), style = ui(12f, 400, G.ink2, 1.35f))
                 }
                 Column(horizontalAlignment = Alignment.End) {
                     Text(tr("tl.boxN", "n" to n.boxes), style = num(14f, 800))
-                    Text(tr("tl.perBox", "n" to n.perBox), style = ui(11f, 400, G.ink3))
+                    if (n.perBox > 0) Text(tr("tl.perBox", "n" to n.perBox), style = ui(11f, 400, G.ink3))
                 }
             }
         }
         Hairline()
         Kv(tr("tl.e.glue0"), tr("tl.bagsV", "n" to c.glueBags, "k" to d1(c.glueKg)))
-        Kv(tr("tl.e.grout0"), d1(c.groutKg) + " kg")
-        if (c.skirtM > 0) Kv(tr("tl.skirt"), d1(c.skirtM) + " m")
-        if (c.profileM > 0) Kv(tr("tl.prof"), d1(c.profileM) + " m")
+        Kv(tr("tl.e.grout0"), d1(c.groutKg) + " " + tr("u.kg"))
+        if (c.skirtM > 0) Kv(tr("tl.skirt"), d1(c.skirtM) + " " + tr("u.m"))
+        if (c.profileM > 0) Kv(tr("tl.prof"), d1(c.profileM) + " " + tr("u.m"))
         if (c.wpM2 > 0) Kv(tr("tl.wp"), d1(c.wpM2) + " " + tr("u.m2"))
         if (onLayout != null) Text(tr("tl.countSet"), style = ui(13.5f, 700, G.cobalt2),
             modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button, onClick = onLayout).padding(vertical = 6.dp, horizontal = 2.dp))
@@ -489,12 +507,13 @@ fun TileSheet(s: Sheet): Boolean {
 private fun NewRoomSheet(pid: String) {
     val app = LocalApp.current
     val p = app.store.get(pid) ?: run { app.sheet = null; return }
-    fun nameFor(t: String): String { val base = app.t(roomKey(t)); val n = p.floors.count { it.name.startsWith(base) }; return if (n > 0) "$base ${n + 1}" else base }
+    fun nameFor(t: String): String = uz.metrx.app.data.nextName(p, roomKey(t), app.settings.lang)
     var type by rememberSaveable { mutableStateOf(if (p.floors.none { it.type == "bath" }) "bath" else "kitchen") }
     var name by rememberSaveable { mutableStateOf(nameFor(type)) }
     fun create() {
         if (name.isBlank() || !app.once()) return
-        val rid = app.addTileRoom(pid, type, name.trim())
+        // a suggested name is kept as its key, so it follows the language
+        val rid = app.addTileRoom(pid, type, uz.metrx.app.data.suggestedName(name, roomKey(type), app.settings.lang))
         app.sheet = null
         app.openRoom(pid, rid)
     }
@@ -503,7 +522,7 @@ private fun NewRoomSheet(pid: String) {
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             T_ROOMS.forEach { t -> Chip(tr(roomKey(t)), t == type) { type = t; name = nameFor(t) } }
         }
-        GField(tr("fr.name"), name, { name = it }, tr(roomKey(type)), imeAction = ImeAction.Done, onIme = ::create)
+        GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr(roomKey(type)), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
     }
 }
 
@@ -620,7 +639,7 @@ private fun PricesSheet(pid: String?) {
     fun save() {
         val t = fs.foldIndexed(t0) { i, acc, f -> texts[i].trim().let { v -> if (v.isEmpty()) acc else f.set(acc, v) } }
         app.settings.setTradeSet(t); app.sheet = null
-        pid?.let { id -> app.store.get(id)?.takeIf { pr -> pr.estimate.materials.any { it.id.startsWith("t-") } }?.let { app.applyTiles(it) } } ?: app.say("common.save")
+        pid?.let { id -> app.store.get(id)?.takeIf { pr -> uz.metrx.app.trades.madeBy(pr, "tl.e.") }?.let { app.applyTiles(it) } } ?: app.say("common.save")
     }
     GlassSheet(tr("tl.prices"), { app.sheet = null }, footer = { GBtn(tr("common.save"), ::save) }) {
         fs.chunked(2).forEach { row ->
@@ -629,7 +648,7 @@ private fun PricesSheet(pid: String?) {
                     val i = fs.indexOf(f)
                     GField(tr(if (f.key.startsWith("l") || f.key.startsWith("pP") || f.key.startsWith("pW")) "tl.f.${f.key}" else "trf.${f.key}"), texts[i],
                         { v -> texts = texts.toMutableList().also { it[i] = v.filter { c -> c.isDigit() || (f.key == "glueKg" && (c == ',' || c == '.')) }.replace(',', '.').take(12) } }, "0",
-                        number = f.key != "glueKg", decimal = f.key == "glueKg", labelRight = f.unit, modifier = Modifier.weight(1f))
+                        number = f.key != "glueKg", decimal = f.key == "glueKg", labelRight = uz.metrx.app.ui.projects.unitText(f.unit), modifier = Modifier.weight(1f))
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }

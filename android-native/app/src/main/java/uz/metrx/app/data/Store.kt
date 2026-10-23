@@ -47,7 +47,8 @@ class Store private constructor(context: Context) {
         db.readableDatabase.rawQuery("SELECT id, json FROM projects", null).use { c ->
             while (c.moveToNext()) {
                 val text = c.getString(1)
-                runCatching { json.decodeFromString(Project.serializer(), text) }
+                // trade data left on rooms deleted before deleting took it along goes now (shown nowhere, still counted)
+                runCatching { withoutOrphans(json.decodeFromString(Project.serializer(), text)) }
                     .onSuccess { loaded += it }
                     .onFailure {
                         Log.e("METRX", "a saved project could not be read and was skipped", it)

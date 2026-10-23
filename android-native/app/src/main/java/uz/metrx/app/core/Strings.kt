@@ -43,7 +43,9 @@ object Strings {
         var s = e[lang.ordinal].ifEmpty { e[0] }
         if (vars != null) {
             s = PLURAL.replace(s) { m ->
-                val n = (vars[m.groupValues[1]] as? Number)?.toDouble() ?: m.groupValues[1].toDoubleOrNull() ?: 0.0
+                // a number, or a number as text (a stored line's values: "n=1", "a=2,5")
+                val v = vars[m.groupValues[1]]
+                val n = (v as? Number)?.toDouble() ?: v?.toString()?.replace(',', '.')?.replace(" ", "")?.toDoubleOrNull() ?: m.groupValues[1].toDoubleOrNull() ?: 0.0
                 plural(n, m.groupValues[2], lang)
             }
             s = VAR.replace(s) { m -> vars[m.groupValues[1]]?.toString() ?: m.value }

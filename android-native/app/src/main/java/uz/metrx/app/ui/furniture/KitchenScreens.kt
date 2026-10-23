@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.furniture
 
 import androidx.compose.foundation.Canvas
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -510,8 +511,8 @@ fun KitchenScreen(rt: Route.Kitchen) {
                     Text(tr("kt.sub", "n" to f.modules.size, "v" to runMetres(f, en)), style = ui(12f, 400, G.ink2), maxLines = 1)
                 }
                 GlassIconButton("undo", tr("common.undo"), { kit.undo(app, p.id, f.id) }, tint = if (kit.canUndo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
-                GlassIconButton("redo", "redo", { kit.redo(app, p.id, f.id) }, tint = if (kit.canRedo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
-                GlassIconButton("more", "menu", { app.sheet = Sheet.FMenu(p.id, f.id) })
+                GlassIconButton("redo", tr("common.redo"), { kit.redo(app, p.id, f.id) }, tint = if (kit.canRedo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
+                GlassIconButton("more", tr("common.menu"), { app.sheet = Sheet.FMenu(p.id, f.id) })
             }
             if (room == null || run == null) {
                 Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.padding(24.dp))
@@ -595,12 +596,12 @@ private fun ExtrasCard(p: Project, f: Furniture) {
                 Text(tr("kx.legs"), style = ui(14.5f, 500))
                 Text(tr("kx.worktopAt", "v" to uz.metrx.app.furniture.worktopTop(ws)), style = ui(12.5f, 400, G.ink2))
             }
-            Text("${ws.legH} mm", style = num(14.5f, 700)); MIcon("chev", G.ink3, 16.dp, 2f)
+            Text("${ws.legH} " + tr("u.mm"), style = num(14.5f, 700)); MIcon("chev", G.ink3, 16.dp, 2f)
         }
-        Toggle(tr("kx.plinth") + " · " + m(uz.metrx.app.furniture.plinthMm(f)) + " m", x.plinth) { set { it.copy(plinth = !it.plinth) } }
+        Toggle(tr("kx.plinth") + " · " + m(uz.metrx.app.furniture.plinthMm(f)) + " " + tr("u.m"), x.plinth) { set { it.copy(plinth = !it.plinth) } }
         val wu = uz.metrx.app.furniture.wallUnitsMm(f)
-        Toggle(tr("kx.cornice") + " · " + m(wu) + " m", x.cornice) { set { it.copy(cornice = !it.cornice) } }
-        Toggle(tr("kx.led") + " · " + m(wu) + " m", x.led) { set { it.copy(led = !it.led) } }
+        Toggle(tr("kx.cornice") + " · " + m(wu) + " " + tr("u.m"), x.cornice) { set { it.copy(cornice = !it.cornice) } }
+        Toggle(tr("kx.led") + " · " + m(wu) + " " + tr("u.m"), x.led) { set { it.copy(led = !it.led) } }
         Stepper(tr("kx.ends"), x.ends, 0, 8) { v -> set { it.copy(ends = v) } }
         Stepper(tr("kx.endsUp"), x.endsUp, 0, 8) { v -> set { it.copy(endsUp = v) } }
         if (app.settings.advanced) Text(tr("kx.note"), style = ui(12.5f, 400, G.ink2, 1.4f))
@@ -625,7 +626,7 @@ private fun LegsSheet(s: Sheet.KLegs) {
         app.sheet = null
     }
     GlassSheet(tr("kx.legs"), { app.sheet = null }, footer = { GBtn(tr("common.save"), ::save, enabled = vi != null) }) {
-        GField(tr("kx.legs"), v, { v = it.filter(Char::isDigit).take(3) }, "$now", number = true, labelRight = "mm", error = tr("km.bad", "a" to 50, "b" to 250),
+        GField(tr("kx.legs"), v, { v = it.filter(Char::isDigit).take(3) }, "$now", number = true, labelRight = tr("u.mm"), error = tr("km.bad", "a" to 50, "b" to 250),
             showError = vi == null, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
         Text(tr("kx.worktopAt", "v" to uz.metrx.app.furniture.worktopTop(app.settings.workshop.copy(legH = vi ?: now))), style = ui(13f, 400, G.ink2, 1.4f))
     }
@@ -770,6 +771,10 @@ internal fun CostCard(p: Project, f: Furniture, ws: Workshop, mats: List<Mat>) {
         }
         Text(tr(if (f.kind == "kitchen") "kt.costNote" else "wd.costNote"), style = ui(12.5f, 400, G.ink2, 1.4f))
         if (cost.missing > 0) Text(tr("kt.noPrice", "n" to cost.missing), style = ui(12.5f, 600, G.amberInk))
+        // parts longer than a sheet: priced a sheet each, said here too (not only on the cut list)
+        cost.layouts.filter { it.unplaced.isNotEmpty() }.forEach { lay ->
+            Text(tr("fw.unplaced", "m" to (mats.firstOrNull { it.id == lay.mat }?.name ?: lay.mat), "n" to lay.unplaced.size), style = ui(12.5f, 600, G.err, 1.4f))
+        }
     }
 }
 
@@ -892,7 +897,7 @@ private fun LibrarySheet(s: Sheet.FLibrary) {
                 var w by rememberSaveable { mutableStateOf((free ?: 50).coerceIn(10, 600).toString()) }
                 val wi = w.toIntOrNull()
                 val ok = wi != null && wi in 10..1200
-                GField(tr("kt.spW"), w, { w = it.filter(Char::isDigit).take(4) }, "50", number = true, labelRight = "mm", error = tr("km.bad", "a" to 10, "b" to 1200), showError = !ok && w.isNotEmpty())
+                GField(tr("kt.spW"), w, { w = it.filter(Char::isDigit).take(4) }, "50", number = true, labelRight = tr("u.mm"), error = tr("km.bad", "a" to 10, "b" to 1200), showError = !ok && w.isNotEmpty())
                 if (lowLeft != null) Text(tr("kt.spLeft", "v" to lowLeft) + if (upper && upLeft != null) " · " + tr("kt.up") + ": $upLeft" else "", style = ui(13f, 400, G.ink2))
                 LibRow("fillerLow", ws, wi) { if (ok) add("fillerLow", wi) }
                 LibRow("spaceLow", ws, wi) { if (ok) add("spaceLow", wi) }
@@ -1015,9 +1020,9 @@ private fun ModuleSheet(s: Sheet.FModule) {
             presets.forEach { v -> Chip("$v", wi == v) { w = v.toString() } }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GField(tr("km.w"), w, { w = it.filter(Char::isDigit).take(4) }, "600", number = true, labelRight = "mm", error = tr("km.bad", "a" to wMin, "b" to 1200), showError = wi == null, modifier = Modifier.weight(1f))
-            GField(tr("km.h"), h, { h = it.filter(Char::isDigit).take(4) }, "720", number = true, labelRight = "mm", error = tr("km.bad", "a" to hMin, "b" to hMax), showError = hi == null, modifier = Modifier.weight(1f))
-            GField(tr("km.d"), d, { d = it.filter(Char::isDigit).take(3) }, "560", number = true, labelRight = "mm", error = tr("km.bad", "a" to 16, "b" to 800), showError = di == null,
+            GField(tr("km.w"), w, { w = it.filter(Char::isDigit).take(4) }, "600", number = true, labelRight = tr("u.mm"), error = tr("km.bad", "a" to wMin, "b" to 1200), showError = wi == null, modifier = Modifier.weight(1f))
+            GField(tr("km.h"), h, { h = it.filter(Char::isDigit).take(4) }, "720", number = true, labelRight = tr("u.mm"), error = tr("km.bad", "a" to hMin, "b" to hMax), showError = hi == null, modifier = Modifier.weight(1f))
+            GField(tr("km.d"), d, { d = it.filter(Char::isDigit).take(3) }, "560", number = true, labelRight = tr("u.mm"), error = tr("km.bad", "a" to 16, "b" to 800), showError = di == null,
                 imeAction = ImeAction.Done, modifier = Modifier.weight(1f))
         }
         if (run != null && wi != null) {
@@ -1080,7 +1085,7 @@ private fun StepBtn(t: String, on: Boolean, onClick: () -> Unit) {
 
 @Composable
 internal fun Toggle(label: String, on: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clickable(role = Role.Switch, onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).switchState(on).clickable(role = Role.Switch, onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
         Text(label, style = ui(14.5f, 500), modifier = Modifier.weight(1f)); GSwitch(on)
     }
 }

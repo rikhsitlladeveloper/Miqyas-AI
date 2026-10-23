@@ -178,6 +178,8 @@ fun ColumnScope.Furniture3D(p: Project, room: Room) {
                 // a second tap while a picture is being taken does nothing; the limit is read from the store, not this page
                 fun full() = (app.store.get(p.id)?.rooms?.firstOrNull { it.id == room.id }?.views?.size ?: 0) >= 4
                 if (taking) return@ShotPill
+                // a double tap takes one picture, not two alike
+                if (!app.once()) return@ShotPill
                 if (full()) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
                 taking = true
                 shot.take { bmp ->

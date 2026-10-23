@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.tiles
 
 import androidx.activity.compose.BackHandler
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -249,7 +250,11 @@ fun TStepsScreen(rt: Route.TSteps) {
     var at by rememberSaveable(rt) { mutableIntStateOf(0) }
     val step = steps[at.coerceIn(0, n - 1)]
     val room = d.roomId?.let { id -> p.rooms.firstOrNull { it.id == id } }
-    val pv = remember(js) { previewOf(d) }
+    // laid off the main thread (a mosaic wall is thousands of tiles); the last picture stays until the new one is ready
+    val pv by androidx.compose.runtime.produceState<TPreview?>(null, js) {
+        // a size being typed (0, 9999) is not laid: the last picture stays
+        if (d.a in 20..3000 && d.b in 20..3000) value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { previewOf(d) }
+    }
     val surfOk = if (d.roomId != null) d.surfs.isNotEmpty() else (d.panel?.let { it.a > 0 && it.b > 0 } == true)
     fun ok(s: String) = when (s) { "size" -> d.a in 20..3000 && d.b in 20..3000; "where" -> d.roomId != null || d.panel != null; "surf" -> surfOk; else -> true }
     fun prev() { if (at > 0) at -= 1 else app.pop() }
@@ -290,7 +295,7 @@ fun TStepsScreen(rt: Route.TSteps) {
                     }
                 }
                 if (step != "where" && step != "surf") Box(Modifier.fillMaxWidth().aspectRatio(if (imeOn) 2.1f else 1.25f).clip(RoundedCornerShape(22.dp)).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {
-                    PreviewView(pv, Modifier.fillMaxSize())
+                    pv?.let { PreviewView(it, Modifier.fillMaxSize()) }
                     Text(tr("fx.drag"), style = ui(11f, 600, G.ink3), modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp))
                 }
                 when (step) {
@@ -359,10 +364,11 @@ private fun SizeStep(d: TileLayout, set: ((TileLayout) -> TileLayout) -> Unit) {
             var tb by rememberSaveable { mutableStateOf(d.b.toString()) }
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 val ea = ta.toIntOrNull()?.takeIf { it in 20..3000 } == null; val eb = tb.toIntOrNull()?.takeIf { it in 20..3000 } == null
-                GField(tr("tl.side1"), ta, { v -> ta = v.filter { it.isDigit() }.take(4); ta.toIntOrNull()?.takeIf { it in 20..3000 }?.let { x -> set { it.copy(a = x) } } }, "300",
-                    number = true, labelRight = "mm", error = if (ea) tr("tl.sizeErr") else null, showError = true, modifier = Modifier.weight(1f))
-                GField(tr("tl.side2"), tb, { v -> tb = v.filter { it.isDigit() }.take(4); tb.toIntOrNull()?.takeIf { it in 20..3000 }?.let { x -> set { it.copy(b = x) } } }, "600",
-                    number = true, labelRight = "mm", error = if (eb) tr("tl.sizeErr") else null, showError = true, modifier = Modifier.weight(1f))
+                // what is typed is what the layout gets, wrong or not: a wrong size keeps Next off (no earlier value slips through)
+                GField(tr("tl.side1"), ta, { v -> ta = v.filter { it.isDigit() }.take(4); val x = ta.toIntOrNull() ?: 0; set { it.copy(a = x) } }, "300",
+                    number = true, labelRight = tr("u.mm"), error = if (ea) tr("tl.sizeErr") else null, showError = true, modifier = Modifier.weight(1f))
+                GField(tr("tl.side2"), tb, { v -> tb = v.filter { it.isDigit() }.take(4); val x = tb.toIntOrNull() ?: 0; set { it.copy(b = x) } }, "600",
+                    number = true, labelRight = tr("u.mm"), error = if (eb) tr("tl.sizeErr") else null, showError = true, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -373,7 +379,7 @@ private fun SizeStep(d: TileLayout, set: ((TileLayout) -> TileLayout) -> Unit) {
 private fun SecondStep(d: TileLayout, set: ((TileLayout) -> TileLayout) -> Unit) {
     val needs = d.pattern == "chess" || d.pattern == "border"
     Ask(tr(if (needs) "tl.s.second" else "tl.s.accent"), tr(when (d.pattern) { "chess" -> "tl.s.secondC"; "border" -> if (d.place == "floor") "tl.s.secondB" else "tl.s.secondF"; else -> "tl.s.accentH" })) {
-        if (!needs) Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.75f)).clickable(role = Role.Switch) { set { it.copy(accent = !it.accent) } }
+        if (!needs) Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.75f)).switchState(d.accent).clickable(role = Role.Switch) { set { it.copy(accent = !it.accent) } }
             .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(tr("tl.accentOn"), style = ui(15f, 700), modifier = Modifier.weight(1f)); GSwitch(d.accent)
         }
@@ -387,7 +393,7 @@ private fun SecondStep(d: TileLayout, set: ((TileLayout) -> TileLayout) -> Unit)
             if (d.place != "floor") {
                 Text(tr("tl.s.bandAt"), style = ui(15f, 700))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf(900, 1200, 1500, 1800).forEach { h -> Chip(fmtLen(h, LenUnit.M, LocalLang.current == Lang.EN) + " m", d.band == h) { set { it.copy(band = h) } } }
+                    listOf(900, 1200, 1500, 1800).forEach { h -> Chip(fmtLen(h, LenUnit.M, LocalLang.current == Lang.EN) + " " + tr("u.m"), d.band == h) { set { it.copy(band = h) } } }
                 }
             }
         }
@@ -427,7 +433,7 @@ private fun WhereStep(p: Project, d: TileLayout, lang: Lang, snap: Boolean, set:
             val w = p.floors.firstOrNull { it.id == r.floorId }
             val on = d.roomId == r.id
             val ready = measuredRoom(r, snap)
-            Option(w?.let { floorName(it, lang) } ?: dn(r.name, lang), if (ready && !r.isPoly) fmtLen(r.dim("A").v, LenUnit.M, en) + " × " + fmtLen(r.dim("B").v, LenUnit.M, en) + " m"
+            Option(w?.let { floorName(it, lang) } ?: dn(r.name, lang), if (ready && !r.isPoly) fmtLen(r.dim("A").v, LenUnit.M, en) + " × " + fmtLen(r.dim("B").v, LenUnit.M, en) + " " + tr("u.m")
                 else tr(if (ready) "tl.measured" else "fo.notMeasured"), on) {
                 set { it.copy(roomId = r.id, panel = null, surfs = defaultSurfs(it, r, p, snap)) }
             }
@@ -435,8 +441,8 @@ private fun WhereStep(p: Project, d: TileLayout, lang: Lang, snap: Boolean, set:
         Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(RoundedCornerShape(16.dp)).dashedGlass(16.dp).clickable(role = Role.Button) {
             if (!app.once()) return@clickable
             val type = when (d.place) { "bath" -> "bath"; "apron" -> "kitchen"; else -> "living" }
-            val base = app.t(roomKey(type)); val k = p.floors.count { it.name.startsWith(base) }
-            val rid = app.addTileRoom(p.id, type, if (k > 0) "$base ${k + 1}" else base)
+            // the suggested name kept as its key, so it follows the language
+            val rid = app.addTileRoom(p.id, type, uz.metrx.app.data.suggestedName(uz.metrx.app.data.nextName(p, roomKey(type), app.settings.lang), roomKey(type), app.settings.lang))
             val r = app.store.get(p.id)?.rooms?.firstOrNull { it.id == rid }
             set { it.copy(roomId = rid, panel = null, surfs = defaultSurfs(it, r, p, snap)) }
         }.padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -465,7 +471,7 @@ private fun SurfStep(p: Project, r: Room, d: TileLayout, snap: Boolean, set: ((T
         walls(r, snap).forEach { w ->
             val s = d.surfs.firstOrNull { it.id == w.id }
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).padding(bottom = if (s != null) 10.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Check(tr("tl.wallN", "w" to w.id), w.len?.let { fmtLen(it, LenUnit.M, en) + " m" }, s != null) { toggle(w.id) { TSurf(w.id) } }
+                Check(tr("tl.wallN", "w" to w.id), w.len?.let { fmtLen(it, LenUnit.M, en) + " " + tr("u.m") }, s != null) { toggle(w.id) { TSurf(w.id) } }
                 if (s != null) Column(Modifier.padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Seg(listOf("full" to tr("tl.m.full"), "to" to tr("tl.m.to"), "band" to tr("tl.m.band")), s.mode) { m ->
                         change(when (m) { "to" -> s.copy(mode = "to", h0 = 0, h1 = if (s.h1 > 0) s.h1 else 1500); "band" -> s.copy(mode = "band", h0 = if (s.h0 > 0) s.h0 else APRON_H0, h1 = if (s.h1 > s.h0 && s.h1 > 0) s.h1 else APRON_H1); else -> s.copy(mode = "full") })
@@ -474,7 +480,7 @@ private fun SurfStep(p: Project, r: Room, d: TileLayout, snap: Boolean, set: ((T
                         if (s.mode == "band") HeightField(tr("tl.h0"), s.h0, unit, en, uw, "${w.id}0", Modifier.weight(1f)) { v -> change(s.copy(h0 = v)) }
                         HeightField(tr(if (s.mode == "band") "tl.h1b" else "tl.h1"), s.h1, unit, en, uw, "${w.id}1", Modifier.weight(1f)) { v -> change(s.copy(h1 = v)) }
                     }
-                    if (d.accent) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable(role = Role.Switch) { change(s.copy(alt = !s.alt)) }.padding(vertical = 4.dp),
+                    if (d.accent) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).switchState(s.alt).clickable(role = Role.Switch) { change(s.copy(alt = !s.alt)) }.padding(vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically) { Text(tr("tl.accentWall"), style = ui(14f, 600), modifier = Modifier.weight(1f)); GSwitch(s.alt) }
                 }
             }
@@ -491,8 +497,11 @@ private fun SurfStep(p: Project, r: Room, d: TileLayout, snap: Boolean, set: ((T
 private fun HeightField(label: String, mm: Int, unit: LenUnit, en: Boolean, uw: String, key: String, modifier: Modifier, onMm: (Int) -> Unit) {
     var t by rememberSaveable(key) { mutableStateOf(if (mm > 0) fmtField(mm, unit, en) else "") }
     val v = parseMm(t, unit)
-    GField(label, t, { s -> t = s.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(7); parseMm(t, unit)?.takeIf { it <= 20_000 }?.let(onMm) }, "1,5",
-        decimal = true, labelRight = uw, error = if (v == null) tr("tl.sizeErr") else null, showError = t.isNotEmpty(), modifier = modifier)
+    // too big is refused and said (it is not cut to what was typed before: 999 m is not kept as 9 m)
+    val big = v != null && v > 20_000
+    GField(label, t, { s -> t = s.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(7); parseMm(t, unit).let { x -> onMm(if (x != null && x <= 20_000) x else 0) } }, "1,5",
+        decimal = true, labelRight = uw, error = if (big) tr("tl.sizeMax", "v" to fmtLen(20_000, unit, en) + " " + uw) else if (v == null) tr("tl.sizeErr") else null,
+        showError = t.isNotEmpty(), modifier = modifier)
 }
 
 @Composable

@@ -147,6 +147,9 @@ fun NumField(label: String?, value: String, onValue: (String) -> Unit, suffix: S
     }
 }
 
+/** The longest name a room, a workspace or a product takes: a longer one does not fit the plan, the cards or the PDF. */
+const val NAME_MAX = 40
+
 /* ---------------- a new room: name and shape (prototype SHEETS.newRoom) ---------------- */
 
 @Composable
@@ -156,14 +159,17 @@ private fun NewRoomSheet(s: Sheet.NewRoom) {
     val p = app.store.get(s.pid) ?: run { app.close(); return }
     val w = p.floors.firstOrNull { it.id == s.wid } ?: run { app.close(); return }
     val own = w.type in listOf("room", "bath", "kitchen", "balcony") && p.rooms.none { it.floorId == w.id }
-    var name by rememberSaveable { mutableStateOf(if (own) floorName(w, lang) else app.t("real.roomN", "n" to p.rooms.size + 1)) }
+    val roomN = p.rooms.size + 1
+    var name by rememberSaveable { mutableStateOf(if (own) floorName(w, lang) else app.t("real.roomN", "n" to roomN)) }
     val err = if (name.isBlank()) tr("nr.nameReq") else null
     fun create(shape: String) {
         if (name.isBlank()) return
         val now = System.currentTimeMillis()
+        // the suggested name is kept as a key ("Xona 1" follows the language, as "1-qavat" does); a typed one as typed
+        val nm = if (own && name.trim() == floorName(w, lang)) w.name else uz.metrx.app.data.suggestedName(name, "real.roomN", app.settings.lang, mapOf("n" to roomN))
         val r = when (shape) {
-            "lshape" -> Room(uid(), w.id, name.trim(), template = "poly", shape = "poly", dims = polyDims(L_SHAPE.size), poly = Poly(L_SHAPE, template = "lshape"), created = now)
-            else -> Room(uid(), w.id, name.trim(), created = now)
+            "lshape" -> Room(uid(), w.id, nm, template = "poly", shape = "poly", dims = polyDims(L_SHAPE.size), poly = Poly(L_SHAPE, template = "lshape"), created = now)
+            else -> Room(uid(), w.id, nm, created = now)
         }
         app.store.update(p.id) { it.copy(rooms = it.rooms + r) }
         app.close()
@@ -171,7 +177,7 @@ private fun NewRoomSheet(s: Sheet.NewRoom) {
         if (shape == "lshape") app.say("sk.created", "n" to dn(r.name, lang)) else app.ops.focus(r.id, "A")
     }
     GlassSheet(tr("nr.title"), { app.close() }, footer = { GBtn(tr("nr.create"), { create("rect") }, enabled = err == null) }) {
-        GField(tr("nr.name"), name, { name = it }, tr("smp.living"), error = err, showError = true, imeAction = ImeAction.Done, onIme = { create("rect") })
+        GField(tr("nr.name"), name, { name = it.take(NAME_MAX) }, tr("smp.living"), error = err, showError = true, imeAction = ImeAction.Done, onIme = { create("rect") })
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(tr("nr.shape"), style = ui(15f, 700))
             ShapeRow("M2 2H32V24H2Z", tr("nr.rect"), true) {}
@@ -208,7 +214,7 @@ private fun MeasureSheet(s: Sheet.Measure) {
     val title = when { s.k == "H" -> tr("ed.H"); s.k == "T" -> tr("ed.T"); s.k.startsWith("X") -> tr("sk.diagName", "d" to s.k); else -> tr("ed.wallLen", "w" to s.k) }
     var v by rememberSaveable { mutableStateOf("") }
     var touched by remember { mutableStateOf(false) }
-    val parsed = lenErr(v, dimMax(s.k), unit, en)
+    val parsed = lenErr(v, dimMax(s.k), unit, en, min = uz.metrx.app.geo.dimMin(s.k, r.isPoly))
     val err = errText(parsed)
     val fr = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { fr.requestFocus() } }
@@ -224,7 +230,9 @@ private fun MeasureSheet(s: Sheet.Measure) {
             Text(tr("ms.discBody"), style = ui(13.5f, 500, AMBER, 1.35f), modifier = Modifier.weight(1f))
             Text(tr("ms.connect"), style = ui(14f, 700, G.cobalt), modifier = Modifier.clickable(role = Role.Button) { app.sheet = Sheet.Device }.padding(6.dp))
         }
-        NumField(title, v, { v = it }, app.unitName(), err, touched && v.isNotEmpty() || touched, onBlur = { touched = true }, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
+        // a wrong value says why as it is typed (Save stays off without a word otherwise)
+        NumField(title, v, { v = it }, app.unitName(), err, v.isNotEmpty() || touched, onBlur = { touched = true }, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
+        if (s.k == "H" && ((parsed as? Parsed.Ok)?.value ?: 0) > uz.metrx.app.geo.H_TALL) Text(tr("ms.tall"), style = ui(13f, 500, G.amberInk, 1.35f))
         Text(tr("ms.hint", "ex" to fmtLen(4255, unit, en)), style = ui(13f, 400, G.ink2))
         Text(tr("ms.current", "v" to if (d.v != null) fmtLen(d.v, unit, en, true) + " " + app.unitName() + " (" + tr("src.${d.src ?: "manual"}") + ")" else tr("ms.none")), style = ui(13f, 400, G.ink2))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MIcon("info", G.ink2, 17.dp, 2f); Text(tr("ms.manualNote"), style = ui(13f, 400, G.ink2, 1.4f)) }
@@ -423,7 +431,7 @@ private fun OpeningSheet(s: Sheet.OpeningForm) {
  * drawn room's walls) scroll sideways instead of squeezing.
  */
 @Composable
-internal fun Seg(items: List<Pair<String, String>>, cur: String, subs: Map<String, String> = emptyMap(), onPick: (String) -> Unit) {
+internal fun Seg(items: List<Pair<String, String>>, cur: String, subs: Map<String, String> = emptyMap(), lines: Int = 1, onPick: (String) -> Unit) {
     val scroll = items.size > 4; val sc = rememberScrollState()
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(G.ink.copy(alpha = .06f)).let { if (scroll) it.horizontalScroll(sc) else it }.padding(3.dp),
         horizontalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -434,7 +442,10 @@ internal fun Seg(items: List<Pair<String, String>>, cur: String, subs: Map<Strin
                     .clickable(role = Role.Tab) { onPick(k) }.padding(horizontal = 6.dp, vertical = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center
             ) {
-                Text(label, style = ui(14f, if (on) 600 else 500, if (on) G.ink else G.ink2), maxLines = 1)
+                // [lines] 2: a long label (table legs, the top's board) wraps instead of being cut
+                Text(label, style = ui(if (lines > 1) 13f else 14f, if (on) 600 else 500, if (on) G.ink else G.ink2, if (lines > 1) 1.2f else null)
+                    .let { if (lines > 1) it.copy(textAlign = androidx.compose.ui.text.style.TextAlign.Center) else it }, maxLines = lines,
+                    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
                 subs[k]?.let { Text(it, style = num(11.5f, 400, if (on) G.ink else G.ink2)) }
             }
         }
@@ -487,7 +498,7 @@ private fun RoomInfoSheet(s: Sheet.RoomInfo) {
             Hairline(); Kv(tr("rp.gross"), a?.gross?.let { fmtArea(it, en) + " " + tr("u.m2") } ?: "—")
             Hairline(); Kv(tr("rp.openings"), a?.open?.let { fmtArea(it, en) + " " + tr("u.m2") } ?: "—")
             Hairline(); Kv(tr("rp.net"), a?.net?.let { fmtArea(it, en) + " " + tr("u.m2") } ?: "—")
-            Hairline(); Kv(tr("ri.volume"), if (a != null && H != null) "%.2f".format(java.util.Locale.ROOT, a.floor.toDouble() * H / 1e9).replace('.', if (en) '.' else ',') + " m³" else "—", bold = true)
+            Hairline(); Kv(tr("ri.volume"), if (a != null && H != null) "%.2f".format(java.util.Locale.ROOT, a.floor.toDouble() * H / 1e9).replace('.', if (en) '.' else ',') + " " + tr("u.m3") else "—", bold = true)
         }
         if (n > 0 && a != null) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.amberWash).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MIcon("clock", AMBER, 18.dp, 2f); Text(tr("rp.prov", "n" to n), style = ui(13.5f, 500, AMBER))
@@ -524,7 +535,7 @@ private fun RenameSheet(s: Sheet.RoomRename) {
     // an unchanged name that was a key stays a key, so it still follows the language
     fun save() { if (err == null) app.ops.rename(s.pid, s.rid, if (v.trim() == dn(r.name, lang)) r.name else v) }
     GlassSheet(tr("room.rename"), { app.close() }, footer = { GBtn(tr("common.save"), ::save, enabled = err == null) }) {
-        GField(tr("nr.name"), v, { v = it }, error = err, showError = true, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
+        GField(tr("nr.name"), v, { v = it.take(NAME_MAX) }, error = err, showError = true, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
     }
 }
 

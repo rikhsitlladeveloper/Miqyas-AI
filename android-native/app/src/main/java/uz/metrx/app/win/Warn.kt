@@ -54,6 +54,8 @@ fun sashWarnings(it: WinItem, roomId: String?): List<WWarn> {
 fun placedWarnings(c: WCtx, pl: Placed, obs: List<Obst>, doors: List<Sweep>): List<WWarn> {
     val it = pl.it; val o = pl.o
     val out = ArrayList<WWarn>()
+    // the opening was made a door (or a window) after the product went in: it is the wrong kind for it now
+    if (!fillsType(it.kind, o.type)) out += WWarn("dw.w.type", c.id, it.id, mapOf("k" to "~dw.k.${it.kind}", "o" to "~" + (if (o.type == "door") "op.door" else "op.window")))
     if (it.w > o.w || it.h > o.h) out += WWarn("dw.w.big", c.id, it.id, mapOf("w" to cm(it.w.toDouble()), "h" to cm(it.h.toDouble()), "a" to cm(o.w.toDouble()), "b" to cm(o.h.toDouble())))
     if (!it.isDoor && it.sill > 0 && it.sill > pl.r + SILL_OVER_MAX)
         out += WWarn("dw.w.sill", c.id, it.id, mapOf("s" to cm(it.sill.toDouble()), "r" to cm(pl.r.toDouble()), "m" to cm((it.sill - pl.r).toDouble())))

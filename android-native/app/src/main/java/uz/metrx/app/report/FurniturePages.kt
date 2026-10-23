@@ -59,6 +59,9 @@ private fun Doc.metres(mm: Int): String {
 /** "Oshxona 1 (L, 5,4 pog. m): korpus, fasadlar, stoleshnitsa, furnitura" or "Shkaf 1 (2400 × 2500, 4 bo‘lim, 7 eshik)". */
 private fun Doc.pieceText(f: Furniture, ws: Workshop?): String {
     val name = dn(f.name, l)
+    // a bed, a table, a stenka, a corner piece…: its own sizes (the first box alone would tell the wrong ones)
+    if (f.kind == "wardrobe" && (uz.metrx.app.furniture.isItemPiece(f) || uz.metrx.app.furniture.boxes(f).size > 1))
+        return uz.metrx.app.furniture.sizeLine(f, ws ?: Workshop(), t("u.mm")).let { if (it.isEmpty()) name else "$name ($it)" }
     return if (f.kind == "wardrobe") {
         val m = f.modules.firstOrNull { it.type == "wardrobe" } ?: return name
         val doors = m.sections.sumOf { if (it.fronts.kind == "door") it.fronts.n else 0 }
@@ -114,6 +117,16 @@ fun furniturePages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?,
     return d.finish()
 }
 
+/**
+ * A board's or the handle's name in the report's language: the app's own preset ("LDSP 16 · Oq", "Tutqich skoba 128")
+ * by its strings key; a name the workshop typed or changed stays as typed.
+ */
+internal fun Doc.presetName(id: String?, name: String): String {
+    uz.metrx.app.furniture.MAT_PRESETS.firstOrNull { it.id == id && it.name == name }?.let { m -> if (uz.metrx.app.core.Strings.has("mp.${m.id}")) return t("mp.${m.id}") }
+    uz.metrx.app.furniture.HW_PRESETS.firstOrNull { (it.id == id || id == null) && it.name == name }?.let { h -> if (uz.metrx.app.core.Strings.has("hp.${h.id}")) return t("hp.${h.id}") }
+    return name
+}
+
 /** Carcass, fronts, worktop and handles as colour swatches with their names. */
 private fun Doc.materials(sn: Snap) {
     val entries = ArrayList<Triple<String, String, String?>>()   // role label, name, colour
@@ -122,12 +135,12 @@ private fun Doc.materials(sn: Snap) {
         val ids = sn.furniture.map(get).distinct()
         ids.forEach { id ->
             val who = if (ids.size > 1) " (" + sn.furniture.filter { get(it) == id }.joinToString { dn(it.name, l) } + ")" else ""
-            entries += Triple(t("wd.$role") + who, mat(id)?.name ?: id, mat(id)?.rgb)
+            entries += Triple(t("wd.$role") + who, mat(id)?.let { presetName(it.id, it.name) } ?: id, mat(id)?.rgb)
         }
     }
-    if (sn.furniture.any { it.kind == "kitchen" }) mat("wt38")?.let { entries += Triple(t("mt.wtK"), it.name, it.rgb) }
-    if (sn.furniture.any { (it.kx?.splash ?: 0) > 0 }) mat("splash6")?.let { entries += Triple(t("mt.splashK"), it.name, it.rgb) }
-    if (sn.fhandles.isNotBlank() && sn.furniture.any { f -> f.modules.any { it.handles } }) entries += Triple(t("hk.handle"), sn.fhandles, null)
+    if (sn.furniture.any { it.kind == "kitchen" }) mat("wt38")?.let { entries += Triple(t("mt.wtK"), presetName(it.id, it.name), it.rgb) }
+    if (sn.furniture.any { (it.kx?.splash ?: 0) > 0 }) mat("splash6")?.let { entries += Triple(t("mt.splashK"), presetName(it.id, it.name), it.rgb) }
+    if (sn.fhandles.isNotBlank() && sn.furniture.any { f -> f.modules.any { it.handles } }) entries += Triple(t("hk.handle"), presetName(null, sn.fhandles), null)
     if (entries.isEmpty()) return
     h2(t("fd.mats"))
     // the swatch in a narrow first column
@@ -208,7 +221,7 @@ fun workshopPages(tm: TextMeasurer, sn: Snap, ws: Workshop, mats: List<Mat>, hws
     d.subLine = d.t("fw.sub", "d" to fmtDate(now))
     val fs = labelled(sn.furniture)
     val cost = costOf(fs, ws, mats, hws)
-    fun matName(id: String) = mats.firstOrNull { it.id == id }?.name ?: id
+    fun matName(id: String) = mats.firstOrNull { it.id == id }?.let { d.presetName(it.id, it.name) } ?: id
     d.newPage()
     d.para(AnnotatedString(dn(sn.name, d.l) + " · " + fs.joinToString(" + ") { dn(it.name, d.l) }), d.ui(11f, 600), 0f, 4f)
     d.para(AnnotatedString(d.t("fw.inside")), d.ui(9f, 700, F_INK3), 0f, 8f)
@@ -221,7 +234,7 @@ fun workshopPages(tm: TextMeasurer, sn: Snap, ws: Workshop, mats: List<Mat>, hws
         sum += listOf(d.cell(dn(matName(lay.mat), d.l)), d.rcell("${lay.sheets.size}"), d.rcell("$parts"), d.rcell("${(lay.waste * 100).toInt()} %"))
     }
     cost.lines.filter { it.group == "mat" && (it.unit == "m") }.forEach { ln ->
-        sum += listOf(d.cell(dn(matName(ln.key), d.l)), d.rcell(fmtQty(d, ln.qty) + " m"), d.cell(""), d.cell(""))
+        sum += listOf(d.cell(dn(matName(ln.key), d.l)), d.rcell(fmtQty(d, ln.qty) + " " + d.t("u.m")), d.cell(""), d.cell(""))
     }
     d.table(sum, head = 1)
     cost.layouts.filter { it.unplaced.isNotEmpty() }.forEach { lay -> d.fn(d.t("fw.unplaced", "m" to matName(lay.mat), "n" to lay.unplaced.size)) }
@@ -248,7 +261,7 @@ fun workshopPages(tm: TextMeasurer, sn: Snap, ws: Workshop, mats: List<Mat>, hws
     hr += listOf(d.th(d.t("fw.c.name")), d.th(d.t("fw.c.qty"), true), d.th(d.t("fw.c.price"), true), d.th(d.t("fw.c.sum"), true))
     cost.lines.filter { it.group == "hw" }.forEach { ln ->
         val hw = hws.firstOrNull { it.id == ln.key }
-        hr += listOf(d.cell(hw?.name ?: d.t("hk.${ln.key}")), d.rcell(fmtQty(d, ln.qty) + (when (ln.unit) { "m" -> " m"; "m2" -> " m²"; else -> "" })),
+        hr += listOf(d.cell(hw?.let { d.presetName(it.id, it.name) } ?: d.t("hk.${ln.key}")), d.rcell(fmtQty(d, ln.qty) + (when (ln.unit) { "m" -> " " + d.t("u.m"); "m2" -> " " + d.t("u.m2"); else -> "" })),
             d.rcell(if (ln.missing) "—" else d.money(ln.price)), d.rcell(d.money(ln.amount)))
     }
     hr += listOf(d.cell(d.t("r.total"), d.ui(10f, 700), span = 3), d.rcell(d.money(cost.sum("hw")), d.num(10f, 700)))

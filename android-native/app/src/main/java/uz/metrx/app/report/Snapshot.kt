@@ -23,7 +23,18 @@ import uz.metrx.app.geo.LenUnit
  */
 fun snapshotOf(p: Project, s: Settings, pdf: PdfParts = s.pdf): Snap =
     snapshotOf(p, s.unit, s.builderName, s.builderPhone, pdf, s.angleSnap).let { if (p.isFurniture) furnSnap(it, p, s.workshop, s.mats, s.hws) else if (p.isElec) elecSnap(it, p, s.angleSnap) else if (p.isPlumb) plumbSnap(it, p, s.angleSnap)
-        else if (p.isWin) winSnap(it, p, if (s.advanced) s.trade.win else null) else it }
+        else if (p.isWin) winSnap(it, p, if (s.advanced) s.trade.win else null) else if (p.isTiler) tileSnap(it, p) else it }
+        .let { if (p.isElec || p.isPlumb || p.isWin) withCalcRooms(it, p) else it }
+
+/** A tiler's order's part of the snapshot: its layouts and rooms' extras, for the layout drawings. */
+fun tileSnap(sn: Snap, p: Project): Snap = if (p.tiles.isEmpty()) sn else sn.copy(tiles = p.tiles, troom = p.troom)
+
+/** The rooms left out of the report, so a trade's circuits, pipes and windows are worked out with every room (only the ticked ones are drawn). */
+fun withCalcRooms(sn: Snap, p: Project): Snap {
+    val l = Lang.of(p.reportLang)
+    val out = p.rooms.filter { p.reportRooms[it.id] == false }.map { r -> SnapRoom(r.copy(views = emptyList()), p.floors.firstOrNull { it.id == r.floorId }?.let { floorName(it, l) } ?: "") }
+    return if (out.isEmpty()) sn else sn.copy(calcRooms = out)
+}
 
 /** An electrician's order's part of the snapshot: its devices, panel and rooms, each room's kind written down. */
 fun elecSnap(sn: Snap, p: Project, snap: Boolean): Snap {
@@ -73,7 +84,7 @@ fun snapshotOf(p: Project, unit: LenUnit, builderName: String, builderPhone: Str
     return Snap(
         name = p.name, customer = p.customer, phone = p.phone, address = p.address, location = p.location,
         currency = p.currency, precision = p.precision, unit = if (unit == LenUnit.CM) "cm" else "m", lang = l.code, notes = p.reportNotes,
-        builderName = builderName, builderPhone = builderPhone, pdf = pdf, rooms = rooms, estimate = p.estimate, extras = extras, snap = snap
+        builderName = builderName, builderPhone = builderPhone, pdf = pdf, rooms = rooms, estimate = p.estimate, extras = extras, snap = snap, industry = p.industry
     )
 }
 
@@ -117,6 +128,8 @@ fun fingerprint(sn: Snap): String {
         (if (handlesPrinted(sn) && sn.fhandles != HANDLE_PRESET) listOf(JsonArray(listOf(str("hd"), str(sn.fhandles)))) else emptyList()) +
         (if (sn.elec == null) emptyList() else listOf(JsonArray(listOf(str("el"), json.encodeToJsonElement(sn.elec))))) +
         (if (sn.plumb == null) emptyList() else listOf(JsonArray(listOf(str("pl"), json.encodeToJsonElement(sn.plumb))))) +
-        (if (sn.win == null) emptyList() else listOf(JsonArray(listOf(str("dw"), json.encodeToJsonElement(sn.win), json.encodeToJsonElement(sn.winPrice)))))
+        (if (sn.win == null) emptyList() else listOf(JsonArray(listOf(str("dw"), json.encodeToJsonElement(sn.win), json.encodeToJsonElement(sn.winPrice))))) +
+        // the tile layouts are not in it: tilers' quotes issued before the layout drawings still match (their estimate follows the layouts)
+        (if (sn.calcRooms.isEmpty()) emptyList() else listOf(JsonArray(listOf(str("cr"), json.encodeToJsonElement(sn.calcRooms.map { it.room })))))
     return JsonArray(all).toString()
 }

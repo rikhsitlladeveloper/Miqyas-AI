@@ -33,6 +33,9 @@ data class ECount(
     val points get() = sockets + switches + lights + low
 }
 
+/** Less cable than this (m, with the spare) is bought by the metre; more in whole coils. */
+const val COIL_FROM = 50
+
 /** Whole coils of [COIL] m for [m] metres. */
 fun coilsFor(m: Double) = if (m <= 0) 0 else ceil(m / COIL - 1e-9).toInt()
 
@@ -74,7 +77,8 @@ fun countOf(p: Project, cs: List<ECtx>, rt: Routes): ECount {
     // a junction box in every room with devices, where none was placed
     val jb = cs.sumOf { c -> val ds = devsIn(p, c); if (ds.any { it.t == "jb" }) ds.count { it.t == "jb" } else if (ds.any { devType(it.t).cat != "box" }) 1 else 0 }
     // chases and channels: each stretch of wall once (cables share them), each drop once; pipe: every cable its own
-    var wallM = 0.0; var drops = 0.0; var ceilM = 0.0; var rises = 0.0
+    // the rise from the panel: one shared chase or channel (the longest), but in gofra every circuit has its own pipe
+    var wallM = 0.0; var drops = 0.0; var ceilM = 0.0; var rises = 0.0; var risesAll = 0.0
     cs.forEach { c ->
         val runs = rt.inRoom(c.id)
         if (runs.isEmpty()) return@forEach
@@ -82,11 +86,12 @@ fun countOf(p: Project, cs: List<ECtx>, rt: Routes): ECount {
         drops += runs.flatMap { it.drops.entries }.associate { it.key to it.value }.values.sum()
         ceilM += runs.sumOf { it.ceil }
         rises = max(rises, runs.maxOf { it.rise })
+        risesAll += runs.sumOf { it.rise }
     }
     val cableM = rt.circuits.sumOf { rt.cableOf(it) } / 1000
     val m = { v: Double -> v / 1000 }
     val (chase, gofra, channel) = when (rt.method) {
-        "gofra" -> Triple(m(drops), m(ceilM + rises), 0.0)
+        "gofra" -> Triple(m(drops), m(ceilM + risesAll), 0.0)
         "channel" -> Triple(0.0, 0.0, m(wallM + drops + rises + ceilM))
         else -> Triple(m(wallM + drops + rises), m(ceilM), 0.0)
     }
@@ -125,7 +130,11 @@ fun elecRows(p: Project, t: TradeSet, snap: Boolean, name: (String, Map<String, 
     fun lab(key: String, amount: Double, vars: Map<String, Any> = emptyMap()) { if (amount > 0) labor += Row("t-$key", name("el.e.$key", vars), amount = money(amount)) }
     c.cables.forEach { n ->
         val price = when (n.type) { "1.5" -> t.pCab15; "6" -> t.pCab6; "utp" -> t.pUtp; else -> t.pCable }
-        mat("cab", "m", n.coils * COIL.toDouble(), price, mapOf("c" to (if (n.type == "utp") "UTP" else "VVG " + cableName(n.type)), "n" to n.coils), "cab" + n.type)
+        // (a non-breaking space after VVG: a stored line's values lose plain spaces)
+        val name = if (n.type == "utp") "UTP" else "VVG " + cableName(n.type)
+        // a short run is bought by the metre, from [COIL_FROM] m in whole coils
+        if (n.coils == 0 || n.withSpare < COIL_FROM) mat("cabM", "m", ceil(n.withSpare - 1e-9), price, mapOf("c" to name), "cab" + n.type)
+        else mat("cab", "m", n.coils * COIL.toDouble(), price, mapOf("c" to name, "n" to n.coils), "cab" + n.type)
     }
     mat("sock", "pcs", c.sockets.toDouble(), t.pSocket)
     mat("sw", "pcs", c.switches.toDouble(), t.pSwitch)
@@ -142,8 +151,10 @@ fun elecRows(p: Project, t: TradeSet, snap: Boolean, name: (String, Map<String, 
     mat("gofra", "m", ceil(c.gofraM - 1e-9), t.pConduit)
     mat("chan", "m", ceil(c.channelM - 1e-9), t.pChan)
     lab("lPts", c.points * num(t.lPoint), mapOf("n" to c.points))
-    lab("lChase", c.chaseM * num(t.lChase), mapOf("a" to qty(Math.round(c.chaseM * 10) / 10.0)))
-    lab("lCable", c.cableM * num(t.lMetre), mapOf("a" to qty(Math.round(c.cableM * 10) / 10.0)))
+    // the metres a labour line shows are the ones it is priced by, so quantity × rate is its amount
+    val chaseM = Math.round(c.chaseM * 10) / 10.0; val cableM = Math.round(c.cableM * 10) / 10.0
+    lab("lChase", chaseM * num(t.lChase), mapOf("a" to qty(chaseM)))
+    lab("lCable", cableM * num(t.lMetre), mapOf("a" to qty(cableM)))
     if (c.breakers.isNotEmpty()) lab("lPanel", num(t.lPanel), mapOf("n" to c.circuits))
     return TradeResult(mats, labor, mapOf("points" to c.points.toDouble(), "cable" to c.cableM))
 }

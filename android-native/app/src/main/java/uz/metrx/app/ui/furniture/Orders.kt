@@ -415,6 +415,7 @@ private fun IndustrySheet() {
             Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).clip(RoundedCornerShape(16.dp)).background(if (on) G.cobalt.copy(alpha = .1f) else G.idle(.6f))
                 .border(1.dp, if (on) G.cobalt.copy(alpha = .5f) else G.idleRim, RoundedCornerShape(16.dp))
                 .clickable(role = Role.RadioButton) {
+                    if (k != cur) app.dropRole()
                     app.settings.setIndustryKind(k); app.sheet = null
                     if (k == "furniture" && app.calc.tool == "brick") app.calc.tool = "sheet"
                     if (k == "build" && app.calc.tool == "sheet") app.calc.tool = "area"

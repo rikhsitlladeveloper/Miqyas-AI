@@ -144,7 +144,8 @@ private fun App.ward(pid: String, fid: String, fn: (Module) -> Module) =
         val many = uz.metrx.app.furniture.boxes(x).size > 1
         val y = x.copy(modules = x.modules.map { if (it.id == cur.id) fn(it).let { m ->
             // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
-            if (many) m else uz.metrx.app.furniture.withSides(m, room?.let { r -> wallLen(r, settings.angleSnap, m.wall ?: "") } ?: (m.x + m.w + W_GAP_SIDE), x.pose != null)
+            // without a room there are no walls to meet: its side panels stay as they are (a free-standing kupe keeps both)
+            if (many || room == null) m else uz.metrx.app.furniture.withSides(m, wallLen(room, settings.angleSnap, m.wall ?: ""), x.pose != null)
         } else it })
         // the other boxes make room: a stenka's pieces side by side, a corner's arms, a box on another
         uz.metrx.app.furniture.packPiece(y, room?.let { r -> wallLen(r, settings.angleSnap, x.walls.firstOrNull() ?: "") }, cur.id, settings.workshop)
@@ -169,7 +170,13 @@ private class WardCtx(p: Project, f: Furniture, m: Module, ws: Workshop, snap: B
     val room = roomOf(p, f)
     val wallL = room?.let { wallLen(it, snap, m.wall ?: "") }
     val roomH = wardRoomH(room)
-    val found = wardrobeChecks(m, wallL, roomH, ws, room?.openings ?: emptyList(), room?.points ?: emptyList())
+    val found = wardrobeChecks(m, wallL, roomH, ws, room?.openings ?: emptyList(), room?.points ?: emptyList()).let { c ->
+        // a piece of several boxes (a stenka) is checked as a whole too: its run along the wall, not only the box picked
+        val w0 = f.walls.firstOrNull()
+        val runL = if (room != null && w0 != null && f.type !in uz.metrx.app.furniture.CORNER_TYPES && uz.metrx.app.furniture.boxes(f).size > 1) wallLen(room, snap, w0) else null
+        val over = runL?.let { uz.metrx.app.furniture.runStart(f) + uz.metrx.app.furniture.runLen(f) - it } ?: 0
+        if (over > 0 && c.none { it.key == "wc.wide" }) c + uz.metrx.app.furniture.FCheck("err", "wc.wide", mapOf("v" to over), m.id) else c
+    }
     /** Section number (from 1) → its worst finding. */
     val bad: Map<Int, String> = HashMap<Int, String>().apply {
         found.forEach { c -> (c.vars["s"] as? Int)?.let { n -> if (c.level == "err" || this[n] == null) this[n] = c.level } }
@@ -244,7 +251,7 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
                     val fx = sl + g + j * (fw + g)
                     drawRect(fill, Offset(fx, ft), Size(fw, fb - ft)); drawRect(onF, Offset(fx, ft), Size(fw, fb - ft), style = Stroke(.8f))
                     if (s.face == "glass") drawRect(PROFILE_C, Offset(fx, ft), Size(fw, fb - ft), style = Stroke(max(1.2f, 20 * lay.s)))
-                    if (m.handles) {
+                    if (m.handles && s.face != "glass") {
                         val hx = if (n == 2) (if (j == 0) fx + fw - 3f else fx + 3f) else (if (!uz.metrx.app.furniture.hingeRight(m, i)) fx + fw - 3f else fx + 3f)
                         // about 1 m up, but on the door of a low or hung cabinet
                         val hy = lay.y((z0 + 1000).coerceAtMost(z0 + m.h - 90).coerceAtLeast(z0 + base + 90))
@@ -418,8 +425,8 @@ fun WardrobeScreen(rt: Route.Wardrobe) {
                     Text(tr("wd.sub", "w" to m.w, "h" to outerH(m, ws), "d" to m.d, "n" to m.sections.size), style = ui(12f, 400, G.ink2), maxLines = 1)
                 }
                 GlassIconButton("undo", tr("common.undo"), { kit.undo(app, p.id, f.id) }, tint = if (kit.canUndo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
-                GlassIconButton("redo", "redo", { kit.redo(app, p.id, f.id) }, tint = if (kit.canRedo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
-                GlassIconButton("more", "menu", { app.sheet = Sheet.FMenu(p.id, f.id) })
+                GlassIconButton("redo", tr("common.redo"), { kit.redo(app, p.id, f.id) }, tint = if (kit.canRedo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
+                GlassIconButton("more", tr("common.menu"), { app.sheet = Sheet.FMenu(p.id, f.id) })
             }
             val room = cx.room
             if (room == null) {
@@ -471,7 +478,10 @@ private fun BoxPicker(p: Project, f: Furniture, cur: Module, onPick: () -> Unit)
                 uz.metrx.app.furniture.STENKA_PARTS.forEach { k ->
                     Chip("+ " + tr("pc.add.$k"), false) {
                         val nb = uz.metrx.app.furniture.stenkaPart(f, k, ws)
-                        edit { l -> val i = l.indexOfFirst { it.id == cur.id }; l.toMutableList().apply { add(if (i < 0) size else i + 1, nb) } }
+                        // a shelf hangs over a low piece, so it goes in next to one (never over a tall cabinet)
+                        edit { l -> val i = l.indexOfFirst { it.id == cur.id }
+                            val at = if (k == "shelf") uz.metrx.app.furniture.stenkaShelfAt(l, i) else if (i < 0) l.size else i + 1
+                            l.toMutableList().apply { add(at.coerceIn(0, size), nb) } }
                         app.kit.sel = nb.id; app.say("kt.added", "m" to app.t("pc.add.$k"))
                     }
                 }
@@ -483,12 +493,14 @@ private fun BoxPicker(p: Project, f: Furniture, cur: Module, onPick: () -> Unit)
                         if (i < 0 || j !in l.indices) l else l.toMutableList().apply { add(j, removeAt(i)) } } },
                         Btn.SECONDARY, icon = if (dlt < 0) "undo" else "redo", height = 42.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
                 }
+                // the last floor piece stays: the shelves hang over it
+                val canDrop = uz.metrx.app.furniture.canDropBox(f, cur)
                 GBtn(tr("common.delete"), {
-                    if (ms.size <= 1) return@GBtn
+                    if (!canDrop) return@GBtn
                     edit { l -> l.filter { it.id != cur.id } }
                     app.kit.sel = null
                     app.say("kt.deleted", "m" to app.t(uz.metrx.app.furniture.boxRole(f, cur)), action = "common.undo", onAction = { app.kit.undo(app, p.id, f.id) })
-                }, Btn.DANGER, icon = "trash", enabled = ms.size > 1, height = 42.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
+                }, Btn.DANGER, icon = "trash", enabled = canDrop, height = 42.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
             }
         }
     }
@@ -558,12 +570,12 @@ private fun PlaceStep(p: Project, f: Furniture, m: Module, cx: WardCtx, ws: Work
         walls(room, snap).forEach { w ->
             val len = wallLen(room, snap, w.id)
             Box(Modifier.onGloballyPositioned { c -> if (!shown && w.id == m.wall) { shown = true; val x = c.positionInParent().x.toInt(); if (x > 0) scope.launch { wallsSc.scrollTo(x) } } }) {
-                Chip(tr("kt.wallN", "w" to w.id) + (len?.let { " · $it" } ?: ""), w.id == m.wall) { if (w.id != m.wall) moveTo(w.id, len) }
+                Chip(tr("kt.wallN", "w" to w.id) + (len?.let { " · " + uz.metrx.app.geo.fmtLen(it, app.settings.unit, app.settings.lang == uz.metrx.app.core.Lang.EN) + " " + unitWord(app.settings.unit) } ?: ""), w.id == m.wall) { if (w.id != m.wall) moveTo(w.id, len) }
             }
         }
     }
-    ValRow(tr("wd.x"), "${m.x} mm") { app.sheet = Sheet.WField(p.id, f.id, "x") }
-    ValRow(tr("wd.w"), "${m.w} mm") { app.sheet = Sheet.WField(p.id, f.id, "w") }
+    ValRow(tr("wd.x"), "${m.x} " + tr("u.mm")) { app.sheet = Sheet.WField(p.id, f.id, "x") }
+    ValRow(tr("wd.w"), "${m.w} " + tr("u.mm")) { app.sheet = Sheet.WField(p.id, f.id, "w") }
     // the room's plan, to drag it where it should stand
     GBtn(tr("fz.move"), { app.push(Route.FPlace(p.id, f.id, room.id)) }, Btn.SECONDARY, icon = "room", height = 44.dp, corner = 14.dp, fontSize = 14f)
     if (!measured(room, snap, m.wall ?: "")) Text(tr("kt.noLen", "w" to (m.wall ?: "")), style = ui(12.5f, 500, G.amberInk, 1.4f))
@@ -573,9 +585,9 @@ private fun PlaceStep(p: Project, f: Furniture, m: Module, cx: WardCtx, ws: Work
 private fun SizeStep(p: Project, f: Furniture, m: Module, ws: Workshop) {
     val app = LocalApp.current
     Text(tr("wd.sizes"), style = ui(15.5f, 800))
-    ValRow(tr("wd.w"), "${m.w} mm") { app.sheet = Sheet.WField(p.id, f.id, "w") }
-    ValRow(tr("wd.h"), "${m.h} mm") { app.sheet = Sheet.WField(p.id, f.id, "h") }
-    ValRow(tr("wd.d"), "${m.d} mm") { app.sheet = Sheet.WField(p.id, f.id, "d") }
+    ValRow(tr("wd.w"), "${m.w} " + tr("u.mm")) { app.sheet = Sheet.WField(p.id, f.id, "w") }
+    ValRow(tr("wd.h"), "${m.h} " + tr("u.mm")) { app.sheet = Sheet.WField(p.id, f.id, "h") }
+    ValRow(tr("wd.d"), "${m.d} " + tr("u.mm")) { app.sheet = Sheet.WField(p.id, f.id, "d") }
     Text(tr("wd.base"), style = ui(14.5f, 700))
     // plinth or legs, each with its height; the whole height stays, the carcass gives way. A cabinet can hang on the wall
     // (a stacked box stands on the one under it)
@@ -585,23 +597,28 @@ private fun SizeStep(p: Project, f: Furniture, m: Module, ws: Workshop) {
     if (!stacked) Seg(listOf("plinth" to tr("wd.plinth"), "legs" to tr("wd.legs")) + (if (f.type.isNotEmpty()) listOf("wall" to tr("wd.hang")) else emptyList()), cur) { k ->
         if (k != cur) app.ward(p.id, f.id) { mm ->
             when (k) {
-                "wall" -> mm.copy(legs = false, base = 0, elev = maxOf(100, uz.metrx.app.furniture.legsOf(mm, ws) + wardBase(mm)))
+                // on the wall its top stays where it was: lifted by its plinth or legs, the carcass that much lower
+                "wall" -> {
+                    val e = maxOf(100, uz.metrx.app.furniture.legsOf(mm, ws) + wardBase(mm))
+                    mm.copy(legs = false, base = 0, elev = e, h = (outerH(mm, ws) - e).coerceAtLeast(300))
+                }
                 else -> {
                     val legs = if (k == "legs") ws.legH else 0
-                    val whole = if (uz.metrx.app.furniture.hung(mm)) mm.h + (if (k == "legs") legs else PLINTH) else outerH(mm, ws)
+                    // back on the floor: what it was lifted by (at most a plinth's or the legs' height) comes back, so a round trip keeps its height
+                    val whole = if (uz.metrx.app.furniture.hung(mm)) mm.h + minOf(mm.elev, maxOf(100, PLINTH, ws.legH)) else outerH(mm, ws)
                     mm.copy(legs = k == "legs", base = null, elev = 0, h = (whole - legs).coerceAtLeast(300))
                 }
             }
         }
     }
-    if (hung && !stacked) ValRow(tr("fz.elev"), "${m.elev} mm") { app.sheet = Sheet.WField(p.id, f.id, "e") }
-    else if (!hung) ValRow(tr(if (m.legs) "wd.legsH" else "wd.plinthH"), "${if (m.legs) uz.metrx.app.furniture.legsOf(m, ws) else wardBase(m)} mm") { app.sheet = Sheet.WField(p.id, f.id, "base") }
+    if (hung && !stacked) ValRow(tr("fz.elev"), "${m.elev} " + tr("u.mm")) { app.sheet = Sheet.WField(p.id, f.id, "e") }
+    else if (!hung) ValRow(tr(if (m.legs) "wd.legsH" else "wd.plinthH"), "${if (m.legs) uz.metrx.app.furniture.legsOf(m, ws) else wardBase(m)} " + tr("u.mm")) { app.sheet = Sheet.WField(p.id, f.id, "base") }
     // a dressing table's mirror on the wall over it
     f.modules.firstOrNull { it.type == "mirror" }?.let { r ->
         Text(tr("pc.mirror"), style = ui(14.5f, 700))
-        ValRow(tr("fz.mirW"), "${r.w} mm") { app.sheet = Sheet.IField(p.id, f.id, r.id, "w") }
-        ValRow(tr("fz.mirH"), "${r.h} mm") { app.sheet = Sheet.IField(p.id, f.id, r.id, "h") }
-        ValRow(tr("fz.elev"), "${r.elev} mm") { app.sheet = Sheet.IField(p.id, f.id, r.id, "e") }
+        ValRow(tr("fz.mirW"), "${r.w} " + tr("u.mm")) { app.sheet = Sheet.IField(p.id, f.id, r.id, "w") }
+        ValRow(tr("fz.mirH"), "${r.h} " + tr("u.mm")) { app.sheet = Sheet.IField(p.id, f.id, r.id, "h") }
+        ValRow(tr("fz.elev"), "${r.elev} " + tr("u.mm")) { app.sheet = Sheet.IField(p.id, f.id, r.id, "e") }
     }
     Stepper(tr("wd.secCount"), m.sections.size, 1, 8) { n ->
         app.ward(p.id, f.id) { mm ->
@@ -818,7 +835,7 @@ private fun WFieldSheet(s: Sheet.WField) {
         app.sheet = null
     }
     GlassSheet(title, { app.sheet = null }, footer = { GBtn(tr("common.save"), ::save, enabled = vi != null) }) {
-        GField(title, v, { v = it.filter(Char::isDigit).take(4) }, "$start", number = true, labelRight = "mm", error = tr("km.bad", "a" to range.first, "b" to range.last),
+        GField(title, v, { v = it.filter(Char::isDigit).take(4) }, "$start", number = true, labelRight = tr("u.mm"), error = tr("km.bad", "a" to range.first, "b" to range.last),
             showError = vi == null, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
         if (s.key == "secW") {
             Text(tr("wd.secNote"), style = ui(12.5f, 400, G.ink2, 1.4f))
@@ -859,9 +876,9 @@ private fun WInsertSheet(s: Sheet.WInsert) {
             GBtn(tr("common.save"), ::save, enabled = pi != null && hi != null, height = 48.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1.4f))
         }
     }) {
-        GField(tr("wd.pos"), pos, { pos = it.filter(Char::isDigit).take(4) }, "0", number = true, labelRight = "mm", error = tr("km.bad", "a" to 0, "b" to ih),
+        GField(tr("wd.pos"), pos, { pos = it.filter(Char::isDigit).take(4) }, "0", number = true, labelRight = tr("u.mm"), error = tr("km.bad", "a" to 0, "b" to ih),
             showError = pi == null, imeAction = if (block) ImeAction.Next else ImeAction.Done, onIme = { if (!block) save() })
-        if (block) GField(tr("wd.bh"), h, { h = it.filter(Char::isDigit).take(4) }, "200", number = true, labelRight = "mm", error = tr("km.bad", "a" to 60, "b" to 1200),
+        if (block) GField(tr("wd.bh"), h, { h = it.filter(Char::isDigit).take(4) }, "200", number = true, labelRight = tr("u.mm"), error = tr("km.bad", "a" to 60, "b" to 1200),
             showError = hi == null, imeAction = ImeAction.Done, onIme = ::save)
         Text(tr("wd.posNote", "v" to ih), style = ui(12.5f, 400, G.ink2, 1.4f))
     }
@@ -880,7 +897,7 @@ private fun WMoreSheet(s: Sheet.WMore) {
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Column(Modifier.weight(1f)) {
                     Text(tr("wi.$k"), style = ui(15f, 700))
-                    Text(tr("wid.$k") + if (blockH(Insert(k)) > 0) " · ${blockH(Insert(k))} mm" else "", style = ui(12.5f, 400, G.ink2))
+                    Text(tr("wid.$k") + if (blockH(Insert(k)) > 0) " · ${blockH(Insert(k))} " + tr("u.mm") else "", style = ui(12.5f, 400, G.ink2))
                 }
                 MIcon("plus", G.cobalt2, 20.dp, 2.4f)
             }

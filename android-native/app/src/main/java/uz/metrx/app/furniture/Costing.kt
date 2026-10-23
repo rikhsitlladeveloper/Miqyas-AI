@@ -35,7 +35,8 @@ fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, or
     fun mat(id: String) = mats.firstOrNull { it.id == id }
     lays.forEach { l ->
         val p = money(mat(l.mat)?.price)
-        val n = l.sheets.size
+        // a part longer than the sheet is not left out of the price: a sheet of its own each (bought longer or joined)
+        val n = l.sheets.size + l.unplaced.size
         lines += CostLine("mat", l.mat, n.toDouble(), "sheet", p ?: BigInteger.ZERO, (p ?: BigInteger.ZERO) * BigInteger.valueOf(n.toLong()), p == null)
     }
     // kitchens: the worktop as one simple item by the running metre (plan section 7; joints and cut-outs in Stage 1b)
@@ -71,7 +72,7 @@ fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, or
             else (p ?: BigInteger.ZERO) * java.math.BigDecimal(q).setScale(0, RoundingMode.UP).toBigInteger()
         lines += CostLine("hw", hw?.id ?: k, q, when { k in METRE_KINDS -> "m"; area -> "m2"; else -> "pcs" }, p ?: BigInteger.ZERO, amount, p == null)
     }
-    val sheets = lays.sumOf { it.sheets.size }
+    val sheets = lays.sumOf { it.sheets.size + it.unplaced.size }
     val modules = fs.sumOf { f -> f.modules.sumOf { m -> if (m.type == "wardrobe") maxOf(1, m.sections.size) else 1 } }
     fun lab(key: String, q: Double, unit: String, rate: String) {
         val r = money(rate) ?: BigInteger.ZERO

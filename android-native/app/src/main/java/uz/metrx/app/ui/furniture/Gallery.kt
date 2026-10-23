@@ -109,7 +109,6 @@ import uz.metrx.app.ui.theme.LocalLang
 import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
-import kotlin.random.Random
 
 /*
  * Adding furniture (decided 21 Oct 2026, mockup design/furniture/gallery-steps-mockup.html v5): one gallery of 3D cards
@@ -297,7 +296,8 @@ fun FStepsScreen(rt: Route.FSteps) {
     val uw = unitWord(unit)
     fun issueOf(i: Int): String? {
         if (steps[i].choice) return null
-        val mm = parseMm(texts[i], unit) ?: return null
+        // 0 or a wrong number says so (Next stays off without a word otherwise)
+        val mm = parseMm(texts[i], unit) ?: return if (texts[i].isBlank()) null else app.t(if (texts[i].trim().trimStart('0', ',', '.').isEmpty()) "err.zero" else "tl.sizeErr")
         return stepIssue(steps[i], mm)?.let { (k, v) -> app.t(k, "v" to fmtLen(v, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m")) }
     }
     fun ok(i: Int) = steps[i].choice || (parseMm(texts[i], unit) != null && issueOf(i) == null)
@@ -317,18 +317,16 @@ fun FStepsScreen(rt: Route.FSteps) {
     }
     BackHandler { prev() }
 
+    // the laser's newest reading not used yet (its readings' inbox); with none, nothing is made up: it says so
     fun reading() {
         if (laser == "busy" || at >= n || steps[at].choice) return
         val s = steps[at]; val i = at
-        scope.launch {
-            laser = "busy"
-            delay(900)
-            val v = ((s.usual + Random.nextInt(-120, 121)) / 5) * 5
-            texts = texts.toMutableList().also { it[i] = fmtField(v, unit, en) }
-            laser = app.t("fx.got", "v" to fmtLen(v, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m"))
-            delay(900)
-            if (at == i) next()
-        }
+        val r = app.settings.readings.lastOrNull { it.used == null && it.src != "manual" }
+        if (r == null) { laser = app.t("fx.noReading"); return }
+        app.settings.markReadingUsed(r.id, app.t(s.label))
+        texts = texts.toMutableList().also { it[i] = fmtField(r.mm, unit, en) }
+        laser = app.t("fx.got", "v" to fmtLen(r.mm, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m"))
+        scope.launch { delay(900); if (at == i && ok(i)) next() }
     }
 
     fun finish() {
@@ -378,7 +376,10 @@ fun FStepsScreen(rt: Route.FSteps) {
                 else Summary(steps, steps.indices.map { i ->
                     val s = steps[i]
                     if (s.choice) app.t(s.opts.getOrElse(texts[i].toIntOrNull() ?: s.usual) { s.opts[0] }) else (parseMm(texts[i], unit)?.let { fmtLen(it, unit, en) } ?: texts[i]) + " " + uw
-                }, when { m.kind == "kitchen" -> "fx.noteK"; m.type in uz.metrx.app.furniture.ITEM_TYPES -> "fx.noteI"; else -> "fx.noteW" }) { i -> was = texts[i]; back = true; at = i }
+                }, when {
+                    // a piece of several boxes is built again from its sizes: what was changed box by box goes (said before saving)
+                    edit != null && (edit.type in uz.metrx.app.furniture.PIECE_TYPES || edit.type == "loft") -> "fx.noteRebuild"
+                    m.kind == "kitchen" -> "fx.noteK"; m.type in uz.metrx.app.furniture.ITEM_TYPES -> "fx.noteI"; else -> "fx.noteW" }) { i -> was = texts[i]; back = true; at = i }
             }
             if (imeOn) footer(Modifier)
         }
@@ -504,7 +505,7 @@ fun FWhereScreen(rt: Route.FWhere) {
                     Text(name, style = ui(15f, 700, if (ready) G.ink else G.ink3), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (ready) {
                         val f = { mm: Int? -> fmtLen(mm, LenUnit.M, en) }
-                        Text(f(r.dim("A").v) + " × " + f(r.dim("B").v) + " m · h " + f(r.dim("H").v), style = num(12.5f, 500, G.ink2))
+                        Text(f(r.dim("A").v) + " × " + f(r.dim("B").v) + " " + tr("u.m") + " · h " + f(r.dim("H").v), style = num(12.5f, 500, G.ink2))
                         val good = fit!!.second.isEmpty()
                         Text(if (good) "✓ " + tr("fq.fits") else issueText(app, fit.second.first(), lang), style = ui(12f, 700, if (good) Color(0xFF15803D) else G.err, 1.3f),
                             modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (good) G.greenWash else G.errWash).padding(horizontal = 8.dp, vertical = 3.dp))

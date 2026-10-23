@@ -196,6 +196,8 @@ private fun Room3D(p: Project, c: WCtx, room: Room?, snap: Boolean) {
         if (room != null) ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
             fun full() = (app.store.get(p.id)?.rooms?.firstOrNull { it.id == r.id }?.views?.size ?: 4) >= 4
             if (taking) return@ShotPill
+            // a double tap takes one picture, not two alike
+            if (!app.once()) return@ShotPill
             if (full()) { app.say("3d.max", kind = ToastKind.ERROR); return@ShotPill }
             taking = true
             shot.take { bmp ->

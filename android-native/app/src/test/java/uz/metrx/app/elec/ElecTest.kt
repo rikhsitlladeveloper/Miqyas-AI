@@ -195,7 +195,10 @@ class ElecTest {
         assertTrue((r.mats + r.labor).all { it.id.startsWith("t-") })
         val cab = r.mats.filter { it.name.startsWith("el.e.cab") }
         assertEquals(3, cab.size)
-        assertTrue(cab.all { it.qty.toInt() % 100 == 0 })
+        // a short run is bought by the metre (a whole 100 m coil only from 50 m)
+        assertTrue(cab.all { it.name.startsWith("el.e.cabM") && it.qty.toInt() in 1 until COIL_FROM })
+        val withSpare = calcOf(p, true).count.cables.associate { it.type to it.withSpare }
+        assertEquals(Math.ceil(withSpare.getValue("6") - 1e-9).toInt(), r.mats.single { it.id == "t-cab6" }.qty.toInt())
         assertTrue(r.mats.any { it.name == "el.e.brk|a=32" && it.qty == "1" })
         assertTrue(r.mats.any { it.name == "el.e.rcd" && it.qty == "1" })
         assertTrue(r.mats.any { it.name.startsWith("el.e.panel") && it.price == (12000 * 12).toString() })

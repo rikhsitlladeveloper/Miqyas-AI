@@ -50,7 +50,8 @@ fun productBoxes(it: WinItem, t: Int, floor: Boolean): List<WBox> {
             "dsl" -> {
                 // the leaf hangs in front of the wall on its rail, closed over the opening
                 out += WBox(-30.0, W + 30, 8.0, 48.0, 10.0, H + 10, cin)
-                out += WBox(-40.0, 2 * W, 0.0, 60.0, H + 30, H + 80, DRIP_RGB)
+                // the rail runs on past the opening the way the leaf slides open (towards its hinge side)
+                out += if (left) WBox(-W, W + 40, 0.0, 60.0, H + 30, H + 80, DRIP_RGB) else WBox(-40.0, 2 * W, 0.0, 60.0, H + 30, H + 80, DRIP_RGB)
                 val hx = if (left) W - 20 else 20.0
                 out += WBox(hx - 12, hx + 12, 48.0, 70.0, 900.0, 1100.0, HANDLE_DARK)
             }

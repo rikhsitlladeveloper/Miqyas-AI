@@ -409,9 +409,12 @@ fun freeFixes(f: PlFree, c: PCtx): List<PlFix> {
     val out = ArrayList<PlFix>()
     var n = 0
     fun id() = "f:${f.id}:${n++}"
-    fun put(t: String, k: Int) = repeat(k.coerceIn(0, 6)) { placeFix(t, c, out, null, id())?.let { out += it } }
-    put("bath", f.bath); put("sh", f.shower); put("wc", f.wc); put("bs", f.basin); put("sink", f.sink); put("wm", f.wm); put("dw", f.dw)
-    put("wh", f.wh); put("gb", f.gb)
+    // a small typed room: what does not fit clear of its made-up door's swing still goes in (the door is only a guess);
+    // what is bigger than the room stays out ([freeMissing] says so)
+    val bare = PCtx(c.id, c.room.copy(openings = emptyList()), c.g, c.kind, c.pr, c.free)
+    fun put(t: String, k: Int) = repeat(k.coerceIn(0, 6)) { (placeFix(t, c, out, null, id()) ?: placeFix(t, bare, out, null, id()))?.let { out += it } }
+    put("bath", f.bath); put(if (f.cabin) "cab" else "sh", f.shower); put("wc", f.wc); put(if (f.small) "bsm" else "bs", f.basin); put("sink", f.sink); put("wm", f.wm); put("dw", f.dw)
+    put("wh", f.wh); put("gb", f.gb); put("tr", f.tr)
     if (f.rad > 0) {
         val w = c.wall("C") ?: c.g.walls.last()
         val secs = ceil(radSections(c.areaM2) / f.rad.toDouble()).toInt().coerceAtLeast(3)
@@ -424,12 +427,21 @@ fun freeFixes(f: PlFree, c: PCtx): List<PlFix> {
     return out
 }
 
+/** What a typed room's counts ask for that does not fit in it (type → how many), e.g. a 1,7 m bath in a 1,2 m room. */
+fun freeMissing(f: PlFree, placed: List<PlFix>): Map<String, Int> {
+    val want = linkedMapOf("bath" to f.bath, (if (f.cabin) "cab" else "sh") to f.shower, "wc" to f.wc, (if (f.small) "bsm" else "bs") to f.basin, "sink" to f.sink,
+        "wm" to f.wm, "dw" to f.dw, "wh" to f.wh, "gb" to f.gb, "tr" to f.tr)
+    return want.mapValues { (t, n) -> n.coerceIn(0, 6) - placed.count { it.t == t } }.filterValues { it > 0 }
+}
+
 /** A kit's counts for a room typed by size. */
 fun freeOf(k: PKit, o: POpts, id: String, name: String, L: Int, W: Int, H: Int): PlFree {
     val ts = kitTypes(k, o)
     fun cnt(vararg t: String) = ts.count { it in t }
     return PlFree(id, name, if (k.kind == "heat") "room" else k.kind, L, W, H, wc = cnt("wc"), basin = cnt("bs", "bsm"), bath = cnt("bath"), shower = cnt("sh", "cab"),
-        sink = cnt("sink"), wm = cnt("wm"), dw = cnt("dw"), wh = cnt("wh"), gb = cnt("gb"), rad = if (o.rad) 1 else 0, ufh = o.ufh, kit = k.id)
+        sink = cnt("sink"), wm = cnt("wm"), dw = cnt("dw"), wh = cnt("wh"), gb = cnt("gb"), rad = if (o.rad) 1 else 0, ufh = o.ufh, kit = k.id,
+        // what the kit chose stays: a towel rail, a hand basin (cold only), a shower cabin
+        tr = cnt("tr"), small = cnt("bsm") > 0 && cnt("bs") == 0, cabin = cnt("cab") > 0 && cnt("sh") == 0)
 }
 
 /* ---------------- the room's own marks ---------------- */

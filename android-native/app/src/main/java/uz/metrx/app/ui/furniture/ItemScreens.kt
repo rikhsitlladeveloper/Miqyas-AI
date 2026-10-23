@@ -112,8 +112,8 @@ fun ItemScreen(rt: Route.Wardrobe, p: Project, f: Furniture) {
                     Text(pieceLine(f, ws), style = ui(12f, 400, G.ink2), maxLines = 1)
                 }
                 GlassIconButton("undo", tr("common.undo"), { kit.undo(app, p.id, f.id) }, tint = if (kit.canUndo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
-                GlassIconButton("redo", "redo", { kit.redo(app, p.id, f.id) }, tint = if (kit.canRedo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
-                GlassIconButton("more", "menu", { app.sheet = Sheet.FMenu(p.id, f.id) })
+                GlassIconButton("redo", tr("common.redo"), { kit.redo(app, p.id, f.id) }, tint = if (kit.canRedo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
+                GlassIconButton("more", tr("common.menu"), { app.sheet = Sheet.FMenu(p.id, f.id) })
             }
             if (room == null) {
                 Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.padding(24.dp))
@@ -155,7 +155,7 @@ private fun ItemOptions(p: Project, f: Furniture, m: Module) {
     val app = LocalApp.current
     val o = m.opt ?: Opt()
     fun opt(fn: (Opt) -> Opt) = app.item(p, f, m.id) { it.copy(opt = fn(it.opt ?: Opt())) }
-    @Composable fun size(key: String) = FValRow(tr(sizeLabel(m, key)), if (key in setOf("mirW", "mirH") && itemGet(m, key) == 0) tr("fb.none") else "${itemGet(m, key)} mm") {
+    @Composable fun size(key: String) = FValRow(tr(sizeLabel(m, key)), if (key in setOf("mirW", "mirH") && itemGet(m, key) == 0) tr("fb.none") else "${itemGet(m, key)} " + tr("u.mm")) {
         app.sheet = Sheet.IField(p.id, f.id, m.id, key)
     }
     Text(tr("it.title"), style = ui(15.5f, 800))
@@ -173,7 +173,7 @@ private fun ItemOptions(p: Project, f: Furniture, m: Module) {
             Seg(listOf("L" to tr("fb.lad.L"), "R" to tr("fb.lad.R")), o.ladder) { k -> opt { it.copy(ladder = k) } }
             if (m.type == "loft") {
                 Text(tr("fb.und"), style = ui(14.5f, 700))
-                Seg(UNDER_KINDS.map { it to tr("fb.und.$it") }, o.under) { k ->
+                Seg(UNDER_KINDS.map { it to tr("fb.und.$it") }, o.under, lines = 2) { k ->
                     if (k != o.under) app.kit.change(app, p.id, f.id) { x -> withUnder(x, k, app.settings.workshop) }
                 }
                 f.modules.firstOrNull { it.type == "wardrobe" }?.let { u ->
@@ -185,15 +185,15 @@ private fun ItemOptions(p: Project, f: Furniture, m: Module) {
         "table" -> {
             size("w"); size("d"); size("h")
             Text(tr("fb.lg"), style = ui(14.5f, 700))
-            Seg(LEG_KINDS.map { it to tr("fb.lg.$it") }, o.legs) { k -> opt { it.copy(legs = k) } }
+            Seg(LEG_KINDS.map { it to tr("fb.lg.$it") }, o.legs, lines = 2) { k -> opt { it.copy(legs = k) } }
             Text(tr("fb.tp"), style = ui(14.5f, 700))
-            Seg(listOf("ldsp" to tr("fb.tp.ldsp"), "wt" to tr("fb.tp.wt")), o.top) { k -> opt { it.copy(top = k) } }
+            Seg(listOf("ldsp" to tr("fb.tp.ldsp"), "wt" to tr("fb.tp.wt")), o.top, lines = 2) { k -> opt { it.copy(top = k) } }
             Toggle(tr("fb.rc"), o.round) { opt { it.copy(round = !it.round) } }
         }
         "bar" -> {
             size("w"); size("d"); size("h"); size("over")
             Text(tr("fb.tp"), style = ui(14.5f, 700))
-            Seg(listOf("ldsp" to tr("fb.tp.ldsp"), "wt" to tr("fb.tp.wt")), o.top) { k -> opt { it.copy(top = k) } }
+            Seg(listOf("ldsp" to tr("fb.tp.ldsp"), "wt" to tr("fb.tp.wt")), o.top, lines = 2) { k -> opt { it.copy(top = k) } }
             Toggle(tr("fb.shelves"), o.shelves) { opt { it.copy(shelves = !it.shelves) } }
             Toggle(tr("fb.foot"), o.foot) { opt { it.copy(foot = !it.foot) } }
         }
@@ -226,23 +226,15 @@ internal fun IFieldSheet(s: Sheet.IField) {
         app.sheet = null
     }
     GlassSheet(title, { app.sheet = null }, footer = { GBtn(tr("common.save"), ::save, enabled = vi != null) }) {
-        GField(title, v, { v = it.filter(Char::isDigit).take(4) }, "$start", number = true, labelRight = "mm", error = tr("km.bad", "a" to range.first, "b" to range.last),
+        GField(title, v, { v = it.filter(Char::isDigit).take(4) }, "$start", number = true, labelRight = tr("u.mm"), error = tr("km.bad", "a" to range.first, "b" to range.last),
             showError = vi == null, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
         if (s.key == "mirW" || s.key == "mirH") Text(tr("fb.mirNote"), style = ui(12.5f, 400, G.ink2, 1.4f))
     }
 }
 
-/** A piece's sizes in a line: a bed's mattress, a corner piece's two arms, else width × height × depth (mm). */
-internal fun pieceLine(f: Furniture, ws: uz.metrx.app.furniture.Workshop): String {
-    val v = uz.metrx.app.furniture.valsOf(f, ws)
-    val m = wardOfF(f)
-    return when {
-        "mw" in v -> "${v["mw"]} × ${v["ml"]} · h ${v["h"]} mm"
-        "w2" in v -> "${v["w"]} + ${v["w2"]} × ${v["h"]} × ${v["d"]} mm"
-        m != null -> "${v["w"] ?: m.w} × ${v["h"] ?: m.h} × ${v["d"] ?: m.d} mm"
-        else -> ""
-    }
-}
+/** A piece's sizes in a line (furniture/Steps.kt sizeLine), in the app's language. */
+@Composable
+internal fun pieceLine(f: Furniture, ws: uz.metrx.app.furniture.Workshop): String = uz.metrx.app.furniture.sizeLine(f, ws, tr("u.mm"))
 
 /** A small 3D picture of a piece (a bed, a stenka…) for its card, made off the main thread. */
 @Composable

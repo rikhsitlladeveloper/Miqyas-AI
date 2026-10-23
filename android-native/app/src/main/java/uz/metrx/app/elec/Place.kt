@@ -249,6 +249,17 @@ fun inside(f: List<V2>, q: V2): Boolean {
     return c
 }
 
+/** How many points kit [k] (with choices [o]) asks for in room [c] (its spots by the ceiling's grid). */
+fun kitWanted(k: Kit, c: ECtx, o: KitOpts = defaultOpts(k)): Int = kitItems(k, o).sumOf { i ->
+    when (i.at) {
+        "spots" -> spotGrid(c).size
+        "row" -> rowOf(c, i.n).size
+        "bed", "pair" -> minOf(i.n, 2)
+        "main", "work", "corner" -> i.n
+        else -> 1
+    }
+}
+
 /**
  * The points of kit [k] (with choices [o]) placed in room [c] among the devices it already has ([have]): each at its
  * usual height, the spot its rule picks, moved along the wall clear of what is in the way. [id] makes the new ids.
@@ -341,14 +352,20 @@ fun freeDevs(f: ElecFree, c: ECtx): List<ElecDev> {
     repeat(f.sw.coerceIn(0, 20)) { i -> spotOn(a, dEnd + 200 + i * 180.0, 900, 86, 86, blocksOn(c, "A", "k1", out))?.let { x -> out += ElecDev(id(), "k1", c.id, "A", x, 900) } }
     val ws = c.g.walls.filter { it.id != "A" } + a
     var k = 0
+    // a bathroom's sockets are splash-proof ones
+    val st = if (c.kind == "bath") "sw" else "s1"
+    val sh = usualH(st, c.H, c.kind)
     repeat(f.sock.coerceIn(0, 60)) { _ ->
         val w = ws[k % ws.size]; val slot = k / ws.size; k++
         val prefer = w.len * (slot % 3 + 1) / 4
-        spotOn(w, prefer, 300, 86, 86, blocksOn(c, w.id, "s1", out))?.let { x -> out += ElecDev(id(), "s1", c.id, w.id, x, 300) }
+        spotOn(w, prefer, sh, 86, 86, blocksOn(c, w.id, st, out))?.let { x -> out += ElecDev(id(), st, c.id, w.id, x, sh) }
     }
+    // each power point as its kit had it (a stove's on its 32 A line, a water heater's high), at its usual height
     repeat(f.power.coerceIn(0, 10)) { i ->
+        val t = f.powers.getOrNull(i) ?: "pac"
+        val h = usualH(t, c.H, c.kind)
         val w = ws[(i + 1) % ws.size]
-        spotOn(w, w.len - 400.0, absH(-300, c.H), 86, 86, blocksOn(c, w.id, "pac", out))?.let { x -> out += ElecDev(id(), "pac", c.id, w.id, x, absH(-300, c.H)) }
+        spotOn(w, w.len - 400.0 - (if (t == "pac") 0.0 else 700.0 * (i % 2)), h, 86, 86, blocksOn(c, w.id, t, out))?.let { x -> out += ElecDev(id(), t, c.id, w.id, x, h) }
     }
     repeat(f.low.coerceIn(0, 20)) { i ->
         val w = c.g.walls[(2 + i) % c.g.walls.size]
@@ -369,7 +386,8 @@ fun freeOf(k: Kit, o: KitOpts, id: String, name: String, L: Int, W: Int, H: Int)
         sw = cnt { devType(it.t).cat == "sw" },
         light = cnt { devType(it.t).ceil },
         low = cnt { devType(it.t).cat == "low" },
-        power = cnt { devType(it.t).cat == "sock" && devType(it.t).group != "sock" }, kit = k.id)
+        power = cnt { devType(it.t).cat == "sock" && devType(it.t).group != "sock" }, kit = k.id,
+        powers = items.filter { devType(it.t).cat == "sock" && devType(it.t).group != "sock" }.flatMap { i -> List(i.n) { i.t } })
 }
 
 /* ---------------- moving a device ---------------- */

@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.projects
 
 import androidx.activity.compose.BackHandler
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -200,8 +201,8 @@ private fun WsNums(rooms: List<uz.metrx.app.data.Room>) {
     }
     fun v(sum: Long, n: Int) = if (n > 0) uz.metrx.app.geo.fmtArea(sum, en) + (if (n < rooms.size) " +?" else "") else "?"
     Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        NumTile(tr("pl.wall"), v(net, nn), "m²", Modifier.weight(1f))
-        NumTile(tr("ws.floor"), v(fl, fn), "m²", Modifier.weight(1f))
+        NumTile(tr("pl.wall"), v(net, nn), tr("u.m2"), Modifier.weight(1f))
+        NumTile(tr("ws.floor"), v(fl, fn), tr("u.m2"), Modifier.weight(1f))
         NumTile(tr("pl.meas"), if (need > 0) "$conf/$need" else "—", null, Modifier.weight(1f))
     }
 }
@@ -360,7 +361,7 @@ fun NoteScreen(r: Route.Note) {
                 }
                 Row(
                     Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f))
-                        .clickable(role = Role.Switch) { change { x -> x.copy(rep = !x.inReport) } }.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp).heightIn(min = 40.dp),
+                        .switchState(it.inReport).clickable(role = Role.Switch) { change { x -> x.copy(rep = !x.inReport) } }.padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp).heightIn(min = 40.dp),
                     verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(G.cobalt.copy(alpha = .12f)), contentAlignment = Alignment.Center) { MIcon("doc", G.cobalt, 20.dp, 2f) }

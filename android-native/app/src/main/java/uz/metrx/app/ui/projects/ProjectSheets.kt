@@ -93,8 +93,8 @@ private fun App.close() { sheet = null }
 @Composable
 private fun ProjectMenu(s: Sheet.ProjectMenu) {
     val app = LocalApp.current
-    // a furniture maker's project is an order
-    val fu = app.store.get(s.pid)?.isFurniture == true
+    // a furniture maker's or a tradesman's project is an order
+    val fu = app.store.get(s.pid)?.let { it.industry != "build" } == true
     GlassSheet(tr(if (fu) "fo.details" else "pr.menuEdit"), { app.close() }) {
         ListBox {
             ActionRow("edit", tr(if (fu) "fo.details" else "pr.menuEdit"), { app.close(); app.push(Route.NewProject(s.pid)) })
@@ -160,7 +160,7 @@ private fun NewSpace(s: Sheet.NewSpace) {
     GlassSheet(tr(if (edit != null) "ws.menuEdit" else "ws.new"), { app.close() }, footer = {
         GBtn(tr(if (edit != null) "common.save" else "ws.create"), ::save, enabled = err == null)
     }) {
-        GField(tr("ws.name"), name, { name = it }, wsSuggest(p, type, lang), error = err, showError = tried, imeAction = ImeAction.Done, onIme = ::save)
+        GField(tr("ws.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, wsSuggest(p, type, lang), error = err, showError = tried, imeAction = ImeAction.Done, onIme = ::save)
         Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(tr("ws.type"), style = ui(15f, 700))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -212,10 +212,13 @@ private fun SpaceDelete(s: Sheet.SpaceDelete) {
                 val at = rooms.map { p.rooms.indexOf(it) }   // Undo puts each room back where it was in the list
                 val ids = rooms.map { it.id }.toSet()
                 val pieces = p.furniture.filter { it.roomId in ids }
-                app.store.update(p.id) { pr -> pr.copy(floors = pr.floors.filter { it.id != w.id }, rooms = pr.rooms.filter { it.floorId != w.id }, furniture = app.outOfRooms(pr, ids)) }
+                // the trades' data in its rooms goes too (tiles, wiring, plumbing; their windows stay without a room), kept for Undo
+                var gone = uz.metrx.app.data.TradesGone()
+                app.store.update(p.id) { pr -> val (q, g) = uz.metrx.app.data.tradesOut(pr, ids); gone = g
+                    q.copy(floors = pr.floors.filter { it.id != w.id }, rooms = pr.rooms.filter { it.floorId != w.id }, furniture = app.outOfRooms(pr, ids)) }
                 app.close(); app.dropMissing()
                 app.say("ws.deleted", "n" to name, action = "common.undo") {
-                    app.store.update(p.id) { pr -> pr.copy(floors = pr.floors.toMutableList().apply { add(idx.coerceIn(0, size), w) },
+                    app.store.update(p.id) { pr -> uz.metrx.app.data.tradesBack(pr, gone).copy(floors = pr.floors.toMutableList().apply { add(idx.coerceIn(0, size), w) },
                         rooms = pr.rooms.toMutableList().apply { rooms.forEachIndexed { j, r -> add(at[j].coerceIn(0, size), r) } },
                         furniture = pr.furniture.map { f -> pieces.firstOrNull { it.id == f.id } ?: f }) }
                 }

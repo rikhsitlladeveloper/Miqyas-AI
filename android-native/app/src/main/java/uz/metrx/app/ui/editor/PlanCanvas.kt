@@ -435,7 +435,9 @@ private fun DrawScope.overall(lay: RectLayout, w: SideWall, r: Room, unit: LenUn
 object PlanLabel { var mode by androidx.compose.runtime.mutableStateOf("both") }
 
 /** The room's name and floor area in its middle, as chosen in Profile (prototype roomLabel). */
-internal fun DrawScope.centreLabel(tm: TextMeasurer, name: String, area: String, c: Offset) {
+internal fun DrawScope.centreLabel(tm: TextMeasurer, name0: String, area: String, c: Offset) {
+    // a long name is cut with "…", so it stays inside the plan
+    val name = if (name0.length > 24) name0.take(23).trimEnd() + "…" else name0
     val m = PlanLabel.mode
     val nm = m == "both" || m == "name"; val ar = m == "both" || m == "area"
     val nameSt = TextStyle(fontFamily = Jakarta, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = .06.em, color = INK3)

@@ -361,7 +361,8 @@ private class Builder3(
     /** A wardrobe: sides (none at a wall), top and bottom, plinth, dividers, backs, inside, doors. */
     /** A vanity's basin on its top, the tap behind it. */
     fun basin(w: WallBasis, m: Module) {
-        val top = uz.metrx.app.furniture.legsOf(m, ws) + m.h
+        // a wall-hung vanity's top is its height above the floor up
+        val top = m.elev + uz.metrx.app.furniture.legsOf(m, ws) + m.h
         val mid = m.x + m.w / 2.0; val bw = minOf(500.0, m.w - 120.0); val bd = minOf(380.0, m.d - 80.0)
         if (bw < 200 || bd < 200) return
         val n0 = (m.d - bd) / 2 + 20

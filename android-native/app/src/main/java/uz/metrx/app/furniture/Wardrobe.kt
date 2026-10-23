@@ -195,6 +195,11 @@ fun wardrobeChecks(m: Module, wallL: Int?, roomH: Int?, ws: Workshop, openings: 
             "socket", "switch" -> out += FCheck("warn", "kc.socket", mapOf("o" to p.off, "h" to p.h, "t" to p.t), m.id)
         }
     }
+    // a part longer than the sheet's usable length cannot be cut from it (the price counts a sheet of its own for it)
+    val uL = ws.sheetL - 2 * ws.trim; val uW = ws.sheetW - 2 * ws.trim
+    partsOf(m, ws).filter { p -> !((p.L <= uL && p.W <= uW) || (!p.grain && p.L <= uW && p.W <= uL)) }.maxOfOrNull { it.L }?.let { v ->
+        out += FCheck("err", "wc.sheet", mapOf("v" to v, "max" to uL), m.id)
+    }
     val ih = wardInnerH(m, t)
     // sliding doors: a door wider than 1100 or narrower than 500 runs badly
     m.slide?.let { sl ->

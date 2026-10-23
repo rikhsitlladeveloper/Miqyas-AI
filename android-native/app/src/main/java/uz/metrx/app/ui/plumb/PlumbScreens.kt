@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.plumb
 
 import androidx.compose.foundation.background
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -176,7 +177,7 @@ fun App.applyPKit(pid: String, rid: String, k: PKit, o: POpts): Int {
     val p = store.get(pid) ?: return 0
     val c = ctxOf(p, rid, settings.angleSnap) ?: return 0
     val have = p.plumb.fixes.filter { it.roomId == rid }
-    var riser = p.plumb.riser
+    var riser = uz.metrx.app.plumb.liveRiser(p)
     if (riser == null && k.kind != "heat") {
         val wet = p.rooms.any { r -> r.id != rid && ctxOf(p, r.id, settings.angleSnap)?.kind.let { it == "bath" || it == "wc" } }
         if (c.kind == "bath" || c.kind == "wc" || !wet) riser = riserIn(c, have)
@@ -185,10 +186,11 @@ fun App.applyPKit(pid: String, rid: String, k: PKit, o: POpts): Int {
     if (o.ufh && p.plumb.fixes.none { it.t == "manif" }) placeFix("manif", c, have + fs, riser, uid())?.let { fs += it }
     store.update(pid) { pr ->
         val er = pr.plumb.room(rid)
-        var e = pr.plumb.copy(fixes = pr.plumb.fixes + fs, riser = riser ?: pr.plumb.riser,
+        var e = pr.plumb.copy(fixes = pr.plumb.fixes + fs, riser = riser ?: uz.metrx.app.plumb.liveRiser(pr),
             rooms = pr.plumb.rooms.filter { it.roomId != rid } + er.copy(kind = er.kind.ifEmpty { if (k.kind == "heat") c.kind else k.kind }, kits = er.kits + k.id,
                 ufh = er.ufh || o.ufh, step = if (o.ufh) o.step else er.step))
-        if (e.riser == null) defaultRiser(pr.copy(plumb = e), settings.angleSnap)?.let { e = e.copy(riser = it) }
+        // a riser of its own only when there is water or a drain to bring (radiators and underfloor heating alone need none)
+        if (e.riser == null && uz.metrx.app.plumb.needsRiser(pr.copy(plumb = e))) defaultRiser(pr.copy(plumb = e), settings.angleSnap)?.let { e = e.copy(riser = it) }
         pr.copy(plumb = e)
     }
     return fs.size
@@ -299,14 +301,17 @@ fun PRoomsTab(p: Project, lang: Lang, route: Route.Project) {
     val app = LocalApp.current
     val s = app.settings
     val en = lang == Lang.EN
-    LaunchedEffect(p.rooms) { app.applyPPending(p.id) }
+    // the rooms' water and drain marks are taken in as outlets here too (not only when a room's page opens), so the
+    // order's counts, its next step and the PDF have them
+    LaunchedEffect(p.rooms) { p.rooms.forEach { app.takeInPlumbPoints(p.id, it.id) }; app.applyPPending(p.id) }
     val calc = rememberPCalc(p)
     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (p.floors.isEmpty() && p.plumb.free.isEmpty()) Text(tr("sx.empty"), style = ui(14.5f, 400, G.ink2), textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(22.dp))
         if (calc.ctxs.isNotEmpty()) OrderCard(p, calc)
-        p.floors.forEach { w ->
-            val room = p.rooms.firstOrNull { it.floorId == w.id }
+        // every room of each workspace (an older project may have several in one), a workspace without one once
+        p.floors.flatMap { w -> p.rooms.filter { it.floorId == w.id }.ifEmpty { listOf(null) }.map { w to it } }.forEach { (w, room) ->
+            val several = p.rooms.count { it.floorId == w.id } > 1
             val ready = room != null && uz.metrx.app.geo.ready3D(room, s.angleSnap)
             val fs = if (room == null) emptyList() else p.plumb.fixes.filter { it.roomId == room.id }
             val er = room?.let { p.plumb.room(it.id) }
@@ -317,9 +322,9 @@ fun PRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                         if (room != null) uz.metrx.app.editorThumb(room, Modifier.fillMaxSize().padding(4.dp)) else MIcon("room", G.cobalt, 24.dp, 2f)
                     }
                     Column(Modifier.weight(1f)) {
-                        Text(floorName(w, lang), style = ui(16f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(floorName(w, lang) + (if (several && room != null) " · " + dn(room.name, lang) else ""), style = ui(16f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val a = room?.dim("A")?.v; val b = room?.dim("B")?.v; val h = room?.dim("H")?.v
-                        Text(if (ready && a != null && b != null && room?.isPoly != true) fmtLen(a, LenUnit.M, en) + " × " + fmtLen(b, LenUnit.M, en) + " m" + (h?.let { " · h " + fmtLen(it, LenUnit.M, en) } ?: "")
+                        Text(if (ready && a != null && b != null && room?.isPoly != true) fmtLen(a, LenUnit.M, en) + " × " + fmtLen(b, LenUnit.M, en) + " " + tr("u.m") + (h?.let { " · h " + fmtLen(it, LenUnit.M, en) } ?: "")
                             else if (ready) tr("tl.measured") else tr(if (room != null) "fo.notMeasured" else "fo.notDrawn"), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     if (ready) Text("3D", style = ui(13f, 800, G.cobalt2), modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(G.cobalt.copy(alpha = .1f)).padding(horizontal = 10.dp, vertical = 6.dp))
@@ -352,7 +357,7 @@ fun PRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                     Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(G.cobalt.copy(alpha = .1f)), contentAlignment = Alignment.Center) { MIcon("cube", G.cobalt, 18.dp, 2f) }
                     Column(Modifier.weight(1f)) {
                         Text(f.name.ifBlank { tr(kindKey(f.kind)) }, style = ui(14.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " m · " + tr("sx.freeCnt", "n" to freeCount(f), "m" to fmtLen(f.link, LenUnit.M, en)), style = ui(12.5f, 500, G.ink2), maxLines = 1)
+                        Text(fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " " + tr("u.m") + " · " + tr("sx.freeCnt", "n" to freeCount(f), "m" to fmtLen(f.link, LenUnit.M, en)), style = ui(12.5f, 500, G.ink2), maxLines = 1)
                     }
                     MIcon("chev", G.ink3, 16.dp, 2f)
                 }
@@ -375,14 +380,14 @@ fun PRoomsTab(p: Project, lang: Lang, route: Route.Project) {
 }
 
 /** How many fixtures a room typed by size has. */
-fun freeCount(f: PlFree) = f.wc + f.basin + f.bath + f.shower + f.sink + f.wm + f.dw + f.wh + f.gb + f.rad
+fun freeCount(f: PlFree) = f.wc + f.basin + f.bath + f.shower + f.sink + f.wm + f.dw + f.wh + f.gb + f.rad + f.tr
 
 /** The order's riser, its pipe system and its warnings. */
 @Composable
 private fun OrderCard(p: Project, calc: PlumbCalc) {
     val app = LocalApp.current
     val lang = LocalLang.current
-    val rs = p.plumb.riser
+    val rs = uz.metrx.app.plumb.liveRiser(p)
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(vertical = 4.dp)) {
         val rr = rs?.let { x -> p.rooms.firstOrNull { it.id == x.roomId } }
         Line("box", tr("sx.riser"), if (rs != null && rr != null) (p.floors.firstOrNull { it.id == rr.floorId }?.let { floorName(it, lang) } ?: dn(rr.name, lang)) + " · " + tr("tl.wallN", "w" to rs.wall)
@@ -435,14 +440,14 @@ fun PNextStep(p: Project) {
     val unmeasured = rooms.firstOrNull { (_, r) -> stepKeys(r, s.angleSnap).any { r.dim(it).status != "conf" } }
     val bare = rooms.firstOrNull { (_, r) -> p.plumb.fixes.none { it.roomId == r.id } && p.plumb.room(r.id).pend.isEmpty() && !p.plumb.room(r.id).ufh &&
         p.plumb.room(r.id).kind.ifEmpty { ctxOf(p, r.id, s.angleSnap)?.kind ?: "" } in setOf("bath", "wc", "kitchen", "util") }
-    val made = p.estimate.materials.any { it.id.startsWith("t-") }
+    val made = uz.metrx.app.trades.madeBy(p, "sx.e.")
     data class Step(val title: String, val sub: String?, val button: String, val go: () -> Unit)
     val step: Step? = when {
         p.floors.isEmpty() && p.plumb.free.isEmpty() -> Step(tr("el.ns.pickT"), tr("sx.ns.pickS"), tr("ns.needB")) { app.push(Route.PGallery(p.id)) }
         undrawn != null -> Step(tr("ns.measureT"), floorName(undrawn, lang), tr("fo.drawRoom")) { app.drawTileRoom(p.id, undrawn, lang) }
         unmeasured != null -> Step(tr("ns.measureT"), tr("ns.measureS", "r" to floorName(unmeasured.first, lang)), tr("ns.measureB")) { app.openRoom(p.id, unmeasured.second.id) }
         bare != null -> Step(tr("sx.ns.roomT", "r" to floorName(bare.first, lang)), tr("sx.ns.roomS"), tr("ns.needB")) { app.push(Route.PGallery(p.id, bare.second.id)) }
-        p.plumb.riser == null && p.plumb.fixes.isNotEmpty() -> Step(tr("sx.ns.riserT"), tr("sx.ns.riserS"), tr("el.ns.panelB")) {
+        uz.metrx.app.plumb.liveRiser(p) == null && uz.metrx.app.plumb.needsRiser(p) -> Step(tr("sx.ns.riserT"), tr("sx.ns.riserS"), tr("el.ns.panelB")) {
             defaultRiser(p, s.angleSnap)?.let { d -> app.updatePlumb(p.id) { it.copy(riser = d) }; app.push(Route.PView(p.id, d.roomId)) }
         }
         !s.advanced -> Step(tr("ns.shareT"), tr("sx.ns.shareS"), tr("ns.shareB")) { app.push(Route.Report(p.id)) }
@@ -512,7 +517,7 @@ fun PlumbCard(p: Project) {
     val app = LocalApp.current
     val lang = LocalLang.current
     val c = rememberPCalc(p).count
-    val made = p.estimate.materials.any { it.id.startsWith("t-") } || p.estimate.labor.any { it.id.startsWith("t-") }
+    val made = uz.metrx.app.trades.madeBy(p, "sx.e.")
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(tr("sx.cardT"), style = ui(16f, 800))
         Text(tr("trc.plumb", "n" to c.points, "m" to uz.metrx.app.core.Num.fixed(c.pipeM, 1, lang)), style = num(14.5f, 700))
@@ -538,8 +543,8 @@ fun PCountCard(p: Project, c: PCount) {
         }
         if (c.drain50 > 0 || c.drain110 > 0) {
             Hairline()
-            if (c.drain110 > 0) Kv(tr("sx.c.drain", "d" to 110), d1(c.drain110) + " m · " + tr("sx.c.bends", "n" to c.bends110, "t" to c.tees110))
-            if (c.drain50 > 0) Kv(tr("sx.c.drain", "d" to 50), d1(c.drain50) + " m · " + tr("sx.c.bends", "n" to c.bends50, "t" to c.tees50))
+            if (c.drain110 > 0) Kv(tr("sx.c.drain", "d" to 110), d1(c.drain110) + " " + tr("u.m") + " · " + tr("sx.c.bends", "n" to c.bends110, "t" to c.tees110))
+            if (c.drain50 > 0) Kv(tr("sx.c.drain", "d" to 50), d1(c.drain50) + " " + tr("u.m") + " · " + tr("sx.c.bends", "n" to c.bends50, "t" to c.tees50))
         }
         Hairline()
         Kv(tr("sx.e.elbow"), "${c.elbows}"); Kv(tr("sx.e.tee"), "${c.tees}")
@@ -547,7 +552,7 @@ fun PCountCard(p: Project, c: PCount) {
         Kv(tr("sx.e.plate"), "${c.plates}"); Kv(tr("sx.e.ball"), "${c.balls}")
         if (c.meters > 0) Kv(tr("sx.c.riser"), tr("sx.c.riserV", "n" to c.meters))
         if (c.manifolds > 0) Kv(tr("sx.t.manif"), tr("sx.c.loops", "n" to c.loops, "m" to d1(c.ufhM)))
-        if (c.chaseM > 0) Kv(tr("sx.c.chase"), d1(c.chaseM) + " m")
+        if (c.chaseM > 0) Kv(tr("sx.c.chase"), d1(c.chaseM) + " " + tr("u.m"))
         Kv(tr("sx.points"), "${c.points}")
     }
 }
@@ -574,12 +579,13 @@ fun PlumbSheet(s: Sheet): Boolean {
 private fun NewRoomSheet(pid: String) {
     val app = LocalApp.current
     val p = app.store.get(pid) ?: run { app.sheet = null; return }
-    fun nameFor(k: String): String { val base = app.t(kindKey(k)); val n = p.floors.count { it.name.startsWith(base) }; return if (n > 0) "$base ${n + 1}" else base }
+    fun nameFor(k: String): String = uz.metrx.app.data.nextName(p, kindKey(k), app.settings.lang)
     var kind by rememberSaveable { mutableStateOf("bath") }
     var name by rememberSaveable { mutableStateOf(nameFor(kind)) }
     fun create() {
         if (name.isBlank() || !app.once()) return
-        val rid = app.addPlumbRoom(pid, kind, name.trim())
+        // a suggested name is kept as its key, so it follows the language
+        val rid = app.addPlumbRoom(pid, kind, uz.metrx.app.data.suggestedName(name, kindKey(kind), app.settings.lang))
         app.sheet = null
         app.openRoom(pid, rid)
     }
@@ -588,7 +594,7 @@ private fun NewRoomSheet(pid: String) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             KINDS.forEach { k -> Chip(tr(kindKey(k)), k == kind) { kind = k; name = nameFor(k) } }
         }
-        GField(tr("fr.name"), name, { name = it }, tr(kindKey(kind)), imeAction = ImeAction.Done, onIme = ::create)
+        GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr(kindKey(kind)), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
     }
 }
 
@@ -613,9 +619,9 @@ private fun FixSheet(s: Sheet.PFix) {
                 Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.7f)).clickable(role = Role.Button) {
                     if (!app.once()) return@clickable
                     val have = p.plumb.fixes.filter { it.roomId == c.id }
-                    val f = if (ty.id == "rad") placeRadiators(c, have, p.plumb.riser, ::uid).firstOrNull()
-                        else s.wall?.let { wid -> c.wall(wid)?.let { w -> uz.metrx.app.plumb.fixSpot(c, ty.id, w, w.len / 2, ty.w, have, p.plumb.riser)?.let { x -> newFix(uid(), ty.id, c, w, x) } } }
-                            ?: placeFix(ty.id, c, have, p.plumb.riser, uid())
+                    val f = if (ty.id == "rad") placeRadiators(c, have, uz.metrx.app.plumb.liveRiser(p), ::uid).firstOrNull()
+                        else s.wall?.let { wid -> c.wall(wid)?.let { w -> uz.metrx.app.plumb.fixSpot(c, ty.id, w, w.len / 2, ty.w, have, uz.metrx.app.plumb.liveRiser(p))?.let { x -> newFix(uid(), ty.id, c, w, x) } } }
+                            ?: placeFix(ty.id, c, have, uz.metrx.app.plumb.liveRiser(p), uid())
                     if (f == null) { app.say("el.noSpace"); return@clickable }
                     app.updatePlumb(p.id) { it.copy(fixes = it.fixes + f) }
                     app.sheet = null; app.say("el.devAdded", "n" to app.t("sx.t.${ty.id}"))
@@ -623,7 +629,7 @@ private fun FixSheet(s: Sheet.PFix) {
                     androidx.compose.foundation.Canvas(Modifier.size(36.dp)) { fixSymbol(ty.id, center, size.minDimension / 2.4f) }
                     Column(Modifier.weight(1f)) {
                         Text(tr("sx.t.${ty.id}"), style = ui(15f, 700))
-                        Text(fmtLen(ty.w, LenUnit.M, en) + " × " + fmtLen(ty.d, LenUnit.M, en) + " m", style = ui(12.5f, 400, G.ink2))
+                        Text(fmtLen(ty.w, LenUnit.M, en) + " × " + fmtLen(ty.d, LenUnit.M, en) + " " + tr("u.m"), style = ui(12.5f, 400, G.ink2))
                     }
                 }
             }
@@ -641,6 +647,8 @@ private fun FixSheet(s: Sheet.PFix) {
     val wl = c.wall(wall)?.len
     val err = when {
         vOff == null || vW == null || vH.any { it == null } -> tr("tl.fixErr")
+        // a radiator of two sections at least (and no wider than its wall)
+        old.t == "rad" && (vW < 2 * uz.metrx.app.plumb.SEC_MM || (wl != null && vW > wl)) -> tr("sx.radMin", "a" to 2 * uz.metrx.app.plumb.SEC_MM)
         wl != null && vOff > wl -> tr("pt.offBig")
         vH.any { it!! > c.H } -> tr("pt.hBig")
         else -> null
@@ -673,7 +681,7 @@ private fun FixSheet(s: Sheet.PFix) {
             if (old.t == "rad") GField(tr("sx.f.w"), tW, { v -> tW = v.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' }.take(8) }, "0,6", decimal = true, labelRight = uw, modifier = Modifier.weight(1f))
         }
         if (old.t == "rad") Text(tr("sx.radW", "w" to uz.metrx.app.plumb.radWatts(old), "n" to uz.metrx.app.plumb.radSections(c.areaM2) * uz.metrx.app.plumb.SEC_W), style = ui(12.5f, 400, G.ink2, 1.4f))
-        if (old.t == "bs" || old.t == "bsm") Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.7f)).clickable(role = Role.Switch) { cab = !cab }
+        if (old.t == "bs" || old.t == "bsm") Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.7f)).switchState(cab).clickable(role = Role.Switch) { cab = !cab }
             .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) { Text(tr("sx.s.vanity"), style = ui(15f, 700)); Text(tr("sx.s.vanityS"), style = ui(12f, 400, G.ink2, 1.3f)) }
             GSwitch(cab)
@@ -781,7 +789,7 @@ private fun RoomSetSheet(pid: String, rid: String) {
     val er = p.plumb.room(rid)
     val en = app.settings.lang == Lang.EN
     val unit = app.settings.unit
-    val rs = p.plumb.riser
+    val rs = uz.metrx.app.plumb.liveRiser(p)
     val rc = rs?.let { ctxOf(p, it.roomId, app.settings.angleSnap) }
     var tLink by rememberSaveable { mutableStateOf(fmtField(er.link, unit, en)) }
     GlassSheet(tr("el.roomSet"), { app.sheet = null }, footer = {
@@ -810,7 +818,7 @@ private fun RoomSetSheet(pid: String, rid: String) {
         }
         // the heating
         Text(tr("sx.s.heat"), style = ui(15f, 700))
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.7f)).clickable(role = Role.Switch) {
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.7f)).switchState(er.ufh).clickable(role = Role.Switch) {
             val on = !er.ufh
             app.updatePRoom(pid, rid) { it.copy(ufh = on) }
             if (on && p.plumb.fixes.none { it.t == "manif" }) placeFix("manif", c, p.plumb.fixes.filter { it.roomId == rid }, rs, uid())?.let { m -> app.updatePlumb(pid) { it.copy(fixes = it.fixes + m) } }
@@ -870,7 +878,7 @@ private fun SystemSheet(pid: String) {
             RUNS.forEach { r -> Chip(tr("sx.run.$r"), pl.hrun == r) { app.updatePlumb(pid) { it.copy(hrun = r) } } }
         }
         if (pl.riser != null) Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.7f))
-            .clickable(role = Role.Switch) { app.updatePlumb(pid) { o -> o.copy(riser = o.riser?.let { r -> r.copy(hot = !r.hot) }) } }.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+            .switchState(pl.riser.hot).clickable(role = Role.Switch) { app.updatePlumb(pid) { o -> o.copy(riser = o.riser?.let { r -> r.copy(hot = !r.hot) }) } }.padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f)) { Text(tr("sx.riserHot"), style = ui(15f, 700)); Text(tr("sx.riserHotS"), style = ui(12f, 400, G.ink2, 1.3f)) }
             GSwitch(pl.riser.hot)
         }
@@ -936,7 +944,7 @@ private fun PricesSheet(pid: String?) {
     fun save() {
         val t = fs.foldIndexed(t0) { i, acc, f -> texts[i].trim().let { v -> if (v.isEmpty()) acc else f.set(acc, v) } }
         app.settings.setTradeSet(t); app.sheet = null
-        pid?.let { id -> app.store.get(id)?.takeIf { pr -> pr.estimate.materials.any { it.id.startsWith("t-") } }?.let { app.applyPlumbRows(it) } } ?: app.say("common.save")
+        pid?.let { id -> app.store.get(id)?.takeIf { pr -> uz.metrx.app.trades.madeBy(pr, "sx.e.") }?.let { app.applyPlumbRows(it) } } ?: app.say("common.save")
     }
     GlassSheet(tr("tl.prices"), { app.sheet = null }, footer = { GBtn(tr("common.save"), ::save) }) {
         fs.chunked(2).forEach { row ->
@@ -944,7 +952,7 @@ private fun PricesSheet(pid: String?) {
                 row.forEach { f ->
                     val i = fs.indexOf(f)
                     GField(tr("sx.p.${f.key}"), texts[i], { v -> texts = texts.toMutableList().also { it[i] = v.filter { c -> c.isDigit() }.take(12) } }, "0",
-                        number = true, labelRight = f.unit.ifEmpty { null }, modifier = Modifier.weight(1f))
+                        number = true, labelRight = f.unit.ifEmpty { null }?.let { uz.metrx.app.ui.projects.unitText(it) }, modifier = Modifier.weight(1f))
                 }
                 if (row.size == 1) Spacer(Modifier.weight(1f))
             }
@@ -994,7 +1002,7 @@ private fun FreeSheet(pid: String, fid: String?) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             KINDS.forEach { k -> Chip(tr(kindKey(k)), k == kind) { if (name.isBlank() || name == app.t(kindKey(kind))) name = app.t(kindKey(k)); kind = k } }
         }
-        GField(tr("fr.name"), name, { name = it }, tr(kindKey(kind)))
+        GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr(kindKey(kind)))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GField(tr("tl.pa"), tl, { v -> tl = v.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(7) }, "2,5", decimal = true, labelRight = uw, modifier = Modifier.weight(1f))
             GField(tr("tl.pbW"), tw, { v -> tw = v.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(7) }, "2", decimal = true, labelRight = uw, modifier = Modifier.weight(1f))
@@ -1006,7 +1014,7 @@ private fun FreeSheet(pid: String, fid: String?) {
                 Stepper(cnt[i]) { v -> cnt = cnt.toMutableList().also { it[i] = v.coerceIn(0, 6) } }
             }
         }
-        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.7f)).clickable(role = Role.Switch) { ufh = !ufh }
+        Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.7f)).switchState(ufh).clickable(role = Role.Switch) { ufh = !ufh }
             .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(tr("sx.s.ufh"), style = ui(15f, 700), modifier = Modifier.weight(1f)); GSwitch(ufh)
         }

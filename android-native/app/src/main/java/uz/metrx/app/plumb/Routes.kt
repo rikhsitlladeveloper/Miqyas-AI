@@ -354,10 +354,11 @@ fun routesOf(p: Project, cs: List<PCtx>): PRoutes {
     val drains = cs.flatMap { c ->
         pts[c.id].orEmpty().filter { it.t == "drain" }.map { pt -> drainOf(pt, c, rc, rs, if (rs != null || c.free != null) (c.free?.link ?: c.pr.link).toDouble() else 0.0) }
     }
-    // the underfloor heating: from the order's manifold
+    // the underfloor heating: from the room's own manifold when it has one, else the order's first
     val mfix = fixes.firstOrNull { it.t == "manif" }
-    val mc = mfix?.let { byId[it.roomId] }
-    val mpt = mfix?.let { fixPoints(it).firstOrNull() }
-    val loops = cs.filter { it.pr.ufh }.map { c -> loopOf(c, fixes.filter { it.roomId == c.id }, mc, mpt) }
+    val loops = cs.filter { it.pr.ufh }.map { c ->
+        val mf = fixes.firstOrNull { it.t == "manif" && it.roomId == c.id } ?: mfix
+        loopOf(c, fixes.filter { it.roomId == c.id }, mf?.let { byId[it.roomId] }, mf?.let { fixPoints(it).firstOrNull() })
+    }
     return PRoutes(runs, drains, rs, srcs["hot"], srcs["hs"], loops)
 }

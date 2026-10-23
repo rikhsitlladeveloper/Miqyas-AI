@@ -1,6 +1,7 @@
 package uz.metrx.app.ui.main
 
 import androidx.compose.foundation.background
+import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -253,7 +254,7 @@ private fun Row1(icon: String, title: String, value: String?, sub: String? = nul
 
 @Composable
 private fun SwitchRow(icon: String, title: String, on: Boolean, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clickable(role = Role.Switch, onClick = onClick).padding(start = 12.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).switchState(on).clickable(role = Role.Switch, onClick = onClick).padding(start = 12.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         IconTile(icon); Text(title, style = ui(15.5f, 500, G.ink, 1.4f), modifier = Modifier.weight(1f)); GSwitch(on)
     }

@@ -194,18 +194,21 @@ fun itemBoards(m: Module, ws: Workshop): List<Board> {
         }
         "hooks" -> {
             out += Board("fp.panel", "front", 0, W, E, E + H, 0, t)
+            var mirB = E + H
             val mirR = if (o.mirW > 0 && o.mirH > 0) {
                 val mw = min(o.mirW, W - 160); val mh = min(o.mirH, H - 200)
                 out += Board("", "mirror", 80, 80 + mw, E + H - 120 - mh, E + H - 120, t, t + 4)
+                mirB = E + H - 120 - mh
                 80 + mw
             } else 0
-            // the hooks in a row beside the mirror, a little under the top
+            // the hooks in a row beside the mirror, a little under the top; no room beside it: across the panel under it
             val n = o.hooks.coerceIn(0, 12)
             if (n > 0) {
-                val a0 = mirR + 100; val a1 = W - 80
+                val beside = mirR + 100 + (if (n > 1) 40 * (n - 1) else 0) <= W - 80
+                val a0 = if (beside) mirR + 100 else 80; val a1 = W - 80
                 (0 until n).forEach { i ->
                     val a = if (n == 1) (a0 + a1) / 2 else a0 + (a1 - a0) * i / (n - 1)
-                    val y = E + H - 260
+                    val y = if (beside || mirR == 0) E + H - 260 else max(E + 80, mirB - 100)
                     out += Board("", "metal", a - 8, a + 8, y - 60, y + 10, t, t + 60)
                 }
             }

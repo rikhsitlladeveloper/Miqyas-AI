@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectHorizontalDragGestures
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -358,6 +359,7 @@ private fun KitCard(k: PKit, modifier: Modifier, wide: Boolean, onClick: () -> U
 
 /* ---------------- the steps ---------------- */
 
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 fun PStepsScreen(rt: Route.PSteps) {
     val app = LocalApp.current
@@ -405,8 +407,8 @@ fun PStepsScreen(rt: Route.PSteps) {
                 app.push(Route.PView(p.id, "free:" + f.id)); app.say("el.kitAdded", "n" to kitName)
             }
             "new" -> {
-                val base = app.t(kindKey(kind)); val cnt = p.floors.count { it.name.startsWith(base) }
-                val rid = app.addPlumbRoom(p.id, kind, if (cnt > 0) "$base ${cnt + 1}" else base)
+                // the suggested name kept as its key, so it follows the language
+                val rid = app.addPlumbRoom(p.id, kind, uz.metrx.app.data.suggestedName(uz.metrx.app.data.nextName(p, kindKey(kind), app.settings.lang), kindKey(kind), app.settings.lang))
                 app.updatePRoom(p.id, rid) { it.copy(pend = it.pend + uz.metrx.app.plumb.PKitPick(k.id, o)) }
                 app.popTo { it is Route.Project && it.id == p.id }
                 app.openRoom(p.id, rid); app.say("el.kitPend")
@@ -424,6 +426,8 @@ fun PStepsScreen(rt: Route.PSteps) {
             }
         }
     }
+    // with the keyboard up the footer goes under the fields (not over them), so the one typed in stays in sight
+    val imeOn = androidx.compose.foundation.layout.WindowInsets.isImeVisible
     Box(Modifier.fillMaxSize().imePadding()) {
         Column(Modifier.fillMaxSize().statusBarsPadding()) {
             PageBar(frosted = true) {
@@ -431,7 +435,7 @@ fun PStepsScreen(rt: Route.PSteps) {
                 Spacer(Modifier.width(6.dp))
                 BarTitle(tr("sx.kit.${k.id}"), eyebrow = tr("tl.stepN", "i" to at + 1, "n" to n))
             }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 120.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = if (imeOn) 16.dp else 168.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Row(Modifier.align(Alignment.CenterHorizontally), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     (0 until n).forEach { i -> Box(Modifier.size(if (i == at) 22.dp else 8.dp, 8.dp).clip(CircleShape).background(when { i == at -> G.cobalt; i < at -> G.cobalt.copy(alpha = .45f); else -> G.ink.copy(alpha = .15f) })) }
                 }
@@ -460,7 +464,7 @@ fun PStepsScreen(rt: Route.PSteps) {
                         p.rooms.forEach { r ->
                             val w = p.floors.firstOrNull { it.id == r.floorId }
                             val ready = measuredRoom(r, app.settings.angleSnap)
-                            Option(w?.let { floorName(it, lang) } ?: dn(r.name, lang), if (ready && !r.isPoly) fmtLen(r.dim("A").v, LenUnit.M, en) + " × " + fmtLen(r.dim("B").v, LenUnit.M, en) + " m"
+                            Option(w?.let { floorName(it, lang) } ?: dn(r.name, lang), if (ready && !r.isPoly) fmtLen(r.dim("A").v, LenUnit.M, en) + " × " + fmtLen(r.dim("B").v, LenUnit.M, en) + " " + tr("u.m")
                                 else tr(if (ready) "tl.measured" else "el.s.later"), where == r.id) { where = r.id }
                         }
                         Option(tr("fz.newRoom"), tr("el.s.newS", "k" to tr(kindKey(if (k.kind == "heat") "room" else k.kind))), where == "new") { where = "new" }
@@ -474,8 +478,12 @@ fun PStepsScreen(rt: Route.PSteps) {
                     }
                 }
             }
+            if (imeOn) FloatingFooter(Modifier) {
+            if (at < n - 1) GBtn(tr("common.next"), { if (ok(cur)) at += 1 }, enabled = ok(cur))
+            else GBtn(tr(if (where == "" || where == "free" || p.rooms.firstOrNull { it.id == where }?.let { ready3D(it, app.settings.angleSnap) } == true) "el.s.put" else "el.s.putLater"), ::save, enabled = steps.all { ok(it) })
+            }
         }
-        FloatingFooter(Modifier.align(Alignment.BottomCenter)) {
+        if (!imeOn) FloatingFooter(Modifier.align(Alignment.BottomCenter)) {
             if (at < n - 1) GBtn(tr("common.next"), { if (ok(cur)) at += 1 }, enabled = ok(cur))
             else GBtn(tr(if (where == "" || where == "free" || p.rooms.firstOrNull { it.id == where }?.let { ready3D(it, app.settings.angleSnap) } == true) "el.s.put" else "el.s.putLater"), ::save, enabled = steps.all { ok(it) })
         }

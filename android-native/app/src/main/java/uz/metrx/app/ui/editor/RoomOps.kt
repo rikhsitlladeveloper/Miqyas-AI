@@ -256,12 +256,15 @@ class RoomOps(private val app: App) {
         val idx = p.rooms.indexOf(r)
         val pieces = p.furniture.filter { it.roomId == rid }
         val inReport = p.reportRooms[rid]   // left out of the report: Undo keeps it out
-        app.store.update(pid) { it.copy(rooms = it.rooms.filter { x -> x.id != rid }, reportRooms = it.reportRooms - rid, furniture = with(app) { outOfRooms(it, setOf(rid)) }) }
+        // the trades' data in it goes too (tiles, wiring, plumbing; its windows stay without a room), kept for Undo
+        var gone = uz.metrx.app.data.TradesGone()
+        app.store.update(pid) { pr -> val (q, g) = uz.metrx.app.data.tradesOut(pr, setOf(rid)); gone = g
+            q.copy(rooms = pr.rooms.filter { x -> x.id != rid }, reportRooms = pr.reportRooms - rid, furniture = with(app) { outOfRooms(pr, setOf(rid)) }) }
         app.sheet = null
         app.popTo { it !is Route.Editor && it !is Route.WallView }
         app.dropMissing()   // the room's pages in the other tabs' stacks go too
         app.say("room.deleted", "n" to uz.metrx.app.data.dn(r.name, app.settings.lang), action = "common.undo") {
-            app.store.update(pid) { pr -> pr.copy(rooms = pr.rooms.toMutableList().apply { add(idx.coerceIn(0, size), r) },
+            app.store.update(pid) { pr -> uz.metrx.app.data.tradesBack(pr, gone).copy(rooms = pr.rooms.toMutableList().apply { add(idx.coerceIn(0, size), r) },
                 reportRooms = if (inReport != null) pr.reportRooms + (rid to inReport) else pr.reportRooms, furniture = pr.furniture.map { f -> pieces.firstOrNull { it.id == f.id } ?: f }) }
         }
     }

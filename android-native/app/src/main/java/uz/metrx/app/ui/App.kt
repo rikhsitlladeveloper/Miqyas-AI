@@ -228,6 +228,8 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     var dir by mutableStateOf(1)
     var sheet by mutableStateOf<Sheet?>(null)
     var toast by mutableStateOf<ToastMsg?>(null)
+    /** The orders list's filter (active, done, all, other trades): kept while an order is opened, changed or deleted. */
+    var ordersSeg by mutableStateOf("active")
     /** The room editor's state and undo history. */
     val ops = uz.metrx.app.ui.editor.RoomOps(this)
     /** The Measure page's calculator, kept while the app runs. */
@@ -272,6 +274,11 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
             if (keep.size != st.size) { st.clear(); st.addAll(keep) }
         }
         if (calc.tool == "sheet") calc.tool = "area"
+    }
+
+    /** The trade changed (Profile → Soha): the other tabs go back to their first page, so no order of the old trade stays open there. */
+    fun dropRole() {
+        stacks.forEach { (t, st) -> if (t != tab && st.size > 1) { st.clear(); st.add(Route.Root) } }
     }
 
     /** Leaves pages of a project or workspace that no longer exists (after a delete). */

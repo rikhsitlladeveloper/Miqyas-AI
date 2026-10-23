@@ -232,7 +232,12 @@ fun DrawScope.drawElecWall(c: ECtx, w: TWall, m: WallMap, ds: List<ElecDev>, pn:
         if (sel == "panel") drawRect(E_DOOR, Offset(at.x - pw / 2f * m.k - 4, at.y - ph / 2f * m.k - 4), Size(pw * m.k + 8, ph * m.k + 8), style = Stroke(2f))
         if (label != null) { val t = label("${pn.h}"); drawText(t, topLeft = Offset(at.x + pw / 2f * m.k + 3, at.y - t.size.height / 2f)) }
     }
-    ds.filter { it.wall == w.id }.forEach { d ->
+    // the heights: beside the device where neither another height nor a device's symbol is, else left out (as the plumber's)
+    val onWall = ds.filter { it.wall == w.id && it.t != "led" }
+    val symbols = onWall.map { d -> (drag?.takeIf { it.first == d.id }?.second ?: m.at(d.off.toDouble(), d.h.toDouble())).let { a ->
+        androidx.compose.ui.geometry.Rect(a.x - r0, a.y - r0, a.x + r0, a.y + r0) } }
+    val taken = ArrayList<androidx.compose.ui.geometry.Rect>()
+    ds.filter { it.wall == w.id }.sortedBy { it.off }.forEach { d ->
         val col = circuitOf(d.id)?.let { rgbC(it.rgb) } ?: Color(0xFF94A3B8)
         val ink = if (d.id in bad) E_WARN else E_INK
         val at = drag?.takeIf { it.first == d.id }?.second ?: m.at(d.off.toDouble(), d.h.toDouble())
@@ -247,7 +252,12 @@ fun DrawScope.drawElecWall(c: ECtx, w: TWall, m: WallMap, ds: List<ElecDev>, pn:
             drawLine(Color(0x553E4A61), Offset(at.x, at.y + r0), Offset(at.x, m.y(0.0)), 1f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 3f)))
             val hh = drag?.takeIf { it.first == d.id }?.let { ((m.yF - it.second.y) / m.k).toInt() } ?: d.h
             val t = label("$hh")
-            drawText(t, topLeft = Offset(at.x + r0 * .9f, at.y + r0 * .3f))
+            val tw = t.size.width.toFloat(); val th = t.size.height.toFloat()
+            val own = androidx.compose.ui.geometry.Rect(at.x - r0, at.y - r0, at.x + r0, at.y + r0)
+            val spot = listOf(at.x + r0 * .9f to at.y + r0 * .3f, at.x - r0 * .9f - tw to at.y + r0 * .3f, at.x + r0 * .9f to at.y - r0 * .3f - th, at.x - r0 * .9f - tw to at.y - r0 * .3f - th)
+                .map { (x, y) -> androidx.compose.ui.geometry.Rect(x, y, x + tw, y + th) }
+                .firstOrNull { r -> taken.none { it.overlaps(r) } && symbols.none { it != own && it.overlaps(r) } }
+            if (spot != null) { taken += spot; drawText(t, topLeft = spot.topLeft) }
         }
         devSymbol(d.t, at, r0, col, ink)
         if (d.id == sel) drawCircle(E_DOOR, r0 * 1.7f, at, style = Stroke(2f))

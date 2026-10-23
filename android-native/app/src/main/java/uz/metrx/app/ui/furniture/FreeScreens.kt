@@ -221,17 +221,19 @@ fun freeSub(f: Furniture, en: Boolean): String {
         val v = uz.metrx.app.furniture.valsOf(f, LocalApp.current.settings.workshop)
         val h = v["h"] ?: w.h
         val sizes = when {
-            "mw" in v -> m(v.getValue("mw")) + " × " + m(v["ml"] ?: 0) + " m"
-            "w2" in v -> m(v.getValue("w")) + " + " + m(v.getValue("w2")) + " × " + m(h) + " m"
-            else -> m(v["w"] ?: w.w) + " × " + m(h) + " × " + m(v["d"] ?: w.d) + " m"
+            "mw" in v -> m(v.getValue("mw")) + " × " + m(v["ml"] ?: 0) + " " + tr("u.m")
+            "w2" in v -> m(v.getValue("w")) + " + " + m(v.getValue("w2")) + " × " + m(h) + " " + tr("u.m")
+            else -> m(v["w"] ?: w.w) + " × " + m(h) + " × " + m(v["d"] ?: w.d) + " " + tr("u.m")
         }
-        return listOfNotNull(f.model.takeIf { it.isNotEmpty() }?.let { tr(if (f.type.isNotEmpty()) "ft.$it" else "fz.m.$it") }, sizes).joinToString(" · ")
+        // a sliding wardrobe is named by the doors it has now, not by the model it started from ("Kupe, 3 eshik" → 4)
+        val label = w.slide?.let { tr("fz.slideNow", "n" to it.n) } ?: f.model.takeIf { it.isNotEmpty() }?.let { tr(if (f.type.isNotEmpty()) "ft.$it" else "fz.m.$it") }
+        return listOfNotNull(label, sizes).joinToString(" · ")
     }
     val fs = f.free
     val run = fs?.let { freeRunMm(f.layout, it.sides, it.island) } ?: uz.metrx.app.furniture.runMm(f)
     val t = (max(0, run) + 50) / 100
     return listOfNotNull(tr(if (f.model.isNotEmpty()) "fz.m.${f.model}" else "kt.l${f.layout}"),
-        fs?.let { (it.sides + listOfNotNull(it.island.takeIf { i -> i > 0 })).joinToString(" + ") { v -> m(v) } + " m" },
+        fs?.let { (it.sides + listOfNotNull(it.island.takeIf { i -> i > 0 })).joinToString(" + ") { v -> m(v) } + " " + tr("u.m") },
         "${t / 10}${if (en) "." else ","}${t % 10} " + tr("kt.pm")).joinToString(" · ")
 }
 
@@ -308,7 +310,7 @@ private fun PickRoomSheet(s: Sheet.FPickRoom) {
                 MIcon(if (w?.type == "kitchen") "kitchen" else "room", G.cobalt, 22.dp, 2f)
                 Column(Modifier.weight(1f)) {
                     Text(w?.let { floorName(it, lang) } ?: dn(r.name, lang), style = ui(15.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(m(r.dim("A").v) + " × " + m(r.dim("B").v) + " m · h " + m(r.dim("H").v), style = num(12.5f, 500, G.ink2), maxLines = 1)
+                    Text(m(r.dim("A").v) + " × " + m(r.dim("B").v) + " " + tr("u.m") + " · h " + m(r.dim("H").v), style = num(12.5f, 500, G.ink2), maxLines = 1)
                 }
                 MIcon("chev", G.ink3, 16.dp, 2f)
             }
@@ -368,7 +370,10 @@ fun FPlaceScreen(rt: Route.FPlace) {
     fun setPose(v: Pose?) { poseS = v?.let { "${it.ref},${it.a},${it.n},${it.deg}" } ?: "" }
     var wTxt by rememberSaveable { mutableStateOf("") }         // a new cabinet's width in a known room; "" = as made
     var keep by rememberSaveable { mutableStateOf(false) }
-    var fitted by remember { mutableStateOf<Furniture?>(null) }
+    // the fitted piece survives turning the phone (kept as its JSON)
+    var fittedJ by rememberSaveable { mutableStateOf("") }
+    val fitted: Furniture? = remember(fittedJ) { fittedJ.takeIf { it.isNotEmpty() }?.let { runCatching { kotlinx.serialization.json.Json.decodeFromString(Furniture.serializer(), it) }.getOrNull() } }
+    fun setFitted(v: Furniture?) { fittedJ = v?.let { kotlinx.serialization.json.Json.encodeToString(Furniture.serializer(), it) } ?: "" }
     val base: Furniture = remember(rt, first, wTxt) {
         when {
             existing != null -> uz.metrx.app.furniture.withoutLead(existing, len)
@@ -384,7 +389,10 @@ fun FPlaceScreen(rt: Route.FPlace) {
     val offMm = off.filter { it.isDigit() }.toIntOrNull()?.takeIf { it > 0 }
     val f = fitted ?: base
     val on = placeWalls(f, ids, first)
-    val issues = fitIssues(f.copy(pose = pose?.takeIf { uz.metrx.app.furniture.canStandFree(f) }), on, len, roomH, ws, offMm, start)
+    // the room's depth in front of a wall, once every wall is measured (a piece deeper than that goes through the wall opposite)
+    val deep: (String) -> Int? = { id -> walls(room, snap).takeIf { ws0 -> ws0.all { it.len != null } }?.let { ws0 ->
+        ws0.firstOrNull { it.id == id }?.let { w -> uz.metrx.app.furniture.depthFrom(w.p0, w.p1, ws0.map { it.p0 }) } } }
+    val issues = fitIssues(f.copy(pose = pose?.takeIf { uz.metrx.app.furniture.canStandFree(f) }), on, len, roomH, ws, offMm, start, deep)
     // where it would stand, and what it would be in the way of there
     val pw = remember(room, snap) { uz.metrx.app.furniture.planWalls(room, snap) }
     val others = p.furniture.filter { it.roomId == room.id && it.id != rt.fid }
@@ -392,7 +400,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
     val warns = uz.metrx.app.furniture.placeWarnings(g, others, room, pw, ws)
     val floor = p.floors.firstOrNull { it.id == room.floorId }
     val roomName = floor?.let { floorName(it, lang) } ?: dn(room.name, lang)
-    fun reset() { fitted = null; keep = false }
+    fun reset() { setFitted(null); keep = false }
 
     fun place() {
         if (issues.isNotEmpty() && !keep) { app.say("fz.pickFirst", kind = ToastKind.ERROR); return }
@@ -434,7 +442,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
         }
         Text(tr(if (ward) "fz.wallQ" else "fz.first"), style = ui(15f, 700))
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            wl.forEach { w -> Chip(tr("kt.wallN", "w" to w.id) + (len(w.id)?.let { " · $it" } ?: ""), w.id == first) { if (w.id != first) { first = w.id; start = 0; setPose(null); reset() } } }
+            wl.forEach { w -> Chip(tr("kt.wallN", "w" to w.id) + (len(w.id)?.let { " · " + fmtLen(it, unit, en) + " " + unitWord(unit) } ?: ""), w.id == first) { if (w.id != first) { first = w.id; start = 0; setPose(null); reset() } } }
         }
         if (!ward && on.count { it != ISLAND } > 1) Text(tr("fz.nextWalls", "w" to on.drop(1).filter { it != ISLAND }.joinToString(", ")), style = ui(13f, 400, G.ink2, 1.4f))
         // a kitchen for a measured room takes its walls whole
@@ -449,7 +457,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
             if (pose == null) Text(tr("fz.offset"), style = ui(15f, 700))
             if (pose == null) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Chip(tr("fz.corner"), offMm == null) { off = ""; setPose(null); reset() }
-                GField(null, off, { off = it.filter { c -> c.isDigit() }.take(5); reset() }, "0", number = true, labelRight = "mm", imeAction = ImeAction.Done, modifier = Modifier.weight(1f))
+                GField(null, off, { off = it.filter { c -> c.isDigit() }.take(5); reset() }, "0", number = true, labelRight = tr("u.mm"), imeAction = ImeAction.Done, modifier = Modifier.weight(1f))
             }
         }
         if (issues.isNotEmpty()) {
@@ -463,13 +471,17 @@ fun FPlaceScreen(rt: Route.FPlace) {
                 if (keep) Text(tr("fz.kept"), style = ui(12.5f, 500, G.amberInk, 1.35f))
             }
             val heightOnly = issues.all { it.key == "fz.high" }
+            // a distance from the corner that leaves no room for a cabinet comes back to where 300 mm still fit
+            val fwl = on.firstOrNull()?.let(len)
+            val fo = if (ward && offMm != null && fwl != null && offMm > fwl - 300 - uz.metrx.app.furniture.W_GAP_SIDE) (fwl - 300 - uz.metrx.app.furniture.W_GAP_SIDE).takeIf { it > 0 } else offMm
+            val fitTry = fitTo(placed(f, on, room.id, room.floorId, fo, ws = ws), on, len, roomH, ws, fo)
+            // fitting that changes nothing (a bed longer than the wall, a corner unit alone, too deep) is not offered
+            val canFit = fitIssues(fitTry.copy(pose = null), on, len, roomH, ws, fo, start, deep) != fitIssues(f.copy(pose = null), on, len, roomH, ws, offMm, start, deep)
+            if (!canFit) Text(tr(if (uz.metrx.app.furniture.canStandFree(f)) "fz.noFitFree" else "fz.noFit"), style = ui(12.5f, 500, G.ink2, 1.4f))
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GBtn(tr(if (heightOnly) "fz.fitH" else "fz.fit"), {
-                    // a distance from the corner that leaves no room for a cabinet comes back to where 300 mm still fit
-                    val wl = on.firstOrNull()?.let(len)
-                    val o = if (ward && offMm != null && wl != null && offMm > wl - 300 - uz.metrx.app.furniture.W_GAP_SIDE) (wl - 300 - uz.metrx.app.furniture.W_GAP_SIDE).takeIf { it > 0 } else offMm
-                    if (o != offMm) off = o?.toString() ?: ""
-                    fitted = fitTo(placed(f, on, room.id, room.floorId, o, ws = ws), on, len, roomH, ws, o); keep = false; app.say("fz.fitted")
+                if (canFit) GBtn(tr(if (heightOnly) "fz.fitH" else "fz.fit"), {
+                    if (fo != offMm) off = fo?.toString() ?: ""
+                    setFitted(fitTry); keep = false; app.say("fz.fitted")
                 }, Btn.SECONDARY, height = 46.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f), maxLines = 2)
                 GBtn(tr("fz.keep"), { keep = true }, if (keep) Btn.PRIMARY else Btn.SECONDARY, height = 46.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f), maxLines = 2)
             }

@@ -25,6 +25,26 @@ private fun keyVars(q: String, l: Lang): Map<String, Any?> = q.split('&').filter
 fun keyName(key: String, vars: Map<String, Any>): String =
     "@" + key + if (vars.isEmpty()) "" else "?" + vars.entries.joinToString("&") { (k, v) -> k + "=" + v.toString().replace(",", "").replace(" ", "") }
 
+/**
+ * A room's name as the app suggested it from strings key [key] ("Hammom", "Hammom 2") kept as that key, so it follows
+ * the language later ("@fr.bath", "@nm.n?b=~fr.bath&n=2"); a name typed or changed stays as typed. [vars]: the key's values.
+ */
+fun suggestedName(typed: String, key: String, l: Lang, vars: Map<String, Any> = emptyMap()): String {
+    val t = typed.trim()
+    val base = Strings.t(key, l, vars.ifEmpty { null })
+    if (t == base) return if (vars.isEmpty()) "@$key" else keyName(key, vars)
+    val n = t.removePrefix("$base ").toIntOrNull()
+    if (vars.isEmpty() && t.startsWith("$base ") && n != null && "$base $n" == t) return "@nm.n?b=~$key&n=$n"
+    return t
+}
+
+/** The suggested name for a new room from strings key [key]: "Hammom", or "Hammom 2" when there is one (counted in the language shown). */
+fun nextName(p: Project, key: String, l: Lang): String {
+    val base = Strings.t(key, l)
+    val n = p.floors.count { floorName(it, l).startsWith(base) }
+    return if (n > 0) "$base ${n + 1}" else base
+}
+
 fun floorName(w: Workspace, l: Lang): String = when {
     w.name == "@floor1" -> Strings.t("pr.floorName", l, mapOf("n" to 1))
     w.name.startsWith("@floor:") -> Strings.t("pr.floorName", l, mapOf("n" to w.name.removePrefix("@floor:")))
