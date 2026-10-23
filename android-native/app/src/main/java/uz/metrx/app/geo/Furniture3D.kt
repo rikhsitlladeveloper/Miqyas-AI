@@ -230,6 +230,8 @@ private class Builder3(
     }
     private fun p(k: String): Part {
         val c = colors.getValue(k); val w = if (wall == ISLAND) null else wall
+        // the worktop is a part of its own (even in the fronts' colour): its top and outline are drawn as a slab
+        if (k == "top") return parts.getOrPut(("top|" + (w ?: "")) to c) { Part(0, w, Role.FURN, c, 1f, slab = true) }
         // clear glass is seen through
         return parts.getOrPut(w to c) { Part(0, w, Role.FURN, c, if (k == "clear") .38f else 1f) }
     }
@@ -241,7 +243,10 @@ private class Builder3(
     val t = ws.t
     val g = ws.gap10 / 10.0; val edge = ws.edge10 / 10.0
 
-    fun obb(p: Part, x: Obb, line: Boolean) { obbFaces(p, x); if (line) obbEdges(edges, x) }
+    /** The worktop's light outline, kept apart from the dark one of the boards. */
+    private val slabEdges get() = (if (wall == ISLAND) null else wall).let { w -> edgeMap.getOrPut("top|" + (w ?: "")) { Edges(0, "furn " + (w ?: "island"), SLAB_LINE) } }
+
+    fun obb(p: Part, x: Obb, line: Boolean) { obbFaces(p, x); if (line) obbEdges(if (p.slab) slabEdges else edges, x) }
 
     /** An upright box [a0]..[a1] along the wall, [y0]..[y1] up, [n0]..[n1] out from the wall. */
     fun box(w: WallBasis, p: Part, a0: Number, a1: Number, y0: Number, y1: Number, n0: Number, n1: Number, line: Boolean = false) {

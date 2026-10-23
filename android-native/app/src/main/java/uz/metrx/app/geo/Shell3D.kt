@@ -45,10 +45,12 @@ class WallBasis(val ox: Double, val oz: Double, val ux: Double, val uz: Double, 
 class Face(val n: V3, val pts: List<V3>, val tris: List<Int>? = null)
 
 /** Faces with one colour and opacity, belonging to one wall of one room ([group]); floors and loose glass have no wall. [tile]: a tiler's tiles. */
-class Part(val group: Int, val wall: String?, val role: Role, val rgb: Int, val op: Float, val tile: Boolean = false) { val faces = ArrayList<Face>() }
+class Part(val group: Int, val wall: String?, val role: Role, val rgb: Int, val op: Float, val tile: Boolean = false,
+           /** A worktop: its top is lit like a stone surface and its outline drawn light, so a dark one shows its thickness. */
+           val slab: Boolean = false) { val faces = ArrayList<Face>() }
 
 /** A wall's outline as line segments (pairs of points), like the prototype's EdgesGeometry lines. */
-class Edges(val group: Int, val wall: String) { val segs = ArrayList<V3>() }
+class Edges(val group: Int, val wall: String, val rgb: Int = WALL_INK) { val segs = ArrayList<V3>() }
 
 /** A room in the scene: its middle and the outward direction of each wall, for the cut-away. */
 class Group(val cx: Double, val cz: Double, val normals: Map<String, Pair<Double, Double>>)
@@ -97,6 +99,16 @@ class Shell3D(
 
 const val FOV_HALF = PI / 9      // half of the 40° camera
 const val WALL_INK = 0x0E1C36
+
+/** A worktop's outline: light, so the edges of a dark worktop stand out against it. */
+const val SLAB_LINE = 0xC4CCD8
+
+/** A worktop's top face: its colour a little lighter, as a lit stone surface, against its darker front edge. */
+fun slabTop(rgb: Int): Int {
+    var out = 0
+    for (k in 0..2) { val c = (rgb shr (16 - 8 * k)) and 255; out = (out shl 8) or (c + (255 - c) * .2).roundToInt().coerceIn(0, 255) }
+    return out
+}
 private const val FIN = 0xC5CBD4
 private const val GLASS = 0x9DB8E8
 private const val HANDLE = 0x6F7782

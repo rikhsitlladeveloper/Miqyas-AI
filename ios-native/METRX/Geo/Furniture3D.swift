@@ -249,6 +249,12 @@ private final class FBuilder {
 
     func p(_ k: String) -> Part3 {
         let c = colors[k]!, w = wall == ISLAND ? nil : wall
+        // the worktop is a part of its own (even in the fronts' colour): its top and outline are drawn as a slab
+        if k == "top" {
+            let tk = FStore.K(wall: "top|" + (w ?? ""), rgb: c)
+            if let x = st.parts[tk] { return x }
+            let x = Part3(0, w, .furn, c, 1, slab: true); st.parts[tk] = x; st.order.append(tk); return x
+        }
         let key = FStore.K(wall: w, rgb: c)
         if let x = st.parts[key] { return x }
         // clear glass is seen through
@@ -272,7 +278,15 @@ private final class FBuilder {
         let e = Edges3(0, "furn " + w); st.edges[w] = e; st.edgeOrder.append(w); return e
     }
 
-    func obb(_ p: Part3, _ x: Obb, _ line: Bool) { obbFaces(p, x); if line { obbEdges(edges, x) } }
+    /// The worktop's light outline, kept apart from the dark one of the boards.
+    var slabEdges: Edges3 {
+        let w = wall == ISLAND ? "island" : (wall ?? "island")
+        let k = "top|" + w
+        if let e = st.edges[k] { return e }
+        let e = Edges3(0, "furn " + w, rgb: SLAB_LINE); st.edges[k] = e; st.edgeOrder.append(k); return e
+    }
+
+    func obb(_ p: Part3, _ x: Obb, _ line: Bool) { obbFaces(p, x); if line { obbEdges(p.slab ? slabEdges : edges, x) } }
 
     /// An upright box a0..a1 along the wall, y0..y1 up, n0..n1 out from the wall.
     func box(_ w: WallBasis, _ p: Part3, _ a0: Double, _ a1: Double, _ y0: Double, _ y1: Double, _ n0: Double, _ n1: Double, _ line: Bool = false) {

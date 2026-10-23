@@ -191,7 +191,7 @@ struct Scene3DView: UIViewRepresentable {
 
 final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
     private struct Prim { let e: ModelEntity; let rgb: Int; let op: Double; let role: Role3; let group: Int; let wall: String?; var alpha: Double = -1 }
-    private struct LineP { let e: ModelEntity; let group: Int; let wall: String; var alpha: Double = -1 }
+    private struct LineP { let e: ModelEntity; let group: Int; let wall: String; let rgb: Int; var alpha: Double = -1 }
     private weak var view: Scene3DARView?
     private var cam: Cam3D?
     private let anchor = AnchorEntity(world: .zero)
@@ -300,7 +300,7 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
             var byColor: [Int: [Face3]] = [:]
             var order: [Int] = []
             for f in p.faces {
-                let c = shade(p.rgb, f.n, light)
+                let c = shade(p.slab && f.n.y > 0.9 ? slabTop(p.rgb) : p.rgb, f.n, light)
                 if byColor[c] == nil { order.append(c) }
                 byColor[c, default: []].append(f)
             }
@@ -334,9 +334,9 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
             var i = 0
             while i + 1 < ed.segs.count { bar(&pos, &idx, ed.segs[i], ed.segs[i + 1], 0.012); i += 2 }
             guard let m = mesh(pos, idx) else { continue }
-            let e = ModelEntity(mesh: m, materials: [mat(WALL_INK, 1)])
+            let e = ModelEntity(mesh: m, materials: [mat(ed.rgb, 1)])
             content.addChild(e)
-            lines.append(LineP(e: e, group: ed.group, wall: ed.wall))
+            lines.append(LineP(e: e, group: ed.group, wall: ed.wall, rgb: ed.rgb))
         }
     }
 
@@ -395,7 +395,7 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         }
         for i in lines.indices {
             let l = lines[i], a = facing(l.group, l.wall) ? 0.35 : 1
-            if a != l.alpha { lines[i].alpha = a; l.e.model?.materials = [mat(WALL_INK, a)] }
+            if a != l.alpha { lines[i].alpha = a; l.e.model?.materials = [mat(l.rgb, a)] }
         }
     }
 

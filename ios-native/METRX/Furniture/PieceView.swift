@@ -10,7 +10,7 @@ import UIKit
  */
 
 /// A face to draw: its corners, outward normal, colour and opacity, and what it belongs to (a wall id, "floor" or "wall").
-struct SFace { let pts: [V3]; let n: V3; let rgb: Int; let op: Double; let tag: String? }
+struct SFace { let pts: [V3]; let n: V3; let rgb: Int; let op: Double; let tag: String?; var slab: Bool = false }
 
 /// A size shown on the piece: from a to b, with end ticks along tick.
 struct DimLine { let a: V3; let b: V3; let tick: V3 }
@@ -80,7 +80,7 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat], bare: Bool = fals
     let fur = furniture3D([f], b, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [], bare: bare, hi: hi)
     // every box of furniture3D adds its six faces to its part one after another
     let furn: [SBox] = fur.parts.flatMap { p in
-        stride(from: 0, to: p.faces.count - 5, by: 6).map { k in SBox(p.faces[k..<k + 6].map { SFace(pts: $0.pts, n: $0.n, rgb: p.rgb, op: p.op, tag: p.wall) }) }
+        stride(from: 0, to: p.faces.count - 5, by: 6).map { k in SBox(p.faces[k..<k + 6].map { SFace(pts: $0.pts, n: $0.n, rgb: p.rgb, op: p.op, tag: p.wall, slab: p.slab) }) }
     }
     var env: [SFace] = []
     for p in shell.parts where p.role == .floor { for fc in p.faces { env.append(SFace(pts: fc.pts, n: fc.n, rgb: PV_FLOOR, op: 1, tag: "floor")) } }
@@ -344,12 +344,15 @@ func drawPiece(_ cg: CGContext, _ size: CGSize, _ s: PieceScene, hi: String?, az
         }
         let path = CGMutablePath()
         path.addLines(between: pts); path.closeSubpath()
-        let rgb = tintTag != nil && fc.tag == tintTag ? pvMix(fc.rgb, PV_HI, 0.55) : fc.rgb
+        // a worktop's top is lit like stone and its outline drawn light, so a dark one shows its thickness
+        let base = fc.slab && fc.n.y > 0.9 ? slabTop(fc.rgb) : fc.rgb
+        let rgb = tintTag != nil && fc.tag == tintTag ? pvMix(base, PV_HI, 0.55) : base
         let (col, a) = pvShade(rgb, fc.n, fc.op, env: fc.tag == "floor" || fc.tag == "wall")
         pvColor(cg, fill: true, col, a)
         cg.addPath(path); cg.fillPath()
         if fc.tag != "floor" {
-            pvColor(cg, fill: false, PV_EDGE, Double(0x40) / 255); cg.setLineWidth(px)
+            if fc.slab { pvColor(cg, fill: false, SLAB_LINE, Double(0xB0) / 255); cg.setLineWidth(px * 1.4) }
+            else { pvColor(cg, fill: false, PV_EDGE, Double(0x40) / 255); cg.setLineWidth(px) }
             cg.addPath(path); cg.strokePath()
         }
     }

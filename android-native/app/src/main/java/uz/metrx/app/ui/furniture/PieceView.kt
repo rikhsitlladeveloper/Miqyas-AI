@@ -56,7 +56,7 @@ import kotlin.math.tan
  */
 
 /** A face to draw: its corners, outward normal, colour and opacity, and what it belongs to (a wall id, "floor" or "wall"). */
-class SFace(val pts: List<V3>, val n: V3, val rgb: Int, val op: Float, val tag: String?)
+class SFace(val pts: List<V3>, val n: V3, val rgb: Int, val op: Float, val tag: String?, val slab: Boolean = false)
 
 /** A size shown on the piece: from [a] to [b], with end ticks along [tick]. */
 class DimLine(val a: V3, val b: V3, val tick: V3)
@@ -95,7 +95,7 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>, bare: Boolean = fals
     val b = shell.bases
     val fur = furniture3D(listOf(f), b, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet(), bare = bare, hi = hi)
     // every box of furniture3D adds its six faces to its part one after another
-    val furn = fur.parts.flatMap { p -> p.faces.chunked(6).filter { it.size == 6 }.map { b -> SBox(b.map { SFace(it.pts, it.n, p.rgb, p.op, p.wall) }) } }
+    val furn = fur.parts.flatMap { p -> p.faces.chunked(6).filter { it.size == 6 }.map { b -> SBox(b.map { SFace(it.pts, it.n, p.rgb, p.op, p.wall, p.slab) }) } }
     val env = ArrayList<SFace>()
     shell.parts.filter { it.role == Role.FLOOR }.forEach { p -> p.faces.forEach { env += SFace(it.pts, it.n, FLOOR_RGB, 1f, "floor") } }
     val H = (room.dim("H").v ?: 2700) / 1000.0
@@ -296,7 +296,7 @@ fun DrawScope.drawPiece(s: PieceScene, hi: String?, az: Float, label: String? = 
     drawRect(Color(0xFFF6F8FC))
     val cam = PCam(s, size.width, size.height, az.toDouble(), hi != null && s.dims.containsKey(hi))
     val tintTag = hi?.let { s.tint[it] }
-    val edge = Color(0x401E293B)
+    val edge = Color(0x401E293B); val slabLine = Color(0xB0000000.toInt() or uz.metrx.app.geo.SLAB_LINE)
     fun face(fc: SFace, faceOut: Boolean) {
         val pts = fc.pts.map { cam.p(it) ?: return }
         if (faceOut) {
@@ -304,9 +304,11 @@ fun DrawScope.drawPiece(s: PieceScene, hi: String?, az: Float, label: String? = 
             if (fc.n.dot(cam.e - c) <= 0) return
         }
         val path = Path().apply { moveTo(pts[0].x, pts[0].y); pts.drop(1).forEach { lineTo(it.x, it.y) }; close() }
-        val rgb = if (tintTag != null && fc.tag == tintTag) mix(fc.rgb, HI_RGB, .55f) else fc.rgb
+        // a worktop's top is lit like stone and its outline drawn light, so a dark one shows its thickness
+        val base = if (fc.slab && fc.n.y > .9) uz.metrx.app.geo.slabTop(fc.rgb) else fc.rgb
+        val rgb = if (tintTag != null && fc.tag == tintTag) mix(base, HI_RGB, .55f) else base
         drawPath(path, shade(rgb, fc.n, fc.op, fc.tag == "floor" || fc.tag == "wall"))
-        if (fc.tag != "floor") drawPath(path, edge, style = Stroke(1f))
+        if (fc.tag != "floor") drawPath(path, if (fc.slab) slabLine else edge, style = Stroke(if (fc.slab) 1.4f else 1f))
     }
     s.env.forEach { face(it, it.tag == "wall") }
     val step = Math.round(az * 60 / Math.PI).toInt() * 2 + if (hi != null && s.dims.containsKey(hi)) 1 else 0

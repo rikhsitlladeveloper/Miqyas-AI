@@ -76,6 +76,7 @@ import uz.metrx.app.geo.Shell3D
 import uz.metrx.app.geo.V3
 import uz.metrx.app.geo.WALL_INK
 import uz.metrx.app.geo.shade
+import uz.metrx.app.geo.slabTop
 import uz.metrx.app.geo.v3Fit
 import uz.metrx.app.ui.theme.G
 import uz.metrx.app.ui.theme.ui
@@ -213,7 +214,7 @@ private class Lens(engine: Engine) : CameraNode(engine) {
 /** The SceneView nodes of a shell and the cut-away of the walls that face the camera (prototype draw3D). */
 private class ShellNodes(val engine: Engine, val ml: MaterialLoader) {
     private class Prim(val node: GeometryNode, val index: Int, val rgb: Int, val op: Float, val role: Role, val group: Int, val wall: String?) { var alpha = -1f }
-    private class Line(val node: GeometryNode, val group: Int, val wall: String) { var alpha = -1f }
+    private class Line(val node: GeometryNode, val group: Int, val wall: String, val rgb: Int) { var alpha = -1f }
     private val mats = HashMap<Long, MaterialInstance>()
     private val prims = ArrayList<Prim>(); private val lines = ArrayList<Line>()
     private val nodes = ArrayList<Node>()
@@ -241,7 +242,7 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader) {
         s.parts.forEach { p ->
             if (p.faces.isEmpty()) return@forEach
             val byColor = LinkedHashMap<Int, ArrayList<uz.metrx.app.geo.Face>>()
-            p.faces.forEach { f -> byColor.getOrPut(shade(p.rgb, f.n, s.light)) { ArrayList() } += f }
+            p.faces.forEach { f -> byColor.getOrPut(shade(if (p.slab && f.n.y > .9) slabTop(p.rgb) else p.rgb, f.n, s.light)) { ArrayList() } += f }
             val verts = ArrayList<Geometry.Vertex>(); val prim = ArrayList<List<Int>>(); val colors = ArrayList<Int>()
             byColor.forEach { (c, fs) ->
                 val idx = ArrayList<Int>()
@@ -270,8 +271,8 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader) {
             val geo = Geometry.Builder(RenderableManager.PrimitiveType.LINES)
                 .vertices(e.segs.map { Geometry.Vertex(position = Float3(it.x.toFloat(), it.y.toFloat(), it.z.toFloat())) })
                 .indices(e.segs.indices.toList()).build(engine)
-            val node = GeometryNode(engine, geo, mat(WALL_INK, 1f))
-            lines += Line(node, e.group, e.wall); root.addChildNode(node); nodes += node
+            val node = GeometryNode(engine, geo, mat(e.rgb, 1f))
+            lines += Line(node, e.group, e.wall, e.rgb); root.addChildNode(node); nodes += node
         }
         // the floor grid (three.js GridHelper: the middle lines darker)
         run {
@@ -310,7 +311,7 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader) {
         }
         lines.forEach { l ->
             val a = if (facing(l.group, l.wall)) .35f else 1f
-            if (a != l.alpha) { l.alpha = a; l.node.setMaterialInstanceAt(0, mat(WALL_INK, a)) }
+            if (a != l.alpha) { l.alpha = a; l.node.setMaterialInstanceAt(0, mat(l.rgb, a)) }
         }
     }
 }

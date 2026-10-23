@@ -39,17 +39,20 @@ struct Face3 { let n: V3; let pts: [V3]; var tris: [Int]? = nil }
 final class Part3 {
     let group: Int, wall: String?, role: Role3, rgb: Int, op: Double
     let tile: Bool
+    /// A worktop: its top is lit like a stone surface and its outline drawn light, so a dark one shows its thickness.
+    let slab: Bool
     var faces: [Face3] = []
-    init(_ group: Int, _ wall: String?, _ role: Role3, _ rgb: Int, _ op: Double, tile: Bool = false) {
-        self.group = group; self.wall = wall; self.role = role; self.rgb = rgb; self.op = op; self.tile = tile
+    init(_ group: Int, _ wall: String?, _ role: Role3, _ rgb: Int, _ op: Double, tile: Bool = false, slab: Bool = false) {
+        self.group = group; self.wall = wall; self.role = role; self.rgb = rgb; self.op = op; self.tile = tile; self.slab = slab
     }
 }
 
 /// A wall's outline as line segments (pairs of points), like the prototype's EdgesGeometry lines.
 final class Edges3 {
     let group: Int, wall: String
+    let rgb: Int
     var segs: [V3] = []
-    init(_ group: Int, _ wall: String) { self.group = group; self.wall = wall }
+    init(_ group: Int, _ wall: String, rgb: Int = WALL_INK) { self.group = group; self.wall = wall; self.rgb = rgb }
 }
 
 /// A room in the scene: its middle and the outward direction of each wall, for the cut-away.
@@ -107,6 +110,20 @@ struct Shell3D {
 
 let FOV_HALF = Double.pi / 9      // half of the 40° camera
 let WALL_INK = 0x0E1C36
+
+/// A worktop's outline: light, so the edges of a dark worktop stand out against it.
+let SLAB_LINE = 0xC4CCD8
+
+/// A worktop's top face: its colour a little lighter, as a lit stone surface, against its darker front edge.
+func slabTop(_ rgb: Int) -> Int {
+    var out = 0
+    for k in 0..<3 {
+        let c = (rgb >> (16 - 8 * k)) & 255
+        let v = Int((Double(c) + Double(255 - c) * 0.2).rounded())
+        out = (out << 8) | min(max(v, 0), 255)
+    }
+    return out
+}
 private let FIN = 0xC5CBD4
 private let GLASS = 0x9DB8E8
 private let HANDLE = 0x6F7782
