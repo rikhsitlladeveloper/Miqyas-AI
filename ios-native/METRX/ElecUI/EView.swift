@@ -95,7 +95,7 @@ struct EViewScreen: View {
     }
 
     private func title(_ p: Project, _ c: ECtx?, _ room: Room?) -> String {
-        if let f = c?.free { return f.name.trimmingCharacters(in: .whitespaces).isEmpty ? tr(eKindKey(f.kind)) : f.name }
+        if let f = c?.free { let nm = dn(f.name); return nm.trimmingCharacters(in: .whitespaces).isEmpty ? tr(eKindKey(f.kind)) : nm }
         if let room { return eRoomName(p, room) }
         return ""
     }

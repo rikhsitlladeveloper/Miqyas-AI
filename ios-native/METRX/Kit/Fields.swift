@@ -173,6 +173,15 @@ struct BarTitle: View {
 }
 
 /// The floating frosted footer that holds a page's main button (prototype .footer in the glass look).
+extension View {
+    /// Keeps up saying whether the keyboard shows: the step pages put their sticky footer under the fields while typing
+    /// (Android imePadding with isImeVisible), so the field typed in is not covered by it.
+    func keyboardUp(_ up: Binding<Bool>) -> some View {
+        onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in up.wrappedValue = true }
+            .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in up.wrappedValue = false }
+    }
+}
+
 struct FloatingFooter<Content: View>: View {
     @ViewBuilder let content: Content
     var body: some View {

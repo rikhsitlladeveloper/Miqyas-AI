@@ -117,8 +117,9 @@ private func drawSticker(_ ctx: GraphicsContext, _ s: Sticker, _ cw: CGFloat, _ 
     edge(bd.s1, g, CGPoint(x: g.x, y: g.y + gh))
     edge(bd.s2, CGPoint(x: g.x + gw, y: g.y), CGPoint(x: g.x + gw, y: g.y + gh))
     guard let q = s.code else { return }
-    let m: CGFloat = qs / CGFloat(q.size + 2)
-    let ox = s.x + cw - pad - qs + m, oy = s.y + pad + m
+    // a quiet zone of 4 modules round the code, as scanners want
+    let m: CGFloat = qs / CGFloat(q.size + 8)
+    let ox = s.x + cw - pad - qs + 4 * m, oy = s.y + pad + 4 * m
     var dark = Path()
     for r in 0..<q.size {
         for c in 0..<q.size where q[r, c] {

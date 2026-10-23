@@ -111,6 +111,9 @@ struct MiniPlan: View {
     var body: some View {
         let unit = AppSettings.shared.unit, en = AppSettings.shared.lang == .en, snap = AppSettings.shared.angleSnap
         let g = r.isPoly ? Geo.polyGeo(r, snap) : nil
+        // the floor less its columns, plus niches from the floor, as everywhere else
+        let floor = Geo.areas(r, snap)?.floor
+        let m2 = tr("u.m2")
         let T = CGFloat(r.dim("T").v ?? 200)
         // the drawing's own size, as in the prototype's svg width/height
         let box: (CGFloat, CGFloat, CGFloat) = {
@@ -133,7 +136,7 @@ struct MiniPlan: View {
             var c = ctx
             let px = size.width / vw
             c.scaleBy(x: px, y: px)
-            if let g { polyMini(c, g, s, T, en) } else { rectMini(c, s, T, unit, en) }
+            if let g { polyMini(c, g, s, T, en, floor, m2) } else { rectMini(c, s, T, unit, en, floor, m2) }
         }
         .frame(width: vw * k, height: vh * k)
         .accessibilityLabel(Text(name))
@@ -143,7 +146,7 @@ struct MiniPlan: View {
         if name { c.text(t, p, .ui, 10.5, 600, INK2D, tracking: 0.05) } else { c.text(t, p, .num, 11, 400, INK3_2D) }
     }
 
-    private func rectMini(_ c: GraphicsContext, _ s: CGFloat, _ T: CGFloat, _ unit: LenUnit, _ en: Bool) {
+    private func rectMini(_ c: GraphicsContext, _ s: CGFloat, _ T: CGFloat, _ unit: LenUnit, _ en: Bool, _ floor: Int64?, _ m2: String) {
         let ok = r.dim("A").v != nil && r.dim("B").v != nil
         let L = ok ? CGFloat(r.dim("A").v!) : 4000, W = ok ? CGFloat(r.dim("B").v!) : 3000
         let t = max(2.5, T * s), iw = L * s, ih = W * s
@@ -180,10 +183,10 @@ struct MiniPlan: View {
         }
         let cx = (x0 + x1) / 2, cy = (y0 + y1) / 2
         label(c, name.uppercased(), CGPoint(x: cx, y: cy - 6), name: true)
-        label(c, (ok ? Geo.fmtArea(Int64(L) * Int64(W), en) : "?") + " m²", CGPoint(x: cx, y: cy + 7), name: false)
+        label(c, (ok ? (floor.map { Geo.fmtArea($0, en) } ?? "?") : "?") + " " + m2, CGPoint(x: cx, y: cy + 7), name: false)
     }
 
-    private func polyMini(_ c: GraphicsContext, _ g: Geo.PolyGeo, _ s: CGFloat, _ T: CGFloat, _ en: Bool) {
+    private func polyMini(_ c: GraphicsContext, _ g: Geo.PolyGeo, _ s: CGFloat, _ T: CGFloat, _ en: Bool, _ floor: Int64?, _ m2: String) {
         let v = g.verts
         let minX = CGFloat(v.map(\.x).min()!), minY = CGFloat(v.map(\.y).min()!)
         let tw = max(2.5, T * s), ox = 18 + tw - minX * s, oy = 18 + tw - minY * s
@@ -217,7 +220,7 @@ struct MiniPlan: View {
         let lp = labelPt(v.map { ($0.x, $0.y) })
         let cp = CGPoint(x: ox + CGFloat(lp.0) * s, y: oy + CGFloat(lp.1) * s)
         label(c, name.uppercased(), CGPoint(x: cp.x, y: cp.y - 6), name: true)
-        label(c, (g.solved ? Geo.fmtArea(Int64(abs(Geo.shoelace(v))), en) : "?") + " m²", CGPoint(x: cp.x, y: cp.y + 7), name: false)
+        label(c, (g.solved ? (floor.map { Geo.fmtArea($0, en) } ?? "?") : "?") + " " + m2, CGPoint(x: cp.x, y: cp.y + 7), name: false)
     }
 }
 

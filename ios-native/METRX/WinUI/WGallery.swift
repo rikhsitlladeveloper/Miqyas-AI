@@ -176,6 +176,8 @@ struct WPlaceScreen: View {
     @State private var tw: String
     @State private var th: String
     @State private var qty = 1
+    /// The keyboard shows: the footer goes under the fields, not over them.
+    @State private var kb = false
     @FocusState private var focus: WGF?
 
     init(app: AppModel, pid: String, kind: String, rid: String? = nil, oid: String? = nil) {
@@ -222,14 +224,22 @@ struct WPlaceScreen: View {
                                 if free { freeFields }
                             }
                         }
-                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 168)
+                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, kb ? 16 : 168)
                     }
                     .scrollDismissesKeyboard(.interactively)
+                    // with the keyboard up the footer goes under the fields (not over them), so the one typed in stays in sight
+                    if kb { footer(p, k) }
                 }
-                FloatingFooter {
-                    GBtn(free ? tr("dw.putFree") : tr("dw.putN", ["n": picks.count]), enabled: ok) { save(p, k) }.accessibilityIdentifier("dw.put")
-                }
+                if !kb { footer(p, k) }
             }
+            .keyboardUp($kb)
+        }
+    }
+
+    /// The button putting the product in.
+    private func footer(_ p: Project, _ k: WinKind) -> some View {
+        FloatingFooter {
+            GBtn(free ? tr("dw.putFree") : tr("dw.putN", ["n": picks.count]), enabled: ok) { save(p, k) }.accessibilityIdentifier("dw.put")
         }
     }
 

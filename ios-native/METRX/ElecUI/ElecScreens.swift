@@ -317,7 +317,7 @@ private struct EFreeLine: View {
                 .frame(width: 34, height: 34)
                 .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(G.cobalt.opacity(0.1)))
             VStack(alignment: .leading, spacing: 1) {
-                T(f.name.trimmingCharacters(in: .whitespaces).isEmpty ? tr(eKindKey(f.kind)) : f.name, ui(14.5, 700), lines: 1)
+                T(dn(f.name).trimmingCharacters(in: .whitespaces).isEmpty ? tr(eKindKey(f.kind)) : dn(f.name), ui(14.5, 700), lines: 1)
                 T(size + cnt, ui(12.5, 500, G.ink2), lines: 1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -438,7 +438,8 @@ private struct EOrderCard: View {
             ELine(icon: "box", title: tr("el.panel"), sub: panelSub) { panelTap() }
             Hairline()
             ELine(icon: "layers", title: tr("el.method"), sub: tr("el.m." + p.elec.method)) { app.sheet = .eMethod(pid: p.id) }
-            if !calc.circuits.isEmpty {
+            // the circuits (how many breakers) are the advanced app's
+            if !calc.circuits.isEmpty && AppSettings.shared.advanced {
                 Hairline()
                 ELine(icon: "sliders", title: tr("el.circuits"), sub: circSub) {
                     if let c = calc.ctxs.first(where: { !calc.routes.inRoom($0.id).isEmpty }) { app.push(.eView(pid: p.id, rid: c.id)) }
@@ -496,7 +497,7 @@ struct ENextStep: View {
     private var step: Step? {
         let s = AppSettings.shared, snap = s.angleSnap
         let pid = p.id
-        let rooms: [(Workspace, Room)] = p.floors.compactMap { w in p.rooms.first { $0.floorId == w.id }.map { (w, $0) } }
+        let rooms: [(Workspace, Room)] = roomsByWorkspace(p)
         let undrawn = p.floors.first { w in !p.rooms.contains { $0.floorId == w.id } }
         let unmeasured = rooms.first { wr in Geo.stepKeys(wr.1, snap).contains { wr.1.dim($0).status != "conf" } }
         let bare = rooms.first { wr in !p.elec.devs.contains { $0.roomId == wr.1.id } && p.elec.room(wr.1.id).pend.isEmpty }

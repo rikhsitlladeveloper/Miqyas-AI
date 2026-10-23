@@ -6,7 +6,9 @@ import Foundation
  * drawings, photos and notes chosen for the report; the builder, the estimate and the PDF parts.
  */
 func snapshotOf(_ p: Project, _ s: AppSettings = .shared, pdf: PdfParts? = nil) -> Snap {
-    let sn = baseSnapshot(p, s, pdf: pdf)
+    var sn = baseSnapshot(p, s, pdf: pdf)
+    // what the plans show in a room's middle is kept with the quote (Profile's setting changed later leaves it as it was)
+    sn.roomLabel = s.roomLabel
     if p.isFurniture { return furnSnap(sn, p, s.workshop, s.mats, s.hws) }
     if p.isElec { return withCalcRooms(elecSnap(sn, p, s.angleSnap), p) }
     if p.isPlumb { return withCalcRooms(plumbSnap(sn, p, s.angleSnap), p) }
@@ -96,7 +98,7 @@ func elecSnap(_ sn: Snap, _ p: Project, _ snap: Bool) -> Snap {
 private func handleNames(_ fs: [Furniture], _ hws: [Hw]) -> String {
     let usual = usualHw(hws, "handle")
     var names: [String] = []
-    for f in fs where f.modules.contains(where: { $0.handles }) {
+    for f in fs where hasHandles(f) {
         let own = hws.first { $0.id == f.handle && $0.kind == "handle" }
         if let n = (own ?? usual)?.name, !names.contains(n) { names.append(n) }
     }
@@ -141,12 +143,26 @@ private func baseSnapshot(_ p: Project, _ s: AppSettings, pdf: PdfParts?) -> Sna
 /// What decides whether the draft still matches an issued quote (prototype fingerprint): the parties, currency,
 /// language, unit, notes, every room's name, measurements, openings, columns and niches, site points, shape and chosen
 /// views, the estimate and the extras. The parts added later (columns and niches, site points, the customer's phone, the
-/// angle snap, a furniture order's prepayment and printed handles) are only there when set or not the first default, so
-/// a quote issued before them still matches its unchanged draft.
-func fingerprint(_ sn: Snap) -> String {
+/// angle snap, a furniture order's prepayment and printed handles, the rooms left out that hold the trade's things, the
+/// tile layouts) are only there when set or not the first default, so a quote issued before them still matches its
+/// unchanged draft. A drawn room's own snap is not in its shape: the order's snap is the one its drawn rooms share (the
+/// quote's for older rooms), and a room drawn with the other one is tagged.
+func fingerprint(_ sn: Snap) -> String { fingerprint(sn, legacy: false) }
+
+/// Whether draft sn is still issued quote fp. A quote issued before 24 Oct 2026 was fingerprinted with every room left
+/// out of the report (empty of the trade's things or not) and without the tile layouts, so a draft also matches that
+/// older fingerprint.
+func sameAsQuote(_ sn: Snap, _ fp: String) -> Bool { fingerprint(sn) == fp || fingerprint(sn, legacy: true) == fp }
+
+/// The fingerprint as it is (legacy false) or as quotes issued before 24 Oct 2026 had it (legacy true).
+func fingerprint(_ sn: Snap, legacy: Bool) -> String {
+    /// a drawn room's shape without its own snap (that is tagged on its own)
+    struct FPoly: Encodable { let verts: [Pt]; let diags: [Diag]; let template: String }
     struct FRoom: Encodable {
-        let name: String; let dims: [[String?]]; let openings: [Opening]; let poly: Poly?; let rot: Int; let views: [String]
+        let name: String; let dims: [[String?]]; let openings: [Opening]; let poly: FPoly?; let rot: Int; let views: [String]
         var features: [Feature]? = nil, points: [SitePoint]? = nil
+        /// a drawn room solved with the other snap than the order's
+        var sn: Bool? = nil
     }
     struct FExtra: Encodable { let id: String; let edited: Ms; let name: String }
     struct F: Encodable {
@@ -162,33 +178,80 @@ func fingerprint(_ sn: Snap) -> String {
         var pl: PlumbOrder? = nil
         /// windows-and-doors orders only: the products and each one's price
         var dw: WinOrder? = nil, dwp: [String: Int64]? = nil
-        /// trades' orders with rooms left out of the report: those rooms (the tile layouts are not in it: tilers' quotes
-        /// issued before the layout drawings still match, their estimate follows the layouts)
+        /// trades' orders with rooms left out of the report that hold the trade's things: those rooms
         var cr: [Room]? = nil
+        /// tilers' orders: the layouts and the rooms' extras
+        var tl: [TileLayout]? = nil, tlr: [TileRoom]? = nil
     }
-    let f = F(name: sn.name, customer: sn.customer, address: sn.address, currency: sn.currency, precision: sn.precision, lang: sn.lang,
-              unit: sn.unit, notes: sn.notes, builder: [sn.builderName, sn.builderPhone],
-              rooms: sn.rooms.map { sr in
-                  let r = sr.room
-                  return FRoom(name: r.name, dims: r.dims.keys.sorted().map { [$0, r.dims[$0]?.v.map(String.init)] }, openings: r.openings,
-                               poly: r.poly, rot: r.rot, views: r.views.map(\.id),
-                               features: r.features.isEmpty ? nil : r.features, points: r.points.isEmpty ? nil : r.points)
-              },
-              estimate: sn.estimate, extras: sn.extras.map { FExtra(id: $0.id, edited: $0.edited, name: $0.name) })
-    var g = f
+    // the order's snap: the one its drawn rooms share (each room's own, the quote's for older rooms)
+    var drawn: [Bool] = []
+    for sr in sn.rooms + sn.calcRooms {
+        if let pl = sr.room.poly {
+            let v = pl.snap ?? sn.snap
+            if !drawn.contains(v) { drawn.append(v) }
+        }
+    }
+    let snap = drawn.count == 1 ? drawn[0] : sn.snap
+    let rooms: [FRoom] = sn.rooms.map { sr in
+        let r = sr.room
+        let own: Bool? = r.poly.map { $0.snap ?? sn.snap }
+        let poly: FPoly? = r.poly.map { FPoly(verts: $0.verts, diags: $0.diags, template: $0.template) }
+        let dims: [[String?]] = r.dims.keys.sorted().map { [$0, r.dims[$0]?.v.map(String.init)] }
+        var fr = FRoom(name: r.name, dims: dims, openings: r.openings, poly: poly, rot: r.rot, views: r.views.map(\.id),
+                       features: r.features.isEmpty ? nil : r.features, points: r.points.isEmpty ? nil : r.points)
+        if let own, own != snap { fr.sn = own }
+        return fr
+    }
+    let extras: [FExtra] = sn.extras.map { FExtra(id: $0.id, edited: $0.edited, name: $0.name) }
+    var g = F(name: sn.name, customer: sn.customer, address: sn.address, currency: sn.currency, precision: sn.precision, lang: sn.lang,
+              unit: sn.unit, notes: sn.notes, builder: [sn.builderName, sn.builderPhone], rooms: rooms, estimate: sn.estimate, extras: extras)
     if !sn.furniture.isEmpty { g.furniture = sn.furniture; g.ftotal = sn.ftotal; g.fdays = sn.fdays; g.finst = sn.finst; g.fmats = sn.fmats }
     if !sn.phone.isEmpty { g.phone = sn.phone }
-    if !sn.snap { g.snap = false }
+    if !snap { g.snap = false }
     if !sn.furniture.isEmpty && sn.fprepay != 50 { g.pp = sn.fprepay }
     // the handle the workshop's list starts with fingerprints as before handles were printed
-    let handlesPrinted = !sn.fhandles.trimmingCharacters(in: .whitespaces).isEmpty && sn.furniture.contains(where: { $0.modules.contains(where: \.handles) })
+    let handlesPrinted = !sn.fhandles.trimmingCharacters(in: .whitespaces).isEmpty && sn.furniture.contains(where: { hasHandles($0) })
     if handlesPrinted && sn.fhandles != "Tutqich skoba 128" { g.hd = sn.fhandles }
     if let e = sn.elec { g.el = e }
     if let e = sn.plumb { g.pl = e }
     if let e = sn.win { g.dw = e; g.dwp = sn.winPrice }
-    if !sn.calcRooms.isEmpty { g.cr = sn.calcRooms.map(\.room) }
+    // the rooms left out only count when the trade has something in them (an older quote with an empty one still matches)
+    let withCr = legacy ? !sn.calcRooms.isEmpty : calcRoomsCount(sn)
+    if withCr {
+        g.cr = sn.calcRooms.map { sr in
+            var r = sr.room
+            r.poly?.snap = nil
+            return r
+        }
+    }
+    if !legacy, let ts = sn.tiles, !ts.isEmpty { g.tl = ts; g.tlr = sn.troom }
     let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
     return (try? enc.encode(g)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
+}
+
+/// Whether the rooms left out of the report hold any of the trade's things: only then do they change its count.
+private func calcRoomsCount(_ sn: Snap) -> Bool {
+    let ids = Set(sn.calcRooms.map(\.room.id))
+    if ids.isEmpty { return false }
+    var used: [String] = []
+    if let e = sn.elec {
+        used += e.devs.map(\.roomId)
+        if let pn = e.panel { used.append(pn.roomId) }
+    }
+    if let e = sn.plumb {
+        used += e.fixes.map(\.roomId)
+        used += e.points.map(\.roomId)
+        if let rs = e.riser { used.append(rs.roomId) }
+    }
+    if let e = sn.win { used += e.items.compactMap(\.roomId) }
+    return used.contains { ids.contains($0) }
+}
+
+/// A room's name in a trade's pages: its workspace's, unless that workspace has more rooms in all (then the room's own).
+func tradeRoomName(_ sr: SnapRoom, _ all: [SnapRoom], _ l: Lang) -> String {
+    let fl = sr.floorLabel
+    if fl.trimmingCharacters(in: .whitespaces).isEmpty || all.filter({ $0.floorLabel == fl }).count > 1 { return dn(sr.room.name, l) }
+    return fl
 }
 
 /// Grand total of a snapshot (for the quote's record and the dark strip).
@@ -200,7 +263,7 @@ func snapTotal(_ sn: Snap) -> Decimal {
 }
 
 /// Measurements still waiting for confirmation in the report's rooms (prototype unconfCount over sn.rooms).
-func unconfirmed(_ sn: Snap) -> Int { sn.rooms.reduce(0) { $0 + Geo.unconfCount($1.room) } }
+func unconfirmed(_ sn: Snap) -> Int { sn.rooms.reduce(0) { $0 + Geo.unconfCount($1.room, sn.snap) } }
 
 /// The PDF's file name (prototype A.share): project name and "Qoralama" or "Taklif №n", no awkward characters.
 func pdfName(_ name: String, _ suffix: String) -> String {

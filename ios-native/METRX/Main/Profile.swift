@@ -399,7 +399,9 @@ private struct DefaultsSheet: View {
     private func bind(_ i: Int) -> Binding<String> { Binding(get: { i < f.count ? f[i] : "" }, set: { if i < f.count { f[i] = $0 } }) }
     var body: some View {
         let s = AppSettings.shared, u = s.unit, en = s.lang == .en, m = unitName()
-        let maxes = [100_000, 20_000, 100_000, 20_000, 20_000]
+        // heights as the door and window form takes them (a room is at most 6 m)
+        let hMax = Geo.dimMax("H")
+        let maxes = [100_000, hMax, 100_000, hMax, hMax]
         // a window can sit on the floor: its sill (the last) may be 0
         let r = (0..<5).map { Geo.lenErr($0 < f.count ? f[$0] : "", maxes[$0], u, en, zeroOk: $0 == 4) }
         GlassSheet(tr("se.defaults"), onClose: { app.sheet = nil }) {

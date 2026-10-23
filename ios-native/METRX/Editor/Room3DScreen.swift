@@ -129,7 +129,7 @@ struct Room3DScreen: View {
 
 /// What the 3D picture is built from: when it changes, the scene is rebuilt.
 func shellKey(_ rooms: [Room], _ snap: Bool, _ names: [String] = []) -> String {
-    rooms.map { "\($0.id)|\($0.dims)|\($0.openings)|\($0.points)|\(String(describing: $0.poly))|\($0.wallColor)|\($0.floorColor)" }.joined(separator: "/") + "\(snap)\(names)"
+    rooms.map { "\($0.id)|\($0.dims)|\($0.openings)|\($0.points)|\($0.features)|\(String(describing: $0.poly))|\($0.wallColor)|\($0.floorColor)" }.joined(separator: "/") + "\(snap)\(names)"
 }
 
 /// Plan | 3D (prototype .subbar .seg).

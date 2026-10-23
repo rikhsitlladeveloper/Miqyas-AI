@@ -10,9 +10,13 @@ struct EditorScreen: View {
     private var ops: RoomOps { RoomOps.shared }
 
     var body: some View {
-        if let p = Store.shared.get(pid), let r = p.rooms.first(where: { $0.id == rid }) {
-            if mode == "3d" { Room3DScreen(app: app, p: p, r: r) } else { plan(p, r) }
+        Group {
+            if let p = Store.shared.get(pid), let r = p.rooms.first(where: { $0.id == rid }) {
+                if mode == "3d" { Room3DScreen(app: app, p: p, r: r) } else { plan(p, r) }
+            }
         }
+        // a drawn room's shape / diagonal mode does not come back when the editor is opened again
+        .onDisappear { RoomOps.shared.leave() }
     }
 
     /// The plan page: the room's drawing, the step card and the tools.
@@ -430,7 +434,8 @@ private struct FullList: View {
                         }
                         .padding(.vertical, 8)
                     }
-                    if stats.allSatisfy({ $0.gross != nil }) {
+                    // a drawn room whose walls do not close has no total yet (as its areas)
+                    if (!r.isPoly || Geo.polyGeo(r, snap).solved) && stats.allSatisfy({ $0.gross != nil }) {
                         HStack(spacing: 0) {
                             T(tr("ed2.total"), ui(14, 700)).padding(.leading, 4).frame(maxWidth: .infinity, alignment: .leading)
                             T(Geo.fmtArea(stats.reduce(0) { $0 + $1.gross! } + extra, en), num(14, 600)).frame(width: 66, alignment: .trailing)

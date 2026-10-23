@@ -489,6 +489,8 @@ struct PStepsScreen: View {
     @State private var at = 0
     @State private var backToken = 0
     @State private var pvc = PGPreviewCache()
+    /// The keyboard shows: the footer goes under the fields, not over them.
+    @State private var kb = false
     @FocusState private var focus: PGSF?
 
     init(app: AppModel, pid: String, kit: String, rid: String? = nil) {
@@ -558,23 +560,31 @@ struct PStepsScreen: View {
                             }
                             stepBody(p, k, cur)
                         }
-                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 168)
+                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, kb ? 16 : 168)
                     }
                     .scrollDismissesKeyboard(.interactively)
+                    // with the keyboard up the footer goes under the fields (not over them), so the one typed in stays in sight
+                    if kb { footer(p, k, st, cur) }
                 }
-                FloatingFooter {
-                    if at < n - 1 {
-                        GBtn(tr("common.next"), enabled: ok(cur)) { if ok(cur) { at += 1 } }.accessibilityIdentifier("ps.next")
-                    } else {
-                        GBtn(tr(putNow(p) ? "el.s.put" : "el.s.putLater"), enabled: st.allSatisfy { ok($0) }) { save(p, k) }.accessibilityIdentifier("ps.save")
-                    }
-                }
+                if !kb { footer(p, k, st, cur) }
             }
+            .keyboardUp($kb)
             .onAppear {
                 PGBackOwner.seq += 1; backToken = PGBackOwner.seq; PGBackOwner.last = backToken
                 app.backOverride = { prev() }
             }
             .onDisappear { if PGBackOwner.last == backToken { app.backOverride = nil; PGBackOwner.last = 0 } }
+        }
+    }
+
+    /// The step's button: Next, or putting the kit in.
+    private func footer(_ p: Project, _ k: PKit, _ st: [String], _ cur: String) -> some View {
+        FloatingFooter {
+            if at < st.count - 1 {
+                GBtn(tr("common.next"), enabled: ok(cur)) { if ok(cur) { at += 1 } }.accessibilityIdentifier("ps.next")
+            } else {
+                GBtn(tr(putNow(p) ? "el.s.put" : "el.s.putLater"), enabled: st.allSatisfy { ok($0) }) { save(p, k) }.accessibilityIdentifier("ps.save")
+            }
         }
     }
 
@@ -696,7 +706,7 @@ struct PStepsScreen: View {
         switch wher {
         case "free":
             guard let sz = sizes() else { return }
-            let f = pFreeOf(k, o, uid(), tr(pKindKey(kind)), sz.0, sz.1, sz.2)
+            let f = pFreeOf(k, o, uid(), "@" + pKindKey(kind), sz.0, sz.1, sz.2)
             updatePlumb(pid) { $0.free.append(f) }
             app.popTo(toProject)
             app.push(.pView(pid: pid, rid: "free:" + f.id))

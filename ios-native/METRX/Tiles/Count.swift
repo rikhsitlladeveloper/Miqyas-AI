@@ -35,11 +35,12 @@ struct TileCount: Equatable {
     var boxes: Int { needs.reduce(0) { $0 + $1.boxes } }
 
     static func + (x: TileCount, o: TileCount) -> TileCount {
-        // the same tile (look and size) once, its counts added up, in the order it first came
+        // the same tile (look and size) once, its counts added up, in the order it first came; a layout priced on its
+        // own stays its own line (the same tile at two prices is not one)
         var keys: [String] = []
         var groups: [String: [TileNeed]] = [:]
         for n in x.needs + o.needs {
-            let k = "\(n.look)|\(n.a)|\(n.b)"
+            let k = "\(n.look)|\(n.a)|\(n.b)|\(n.price)"
             if groups[k] == nil { keys.append(k) }
             groups[k, default: []].append(n)
         }

@@ -67,7 +67,20 @@ func ctxOf(_ p: Project, _ rid: String, _ snap: Bool) -> ECtx? {
 func freeCtx(_ f: ElecFree) -> ECtx? {
     let r = eFreeRoom(f)
     guard let g = roomGeo(r, true, []) else { return nil }
-    return ECtx(id: r.id, room: r, g: g, kind: f.kind, er: ElecRoom(roomId: r.id, kind: f.kind, link: f.link), free: f)
+    return ECtx(id: r.id, room: r, g: g, kind: f.kind, er: ElecRoom(roomId: r.id, kind: f.kind, link: f.link), free: eWithKit(f))
+}
+
+/// A typed room saved before it kept its kit's choices: its power points' types, wall lights and sockets' heights as
+/// its kit has them (an LED strip, a choice, is not brought back). The same room when there is nothing to fill in.
+func eWithKit(_ f: ElecFree) -> ElecFree {
+    guard let k = kitOf(f.kit) else { return f }
+    if !f.powers.isEmpty && !f.lamps.isEmpty && !f.sockH.isEmpty { return f }
+    let d = freeOf(k, defaultOpts(k), f.id, f.name, f.L, f.W, f.H)
+    var out = f
+    if out.powers.isEmpty { out.powers = d.powers }
+    if out.lamps.isEmpty { out.lamps = d.lamps.filter { $0 != "led" } }
+    if out.sockH.isEmpty { out.sockH = d.sockH }
+    return out
 }
 
 /// Every room of the order that devices can be in: the measured ones in order, then the typed ones.
@@ -482,13 +495,16 @@ func freeDevs(_ f: ElecFree, _ c: ECtx) -> [ElecDev] {
     // a bathroom's sockets are splash-proof ones
     let st = c.kind == "bath" ? "sw" : "s1"
     let sh = usualH(st, c.H, c.kind)
-    for _ in 0..<eClampI(f.sock, 0, 60) {
+    for i in 0..<eClampI(f.sock, 0, 60) {
         let w = ws[k % ws.count]
         let slot = k / ws.count
         k += 1
         let prefer = w.len * Double(slot % 3 + 1) / 4
-        if let x = spotOn(w, prefer, sh, 86, 86, blocksOn(c, w.id, st, out)) {
-            out.append(ElecDev(id: nid(), t: st, roomId: c.id, wall: w.id, off: x, h: sh))
+        // at its kit's own height (a washer's, a hood's, by the bed), else the usual one
+        let own = i < f.sockH.count ? f.sockH[i] : 0
+        let h = own > 0 ? own : sh
+        if let x = spotOn(w, prefer, h, 86, 86, blocksOn(c, w.id, st, out)) {
+            out.append(ElecDev(id: nid(), t: st, roomId: c.id, wall: w.id, off: x, h: h))
         }
     }
     // each power point as its kit had it (a stove's on its 32 A line, a water heater's high), at its usual height
@@ -506,6 +522,25 @@ func freeDevs(_ f: ElecFree, _ c: ECtx) -> [ElecDev] {
         let w = all[(2 + i) % all.count]
         if let x = spotOn(w, w.len / 2 + Double(i) * 200, 300, 86, 86, blocksOn(c, w.id, "lan", out)) {
             out.append(ElecDev(id: nid(), t: "lan", roomId: c.id, wall: w.id, off: x, h: 300))
+        }
+    }
+    // the kit's wall lights at their usual height, the walls in turn; an LED strip under the wall units (a kitchen) or in the cove
+    for (i, t) in f.lamps.prefix(10).enumerated() {
+        if t == "led" {
+            let w = c.kind == "kitchen" ? workWall(c) : ws[(i + 2) % ws.count]
+            let h = c.kind == "kitchen" ? 1450 : absH(-60, c.H)
+            guard let seg = freeStretch(c, w, h) else { continue }
+            let a0 = seg.0, b0 = seg.1
+            let l = min(tInt(b0 - a0 - 100), 2400)
+            if l < 300 { continue }
+            out.append(ElecDev(id: nid(), t: "led", roomId: c.id, wall: w.id, off: eRound((a0 + b0) / 2), h: h, len: l))
+        } else {
+            let w = ws[(i + 2) % ws.count]
+            let ty = devType(t)
+            let h = usualH(t, c.H, c.kind)
+            if let x = spotOn(w, w.len / 2, h, ty.dw, ty.dh, blocksOn(c, w.id, t, out)) {
+                out.append(ElecDev(id: nid(), t: t, roomId: c.id, wall: w.id, off: x, h: h))
+            }
         }
     }
     let lights = eClampI(f.light, 0, 40)
@@ -536,6 +571,17 @@ func freeOf(_ k: ElecKit, _ o: KitOpts, _ id: String, _ name: String, _ L: Int, 
         for _ in 0..<max(0, it.n) { pw.append(it.t) }
     }
     e.powers = pw
+    // the wall lights and LED strips, and the sockets' own heights, stay as the kit has them
+    var lamps: [String] = []
+    for it in items where it.t == "lw" || it.t == "led" {
+        for _ in 0..<max(0, it.n) { lamps.append(it.t) }
+    }
+    e.lamps = lamps
+    var sh: [Int] = []
+    for it in items where devType(it.t).cat == "sock" && devType(it.t).group == "sock" {
+        for _ in 0..<max(0, it.n) { sh.append(it.h ?? 0) }
+    }
+    e.sockH = sh
     return e
 }
 

@@ -482,21 +482,37 @@ struct FStepsScreen: View {
         .accessibilityIdentifier("fx.opt." + key)
     }
 
-    /// The laser's newest reading not used yet (its readings' inbox) fills the field, and the next step opens; with none,
-    /// nothing is made up: it says so.
+    /// The laser's newest reading not used yet (its readings' inbox) fills the field first, and the next step opens; with
+    /// none, a made-up one near the usual size (until the real meter is here, as the editor's laser button).
     private func reading(_ steps: [SizeStep], _ unit: LenUnit) {
         let i = at
         guard laser != "busy", i < steps.count, !steps[i].choice else { return }
         let s = steps[i]
-        guard let r = AppSettings.shared.readings.last(where: { $0.used == nil && $0.src != "manual" }) else { laser = tr("fx.noReading"); return }
-        AppSettings.shared.markReadingUsed(r.id, tr(s.label))
-        setTxt(steps, i, Geo.fmtField(r.mm, unit, en))
-        laser = tr("fx.got", ["v": Geo.fmtLen(r.mm, unit, en) + " " + unitWord(unit)])
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-            guard at == i, let m = fModel(model) else { return }
-            let st = stepsNow(m)
-            if ok(st, i, unit) { next(st, unit) }
+        if let r = AppSettings.shared.readings.last(where: { $0.used == nil && $0.src != "manual" }) {
+            AppSettings.shared.markReadingUsed(r.id, tr(s.label))
+            let tv = Geo.fmtField(r.mm, unit, en)
+            setTxt(steps, i, tv)
+            laser = tr("fx.got", ["v": Geo.fmtLen(r.mm, unit, en) + " " + unitWord(unit)])
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { nextAfter(i, tv, unit) }
+            return
         }
+        laser = "busy"
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
+            let v = (s.usual + Int.random(in: -120...120)) / 5 * 5
+            let tv = Geo.fmtField(v, unit, en)
+            setTxt(steps, i, tv)
+            laser = tr("fx.got", ["v": Geo.fmtLen(v, unit, en) + " " + unitWord(unit)])
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { nextAfter(i, tv, unit) }
+        }
+    }
+
+    /// After a laser reading v went into step i: on to the next step when it fits (read from v, the value put in).
+    private func nextAfter(_ i: Int, _ v: String, _ unit: LenUnit) {
+        guard at == i, let m = fModel(model) else { return }
+        let st = stepsNow(m)
+        guard i < st.count, let mm = parseLen(v, unit), stepIssue(st[i], mm) == nil else { return }
+        laser = nil
+        if back { back = false; at = st.count } else { at = i + 1 }
     }
 
     /// What a step's value reads as in the summary: a choice's name, or a size with its unit.

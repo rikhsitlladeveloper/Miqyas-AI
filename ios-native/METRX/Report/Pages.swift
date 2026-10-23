@@ -359,11 +359,11 @@ final class Doc {
         space(0)
         let top = y
         if pf.plan {
-            let label = dn(r.name, l), un = unit, e = en, snap = sn.snap
+            let label = dn(r.name, l), un = unit, e = en, snap = sn.snap, lm = sn.roomLabel, m2 = t("u.m2")
             draw { ctx in
                 var c = ctx
                 c.translateBy(x: PX + 0.75, y: top + 0.75); c.scaleBy(x: 0.75, y: 0.75)
-                drawReportPlan(c, r, un, e, label, snap: snap)
+                drawReportPlan(c, r, un, e, label, snap: snap, labelMode: lm, m2: m2)
                 ctx.stroke(Path(CGRect(x: PX + 0.375, y: top + 0.375, width: 270.75, height: planH - 0.75)), with: .color(FIG), lineWidth: 0.75)
             }
         }
@@ -433,9 +433,13 @@ final class Doc {
         }
     }
 
-    /// 3D views two by two (prototype .views), at most four.
+    /// 3D views two by two (prototype .views), at most four; a picture whose file is gone gives its place to the next.
     func views() {
-        let vs = sn.rooms.flatMap(\.room.views).prefix(4).compactMap { image($0.img) }
+        var vs: [UIImage] = []
+        for v in sn.rooms.flatMap(\.room.views) {
+            if vs.count >= 4 { break }
+            if let im = image(v.img) { vs.append(im) }
+        }
         if vs.isEmpty { return }
         h2(t("r.views"))
         space(0)

@@ -214,7 +214,8 @@ struct Furniture3DPane: View {
                 InsidePill(on: mo.bare) { mo.bare.toggle() }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(.top, 10).padding(.leading, 10)
-                if !free {
+                // a picture for the customer shows the doors: no saving while seeing inside
+                if !free && !mo.bare {
                     ShotPill(icon: "camera", label: tr("3d.save")) { save() }
                         .accessibilityIdentifier("3d.save")
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)

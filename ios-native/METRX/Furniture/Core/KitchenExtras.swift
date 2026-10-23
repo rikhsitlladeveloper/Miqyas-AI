@@ -53,13 +53,14 @@ func wallUnitsMm(_ f: Furniture) -> Int { f.modules.filter { $0.type == "wall" }
 /// The backsplash's length: the worktop along walls (not on the island), mm.
 func splashMm(_ f: Furniture) -> Int { worktopRuns(f).filter { $0.key != ISLAND }.values.reduce(0, +) }
 
-/// End panels as parts: the lower ones from the floor to the worktop, the upper ones the wall units' height.
+/// End panels as parts: the lower ones from the floor to the worktop, the upper ones the wall units' height (of no
+/// module: the sticker names the piece only).
 func extrasParts(_ f: Furniture, _ ws0: Workshop) -> [FPart] {
     let ws = wsOf(f, ws0)
     guard let x = f.kx else { return [] }
     var out: [FPart] = []
     func part(_ key: String, _ a: Int, _ b: Int, _ n: Int) {
-        if n > 0 { out.append(FPart(key: key, mod: f.id, role: "front", L: max(a, b), W: min(a, b), qty: n, bands: Bands(l1: 2, l2: 2, s1: 2, s2: 2), grain: true)) }
+        if n > 0 { out.append(FPart(key: key, mod: "", role: "front", L: max(a, b), W: min(a, b), qty: n, bands: Bands(l1: 2, l2: 2, s1: 2, s2: 2), grain: true)) }
     }
     part("fp.endLow", ws.legH + K_BASE_H, K_BASE_D + 20, x.ends)
     part("fp.endUp", K_WALL_H, K_WALL_D + 20, x.endsUp)

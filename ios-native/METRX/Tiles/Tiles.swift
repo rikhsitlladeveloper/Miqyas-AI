@@ -77,6 +77,15 @@ struct TSurf: Codable, Equatable {
     var alt = false
 }
 
+/// Whether surface s's heights can be laid: "up to" a height above 0, a band whose top is above its bottom (a height typed wrong reads 0).
+func surfHeightsOk(_ s: TSurf) -> Bool {
+    switch s.mode {
+    case "to": return s.h1 > 0
+    case "band": return s.h0 > 0 && s.h1 > s.h0
+    default: return true
+    }
+}
+
 extension TSurf {
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)

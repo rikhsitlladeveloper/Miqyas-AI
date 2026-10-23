@@ -116,6 +116,10 @@ struct ElecFree: Codable, Equatable, Identifiable {
     var kit = ""
     /// The power points' types in order (pst stove, pov oven, pac AC, pwh water heater); past the list, or in an older order, AC.
     var powers: [String] = []
+    /// The kit's wall lights and LED strips ("lw", "led") in order: kept as the kit had them.
+    var lamps: [String] = []
+    /// Each socket's height as its kit had it, mm (0: the usual one), in order; past the list the usual height.
+    var sockH: [Int] = []
 }
 
 extension ElecFree {
@@ -125,6 +129,7 @@ extension ElecFree {
         name = c.v(.name, ""); kind = c.v(.kind, "other"); L = c.v(.L, 4000); W = c.v(.W, 3000); H = c.v(.H, 2700)
         sock = c.v(.sock, 4); sw = c.v(.sw, 1); light = c.v(.light, 1); low = c.v(.low, 0); power = c.v(.power, 0)
         link = c.v(.link, 4000); kit = c.v(.kit, ""); powers = c.v(.powers, [])
+        lamps = c.v(.lamps, []); sockH = c.v(.sockH, [])
     }
 }
 

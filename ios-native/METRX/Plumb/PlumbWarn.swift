@@ -69,8 +69,8 @@ func pWarningsOf(_ p: Project, _ cs: [PCtx], _ rt: PRoutes) -> [PWarn] {
             out.append(PWarn(key: "sx.w.long", roomId: d.pt.roomId, target: who, vars: ["m": pM1(d.horiz), "x": pM1(Double(p.plumb.drainMax))]))
         }
     }
-    // heating alone (radiators, underfloor) needs no riser: only water or a drain does
-    if rt.riser == nil && all.contains(where: { $0.t == "cold" || $0.t == "drain" }) { out.append(PWarn(key: "sx.w.noRiser", roomId: nil, target: nil)) }
+    // heating alone (radiators, underfloor) needs no riser: only water or a drain does; rooms typed by size have no wall for one
+    if rt.riser == nil && cs.contains(where: { $0.free == nil }) && all.contains(where: { $0.t == "cold" || $0.t == "drain" }) { out.append(PWarn(key: "sx.w.noRiser", roomId: nil, target: nil)) }
     if rt.riser != nil && rt.hot == nil && all.contains(where: { $0.t == "hot" }) { out.append(PWarn(key: "sx.w.noHot", roomId: nil, target: nil)) }
     let heating = all.contains { $0.t == "hs" || $0.t == "hr" } || cs.contains { $0.pr.ufh }
     if rt.heat == nil && heating { out.append(PWarn(key: "sx.w.noBoiler", roomId: nil, target: nil)) }
@@ -81,6 +81,12 @@ func pWarningsOf(_ p: Project, _ cs: [PCtx], _ rt: PRoutes) -> [PWarn] {
 func liveRiser(_ p: Project) -> PlRiser? {
     guard let r = p.plumb.riser, p.rooms.contains(where: { $0.id == r.roomId }) else { return nil }
     return r
+}
+
+/// The riser the next step asks to place: when the order has none, needs one, and a drawn room can take it. Rooms typed
+/// by size only cannot hold a riser, so such an order is not asked for one (nil).
+func riserToPlace(_ p: Project, _ snap: Bool) -> PlRiser? {
+    liveRiser(p) == nil && needsRiser(p) ? defaultRiser(p, snap) : nil
 }
 
 /// Whether order p has water or a drain to bring (a cold or drain outlet): a heating-only order needs no riser.

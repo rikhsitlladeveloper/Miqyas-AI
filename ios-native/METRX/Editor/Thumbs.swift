@@ -11,6 +11,7 @@ struct RoomThumb: View {
     var body: some View {
         let unit = AppSettings.shared.unit, en = AppSettings.shared.lang == .en, snap = AppSettings.shared.angleSnap
         let label = label ?? dn(r.name)
+        let m2 = tr("u.m2")
         Canvas { ctx, size in
             let pad: CGFloat = detailed ? 22 : 6
             let outline: [CGPoint], solid: Bool
@@ -62,7 +63,7 @@ struct RoomThumb: View {
             let ar = Geo.areas(r, snap)
             let cx = (pts.map(\.x).min()! + pts.map(\.x).max()!) / 2, cy = (pts.map(\.y).min()! + pts.map(\.y).max()!) / 2
             ctx.draw(Text(label.uppercased()).font(.custom(fontName(.ui, 700), fixedSize: 8.5)).tracking(0.5).foregroundColor(ink), at: CGPoint(x: cx, y: cy), anchor: .bottom)
-            ctx.draw(Text((ar.map { Geo.fmtArea($0.floor, en) } ?? "?") + " m²").font(.custom(fontName(.num, 400), fixedSize: 9)).foregroundColor(Color(argb: 0xFF3E4A61)),
+            ctx.draw(Text((ar.map { Geo.fmtArea($0.floor, en) } ?? "?") + " " + m2).font(.custom(fontName(.num, 400), fixedSize: 9)).foregroundColor(Color(argb: 0xFF3E4A61)),
                      at: CGPoint(x: cx, y: cy), anchor: .top)
             if !r.isPoly {
                 let st = { (s: String) in Text(s).font(.custom(fontName(.num, 400), fixedSize: 8.5)).foregroundColor(Color(argb: 0xFF3E4A61)) }

@@ -254,11 +254,14 @@ private struct EDevEditSheet: View {
     }
 
     private func delete(_ old: ElecDev) {
-        guard let before = Store.shared.get(pid) else { return }
-        let id = old.id, p0 = pid
+        guard let devs = Store.shared.get(pid)?.elec.devs, let at = devs.firstIndex(where: { $0.id == old.id }) else { return }
+        let gone = devs[at], id = old.id, p0 = pid
         updateElec(p0) { e in e.devs.removeAll { $0.id == id } }
         app.sheet = nil
-        app.say("el.devDel", action: "common.undo") { Store.shared.update(p0) { $0 = before } }
+        // Undo puts back only this device, where it was
+        app.say("el.devDel", action: "common.undo") {
+            updateElec(p0) { e in if !e.devs.contains(where: { $0.id == gone.id }) { e.devs = e.devs.putBack(gone, at: at) } }
+        }
     }
 }
 
@@ -341,14 +344,22 @@ private struct ERoomSetSheet: View {
         app.sheet = nil; app.say("common.save")
     }
     private func clear() {
-        guard let before = Store.shared.get(pid) else { return }
+        guard let before = Store.shared.get(pid)?.elec else { return }
         let p0 = pid, r0 = rid
+        let devs = before.devs.filter { $0.roomId == r0 }, kits = before.room(r0).kits
         updateElec(p0) { e in
             e.devs.removeAll { $0.roomId == r0 }
             for i in e.rooms.indices where e.rooms[i].roomId == r0 { e.rooms[i].kits = [] }
         }
         app.sheet = nil
-        app.say("el.cleared", action: "common.undo") { Store.shared.update(p0) { $0 = before } }
+        // Undo puts back only this room's devices and kits
+        app.say("el.cleared", action: "common.undo") {
+            updateElec(p0) { e in
+                let back = devs.filter { d in !e.devs.contains { $0.id == d.id } }
+                e.devs += back
+                for i in e.rooms.indices where e.rooms[i].roomId == r0 { e.rooms[i].kits = kits }
+            }
+        }
     }
 }
 
@@ -498,10 +509,11 @@ private struct EFreeSheet: View {
         let s = AppSettings.shared
         let en = s.lang == .en
         let old = fid.flatMap { id in Store.shared.get(pid)?.elec.free.first { $0.id == id } }
-        let st = old ?? ElecFree(id: uid(), name: tr(eKindKey("bed")), kind: "bed")
+        let st = old ?? ElecFree(id: uid(), name: "@" + eKindKey("bed"), kind: "bed")
         start = st; isNew = old == nil
         _kind = State(initialValue: st.kind)
-        _name = State(initialValue: st.name)
+        // a kind's own name is kept as its key, so it follows the language
+        _name = State(initialValue: dn(st.name))
         _tl = State(initialValue: Geo.fmtField(st.L, s.unit, en))
         _tw = State(initialValue: Geo.fmtField(st.W, s.unit, en))
         _th = State(initialValue: Geo.fmtField(st.H, s.unit, en))
@@ -547,6 +559,14 @@ private struct EFreeSheet: View {
         }
     }
 
+    /// The name as stored: the start's own when unchanged, a kind's name as its key, a typed one as typed.
+    private func keptName() -> String {
+        let t = name.trimmingCharacters(in: .whitespaces)
+        if t == dn(start.name) { return start.name }
+        if t == tr(eKindKey(kind)) { return "@" + eKindKey(kind) }
+        return t
+    }
+
     private func pickKind(_ k: String) {
         if name.trimmingCharacters(in: .whitespaces).isEmpty || name == tr(eKindKey(kind)) { name = tr(eKindKey(k)) }
         kind = k
@@ -555,7 +575,7 @@ private struct EFreeSheet: View {
     private func save() {
         guard let sz = sizes(), app.once() else { return }
         var f = start
-        f.name = name.trimmingCharacters(in: .whitespaces); f.kind = kind
+        f.name = keptName(); f.kind = kind
         f.L = sz.0; f.W = sz.1; f.H = sz.2; f.link = sz.3
         if cnt.count >= 5 { f.sock = cnt[0]; f.sw = cnt[1]; f.light = cnt[2]; f.low = cnt[3]; f.power = cnt[4] }
         let fx = f, fresh = isNew, p0 = pid

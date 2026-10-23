@@ -27,4 +27,28 @@ enum ViewFiles {
     }
 
     static func delete(_ img: String) { try? FileManager.default.removeItem(at: file(img)) }
+
+    /// Removes pictures no room refers to any more (a deleted room or project, once its Undo has passed), and the
+    /// pictures kept with issued quotes of deleted projects. keepFiles and keepIds: what projects that could not be read
+    /// refer to (Store.unreadableFiles, unreadableIds), kept.
+    static func sweep(_ projects: [Project], keepFiles: Set<String> = [], keepIds: Set<String> = []) {
+        let fm = FileManager.default
+        var used = Set<String>()
+        for p in projects {
+            for r in p.rooms { for v in r.views { used.insert((v.img as NSString).lastPathComponent) } }
+            // a quote issued before its pictures were copied next to it still names the room's own
+            for q in p.quotes { for sr in q.sn.rooms { for v in sr.room.views { used.insert((v.img as NSString).lastPathComponent) } } }
+        }
+        for f in keepFiles { used.insert((f as NSString).lastPathComponent) }
+        for f in (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [] where !used.contains(f.lastPathComponent) {
+            try? fm.removeItem(at: f)
+        }
+        // pictures kept with issued quotes ("quotes/<project>-<n>") go with their project
+        let ids = Set(projects.map(\.id)).union(keepIds)
+        let qdir = base.appendingPathComponent("quotes", isDirectory: true)
+        for d in (try? fm.contentsOfDirectory(at: qdir, includingPropertiesForKeys: nil)) ?? [] {
+            let name = d.lastPathComponent
+            if !ids.contains(where: { name.hasPrefix($0 + "-") }) { try? fm.removeItem(at: d) }
+        }
+    }
 }

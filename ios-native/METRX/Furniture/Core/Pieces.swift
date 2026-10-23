@@ -515,6 +515,10 @@ func pieceResized(_ f: Furniture, _ v: [String: Int], _ ws: Workshop) -> Furnitu
         let n = newPiece(f.type, g, ws, f.name, now: f.created)
         var r = onWalls(n, f.walls.isEmpty ? n.walls : f.walls)
         r.id = f.id; r.roomId = f.roomId; r.ws = f.ws; r.mats = f.mats; r.keep = f.keep; r.pose = f.pose; r.model = f.model
+        // the handles chosen for the whole piece ("Change for all", or none at all) stay as they were
+        r.handle = f.handle
+        let bare = f.modules.contains { takesHandles($0) } && !hasHandles(f)
+        if bare { r.modules = r.modules.map { m in var x = m; if takesHandles(m) { x.handles = false }; return x } }
         return CORNER_TYPES.contains(f.type) ? r : shiftRun(r, runStart(f))
     }
     if ITEM_TYPES.contains(f.type) { return itemResized(f, main, v, ws) }

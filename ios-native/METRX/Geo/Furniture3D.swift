@@ -99,7 +99,8 @@ struct PartHi: Equatable {
 
 /// The part names the 3D knows its boards by; the others light up every board of their role in their module.
 private let PART_TAGGED: Set<String> = ["fp.side", "fp.top", "fp.bottom", "fp.divider", "fp.shelf", "fp.back", "fp.door", "fp.dFace", "fp.rail", "fp.plinth",
-                                        "fp.panel", "fp.filler", "fp.slidePanel", "fp.dSide", "fp.dFront", "fp.dBottom"]
+                                        "fp.panel", "fp.filler", "fp.slidePanel", "fp.dSide", "fp.dFront", "fp.dBottom",
+                                        "fp.endLow", "fp.endUp"]
 private let HI_PART = 0xF59E0B
 
 /// A handle's length along its door or drawer, mm: the piece's handle type (a knob, a long bar, the usual 128 skoba).
@@ -196,13 +197,17 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
                     let penSide = f.layout == "P" && r.wall == f.walls.first { $0 != ISLAND }
                     let hiOpen = (wl.map { hi < $0 - 20 } ?? false) && !penSide
                     let ends: [(Int, Bool)] = isl ? [(lo, f.layout != "P"), (hi, true)] : [(lo, lo > 20), (hi, hiOpen)]
-                    if kx0.ends > 0 { for (a, open) in ends where open { B.box(b, B.role("front"), a == lo ? a - 18 : a, a == lo ? a : a + 18, 0, wt - K_TOP, 0, 600, true) } }
+                    // the end panels are parts of no module (KitchenExtras extrasParts): lit up from the parts list by their own name
+                    let sm = B.mod, ss = B.sec
+                    B.mod = ""; B.sec = ""
+                    if kx0.ends > 0 { for (a, open) in ends where open { B.box(b, B.role("front", "fp.endLow"), a == lo ? a - 18 : a, a == lo ? a : a + 18, 0, wt - K_TOP, 0, 600, true) } }
                     let up = f.modules.filter { $0.wall == r.wall && $0.type == "wall" }
                     if kx0.endsUp > 0, let wl, let u0 = up.map(\.x).min(), let u1 = up.map({ $0.x + $0.w }).max() {
                         let y0 = up.map(\.elev).min() ?? 0, y1 = up.map { $0.elev + $0.h }.max() ?? 0, dd = up.map(\.d).max() ?? 300
-                        if u0 > 20 { B.box(b, B.role("front"), u0 - 18, u0, y0, y1, 0, dd, true) }
-                        if u1 < wl - 20 { B.box(b, B.role("front"), u1, u1 + 18, y0, y1, 0, dd, true) }
+                        if u0 > 20 { B.box(b, B.role("front", "fp.endUp"), u0 - 18, u0, y0, y1, 0, dd, true) }
+                        if u1 < wl - 20 { B.box(b, B.role("front", "fp.endUp"), u1, u1 + 18, y0, y1, 0, dd, true) }
                     }
+                    B.mod = sm; B.sec = ss
                 }
                 // extras: the backsplash panel on the wall over the worktop, the cornice on the wall units
                 if let kx = f.kx, r.wall != ISLAND {
@@ -336,11 +341,12 @@ private final class FBuilder {
         }
         st.picks.append(Pick(key: key, box: x))
         if handles {
-            // a knob is as wide as it is long
-            let hw: Double = hLen < 60 ? hLen / 1000 : 0.012
-            let lift = V3(0, (hy - hLen / 2) / 1000, 0)
+            // a knob is as wide as it is long; a long handle is no longer than the door less 40 mm
+            let hl: Double = min(hLen, max(20, h - 40))
+            let hw: Double = hl < 60 ? hl / 1000 : 0.012
+            let lift = V3(0, (hy - hl / 2) / 1000, 0)
             let ho: V3 = o + e * ((fw - 40) / 1000) + tn * (Double(t) / 1000) + lift
-            obb(p("handle"), Obb(o: ho, a: e * hw, b: V3(0, hLen / 1000, 0), c: tn * 0.025), false)
+            obb(p("handle"), Obb(o: ho, a: e * hw, b: V3(0, hl / 1000, 0), c: tn * 0.025), false)
         }
     }
 
@@ -352,7 +358,11 @@ private final class FBuilder {
         let nn = n + out
         let o = w.at(a0 / 1000, y0 / 1000, nn / 1000)
         let x = Obb(o: o, a: w.dir(fw / 1000, 0), b: V3(0, fh / 1000, 0), c: w.dir(0, Double(t) / 1000))
-        if !bare { obb(role(pr, "fp.dFace"), x, true); st.picks.append(Pick(key: key, box: x)) }
+        // seeing inside, an inner drawer's face (behind a door, of the carcass board) stays: only fronts go
+        if !bare || pr != "front" {
+            obb(role(pr, "fp.dFace"), x, true)
+            if !bare { st.picks.append(Pick(key: key, box: x)) }
+        }
         if out > 0 || bare {
             let bh = max(60, min(fh - 40, 150)), bx0 = a0 + 26, bx1 = a0 + fw - 26, by = y0 + 20
             let c = role("carcass", "fp.dBox")
@@ -362,9 +372,11 @@ private final class FBuilder {
         }
         if handles && !bare {
             let hc = a0 + fw / 2
-            let hh: Double = hLen < 60 ? hLen / 1000 : 0.012
-            let at = w.at((hc - hLen / 2) / 1000, (y0 + fh - min(40, fh / 3)) / 1000, (nn + Double(t)) / 1000)
-            obb(p("handle"), Obb(o: at, a: w.dir(hLen / 1000, 0), b: V3(0, hh, 0), c: w.dir(0, 0.025)), false)
+            // a long handle is no longer than the front less 40 mm
+            let hl: Double = min(hLen, max(20, fw - 40))
+            let hh: Double = hl < 60 ? hl / 1000 : 0.012
+            let at = w.at((hc - hl / 2) / 1000, (y0 + fh - min(40, fh / 3)) / 1000, (nn + Double(t)) / 1000)
+            obb(p("handle"), Obb(o: at, a: w.dir(hl / 1000, 0), b: V3(0, hh, 0), c: w.dir(0, 0.025)), false)
         }
     }
 

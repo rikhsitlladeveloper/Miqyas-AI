@@ -20,6 +20,9 @@ struct OrderIssue: Equatable, Hashable {
 /// board (the wardrobe designer's own rule), 1100 for 18 mm and thicker.
 func shelfSpanMax(_ t: Int) -> Int { t >= 18 ? 1100 : 1000 }
 
+/// A shelf in a section iw mm wide inside (the shelf is 2 mm shorter) bends on board of t mm: the designer's and the Check list's one rule.
+func shelfTooLong(_ iw: Int, _ t: Int) -> Bool { iw - 2 > shelfSpanMax(t) }
+
 /// The board rules of one piece: a part bigger than the sheet, a drawer deeper than its box, a shelf too long to carry.
 func boardIssues(_ f: Furniture, _ ws0: Workshop, _ mats: [Mat]) -> [OrderIssue] {
     let ws = wsOf(f, ws0)
@@ -49,7 +52,7 @@ func boardIssues(_ f: Furniture, _ ws0: Workshop, _ mats: [Mat]) -> [OrderIssue]
                 if s.inserts.contains(where: { $0.kind == "drawer" }) && rl > dIn - 10 {
                     out.append(OrderIssue(f.id, "err", "bz.ck.drawer", ["s": i + 1, "r": rl, "v": dIn], m.id))
                 }
-                if s.inserts.contains(where: { $0.kind == "shelf" }) && iw - 2 > span {
+                if s.inserts.contains(where: { $0.kind == "shelf" }) && shelfTooLong(iw, t) {
                     out.append(OrderIssue(f.id, "warn", "bz.ck.shelf", ["s": i + 1, "v": iw - 2, "t": t, "max": span], m.id))
                 }
             }

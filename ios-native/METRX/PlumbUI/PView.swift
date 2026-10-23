@@ -40,7 +40,7 @@ struct PViewScreen: View {
     }
 
     private func title(_ p: Project, _ c: PCtx?, _ room: Room?) -> String {
-        if let f = c?.free { return f.name.trimmingCharacters(in: .whitespaces).isEmpty ? tr(pKindKey(f.kind)) : f.name }
+        if let f = c?.free { let nm = dn(f.name); return nm.trimmingCharacters(in: .whitespaces).isEmpty ? tr(pKindKey(f.kind)) : nm }
         if let room { return pRoomName(p, room) }
         return ""
     }
@@ -745,7 +745,8 @@ private struct PVHeatCard: View {
         let v = tr("sx.loopV", ["n": loop.n, "s": loop.step / 10, "a": pvD1(loop.area)])
         let more = loop.n > 1 ? " × \(loop.n)" : ""
         EKv(k: tr("sx.s.ufh"), v: v)
-        EKv(k: tr("sx.loopLen"), v: pvD1(loop.each / 1000) + U_M + more)
+        // the loop's length is the advanced app's (a count for buying)
+        if AppSettings.shared.advanced { EKv(k: tr("sx.loopLen"), v: pvD1(loop.each / 1000) + U_M + more) }
     }
 }
 

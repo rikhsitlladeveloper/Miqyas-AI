@@ -17,6 +17,17 @@ enum PhotoFiles {
 
     static func load(_ src: String, maxW: CGFloat = 0) -> UIImage? { ViewFiles.load(src, maxW: maxW) }
 
+    /// Removes photos nothing refers to any more (deleted items and pictures, once their Undo has passed). used: the
+    /// photos' names the projects, the Measure page's pictures and the projects that could not be read refer to.
+    static func sweep(_ used: Set<String>) {
+        let fm = FileManager.default
+        let names = Set(used.map { ($0 as NSString).lastPathComponent })
+        let dir = ViewFiles.file("photos")
+        for f in (try? fm.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [] where !names.contains(f.lastPathComponent) {
+            try? fm.removeItem(at: f)
+        }
+    }
+
     /// The picture as the camera held it (the camera stores its turn as a flag).
     private static func upright(_ img: UIImage) -> UIImage {
         guard img.imageOrientation != .up else { return img }

@@ -1,4 +1,5 @@
 import SwiftUI
+import Observation
 
 /*
  * The tiler's own app (22 Oct 2026, built like the furniture maker's; Android ui/tiles/TilerScreens.kt): the Home with
@@ -331,7 +332,7 @@ struct TNextStep: View {
     private var step: Step? {
         let s = AppSettings.shared, snap = s.angleSnap
         let pid = p.id
-        let rooms: [(Workspace, Room)] = p.floors.compactMap { w in p.rooms.first { $0.floorId == w.id }.map { (w, $0) } }
+        let rooms: [(Workspace, Room)] = roomsByWorkspace(p)
         let undrawn = p.floors.first { w in !p.rooms.contains { $0.floorId == w.id } }
         let unmeasured = rooms.first { wr in Geo.stepKeys(wr.1, snap).contains { wr.1.dim($0).status != "conf" } }
         let bare = rooms.first { wr in !p.tiles.contains { $0.roomId == wr.1.id } }
@@ -388,20 +389,36 @@ struct TNextStep: View {
 /// The adhesive's kg a m² as set (0 kept: no adhesive bought; 5 when unset or wrong).
 func tileGlueBase() -> Double { glueBaseOf(AppSettings.shared.trade.glueKg) }
 
-/// The order's counted tiles, worked out again only when the order or the settings change.
-final class TileCountCache {
+/// The order's counted tiles, worked out again only when the order or the settings change, away from the main thread
+/// (a mosaic is many thousand tiles): the last count shows until the new one is ready, which is set on the main thread.
+@Observable final class TileCountCache {
     static let shared = TileCountCache()
-    private struct In: Equatable { let tiles: [TileLayout]; let troom: [TileRoom]; let rooms: [Room]; let snap: Bool; let glue: Double }
-    private var memo: [String: (In, TileCount)] = [:]
+    struct In: Equatable { let tiles: [TileLayout]; let troom: [TileRoom]; let rooms: [Room]; let snap: Bool; let glue: Double }
+    struct Made { let i: In; let c: TileCount }
+    /// The counts made lately, by order and room ("pid|rid", "pid|*"): only set on the main thread.
+    private var memo: [String: Made] = [:]
+    /// What each count is being worked out from; only touched on the main thread.
+    @ObservationIgnored private var want: [String: In] = [:]
+
     func of(_ p: Project, _ roomId: String? = nil) -> TileCount {
         let snap = AppSettings.shared.angleSnap
         let i = In(tiles: p.tiles, troom: p.troom, rooms: p.rooms, snap: snap, glue: tileGlueBase())
         let k = p.id + "|" + (roomId ?? "*")
-        if let m = memo[k], m.0 == i { return m.1 }
-        let c = countOrder(p, snap, i.glue, roomId, all: roomId == nil)
-        if memo.count > 40 { memo = [:] }
-        memo[k] = (i, c)
-        return c
+        let m = memo[k]
+        if let m, m.i == i { return m.c }
+        if want[k] != i {
+            want[k] = i
+            let pp = p, rid = roomId, glue = i.glue
+            DispatchQueue.global(qos: .userInitiated).async {
+                let c = countOrder(pp, snap, glue, rid, all: rid == nil)
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.want[k] == i else { return }
+                    if self.memo.count > 40 { self.memo = [:] }
+                    self.memo[k] = Made(i: i, c: c)
+                }
+            }
+        }
+        return m?.c ?? TileCount()
     }
 }
 

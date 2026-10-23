@@ -52,7 +52,7 @@ struct EstimateTab: View {
             Stats(app: app, p: p)
             // after a quote: is the draft still the same as the last one issued? (prototype es.same / es.changed)
             if let q = p.quotes.last {
-                let same = fingerprint(snapshotOf(p)) == q.fp
+                let same = sameAsQuote(snapshotOf(p), q.fp)
                 QuoteBanner(same: same, text: tr(same ? "es.same" : "es.changed", ["n": q.no]))
             }
             if p.isTiler { TilesCard(app: app, p: p) } else if p.isElec { ElecCard(app: app, p: p) } else if p.isPlumb { PlumbCard(app: app, p: p) } else if p.isWin { WinCard(app: app, p: p) } else if isTrade(p.industry) { TradeCard(app: app, p: p) }

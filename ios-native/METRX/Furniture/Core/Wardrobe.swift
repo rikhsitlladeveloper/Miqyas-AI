@@ -226,7 +226,9 @@ func wardrobeChecks(_ m: Module, _ wallL: Int?, _ roomH: Int?, _ ws: Workshop, _
     for (i, s) in m.sections.enumerated() {
         let n = i + 1
         let iw = wardInner(m, m.sections, i, t)
-        if iw > 1000 && s.inserts.contains(where: { $0.kind == "shelf" }) { out.append(FCheck(level: "warn", key: "wc.shelfWide", vars: ["s": n, "v": iw], mid: m.id)) }
+        if shelfTooLong(iw, t) && s.inserts.contains(where: { $0.kind == "shelf" }) {
+            out.append(FCheck(level: "warn", key: "wc.shelfWide", vars: ["s": n, "v": iw - 2, "max": shelfSpanMax(t)], mid: m.id))
+        }
         if m.slide == nil, s.fronts.kind == "door", let fw = frontSizes(s.fronts, frontW(s), m.h - wardBase(m), ws).map(\.1).max(), fw > 600 {
             out.append(FCheck(level: "warn", key: "wc.doorWide", vars: ["s": n, "v": fw], mid: m.id))
         }

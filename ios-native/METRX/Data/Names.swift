@@ -142,3 +142,17 @@ func newProject(_ name: String, _ customer: String, _ phone: String, _ address: 
     let now = nowMs()
     return Project(id: uid(), name: name, customer: customer, phone: phone, address: address, location: loc, currency: currency, reportLang: reportLang, created: now, edited: now)
 }
+
+/// Every room of p with its workspace, workspace by workspace: each workspace's rooms, not only its first (the trades' next step).
+func roomsByWorkspace(_ p: Project) -> [(Workspace, Room)] {
+    p.floors.flatMap { w in p.rooms.filter { $0.floorId == w.id }.map { (w, $0) } }
+}
+
+extension Array {
+    /// x put back at index at (an Undo of one delete: only that item comes back, the other changes since stay).
+    func putBack(_ x: Element, at: Int) -> [Element] {
+        var out = self
+        out.insert(x, at: Swift.min(Swift.max(0, at), out.count))
+        return out
+    }
+}

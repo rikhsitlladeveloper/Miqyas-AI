@@ -176,6 +176,8 @@ struct PlFree: Codable, Equatable, Identifiable {
     var tr = 0
     var small = false
     var cabin = false
+    /// Those choices are kept here (a room saved before they were takes its kit's, see pWithKit).
+    var kept = false
 }
 
 extension PlFree {
@@ -186,7 +188,7 @@ extension PlFree {
         wc = c.v(.wc, 1); basin = c.v(.basin, 1); bath = c.v(.bath, 1); shower = c.v(.shower, 0); sink = c.v(.sink, 0)
         wm = c.v(.wm, 0); dw = c.v(.dw, 0); wh = c.v(.wh, 0); gb = c.v(.gb, 0); rad = c.v(.rad, 0); ufh = c.v(.ufh, false)
         link = c.v(.link, 3000); kit = c.v(.kit, "")
-        tr = c.v(.tr, 0); small = c.v(.small, false); cabin = c.v(.cabin, false)
+        tr = c.v(.tr, 0); small = c.v(.small, false); cabin = c.v(.cabin, false); kept = c.v(.kept, false)
     }
 }
 

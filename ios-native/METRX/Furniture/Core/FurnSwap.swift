@@ -18,7 +18,7 @@ func swapAll(_ fs: [Furniture], front: String? = nil, handle: String? = nil) -> 
             let on = handle != NO_HANDLES
             if on { g.handle = handle }
             g.modules = g.modules.map { m in
-                if m.type == "gap" && m.app != "dishwasher" { return m }
+                if !takesHandles(m) { return m }
                 var x = m; x.handles = on
                 return x
             }
@@ -26,6 +26,12 @@ func swapAll(_ fs: [Furniture], front: String? = nil, handle: String? = nil) -> 
         return g
     }
 }
+
+/// A unit that can have handles: not a kitchen's space for a fridge or a cooker (a dishwasher's gap has its front).
+func takesHandles(_ m: Module) -> Bool { !(m.type == "gap" && m.app != "dishwasher") }
+
+/// Whether a piece shows handles anywhere (its spaces for a fridge or cooker do not count).
+func hasHandles(_ f: Furniture) -> Bool { f.modules.contains { $0.handles && takesHandles($0) } }
 
 /// The fronts' board all of fs share, or nil when they differ (or there are none).
 func commonFront(_ fs: [Furniture]) -> String? {
@@ -36,6 +42,6 @@ func commonFront(_ fs: [Furniture]) -> String? {
 /// The handles all of fs share: a hardware id, "" the usual one, NO_HANDLES; nil when they differ.
 func commonHandle(_ fs: [Furniture]) -> String? {
     let built = fs.filter { f in f.modules.contains { $0.type != "gap" } }
-    let all = Set(built.map { f in f.modules.contains { $0.handles } ? f.handle : NO_HANDLES })
+    let all = Set(built.map { f in hasHandles(f) ? f.handle : NO_HANDLES })
     return all.count == 1 ? all.first : nil
 }

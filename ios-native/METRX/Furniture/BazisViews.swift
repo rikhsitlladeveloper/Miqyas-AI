@@ -269,6 +269,28 @@ struct LivePrice: View {
 /* ---------------- the one Check list ---------------- */
 
 /// Every problem of the order's pieces: the board rules, how each fits its room, doors that hit, the designers' checks.
+/// A value worked out once for its inputs and kept while they stay the same (Android's remember(keys) { … }): kept in a
+/// view's @State, so the Check list and the part in 3D are not worked out again on every redraw.
+final class BzMemo<K: Equatable, V> {
+    private var key: K? = nil
+    private var value: V? = nil
+    func get(_ k: K, _ make: () -> V) -> V {
+        if let v = value, key == k { return v }
+        let v = make()
+        key = k; value = v
+        return v
+    }
+}
+
+/// What the Check list of an order is worked out from.
+struct BzIssuesKey: Equatable {
+    let furniture: [Furniture], rooms: [Room], ws: Workshop, mats: [Mat], snap: Bool
+    init(_ p: Project) {
+        let s = AppSettings.shared
+        furniture = p.furniture; rooms = p.rooms; ws = s.workshop; mats = s.mats; snap = s.angleSnap
+    }
+}
+
 func orderIssues(_ p: Project) -> [OrderIssue] {
     let s = AppSettings.shared
     let ws = s.workshop, snap = s.angleSnap
@@ -357,9 +379,11 @@ func openIssue(_ app: AppModel, _ p: Project, _ i: OrderIssue) {
 struct CheckCard: View {
     let app: AppModel
     let p: Project
+    @State private var memo = BzMemo<BzIssuesKey, [OrderIssue]>()
     var body: some View {
         if p.furniture.contains(where: { !$0.modules.isEmpty }) {
-            let issues = orderIssues(p)
+            let pp = p
+            let issues = memo.get(BzIssuesKey(pp)) { orderIssues(pp) }
             let errs = issues.filter { $0.level == "err" }.count
             let bg: Color = errs > 0 ? G.errWash : !issues.isEmpty ? G.amberWash : G.greenWash
             let fg: Color = errs > 0 ? G.err : !issues.isEmpty ? G.amberInk : BZ_GOOD
@@ -385,10 +409,11 @@ struct CheckCard: View {
 struct CheckScreen: View {
     let app: AppModel
     let pid: String
+    @State private var memo = BzMemo<BzIssuesKey, [OrderIssue]>()
     var body: some View {
         if let p = Store.shared.get(pid) {
             let s = AppSettings.shared
-            let issues = orderIssues(p)
+            let issues = memo.get(BzIssuesKey(p)) { orderIssues(p) }
             let anyErr = issues.contains { $0.level == "err" }
             FPage(eyebrow: dn(p.name), title: tr("bz.check"), back: { app.pop() }) {
                 T(tr("bz.checkB", ["v": shelfSpanMax(s.workshop.t), "t": s.workshop.t]), ui(13, 400, G.ink2, lh: 1.4))
@@ -580,7 +605,7 @@ struct SwapButton: View {
 func remsOf(_ p: Project) -> [Remnant] {
     let s = AppSettings.shared
     if !s.advanced { return [] }
-    return remnantsFor(s.remnants, p.id, p.cutAt > 0, live: { Store.shared.get($0) != nil })
+    return remnantsFor(s.remnants, p.id, p.cutAt > 0)
 }
 
 /// The workshop's remnants: by material, their sizes and where they came from; each can be thrown away.
@@ -640,13 +665,27 @@ private struct RemnantRow: View {
     let app: AppModel
     let r: Remnant
     var body: some View {
-        let by: String? = r.used.isEmpty ? nil : Store.shared.get(r.used).map { dn($0.name) }
+        let taken = !removable(r)
+        let by: String? = taken ? Store.shared.get(r.used).map { dn($0.name) } : nil
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 1) {
                 T("\(r.L) × \(r.W) " + tr("u.mm") + (r.grain ? " ↕" : ""), num(15, 700))
-                T(words(by), ui(12, 400, by != nil ? G.amberInk : G.ink2), lines: 2)
+                T(words(taken, by), ui(12, 400, taken ? G.amberInk : G.ink2), lines: 2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
+            // a remnant a cut order took is locked: that board was cut, it is not in the store any more
+            if taken {
+                MIcon("lock", G.ink3, 20, 2).frame(width: 44, height: 44)
+                    .pressable(0.95, label: tr("bz.remLocked")) { app.say("bz.remLocked", kind: .info) }
+                    .accessibilityIdentifier("bz.remLocked")
+            } else {
+                trash
+            }
+        }
+        .frame(minHeight: 48)
+    }
+
+    private var trash: some View {
             MIcon("trash", G.err, 20, 2).frame(width: 44, height: 44)
                 .pressable(0.95, label: tr("common.delete")) {
                     let s = AppSettings.shared
@@ -656,15 +695,13 @@ private struct RemnantRow: View {
                     app.say("bz.remDeleted", action: "common.undo") { AppSettings.shared.setRemnantList(before) }
                 }
                 .accessibilityIdentifier("bz.remDel")
-        }
-        .frame(minHeight: 48)
     }
 
-    /// Where the remnant came from, and the order that took it (or that it is free).
-    private func words(_ by: String?) -> String {
+    /// Where the remnant came from, and the order that took it (taken by a deleted order, or that it is free).
+    private func words(_ taken: Bool, _ by: String?) -> String {
         var out: [String] = []
         if let from = Store.shared.get(r.src) { out.append(tr("bz.remFrom", ["o": dn(from.name)])) }
-        if let by { out.append(tr("bz.remBy", ["o": by])) } else { out.append(tr("bz.remFree")) }
+        if !taken { out.append(tr("bz.remFree")) } else if let by { out.append(tr("bz.remBy", ["o": by])) } else { out.append(tr("bz.remTaken")) }
         return out.joined(separator: " · ")
     }
 }
@@ -695,6 +732,8 @@ struct RemnantCard: View {
                 T(tr("bz.cutWas", ["d": fmtDate(p.cutAt)]), ui(12.5, 600, BZ_GOOD, lh: 1.4))
                 GBtn(tr("bz.cutUndo"), kind: .secondary, icon: "undo", height: 44, corner: 14, fontSize: 14) {
                     let st = AppSettings.shared
+                    // an offcut of this order another order took was cut there: undoing would hand it out twice
+                    if !canUndoCut(st.remnants, p.id) { app.say("bz.undoTaken", kind: .error); return }
                     st.setRemnantList(cutUndone(st.remnants, p.id))
                     Store.shared.update(p.id) { $0.cutAt = 0 }
                 }
@@ -736,11 +775,11 @@ func partHomes(_ fs: [Furniture], _ r: CutRow, _ ws: Workshop) -> [(String, Set<
     for f in fs {
         let fws = wsOf(f, ws)
         var mods = Set<String>()
-        for m in f.modules {
-            for pt in partsOf(m, fws) {
-                var k = pt; k.mod = ""; k.qty = 0
-                if k == key && matFor(pt.role, f.mats) == r.mat { mods.insert(f.id + "|" + pt.mod) }
-            }
+        // a kitchen's end panels too (parts of no module)
+        let parts = f.modules.flatMap { partsOf($0, fws) } + extrasParts(f, ws)
+        for pt in parts {
+            var k = pt; k.mod = ""; k.qty = 0
+            if k == key && matFor(pt.role, f.mats) == r.mat { mods.insert(f.id + "|" + pt.mod) }
         }
         if !mods.isEmpty { out.append((f.id, mods)) }
     }
@@ -754,16 +793,24 @@ struct PartIn3D: View {
     let fid: String?
     let onPiece: (String) -> Void
     let onClose: () -> Void
+    /// Where the part is and its piece's scene, kept while the order, the part and the workshop stay the same.
+    private struct HomesKey: Equatable { let fs: [Furniture]; let r: CutRow; let ws: Workshop }
+    private struct SceneKey: Equatable { let f: Furniture; let r: CutRow; let mods: Set<String>; let ws: Workshop; let mats: [Mat] }
+    @State private var homesMemo = BzMemo<HomesKey, [(String, Set<String>)]>()
+    @State private var sceneMemo = BzMemo<SceneKey, PieceScene>()
     var body: some View {
         let s = AppSettings.shared
-        let homes = partHomes(p.furniture, r, s.workshop)
+        let fs = p.furniture, row = r, ws = s.workshop, mats = s.mats
+        let homes = homesMemo.get(HomesKey(fs: fs, r: row, ws: ws)) { partHomes(fs, row, ws) }
         let ids = homes.map(\.0)
         if let f = p.furniture.first(where: { $0.id == fid && ids.contains($0.id) }) ?? p.furniture.first(where: { ids.contains($0.id) }) {
-            // a piece in its room is shown on its own, taken out of the room
-            let shown = f.roomId == nil ? f : takenOut(f, { _ in nil }, nil)
             let bare = r.p.role != "front"
             let mods = homes.first { $0.0 == f.id }?.1 ?? []
-            let scene = pieceScene(shown, s.workshop, s.mats, bare: bare, hi: PartHi(r.p.key, r.p.role, mods))
+            let scene = sceneMemo.get(SceneKey(f: f, r: row, mods: mods, ws: ws, mats: mats)) {
+                // a piece in its room is shown on its own, taken out of the room
+                let shown = f.roomId == nil ? f : takenOut(f, { _ in nil }, nil)
+                return pieceScene(shown, ws, mats, bare: bare, hi: PartHi(row.p.key, row.p.role, mods))
+            }
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 8) {
                     Circle().fill(BZ_HI).frame(width: 12, height: 12)

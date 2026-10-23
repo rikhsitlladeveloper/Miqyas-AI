@@ -50,9 +50,13 @@ extension Doc {
     }
 
     private func roomName(_ c: ECtx) -> String {
-        if let f = c.free { return f.name.trimmingCharacters(in: .whitespaces).isEmpty ? t("el.k." + f.kind) : f.name }
-        guard let sr = (sn.rooms + sn.calcRooms).first(where: { $0.room.id == c.id }) else { return "" }
-        return sr.floorLabel.trimmingCharacters(in: .whitespaces).isEmpty ? dn(sr.room.name, l) : sr.floorLabel
+        if let f = c.free {
+            let nm = dn(f.name, l)
+            return nm.trimmingCharacters(in: .whitespaces).isEmpty ? t("el.k." + f.kind) : nm
+        }
+        let all = sn.rooms + sn.calcRooms
+        guard let sr = all.first(where: { $0.room.id == c.id }) else { return "" }
+        return tradeRoomName(sr, all, l)
     }
 
     /// The legend: every symbol used and the panel, then the circuits' colours.

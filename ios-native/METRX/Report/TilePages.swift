@@ -22,10 +22,7 @@ extension Doc {
     func tilePages(_ ls: [TileLayout], _ troom: [TileRoom]) {
         if ls.isEmpty { return }
         var names: [String: String] = [:]
-        for sr in sn.rooms {
-            let fl = sr.floorLabel.trimmingCharacters(in: .whitespaces)
-            names[sr.room.id] = fl.isEmpty ? dn(sr.room.name, l) : sr.floorLabel
-        }
+        for sr in sn.rooms { names[sr.room.id] = tradeRoomName(sr, sn.rooms, l) }
         // the layouts of the report's rooms and those typed by size
         let shown = ls.filter { x in x.roomId.map { names[$0] != nil } ?? true }
         if shown.isEmpty { return }

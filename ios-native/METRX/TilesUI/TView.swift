@@ -409,13 +409,17 @@ private struct TLayoutCard: View {
     }
 
     private func delete() {
-        guard let before = Store.shared.get(p.id) else { return }
+        guard let tiles = Store.shared.get(p.id)?.tiles else { return }
         let id = l.id, pid = p.id
         // a second tap finds it gone: nothing more is deleted and no other page is left
-        if !before.tiles.contains(where: { $0.id == id }) { return }
+        guard let at = tiles.firstIndex(where: { $0.id == id }) else { return }
+        let gone = tiles[at]
         Store.shared.update(pid) { pr in pr.tiles.removeAll { $0.id == id } }
         if l.roomId == nil { app.pop() }
-        app.say("tl.deleted", action: "common.undo") { Store.shared.update(pid) { $0 = before } }
+        // Undo puts back only this layout, where it was
+        app.say("tl.deleted", action: "common.undo") {
+            Store.shared.update(pid) { pr in if !pr.tiles.contains(where: { $0.id == gone.id }) { pr.tiles = pr.tiles.putBack(gone, at: at) } }
+        }
     }
 }
 

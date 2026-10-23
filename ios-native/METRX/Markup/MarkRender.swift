@@ -176,7 +176,10 @@ func drawMark(_ ctx: GraphicsContext, _ e: MkEl, _ f: MkFmt, alpha: Double = 1, 
         let box = one.width + 4 <= room ? one : outline.boundingRect(with: CGSize(width: room, height: .greatestFiniteMagnitude),
                                                                      options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil).size
         let w = min(room, ceil(box.width) + 4)
-        let r = CGRect(x: p.x - w / 2, y: p.y - ceil(box.height) / 2, width: w, height: ceil(box.height))
+        // the centre moves in as well, so a label near an edge stays whole in the picture
+        let hw = w / 2
+        let cx: CGFloat = hw * 2 >= 980 ? 500 : min(max(p.x, 10 + hw), 990 - hw)
+        let r = CGRect(x: cx - hw, y: p.y - ceil(box.height) / 2, width: w, height: ceil(box.height))
         drawText(ctx, outline, r); drawText(ctx, fill, r)
     case "arrow":
         guard e.pts.count > 1 else { return }

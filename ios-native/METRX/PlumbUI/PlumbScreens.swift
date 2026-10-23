@@ -186,7 +186,7 @@ private struct PSFreeLine: View {
     var body: some View {
         let size: String = Geo.fmtLen(f.L, .m, psEn) + " × " + Geo.fmtLen(f.W, .m, psEn) + U_M + " · "
         let cnt = tr("sx.freeCnt", ["n": freeCount(f), "m": Geo.fmtLen(f.link, .m, psEn)])
-        let nm: String = f.name.trimmingCharacters(in: .whitespaces).isEmpty ? tr(pKindKey(f.kind)) : f.name
+        let nm: String = dn(f.name).trimmingCharacters(in: .whitespaces).isEmpty ? tr(pKindKey(f.kind)) : dn(f.name)
         HStack(spacing: 10) {
             MIcon("cube", G.cobalt, 18, 2)
                 .frame(width: 34, height: 34)
@@ -381,11 +381,13 @@ struct PNextStep: View {
     private var step: Step? {
         let s = AppSettings.shared, snap = s.angleSnap
         let pid = p.id
-        let rooms: [(Workspace, Room)] = p.floors.compactMap { w in p.rooms.first { $0.floorId == w.id }.map { (w, $0) } }
+        let rooms: [(Workspace, Room)] = roomsByWorkspace(p)
         let undrawn = p.floors.first { w in !p.rooms.contains { $0.floorId == w.id } }
         let unmeasured = rooms.first { wr in Geo.stepKeys(wr.1, snap).contains { wr.1.dim($0).status != "conf" } }
         let bare = rooms.first { wr in isBare(wr.1, snap) }
         let made = madeBy(p, "sx.e.")
+        // a typed-room-only order has no wall for a riser: it is not asked for one
+        let riser = riserToPlace(p, snap)
         if p.floors.isEmpty && p.plumb.free.isEmpty {
             return Step(title: tr("el.ns.pickT"), sub: tr("sx.ns.pickS"), button: tr("ns.needB")) { app.push(.pGallery(pid: pid)) }
         }
@@ -398,9 +400,9 @@ struct PNextStep: View {
             let (w, r) = b
             return Step(title: tr("sx.ns.roomT", ["r": floorName(w)]), sub: tr("sx.ns.roomS"), button: tr("ns.needB")) { app.push(.pGallery(pid: pid, rid: r.id)) }
         }
-        if liveRiser(p) == nil && needsRiser(p) {
+        if riser != nil {
             return Step(title: tr("sx.ns.riserT"), sub: tr("sx.ns.riserS"), button: tr("el.ns.panelB")) {
-                guard let cur = Store.shared.get(pid), let d = defaultRiser(cur, snap) else { return }
+                guard let cur = Store.shared.get(pid), let d = riserToPlace(cur, snap) else { return }
                 updatePlumb(pid) { $0.riser = d }
                 app.push(.pView(pid: pid, rid: d.roomId))
             }
@@ -524,7 +526,7 @@ struct PCountCard: View {
     }
 
     private func pipeValue(_ n: PipeNeed) -> String {
-        let key = n.unit == "stick" ? "sx.c.sticks" : "sx.c.coils"
+        let key = n.unit == "stick" ? "sx.c.sticks" : n.unit == "m" ? "sx.c.metres" : "sx.c.coils"
         return tr(key, ["m": d1(n.m), "s": d1(n.withSpare), "n": n.pieces])
     }
 

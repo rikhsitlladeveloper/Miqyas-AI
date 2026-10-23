@@ -47,7 +47,7 @@ struct SketchScreen: View {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     GlassIconButton("x", tr("common.close")) { close() }.accessibilityIdentifier("back")
-                    VStack(alignment: .leading, spacing: 0) { T(tr("sk.title"), ui(20, 800), lines: 1); T(name, ui(12, 400, G.ink2), lines: 1) }
+                    VStack(alignment: .leading, spacing: 0) { T(tr("sk.title"), ui(20, 800), lines: 1); T(dn(name), ui(12, 400, G.ink2), lines: 1) }
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.horizontal, 16).frame(height: 64)
@@ -134,7 +134,7 @@ struct SketchScreen: View {
         let mm = Sketch.toMm(r.verts)
         if mm.count < 3 || Geo.selfIntersects(mm) != nil { app.say("sk.cross", kind: .error); return }
         var room = Room(id: uid(), floorId: wid, name: name, created: nowMs())
-        room.template = "poly"; room.shape = "poly"; room.dims = Geo.polyDims(mm.count); room.poly = Poly(verts: mm, template: "sketch")
+        room.template = "poly"; room.shape = "poly"; room.dims = Geo.polyDims(mm.count); room.poly = Poly(verts: mm, template: "sketch", snap: AppSettings.shared.angleSnap)
         Store.shared.update(pid) { $0.rooms.append(room) }
         app.replaceTop(.editor(pid: pid, rid: room.id, mode: "plan"))
         app.say("sk.created", ["n": dn(room.name)])

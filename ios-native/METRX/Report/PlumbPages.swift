@@ -48,9 +48,13 @@ extension Doc {
     }
 
     private func ppRoomName(_ c: PCtx) -> String {
-        if let f = c.free { return f.name.trimmingCharacters(in: .whitespaces).isEmpty ? t("sx.k." + f.kind) : f.name }
-        guard let sr = (sn.rooms + sn.calcRooms).first(where: { $0.room.id == c.id }) else { return "" }
-        return sr.floorLabel.trimmingCharacters(in: .whitespaces).isEmpty ? dn(sr.room.name, l) : sr.floorLabel
+        if let f = c.free {
+            let nm = dn(f.name, l)
+            return nm.trimmingCharacters(in: .whitespaces).isEmpty ? t("sx.k." + f.kind) : nm
+        }
+        let all = sn.rooms + sn.calcRooms
+        guard let sr = all.first(where: { $0.room.id == c.id }) else { return "" }
+        return tradeRoomName(sr, all, l)
     }
 
     /// The fixtures room by room (with the pipe in each room in the advanced app's PDF).
@@ -164,13 +168,14 @@ extension Doc {
             let rr = fixesIn(p, c).filter { $0.t == "rad" }
             let lp = calc.routes.loops.first { $0.roomId == c.id }
             if (rr.isEmpty && lp == nil) || !ppDrawn(c) { continue }
-            let need = "\(tInt(c.areaM2 * Double(W_M2))) W"
+            // watts in the report's language; a loop's length only with the estimate (the advanced app's PDF)
+            let need = t("sx.watts", ["w": tInt(c.areaM2 * Double(W_M2)), "a": ppD1(c.areaM2)])
             let radW = rr.reduce(0) { $0 + radWatts($1) }
-            let rad = rr.isEmpty ? "—" : "\(rr.count) · \(radW) W"
+            let rad = rr.isEmpty ? "—" : t("sx.radsV", ["n": rr.count, "w": radW])
             var ufh = "—"
             if let lp {
                 let v = t("sx.loopV", ["n": lp.n, "s": lp.step / 10, "a": ppD1(lp.area)])
-                ufh = v + " · " + ppD1(lp.each / 1000) + " " + t("u.m")
+                ufh = v + (sn.pdf.estimate ? " · " + ppD1(lp.each / 1000) + " " + t("u.m") : "")
             }
             hr.append([cell(names[c.id] ?? ""), rcell(need), rcell(rad), cell(ufh)])
         }

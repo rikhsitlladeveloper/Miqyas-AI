@@ -107,7 +107,7 @@ private extension Doc {
             }
         }
         if sn.furniture.contains(where: { $0.kind == "kitchen" }), let w = mat("wt38") { entries.append((t("mt.wtK"), presetName(w.id, w.name), w.rgb)) }
-        if !sn.fhandles.trimmingCharacters(in: .whitespaces).isEmpty && sn.furniture.contains(where: { $0.modules.contains(where: \.handles) }) {
+        if !sn.fhandles.trimmingCharacters(in: .whitespaces).isEmpty && sn.furniture.contains(where: { hasHandles($0) }) {
             entries.append((t("hk.handle"), presetName(nil, sn.fhandles), nil))
         }
         if entries.isEmpty { return }

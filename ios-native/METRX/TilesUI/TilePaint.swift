@@ -317,15 +317,27 @@ func previewPicture(_ l: TileLayout, _ size: CGSize) -> UIImage? {
     }
 }
 
-/// A layout's sample-room picture, worked out again only when the layout changes.
-final class TPreviewCache {
-    private var l: TileLayout? = nil
-    private var pv: TPreview? = nil
+/// A layout's sample-room picture, worked out again only when the layout changes, away from the main thread (a mosaic
+/// is many thousand tiles): the last picture shows until the new one is ready, which is set on the main thread.
+@Observable final class TPreviewCache {
+    private(set) var pv: TPreview? = nil
+    /// The layout being (or last) worked out; only touched on the main thread.
+    @ObservationIgnored private var want: TileLayout? = nil
+
     func get(_ x: TileLayout) -> TPreview? {
-        if let l, l == x { return pv }
         // a size being typed (0, 9999) is not laid: the last picture stays
         if !(20...3000).contains(x.a) || !(20...3000).contains(x.b) { return pv }
-        l = x; pv = previewOf(x)
+        if want != x {
+            want = x
+            let l = x
+            DispatchQueue.global(qos: .userInitiated).async {
+                let made = previewOf(l)
+                DispatchQueue.main.async { [weak self] in
+                    guard let self, self.want == l else { return }
+                    self.pv = made
+                }
+            }
+        }
         return pv
     }
 }

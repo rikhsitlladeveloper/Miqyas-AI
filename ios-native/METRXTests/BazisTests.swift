@@ -53,8 +53,8 @@ final class BazisTests: XCTestCase {
         let next = remnantsFor(after, "o2", false)
         XCTAssertFalse(next.contains { $0.id == "old" }); XCTAssertTrue(kept.allSatisfy { k in next.contains(k) })
         XCTAssertEqual(remnantsFor(after, "o1", true).map(\.id), ["old"])
-        // a deleted order's remnants are free again
-        XCTAssertTrue(remnantsFor(after, "o2", false, live: { $0 != "o1" }).contains { $0.id == "old" })
+        // a deleted order's remnants stay taken: that board was cut
+        XCTAssertFalse(remnantsFor(after, "o2", false).contains { $0.id == "old" })
         // undone: as before
         XCTAssertEqual(cutUndone(after, "o1"), store)
         // done twice: nothing kept twice
@@ -72,7 +72,8 @@ final class BazisTests: XCTestCase {
         // as many whole remnants as the carcass took sheets: no carcass sheet is bought
         let rems = (0..<lay.sheets.count).map { Remnant("w\($0)", f.mats.carcass, sheet.l - 2 * ws.trim, sheet.w - 2 * ws.trim) }
         let withRems = costOf([f], ws, MAT_PRESETS, HW_PRESETS, rems: rems)
-        XCTAssertEqual(withRems.lines.first { $0.group == "mat" && $0.key == f.mats.carcass }?.qty, 0)
+        // no sheet bought: no line at all (not a 0-sheet line saying its price is missing)
+        XCTAssertFalse(withRems.lines.contains { $0.group == "mat" && $0.key == f.mats.carcass })
         XCTAssertTrue(withRems.total < plain.total)
         // cutting them is still work
         XCTAssertEqual(plain.lines.first { $0.key == "fc.cut" }?.qty, withRems.lines.first { $0.key == "fc.cut" }?.qty)

@@ -118,7 +118,7 @@ private struct NewRoomSheet: View {
                     ShapeRow(d: "M2 2H18V12H32V24H2Z", label: tr("nr.lshape"), on: false) { create(p, w, "lshape") }.accessibilityIdentifier("nr.lshape")
                     ShapeRow(d: "M3 22L6 3L25 6L31 19Z", label: tr("nr.sketch"), on: false) {
                         let nm = name.trimmingCharacters(in: .whitespaces)
-                        if !nm.isEmpty { close(); app.push(.sketch(pid: p.id, wid: w.id, name: nm)) }
+                        if !nm.isEmpty { close(); app.push(.sketch(pid: p.id, wid: w.id, name: keptName(p, w, nm))) }
                     }
                     .accessibilityIdentifier("nr.sketch")
                 }
@@ -137,15 +137,21 @@ private struct NewRoomSheet: View {
         }
     }
 
+    /// The suggested name is kept as a key ("Xona 1" follows the language, as "1-qavat" does); a typed one as typed.
+    private func keptName(_ p: Project, _ w: Workspace, _ typed: String) -> String {
+        let own = ["room", "bath", "kitchen", "balcony"].contains(w.type) && !p.rooms.contains { $0.floorId == w.id }
+        return own && typed == floorName(w) ? w.name : suggestedName(typed, "real.roomN", AppSettings.shared.lang, ["n": "\(roomN)"])
+    }
+
     private func create(_ p: Project, _ w: Workspace, _ shape: String) {
         let typed = name.trimmingCharacters(in: .whitespaces)
         guard !typed.isEmpty else { return }
         // the suggested name is kept as a key ("Xona 1" follows the language, as "1-qavat" does); a typed one as typed
-        let own = ["room", "bath", "kitchen", "balcony"].contains(w.type) && !p.rooms.contains { $0.floorId == w.id }
-        let nm = own && typed == floorName(w) ? w.name : suggestedName(typed, "real.roomN", AppSettings.shared.lang, ["n": "\(roomN)"])
+        let nm = keptName(p, w, typed)
         var r = Room(id: uid(), floorId: w.id, name: nm, created: nowMs())
         if shape == "lshape" {
-            r.template = "poly"; r.shape = "poly"; r.dims = Geo.polyDims(Geo.L_SHAPE.count); r.poly = Poly(verts: Geo.L_SHAPE, template: "lshape")
+            r.template = "poly"; r.shape = "poly"; r.dims = Geo.polyDims(Geo.L_SHAPE.count)
+            r.poly = Poly(verts: Geo.L_SHAPE, template: "lshape", snap: AppSettings.shared.angleSnap)
         }
         Store.shared.update(p.id) { $0.rooms.append(r) }
         close()

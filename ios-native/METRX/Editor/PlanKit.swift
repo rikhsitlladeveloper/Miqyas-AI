@@ -97,11 +97,12 @@ func pillW(_ text: String, _ icon: Bool) -> CGFloat { 16 + 8 * CGFloat(text.coun
 /// Something tappable in a plan.
 enum PlanHit { case dim(String), op(String) }
 
-/// What the middle of a room shows (Profile → room label): the name in capitals and the floor area.
-func centreLabel(_ ctx: GraphicsContext, _ name0: String, _ area: String, _ c: CGPoint) {
+/// What the middle of a room shows (Profile → room label): the name in capitals and the floor area; mode a quote's own
+/// choice (nil: Profile's).
+func centreLabel(_ ctx: GraphicsContext, _ name0: String, _ area: String, _ c: CGPoint, mode: String? = nil) {
     // a long name is cut with "…", so it stays inside the plan
     let name = name0.count > 24 ? String(name0.prefix(23)).trimmingCharacters(in: .whitespaces) + "…" : name0
-    let m = AppSettings.shared.roomLabel
+    let m = mode ?? AppSettings.shared.roomLabel
     let nm = m == "both" || m == "name", ar = m == "both" || m == "area"
     func n(_ at: CGPoint) { ctx.text(name.uppercased(), at, .ui, 11.5, 600, PC.ink3, tracking: 0.06) }
     func a(_ at: CGPoint) { ctx.text(area, at, .num, 12.5, 400, PC.ink3) }

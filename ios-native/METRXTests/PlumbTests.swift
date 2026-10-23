@@ -170,6 +170,12 @@ final class PlumbTests: XCTestCase {
         XCTAssertEqual(pipeNeed("water", 20, 95, "pex", 5).pieces, 1)
         XCTAssertEqual(pipeNeed("ufh", 16, 250, "ppr", 0).pieces, 2)
         XCTAssertEqual(pipeNeed("water", 20, 0, "ppr", 10).pieces, 0)
+        // a coiled pipe under 50 m with the spare is bought by the metre, as the electrician's cable; the underfloor pipe too
+        let short = pipeNeed("water", 20, 40, "pex", 10)
+        XCTAssertEqual(short.unit, "m"); XCTAssertEqual(short.pieces, 44); XCTAssertEqual(short.per, 1)
+        XCTAssertEqual(pipeNeed("ufh", 16, 30, "ppr", 10).unit, "m")
+        XCTAssertEqual(pipeNeed("ufh", 16, 46, "ppr", 10).unit, "coil")
+        XCTAssertEqual(pipeNeed("heat", 20, 45, "mp", 10).unit, "m")
     }
 
     func testRadiatorsSizedByTheFloorUnderTheWindow() {
@@ -271,7 +277,9 @@ final class PlumbTests: XCTestCase {
         var p2 = p
         p2.plumb.water = "mp"
         let m = plumbRows(p2, TradeSet(), true, nm)
-        XCTAssertTrue(m.mats.contains { $0.name.hasPrefix("sx.e.pipeC") && (Int($0.qty) ?? 1) % 50 == 0 })
+        XCTAssertTrue(m.mats.contains { $0.name.hasPrefix("sx.e.pipeC") || $0.name.hasPrefix("sx.e.pipeM") })
+        XCTAssertTrue(m.mats.filter { $0.name.hasPrefix("sx.e.pipeC") }.allSatisfy { (Int($0.qty) ?? 1) % 50 == 0 })
+        XCTAssertTrue(m.mats.filter { $0.name.hasPrefix("sx.e.pipeM") }.allSatisfy { (Int($0.qty) ?? 50) < 50 })
         XCTAssertFalse(m.mats.contains { $0.name == "sx.e.coup" })
     }
 

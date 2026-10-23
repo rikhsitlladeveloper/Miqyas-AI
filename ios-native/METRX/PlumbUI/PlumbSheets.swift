@@ -139,7 +139,7 @@ private struct PSFixNewSheet: View {
     private func row(_ p: Project, _ c: PCtx, _ tid: String) -> some View {
         let ty = fixType(tid)
         let en = AppSettings.shared.lang == .en
-        let sub: String = Geo.fmtLen(ty.w, .m, en) + " × " + Geo.fmtLen(ty.d, .m, en) + " m"
+        let sub: String = Geo.fmtLen(ty.w, .m, en) + " × " + Geo.fmtLen(ty.d, .m, en) + " " + tr("u.m")
         return HStack(spacing: 12) {
             FixSymbolView(t: tid).frame(width: 36, height: 36)
             VStack(alignment: .leading, spacing: 1) {
@@ -309,11 +309,14 @@ private struct PSFixEditSheet: View {
     }
 
     private func delete(_ old: PlFix) {
-        guard let before = Store.shared.get(pid) else { return }
-        let id = old.id, p0 = pid
+        guard let fixes = Store.shared.get(pid)?.plumb.fixes, let at = fixes.firstIndex(where: { $0.id == old.id }) else { return }
+        let gone = fixes[at], id = old.id, p0 = pid
         updatePlumb(p0) { e in e.fixes.removeAll { $0.id == id } }
         app.sheet = nil
-        app.say("sx.fixDel", action: "common.undo") { Store.shared.update(p0) { $0 = before } }
+        // Undo puts back only this fixture, where it was
+        app.say("sx.fixDel", action: "common.undo") {
+            updatePlumb(p0) { e in if !e.fixes.contains(where: { $0.id == gone.id }) { e.fixes = e.fixes.putBack(gone, at: at) } }
+        }
     }
 }
 
@@ -440,11 +443,14 @@ private struct PSPointEditSheet: View {
     }
 
     private func delete(_ old: PlPoint) {
-        guard let before = Store.shared.get(pid) else { return }
-        let id = old.id, p0 = pid
+        guard let pts = Store.shared.get(pid)?.plumb.points, let at = pts.firstIndex(where: { $0.id == old.id }) else { return }
+        let gone = pts[at], id = old.id, p0 = pid
         updatePlumb(p0) { e in e.points.removeAll { $0.id == id } }
         app.sheet = nil
-        app.say("el.devDel", action: "common.undo") { Store.shared.update(p0) { $0 = before } }
+        // Undo puts back only this outlet, where it was
+        app.say("el.devDel", action: "common.undo") {
+            updatePlumb(p0) { e in if !e.points.contains(where: { $0.id == gone.id }) { e.points = e.points.putBack(gone, at: at) } }
+        }
     }
 }
 
@@ -577,15 +583,27 @@ private struct PSRoomSetSheet: View {
     }
 
     private func clear() {
-        guard let before = Store.shared.get(pid) else { return }
+        guard let before = Store.shared.get(pid)?.plumb else { return }
         let p0 = pid, r0 = rid
+        let fixes = before.fixes.filter { $0.roomId == r0 }
+        let pts = before.points.filter { $0.roomId == r0 && $0.from == nil }
+        let kits = before.room(r0).kits, ufh = before.room(r0).ufh
         updatePlumb(p0) { e in
             e.fixes.removeAll { $0.roomId == r0 }
             e.points.removeAll { $0.roomId == r0 && $0.from == nil }
             for i in e.rooms.indices where e.rooms[i].roomId == r0 { e.rooms[i].kits = []; e.rooms[i].ufh = false }
         }
         app.sheet = nil
-        app.say("el.cleared", action: "common.undo") { Store.shared.update(p0) { $0 = before } }
+        // Undo puts back only this room's fixtures, outlets, kits and underfloor heating
+        app.say("el.cleared", action: "common.undo") {
+            updatePlumb(p0) { e in
+                let fb = fixes.filter { f in !e.fixes.contains { $0.id == f.id } }
+                let pb = pts.filter { q in !e.points.contains { $0.id == q.id } }
+                e.fixes += fb
+                e.points += pb
+                for i in e.rooms.indices where e.rooms[i].roomId == r0 { e.rooms[i].kits = kits; e.rooms[i].ufh = ufh }
+            }
+        }
     }
 }
 
@@ -794,24 +812,31 @@ private struct PSFreeSheet: View {
     @State private var tk: String
     @State private var cnt: [Int]
     @State private var ufh: Bool
+    @State private var small: Bool
+    @State private var cabin: Bool
     @FocusState private var focus: PSFF?
-    private static let KEYS = ["wc", "bs", "bath", "sh", "sink", "wm", "dw", "wh", "gb", "rad"]
+    private static let KEYS = ["wc", "bs", "bath", "sh", "sink", "wm", "dw", "wh", "gb", "rad", "tr"]
 
     init(app: AppModel, pid: String, fid: String?) {
         self.app = app; self.pid = pid; self.fid = fid
         let s = AppSettings.shared
         let en = s.lang == .en
         let old = fid.flatMap { id in Store.shared.get(pid)?.plumb.free.first { $0.id == id } }
-        let st = old ?? PlFree(id: uid(), name: tr(pKindKey("bath")), kind: "bath")
+        let st = old ?? PlFree(id: uid(), name: "@" + pKindKey("bath"), kind: "bath")
         start = st; isNew = old == nil
         _kind = State(initialValue: st.kind)
-        _name = State(initialValue: st.name)
+        // a kind's own name is kept as its key, so it follows the language
+        _name = State(initialValue: dn(st.name))
         _tl = State(initialValue: Geo.fmtField(st.L, s.unit, en))
         _tw = State(initialValue: Geo.fmtField(st.W, s.unit, en))
         _th = State(initialValue: Geo.fmtField(st.H, s.unit, en))
         _tk = State(initialValue: Geo.fmtField(st.link, s.unit, en))
-        _cnt = State(initialValue: [st.wc, st.basin, st.bath, st.shower, st.sink, st.wm, st.dw, st.wh, st.gb, st.rad])
+        // an older room shows the choices its kit made (towel rail, hand basin, cabin)
+        let kit0 = pWithKit(st)
+        _cnt = State(initialValue: [st.wc, st.basin, st.bath, st.shower, st.sink, st.wm, st.dw, st.wh, st.gb, st.rad, kit0.tr])
         _ufh = State(initialValue: st.ufh)
+        _small = State(initialValue: kit0.small)
+        _cabin = State(initialValue: kit0.cabin)
     }
 
     private func sizes() -> (Int, Int, Int, Int)? {
@@ -850,12 +875,24 @@ private struct PSFreeSheet: View {
         }
     }
 
-    private func countRow(_ i: Int) -> some View {
+    @ViewBuilder private func countRow(_ i: Int) -> some View {
+        let k = PSFreeSheet.KEYS[i]
         HStack {
-            T(tr("sx.t." + PSFreeSheet.KEYS[i]), ui(15, 600)).frame(maxWidth: .infinity, alignment: .leading)
+            T(tr("sx.t." + k), ui(15, 600)).frame(maxWidth: .infinity, alignment: .leading)
             EStepper(v: i < cnt.count ? cnt[i] : 0) { v in if i < cnt.count { cnt[i] = min(max(v, 0), 6) } }
         }
         .frame(minHeight: 52)
+        // the basins as hand basins (cold only), the showers as cabins
+        if k == "bs" && cnt.count > 1 && cnt[1] > 0 { PSSwitchRow(title: tr("sx.t.bsm"), on: small) { small.toggle() } }
+        if k == "sh" && cnt.count > 3 && cnt[3] > 0 { PSSwitchRow(title: tr("sx.t.cab"), on: cabin) { cabin.toggle() } }
+    }
+
+    /// The name as stored: the start's own when unchanged, a kind's name as its key, a typed one as typed.
+    private func keptName() -> String {
+        let t = name.trimmingCharacters(in: .whitespaces)
+        if t == dn(start.name) { return start.name }
+        if t == tr(pKindKey(kind)) { return "@" + pKindKey(kind) }
+        return t
     }
 
     private func pickKind(_ k: String) {
@@ -866,13 +903,13 @@ private struct PSFreeSheet: View {
     private func save() {
         guard let sz = sizes(), app.once() else { return }
         var f = start
-        f.name = name.trimmingCharacters(in: .whitespaces); f.kind = kind
+        f.name = keptName(); f.kind = kind
         f.L = sz.0; f.W = sz.1; f.H = sz.2; f.link = sz.3
-        if cnt.count >= 10 {
+        if cnt.count >= 11 {
             f.wc = cnt[0]; f.basin = cnt[1]; f.bath = cnt[2]; f.shower = cnt[3]; f.sink = cnt[4]
-            f.wm = cnt[5]; f.dw = cnt[6]; f.wh = cnt[7]; f.gb = cnt[8]; f.rad = cnt[9]
+            f.wm = cnt[5]; f.dw = cnt[6]; f.wh = cnt[7]; f.gb = cnt[8]; f.rad = cnt[9]; f.tr = cnt[10]
         }
-        f.ufh = ufh
+        f.ufh = ufh; f.small = small; f.cabin = cabin; f.kept = true
         let fx = f, fresh = isNew, p0 = pid
         updatePlumb(p0) { e in
             if fresh { e.free.append(fx) } else if let i = e.free.firstIndex(where: { $0.id == fx.id }) { e.free[i] = fx }

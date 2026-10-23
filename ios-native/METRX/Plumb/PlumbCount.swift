@@ -41,13 +41,19 @@ func coilFor(_ dia: Int) -> Int { dia <= 20 ? 100 : 50 }
 
 private func pPieces(_ ws: Double, _ per: Int) -> Int { ws <= 0 ? 0 : tInt((ws / Double(per) - 1e-9).rounded(.up)) }
 
-/// m metres of kind pipe dia in system water with spare %: whole sticks or coils.
+/// m metres of kind pipe dia in system water with spare %: whole sticks, or coils. As the electrician's cable, a coiled
+/// pipe under COIL_FROM m with the spare is bought by the metre ("m", whole metres).
 func pipeNeed(_ kind: String, _ dia: Int, _ m: Double, _ water: String, _ spare: Int) -> PipeNeed {
     let ws = m * (1 + Double(spare) / 100.0)
-    if kind == "ufh" { return PipeNeed(kind: kind, dia: 16, m: m, withSpare: ws, pieces: pPieces(ws, UFH_COIL), unit: "coil", per: UFH_COIL) }
+    func coiled(_ d: Int, _ per: Int) -> PipeNeed {
+        if ws > 0 && ws < Double(COIL_FROM) {
+            return PipeNeed(kind: kind, dia: d, m: m, withSpare: ws, pieces: tInt((ws - 1e-9).rounded(.up)), unit: "m", per: 1)
+        }
+        return PipeNeed(kind: kind, dia: d, m: m, withSpare: ws, pieces: pPieces(ws, per), unit: "coil", per: per)
+    }
+    if kind == "ufh" { return coiled(16, UFH_COIL) }
     if water == "ppr" { return PipeNeed(kind: kind, dia: dia, m: m, withSpare: ws, pieces: pPieces(ws, STICK), unit: "stick", per: STICK) }
-    let per = coilFor(dia)
-    return PipeNeed(kind: kind, dia: dia, m: m, withSpare: ws, pieces: pPieces(ws, per), unit: "coil", per: per)
+    return coiled(dia, coilFor(dia))
 }
 
 /// Everything order p takes, from its rooms cs and routes rt.
@@ -192,10 +198,11 @@ func plumbRows(_ p: Project, _ t: TradeSet, _ snap: Bool, _ name: (String, [Stri
     let sys = "~sx.sys." + p.plumb.water
     for n in c.pipes {
         var price = t.pX20
-        var key = n.unit == "stick" ? "pipeS" : "pipeC"
+        let by = n.unit == "stick" ? "S" : n.unit == "m" ? "M" : "C"
+        var key = "pipe" + by
         switch n.kind {
-        case "ufh": price = t.pUfh; key = "ufh"
-        case "heat": price = t.pHeat; key = n.unit == "stick" ? "heatS" : "heatC"
+        case "ufh": price = t.pUfh; key = n.unit == "m" ? "ufhM" : "ufh"
+        case "heat": price = t.pHeat; key = "heat" + by
         default: price = n.dia == 32 ? t.pX32 : n.dia == 25 ? t.pX25 : t.pX20
         }
         mat(key, "m", Double(n.pieces * n.per), price, ["s": sys, "d": "\(n.dia)", "n": "\(n.pieces)"], key + "\(n.dia)")

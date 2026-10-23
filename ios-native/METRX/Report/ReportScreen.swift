@@ -38,7 +38,7 @@ struct ReportScreen: View {
             // a furniture maker or a tiler in the simple app shares the design: no price, nothing to issue (a tiler's has no estimate)
             let design = isDesign(p, quote)
             let sn = quote?.sn ?? designSnap(p, design)
-            let key = quote.map { "q\($0.no)" } ?? (design ? "d" : "") + fingerprint(sn) + "\(sn.pdf)" + sn.lang + sn.extras.map { $0.text + "\($0.checks)" }.joined()
+            let key = quote.map { "q\($0.no)" } ?? (design ? "d" : "") + fingerprint(sn) + "\(sn.pdf)" + sn.lang + sn.roomLabel + sn.extras.map { $0.text + "\($0.checks)" }.joined()
             let total = quote.flatMap { Decimal(string: $0.total) } ?? (p.isFurniture ? Decimal(string: sn.ftotal) ?? 0 : snapTotal(sn))
             let lang = AppSettings.shared.lang
             GeometryReader { geo in
@@ -171,7 +171,7 @@ struct ReportScreen: View {
         guard !pages.isEmpty else { return }
         app.say("sh.making", kind: .info)
         let design = isDesign(p, quote)
-        let fname = pdfName(dn(p.name), quote.map { tr("q.no", ["n": $0.no]) } ?? tr(design ? "rpt.design" : "es.draft"))
+        let fname = pdfName(dn(quote?.sn.name ?? p.name), quote.map { tr("q.no", ["n": $0.no]) } ?? tr(design ? "rpt.design" : "es.draft"))
         // just after a set-up change the pages on screen may be the old ones: the PDF is laid out from the report as it is
         let pg = builtKey == key ? pages : layout(p, quote, sn)
         if let url = pdfFile(pg, fname) { presentShare(url) } else { app.say("cm.shareErr", kind: .error) }
@@ -356,18 +356,24 @@ private struct ReportSetupSheet: View {
                 VStack(alignment: .leading, spacing: 8) {
                     T(tr("rpt.views"), ui(15, 700))
                     let views = p.rooms.flatMap(\.views)
+                    // the PDF prints the first four ticked views of the rooms in the report: only those show ticked, and a fifth is refused
+                    let shown = shownViews(p)
                     if views.isEmpty { T(tr("rpt.noViews"), ui(13.5, 400, G.ink2)) }
                     else {
+                        T(tr("3d.inRep", ["n": shown.count]), ui(13, 400, G.ink2))
                         FlowLayout(spacing: 8) {
                             ForEach(views) { v in
-                                let on = p.reportViews[v.id] != false
+                                let on = shown.contains(v.id)
                                 Group {
                                     if let img = ViewFiles.load(v.img, maxW: 144) { Image(uiImage: img).resizable().scaledToFill() } else { Color.white }
                                 }
                                 .frame(width: 72, height: 54).clipped().opacity(on ? 1 : 0.4)
                                 .padding(4)
                                 .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(on ? G.cobalt : G.rim, lineWidth: on ? 2 : 1))
-                                .pressable(0.97) { Store.shared.update(p.id, touch: false) { $0.reportViews[v.id] = !on } }
+                                .pressable(0.97) {
+                                    if !on && shown.count >= 4 { app.say("3d.max", kind: .error) }
+                                    else { Store.shared.update(p.id, touch: false) { $0.reportViews[v.id] = !on } }
+                                }
                                 .accessibilityAddTraits(on ? .isSelected : [])
                             }
                         }
@@ -492,4 +498,10 @@ private struct IssueSheet: View {
                        onAction: { Store.shared.update(pid) { $0.stage = "quote" } })
             : ToastMsg(text: tr("iss.done", ["n": no]))
     }
+}
+
+/// The 3D views the PDF prints: the first four ticked ones of the rooms kept in the report.
+func shownViews(_ p: Project) -> Set<String> {
+    let inRep = p.rooms.filter { p.reportRooms[$0.id] != false }.flatMap(\.views).filter { p.reportViews[$0.id] != false }
+    return Set(inRep.prefix(4).map(\.id))
 }

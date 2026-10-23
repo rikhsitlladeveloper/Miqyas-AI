@@ -50,9 +50,10 @@ extension Doc {
     private func wpWhere(_ it: WinItem) -> String {
         if !it.inRoom { return t("dw.noRoom") }
         // every room (a window in a room left out of the report still has its room and opening)
-        guard let sr = (sn.rooms + sn.calcRooms).first(where: { $0.room.id == it.roomId }) else { return t("dw.noRoom") }
+        let all = sn.rooms + sn.calcRooms
+        guard let sr = all.first(where: { $0.room.id == it.roomId }) else { return t("dw.noRoom") }
         let r = sr.room
-        let name = sr.floorLabel.trimmingCharacters(in: .whitespaces).isEmpty ? dn(r.name, l) : sr.floorLabel
+        let name = tradeRoomName(sr, all, l)
         guard let o = r.openings.first(where: { $0.id == it.opening }) else { return name }
         let k = wOpeningKey(r, o)
         return name + " · " + t(k.0, ["n": k.1]) + " · " + t("tl.wallN", ["w": o.wall])

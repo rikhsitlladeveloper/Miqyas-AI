@@ -59,7 +59,20 @@ func pFreeCtx(_ f: PlFree) -> PCtx? {
     let r = pFreeRoom(f)
     guard let g = roomGeo(r, true, []) else { return nil }
     let pr = PlRoom(roomId: r.id, kind: f.kind, link: f.link, ufh: f.ufh)
-    return PCtx(id: r.id, room: r, g: g, kind: f.kind, pr: pr, free: f)
+    return PCtx(id: r.id, room: r, g: g, kind: f.kind, pr: pr, free: pWithKit(f))
+}
+
+/// A typed room saved before it kept its kit's choices (no towel rail, hand basin or cabin kept): those its kit has.
+/// The same room when they are kept, or it has no kit.
+func pWithKit(_ f: PlFree) -> PlFree {
+    guard let k = pkitOf(f.kit) else { return f }
+    if f.kept || f.tr > 0 || f.small || f.cabin { return f }
+    let d = pFreeOf(k, k.opts, f.id, f.name, f.L, f.W, f.H)
+    var out = f
+    out.tr = d.tr
+    out.small = d.small && f.basin > 0
+    out.cabin = d.cabin && f.shower > 0
+    return out
 }
 
 /// Every room of the order that fixtures can be in: the measured ones in order, then the typed ones.
@@ -665,6 +678,7 @@ func pFreeOf(_ k: PKit, _ o: POpts, _ id: String, _ name: String, _ L: Int, _ W:
     f.tr = cnt(["tr"])
     f.small = cnt(["bsm"]) > 0 && cnt(["bs"]) == 0
     f.cabin = cnt(["cab"]) > 0 && cnt(["sh"]) == 0
+    f.kept = true
     return f
 }
 

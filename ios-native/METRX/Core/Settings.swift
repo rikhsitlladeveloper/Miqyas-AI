@@ -4,6 +4,9 @@ import Observation
 /// Laser connection states, as in the prototype. The laser itself is simulated until a real device is verified.
 enum Laser { case disconnected, searching, found, connected }
 
+/// How many Measure-page readings are kept (the oldest go first).
+let READINGS_MAX = 200
+
 /// Small app-wide settings kept in UserDefaults: language, first-run state, the builder's name and phone, the visit
 /// counter for the greeting line, the theme and the Profile settings. Screens read them directly and follow changes.
 @Observable
@@ -140,9 +143,13 @@ final class AppSettings {
         builderName = name.trimmingCharacters(in: .whitespacesAndNewlines); builderPhone = Phone.digits(phone)
         d.set(builderName, forKey: "builderName"); d.set(builderPhone, forKey: "builderPhone")
     }
+    /// A new reading; only the last READINGS_MAX are kept.
     @discardableResult func addReading(_ mm: Int, _ src: String) -> Reading {
         let r = Reading(id: uid(), n: (readings.map(\.n).max() ?? 0) + 1, mm: mm, ts: nowMs(), src: src)
-        readings.append(r); saveReadings(); return r
+        readings.append(r)
+        // only the last READINGS_MAX are kept, so the list does not grow forever
+        if readings.count > READINGS_MAX { readings.removeFirst(readings.count - READINGS_MAX) }
+        saveReadings(); return r
     }
     func deleteReading(_ id: String) { readings.removeAll { $0.id == id }; saveReadings() }
     func markReadingUsed(_ id: String, _ where_: String) { if let i = readings.firstIndex(where: { $0.id == id }) { readings[i].used = where_; saveReadings() } }

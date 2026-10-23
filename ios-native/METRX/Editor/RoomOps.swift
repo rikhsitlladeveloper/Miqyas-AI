@@ -41,6 +41,9 @@ final class RoomOps {
         app.setTop(.editor(pid: pid, rid: rid, mode: m))
     }
 
+    /// The editor was left: a drawn room's shape / diagonal mode does not come back with it next time.
+    func leave() { polyMode = "plan"; polyRoom = nil; diagFirst = nil }
+
     private func snapOf(_ r: Room) -> Snap { Snap(dims: r.dims, openings: r.openings, poly: r.poly, rot: r.rot, points: r.points, features: r.features) }
     // a laser reading waiting on a value is not history: one that came after the snapshot stays
     private func restore(_ r: inout Room, _ s: Snap) {
@@ -138,12 +141,8 @@ final class RoomOps {
     /// Puts a reading on a wall or the height, waiting for confirmation (prototype trayAssign).
     func assignReading(_ pid: String, _ rid: String, _ id: String, _ k: String) {
         guard let x = s.readings.first(where: { $0.id == id }) else { return }
-        // the same limit as a typed value (a 3 m reading is not a wall's thickness)
-        let lim = Geo.dimMax(k)
-        if x.mm > lim {
-            let m = Geo.fmtLen(lim, s.unit, en).replacingOccurrences(of: "[.,]0+$", with: "", options: .regularExpression)
-            app.say("err.max", ["max": m + " " + unitName()], kind: .error); return
-        }
+        // the same limits as a typed value (a 3 m reading is not a wall's thickness, nor 1 m a room's height)
+        if outOfLimits(pid, rid, k, x.mm) { return }
         change(pid, rid, hist: false) { $0.dims[k] = Dim(v: $0.dim(k).v, src: $0.dim(k).src, pending: Pending(mm: x.mm, src: x.src, from: "quick")) }
         s.markReadingUsed(id, dimLabel(k))
         focus(rid, k)
@@ -158,7 +157,21 @@ final class RoomOps {
         app.say("ms.confirmed", ["d": dimLabel(k), "v": Geo.fmtLen(mm, unit, en, full: true) + " " + unitName()], action: "common.undo") { [weak self] in self?.undo(pid, rid) }
     }
 
-    func confirm(_ pid: String, _ rid: String, _ k: String) { if let p = room(pid, rid)?.dim(k).pending { apply(pid, rid, k, p.mm, p.src) } }
+    func confirm(_ pid: String, _ rid: String, _ k: String) {
+        guard let p = room(pid, rid)?.dim(k).pending else { return }
+        if outOfLimits(pid, rid, k, p.mm) { return }
+        apply(pid, rid, k, p.mm, p.src)
+    }
+
+    /// Says why reading mm cannot go on k (below the least or above the most a typed value takes); false when it fits.
+    private func outOfLimits(_ pid: String, _ rid: String, _ k: String, _ mm: Int) -> Bool {
+        guard let r = room(pid, rid) else { return true }
+        guard let hit = Geo.readingLimit(k, mm, r.isPoly) else { return false }
+        let key = hit.0, lim = hit.1
+        let m = Geo.fmtLen(lim, s.unit, en).replacingOccurrences(of: "[.,]0+$", with: "", options: .regularExpression)
+        app.say(key, [key == "err.min" ? "min" : "max": m + " " + unitName()], kind: .error)
+        return true
+    }
 
     /// Throws the reading away; with a confirmed value the card says "measuring again".
     func againReading(_ pid: String, _ rid: String, _ k: String) {

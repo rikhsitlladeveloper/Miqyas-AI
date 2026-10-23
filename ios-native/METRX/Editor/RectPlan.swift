@@ -139,7 +139,7 @@ private func bandPath(_ w: SideWall, _ tw: CGFloat, _ pad: CGFloat) -> Path {
 
 /// The plan drawn in viewBox units into ctx (already scaled). report: the report's plain white value boxes.
 func drawRectPlan(_ ctx: GraphicsContext, _ lay: RectLayout, _ r: Room, _ sel: String?, _ selOp: String?, _ unit: LenUnit, _ en: Bool,
-                  _ label: String, _ issueOf: (Opening) -> Bool, report: Bool = false) {
+                  _ label: String, _ issueOf: (Opening) -> Bool, report: Bool = false, m2: String = tr("u.m2"), labelMode: String? = nil) {
     let tw = lay.tw, inn = lay.inner
     let outer = inn.insetBy(dx: -tw, dy: -tw)
     // selected wall: a pale band with a blue edge, padded 5
@@ -167,7 +167,7 @@ func drawRectPlan(_ ctx: GraphicsContext, _ lay: RectLayout, _ r: Room, _ sel: S
 
     // centre label: NAME and the floor area
     let a = Geo.areas(r)
-    centreLabel(ctx, label, (a.map { Geo.fmtArea($0.floor, en) } ?? "?") + " m²", CGPoint(x: inn.midX, y: inn.midY))
+    centreLabel(ctx, label, (a.map { Geo.fmtArea($0.floor, en) } ?? "?") + " " + m2, CGPoint(x: inn.midX, y: inn.midY), mode: labelMode)
 
     // wall letters (17 inside) and corner numbers
     for w in lay.walls {
@@ -284,11 +284,13 @@ private func overall(_ ctx: GraphicsContext, _ lay: RectLayout, _ w: SideWall, _
 }
 
 /// A room's plan for the report (prototype planSVG with report:true), in the prototype's 360-wide units, on paper:
-/// rectangle and drawn rooms alike, the values in plain white boxes.
-func drawReportPlan(_ ctx: GraphicsContext, _ r: Room, _ unit: LenUnit, _ en: Bool, _ label: String, snap: Bool = true) {
+/// rectangle and drawn rooms alike, the values in plain white boxes. labelMode is the quote's own room label
+/// (Snap.roomLabel), so changing it in Profile later leaves an issued quote as it was; m2 "m²" in the report's language.
+func drawReportPlan(_ ctx: GraphicsContext, _ r: Room, _ unit: LenUnit, _ en: Bool, _ label: String, snap: Bool = true,
+                    labelMode: String = "both", m2: String = "m²") {
     Theme.shared.onPaper {
-        if r.isPoly { _ = drawReportPoly(ctx, r, unit, en, label, snap: snap) }
-        else { drawRectPlan(ctx, RectLayout(r), r, nil, nil, unit, en, label, { _ in false }, report: true) }
+        if r.isPoly { _ = drawReportPoly(ctx, r, unit, en, label, snap: snap, labelMode: labelMode, m2: m2) }
+        else { drawRectPlan(ctx, RectLayout(r), r, nil, nil, unit, en, label, { _ in false }, report: true, m2: m2, labelMode: labelMode) }
     }
 }
 

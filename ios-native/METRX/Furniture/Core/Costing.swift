@@ -38,6 +38,8 @@ func costOf(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], order
     for l in lays {
         // a part longer than the sheet is not left out of the price: a sheet of its own each (bought longer or joined)
         let p = money(mat(l.mat)?.price), n = l.sheets.count + l.unplaced.count
+        // every part of this board on remnants: no sheet bought, no line (and no "price missing" for it)
+        if n == 0 { continue }
         lines.append(CostLine(group: "mat", key: l.mat, qty: Double(n), unit: "sheet", price: p ?? 0, amount: (p ?? 0) * Decimal(n), missing: p == nil))
     }
     // kitchens: the worktop as one simple item by the running metre (plan section 7; joints and cut-outs in Stage 1b)

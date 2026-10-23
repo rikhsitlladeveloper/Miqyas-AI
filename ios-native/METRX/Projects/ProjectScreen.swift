@@ -363,7 +363,7 @@ private struct QuotesTab: View {
             .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
             .padding(.horizontal, 20).padding(.top, 14)
         } else {
-            let now = fingerprint(snapshotOf(p))
+            let now = snapshotOf(p)
             let en = AppSettings.shared.lang == .en
             VStack(spacing: 10) {
                 ForEach(p.quotes.reversed(), id: \.no) { q in
@@ -382,8 +382,8 @@ private struct QuotesTab: View {
                         .padding(.top, 6)
                         Hairline().padding(.top, 6)
                         HStack(spacing: 6) {
-                            MIcon(q.fp == now ? "check" : "info", G.ink, 14, 2.2)
-                            T(tr(q.fp == now ? "q.same" : "q.differs"), ui(14, 400))
+                            MIcon(sameAsQuote(now, q.fp) ? "check" : "info", G.ink, 14, 2.2)
+                            T(tr(sameAsQuote(now, q.fp) ? "q.same" : "q.differs"), ui(14, 400))
                         }
                         .padding(.top, 6)
                     }

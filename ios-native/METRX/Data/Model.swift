@@ -259,10 +259,15 @@ struct Poly: Codable, Equatable {
     var verts: [Pt]
     var diags: [Diag] = []
     var template = "sketch"
-    init(verts: [Pt], diags: [Diag] = [], template: String = "sketch") { self.verts = verts; self.diags = diags; self.template = template }
+    /// The 90°/45° snap the room was drawn with, so changing the setting later does not re-solve it (nil: a room saved
+    /// before this was kept, filled in with the setting when it loads).
+    var snap: Bool? = nil
+    init(verts: [Pt], diags: [Diag] = [], template: String = "sketch", snap: Bool? = nil) {
+        self.verts = verts; self.diags = diags; self.template = template; self.snap = snap
+    }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
-        verts = c.v(.verts, []); diags = c.v(.diags, []); template = c.v(.template, "sketch")
+        verts = c.v(.verts, []); diags = c.v(.diags, []); template = c.v(.template, "sketch"); snap = c.v(.snap, nil)
     }
 }
 
@@ -417,6 +422,8 @@ struct Snap: Codable, Equatable {
     var fws: Workshop? = nil
     /// The angle snap the plans and areas are worked out with (AppSettings.angleSnap), kept with a quote.
     var snap = true
+    /// What the plans show in a room's middle (AppSettings.roomLabel), kept with a quote: "both", "name", "area" or "none".
+    var roomLabel = "both"
     /// Electricians' orders: the devices, panel and rooms' settings (each room's kind filled in), for the wiring pages.
     var elec: ElecOrder? = nil
     /// Plumbers' orders: the fixtures, outlets, riser and rooms' settings (each room's kind filled in), for the plumbing pages.
@@ -443,7 +450,7 @@ extension Snap {
         estimate = c.v(.estimate, Estimate()); extras = c.v(.extras, [])
         furniture = c.v(.furniture, []); fmats = c.v(.fmats, []); flines = c.v(.flines, []); ftotal = c.v(.ftotal, "")
         fprepay = c.v(.fprepay, 50); fdays = c.v(.fdays, 0); finst = c.v(.finst, 0); fhandles = c.v(.fhandles, ""); fws = c.v(.fws, nil)
-        snap = c.v(.snap, true); elec = c.v(.elec, nil); plumb = c.v(.plumb, nil)
+        snap = c.v(.snap, true); roomLabel = c.v(.roomLabel, "both"); elec = c.v(.elec, nil); plumb = c.v(.plumb, nil)
         win = c.v(.win, nil); winPrice = c.v(.winPrice, [:])
         industry = c.v(.industry, ""); calcRooms = c.v(.calcRooms, []); tiles = c.v(.tiles, nil); troom = c.v(.troom, [])
     }

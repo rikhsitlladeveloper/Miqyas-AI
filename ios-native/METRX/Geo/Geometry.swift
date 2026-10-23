@@ -29,6 +29,14 @@ enum Geo {
         return 0
     }
 
+    /// What keeps a reading mm off measurement k, as a typed value: ("err.min", the least) or ("err.max", the most); nil when it fits.
+    static func readingLimit(_ k: String, _ mm: Int, _ poly: Bool) -> (String, Int)? {
+        let lo = dimMin(k, poly), hi = dimMax(k)
+        if mm >= 1 && mm < lo { return ("err.min", lo) }
+        if mm > hi { return ("err.max", hi) }
+        return nil
+    }
+
     /// A height above this is unusual: said under the field (it may be right: a hall, a loft).
     static let H_TALL = 4_500
 
@@ -145,10 +153,21 @@ enum Geo {
         let fx = r.features
         let floorF = floor - fx.filter { $0.type == "column" }.reduce(Int64(0)) { $0 + Int64($1.w) * Int64($1.d) }
             + fx.filter { $0.type == "niche" && $0.sill == 0 }.reduce(Int64(0)) { $0 + Int64($1.w) * Int64($1.d) }
-        let perimF = perim + fx.filter { $0.type == "column" || $0.sill == 0 }.reduce(Int64(0)) { $0 + 2 * Int64($1.d) }
+        let ws: [Wall] = fx.contains { $0.type == "column" } ? walls(r, snap) : []
+        // a column's side flush with a corner is no wall: it covers that much of the next wall instead (-d, not +d)
+        func colSides(_ f: Feature) -> Int64 {
+            let len = ws.first { $0.id == f.wall }?.len
+            let a: Int64 = f.off <= 0 ? -1 : 1
+            let b: Int64 = (len.map { f.off + f.w >= $0 } ?? false) ? -1 : 1
+            return (a + b) * Int64(f.d)
+        }
+        let perimF = perim + fx.reduce(Int64(0)) { a, f in
+            if f.type == "column" { return a + colSides(f) }
+            return f.sill == 0 ? a + 2 * Int64(f.d) : a
+        }
         guard let H else { return Areas(floor: floorF, perim: perimF, gross: nil, open: nil, net: nil) }
         let extra = fx.reduce(Int64(0)) { a, f in
-            if f.type == "column" { return a + 2 * Int64(f.d) * Int64(H) }
+            if f.type == "column" { return a + colSides(f) * Int64(H) }
             // a niche the room's height no longer reaches has nothing inside (and never a negative area)
             let nh = Int64(max(0, min(f.h > 0 ? f.h : H - f.sill, H - f.sill)))
             if nh == 0 { return a }
@@ -301,14 +320,23 @@ enum Geo {
 
     private struct GeoKey: Equatable { let snap: Bool; let poly: Poly?; let dims: [String: Dim] }
     private static var geoCache: [String: (GeoKey, PolyGeo)] = [:]
+    /// The tile previews and counts are worked out off the main thread while the screens read the cache too.
+    private static let geoLock = NSLock()
 
-    /// Solves a drawn room from its measured walls (prototype skGeo). Cached on the room's shape, dims and the snap setting.
+    /// Solves a drawn room from its measured walls (prototype skGeo). Cached on the room's shape, dims and snap. The
+    /// room's own snap (Poly.snap) wins; snap is only for a room that has none (an old quote's rooms: the quote's snap).
     static func polyGeo(_ r: Room, _ snap: Bool = true) -> PolyGeo {
-        let key = GeoKey(snap: snap, poly: r.poly, dims: r.dims)
-        if let e = geoCache[r.id], e.0 == key { return e.1 }
-        let g = computePolyGeo(r, snap)
+        let own = r.poly?.snap ?? snap
+        let key = GeoKey(snap: own, poly: r.poly, dims: r.dims)
+        geoLock.lock()
+        let hit = geoCache[r.id]
+        geoLock.unlock()
+        if let e = hit, e.0 == key { return e.1 }
+        let g = computePolyGeo(r, own)
+        geoLock.lock()
         if geoCache.count > 200 { geoCache.removeAll() }
         geoCache[r.id] = (key, g)
+        geoLock.unlock()
         return g
     }
 

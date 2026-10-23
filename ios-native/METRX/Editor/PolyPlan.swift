@@ -50,7 +50,8 @@ struct PolyPlan: View {
     private var app: AppModel { AppModel.shared }
 
     var body: some View {
-        let snap = AppSettings.shared.angleSnap
+        // the room's own snap (kept when it was drawn), also for dragging its corners
+        let snap = r.poly?.snap ?? AppSettings.shared.angleSnap
         let unit = AppSettings.shared.unit, en = AppSettings.shared.lang == .en
         let geo = Geo.polyGeo(r, snap)
         let mode = ops.polyRoom == r.id ? ops.polyMode : "plan"
@@ -241,16 +242,18 @@ private func polyHit(_ r: Room, _ g: Geo.PolyGeo, _ lay: PolyLayout, _ p: CGPoin
 }
 
 /// A drawn room's plan for the report, in the 360-wide units; returns its height.
-func drawReportPoly(_ ctx: GraphicsContext, _ r: Room, _ unit: LenUnit, _ en: Bool, _ label: String, snap: Bool) -> CGFloat {
+func drawReportPoly(_ ctx: GraphicsContext, _ r: Room, _ unit: LenUnit, _ en: Bool, _ label: String, snap: Bool,
+                    labelMode: String = "both", m2: String = "m²") -> CGFloat {
     let g = Geo.polyGeo(r, snap), lay = PolyLayout(g.verts, r.dim("T").v ?? 200)
-    Theme.shared.onPaper { drawPoly(ctx, lay, r, g, "plan", nil, nil, unit, en, label, nil, snap: snap, report: true) }
+    Theme.shared.onPaper { drawPoly(ctx, lay, r, g, "plan", nil, nil, unit, en, label, nil, snap: snap, report: true, m2: m2, labelMode: labelMode) }
     return lay.VH
 }
 
 func reportPolyHeight(_ r: Room, snap: Bool) -> CGFloat { PolyLayout(Geo.polyGeo(r, snap).verts, r.dim("T").v ?? 200).VH }
 
 private func drawPoly(_ ctx: GraphicsContext, _ lay: PolyLayout, _ r: Room, _ g: Geo.PolyGeo, _ mode: String, _ sel: String?, _ selOp: String?,
-                      _ unit: LenUnit, _ en: Bool, _ label: String, _ diagFirst: Int?, snap: Bool, report: Bool = false) {
+                      _ unit: LenUnit, _ en: Bool, _ label: String, _ diagFirst: Int?, snap: Bool, report: Bool = false,
+                      m2: String = tr("u.m2"), labelMode: String? = nil) {
     let n = lay.n
     guard n >= 3, g.walls.count == n else { return }
     let inner = polyPath(lay.inner), outer = polyPath(lay.outer)
@@ -302,7 +305,7 @@ private func drawPoly(_ ctx: GraphicsContext, _ lay: PolyLayout, _ r: Room, _ g:
     // name and floor area in the middle
     let a = Geo.areas(r, snap)
     let cx = lay.inner.map(\.x).reduce(0, +) / CGFloat(n), cy = lay.inner.map(\.y).reduce(0, +) / CGFloat(n)
-    centreLabel(ctx, label, (a.map { Geo.fmtArea($0.floor, en) } ?? "?") + " m²", CGPoint(x: cx, y: cy))
+    centreLabel(ctx, label, (a.map { Geo.fmtArea($0.floor, en) } ?? "?") + " " + m2, CGPoint(x: cx, y: cy), mode: labelMode)
     // wall letters and corner numbers
     for i in 0..<n {
         let m = mid(lay.inner[i], lay.inner[(i + 1) % n]) - lay.normals[i] * 17

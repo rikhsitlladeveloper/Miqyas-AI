@@ -341,7 +341,7 @@ struct WNextStep: View {
     private var step: Step? {
         let s = AppSettings.shared, snap = s.angleSnap
         let pid = p.id
-        let rooms: [(Workspace, Room)] = p.floors.compactMap { w in p.rooms.first { $0.floorId == w.id }.map { (w, $0) } }
+        let rooms: [(Workspace, Room)] = roomsByWorkspace(p)
         let undrawn = p.floors.first { w in !p.rooms.contains { $0.floorId == w.id } }
         let unmeasured = rooms.first { wr in Geo.stepKeys(wr.1, snap).contains { wr.1.dim($0).status != "conf" } }
         let noOps = rooms.first { wr in wr.1.openings.isEmpty && !p.win.items.contains { $0.roomId == wr.1.id } }

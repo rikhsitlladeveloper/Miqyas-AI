@@ -247,7 +247,8 @@ struct TStepsScreen: View {
         case "size": return (20...3000).contains(d.a) && (20...3000).contains(d.b)
         case "where": return d.roomId != nil || d.panel != nil
         case "surf":
-            if d.roomId != nil { return !d.surfs.isEmpty }
+            // a wall's height typed wrong is not saved as 0: the step waits for it (said under the walls)
+            if d.roomId != nil { return !d.surfs.isEmpty && d.surfs.allSatisfy { surfHeightsOk($0) } }
             if let pn = d.panel { return pn.a > 0 && pn.b > 0 }
             return false
         default: return true
@@ -599,6 +600,7 @@ private struct TSurfStep: View {
                 TCheckRow(title: tr("tl.bathFront"), sub: tr("tl.wallN", ["w": f.wall]), on: d.surfs.contains { $0.id == "bath:" + f.id }) { toggle("bath:" + f.id) }
             }
             if d.surfs.isEmpty { T(tr("tl.s.surfNone"), ui(13, 500, G.err)) }
+            if let bad = d.surfs.first(where: { !surfHeightsOk($0) }) { T(tr("tl.s.hBad", ["w": bad.id]), ui(13, 500, G.err)) }
         }
     }
 

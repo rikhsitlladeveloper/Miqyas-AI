@@ -111,11 +111,14 @@ struct WDesignScreen: View {
     private func upd(_ f: @escaping (WinItem) -> WinItem) { updateWinItem(pid, iid, f) }
 
     private func delete(_ p: Project, _ it0: WinItem) {
-        guard let before = Store.shared.get(p.id) else { return }
-        let id = it0.id, p0 = p.id
+        guard let items = Store.shared.get(p.id)?.win.items, let at = items.firstIndex(where: { $0.id == it0.id }) else { return }
+        let gone = items[at], id = it0.id, p0 = p.id
         updateWin(p0) { e in e.items.removeAll { $0.id == id } }
         app.pop()
-        app.say("dw.deleted", action: "common.undo", onAction: { Store.shared.update(p0) { $0 = before } })
+        // Undo puts back only this product, where it was
+        app.say("dw.deleted", action: "common.undo", onAction: {
+            updateWin(p0) { e in if !e.items.contains(where: { $0.id == gone.id }) { e.items = e.items.putBack(gone, at: at) } }
+        })
     }
 }
 
@@ -344,10 +347,19 @@ private struct WDSizeCard: View {
         _rows = State(initialValue: rs)
     }
 
+    // its sashes need room: a size under what they take is refused and said
     private var ok: Bool {
-        guard let W = Int(tw), let H = Int(th), (300...8000).contains(W), (300...4000).contains(H) else { return false }
+        let mn = wMinSize(it)
+        guard let W = Int(tw), let H = Int(th), W >= mn.0, W <= 8000, H >= mn.1, H <= 4000 else { return false }
         if let g = Int(tg) { return g >= W_GAP_MIN && g <= W_GAP_MAX }
         return true
+    }
+
+    /// The size typed fits the usual limits but not what its sashes take.
+    private var small: Bool {
+        let mn = wMinSize(it)
+        guard let W = Int(tw), let H = Int(th), (300...8000).contains(W), (300...4000).contains(H) else { return false }
+        return W < mn.0 || H < mn.1
     }
 
     var body: some View {
@@ -365,7 +377,10 @@ private struct WDSizeCard: View {
             if rows.count > 1 { rowFields }
             if it.cols.count > 1 || rows.count > 1 { T(tr("dw.lastTakes"), ui(12, 400, G.ink3, lh: 1.3)) }
             if !it.inRoom { freeFields(mm) }
-            if !ok { T(tr("dw.sizeErr"), ui(13, 500, G.err)) }
+            if !ok {
+                let mn = wMinSize(it)
+                T(small ? tr("dw.sizeMin", ["w": mn.0, "h": mn.1]) : tr("dw.sizeErr"), ui(13, 500, G.err))
+            }
             HStack(spacing: 8) {
                 GBtn(tr("dw.apply"), enabled: ok, height: 44, corner: 14, fontSize: 14) { apply() }.accessibilityIdentifier("dw.sizeApply")
                 if let o, !it.fit {

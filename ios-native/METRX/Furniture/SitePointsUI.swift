@@ -176,9 +176,15 @@ struct PointSheet: View {
                 }
                 if ops.laserOn {
                     HStack(spacing: 16) {
-                        // the laser's newest reading not used yet (its readings' inbox); with none, nothing is made up: it says so
-                        laserLink(tr("pt.laserOff")) { if let v = laserReading(tr("pt.laserOff")) { offv = Geo.fmtField(v, unit, en); src = "sim" } }
-                        laserLink(tr("pt.laserH")) { if let v = laserReading(tr("pt.laserH")) { hv = Geo.fmtField(v, unit, en); src = "sim" } }
+                        // the laser's newest reading not used yet (its readings' inbox) first; with none, a made-up one until the real meter is here
+                        laserLink(tr("pt.laserOff")) {
+                            let hi = max(400, (L ?? 3000) - 100)
+                            offv = Geo.fmtField(laserReading(tr("pt.laserOff")) { Int.random(in: 200..<hi) / 10 * 10 }, unit, en); src = "sim"
+                        }
+                        laserLink(tr("pt.laserH")) {
+                            let h0 = pointDefaults(type).h
+                            hv = Geo.fmtField(laserReading(tr("pt.laserH")) { h0 + Int.random(in: -30...30) }, unit, en); src = "sim"
+                        }
                     }
                 }
                 if src == "sim" { HStack(spacing: 8) { MIcon("clock", G.amberInk, 16, 2); T(tr("pt.fromLaser"), ui(13, 500, G.amberInk)) } }
@@ -239,12 +245,9 @@ struct PointSheet: View {
             .padding(.horizontal, 4).frame(minHeight: 44).pressable(0.97, action)
     }
 
-    /// The laser's newest reading not used yet, marked used for where; none: it says so (nothing is made up).
-    private func laserReading(_ where_: String) -> Int? {
-        guard let rd = AppSettings.shared.readings.last(where: { $0.used == nil && $0.src != "manual" }) else {
-            app.say("fx.noReading", kind: .info)
-            return nil
-        }
+    /// The laser's newest reading not used yet, marked used for where; none: a made-up one (made) until the real meter is here.
+    private func laserReading(_ where_: String, _ made: () -> Int) -> Int {
+        guard let rd = AppSettings.shared.readings.last(where: { $0.used == nil && $0.src != "manual" }) else { return made() }
         AppSettings.shared.markReadingUsed(rd.id, where_)
         return rd.mm
     }

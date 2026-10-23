@@ -275,6 +275,13 @@ func wRefit(_ it: WinItem, _ ow: Int, _ oh: Int, _ type: String) -> WinItem {
     return wResized(it, s.0, s.1)
 }
 
+/// The least width and height product it takes with its sashes: half a W_SPLIT_MIN for each column, and for each sash
+/// of its tallest column, at least 300 mm. Smaller, its sashes would be too narrow to open.
+func wMinSize(_ it: WinItem) -> (Int, Int) {
+    let rows = it.cols.map(\.rows.count).max() ?? 1
+    return (max(300, it.cols.count * W_SPLIT_MIN / 2), max(300, rows * W_SPLIT_MIN / 2))
+}
+
 /// it at a new size, its sashes in proportion.
 func wResized(_ it: WinItem, _ w: Int, _ h: Int) -> WinItem {
     var x = it

@@ -59,12 +59,17 @@ final class ElecFixesTests: XCTestCase {
         let stove = calcOf(p, true).circuits.filter { $0.group == "stove" }
         XCTAssertEqual(stove.count, 1)
         XCTAssertEqual(stove.first?.amps, 32); XCTAssertEqual(stove.first?.cable, "6")
-        // an older typed room (no types kept) still gives its power points as AC lines
+        // an older typed room (no types kept) takes its kit's again; one without a kit gives its power points as AC lines
         var old = f
         old.powers = []
         let po = project([], "chase", free: [old])
         let co = ctxs(po, true).first { $0.free != nil }!
-        XCTAssertEqual(devsIn(po, co).filter { $0.t == "pac" }.count, 2)
+        XCTAssertEqual(devsIn(po, co).filter { $0.t == "pst" || $0.t == "pov" }.map(\.t), ["pst", "pov"])
+        var bare = old
+        bare.kit = ""
+        let pb = project([], "chase", free: [bare])
+        let cb = ctxs(pb, true).first { $0.free != nil }!
+        XCTAssertEqual(devsIn(pb, cb).filter { $0.t == "pac" }.count, 2)
     }
 
     func testABathroomsHeaterSocketIsNotASplashWarningAndTypedBathSocketsAreSplashProof() {
