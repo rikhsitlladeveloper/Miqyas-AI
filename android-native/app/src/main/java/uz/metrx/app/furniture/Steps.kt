@@ -25,7 +25,9 @@ val GALLERY: List<Pair<String, List<String>>> = listOf(
  * [picks] are the usual sizes offered under the field (a mattress's).
  */
 data class SizeStep(val key: String, val label: String, val help: String, val usual: Int, val min: Int, val max: Int,
-                    val opts: List<String> = emptyList(), val picks: List<Int> = emptyList()) {
+                    val opts: List<String> = emptyList(), val picks: List<Int> = emptyList(),
+                    /** A choice drawn as small top-down pictures (a corner piece's shape, which sides were measured). */
+                    val pics: Boolean = false) {
     val choice get() = opts.isNotEmpty()
 }
 
@@ -67,11 +69,116 @@ private fun newSteps(m: FModelDef): List<SizeStep>? {
     }
 }
 
+/* ---------------- corner pieces: the shape, and whichever sides were measured (bazis ideas, 23 Oct 2026) ---------------- */
+
+/** The corner pieces asked their shape and which sides were measured: the corner wardrobe and desk, the L kitchen. */
+fun isCornerModel(m: FModelDef) = m.type in CORNER_TYPES || (m.kind == "kitchen" && m.layout == "L")
+
+/** The shapes our engine builds, in the order the pictures go: the corner wardrobe's door or open shelves, each corner on the right or left. */
+fun shapesOf(m: FModelDef): List<String> = when {
+    m.type == "cornerW" -> listOf("bz.sh.doorR", "bz.sh.doorL", "bz.sh.openR", "bz.sh.openL")
+    m.type == "cornerDesk" -> listOf("bz.sh.deskR", "bz.sh.deskL")
+    m.kind == "kitchen" && m.layout == "L" -> listOf("bz.sh.kR", "bz.sh.kL")
+    else -> emptyList()
+}
+
+/** Shape [sh] of a corner piece has its corner on the left of the main wall. */
+fun shapeLeft(type: String, sh: Int) = if (type == "cornerW") sh % 2 == 1 else sh == 1
+
+/** Shape [sh] of the corner wardrobe has open shelves in the corner instead of a door. */
+fun shapeOpen(type: String, sh: Int) = type == "cornerW" && sh >= 2
+
+/** The ways a corner piece's sides can be measured: its arms along the walls, its fronts, or the walls themselves. */
+fun measuresOf(m: FModelDef): List<String> = when {
+    m.type in CORNER_TYPES -> listOf("bz.ms.out", "bz.ms.in", "bz.ms.wall")
+    m.kind == "kitchen" && m.layout == "L" -> listOf("bz.ms.kWall", "bz.ms.kIn")
+    else -> emptyList()
+}
+
+/** A kitchen's worktop depth: its front edge is this far from the wall. */
+const val K_WT_D = 600
+
+/** The side steps of a corner piece measured the way [ms] says ([base]: its steps measured along the walls). */
+private fun sideSteps(m: FModelDef, ms: Int, base: List<SizeStep>): List<SizeStep> {
+    val g = W_GAP_SIDE
+    if (m.kind == "kitchen") {
+        if (ms != 1) return base
+        return base.map { b -> if (b.key == "s0" || b.key == "s1") b.key.drop(1).let { i -> SizeStep("f$i", "bz.f$i", "bz.f$i.h", b.usual - K_WT_D, 300, b.max - K_WT_D) } else b }
+    }
+    val d = base.first { it.key == "d" }
+    return when (ms) {
+        1 -> base.map { b -> when (b.key) {
+            "w" -> SizeStep("ai", "bz.ai", "bz.ai.h", b.usual + g - d.usual, 300, b.max)
+            "w2" -> SizeStep("bi", "bz.bi", "bz.bi.h", b.usual - d.usual, 300, b.max)
+            else -> b } }
+        2 -> base.map { b -> when (b.key) {
+            "w" -> SizeStep("la", "bz.la", "bz.la.h", b.usual + 2 * g, b.min + 2 * g, b.max + 2 * g)
+            "w2" -> SizeStep("lb", "bz.lb", "bz.lb.h", b.usual + g, b.min + g, b.max + g)
+            else -> b } }
+        else -> base
+    }
+}
+
+/**
+ * The sizes a corner piece is built from (its arms w, w2, or a kitchen's sides s0, s1) worked out from the sides that
+ * were measured ([v]["ms"]); a side not typed yet takes its usual length. Other pieces: [v] as it is.
+ */
+fun derive(m: FModelDef, v: Map<String, Int>): Map<String, Int> {
+    val ms = v["ms"] ?: 0
+    if (!isCornerModel(m) || ms == 0) return v
+    val st = stepsOf(m, v).associateBy { it.key }
+    fun g(k: String) = v[k] ?: st[k]?.usual ?: 0
+    val gap = W_GAP_SIDE
+    val out = HashMap(v)
+    if (m.kind == "kitchen") { out["s0"] = g("f0") + K_WT_D; out["s1"] = g("f1") + K_WT_D; return out }
+    when (ms) {
+        1 -> { out["w"] = g("ai") + g("d") - gap; out["w2"] = g("bi") + g("d") }
+        2 -> { out["w"] = g("la") - 2 * gap; out["w2"] = g("lb") - gap }
+    }
+    return out
+}
+
+/**
+ * The sides of a corner piece that were worked out, not typed, for the summary: each one's strings key, its length,
+ * and whether it is outside what the piece can be (the range of the arm it is built from).
+ */
+fun derivedSides(m: FModelDef, v: Map<String, Int>): List<Triple<String, Int, Boolean>> {
+    if (!isCornerModel(m)) return emptyList()
+    val ms = v["ms"] ?: 0
+    val dv = derive(m, v)
+    val outer = stepsOf(m).associateBy { it.key }
+    fun bad(k: String) = outer[k]?.let { s -> dv[k]?.let { it < s.min || it > s.max } } ?: false
+    val gap = W_GAP_SIDE
+    if (m.kind == "kitchen") {
+        val s0 = dv["s0"] ?: outer.getValue("s0").usual; val s1 = dv["s1"] ?: outer.getValue("s1").usual
+        return if (ms == 1) listOf(Triple("fz.w1", s0, bad("s0")), Triple("fz.w2", s1, bad("s1")))
+            else listOf(Triple("bz.f0", s0 - K_WT_D, false), Triple("bz.f1", s1 - K_WT_D, false))
+    }
+    val w = dv["w"] ?: outer.getValue("w").usual; val w2 = dv["w2"] ?: outer.getValue("w2").usual
+    val d = dv["d"] ?: outer.getValue("d").usual
+    val arms = listOf(Triple("fz.wA", w, bad("w")), Triple("fz.wB", w2, bad("w2")))
+    val front = listOf(Triple("bz.ai", w + gap - d, false), Triple("bz.bi", w2 - d, false))
+    val walls = listOf(Triple("bz.la", w + 2 * gap, false), Triple("bz.lb", w2 + gap, false))
+    return when (ms) { 1 -> arms + walls; 2 -> arms + front; else -> front + walls }
+}
+
 /** Models built by Pieces.kt (newPiece / pieceVals / pieceResized) rather than the older rules. */
 fun isNewModel(type: String) = type.isNotEmpty() && (type in ITEM_TYPES || type in PIECE_TYPES || type in MORE_TYPES || type == "vanity")
 
-/** The main sizes of a model, in the order they are asked: a kitchen's sides, its island or peninsula and the ceiling; a cabinet's width, height, depth. */
-fun stepsOf(m: FModelDef): List<SizeStep> {
+/**
+ * The main sizes of a model, in the order they are asked: a kitchen's sides, its island or peninsula and the ceiling; a
+ * cabinet's width, height, depth. A corner piece first shows its shapes and asks which sides were measured; its side
+ * steps follow that choice ([v]["ms"]).
+ */
+fun stepsOf(m: FModelDef, v: Map<String, Int> = emptyMap()): List<SizeStep> {
+    val base = baseSteps(m)
+    if (!isCornerModel(m)) return base
+    val sh = SizeStep("sh", "bz.shape", "bz.shape.h", 0, 0, shapesOf(m).size - 1, shapesOf(m), pics = true)
+    val ms = SizeStep("ms", "bz.ms", "bz.ms.h", 0, 0, measuresOf(m).size - 1, measuresOf(m), pics = true)
+    return listOf(sh, ms) + sideSteps(m, (v["ms"] ?: 0).coerceIn(0, measuresOf(m).size - 1), base)
+}
+
+private fun baseSteps(m: FModelDef): List<SizeStep> {
     if (m.kind == "kitchen") {
         val labels = when (m.layout) { "L" -> listOf("fz.w1", "fz.w2"); "U" -> listOf("fz.uL", "fz.uM", "fz.uR"); "O", "P" -> listOf("fz.pW"); else -> listOf("fz.len") }
         val helps = when (m.layout) { "L" -> listOf("fx.hW1", "fx.hW2"); "U" -> listOf("fx.hUL", "fx.hUM", "fx.hUR"); "O", "P" -> listOf("fx.hRun"); else -> listOf("fx.hLen") }
@@ -103,12 +210,19 @@ fun stepIssue(s: SizeStep, mm: Int?): Pair<String, Int>? = when {
 }
 
 /** The piece of model [m] with the sizes [v] (a missing one takes its usual size). */
-fun pieceOf(m: FModelDef, v: Map<String, Int>, ws: Workshop, name: String, now: Long = 0): Furniture {
+fun pieceOf(m: FModelDef, v0: Map<String, Int>, ws: Workshop, name: String, now: Long = 0): Furniture {
     val st = stepsOf(m).associateBy { it.key }
+    // a corner piece's arms from whichever sides were measured, held to what the piece can be
+    val v = derive(m, v0).let { d -> if (isCornerModel(m)) d.mapValues { (k, x) -> st[k]?.takeIf { !it.choice }?.let { x.coerceIn(it.min, it.max) } ?: x } else d }
     fun g(k: String) = v[k] ?: st[k]?.usual ?: 0
     return when {
-        m.kind == "kitchen" -> newFreeKitchen(name, m.id, m.layout, (0 until sidesOf(m.layout)).map { g("s$it") },
-            if (m.layout == "O" || m.layout == "P") g("isl") else 0, g("h"), ws, now)
+        m.kind == "kitchen" -> {
+            // an L with its corner on the left runs from the side wall to the main one: its sides the other way round
+            val left = m.layout == "L" && shapeLeft("", g("sh"))
+            val sides = (0 until sidesOf(m.layout)).map { g("s$it") }
+            newFreeKitchen(name, m.id, m.layout, if (left) sides.reversed() else sides,
+                if (m.layout == "O" || m.layout == "P") g("isl") else 0, g("h"), ws, now, hand = if (left) "L" else "")
+        }
         isNewModel(m.type) -> newPiece(m.type, ::g, ws, name, now)
         m.type.isNotEmpty() -> newFreeCabinet(name, m.type, g("w"), g("h"), g("d"), ws, now)
         else -> newFreeWardrobe(name, m.id, g("w"), g("h"), g("d"), m.built, m.doors, ws, now, m.n)
@@ -120,9 +234,10 @@ fun valsOf(f: Furniture, ws: Workshop): Map<String, Int> {
     if (f.kind == "kitchen") {
         val fs = f.free ?: return emptyMap()
         return buildMap {
-            fs.sides.forEachIndexed { i, s -> put("s$i", s) }
+            fs.sides.forEachIndexed { i, s -> put("s" + (sideNo(f, i) - 1), s) }
             if (fs.island > 0) put("isl", fs.island)
             put("h", fs.h)
+            if (f.layout == "L") { put("sh", if (f.hand == "L") 1 else 0); put("ms", 0) }
         }
     }
     if (isNewModel(f.type)) return pieceVals(f, ws)
@@ -150,11 +265,12 @@ fun modelOf(f: Furniture): FModelDef =
  * The piece with new sizes [v]: a room-less kitchen's runs follow its sides (units that no longer fit are cut, the rest
  * stays); a cabinet keeps its sections, spread again over a new width.
  */
-fun resized(f: Furniture, v: Map<String, Int>, ws: Workshop): Furniture {
+fun resized(f: Furniture, v0: Map<String, Int>, ws: Workshop): Furniture {
+    val v = derive(modelOf(f), v0)
     if (f.kind == "kitchen") {
         val n = sidesOf(f.layout)
         val old = f.free ?: FreeSize()
-        val nf = f.copy(free = FreeSize((0 until n).map { v["s$it"] ?: old.sides.getOrElse(it) { 3000 } }, if (ISLAND in f.walls) v["isl"] ?: old.island else 0, v["h"] ?: old.h))
+        val nf = f.copy(free = FreeSize((0 until n).map { v["s" + (sideNo(f, it) - 1)] ?: old.sides.getOrElse(it) { 3000 } }, if (ISLAND in f.walls) v["isl"] ?: old.island else 0, v["h"] ?: old.h))
         return fitTo(nf, nf.walls, { id -> freeLen(nf, id) }, null, ws)
     }
     if (isNewModel(f.type)) return pieceResized(f, v, ws)

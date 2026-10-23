@@ -84,7 +84,12 @@ sealed interface Route {
     data class WView(val pid: String, val rid: String) : Route
     /** A furniture order's parts and sheet layout, and its workshop pack. */
     data class FCut(val pid: String) : Route
-    data class FPack(val pid: String) : Route
+    /** [labels]: the part labels (stickers) instead of the pack. */
+    data class FPack(val pid: String, val labels: Boolean = false) : Route
+    /** A furniture order's one "Check" list before it is sent (bazis ideas, 23 Oct 2026). */
+    data class FCheck(val pid: String) : Route
+    /** The workshop's remnants (Advanced): what is kept, deleting them. */
+    data object Remnants : Route
     /** The draft report (prototype PAGES.report). */
     data class Report(val pid: String) : Route
     /** An issued quote, frozen (prototype PAGES.quote). */
@@ -189,6 +194,8 @@ sealed interface Sheet {
     /** A bed's, a table's, a mirror's… size ([key]) of box [mid] (furniture/Items.kt itemSet). */
     data class IField(val pid: String, val fid: String, val mid: String, val key: String) : Sheet
     data class FMats(val pid: String, val fid: String) : Sheet
+    /** "Change for all": the fronts' board and the handles of every piece of an order. */
+    data class FSwap(val pid: String) : Sheet
     /** A tiler's order: a new room, a shower tray or bath ([fid] null: a new one of [type]), a layout's counting, the prices. */
     data class TNewRoom(val pid: String) : Sheet
     data class TFixForm(val pid: String, val rid: String, val fid: String?, val type: String = "tray") : Sheet
@@ -270,7 +277,7 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     /** Advanced turned off: its pages (parts and pack, quotes, the workshop's rules and boards) leave every stack. */
     fun dropAdvanced() {
         stacks.values.forEach { st ->
-            val keep = st.filter { it !is Route.FCut && it !is Route.FPack && it !is Route.Quote && it != Route.Workshop && it != Route.Materials }
+            val keep = st.filter { it !is Route.FCut && it !is Route.FPack && it !is Route.Quote && it != Route.Workshop && it != Route.Materials && it != Route.Remnants }
             if (keep.size != st.size) { st.clear(); st.addAll(keep) }
         }
         if (calc.tool == "sheet") calc.tool = "area"
@@ -317,7 +324,8 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.WView -> store.get(r.pid)?.let { p -> p.rooms.any { it.id == r.rid } || p.win.items.any { "free:" + it.id == r.rid } } == true
                     is Route.FCut -> store.get(r.pid) != null
                     is Route.FPack -> store.get(r.pid) != null
-                    Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, is Route.Measure, Route.LiveCam -> true
+                    is Route.FCheck -> store.get(r.pid) != null
+                    Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, Route.Remnants, is Route.Measure, Route.LiveCam -> true
                 }
             }
             if (keep.size != st.size) { st.clear(); st.addAll(keep) }

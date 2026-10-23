@@ -223,24 +223,28 @@ private fun stenka(ws: Workshop, w: Int, h: Int, d: Int): List<Module> {
     return out
 }
 
-/** A corner unit [cw] wide (usually [d] + 400): a door beside its blind part (the other arm closes it), a rail and a shelf inside. */
-private fun cornerUnit(ws: Workshop, x: Int, h: Int, d: Int, cw: Int = d + 400): Module {
+/**
+ * A corner unit [cw] wide (usually [d] + 400): a door beside its blind part (the other arm closes it), a rail and a
+ * shelf inside; [open]: no door, open shelves to the top.
+ */
+private fun cornerUnit(ws: Workshop, x: Int, h: Int, d: Int, cw: Int = d + 400, open: Boolean = false): Module {
     val base = Module(uid(), "wardrobe", cw, h, d, x = x, wall = "A", legs = false)
     val ih = wardInnerH(base, ws.t)
+    if (open) return base.copy(sections = listOf(spreadShelves(Section(cw, Fronts("open", 0), List(5) { Insert("shelf") }, blind = d), ih, ws.t)))
     val rail = minOf(ih - 420, 1800 - wardBase(base) - ws.t)
     return base.copy(sections = listOf(Section(cw, Fronts("door", 1), listOf(Insert("rail", pos = rail), Insert("shelf", pos = rail + 70)), hinge = "L", blind = d)))
 }
 
 /** A corner wardrobe [w] along the first wall and [w2] along the second (each with the corner's depth in it). */
-private fun cornerWard(ws: Workshop, w: Int, w2: Int, h: Int, d: Int): List<Module> {
+private fun cornerWard(ws: Workshop, w: Int, w2: Int, h: Int, d: Int, open: Boolean = false): List<Module> {
     val cw = d + 400
     val out = ArrayList<Module>()
     val aw = w - cw
     // too short for a wardrobe beside the corner unit: the corner unit takes the whole typed length (its door narrower)
     if (aw >= 300) {
         out += wardrobeTemplate(ws, "A", W_GAP_SIDE, aw, h, false, d)
-        out += cornerUnit(ws, W_GAP_SIDE + aw, h, d)
-    } else out += cornerUnit(ws, W_GAP_SIDE, h, d, max(d + 300, w))
+        out += cornerUnit(ws, W_GAP_SIDE + aw, h, d, open = open)
+    } else out += cornerUnit(ws, W_GAP_SIDE, h, d, max(d + 300, w), open)
     val bw = w2 - d
     if (bw >= 300) out += wardrobeTemplate(ws, "B", d, bw, h, false, d)
     return out
@@ -313,7 +317,7 @@ fun newPiece(type: String, v: (String) -> Int, ws: Workshop, name: String, now: 
         "bar" -> listOf(itemModule("bar", ws, "A", x, v("w"), v("h"), v("d"), Opt(top = "wt")))
         "mirrorP" -> listOf(itemModule("hooks", ws, "A", x, v("w"), v("h"), 0, Opt(hooks = 4, shelf = true, mirW = 450, mirH = 1000), elev = 300))
         "stenka" -> stenka(ws, v("w"), v("h"), v("d"))
-        "cornerW" -> { walls = listOf("A", "B"); cornerWard(ws, v("w"), v("w2"), v("h"), v("d")) }
+        "cornerW" -> { walls = listOf("A", "B"); cornerWard(ws, v("w"), v("w2"), v("h"), v("d"), shapeOpen(type, v("sh"))) }
         "cornerDesk" -> { walls = listOf("A", "B"); cornerDesk(ws, v("w"), v("w2"), v("h"), v("d")) }
         "vitrina" -> vitrina(ws, v("w"), v("h"), v("d"))
         "washer" -> washer(ws, v("w"), v("h"), v("d"))
@@ -328,6 +332,8 @@ fun newPiece(type: String, v: (String) -> Int, ws: Workshop, name: String, now: 
         }
     }
     val f = Furniture(uid(), "wardrobe", name, null, walls, mods, created = now, model = type, type = type, mats = if (type in BATH_TYPES) bathMats() else FMats())
+    // a corner piece with its corner on the left: the same arms on the made-up room's left and back walls
+    if (type in CORNER_TYPES && shapeLeft(type, v("sh"))) return packPiece(onWalls(f, cornerWalls("L")).copy(hand = "L"), null, ws = ws)
     return packPiece(f, null, ws = ws)
 }
 
@@ -350,7 +356,10 @@ fun pieceVals(f: Furniture, ws: Workshop): Map<String, Int> {
         "cornerW", "cornerDesk" -> {
             val a = boxes(f).filter { it.wall == f.walls.getOrNull(0) }; val b = boxes(f).filter { it.wall == f.walls.getOrNull(1) }
             val d = a.lastOrNull()?.d ?: main.d
-            mapOf("w" to a.sumOf { it.w }, "w2" to d + b.sumOf { it.w }, "h" to (boxes(f).maxOfOrNull { topOf(it, ws) } ?: main.h), "d" to d)
+            // the shape: the corner on the left, the corner wardrobe's open shelves
+            val open = f.type == "cornerW" && boxes(f).any { m -> m.sections.any { it.blind > 0 && it.fronts.kind == "open" } }
+            val sh = (if (open) 2 else 0) + (if (f.hand == "L") 1 else 0)
+            mapOf("w" to a.sumOf { it.w }, "w2" to d + b.sumOf { it.w }, "h" to (boxes(f).maxOfOrNull { topOf(it, ws) } ?: main.h), "d" to d, "sh" to sh, "ms" to 0)
         }
         "vitrina", "washer" -> mapOf("w" to main.w, "h" to (boxes(f).maxOfOrNull { topOf(it, ws) } ?: main.h), "d" to main.d)
         else -> buildMap {

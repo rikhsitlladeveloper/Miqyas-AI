@@ -104,6 +104,8 @@ object Engine3D { val engine: Engine by lazy { io.github.sceneview.createEngine(
 /** Where the camera is and where it may go. One per 3D picture. */
 class Cam3D {
     var theta = PI / 2 + .75; var phi = .95; var r = 12.0
+    /** "From the corner" turns the camera back to this (a corner piece with its corner on the left is seen from the right). */
+    var cornerTheta = PI / 2 + .75
     var tgt = V3(0.0, 1.0, 0.0)
     var bounds: Bounds? = null; var rMin = 3.0; var rMax: Double? = null
     var fit: DoubleArray? = null; var rFit: Double? = null
@@ -128,6 +130,7 @@ class Cam3D {
         anim?.cancel(); focus = null
         dims = doubleArrayOf(s.L, s.W, s.H)
         tgt = s.tgt; r = s.r; s.theta?.let { theta = it }; s.phi?.let { phi = it }
+        cornerTheta = s.theta ?: PI / 2 + .75
         bounds = s.bounds; rMin = s.rMin; rMax = null; fit = s.fit; rFit = null
         if (w > 0) applyFit()
         moved()
@@ -167,7 +170,7 @@ class Cam3D {
     /** "From above" and "From the corner": back to the middle at the start distance (prototype preset + ux). */
     fun preset(top: Boolean) {
         anim?.cancel()
-        if (top) { phi = .07; theta = PI / 2 } else { phi = .95; theta = PI / 2 + .75 }
+        if (top) { phi = .07; theta = PI / 2 } else { phi = .95; theta = cornerTheta }
         tgt = V3(dims[0] / 2, dims[2] * .3, dims[1] / 2)
         r = rFit ?: (max(dims[0], dims[1]) * 2.2 + 2.5)
         moved()

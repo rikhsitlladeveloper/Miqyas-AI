@@ -90,7 +90,8 @@ class Shell3D(
      * Only the floor: furniture without a room, drawn without walls (the walls' frames stay for placing it). With no
      * walls, nothing faces the camera, so no furniture goes see-through.
      */
-    fun floorOnly() = Shell3D(parts.filter { it.role == Role.FLOOR }, emptyList(), groups.map { Group(it.cx, it.cz, emptyMap()) }, emptyList(), rooms3, L, W, H, tgt, r, theta, phi, bounds, rMin, fit,
+    /** The floor alone (furniture without a room); [th] the camera's start angle round it. */
+    fun floorOnly(th: Double? = theta) = Shell3D(parts.filter { it.role == Role.FLOOR }, emptyList(), groups.map { Group(it.cx, it.cz, emptyMap()) }, emptyList(), rooms3, L, W, H, tgt, r, th, phi, bounds, rMin, fit,
         gridSize, gridDiv, gridCx, gridCz, light, far, bases)
 }
 

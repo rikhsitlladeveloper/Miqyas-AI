@@ -239,7 +239,9 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.WDesign -> uz.metrx.app.ui.win.WDesignScreen(route)
                                     is Route.WView -> uz.metrx.app.ui.win.WViewScreen(route)
                                     is Route.FCut -> uz.metrx.app.ui.furniture.CutScreen(route)
-                                    is Route.FPack -> uz.metrx.app.ui.report.PackScreen(route.pid)
+                                    is Route.FPack -> uz.metrx.app.ui.report.PackScreen(route.pid, route.labels)
+                                    is Route.FCheck -> uz.metrx.app.ui.furniture.CheckScreen(route)
+                                    Route.Remnants -> uz.metrx.app.ui.furniture.RemnantsScreen()
                                     is Route.Measure -> uz.metrx.app.ui.measure.MeasureScreen(route.calc)
                                     is Route.Markup -> uz.metrx.app.ui.markup.MarkupScreen(route)
                                     Route.LiveCam -> uz.metrx.app.ui.markup.LiveCamScreen()
@@ -264,7 +266,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                         onDisconnect = { settings.laser = Laser.DISCONNECTED; app.sheet = null }
                     )
                     null -> {}
-                    else -> if (!uz.metrx.app.ui.win.WinSheet(sh) && !uz.metrx.app.ui.plumb.PlumbSheet(sh) && !uz.metrx.app.ui.elec.ElecSheet(sh) && !uz.metrx.app.ui.tiles.TileSheet(sh) && !uz.metrx.app.ui.furniture.OrderFlowSheet(sh) && !uz.metrx.app.ui.furniture.FreeSheet(sh) && !uz.metrx.app.ui.projects.TradeSheet(sh) && !uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
+                    else -> if (!uz.metrx.app.ui.win.WinSheet(sh) && !uz.metrx.app.ui.plumb.PlumbSheet(sh) && !uz.metrx.app.ui.elec.ElecSheet(sh) && !uz.metrx.app.ui.tiles.TileSheet(sh) && !uz.metrx.app.ui.furniture.OrderFlowSheet(sh) && !uz.metrx.app.ui.furniture.BazisSheet(sh) && !uz.metrx.app.ui.furniture.FreeSheet(sh) && !uz.metrx.app.ui.projects.TradeSheet(sh) && !uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
                 }
                 if (soon) SoonSheet(onLocal = { soon = false; authNav.local() }, onClose = { soon = false })
                 ToastHost(app.toast) { app.toast = null }

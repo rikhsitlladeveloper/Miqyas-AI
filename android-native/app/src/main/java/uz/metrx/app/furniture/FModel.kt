@@ -36,7 +36,11 @@ data class Furniture(
     /** Standing away from the walls, dragged on the room's plan: a kitchen's island, or the whole piece (a desk…); null: the usual place. */
     val pose: Pose? = null,
     /** Kitchens: the legs' height under the units, mm (the carcass stays 720, the worktop follows); null: the workshop's. */
-    val baseH: Int? = null
+    val baseH: Int? = null,
+    /** Corner pieces without a room: "L" the corner at the left end of the main wall (made-up walls D, A), "" at the right. */
+    val hand: String = "",
+    /** The handles' hardware id for the whole piece ("Change for all"); "" the workshop's usual handle. */
+    val handle: String = ""
 )
 
 /** The workshop's rules as [f] is built: a kitchen with its own legs' height. */

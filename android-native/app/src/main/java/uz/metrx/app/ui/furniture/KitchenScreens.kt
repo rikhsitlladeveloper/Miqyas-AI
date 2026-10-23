@@ -226,7 +226,7 @@ private fun modSub(m: Module): String {
 @Composable
 internal fun runName(f: Furniture, r: Run, withLen: Boolean = true): String =
     if (r.wall == ISLAND) tr(if (f.layout == "P") "kt.peninsula" else "kt.island")
-    else (if (f.roomId == null) tr("fz.sideN", "n" to f.walls.indexOf(r.wall) + 1) else tr("kt.wallN", "w" to r.wall)) + if (withLen && r.len != null) " · ${r.len}" else ""
+    else (if (f.roomId == null) tr("fz.sideN", "n" to uz.metrx.app.furniture.sideNo(f, f.walls.indexOf(r.wall))) else tr("kt.wallN", "w" to r.wall)) + if (withLen && r.len != null) " · ${r.len}" else ""
 
 // the running metres the price counts (runMm): no tall units, no fridge or empty gaps
 private fun runMetres(f: Furniture, en: Boolean): String {
@@ -494,7 +494,9 @@ fun KitchenScreen(rt: Route.Kitchen) {
     val run = runs.firstOrNull { it.wall == rt.wall } ?: runs.firstOrNull()
     val ws = wsOf(f, app.settings.workshop); val mats = app.settings.mats
     val en = lang == Lang.EN
-    val found = checks(f, runs, ws, room?.openings ?: emptyList(), room?.points ?: emptyList())
+    // the designer's checks and the board rules of the order's Check list (a part bigger than the sheet, a drawer, a long shelf)
+    val found = checks(f, runs, ws, room?.openings ?: emptyList(), room?.points ?: emptyList()) +
+        remember(f, ws, mats) { uz.metrx.app.furniture.boardIssues(f, ws, mats).map { FCheck(it.level, it.key, it.vars, it.mid) } }
     val bad = HashMap<String, String>().apply { found.forEach { c -> c.mid?.let { id -> if (c.level == "err" || (c.level == "warn" && this[id] != "err")) this[id] = c.level } } }
     val sel = f.modules.firstOrNull { it.id == kit.sel && it.wall == run?.wall }
     fun go(step: Int) {
@@ -564,6 +566,7 @@ fun KitchenScreen(rt: Route.Kitchen) {
                 ExtrasCard(p, f)
                 CostCard(p, f, ws, mats)
             }
+            LivePrice(p, f)
         }
     }
 }
@@ -727,6 +730,8 @@ internal fun checkText(c: FCheck, f: Furniture): String {
     val m = c.mid?.let { id -> f.modules.firstOrNull { it.id == id } }
     val vars = LinkedHashMap<String, Any?>(c.vars)
     if (m != null) vars["m"] = modName(m)
+    // the board rules (furniture/Checks.kt): the part's name
+    (c.vars["p"] as? String)?.takeIf { c.key.startsWith("bz.ck.") }?.let { vars["p"] = tr(it) }
     if (c.key == "kc.socket") vars["t"] = tr("pt." + c.vars["t"])
     val key = if (c.key == "kc.sinkFar" && ((c.vars["v"] as? Int) ?: 0) < 0) "kc.sinkWall" else c.key
     return tr(key, *vars.toList().toTypedArray())

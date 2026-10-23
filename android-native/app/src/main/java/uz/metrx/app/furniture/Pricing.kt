@@ -41,8 +41,9 @@ private fun money(s: String) = s.replace(" ", "").takeIf { it.isNotEmpty() }?.to
 /** Running metres of a kitchen's lower rows, in millimetres. */
 fun runMm(f: Furniture) = f.modules.filter { !isUpper(it) && it.type != "tall" && !(it.type == "gap" && (it.app == "fridge" || it.app == "space")) }.sumOf { it.w }
 
-fun priceOf(fs: List<Furniture>, fp: FPrice, ws: Workshop, mats: List<Mat>, hws: List<Hw>): Priced {
-    val cost = costOf(fs, ws, mats, hws)
+/** The order's price; the store's remnants [rems] lower the cost (and so the profit), not each piece's price. */
+fun priceOf(fs: List<Furniture>, fp: FPrice, ws: Workshop, mats: List<Mat>, hws: List<Hw>, rems: List<Remnant> = emptyList()): Priced {
+    val cost = costOf(fs, ws, mats, hws, rems = rems)
     val pct = fp.pct ?: ws.margin
     val built = fs.filter { it.modules.isNotEmpty() }
     // delivery and installation once an order, with the margin

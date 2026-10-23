@@ -124,6 +124,11 @@ internal fun encodeVals(v: Map<String, Int>) = v.entries.joinToString(",") { "${
 internal fun decodeVals(s: String?): Map<String, Int> =
     s.orEmpty().split(',').mapNotNull { e -> e.split('=').takeIf { it.size == 2 }?.let { (k, v) -> v.toIntOrNull()?.let { k to it } } }.toMap()
 
+/** The steps' typed texts by key, as one saveable string (texts may hold commas and spaces), and back. */
+internal fun encodeTexts(t: Map<String, String>) = t.entries.joinToString("\u0001") { it.key + "\u0002" + it.value }
+internal fun decodeTexts(s: String): Map<String, String> =
+    s.split('\u0001').mapNotNull { e -> e.split('\u0002').takeIf { it.size == 2 }?.let { it[0] to it[1] } }.toMap()
+
 /** A typed length in mm (null when empty, unreadable or zero). */
 internal fun parseMm(s: String, unit: LenUnit): Int? = (parseDec(s, unitDecimals(unit)) as? Parsed.Ok)?.value?.toInt()?.takeIf { it > 0 }
 
@@ -277,11 +282,16 @@ fun FStepsScreen(rt: Route.FSteps) {
     val edit = rt.fid?.let { id -> p.furniture.firstOrNull { it.id == id } }
     val ws = app.settings.workshop; val mats = app.settings.mats
     val unit = app.settings.unit
-    val steps = remember(m) { stepsOf(m) }
-    val n = steps.size
     val had = rt.vals?.let { decodeVals(it) } ?: edit?.let { valsOf(it, ws) } ?: emptyMap()
-    // a choice step keeps the index of what was chosen ("" the usual one)
-    var texts by rememberSaveable(rt) { mutableStateOf(steps.map { s -> had[s.key]?.let { if (s.choice) "$it" else fmtField(it, unit, en) } ?: "" }) }
+    // what was typed, by step key; a choice step keeps the index of what was chosen ("" the usual one)
+    var textsS by rememberSaveable(rt) { mutableStateOf(encodeTexts(stepsOf(m, had).let { st ->
+        had.mapValues { (k, v) -> if (st.any { it.key == k && it.choice }) "$v" else fmtField(v, unit, en) } })) }
+    val texts = decodeTexts(textsS)
+    // a corner piece's side steps follow which sides were measured; its shape is chosen once, when it is made
+    val steps = stepsOf(m, texts["ms"]?.toIntOrNull()?.let { mapOf("ms" to it) } ?: emptyMap()).filter { edit == null || it.key != "sh" }
+    val n = steps.size
+    fun txt(i: Int) = texts[steps[i].key] ?: ""
+    fun setTxt(i: Int, v: String) { textsS = encodeTexts(texts + (steps[i].key to v)) }
     // 0 … n-1 a size, n the summary; back: the step was opened from the summary, was: its text then
     var at by rememberSaveable(rt) { mutableIntStateOf(if (rt.vals != null) n else 0) }
     var back by rememberSaveable(rt) { mutableStateOf(false) }
@@ -289,7 +299,7 @@ fun FStepsScreen(rt: Route.FSteps) {
     var laser by remember { mutableStateOf<String?>(null) }   // "busy", or the reading's words
     val scope = rememberCoroutineScope()
     // only sizes within their range reach the piece: a typed 99999 would otherwise build a 100 m kitchen on every key
-    fun typed(i: Int): Int? = if (steps[i].choice) texts[i].toIntOrNull() else parseMm(texts[i], unit)
+    fun typed(i: Int): Int? = if (steps[i].choice) txt(i).toIntOrNull() else parseMm(txt(i), unit)
     val vals = steps.indices.mapNotNull { i -> typed(i)?.takeIf { stepIssue(steps[i], it) == null }?.let { steps[i].key to it } }.toMap()
     val piece = remember(vals, ws) { if (edit != null) resized(edit, vals, ws) else pieceOf(m, vals, ws, "") }
     val scene = remember(piece, mats) { pieceScene(piece, ws, mats) }
@@ -297,10 +307,12 @@ fun FStepsScreen(rt: Route.FSteps) {
     fun issueOf(i: Int): String? {
         if (steps[i].choice) return null
         // 0 or a wrong number says so (Next stays off without a word otherwise)
-        val mm = parseMm(texts[i], unit) ?: return if (texts[i].isBlank()) null else app.t(if (texts[i].trim().trimStart('0', ',', '.').isEmpty()) "err.zero" else "tl.sizeErr")
+        val mm = parseMm(txt(i), unit) ?: return if (txt(i).isBlank()) null else app.t(if (txt(i).trim().trimStart('0', ',', '.').isEmpty()) "err.zero" else "tl.sizeErr")
         return stepIssue(steps[i], mm)?.let { (k, v) -> app.t(k, "v" to fmtLen(v, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m")) }
     }
-    fun ok(i: Int) = steps[i].choice || (parseMm(texts[i], unit) != null && issueOf(i) == null)
+    fun ok(i: Int) = steps[i].choice || (parseMm(txt(i), unit) != null && issueOf(i) == null)
+    // the sides worked out from the ones typed (a corner piece), and whether one comes out of what the piece can be
+    val derived = uz.metrx.app.furniture.derivedSides(m, vals)
     fun next() {
         if (at >= n || !ok(at)) return
         laser = null
@@ -310,7 +322,7 @@ fun FStepsScreen(rt: Route.FSteps) {
         laser = null
         when {
             // back to the summary: a size left empty or wrong gets its old value again
-            at < n && back -> { if (!ok(at)) texts = texts.toMutableList().also { it[at] = was }; back = false; at = n }
+            at < n && back -> { if (!ok(at)) setTxt(at, was); back = false; at = n }
             at > 0 -> at -= 1
             else -> app.pop()
         }
@@ -324,7 +336,7 @@ fun FStepsScreen(rt: Route.FSteps) {
         val r = app.settings.readings.lastOrNull { it.used == null && it.src != "manual" }
         if (r == null) { laser = app.t("fx.noReading"); return }
         app.settings.markReadingUsed(r.id, app.t(s.label))
-        texts = texts.toMutableList().also { it[i] = fmtField(r.mm, unit, en) }
+        setTxt(i, fmtField(r.mm, unit, en))
         laser = app.t("fx.got", "v" to fmtLen(r.mm, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m"))
         scope.launch { delay(900); if (at == i && ok(i)) next() }
     }
@@ -346,7 +358,7 @@ fun FStepsScreen(rt: Route.FSteps) {
     val footer: @Composable (Modifier) -> Unit = { mm ->
         FloatingFooter(mm) {
             if (at < n) GBtn(tr("common.next"), ::next, enabled = ok(at))
-            else GBtn(tr(if (edit != null) "common.save" else "fr.continue"), ::finish, enabled = steps.indices.all { ok(it) })
+            else GBtn(tr(if (edit != null) "common.save" else "fr.continue"), ::finish, enabled = steps.indices.all { ok(it) } && derived.none { it.third })
         }
     }
     Box(Modifier.fillMaxSize().imePadding()) {
@@ -365,21 +377,22 @@ fun FStepsScreen(rt: Route.FSteps) {
                     }
                 }
                 val hi = if (at < n && !steps[at].choice) steps[at].key else null
-                val label = if (hi != null) parseMm(texts[at], unit)?.let { fmtLen(it, unit, en) + " " + uw } ?: "?" else null
+                val label = if (hi != null) parseMm(txt(at), unit)?.let { fmtLen(it, unit, en) + " " + uw } ?: "?" else null
                 // with the keyboard up the picture gets lower, so the field and the laser stay in sight
                 Box(Modifier.fillMaxWidth().aspectRatio(if (imeOn && at < n) 2.1f else 1f / .92f).clip(RoundedCornerShape(22.dp)).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {
                     PieceView(scene, hi, label, Modifier.fillMaxSize())
                     Text(tr("fx.drag"), style = ui(11f, 600, G.ink3), modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp))
                 }
-                if (at < n && steps[at].choice) ChoiceAsk(steps[at], texts[at].toIntOrNull() ?: steps[at].usual) { v -> texts = texts.toMutableList().also { it[at] = "$v" } }
-                else if (at < n) StepAsk(steps[at], texts[at], { v -> texts = texts.toMutableList().also { it[at] = v }; laser = null }, issueOf(at), uw, at, ::next, laser, ::reading)
+                if (at < n && steps[at].pics) PicsAsk(m, steps[at], txt(at).toIntOrNull() ?: steps[at].usual, texts["sh"]?.toIntOrNull() ?: had["sh"] ?: 0) { v -> setTxt(at, "$v") }
+                else if (at < n && steps[at].choice) ChoiceAsk(steps[at], txt(at).toIntOrNull() ?: steps[at].usual) { v -> setTxt(at, "$v") }
+                else if (at < n) StepAsk(steps[at], txt(at), { v -> setTxt(at, v); laser = null }, issueOf(at), uw, at, ::next, laser, ::reading)
                 else Summary(steps, steps.indices.map { i ->
                     val s = steps[i]
-                    if (s.choice) app.t(s.opts.getOrElse(texts[i].toIntOrNull() ?: s.usual) { s.opts[0] }) else (parseMm(texts[i], unit)?.let { fmtLen(it, unit, en) } ?: texts[i]) + " " + uw
-                }, when {
+                    if (s.choice) app.t(s.opts.getOrElse(txt(i).toIntOrNull() ?: s.usual) { s.opts[0] }) else (parseMm(txt(i), unit)?.let { fmtLen(it, unit, en) } ?: txt(i)) + " " + uw
+                }, derived.map { (k, v, bad) -> Triple(app.t(k), fmtLen(v, unit, en) + " " + uw, bad) }, when {
                     // a piece of several boxes is built again from its sizes: what was changed box by box goes (said before saving)
                     edit != null && (edit.type in uz.metrx.app.furniture.PIECE_TYPES || edit.type == "loft") -> "fx.noteRebuild"
-                    m.kind == "kitchen" -> "fx.noteK"; m.type in uz.metrx.app.furniture.ITEM_TYPES -> "fx.noteI"; else -> "fx.noteW" }) { i -> was = texts[i]; back = true; at = i }
+                    m.kind == "kitchen" -> "fx.noteK"; m.type in uz.metrx.app.furniture.ITEM_TYPES -> "fx.noteI"; else -> "fx.noteW" }) { i -> was = txt(i); back = true; at = i }
             }
             if (imeOn) footer(Modifier)
         }
@@ -458,7 +471,7 @@ private fun LaserLine(app: App, laser: String?) {
 }
 
 @Composable
-private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<String>, note: String, onChange: (Int) -> Unit) {
+private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<String>, derived: List<Triple<String, String, Boolean>>, note: String, onChange: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         steps.forEachIndexed { i, s ->
             Row(Modifier.fillMaxWidth().heightIn(min = 54.dp).clip(RoundedCornerShape(14.dp)).background(G.glass(.7f)).clickable(role = Role.Button) { onChange(i) }
@@ -468,6 +481,8 @@ private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<St
                 Text(tr("fz.change"), style = ui(12.5f, 700, G.cobalt2))
             }
         }
+        // a corner piece: the sides worked out from the ones typed, marked as such
+        if (derived.isNotEmpty()) DerivedCard(derived)
         Text(tr(note), style = ui(12.5f, 400, G.ink2, 1.45f), modifier = Modifier.padding(top = 4.dp, start = 4.dp))
     }
 }
@@ -487,7 +502,8 @@ fun FWhereScreen(rt: Route.FWhere) {
     val vals = remember(rt) { decodeVals(rt.vals) }
     val probe = remember(rt) { pieceOf(m, vals, ws, "") }
     fun made(): uz.metrx.app.furniture.Furniture = pieceOf(m, vals, ws, app.pieceName(p, m), System.currentTimeMillis())
-    val sizes = stepsOf(m).filter { !it.choice && (it.key != "h" || m.kind != "kitchen") }.joinToString(if (m.kind == "kitchen") " + " else " × ") { s -> vals[s.key]?.let { fmtLen(it, unit, en) } ?: "?" } + " " + unitWord(unit)
+    val dv = uz.metrx.app.furniture.derive(m, vals)
+    val sizes = stepsOf(m).filter { !it.choice && (it.key != "h" || m.kind != "kitchen") }.joinToString(if (m.kind == "kitchen") " + " else " × ") { s -> dv[s.key]?.let { fmtLen(it, unit, en) } ?: "?" } + " " + unitWord(unit)
 
     FPage(tr("fz.m.${m.id}"), tr("fq.title"), { app.pop() }) {
         Text(tr("fz.m.${m.id}") + ": " + sizes, style = ui(13.5f, 500, G.ink2))

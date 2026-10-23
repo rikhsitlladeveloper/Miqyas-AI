@@ -53,7 +53,8 @@ class PiecesTest {
         assertEquals(listOf("w", "d", "h", "lg", "tp", "rc"), stepsOf(fModel("dining")!!).map { it.key })
         assertEquals(listOf("w", "h", "d", "e"), stepsOf(fModel("mirrorC")!!).map { it.key })
         assertEquals(listOf("w", "h", "d", "mt"), stepsOf(fModel("sinkV")!!).map { it.key })
-        assertEquals(listOf("w", "w2", "h", "d"), stepsOf(fModel("cornerW")!!).map { it.key })
+        // the shape and which sides were measured come first (bazis ideas, 23 Oct 2026)
+        assertEquals(listOf("sh", "ms", "w", "w2", "h", "d"), stepsOf(fModel("cornerW")!!).map { it.key })
     }
 
     @Test fun aBedIsBuiltRoundItsMattressAndItsKindIsChosen() {

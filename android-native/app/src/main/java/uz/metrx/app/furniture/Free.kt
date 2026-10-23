@@ -70,9 +70,12 @@ fun fModel(id: String): FModelDef? = F_MODELS.firstOrNull { it.id == id }
 /** How many runs along walls a layout has (an island or a peninsula is not one). */
 fun sidesOf(layout: String) = when (layout) { "L" -> 2; "U" -> 3; else -> 1 }
 
-/** The made-up room's walls for a layout: the first run on A; a U goes left wall D, back wall A, right wall B. */
-fun freeWalls(layout: String): List<String> = when (layout) {
-    "L" -> listOf("A", "B")
+/**
+ * The made-up room's walls for a layout: the first run on A; a U goes left wall D, back wall A, right wall B. An L with
+ * its corner on the left ([hand] "L") goes on the left wall D and turns onto the back wall A.
+ */
+fun freeWalls(layout: String, hand: String = ""): List<String> = when (layout) {
+    "L" -> if (hand == "L") listOf("D", "A") else listOf("A", "B")
     "U" -> listOf("D", "A", "B")
     "O", "P" -> listOf("A", ISLAND)
     else -> listOf("A")
@@ -111,15 +114,18 @@ fun freeRoom(f: Furniture): Room {
         val bs = boxes(f)
         val onA = bs.filter { it.wall == (f.walls.firstOrNull() ?: "A") }
         val onB = bs.filter { it.wall == f.walls.getOrNull(1) }
-        a = onA.maxOfOrNull { it.x + it.w + W_GAP_SIDE } ?: 2000
-        b = if (onB.isNotEmpty()) max(2000, onB.maxOf { it.x + it.w } + 600) else max(2000, (bs.maxOfOrNull { it.d } ?: W_DEPTH) + 1400)
+        val a0 = onA.maxOfOrNull { it.x + it.w + W_GAP_SIDE } ?: 2000
+        val b0 = if (onB.isNotEmpty()) max(2000, onB.maxOf { it.x + it.w } + 600) else max(2000, (bs.maxOfOrNull { it.d } ?: W_DEPTH) + 1400)
+        // a corner piece with its corner on the left starts on the left wall D (as long as the room's B) and turns onto A
+        val left = f.walls.firstOrNull() == "D"
+        a = if (left) b0 else a0; b = if (left) a0 else b0
         h = (bs.maxOfOrNull { topOf(it, Workshop()) } ?: 2200) + 300
     } else {
         val lens = freeLens(f); val ws = f.walls.filter { it != ISLAND }
         fun len(i: Int) = ws.getOrNull(i)?.let { lens[it] } ?: 3000
         when (f.layout) {
             "U" -> { a = len(1); b = max(len(0), len(2)) }
-            "L" -> { a = len(0); b = len(1) }
+            "L" -> if (ws.firstOrNull() == "D") { a = len(1); b = len(0) } else { a = len(0); b = len(1) }
             "O", "P" -> { a = len(0); b = 3000 }
             else -> { a = len(0); b = 1800 }
         }
@@ -137,10 +143,11 @@ private fun slots(len: Int): List<Int> {
 }
 
 /** A new room-less kitchen of [layout] with its sides (run order), island and ceiling, filled with plain units. */
-fun newFreeKitchen(name: String, model: String, layout: String, sides: List<Int>, island: Int, h: Int, ws: Workshop, now: Long = 0): Furniture {
-    val walls = freeWalls(layout)
+fun newFreeKitchen(name: String, model: String, layout: String, sides: List<Int>, island: Int, h: Int, ws: Workshop, now: Long = 0, hand: String = ""): Furniture {
+    val hd = if (layout == "L") hand else ""
+    val walls = freeWalls(layout, hd)
     var f = Furniture(uid(), "kitchen", name, null, walls, created = now, layout = layout, free = FreeSize(sides.take(sidesOf(layout)), if (ISLAND in walls) island else 0, h), model = model,
-        kx = kExtrasFor(layout))
+        kx = kExtrasFor(layout), hand = hd)
     val runs = runsOf(f) { freeLen(f, it) }
     f = autoFill(f, runs, ws, emptyList(), usualPoints(runs))
     if (ISLAND in walls && island > 0) {
@@ -183,6 +190,15 @@ fun newFreeWardrobe(name: String, model: String, w: Int, h: Int, d: Int, built: 
 }
 
 /* ---------------- into a room and out again ---------------- */
+
+/**
+ * A kitchen's side number (from 1) of its run [i] as the steps ask it: the main wall first. An L with its corner on the
+ * left runs from the side wall to the main one, so the other way round.
+ */
+fun sideNo(f: Furniture, i: Int): Int = if (f.kind == "kitchen" && f.layout == "L" && f.hand == "L") f.walls.count { it != ISLAND } - i else i + 1
+
+/** A corner wardrobe's or desk's made-up walls: the corner on the right of the main wall (A, B) or on its left (D, A). */
+fun cornerWalls(hand: String) = if (hand == "L") listOf("D", "A") else listOf("A", "B")
 
 /** The walls the piece takes in a room whose walls go [ids] (clockwise), its first side on [first]. */
 fun placeWalls(f: Furniture, ids: List<String>, first: String): List<String> {
@@ -393,8 +409,8 @@ fun placed(f: Furniture, walls: List<String>, roomId: String, wsId: String, off:
 /** The piece taken out of its room: sizes from what is on each wall now, back on the made-up room's walls. */
 fun takenOut(f: Furniture, len: (String) -> Int?, roomH: Int?): Furniture {
     if (f.kind == "wardrobe") {
-        val g = onWalls(f, if (f.type in CORNER_TYPES) listOf("A", "B") else listOf("A")).copy(roomId = null, ws = "", keep = false, pose = null)
-        if (g.type in CORNER_TYPES) return cornerFit(g.copy(modules = g.modules.map { if (it.wall == "A") it.copy(x = W_GAP_SIDE) else it }), null)
+        val g = onWalls(f, if (f.type in CORNER_TYPES) cornerWalls(f.hand) else listOf("A")).copy(roomId = null, ws = "", keep = false, pose = null)
+        if (g.type in CORNER_TYPES) return cornerFit(g.copy(modules = g.modules.map { if (it.wall == g.walls[0]) it.copy(x = W_GAP_SIDE) else it }), null)
         if (boxes(g).size > 1) return packPiece(shiftRun(g, W_GAP_SIDE))
         // out of the room it stands free: a sliding wardrobe gets both its side panels back
         return g.copy(modules = g.modules.map { if (it.type == "wardrobe") withSides(it.copy(x = W_GAP_SIDE), null) else if (isBox(it)) it.copy(x = W_GAP_SIDE) else it })
@@ -404,6 +420,6 @@ fun takenOut(f: Furniture, len: (String) -> Int?, roomH: Int?): Furniture {
     val runs = runsOf(f) { len(it) }
     val sides = runs.filter { it.wall != ISLAND }.map { r -> max(runEnd(f, r), 600) }
     val island = runs.firstOrNull { it.wall == ISLAND }?.let { fillOf(f, it, false).used } ?: 0
-    val g = onWalls(f, freeWalls(f.layout)).copy(roomId = null, ws = "", keep = false, free = FreeSize(sides, island, roomH ?: f.free?.h ?: 2700))
+    val g = onWalls(f, freeWalls(f.layout, f.hand)).copy(roomId = null, ws = "", keep = false, free = FreeSize(sides, island, roomH ?: f.free?.h ?: 2700))
     return pack(g, runsOf(g) { freeLen(g, it) })
 }

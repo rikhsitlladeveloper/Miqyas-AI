@@ -124,9 +124,12 @@ fun ItemScreen(rt: Route.Wardrobe, p: Project, f: Furniture) {
             }
             if (rt.d3) { Furniture3D(p, room); return@Column }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                val scene = remember(f, ws, mats) { pieceScene(f, ws, mats) }
+                var bare by remember { mutableStateOf(false) }
+                val scene = remember(f, ws, mats, bare) { pieceScene(f, ws, mats, bare) }
                 Box(Modifier.fillMaxWidth().aspectRatio(1f / .8f).clip(RoundedCornerShape(22.dp)).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {
                     PieceView(scene, null, null, Modifier.fillMaxSize())
+                    // a bed's drawers, a loft's cabinet: hide the fronts to see inside
+                    if (f.modules.any { m -> m.sections.any { it.fronts.kind != "open" } || m.opt?.bed == "drawers" }) InsidePill(bare, Modifier.align(Alignment.TopStart).padding(10.dp)) { bare = !bare }
                     Text(tr("fx.drag"), style = ui(11f, 600, G.ink3), modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp))
                 }
                 Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -145,6 +148,7 @@ fun ItemScreen(rt: Route.Wardrobe, p: Project, f: Furniture) {
                 }
                 CostCard(p, f, ws, mats)
             }
+            LivePrice(p, f)
         }
     }
 }

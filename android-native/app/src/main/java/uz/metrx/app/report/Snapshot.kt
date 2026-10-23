@@ -59,6 +59,13 @@ fun winSnap(sn: Snap, p: Project, prices: uz.metrx.app.win.WinPrices?): Snap {
     return sn.copy(win = p.win, winPrice = cost)
 }
 
+/** The handles the order's pieces have: the usual one, or those picked for a whole piece ("Change for all"). */
+private fun handleNames(fs: List<uz.metrx.app.furniture.Furniture>, hws: List<uz.metrx.app.furniture.Hw>): String {
+    val usual = uz.metrx.app.furniture.usualHw(hws, "handle")
+    val names = fs.filter { f -> f.modules.any { it.handles } }.mapNotNull { f -> (hws.firstOrNull { it.id == f.handle && it.kind == "handle" } ?: usual)?.name }.distinct()
+    return names.ifEmpty { listOfNotNull(usual?.name) }.joinToString(", ")
+}
+
 /** A furniture order's part of the snapshot: the furniture, its materials, the price lines and the terms. */
 fun furnSnap(sn: Snap, p: Project, ws: uz.metrx.app.furniture.Workshop, mats: List<uz.metrx.app.furniture.Mat>, hws: List<uz.metrx.app.furniture.Hw>): Snap {
     val fs = p.furniture.filter { it.modules.isNotEmpty() }
@@ -67,7 +74,7 @@ fun furnSnap(sn: Snap, p: Project, ws: uz.metrx.app.furniture.Workshop, mats: Li
         (if (fs.any { (it.kx?.splash ?: 0) > 0 }) setOf("splash6") else emptySet())
     return sn.copy(furniture = fs, fmats = mats.filter { it.id in used }, flines = pr.lines.map { uz.metrx.app.data.SnapLine(it.key, it.amount.toString()) },
         ftotal = pr.price.toString(), fprepay = ws.prepay, fdays = p.fprice.days, finst = p.fprice.inst,
-        fhandles = hws.lastOrNull { it.kind == "handle" }?.name ?: "", fws = ws)
+        fhandles = handleNames(fs, hws), fws = ws)
 }
 
 fun snapshotOf(p: Project, unit: LenUnit, builderName: String, builderPhone: String, pdf: PdfParts, snap: Boolean = true): Snap {

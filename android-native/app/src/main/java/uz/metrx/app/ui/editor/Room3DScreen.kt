@@ -129,6 +129,8 @@ fun Room3DScreen(r0: Route.Editor) {
                 uz.metrx.app.ui.furniture.pickOf(fr, cam, pos)?.let { k -> mo.toggle(k) }
             } }) {
                 Labels3D(cam, shell.labels.map { it.p }) { i -> Lbl3D(shell.labels[i].text) }
+                // a furniture order's room: hide every door to see inside
+                if (fur != null) uz.metrx.app.ui.furniture.InsidePill(mo.bare, Modifier.align(Alignment.TopStart).padding(top = 10.dp, start = 10.dp)) { mo.bare = !mo.bare }
                 ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
                     // at most 4 views: counted on the room as saved now, not as this screen last drew it
                     fun full() = (ops.room(p.id, r.id)?.views?.size ?: 4) >= 4

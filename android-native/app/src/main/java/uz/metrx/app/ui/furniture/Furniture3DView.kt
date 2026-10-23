@@ -66,6 +66,8 @@ import uz.metrx.app.ui.three.Shot3D
  */
 class DoorMotion {
     var target by mutableStateOf(setOf<String>())
+    /** "See inside" (bazis ideas, 23 Oct 2026): every door, drawer front and sliding door hidden. */
+    var bare by mutableStateOf(false)
     val prog = mutableStateMapOf<String, Float>()
     fun toggle(k: String) { target = if (k in target) target - k - inner(k, target) else target + k }
     fun openAll(keys: Collection<String>) { target = keys.toSet() }
@@ -122,8 +124,9 @@ fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion): Pa
     val ws = app.settings.workshop; val mats = app.settings.mats
     val fs = p.furniture.filter { it.roomId == room.id || (it.roomId == null && uz.metrx.app.furniture.FREE_ROOM + it.id == room.id) }
     val amt = mo.prog.toMap()
-    val fur = remember(base, fs, amt, ws, mats) {
-        furniture3D(fs, base.bases, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet()) { k -> (amt[k] ?: 0f).toDouble() }
+    val bare = mo.bare
+    val fur = remember(base, fs, amt, ws, mats, bare) {
+        furniture3D(fs, base.bases, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare)
     }
     val shell = remember(base, fur) { base.plus(fur.parts, fur.edges) }
     return shell to fur
@@ -137,6 +140,12 @@ fun Furn3D.pick(cam: Cam3D, x: Float, y: Float): String? {
 
 /** The same, for callers outside this package. */
 fun pickOf(f: Furn3D, cam: Cam3D, at: androidx.compose.ui.geometry.Offset): String? = f.pick(cam, at.x, at.y)
+
+/** The "See inside" pill over a 3D picture: hides every door and drawer front, a second tap brings them back. */
+@Composable
+fun InsidePill(on: Boolean, modifier: Modifier, onClick: () -> Unit) {
+    ShotPill(if (on) "door" else "box", tr(if (on) "bz.doorsBack" else "bz.inside"), modifier, onClick)
+}
 
 /** The 2D | 3D switch of the kitchen and wardrobe designers. */
 @Composable
@@ -167,7 +176,10 @@ fun ColumnScope.Furniture3D(p: Project, room: Room) {
     val mo = rememberDoorMotion(room.id)
     // furniture without a room stands on a floor of its size, no walls round it
     val free = uz.metrx.app.furniture.isFreeRoom(room)
-    val base = remember(room.dims, room.openings, room.poly, room.points, room.wallColor, room.floorColor, snap) { buildShell(listOf(room), true, snap).let { if (free) it.floorOnly() else it } }
+    // a room-less corner piece with its corner on the left (made-up walls D, A) is seen from the right
+    val left = free && p.furniture.any { uz.metrx.app.furniture.FREE_ROOM + it.id == room.id && it.walls.firstOrNull() == "D" && it.layout != "U" }
+    val base = remember(room.dims, room.openings, room.poly, room.points, room.wallColor, room.floorColor, snap, left) {
+        buildShell(listOf(room), true, snap).let { if (free) it.floorOnly(if (left) Math.PI / 2 - .75 else it.theta) else it } }
     val (shell, fur) = rememberFurnShell(p, room, base, mo)
     val cam = remember(room.id) { Cam3D() }
     val shot = remember { Shot3D() }
@@ -194,13 +206,14 @@ fun ColumnScope.Furniture3D(p: Project, room: Room) {
                     }
                 }
             }
-            Text(tr("f3.hint"), style = ui(12.5f, 600, G.ink2), modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)
+            InsidePill(mo.bare, Modifier.align(Alignment.TopStart).padding(top = 10.dp, start = 10.dp)) { mo.bare = !mo.bare }
+            Text(tr(if (mo.bare) "bz.insideHint" else "f3.hint"), style = ui(12.5f, 600, G.ink2), modifier = Modifier.align(Alignment.BottomStart).padding(12.dp)
                 .clip(RoundedCornerShape(10.dp)).background(G.sheet(.7f)).padding(horizontal = 10.dp, vertical = 6.dp))
         }
     }
     Column(Modifier.fillMaxWidth().background(G.glass(.55f)).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            GBtn(tr("f3.openAll"), { mo.openAll(fur.keys) }, Btn.SECONDARY, height = 44.dp, corner = 12.dp, fontSize = 14f, modifier = Modifier.weight(1f))
+            GBtn(tr("f3.openAll"), { mo.openAll(fur.keys) }, Btn.SECONDARY, enabled = !mo.bare, height = 44.dp, corner = 12.dp, fontSize = 14f, modifier = Modifier.weight(1f))
             GBtn(tr("f3.close"), { mo.closeAll() }, Btn.SECONDARY, enabled = mo.target.isNotEmpty(), height = 44.dp, corner = 12.dp, fontSize = 14f, modifier = Modifier.weight(1f))
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

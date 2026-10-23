@@ -125,7 +125,8 @@ fun FPriceTab(p: Project) {
         return
     }
     val fp = p.fprice
-    val pr = remember(p.furniture, fp, s.workshop, s.mats, s.hws) { priceOf(fs, fp, s.workshop, s.mats, s.hws) }
+    val rems = remsOf(app, p)
+    val pr = remember(p.furniture, fp, s.workshop, s.mats, s.hws, rems) { priceOf(fs, fp, s.workshop, s.mats, s.hws, rems) }
     val cost = pr.cost
     val cur = curSuffix(p.currency, lang)
     fun setFp(f: (FPrice) -> FPrice) { app.store.update(p.id) { it.copy(fprice = f(it.fprice)) } }
@@ -296,8 +297,13 @@ fun CutScreen(rt: Route.FCut) {
     val s = app.settings
     val p = app.store.get(rt.pid) ?: return
     val fs = p.furniture.filter { it.modules.isNotEmpty() }
-    val cost = remember(p.furniture, s.workshop, s.mats, s.hws) { costOf(fs, s.workshop, s.mats, s.hws) }
+    // the store's remnants first (Advanced), only new sheets bought
+    val rems = remsOf(app, p)
+    val cost = remember(p.furniture, s.workshop, s.mats, s.hws, rems) { costOf(fs, s.workshop, s.mats, s.hws, rems = rems) }
     var tab by rememberSaveable { mutableStateOf("l") }
+    // a parts row tapped: that part lit up in its piece's 3D
+    var hiRow by rememberSaveable { mutableIntStateOf(-1) }
+    var hiPiece by rememberSaveable { mutableStateOf<String?>(null) }
     var mat by rememberSaveable { mutableStateOf(cost.layouts.firstOrNull()?.mat ?: "") }
     var sheet by rememberSaveable { mutableIntStateOf(0) }
     val lay = cost.layouts.firstOrNull { it.mat == mat } ?: cost.layouts.firstOrNull()
@@ -309,7 +315,8 @@ fun CutScreen(rt: Route.FCut) {
             GlassIconButton("back", tr("nt.back"), { app.pop() })
             Column(Modifier.weight(1f)) {
                 Text(tr("fc.title"), style = ui(19f, 800), maxLines = 1)
-                Text(tr("fc.sub", "n" to rowsAll.sumOf { it.p.qty }, "s" to cost.layouts.sumOf { it.sheets.size }), style = ui(12f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(tr("fc.sub", "n" to rowsAll.sumOf { it.p.qty }, "s" to cost.layouts.sumOf { it.sheets.size }) +
+                    cost.layouts.sumOf { it.rems.size }.let { if (it > 0) " · " + tr("bz.remShort", "n" to it) else "" }, style = ui(12f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         if (lay == null) { Text(tr("fp.empty"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.padding(24.dp)); return@Column }
@@ -318,9 +325,10 @@ fun CutScreen(rt: Route.FCut) {
             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 cost.layouts.forEach { l ->
                     val m = s.mats.firstOrNull { it.id == l.mat }
-                    Chip((m?.name ?: l.mat) + " · ${l.sheets.size}", l.mat == lay.mat) { mat = l.mat; sheet = 0 }
+                    Chip((m?.name ?: l.mat) + " · ${l.sheets.size}" + (if (l.rems.isNotEmpty()) " + ${l.rems.size}" else ""), l.mat == lay.mat) { mat = l.mat; sheet = 0; hiRow = -1 }
                 }
             }
+            rowsAll.getOrNull(hiRow)?.takeIf { tab == "l" && it.mat == lay.mat }?.let { r -> PartIn3D(p, r, hiPiece, { hiPiece = it }) { hiRow = -1; hiPiece = null } }
             if (tab == "l") Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(20.dp), fill = G.glass(.6f)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Row(Modifier.fillMaxWidth().padding(bottom = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("№", style = ui(11.5f, 700, G.ink2), modifier = Modifier.width(24.dp))
@@ -332,7 +340,9 @@ fun CutScreen(rt: Route.FCut) {
                 }
                 idx.forEach { (i, r) ->
                     Hairline()
-                    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    val on = i == hiRow
+                    Row(Modifier.fillMaxWidth().heightIn(min = 44.dp).clip(RoundedCornerShape(10.dp)).background(if (on) Color(0x33F59E0B) else Color.Transparent)
+                        .clickable(role = Role.Button) { hiRow = if (on) -1 else i; hiPiece = null }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("${number[i]}", style = num(13f, 700, G.ink2), modifier = Modifier.width(24.dp))
                         Column(Modifier.weight(1f)) {
                             Text(tr(r.p.key) + if (r.p.grain) " ↕" else "", style = ui(13.5f, 600), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -343,21 +353,27 @@ fun CutScreen(rt: Route.FCut) {
                         Box(Modifier.width(52.dp)) { BandGlyph(r) }
                     }
                 }
-                Text(tr("fc.bandNote"), style = ui(12f, 400, G.ink2, 1.4f), modifier = Modifier.padding(top = 6.dp))
+                Text(tr("fc.bandNote") + " " + tr("bz.tapPart"), style = ui(12f, 400, G.ink2, 1.4f), modifier = Modifier.padding(top = 6.dp))
             } else {
-                val n = lay.sheets.size
+                val boards = lay.rems + lay.sheets
+                val n = boards.size
                 val i = sheet.coerceIn(0, max(0, n - 1))
+                val bd = boards.getOrNull(i)
+                val bl = bd?.rem?.L ?: lay.sheetL; val bw = bd?.rem?.W ?: lay.sheetW
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     GlassIconButton("back", tr("rp2.prev"), { if (i > 0) sheet = i - 1 }, tint = if (i > 0) G.ink else G.ink3.copy(alpha = .4f))
-                    Text(tr("fc.sheetN", "i" to i + 1, "n" to n, "l" to lay.sheetL, "w" to lay.sheetW), style = ui(14f, 700), modifier = Modifier.weight(1f), maxLines = 2)
-                    Text(tr("fc.waste", "v" to (lay.waste * 100).toInt()), style = ui(12.5f, 600, G.ink2))
+                    Text(if (bd?.rem != null) tr("bz.remBoardN", "i" to i + 1, "n" to lay.rems.size, "l" to bl, "w" to bw)
+                        else tr("fc.sheetN", "i" to i + 1 - lay.rems.size, "n" to lay.sheets.size, "l" to lay.sheetL, "w" to lay.sheetW), style = ui(14f, 700), modifier = Modifier.weight(1f), maxLines = 2)
+                    if (bd?.rem == null) Text(tr("fc.waste", "v" to (lay.waste * 100).toInt()), style = ui(12.5f, 600, G.ink2))
                     GlassIconButton("chev", tr("rp2.next"), { if (i < n - 1) sheet = i + 1 }, tint = if (i < n - 1) G.ink else G.ink3.copy(alpha = .4f))
                 }
-                lay.sheets.getOrNull(i)?.let { sp ->
+                bd?.let { sp ->
                     val tm = rememberTextMeasurer()
                     val ws = s.workshop
-                    Canvas(Modifier.fillMaxWidth().aspectRatio(lay.sheetL.toFloat() / lay.sheetW).clip(RoundedCornerShape(6.dp)).background(Color(0xFFF3F6FA)).border(1.dp, G.ink, RoundedCornerShape(6.dp))) {
-                        val k = size.width / lay.sheetL; val tr0 = ws.trim * k
+                    // a remnant drawn at the sheets' scale (a small one at half the width at least), without trimmed edges
+                    Canvas(Modifier.fillMaxWidth(maxOf(.5f, bl.toFloat() / lay.sheetL)).aspectRatio(bl.toFloat() / bw).clip(RoundedCornerShape(6.dp)).background(if (sp.rem != null) Color(0xFFFFF7E6) else Color(0xFFF3F6FA))
+                        .border(1.dp, G.ink, RoundedCornerShape(6.dp))) {
+                        val k = size.width / bl; val tr0 = if (sp.rem != null) 0f else ws.trim * k
                         sp.placed.forEach { pl ->
                             val x = tr0 + pl.x * k; val y = tr0 + pl.y * k; val w = pl.w * k; val h = pl.h * k
                             drawRect(Color(0xFFDDE6F5), Offset(x, y), Size(w, h)); drawRect(Color(0xFF3E4A61), Offset(x, y), Size(w, h), style = Stroke(1f))
@@ -373,7 +389,12 @@ fun CutScreen(rt: Route.FCut) {
                 Text(tr("fw.sheetNote", "l" to lay.sheetL, "w" to lay.sheetW, "k" to s.workshop.kerf, "t" to s.workshop.trim), style = ui(12.5f, 400, G.ink2, 1.4f))
                 if (lay.unplaced.isNotEmpty()) Text(tr("fw.unplaced", "m" to (s.mats.firstOrNull { it.id == lay.mat }?.name ?: lay.mat), "n" to lay.unplaced.size), style = ui(13f, 600, G.err, 1.4f))
             }
-            GBtn(tr("fw.btn"), { app.push(Route.FPack(p.id)) }, Btn.SECONDARY, icon = "doc", height = 48.dp, corner = 16.dp, fontSize = 15f)
+            RemnantCard(p, cost)
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                GBtn(tr("fw.btn"), { app.push(Route.FPack(p.id)) }, Btn.SECONDARY, icon = "doc", height = 48.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1f), maxLines = 2)
+                // the part labels: a sticker for every part
+                GBtn(tr("bz.lab.btn"), { app.push(Route.FPack(p.id, labels = true)) }, Btn.SECONDARY, icon = "note", height = 48.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.weight(1f), maxLines = 2)
+            }
         }
     }
 }

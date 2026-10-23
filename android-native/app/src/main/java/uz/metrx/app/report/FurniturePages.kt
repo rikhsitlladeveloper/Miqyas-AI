@@ -215,12 +215,13 @@ private fun Doc.bandText(r: CutRow): String {
 }
 
 /** The pack: summary, cut list a material, the sheets, hardware, modules, cost and profit. Not for the customer. */
-fun workshopPages(tm: TextMeasurer, sn: Snap, ws: Workshop, mats: List<Mat>, hws: List<Hw>, pr: Priced, mode: String, now: Long = System.currentTimeMillis()): List<RPage> {
+fun workshopPages(tm: TextMeasurer, sn: Snap, ws: Workshop, mats: List<Mat>, hws: List<Hw>, pr: Priced, mode: String, now: Long = System.currentTimeMillis(),
+                  rems: List<uz.metrx.app.furniture.Remnant> = emptyList()): List<RPage> {
     val d = Doc(tm, sn, false, null, { null }, now)
     d.quoteTitle = "fw.title"
     d.subLine = d.t("fw.sub", "d" to fmtDate(now))
     val fs = labelled(sn.furniture)
-    val cost = costOf(fs, ws, mats, hws)
+    val cost = costOf(fs, ws, mats, hws, rems = rems)
     fun matName(id: String) = mats.firstOrNull { it.id == id }?.let { d.presetName(it.id, it.name) } ?: id
     d.newPage()
     d.para(AnnotatedString(dn(sn.name, d.l) + " · " + fs.joinToString(" + ") { dn(it.name, d.l) }), d.ui(11f, 600), 0f, 4f)
@@ -300,16 +301,20 @@ private fun Doc.frontText(m: Module): String = when {
 
 /** Two sheets a page: the trimmed area, the parts with their cut list numbers. */
 private fun Doc.sheets(lay: Layout, number: Map<Int, Int>, name: String, ws: Workshop) {
-    lay.sheets.forEachIndexed { i, s ->
-        // small enough for two sheets a page
-        val w = min(CW, 296f * lay.sheetL / lay.sheetW); val k = w / lay.sheetL; val h = lay.sheetW * k
-        val cap = measure(t("fw.sheet", "m" to dn(name, l), "i" to i + 1, "n" to lay.sheets.size, "w" to (lay.waste * 100).toInt()), ui(10f, 600), CW)
+    // the remnants used first (their own size, no trim), then the new sheets
+    val boards = lay.rems.map { Triple(it, it.rem!!.L, it.rem.W) } + lay.sheets.map { Triple(it, lay.sheetL, lay.sheetW) }
+    boards.forEachIndexed { bi, (s, bl, bw) ->
+        val rem = s.rem != null
+        val i = bi - lay.rems.size
+        // small enough for two sheets a page; a remnant at the sheets' scale
+        val w0 = min(CW, 296f * lay.sheetL / lay.sheetW); val k = w0 / lay.sheetL; val w = bl * k; val h = bw * k
+        val cap = measure(if (rem) t("bz.remBoard", "m" to dn(name, l), "l" to bl, "w" to bw) else t("fw.sheet", "m" to dn(name, l), "i" to i + 1, "n" to lay.sheets.size, "w" to (lay.waste * 100).toInt()), ui(10f, 600), CW)
         space(10f)
         if (y + cap.size.height + 4f + h + 14f > LIMIT) { newPage(); space(10f) }
         val top = y + cap.size.height + 4f
         val labels = s.placed.map { pl -> pl to measure("${number[pl.row] ?: "?"}", num(max(6f, min(11f, min(pl.w, pl.h) * k * .45f)), 700)) }
         val note = measure(t("fw.sheetNote", "l" to lay.sheetL, "w" to lay.sheetW, "k" to ws.kerf, "t" to ws.trim), ui(8.5f, 400, F_INK3), CW)
-        val tr = ws.trim * k
+        val tr = if (rem) 0f else ws.trim * k
         draw {
             drawText(cap, topLeft = Offset(PX, top - cap.size.height - 4f))
             drawRect(SHEET_BG, Offset(PX, top), Size(w, h)); drawRect(F_INK, Offset(PX, top), Size(w, h), style = Stroke(1f))

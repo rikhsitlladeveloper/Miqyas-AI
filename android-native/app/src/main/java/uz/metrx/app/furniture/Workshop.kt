@@ -34,7 +34,9 @@ data class Workshop(
     val rBand: String = "3000",
     val rAsm: String = "120000",
     val rInstall: String = "1500000",
-    val rDeliver: String = "300000"
+    val rDeliver: String = "300000",
+    /** Remnants (Advanced): offcuts at least this many mm each way are kept for the next orders. */
+    val remMin: Int = REM_MIN
 )
 
 /**
@@ -65,11 +67,17 @@ val MAT_PRESETS = listOf(
     Mat("band04", "band", "Kromka PVX 0,4 mm", 4, 0, 0, price = "1500", preset = true)
 )
 
+/** The handle presets beyond the usual skoba: offered for a whole order, never the usual price. */
+val HANDLE_MORE = setOf("handleLong", "handleKnob")
+
 val HW_PRESETS = listOf(
     Hw("hingeSoft", "hingeSoft", "Petlya, yumshoq yopilish", "18000", true),
     Hw("hinge", "hinge", "Petlya, oddiy", "9000", true),
     Hw("runner", "runner", "Yo‘naltiruvchi 300–600", "95000", true),
     Hw("handle", "handle", "Tutqich skoba 128", "25000", true),
+    // more handles to pick for a whole order ("Change for all", 23 Oct 2026); the price stays the skoba's otherwise
+    Hw("handleLong", "handle", "Tutqich uzun 320", "45000", true),
+    Hw("handleKnob", "handle", "Tutqich knopka", "15000", true),
     Hw("leg", "leg", "Oyoq 100 mm", "6000", true),
     Hw("pin", "pin", "Polka ushlagich", "300", true),
     Hw("rail", "rail", "Shtanga (metr)", "35000", true),

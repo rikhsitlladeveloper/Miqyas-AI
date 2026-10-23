@@ -88,6 +88,7 @@ private val FIELDS = listOf(
     WField("sheetW", "wk.sheetW", WKind.MM, { it.sheetW.toString() }, { w, v -> w.copy(sheetW = v.toInt()) }),
     WField("kerf", "wk.kerf", WKind.MM, { it.kerf.toString() }, { w, v -> w.copy(kerf = v.toInt()) }),
     WField("trim", "wk.trim", WKind.MM, { it.trim.toString() }, { w, v -> w.copy(trim = v.toInt()) }),
+    WField("remMin", "bz.remMin", WKind.MM, { it.remMin.toString() }, { w, v -> w.copy(remMin = v.toInt()) }),
     WField("margin", "wk.margin", WKind.PCT, { it.margin.toString() }, { w, v -> w.copy(margin = v.toInt()) }),
     WField("prepay", "wk.prepay", WKind.PCT, { it.prepay.toString() }, { w, v -> w.copy(prepay = v.toInt()) }),
     WField("rCut", "wk.rCut", WKind.MONEY, { it.rCut }, { w, v -> w.copy(rCut = v) }),
@@ -172,6 +173,11 @@ fun WorkshopScreen() {
             }
         }
         Card(tr("wk.sheet")) { listOf("sheetL", "sheetW", "kerf", "trim").forEach { k -> ValRow(tr(f(k).label), shown(f(k), w)) { app.sheet = Sheet.WsField(k) } } }
+        // remnants: what the cut lists keep and use first (bazis ideas, 23 Oct 2026)
+        Card(tr("bz.rem")) {
+            ValRow(tr("bz.remMin"), shown(f("remMin"), w)) { app.sheet = Sheet.WsField("remMin") }
+            ValRow(tr("bz.remList"), tr("bz.remN", "n" to s.remnants.count { it.used.isEmpty() })) { app.push(uz.metrx.app.ui.Route.Remnants) }
+        }
         Card(tr("wk.price")) { listOf("margin", "prepay", "rCut", "rBand", "rAsm", "rInstall", "rDeliver").forEach { k -> ValRow(tr(f(k).label), shown(f(k), w)) { app.sheet = Sheet.WsField(k) } } }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MIcon("info", G.ink2, 16.dp, 2f); Text(tr("wk.note"), style = ui(13f, 400, G.ink2, 1.4f)) }
         SampleCard(w, en)
@@ -278,6 +284,7 @@ private fun mmRange(key: String) = when (key) {
     "sheetL", "sheetW" -> 300..5000
     "kerf" -> 0..10
     "trim" -> 0..100
+    "remMin" -> 100..2000
     "legH" -> 0..300
     else -> 0..10000
 }

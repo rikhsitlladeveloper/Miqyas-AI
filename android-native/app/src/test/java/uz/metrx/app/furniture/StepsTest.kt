@@ -18,11 +18,11 @@ class StepsTest {
 
     @Test fun aKitchenAsksItsSidesItsIslandAndTheCeiling() {
         assertEquals(listOf("s0", "h"), stepsOf(fModel("I")!!).map { it.key })
-        assertEquals(listOf("s0", "s1", "h"), stepsOf(fModel("L")!!).map { it.key })
+        assertEquals(listOf("sh", "ms", "s0", "s1", "h"), stepsOf(fModel("L")!!).map { it.key })
         assertEquals(listOf("s0", "s1", "s2", "h"), stepsOf(fModel("U")!!).map { it.key })
         assertEquals(listOf("s0", "isl", "h"), stepsOf(fModel("O")!!).map { it.key })
         assertEquals("fz.pP", stepsOf(fModel("P")!!)[1].label)
-        assertEquals(listOf(3000, 2000, 2700), stepsOf(fModel("L")!!).map { it.usual })
+        assertEquals(listOf(0, 0, 3000, 2000, 2700), stepsOf(fModel("L")!!).map { it.usual })
     }
 
     @Test fun aCabinetAsksWidthHeightDepth() {
@@ -41,7 +41,7 @@ class StepsTest {
         val k = pieceOf(fModel("L")!!, mapOf("s0" to 3400, "h" to 2650), ws, "Oshxona 1")
         assertEquals(listOf(3400, 2000), k.free!!.sides)
         assertEquals(2650, k.free!!.h)
-        assertEquals(mapOf("s0" to 3400, "s1" to 2000, "h" to 2650), valsOf(k, ws))
+        assertEquals(mapOf("s0" to 3400, "s1" to 2000, "h" to 2650, "sh" to 0, "ms" to 0), valsOf(k, ws))
         val d = pieceOf(fModel("dresser")!!, mapOf("w" to 1200, "h" to 900, "d" to 500), ws, "Komod 1")
         assertEquals("dresser", d.type)
         assertEquals(mapOf("w" to 1200, "h" to 900, "d" to 500), valsOf(d, ws))

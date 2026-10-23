@@ -60,7 +60,9 @@ data class Project(
     /** Plumbers' orders: the fixtures, outlets, riser, the rooms' settings and the rooms typed by size (plumb/Plumb.kt). */
     val plumb: uz.metrx.app.plumb.PlumbOrder = uz.metrx.app.plumb.PlumbOrder(),
     /** Windows-and-doors orders: the windows and doors filling the rooms' openings, and those without a room (win/Win.kt). */
-    val win: uz.metrx.app.win.WinOrder = uz.metrx.app.win.WinOrder()
+    val win: uz.metrx.app.win.WinOrder = uz.metrx.app.win.WinOrder(),
+    /** Furniture orders (Advanced): when the parts were cut and the offcuts kept as remnants (0: not yet). */
+    val cutAt: Long = 0
 ) {
     val isFurniture get() = industry == "furniture"
     /** A tiler's order (its own app: layouts in 3D, like the furniture maker's). */

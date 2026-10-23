@@ -231,6 +231,8 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
     val en = lang == Lang.EN
     val priced = remember(p.furniture, p.fprice, s.workshop, s.mats, s.hws) { priceOf(p.furniture.filter { it.modules.isNotEmpty() }, p.fprice, s.workshop, s.mats, s.hws) }
     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        // everything that is wrong with the order's pieces, in one place (bazis ideas, 23 Oct 2026)
+        CheckCard(p)
         FreeCard(p, lang)
         if (p.floors.isEmpty() && p.furniture.none { it.roomId == null }) Text(tr("fz.empty"), style = ui(14.5f, 400, G.ink2), textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(22.dp))
@@ -291,6 +293,8 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button) { app.push(Route.Space(p.id, w.id)) }.padding(horizontal = 4.dp, vertical = 6.dp))
             }
         }
+        // the fronts' board and the handles of every piece in one tap
+        SwapButton(p)
         if (p.rooms.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GBtn(tr("pj.v2d"), { app.setTop(route.copy(view = "2d")) }, Btn.SECONDARY, icon = "room", modifier = Modifier.weight(1f), height = 48.dp, fontSize = 15f)
             GBtn(tr("pj.v3d"), { app.setTop(route.copy(view = "3d")) }, Btn.SECONDARY, icon = "cube", modifier = Modifier.weight(1f), height = 48.dp, fontSize = 15f)
@@ -399,10 +403,13 @@ fun NextStep(p: Project) {
     // what they wanted that has neither a room nor a piece yet
     val pend = p.want?.firstOrNull { k -> p.furniture.none { uz.metrx.app.furniture.kindKey(it) == k } && (k == "other" || p.floors.none { roomKind(it) == k }) }
     val price = remember(p.furniture, p.fprice, s.workshop, s.mats, s.hws) { priceOf(p.furniture.filter { it.modules.isNotEmpty() }, p.fprice, s.workshop, s.mats, s.hws).price }
+    // sending the design: with an error in the Check list, the list first
+    val errs = remember(p.furniture, p.rooms, s.workshop, s.mats, s.angleSnap) { orderIssues(app, p).count { it.level == "err" } }
+    fun send() = app.push(if (errs > 0) Route.FCheck(p.id) else Route.Report(p.id))
     data class Step(val title: String, val sub: String?, val button: String, val go: () -> Unit)
     val step: Step? = when {
         // the simple app has no stages: the steps of making the furniture, then sending the design
-        !s.advanced && k >= 2 -> Step(tr("ns.shareT"), tr("ns.shareS"), tr("ns.shareB")) { app.push(Route.Report(p.id)) }
+        !s.advanced && k >= 2 -> Step(tr("ns.shareT"), if (errs > 0) tr("bz.sendErr", "n" to errs) else tr("ns.shareS"), tr("ns.shareB")) { send() }
         k >= 6 -> null
         k == 5 -> m.left?.takeIf { it.signum() > 0 }?.let { Step(tr("ns.payT"), tr("fo.leftV", "v" to mln(it)), tr("fo.addPay")) { app.sheet = Sheet.FPay(p.id) } }
         k == 4 -> Step(tr("ns.installT"), installDate(p)?.let { tr("fo.installV", "d" to fmtDay(it, app)) }, tr("ns.installB")) {
@@ -421,7 +428,7 @@ fun NextStep(p: Project) {
                 app.push(Route.FGallery(p.id, bare.second.id)) } }
         pend != null -> Step(tr(when (pend) { "kitchen" -> "ns.designK"; "other" -> "ns.designO"; else -> "ns.designW" }), tr("ns.pendS"), tr("ns.pendB")) { app.push(Route.FGallery(p.id)) }
         p.floors.isEmpty() && p.furniture.isEmpty() -> Step(tr("ns.needT"), tr("ns.needS"), tr("ns.needB")) { app.push(Route.FGallery(p.id)) }
-        !s.advanced -> Step(tr("ns.shareT"), tr("ns.shareS"), tr("ns.shareB")) { app.push(Route.Report(p.id)) }
+        !s.advanced -> Step(tr("ns.shareT"), if (errs > 0) tr("bz.sendErr", "n" to errs) else tr("ns.shareS"), tr("ns.shareB")) { send() }
         else -> Step(tr("ns.quoteT"), if (price.signum() > 0) tr("ns.quoteS", "v" to mln(price)) else null, tr("ns.quoteB")) { app.sheet = Sheet.Issue(p.id) }
     }
     if (step == null) return

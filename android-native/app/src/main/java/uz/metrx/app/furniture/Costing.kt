@@ -26,11 +26,11 @@ private fun metres(mm: Double) = Math.ceil(mm - 1e-9)
 
 /**
  * The cost of [fs] with this workshop's settings and lists. [order] adds installation and delivery once (an order with
- * furniture in it).
+ * furniture in it). The store's remnants [rems] are cut first: only the new sheets are bought.
  */
-fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, order: Boolean = true): Cost {
+fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, order: Boolean = true, rems: List<Remnant> = emptyList()): Cost {
     val rows = cutList(fs, ws)
-    val lays = layouts(rows, mats, ws)
+    val lays = layouts(rows, mats, ws, rems)
     val lines = ArrayList<CostLine>()
     fun mat(id: String) = mats.firstOrNull { it.id == id }
     lays.forEach { l ->
@@ -61,9 +61,19 @@ fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, or
         val q = metres(m); val p = money(mat(id)?.price)
         lines += CostLine("mat", id, q, "m", p ?: BigInteger.ZERO, (p ?: BigInteger.ZERO) * BigInteger.valueOf(q.toLong()), p == null)
     }
-    hardware(fs, ws).forEach { (k, v) ->
-        // the last item of a kind counts: the workshop's own item added after the preset takes over
-        val hw = hws.lastOrNull { it.kind == k }
+    // handles of a kind chosen for a piece ("Change for all") are priced at that item, the rest at the usual one
+    val counts = LinkedHashMap<Pair<String, Hw?>, Int>()
+    hardware(fs, ws).forEach { (k, v) -> counts[k to usualHw(hws, k)] = v }
+    fs.forEach { f ->
+        val own = hws.firstOrNull { it.id == f.handle && it.kind == "handle" } ?: return@forEach
+        val usual = "handle" to usualHw(hws, "handle")
+        val n = minOf(hardware(listOf(f), ws)["handle"] ?: 0, counts[usual] ?: 0)
+        if (n <= 0 || own == usual.second) return@forEach
+        counts[usual] = (counts[usual] ?: 0) - n
+        counts["handle" to own] = (counts["handle" to own] ?: 0) + n
+    }
+    counts.filter { it.value > 0 }.forEach { (kh, v) ->
+        val (k, hw) = kh
         val p = money(hw?.price)
         // rails and profiles by the whole metre, mirror and glass by the m² (to 0,01), the rest by the piece
         val area = k in AREA_KINDS
@@ -72,7 +82,8 @@ fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, or
             else (p ?: BigInteger.ZERO) * java.math.BigDecimal(q).setScale(0, RoundingMode.UP).toBigInteger()
         lines += CostLine("hw", hw?.id ?: k, q, when { k in METRE_KINDS -> "m"; area -> "m2"; else -> "pcs" }, p ?: BigInteger.ZERO, amount, p == null)
     }
-    val sheets = lays.sumOf { it.sheets.size + it.unplaced.size }
+    // cutting a remnant is as much work as a sheet
+    val sheets = lays.sumOf { it.sheets.size + it.unplaced.size + it.rems.size }
     val modules = fs.sumOf { f -> f.modules.sumOf { m -> if (m.type == "wardrobe") maxOf(1, m.sections.size) else 1 } }
     fun lab(key: String, q: Double, unit: String, rate: String) {
         val r = money(rate) ?: BigInteger.ZERO
@@ -84,6 +95,12 @@ fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, or
     if (order && fs.any { it.modules.isNotEmpty() }) { lab("fc.install", 1.0, "order", ws.rInstall); lab("fc.deliver", 1.0, "order", ws.rDeliver) }
     return Cost(lines, lays, rows)
 }
+
+/**
+ * The item a hardware kind is priced at: the last of the kind (the workshop's own item added after the preset takes
+ * over), but not one of the extra handle kinds offered for "Change for all".
+ */
+fun usualHw(hws: List<Hw>, kind: String): Hw? = hws.lastOrNull { it.kind == kind && it.id !in HANDLE_MORE }
 
 /** The customer price from the cost with the workshop's margin, rounded half up. */
 fun withMargin(cost: BigInteger, pct: Int): BigInteger =

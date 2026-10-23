@@ -72,7 +72,7 @@ import uz.metrx.app.ui.theme.ui
 
 /** The workshop pack of a furniture order (furniture plan section 10): its pages, and sharing it. Never the customer's. */
 @Composable
-fun PackScreen(pid: String) {
+fun PackScreen(pid: String, labels: Boolean = false) {
     val app = LocalApp.current
     if (!app.settings.advanced) { LaunchedEffect(Unit) { app.dropAdvanced() }; return }
     val ctx = LocalContext.current
@@ -80,16 +80,20 @@ fun PackScreen(pid: String) {
     val p = app.store.get(pid) ?: return
     val s = app.settings
     val sn = remember(p, s.workshop, s.mats, s.hws) { snapshotOf(p, s) }
-    val pr = remember(p, s.workshop, s.mats, s.hws) { priceOf(sn.furniture, p.fprice, s.workshop, s.mats, s.hws) }
+    val rems = uz.metrx.app.ui.furniture.remsOf(app, p)
+    val pr = remember(p, s.workshop, s.mats, s.hws, rems) { priceOf(sn.furniture, p.fprice, s.workshop, s.mats, s.hws, rems) }
+    // the part labels: a QR code on each, or not
+    var qr by androidx.compose.runtime.saveable.rememberSaveable { mutableStateOf(true) }
     val tm = remember { reportMeasurer(ctx) }
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     var viewer by remember { mutableStateOf<Int?>(null) }
     BoxWithConstraints(Modifier.fillMaxSize()) {
         val wPx = with(density) { (maxWidth - 32.dp).roundToPx() }
-        val built by produceState<Pair<List<RPage>, List<ImageBitmap>>?>(null, sn, pr, wPx) {
+        val built by produceState<Pair<List<RPage>, List<ImageBitmap>>?>(null, sn, pr, wPx, qr) {
             value = withContext(Dispatchers.Default) {
-                val pages = workshopPages(tm, sn, s.workshop, s.mats, s.hws, pr, p.fprice.mode)
+                val pages = if (labels) uz.metrx.app.report.labelPages(tm, sn, s.workshop, s.mats, p.id, qr)
+                    else workshopPages(tm, sn, s.workshop, s.mats, s.hws, pr, p.fprice.mode, rems = rems)
                 pages to pages.map { pageBitmap(it, wPx) }
             }
         }
@@ -98,12 +102,16 @@ fun PackScreen(pid: String) {
             Row(Modifier.fillMaxWidth().height(64.dp).padding(start = 14.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 GlassIconButton("back", tr("nt.back"), { app.pop() })
                 Column(Modifier.weight(1f)) {
-                    Text(tr("fw.title"), style = ui(17f, 700, G.ink, 1.2f), maxLines = 1)
+                    Text(tr(if (labels) "bz.lab.title" else "fw.title"), style = ui(17f, 700, G.ink, 1.2f), maxLines = 1)
                     Text(dn(p.name, lang), style = ui(12.5f, 400, G.ink2, 1.2f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             }
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF7A2E0E)).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                if (labels) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(tr("bz.lab.sub", "n" to uz.metrx.app.furniture.labelsOf(sn.furniture, s.workshop).size), style = ui(13f, 500, G.ink2, 1.35f), modifier = Modifier.weight(1f))
+                    uz.metrx.app.ui.furniture.Chip(tr("bz.lab.qr"), qr) { qr = !qr }
+                }
+                if (!labels) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color(0xFF7A2E0E)).padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Column(Modifier.weight(1f)) {
                         Text(tr("fw.inside"), style = ui(12f, 700, Color(0xFFFDE2C8)))
                         Text(tr("fw.costShort", "v" to moneyStr(pr.cost.total, p.precision, lang == Lang.EN) + " " + curSuffix(p.currency, lang)), style = ui(16f, 700, Color.White).copy(fontFamily = PlexCond), maxLines = 1)
@@ -123,7 +131,7 @@ fun PackScreen(pid: String) {
                 GBtn(tr("rpt.share"), {
                     val pg = built?.first ?: return@GBtn
                     app.say("sh.making", kind = ToastKind.INFO)
-                    val fname = pdfName(dn(p.name, lang), app.t("fw.file"))
+                    val fname = pdfName(dn(p.name, lang), app.t(if (labels) "bz.lab.file" else "fw.file"))
                     scope.launch {
                         runCatching { withContext(Dispatchers.Default) { pdfFile(ctx, pg, fname) } }
                             .onSuccess { sharePdf(ctx, it, app.t("sh.title")) }

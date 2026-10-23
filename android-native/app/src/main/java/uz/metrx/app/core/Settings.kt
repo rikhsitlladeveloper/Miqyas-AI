@@ -71,6 +71,11 @@ class Settings(context: Context) {
         private set
     fun setMatList(v: List<uz.metrx.app.furniture.Mat>) { mats = v; p.edit().putString("mats", js.encodeToString(matSer, v)).apply() }
     fun setHwList(v: List<uz.metrx.app.furniture.Hw>) { hws = v; p.edit().putString("hws", js.encodeToString(hwSer, v)).apply() }
+    private val remSer = kotlinx.serialization.builtins.ListSerializer(uz.metrx.app.furniture.Remnant.serializer())
+    /** The workshop's remnants (Advanced): offcuts kept for the next orders' cut lists. */
+    var remnants: List<uz.metrx.app.furniture.Remnant> by mutableStateOf(p.getString("remnants", null)?.let { runCatching { js.decodeFromString(remSer, it) }.getOrNull() } ?: emptyList())
+        private set
+    fun setRemnantList(v: List<uz.metrx.app.furniture.Remnant>) { remnants = v; p.edit().putString("remnants", js.encodeToString(remSer, v)).apply() }
     /** Currency and report language that new projects start with (Profile settings in the prototype). */
     var currency by mutableStateOf(p.getString("currency", "UZS") ?: "UZS")
         private set

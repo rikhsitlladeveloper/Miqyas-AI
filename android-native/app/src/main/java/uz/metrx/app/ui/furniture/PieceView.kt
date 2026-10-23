@@ -88,11 +88,12 @@ private const val FLOOR_RGB = 0xE3E8F0
 private const val HI_RGB = 0x9FB2FF
 private val BLUE = Color(0xFF3550E0)
 
-fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
+/** The piece's scene; [bare] without its doors and fronts ("See inside"), [hi] a part lit up (parts list → 3D). */
+fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>, bare: Boolean = false, hi: uz.metrx.app.geo.PartHi? = null): PieceScene {
     val room = freeRoom(f)
     val shell = buildShell(listOf(room), true, true)
     val b = shell.bases
-    val fur = furniture3D(listOf(f), b, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet())
+    val fur = furniture3D(listOf(f), b, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet(), bare = bare, hi = hi)
     // every box of furniture3D adds its six faces to its part one after another
     val furn = fur.parts.flatMap { p -> p.faces.chunked(6).filter { it.size == 6 }.map { b -> SBox(b.map { SFace(it.pts, it.n, p.rgb, p.op, p.wall) }) } }
     val env = ArrayList<SFace>()
@@ -110,7 +111,8 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
         onWalls.forEachIndexed { i, w ->
             val bas = b[w] ?: return@forEachIndexed
             val l = (f.free?.sides?.getOrNull(i) ?: (bas.len * 1000).toInt()) / 1000.0
-            dims["s$i"] = DimLine(bas.at(0.0, y, .68), bas.at(l, y, .68), UP); tint["s$i"] = w
+            val k = "s" + (uz.metrx.app.furniture.sideNo(f, i) - 1)
+            dims[k] = DimLine(bas.at(0.0, y, .68), bas.at(l, y, .68), UP); tint[k] = w
         }
         // the island (or peninsula) where furniture3D puts it: its length past its seating side
         val w0 = onWalls.firstOrNull()?.let { b[it] }
@@ -162,6 +164,9 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
             dims["rh"] = DimLine(bas.at(x1 + .08, e, .03), bas.at(x1 + .08, t, .03), bas.dir(1.0, 0.0))
         }
     }
+    // a corner piece measured along its fronts or its walls shows the arm (or side) being asked
+    listOf("ai" to "w", "la" to "w", "bi" to "w2", "lb" to "w2", "f0" to "s0", "f1" to "s1").forEach { (k, of) ->
+        dims[of]?.let { dims[k] = it }; tint[of]?.let { tint[k] = it } }
     val center = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     val radius = max(.45, V3(x1 - x0, y1 - y0, z1 - z0).len() / 2)
     val ext = corners(x0, y0, z0, x1, y1, z1)
@@ -170,7 +175,9 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>): PieceScene {
     val dimCenter = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     val dimRadius = max(.45, V3(x1 - x0, y1 - y0, z1 - z0).len() / 2)
     // an L turns into the right-hand wall: seen from the left so both runs show from inside
-    val az0 = when (f.layout.takeIf { f.kind == "kitchen" } ?: "L".takeIf { f.type in uz.metrx.app.furniture.CORNER_TYPES }) { "L" -> -.6; "U" -> .15; null -> .55; else -> .6 }
+    // one with its corner on the left (made-up walls D, A) is seen from the right
+    val left = f.walls.firstOrNull() == "D" && f.layout != "U"
+    val az0 = when (f.layout.takeIf { f.kind == "kitchen" } ?: "L".takeIf { f.type in uz.metrx.app.furniture.CORNER_TYPES }) { "L" -> if (left) .6 else -.6; "U" -> .15; null -> .55; else -> .6 }
     return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter, dimRadius, ext, corners(x0, y0, z0, x1, y1, z1))
 }
 
