@@ -32,7 +32,8 @@ data class TileCount(val needs: List<TileNeed> = emptyList(), val m2: Double = 0
     val boxes get() = needs.sumOf { it.boxes }
 
     operator fun plus(o: TileCount): TileCount {
-        val merged = (needs + o.needs).groupBy { Triple(it.look, it.a, it.b) }.map { (_, ns) ->
+        // a layout priced on its own stays its own line (the same tile at two prices is not one)
+        val merged = (needs + o.needs).groupBy { listOf(it.look, it.a, it.b, it.price) }.map { (_, ns) ->
             val f = ns[0]; val ws = ns.sumOf { it.withSpare }
             // one box size: the boxes of the whole; layouts with their own box sizes: each one's boxes, added up.
             // The spare % is said only when it is the same for all ([spare] -1: they differ)

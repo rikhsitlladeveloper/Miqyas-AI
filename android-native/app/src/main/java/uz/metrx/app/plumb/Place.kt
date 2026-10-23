@@ -58,7 +58,18 @@ fun ctxOf(p: Project, rid: String, snap: Boolean): PCtx? {
 fun freeCtx(f: PlFree): PCtx? {
     val r = freeRoom(f)
     val g = roomGeo(r, true, emptyList()) ?: return null
-    return PCtx(r.id, r, g, f.kind, PlRoom(r.id, f.kind, link = f.link, ufh = f.ufh), f)
+    return PCtx(r.id, r, g, f.kind, PlRoom(r.id, f.kind, link = f.link, ufh = f.ufh), withKit(f))
+}
+
+/**
+ * A typed room saved before it kept its kit's choices (no towel rail, hand basin or cabin kept): those its kit has.
+ * The same room when they are kept, or it has no kit.
+ */
+fun withKit(f: PlFree): PlFree {
+    val k = pkitOf(f.kit) ?: return f
+    if (f.kept || f.tr > 0 || f.small || f.cabin) return f
+    val d = freeOf(k, k.opts, f.id, f.name, f.L, f.W, f.H)
+    return f.copy(tr = d.tr, small = d.small && f.basin > 0, cabin = d.cabin && f.shower > 0)
 }
 
 /** Every room of the order that fixtures can be in: the measured ones in order, then the typed ones. */
@@ -441,7 +452,7 @@ fun freeOf(k: PKit, o: POpts, id: String, name: String, L: Int, W: Int, H: Int):
     return PlFree(id, name, if (k.kind == "heat") "room" else k.kind, L, W, H, wc = cnt("wc"), basin = cnt("bs", "bsm"), bath = cnt("bath"), shower = cnt("sh", "cab"),
         sink = cnt("sink"), wm = cnt("wm"), dw = cnt("dw"), wh = cnt("wh"), gb = cnt("gb"), rad = if (o.rad) 1 else 0, ufh = o.ufh, kit = k.id,
         // what the kit chose stays: a towel rail, a hand basin (cold only), a shower cabin
-        tr = cnt("tr"), small = cnt("bsm") > 0 && cnt("bs") == 0, cabin = cnt("cab") > 0 && cnt("sh") == 0)
+        tr = cnt("tr"), small = cnt("bsm") > 0 && cnt("bs") == 0, cabin = cnt("cab") > 0 && cnt("sh") == 0, kept = true)
 }
 
 /* ---------------- the room's own marks ---------------- */

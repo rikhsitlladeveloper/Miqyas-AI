@@ -418,8 +418,9 @@ private fun DefaultsSheet() {
     var ws by rememberSaveable { mutableStateOf(fmtField(s.winSill, u, en)) }
     var tried by remember { mutableStateOf(false) }
     fun chk(v: String, max: Int, zeroOk: Boolean = false) = lenErr(v, max, u, en, zeroOk)
-    // a window can sit on the floor: its sill may be 0
-    val r = listOf(chk(dw, 100_000), chk(dh, 20_000), chk(ww, 100_000), chk(wh, 20_000), chk(ws, 20_000, zeroOk = true))
+    // a window can sit on the floor: its sill may be 0; heights as the door and window form takes them (a room is at most 6 m)
+    val hMax = uz.metrx.app.geo.dimMax("H")
+    val r = listOf(chk(dw, 100_000), chk(dh, hMax), chk(ww, 100_000), chk(wh, hMax), chk(ws, hMax, zeroOk = true))
     val errs = r.map { uz.metrx.app.ui.editor.errText(it) }
     fun err(i: Int) = errs[i]
     val m = tr(if (u == LenUnit.CM) "u.cm" else "u.m")

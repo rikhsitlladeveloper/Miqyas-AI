@@ -374,7 +374,7 @@ fun WNextStep(p: Project) {
     val app = LocalApp.current
     val lang = LocalLang.current
     val s = app.settings
-    val rooms = p.floors.mapNotNull { w -> p.rooms.firstOrNull { it.floorId == w.id }?.let { w to it } }
+    val rooms = uz.metrx.app.data.roomsByWorkspace(p)
     val undrawn = p.floors.firstOrNull { w -> p.rooms.none { it.floorId == w.id } }
     val unmeasured = rooms.firstOrNull { (_, r) -> stepKeys(r, s.angleSnap).any { r.dim(it).status != "conf" } }
     val noOps = rooms.firstOrNull { (_, r) -> r.openings.isEmpty() && p.win.items.none { it.roomId == r.id } }

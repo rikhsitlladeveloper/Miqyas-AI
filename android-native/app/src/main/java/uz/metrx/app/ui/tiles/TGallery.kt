@@ -255,7 +255,8 @@ fun TStepsScreen(rt: Route.TSteps) {
         // a size being typed (0, 9999) is not laid: the last picture stays
         if (d.a in 20..3000 && d.b in 20..3000) value = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.Default) { previewOf(d) }
     }
-    val surfOk = if (d.roomId != null) d.surfs.isNotEmpty() else (d.panel?.let { it.a > 0 && it.b > 0 } == true)
+    // a wall's height typed wrong is not saved as 0: the step waits for it (said under the walls)
+    val surfOk = if (d.roomId != null) d.surfs.isNotEmpty() && d.surfs.all { uz.metrx.app.tiles.surfHeightsOk(it) } else (d.panel?.let { it.a > 0 && it.b > 0 } == true)
     fun ok(s: String) = when (s) { "size" -> d.a in 20..3000 && d.b in 20..3000; "where" -> d.roomId != null || d.panel != null; "surf" -> surfOk; else -> true }
     fun prev() { if (at > 0) at -= 1 else app.pop() }
     BackHandler { prev() }
@@ -489,6 +490,7 @@ private fun SurfStep(p: Project, r: Room, d: TileLayout, snap: Boolean, set: ((T
             Check(tr("tl.bathFront"), tr("tl.wallN", "w" to f.wall), d.surfs.any { it.id == "bath:${f.id}" }) { toggle("bath:${f.id}") { TSurf("bath:${f.id}") } }
         }
         if (d.surfs.isEmpty()) Text(tr("tl.s.surfNone"), style = ui(13f, 500, G.err))
+        d.surfs.firstOrNull { !uz.metrx.app.tiles.surfHeightsOk(it) }?.let { s -> Text(tr("tl.s.hBad", "w" to s.id), style = ui(13f, 500, G.err)) }
     }
 }
 

@@ -162,13 +162,14 @@ private fun NewRoomSheet(s: Sheet.NewRoom) {
     val roomN = p.rooms.size + 1
     var name by rememberSaveable { mutableStateOf(if (own) floorName(w, lang) else app.t("real.roomN", "n" to roomN)) }
     val err = if (name.isBlank()) tr("nr.nameReq") else null
+    // the suggested name is kept as a key ("Xona 1" follows the language, as "1-qavat" does); a typed one as typed
+    fun keptName() = if (own && name.trim() == floorName(w, lang)) w.name else uz.metrx.app.data.suggestedName(name, "real.roomN", app.settings.lang, mapOf("n" to roomN))
     fun create(shape: String) {
         if (name.isBlank()) return
         val now = System.currentTimeMillis()
-        // the suggested name is kept as a key ("Xona 1" follows the language, as "1-qavat" does); a typed one as typed
-        val nm = if (own && name.trim() == floorName(w, lang)) w.name else uz.metrx.app.data.suggestedName(name, "real.roomN", app.settings.lang, mapOf("n" to roomN))
+        val nm = keptName()
         val r = when (shape) {
-            "lshape" -> Room(uid(), w.id, nm, template = "poly", shape = "poly", dims = polyDims(L_SHAPE.size), poly = Poly(L_SHAPE, template = "lshape"), created = now)
+            "lshape" -> Room(uid(), w.id, nm, template = "poly", shape = "poly", dims = polyDims(L_SHAPE.size), poly = Poly(L_SHAPE, template = "lshape", snap = app.settings.angleSnap), created = now)
             else -> Room(uid(), w.id, nm, created = now)
         }
         app.store.update(p.id) { it.copy(rooms = it.rooms + r) }
@@ -182,7 +183,7 @@ private fun NewRoomSheet(s: Sheet.NewRoom) {
             Text(tr("nr.shape"), style = ui(15f, 700))
             ShapeRow("M2 2H32V24H2Z", tr("nr.rect"), true) {}
             ShapeRow("M2 2H18V12H32V24H2Z", tr("nr.lshape"), false) { create("lshape") }
-            ShapeRow("M3 22L6 3L25 6L31 19Z", tr("nr.sketch"), false) { if (name.isNotBlank()) { app.close(); app.push(Route.Sketch(p.id, w.id, name.trim())) } }
+            ShapeRow("M3 22L6 3L25 6L31 19Z", tr("nr.sketch"), false) { if (name.isNotBlank()) { app.close(); app.push(Route.Sketch(p.id, w.id, keptName())) } }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MIcon("info", G.ink2, 17.dp, 2f); Text(tr("nr.hint"), style = ui(13f, 400, G.ink2, 1.4f)) }
     }

@@ -274,6 +274,9 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     }
     fun t(key: String, vararg v: Pair<String, Any?>) = Strings.t(key, settings.lang, if (v.isEmpty()) null else v.toMap())
 
+    // a project that could not be saved is said once; it stays waiting and is written with the next change
+    init { store.onSaveFailed = { say("st.saveFail", kind = ToastKind.ERROR) } }
+
     /** Advanced turned off: its pages (parts and pack, quotes, the workshop's rules and boards) leave every stack. */
     fun dropAdvanced() {
         stacks.values.forEach { st ->

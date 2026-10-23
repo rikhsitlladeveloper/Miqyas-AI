@@ -15,6 +15,9 @@ data class OrderIssue(val fid: String, val level: String, val key: String, val v
  */
 fun shelfSpanMax(t: Int) = if (t >= 18) 1100 else 1000
 
+/** A shelf in a section [iw] mm wide inside (the shelf is 2 mm shorter) bends on board of [t] mm: the designer's and the Check list's one rule. */
+fun shelfTooLong(iw: Int, t: Int) = iw - 2 > shelfSpanMax(t)
+
 /** The board rules of one piece: a part bigger than the sheet, a drawer deeper than its box, a shelf too long to carry. */
 fun boardIssues(f: Furniture, ws0: Workshop, mats: List<Mat>): List<OrderIssue> {
     val ws = wsOf(f, ws0)
@@ -38,7 +41,7 @@ fun boardIssues(f: Furniture, ws0: Workshop, mats: List<Mat>): List<OrderIssue> 
                     val iw = wardInner(m, m.sections, i, t)
                     if (s.inserts.any { it.kind == "drawer" } && runnerLen(dIn) > dIn - 10)
                         out += OrderIssue(f.id, "err", "bz.ck.drawer", mapOf("s" to i + 1, "r" to runnerLen(dIn), "v" to dIn), m.id)
-                    if (s.inserts.any { it.kind == "shelf" } && iw - 2 > span)
+                    if (s.inserts.any { it.kind == "shelf" } && shelfTooLong(iw, t))
                         out += OrderIssue(f.id, "warn", "bz.ck.shelf", mapOf("s" to i + 1, "v" to iw - 2, "t" to t, "max" to span), m.id)
                 }
             }

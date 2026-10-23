@@ -60,7 +60,11 @@ data class KitPick(val kit: String, val light: String = "", val led: Boolean = t
 data class ElecFree(val id: String, val name: String = "", val kind: String = "other", val L: Int = 4000, val W: Int = 3000, val H: Int = 2700,
                     val sock: Int = 4, val sw: Int = 1, val light: Int = 1, val low: Int = 0, val power: Int = 0, val link: Int = 4000, val kit: String = "",
                     /** The power points' types in order (pst stove, pov oven, pac AC, pwh water heater); past the list, or in an older order, AC. */
-                    val powers: List<String> = emptyList())
+                    val powers: List<String> = emptyList(),
+                    /** The kit's wall lights and LED strips ("lw", "led") in order: kept as the kit had them. */
+                    val lamps: List<String> = emptyList(),
+                    /** Each socket's height as its kit had it, mm (0: the usual one), in order; past the list the usual height. */
+                    val sockH: List<Int> = emptyList())
 
 /** An electrician's order: the devices, the rooms' settings, the panel, how the cables run (chase, gofra, channel), the rooms without a plan. */
 @Serializable

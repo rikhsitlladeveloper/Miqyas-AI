@@ -1,5 +1,6 @@
 package uz.metrx.app.ui.furniture
 
+import kotlin.random.Random
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -230,15 +231,15 @@ fun PointSheet(s: Sheet.PointForm) {
             NumField(tr("op.offset", "c" to corner), offv, { offv = it; src = "manual" }, app.unitName(), errText(po), tried, modifier = Modifier.weight(1f))
             NumField(tr("pt.h"), hv, { hv = it; src = "manual" }, app.unitName(), errText(ph), tried, modifier = Modifier.weight(1f))
         }
-        // the laser's newest reading not used yet (its readings' inbox); with none, nothing is made up: it says so
-        fun fromLaser(where: String, put: (String) -> Unit) {
+        // the laser's newest reading not used yet (its readings' inbox) first; with none, a made-up one ([made]) until the real meter is here
+        fun fromLaser(where: String, made: () -> Int, put: (String) -> Unit) {
             val rd = app.settings.readings.lastOrNull { it.used == null && it.src != "manual" }
-            if (rd == null) { app.say("fx.noReading", kind = uz.metrx.app.ui.components.ToastKind.INFO); return }
-            app.settings.markReadingUsed(rd.id, where); put(fmtField(rd.mm, unit, en)); src = "sim"
+            if (rd != null) app.settings.markReadingUsed(rd.id, where)
+            put(fmtField(rd?.mm ?: made(), unit, en)); src = "sim"
         }
         if (ops.laserOn) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
-            LaserLink(tr("pt.laserOff")) { fromLaser(app.t("pt.laserOff")) { offv = it } }
-            LaserLink(tr("pt.laserH")) { fromLaser(app.t("pt.laserH")) { hv = it } }
+            LaserLink(tr("pt.laserOff")) { fromLaser(app.t("pt.laserOff"), { Random.nextInt(200, max(400, (L ?: 3000) - 100)) / 10 * 10 }) { offv = it } }
+            LaserLink(tr("pt.laserH")) { fromLaser(app.t("pt.laserH"), { pointDefaults(type).first + Random.nextInt(-30, 31) }) { hv = it } }
         }
         if (src == "sim") Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MIcon("clock", G.amberInk, 16.dp, 2f); Text(tr("pt.fromLaser"), style = ui(13f, 500, G.amberInk))

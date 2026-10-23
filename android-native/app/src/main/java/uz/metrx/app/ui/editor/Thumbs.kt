@@ -36,6 +36,7 @@ import kotlin.math.min
 @Composable
 fun RoomThumb(r: Room, label: String, unit: LenUnit, english: Boolean, snap: Boolean, detailed: Boolean, modifier: Modifier = Modifier) {
     val tm = rememberTextMeasurer()
+    val m2 = uz.metrx.app.ui.theme.tr("u.m2")
     Canvas(modifier) { Theme.onPaper {
         val den = density
         val pad = if (detailed) 22f * den else 6f * den
@@ -89,7 +90,7 @@ fun RoomThumb(r: Room, label: String, unit: LenUnit, english: Boolean, snap: Boo
         val cx = (pts.minOf { it.x } + pts.maxOf { it.x }) / 2f; val cy = (pts.minOf { it.y } + pts.maxOf { it.y }) / 2f
         val name = tm.measure(label.uppercase(), TextStyle(fontFamily = Jakarta, fontSize = 8.5.sp, fontWeight = FontWeight.Bold, letterSpacing = .06.em, color = ink))
         drawText(name, topLeft = Offset(cx - name.size.width / 2f, cy - name.size.height))
-        val ar = tm.measure((if (a != null) fmtArea(a.floor, english) else "?") + " m²", TextStyle(fontFamily = PlexCond, fontSize = 9.sp, color = Color(0xFF3E4A61)))
+        val ar = tm.measure((if (a != null) fmtArea(a.floor, english) else "?") + " " + m2, TextStyle(fontFamily = PlexCond, fontSize = 9.sp, color = Color(0xFF3E4A61)))
         drawText(ar, topLeft = Offset(cx - ar.size.width / 2f, cy))
         if (!r.isPoly) {
             val st = TextStyle(fontFamily = PlexCond, fontSize = 8.5.sp, color = Color(0xFF3E4A61))

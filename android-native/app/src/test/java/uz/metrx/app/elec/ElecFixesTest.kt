@@ -44,9 +44,13 @@ class ElecFixesTest {
         // the stove on its own 32 A line of 6 mm²
         val cc = calcOf(p, true).circuits.single { it.group == "stove" }
         assertEquals(32, cc.amps); assertEquals("6", cc.cable)
-        // an older typed room (no types kept) still gives its power points as AC lines
+        // an older typed room (no types kept) takes its kit's again; one without a kit gives its power points as AC lines
         val old = f.copy(powers = emptyList())
-        assertTrue(devsIn(project(emptyList(), "chase", free = listOf(old)), ctxs(project(emptyList(), "chase", free = listOf(old)), true).single { it.free != null }).count { it.t == "pac" } == 2)
+        val po = project(emptyList(), "chase", free = listOf(old))
+        assertEquals(listOf("pst", "pov"), devsIn(po, ctxs(po, true).single { it.free != null }).filter { it.t == "pst" || it.t == "pov" }.map { it.t })
+        val bare = old.copy(kit = "")
+        val pb = project(emptyList(), "chase", free = listOf(bare))
+        assertTrue(devsIn(pb, ctxs(pb, true).single { it.free != null }).count { it.t == "pac" } == 2)
     }
 
     @Test fun aBathroomsHeaterSocketIsNotASplashWarningAndTypedBathSocketsAreSplashProof() {

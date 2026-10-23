@@ -186,7 +186,8 @@ fun ColumnScope.Furniture3D(p: Project, room: Room) {
     var taking by remember { mutableStateOf(false) }
     Box(Modifier.weight(1f).fillMaxWidth()) {
         Scene3D(shell, cam, Modifier.fillMaxSize(), shot, onTap = { pos -> fur.pick(cam, pos.x, pos.y)?.let { k -> mo.toggle(k) } }) {
-            if (!free) ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
+            // a picture for the customer shows the doors: no saving while seeing inside
+            if (!free && !mo.bare) ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
                 // a second tap while a picture is being taken does nothing; the limit is read from the store, not this page
                 fun full() = (app.store.get(p.id)?.rooms?.firstOrNull { it.id == room.id }?.views?.size ?: 0) >= 4
                 if (taking) return@ShotPill

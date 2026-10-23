@@ -44,13 +44,13 @@ fun wallUnitsMm(f: Furniture): Int = f.modules.filter { it.type == "wall" }.sumO
 /** The backsplash's length: the worktop along walls (not on the island), mm. */
 fun splashMm(f: Furniture): Int = worktopRuns(f).filterKeys { it != ISLAND }.values.sum()
 
-/** End panels as parts: the lower ones from the floor to the worktop, the upper ones the wall units' height. */
+/** End panels as parts: the lower ones from the floor to the worktop, the upper ones the wall units' height (of no module: the sticker names the piece only). */
 fun extrasParts(f: Furniture, ws0: Workshop): List<FPart> {
     val ws = wsOf(f, ws0)
     val x = f.kx ?: return emptyList()
     val out = ArrayList<FPart>()
     val all = 2 to 2
-    fun part(key: String, a: Int, b: Int, n: Int) { if (n > 0) out += FPart(key, f.id, "front", maxOf(a, b), minOf(a, b), n, Bands(all.first, all.second, all.first, all.second), grain = true) }
+    fun part(key: String, a: Int, b: Int, n: Int) { if (n > 0) out += FPart(key, "", "front", maxOf(a, b), minOf(a, b), n, Bands(all.first, all.second, all.first, all.second), grain = true) }
     part("fp.endLow", ws.legH + K_BASE_H, K_BASE_D + 20, x.ends)
     part("fp.endUp", K_WALL_H, K_WALL_D + 20, x.endsUp)
     return out

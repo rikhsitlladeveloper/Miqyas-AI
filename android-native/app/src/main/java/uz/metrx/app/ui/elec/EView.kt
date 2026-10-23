@@ -154,7 +154,7 @@ fun EViewScreen(rt: Route.EView) {
     val calc = rememberCalc(p)
     val c = calc.ctxs.firstOrNull { it.id == rt.rid }
     val room = if (free) null else p.rooms.firstOrNull { it.id == rt.rid }
-    val title = c?.free?.let { it.name.ifBlank { tr(kindKey(it.kind)) } } ?: room?.let { r -> p.floors.firstOrNull { it.id == r.floorId }?.let { floorName(it, lang) } ?: dn(r.name, lang) } ?: ""
+    val title = c?.free?.let { dn(it.name, lang).ifBlank { tr(kindKey(it.kind)) } } ?: room?.let { r -> p.floors.firstOrNull { it.id == r.floorId }?.let { floorName(it, lang) } ?: dn(r.name, lang) } ?: ""
     var mode by rememberSaveable(rt) { mutableStateOf("3d") }
     var wall by rememberSaveable(rt) { mutableStateOf(c?.g?.walls?.firstOrNull()?.id ?: "A") }
     val ds = c?.let { devsIn(p, it) } ?: emptyList()

@@ -196,6 +196,13 @@ fun refit(it: WinItem, ow: Int, oh: Int, type: String): WinItem {
     return resized(it, w, h)
 }
 
+/**
+ * The least width and height product [it] takes with its sashes: half a [SPLIT_MIN] for each column, and for each sash
+ * of its tallest column, at least 300 mm. Smaller, its sashes would be too narrow to open.
+ */
+fun minSize(it: WinItem): Pair<Int, Int> =
+    maxOf(300, it.cols.size * SPLIT_MIN / 2) to maxOf(300, (it.cols.maxOfOrNull { c -> c.rows.size } ?: 1) * SPLIT_MIN / 2)
+
 /** [it] at a new size, its sashes in proportion. */
 fun resized(it: WinItem, w: Int, h: Int): WinItem = it.copy(w = w, h = h, cols = if (it.cols.isEmpty()) it.cols else scaled(it.cols, w, h))
 

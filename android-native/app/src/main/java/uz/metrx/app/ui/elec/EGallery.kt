@@ -365,7 +365,7 @@ fun EStepsScreen(rt: Route.ESteps) {
         val kitName = app.t("el.kit.${k.id}")
         when (where) {
             "free" -> {
-                val f = freeOf(k, o, uid(), app.t(kindKey(k.kind)), sizes[0]!!, sizes[1]!!, sizes[2]!!)
+                val f = freeOf(k, o, uid(), "@" + kindKey(k.kind), sizes[0]!!, sizes[1]!!, sizes[2]!!)
                 app.updateElec(p.id) { it.copy(free = it.free + f) }
                 app.popTo { it is Route.Project && it.id == p.id }
                 app.push(Route.EView(p.id, "free:" + f.id)); app.say("el.kitAdded", "n" to kitName)

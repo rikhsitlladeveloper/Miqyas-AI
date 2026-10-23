@@ -17,15 +17,21 @@ fun swapAll(fs: List<Furniture>, front: String? = null, handle: String? = null):
     if (front != null) g = g.copy(mats = g.mats.copy(front = front))
     if (handle != null) {
         val on = handle != NO_HANDLES
-        g = g.copy(handle = if (on) handle else g.handle, modules = g.modules.map { m -> if (m.type == "gap" && m.app != "dishwasher") m else m.copy(handles = on) })
+        g = g.copy(handle = if (on) handle else g.handle, modules = g.modules.map { m -> if (!takesHandles(m)) m else m.copy(handles = on) })
     }
     g
 }
+
+/** A unit that can have handles: not a kitchen's space for a fridge or a cooker (a dishwasher's gap has its front). */
+fun takesHandles(m: Module) = !(m.type == "gap" && m.app != "dishwasher")
+
+/** Whether a piece shows handles anywhere (its spaces for a fridge or cooker do not count). */
+fun hasHandles(f: Furniture) = f.modules.any { it.handles && takesHandles(it) }
 
 /** The fronts' board all of [fs] share, or null when they differ (or there are none). */
 fun commonFront(fs: List<Furniture>): String? = fs.map { it.mats.front }.distinct().singleOrNull()
 
 /** The handles all of [fs] share: a hardware id, "" the usual one, [NO_HANDLES]; null when they differ. */
 fun commonHandle(fs: List<Furniture>): String? = fs.filter { f -> f.modules.any { it.type != "gap" } }.map { f ->
-    if (f.modules.none { it.handles }) NO_HANDLES else f.handle
+    if (!hasHandles(f)) NO_HANDLES else f.handle
 }.distinct().singleOrNull()

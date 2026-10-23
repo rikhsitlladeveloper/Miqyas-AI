@@ -102,7 +102,7 @@ fun SketchScreen(rt: Route.Sketch) {
         if (r.err != null || !r.closed) return
         val mm = sketchToMm(r.verts)
         if (mm.size < 3 || selfIntersects(mm) != null) { app.say("sk.cross", kind = ToastKind.ERROR); return }
-        val room = Room(uid(), rt.wid, rt.name, template = "poly", shape = "poly", dims = polyDims(mm.size), poly = Poly(mm, template = "sketch"), created = System.currentTimeMillis())
+        val room = Room(uid(), rt.wid, rt.name, template = "poly", shape = "poly", dims = polyDims(mm.size), poly = Poly(mm, template = "sketch", snap = snap), created = System.currentTimeMillis())
         app.store.update(rt.pid) { it.copy(rooms = it.rooms + room) }
         app.replaceTop(Route.Editor(rt.pid, room.id))
         app.say("sk.created", "n" to uz.metrx.app.data.dn(room.name, app.settings.lang))
@@ -118,7 +118,7 @@ fun SketchScreen(rt: Route.Sketch) {
         Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GlassIconButton("x", tr("common.close"), { close() })
             Column(Modifier.weight(1f)) {
-                Text(tr("sk.title"), style = ui(20f, 800)); Text(rt.name, style = ui(12f, 400, G.ink2))
+                Text(tr("sk.title"), style = ui(20f, 800)); Text(uz.metrx.app.data.dn(rt.name, app.settings.lang), style = ui(12f, 400, G.ink2))
             }
         }
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -178,7 +178,7 @@ fun SketchScreen(rt: Route.Sketch) {
                     val r = res ?: return@withTransform
                     val v = r.verts
                     if (v.size < 2) return@withTransform
-                    val path = Path().apply { moveTo(o(v[0]).x, o(v[0]).y); v.drop(1).forEach { lineTo(o(it).x, o(it).y) }; if (r.closed) close() }
+                    val path = Path().apply { moveTo(o(v[0]).x, o(v[0]).y); v.drop(1).forEach { lineTo(o(it).x, o(it).y) }; if (r.closed) this.close() }
                     val crossing = r.err == "cross"
                     if (r.closed && r.err == null) drawPath(path, COB_WASH)
                     drawPath(path, if (crossing) RED else INK, style = Stroke(3f, join = StrokeJoin.Round, pathEffect = if (crossing) PathEffect.dashPathEffect(floatArrayOf(7f, 5f)) else null))

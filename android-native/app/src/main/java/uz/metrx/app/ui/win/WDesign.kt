@@ -1,5 +1,6 @@
 package uz.metrx.app.ui.win
 
+import uz.metrx.app.data.putBack
 import androidx.compose.foundation.Canvas
 import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.background
@@ -176,10 +177,12 @@ fun WDesignScreen(rt: Route.WDesign) {
                 if (app.settings.advanced) WCountCard(tr("dw.itemCount"), countItems(listOf(it0 to R)), itemCost(it0, R, app.settings.trade.win))
                 GBtn(tr("dw.inRoom"), { app.push(Route.WView(p.id, if (it0.inRoom) it0.roomId!! else "free:" + it0.id)) }, Btn.SECONDARY, icon = "cube", height = 46.dp, fontSize = 14.5f)
                 GBtn(tr("common.delete"), {
-                    val before = app.store.get(p.id) ?: return@GBtn
+                    val items = app.store.get(p.id)?.win?.items ?: return@GBtn
+                    val at = items.indexOfFirst { it.id == it0.id }; val gone = items.getOrNull(at) ?: return@GBtn
                     app.updateWin(p.id) { e -> e.copy(items = e.items.filter { it.id != it0.id }) }
                     app.pop()
-                    app.say("dw.deleted", action = "common.undo", onAction = { app.store.update(p.id) { before } })
+                    // Undo puts back only this product, where it was
+                    app.say("dw.deleted", action = "common.undo", onAction = { app.updateWin(p.id) { e -> if (e.items.any { it.id == gone.id }) e else e.copy(items = e.items.putBack(gone, at)) } })
                 }, Btn.DANGER, icon = "trash", height = 46.dp, fontSize = 14.5f)
             }
         }
@@ -295,7 +298,10 @@ private fun SizeCard(pid: String, it: WinItem, o: uz.metrx.app.data.Opening?, ci
     var cols by rememberSaveable(key) { mutableStateOf(it.cols.map { c -> "${c.w}" }) }
     var rows by rememberSaveable(key, ci) { mutableStateOf<List<String>>(it.cols.getOrNull(ci)?.rows?.map { r -> "${r.h}" } ?: emptyList()) }
     val W = tw.toIntOrNull(); val H = th.toIntOrNull(); val g = tg.toIntOrNull()
-    val ok = W != null && H != null && W in 300..8000 && H in 300..4000 && (g == null || g in GAP_MIN..GAP_MAX)
+    // its sashes need room: a size under what they take is refused and said
+    val (minW, minH) = uz.metrx.app.win.minSize(it)
+    val small = W != null && H != null && W in 300..8000 && H in 300..4000 && (W < minW || H < minH)
+    val ok = W != null && H != null && W in minW..8000 && H in minH..4000 && (g == null || g in GAP_MIN..GAP_MAX)
     fun apply() {
         if (!ok) return
         app.updateItem(pid, it.id) { x ->
@@ -341,7 +347,7 @@ private fun SizeCard(pid: String, it: WinItem, o: uz.metrx.app.data.Opening?, ci
             }
             GField(tr("dw.wallT"), tT, { v -> tT = v.filter { ch -> ch.isDigit() }.take(3) }, "300", number = true, labelRight = mm)
         }
-        if (!ok) Text(tr("dw.sizeErr"), style = ui(13f, 500, G.err))
+        if (!ok) Text(if (small) tr("dw.sizeMin", "w" to minW, "h" to minH) else tr("dw.sizeErr"), style = ui(13f, 500, G.err))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GBtn(tr("dw.apply"), ::apply, enabled = ok, height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
             if (o != null && !it.fit) GBtn(tr("dw.refit"), { app.updateItem(pid, it.id) { x -> refit(x, o.w, o.h, o.type).copy(fit = true) } }, Btn.SECONDARY,

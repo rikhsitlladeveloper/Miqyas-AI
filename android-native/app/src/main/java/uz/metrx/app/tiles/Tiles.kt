@@ -60,6 +60,9 @@ data class TileLayout(
 @Serializable
 data class TSurf(val id: String, val mode: String = "full", val h0: Int = 0, val h1: Int = 0, val alt: Boolean = false)
 
+/** Whether surface [s]'s heights can be laid: "up to" a height above 0, a band whose top is above its bottom (a height typed wrong reads 0). */
+fun surfHeightsOk(s: TSurf) = when (s.mode) { "to" -> s.h1 > 0; "band" -> s.h0 > 0 && s.h1 > s.h0; else -> true }
+
 /** A surface without a room: a floor [a] × [b], or a wall or backsplash [a] long and [b] high. */
 @Serializable
 data class TPanel(val kind: String = "floor", val a: Int = 3000, val b: Int = 2000)

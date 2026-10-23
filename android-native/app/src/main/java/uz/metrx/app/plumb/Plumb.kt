@@ -62,7 +62,9 @@ data class PlFree(val id: String, val name: String = "", val kind: String = "bat
                   val wc: Int = 1, val basin: Int = 1, val bath: Int = 1, val shower: Int = 0, val sink: Int = 0, val wm: Int = 0, val dw: Int = 0,
                   val wh: Int = 0, val gb: Int = 0, val rad: Int = 0, val ufh: Boolean = false, val link: Int = 3000, val kit: String = "",
                   /** The kit's choices kept: towel rails, the basins hand basins (cold only), the showers cabins. */
-                  val tr: Int = 0, val small: Boolean = false, val cabin: Boolean = false)
+                  val tr: Int = 0, val small: Boolean = false, val cabin: Boolean = false,
+                  /** Those choices are kept here (a room saved before they were takes its kit's, see withKit). */
+                  val kept: Boolean = false)
 
 /**
  * A plumber's order: the fixtures, the loose outlets, the rooms' settings, the riser, the water pipe ([water] ppr, mp

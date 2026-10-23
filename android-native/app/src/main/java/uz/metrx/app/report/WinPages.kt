@@ -36,7 +36,7 @@ internal fun Doc.winPages(e: WinOrder) {
     val withPrice = sn.pdf.estimate && sn.winPrice.isNotEmpty()
     val scale = BigInteger.TEN.pow(sn.precision.coerceIn(0, 4))
     fun price(id: String) = sn.winPrice[id]?.let { money(BigInteger.valueOf(it) * scale) + " " + sn.currency }
-    val roomOf = all.associate { it.room.id to it.floorLabel.ifBlank { dn(it.room.name, l) } }
+    val roomOf = all.associate { it.room.id to tradeRoomName(it, all, l) }
     fun title(it: WinItem) = it.name.ifBlank { t("dw.k.${it.kind}") }
     fun where(it: WinItem): String {
         if (!it.inRoom) return t("dw.noRoom")

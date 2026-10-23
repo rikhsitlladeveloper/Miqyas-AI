@@ -1,5 +1,6 @@
 package uz.metrx.app.ui.elec
 
+import uz.metrx.app.data.putBack
 import androidx.compose.foundation.background
 import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.clickable
@@ -334,7 +335,7 @@ fun ERoomsTab(p: Project, lang: Lang, route: Route.Project) {
                     .padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(G.cobalt.copy(alpha = .1f)), contentAlignment = Alignment.Center) { MIcon("cube", G.cobalt, 18.dp, 2f) }
                     Column(Modifier.weight(1f)) {
-                        Text(f.name.ifBlank { tr(kindKey(f.kind)) }, style = ui(14.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(uz.metrx.app.data.dn(f.name, lang).ifBlank { tr(kindKey(f.kind)) }, style = ui(14.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " " + tr("u.m") + " · " + tr("el.freeCnt", "s" to f.sock + f.power, "k" to f.sw, "l" to f.light), style = ui(12.5f, 500, G.ink2), maxLines = 1)
                     }
                     MIcon("chev", G.ink3, 16.dp, 2f)
@@ -374,7 +375,8 @@ private fun OrderCard(p: Project, calc: ElecCalc) {
         }
         Hairline()
         Line("layers", tr("el.method"), tr("el.m.${p.elec.method}")) { app.sheet = Sheet.EMethod(p.id) }
-        if (calc.circuits.isNotEmpty()) { Hairline(); Line("sliders", tr("el.circuits"), tr("el.circN", "n" to calc.circuits.count { it.amps > 0 }) + if (calc.count.rcds > 0 && app.settings.advanced) " · " + tr("el.rcdN", "n" to calc.count.rcds) else "") {
+        // the circuits (how many breakers) are the advanced app's
+        if (calc.circuits.isNotEmpty() && app.settings.advanced) { Hairline(); Line("sliders", tr("el.circuits"), tr("el.circN", "n" to calc.circuits.count { it.amps > 0 }) + if (calc.count.rcds > 0 && app.settings.advanced) " · " + tr("el.rcdN", "n" to calc.count.rcds) else "") {
             calc.ctxs.firstOrNull { c -> calc.routes.inRoom(c.id).isNotEmpty() }?.let { app.push(Route.EView(p.id, it.id)) } } }
         if (calc.warns.isNotEmpty()) {
             Hairline()
@@ -412,7 +414,7 @@ fun ENextStep(p: Project) {
     val app = LocalApp.current
     val lang = LocalLang.current
     val s = app.settings
-    val rooms = p.floors.mapNotNull { w -> p.rooms.firstOrNull { it.floorId == w.id }?.let { w to it } }
+    val rooms = uz.metrx.app.data.roomsByWorkspace(p)
     val undrawn = p.floors.firstOrNull { w -> p.rooms.none { it.floorId == w.id } }
     val unmeasured = rooms.firstOrNull { (_, r) -> stepKeys(r, s.angleSnap).any { r.dim(it).status != "conf" } }
     val bare = rooms.firstOrNull { (_, r) -> p.elec.devs.none { it.roomId == r.id } && p.elec.room(r.id).pend.isEmpty() }
@@ -645,10 +647,12 @@ private fun DevSheet(s: Sheet.EDev) {
     GlassSheet(tr("el.t.${old.t}"), { app.sheet = null }, footer = {
         GBtn(tr("common.save"), ::save, enabled = err == null)
         GBtn(tr("common.delete"), {
-            val before = app.store.get(p.id) ?: return@GBtn
+            val devs = app.store.get(p.id)?.elec?.devs ?: return@GBtn
+            val at = devs.indexOfFirst { it.id == old.id }; val gone = devs.getOrNull(at) ?: return@GBtn
             app.updateElec(p.id) { e -> e.copy(devs = e.devs.filter { it.id != old.id }) }
             app.sheet = null
-            app.say("el.devDel", action = "common.undo", onAction = { app.store.update(p.id) { before } })
+            // Undo puts back only this device, where it was
+            app.say("el.devDel", action = "common.undo", onAction = { app.updateElec(p.id) { e -> if (e.devs.any { it.id == gone.id }) e else e.copy(devs = e.devs.putBack(gone, at)) } })
         }, Btn.SECONDARY)
     }) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -734,9 +738,12 @@ private fun RoomSetSheet(pid: String, rid: String) {
         }, Btn.SECONDARY, icon = "box")
         GBtn(tr("el.marks"), { app.sheet = null; app.push(Route.WallView(pid, rid, c.g.walls.first().id)) }, Btn.SECONDARY, icon = "pin")
         if (p.elec.devs.any { it.roomId == rid }) GBtn(tr("el.clear"), {
-            val before = app.store.get(pid) ?: return@GBtn
+            val before = app.store.get(pid)?.elec ?: return@GBtn
+            val devs = before.devs.filter { it.roomId == rid }; val kits = before.room(rid).kits
             app.updateElec(pid) { e -> e.copy(devs = e.devs.filter { it.roomId != rid }, rooms = e.rooms.map { if (it.roomId == rid) it.copy(kits = emptyList()) else it }) }
-            app.sheet = null; app.say("el.cleared", action = "common.undo", onAction = { app.store.update(pid) { before } })
+            // Undo puts back only this room's devices and kits
+            app.sheet = null; app.say("el.cleared", action = "common.undo", onAction = { app.updateElec(pid) { e ->
+                e.copy(devs = e.devs + devs.filter { d -> e.devs.none { it.id == d.id } }, rooms = e.rooms.map { if (it.roomId == rid) it.copy(kits = kits) else it }) } })
         }, Btn.DANGER)
     }
 }
@@ -828,9 +835,11 @@ private fun FreeSheet(pid: String, fid: String?) {
     val unit = app.settings.unit
     val uw = tr(if (unit == LenUnit.CM) "u.cm" else "u.m")
     val old = fid?.let { id -> p.elec.free.firstOrNull { it.id == id } }
-    val start = old ?: ElecFree(uid(), app.t(kindKey("bed")), "bed")
+    val start = old ?: ElecFree(uid(), "@" + kindKey("bed"), "bed")
     var kind by rememberSaveable { mutableStateOf(start.kind) }
-    var name by rememberSaveable { mutableStateOf(start.name) }
+    // a kind's own name is kept as its key, so it follows the language
+    var name by rememberSaveable { mutableStateOf(uz.metrx.app.data.dn(start.name, app.settings.lang)) }
+    fun keptName() = name.trim().let { t -> if (t == uz.metrx.app.data.dn(start.name, app.settings.lang)) start.name else if (t == app.t(kindKey(kind))) "@" + kindKey(kind) else t }
     var tl by rememberSaveable { mutableStateOf(fmtField(start.L, unit, en)) }
     var tw by rememberSaveable { mutableStateOf(fmtField(start.W, unit, en)) }
     var th by rememberSaveable { mutableStateOf(fmtField(start.H, unit, en)) }
@@ -840,7 +849,7 @@ private fun FreeSheet(pid: String, fid: String?) {
     val ok = L != null && W != null && H != null && K != null && L in 1000..30000 && W in 1000..30000 && H in 2000..6000
     fun save() {
         if (!ok || !app.once()) return
-        val f = start.copy(name = name.trim(), kind = kind, L = L!!, W = W!!, H = H!!, link = K!!, sock = cnt[0], sw = cnt[1], light = cnt[2], low = cnt[3], power = cnt[4])
+        val f = start.copy(name = keptName(), kind = kind, L = L!!, W = W!!, H = H!!, link = K!!, sock = cnt[0], sw = cnt[1], light = cnt[2], low = cnt[3], power = cnt[4])
         app.updateElec(pid) { e -> e.copy(free = if (old != null) e.free.map { if (it.id == f.id) f else it } else e.free + f) }
         app.sheet = null
         if (old == null) app.push(Route.EView(pid, "free:" + f.id))

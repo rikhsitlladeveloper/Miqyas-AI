@@ -60,7 +60,18 @@ fun ctxOf(p: Project, rid: String, snap: Boolean): ECtx? {
 fun freeCtx(f: ElecFree): ECtx? {
     val r = freeRoom(f)
     val g = roomGeo(r, true, emptyList()) ?: return null
-    return ECtx(r.id, r, g, f.kind, ElecRoom(r.id, f.kind, link = f.link), f)
+    return ECtx(r.id, r, g, f.kind, ElecRoom(r.id, f.kind, link = f.link), withKit(f))
+}
+
+/**
+ * A typed room saved before it kept its kit's choices: its power points' types, wall lights and sockets' heights as
+ * its kit has them (an LED strip, a choice, is not brought back). The same room when there is nothing to fill in.
+ */
+fun withKit(f: ElecFree): ElecFree {
+    val k = kitOf(f.kit) ?: return f
+    if (f.powers.isNotEmpty() && f.lamps.isNotEmpty() && f.sockH.isNotEmpty()) return f
+    val d = freeOf(k, defaultOpts(k), f.id, f.name, f.L, f.W, f.H)
+    return f.copy(powers = f.powers.ifEmpty { d.powers }, lamps = f.lamps.ifEmpty { d.lamps.filter { it != "led" } }, sockH = f.sockH.ifEmpty { d.sockH })
 }
 
 /** Every room of the order that devices can be in: the measured ones in order, then the typed ones. */
@@ -355,10 +366,12 @@ fun freeDevs(f: ElecFree, c: ECtx): List<ElecDev> {
     // a bathroom's sockets are splash-proof ones
     val st = if (c.kind == "bath") "sw" else "s1"
     val sh = usualH(st, c.H, c.kind)
-    repeat(f.sock.coerceIn(0, 60)) { _ ->
+    repeat(f.sock.coerceIn(0, 60)) { i ->
         val w = ws[k % ws.size]; val slot = k / ws.size; k++
         val prefer = w.len * (slot % 3 + 1) / 4
-        spotOn(w, prefer, sh, 86, 86, blocksOn(c, w.id, st, out))?.let { x -> out += ElecDev(id(), st, c.id, w.id, x, sh) }
+        // at its kit's own height (a washer's, a hood's, by the bed), else the usual one
+        val h = f.sockH.getOrNull(i)?.takeIf { it > 0 } ?: sh
+        spotOn(w, prefer, h, 86, 86, blocksOn(c, w.id, st, out))?.let { x -> out += ElecDev(id(), st, c.id, w.id, x, h) }
     }
     // each power point as its kit had it (a stove's on its 32 A line, a water heater's high), at its usual height
     repeat(f.power.coerceIn(0, 10)) { i ->
@@ -370,6 +383,19 @@ fun freeDevs(f: ElecFree, c: ECtx): List<ElecDev> {
     repeat(f.low.coerceIn(0, 20)) { i ->
         val w = c.g.walls[(2 + i) % c.g.walls.size]
         spotOn(w, w.len / 2 + i * 200.0, 300, 86, 86, blocksOn(c, w.id, "lan", out))?.let { x -> out += ElecDev(id(), "lan", c.id, w.id, x, 300) }
+    }
+    // the kit's wall lights at their usual height, the walls in turn; an LED strip under the wall units (a kitchen) or in the cove
+    f.lamps.take(10).forEachIndexed { i, t ->
+        if (t == "led") {
+            val w = if (c.kind == "kitchen") workWall(c) else ws[(i + 2) % ws.size]
+            val h = if (c.kind == "kitchen") 1450 else absH(-60, c.H)
+            val (a, b) = freeStretch(c, w, h) ?: return@forEachIndexed
+            val l = (b - a - 100).toInt().coerceAtMost(2400); if (l < 300) return@forEachIndexed
+            out += ElecDev(id(), "led", c.id, w.id, ((a + b) / 2).roundToInt(), h, len = l)
+        } else {
+            val w = ws[(i + 2) % ws.size]; val ty = devType(t); val h = usualH(t, c.H, c.kind)
+            spotOn(w, w.len / 2.0, h, ty.dw, ty.dh, blocksOn(c, w.id, t, out))?.let { x -> out += ElecDev(id(), t, c.id, w.id, x, h) }
+        }
     }
     val lights = f.light.coerceIn(0, 40)
     val pts = if (lights <= 1) listOf(centreOf(c)) else rowOf(c, lights)
@@ -387,7 +413,10 @@ fun freeOf(k: Kit, o: KitOpts, id: String, name: String, L: Int, W: Int, H: Int)
         light = cnt { devType(it.t).ceil },
         low = cnt { devType(it.t).cat == "low" },
         power = cnt { devType(it.t).cat == "sock" && devType(it.t).group != "sock" }, kit = k.id,
-        powers = items.filter { devType(it.t).cat == "sock" && devType(it.t).group != "sock" }.flatMap { i -> List(i.n) { i.t } })
+        powers = items.filter { devType(it.t).cat == "sock" && devType(it.t).group != "sock" }.flatMap { i -> List(i.n) { i.t } },
+        // the wall lights and LED strips, and the sockets' own heights, stay as the kit has them
+        lamps = items.filter { it.t == "lw" || it.t == "led" }.flatMap { i -> List(i.n) { i.t } },
+        sockH = items.filter { devType(it.t).cat == "sock" && devType(it.t).group == "sock" }.flatMap { i -> List(i.n) { i.h ?: 0 } })
 }
 
 /* ---------------- moving a device ---------------- */

@@ -102,6 +102,7 @@ fun EditorScreen(r0: Route.Editor) {
     val f = ops.focusOf(r)
     val sel = (app.sheet as? Sheet.Measure)?.k ?: f.k
     val selOp = (app.sheet as? Sheet.OpeningForm)?.oid
+    androidx.compose.runtime.DisposableEffect(r0.pid, r0.rid) { onDispose { ops.leave() } }
     Box(Modifier.fillMaxSize().roomGrid()) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -437,7 +438,9 @@ private fun FullList(pid: String, r: Room, f: RoomOps.Focus) {
                         Text(fmtArea(extra, en), style = num(14f, 700), modifier = Modifier.width(66.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
                 }
-                if (stats.all { it.gross != null }) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(G.ink.copy(alpha = .05f)).padding(vertical = 8.dp)) {
+                // a drawn room whose walls do not close has no total yet (as its areas)
+                val closed = !r.isPoly || uz.metrx.app.geo.polyGeo(r, snap).solved
+                if (closed && stats.all { it.gross != null }) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(G.ink.copy(alpha = .05f)).padding(vertical = 8.dp)) {
                     Text(tr("ed2.total"), style = ui(14f, 700), modifier = Modifier.weight(1f).padding(start = 4.dp))
                     Text(fmtArea(stats.sumOf { it.gross!! } + extra, en), style = num(14f, 600), modifier = Modifier.width(66.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     Text(fmtArea(stats.sumOf { it.open }, en), style = num(14f, 600, G.ink2), modifier = Modifier.width(58.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)

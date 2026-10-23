@@ -115,3 +115,9 @@ fun newProject(name: String, customer: String, phone: String, address: String, l
     val now = System.currentTimeMillis()
     return Project(uid(), name, customer, phone, address, loc, currency, 0, reportLang, "measure", emptyList(), created = now, edited = now)
 }
+
+/** Every room of [p] with its workspace, workspace by workspace: each workspace's rooms, not only its first (the trades' next step). */
+fun roomsByWorkspace(p: Project): List<Pair<Workspace, Room>> = p.floors.flatMap { w -> p.rooms.filter { it.floorId == w.id }.map { w to it } }
+
+/** [x] put back at index [at] (an Undo of one delete: only that item comes back, the other changes since stay). */
+fun <T> List<T>.putBack(x: T, at: Int): List<T> = toMutableList().apply { add(at.coerceIn(0, size), x) }

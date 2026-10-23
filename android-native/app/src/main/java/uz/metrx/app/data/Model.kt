@@ -174,9 +174,13 @@ data class Pt(val x: Double, val y: Double)
 @Serializable
 data class Diag(val id: String, val a: Int, val b: Int)
 
-/** A drawn room: corners in mm keeping the sketch's proportions (not the measured shape), clockwise, first corner top-left. */
+/**
+ * A drawn room: corners in mm keeping the sketch's proportions (not the measured shape), clockwise, first corner top-left.
+ * [snap]: the 90°/45° snap the room was drawn with, so changing the setting later does not re-solve it (null: a room
+ * saved before this was kept, filled in with the setting when it loads).
+ */
 @Serializable
-data class Poly(val verts: List<Pt>, val diags: List<Diag> = emptyList(), val template: String = "sketch")
+data class Poly(val verts: List<Pt>, val diags: List<Diag> = emptyList(), val template: String = "sketch", val snap: Boolean? = null)
 
 @Serializable
 data class View3D(val id: String, val img: String, val ts: Long)
@@ -251,6 +255,8 @@ data class Snap(
     val fhandles: String = "", val fws: uz.metrx.app.furniture.Workshop? = null,
     /** The angle snap the plans and areas are worked out with (Settings.angleSnap), kept with a quote. */
     val snap: Boolean = true,
+    /** What the plans show in a room's middle (Settings.roomLabel), kept with a quote: "both", "name", "area" or "none". */
+    val roomLabel: String = "both",
     /** Electricians' orders: the devices, panel and rooms' settings (each room's kind filled in), for the wiring pages. */
     val elec: uz.metrx.app.elec.ElecOrder? = null,
     /** Plumbers' orders: the fixtures, outlets, riser and rooms' settings (each room's kind filled in), for the plumbing pages. */

@@ -1,5 +1,6 @@
 package uz.metrx.app.ui.tiles
 
+import uz.metrx.app.data.putBack
 import androidx.compose.foundation.Canvas
 import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.background
@@ -356,12 +357,13 @@ private fun LayoutCard(p: Project, l: TileLayout, on: Boolean, onPick: () -> Uni
             GBtn(tr("fz.change"), { app.push(Route.TSteps(p.id, l.model, lid = l.id)) }, Btn.SECONDARY, icon = "edit", height = 42.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
             if (app.settings.advanced) GBtn(tr("tl.countB"), { app.sheet = Sheet.TCount(p.id, l.id) }, Btn.SECONDARY, icon = "sliders", height = 42.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
             Box(Modifier.size(42.dp).clip(CircleShape).background(G.ink.copy(alpha = .06f)).clickable(role = Role.Button, onClickLabel = tr("common.delete")) {
-                val before = app.store.get(p.id) ?: return@clickable
+                val tiles = app.store.get(p.id)?.tiles ?: return@clickable
                 // a second tap finds it gone: nothing more is deleted and no other page is left
-                if (before.tiles.none { it.id == l.id }) return@clickable
+                val at = tiles.indexOfFirst { it.id == l.id }; val gone = tiles.getOrNull(at) ?: return@clickable
                 app.store.update(p.id) { pr -> pr.copy(tiles = pr.tiles.filter { it.id != l.id }) }
                 if (l.roomId == null) app.pop()
-                app.say("tl.deleted", action = "common.undo", onAction = { app.store.update(p.id) { before } })
+                // Undo puts back only this layout, where it was
+                app.say("tl.deleted", action = "common.undo", onAction = { app.store.update(p.id) { pr -> if (pr.tiles.any { it.id == gone.id }) pr else pr.copy(tiles = pr.tiles.putBack(gone, at)) } })
             }, contentAlignment = Alignment.Center) { MIcon("trash", G.ink2, 18.dp, 2f) }
         }
     }

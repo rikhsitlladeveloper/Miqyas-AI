@@ -11,6 +11,9 @@ import androidx.compose.runtime.setValue
 /** Laser connection states, as in the prototype. The laser itself is simulated until a real device is verified. */
 enum class Laser { DISCONNECTED, SEARCHING, FOUND, CONNECTED }
 
+/** How many Measure-page readings are kept (the oldest go first). */
+const val READINGS_MAX = 200
+
 /**
  * Small app-wide settings kept in SharedPreferences: language, first-run state, the builder's name and phone,
  * the visit counter for the greeting line, and the theme. Projects get their own database in part 2.
@@ -134,9 +137,10 @@ class Settings(context: Context) {
     var readings: List<uz.metrx.app.data.Reading> by mutableStateOf(runCatching { kotlinx.serialization.json.Json.decodeFromString(kotlinx.serialization.builtins.ListSerializer(uz.metrx.app.data.Reading.serializer()), p.getString("readings", null) ?: "[]") }.getOrDefault(emptyList()))
         private set
     private fun saveReadings() { p.edit().putString("readings", kotlinx.serialization.json.Json.encodeToString(kotlinx.serialization.builtins.ListSerializer(uz.metrx.app.data.Reading.serializer()), readings)).apply() }
+    /** A new reading; only the last [READINGS_MAX] are kept, so the list does not grow forever. */
     fun addReading(mm: Int, src: String): uz.metrx.app.data.Reading {
         val r = uz.metrx.app.data.Reading(uz.metrx.app.data.uid(), (readings.maxOfOrNull { it.n } ?: 0) + 1, mm, System.currentTimeMillis(), src)
-        readings = readings + r; saveReadings(); return r
+        readings = (readings + r).takeLast(READINGS_MAX); saveReadings(); return r
     }
     fun deleteReading(id: String) { readings = readings.filter { it.id != id }; saveReadings() }
     fun markReadingUsed(id: String, where: String) { readings = readings.map { if (it.id == id) it.copy(used = where) else it }; saveReadings() }

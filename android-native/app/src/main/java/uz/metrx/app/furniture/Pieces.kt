@@ -384,7 +384,10 @@ fun pieceResized(f: Furniture, v: Map<String, Int>, ws: Workshop): Furniture {
     fun g(k: String) = v[k] ?: cur[k] ?: 0
     if (f.type in PIECE_TYPES || f.type == "loft") {
         val n = newPiece(f.type, ::g, ws, f.name, f.created)
-        val r = onWalls(n, f.walls.ifEmpty { n.walls }).copy(id = f.id, roomId = f.roomId, ws = f.ws, mats = f.mats, keep = f.keep, pose = f.pose, model = f.model)
+        // the handles chosen for the whole piece ("Change for all", or none at all) stay as they were
+        val bare = f.modules.any { takesHandles(it) } && !hasHandles(f)
+        val r0 = onWalls(n, f.walls.ifEmpty { n.walls }).copy(id = f.id, roomId = f.roomId, ws = f.ws, mats = f.mats, keep = f.keep, pose = f.pose, model = f.model, handle = f.handle)
+        val r = if (bare) r0.copy(modules = r0.modules.map { if (takesHandles(it)) it.copy(handles = false) else it }) else r0
         return if (f.type in CORNER_TYPES) r else shiftRun(r, runStart(f))
     }
     if (f.type in ITEM_TYPES) {

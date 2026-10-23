@@ -1,5 +1,6 @@
 package uz.metrx.app.ui.furniture
 
+import kotlin.random.Random
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -318,6 +319,14 @@ fun FStepsScreen(rt: Route.FSteps) {
         laser = null
         if (back) { back = false; at = n } else at += 1
     }
+    // after a laser reading [v] went into step [i]: on to the next step when it fits (read from [v]: this page's texts are
+    // the ones it was drawn with, older than the reading)
+    fun nextAfter(i: Int, v: String) {
+        val mm = parseMm(v, unit) ?: return
+        if (at != i || stepIssue(steps[i], mm) != null) return
+        laser = null
+        if (back) { back = false; at = n } else at = i + 1
+    }
     fun prev() {
         laser = null
         when {
@@ -329,16 +338,30 @@ fun FStepsScreen(rt: Route.FSteps) {
     }
     BackHandler { prev() }
 
-    // the laser's newest reading not used yet (its readings' inbox); with none, nothing is made up: it says so
+    // the laser's newest reading not used yet (its readings' inbox) first; with none, a made-up one near the usual size
+    // (until the real meter is here, as the editor's laser button)
     fun reading() {
         if (laser == "busy" || at >= n || steps[at].choice) return
         val s = steps[at]; val i = at
         val r = app.settings.readings.lastOrNull { it.used == null && it.src != "manual" }
-        if (r == null) { laser = app.t("fx.noReading"); return }
-        app.settings.markReadingUsed(r.id, app.t(s.label))
-        setTxt(i, fmtField(r.mm, unit, en))
-        laser = app.t("fx.got", "v" to fmtLen(r.mm, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m"))
-        scope.launch { delay(900); if (at == i && ok(i)) next() }
+        if (r != null) {
+            app.settings.markReadingUsed(r.id, app.t(s.label))
+            val tv = fmtField(r.mm, unit, en)
+            setTxt(i, tv)
+            laser = app.t("fx.got", "v" to fmtLen(r.mm, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m"))
+            scope.launch { delay(900); nextAfter(i, tv) }
+            return
+        }
+        scope.launch {
+            laser = "busy"
+            delay(900)
+            val v = ((s.usual + Random.nextInt(-120, 121)) / 5) * 5
+            val tv = fmtField(v, unit, en)
+            setTxt(i, tv)
+            laser = app.t("fx.got", "v" to fmtLen(v, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m"))
+            delay(900)
+            nextAfter(i, tv)
+        }
     }
 
     fun finish() {

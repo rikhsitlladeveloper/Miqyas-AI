@@ -120,9 +120,11 @@ fun PolyPlan(r: Room, sel: String?, selOp: String?, modifier: Modifier = Modifie
     val app = LocalApp.current
     val ops = app.ops
     val lang = LocalLang.current
-    val snap = app.settings.angleSnap
+    // the room's own snap (kept when it was drawn), also for dragging its corners
+    val snap = r.poly?.snap ?: app.settings.angleSnap
     val unit = app.settings.unit; val en = app.english()
     val tm = rememberTextMeasurer()
+    val m2 = uz.metrx.app.ui.theme.tr("u.m2")
     val g = polyGeo(r, snap)
     val mode = if (ops.polyRoom == r.id) ops.polyMode else "plan"
     var live by remember { mutableStateOf<List<Pt>?>(null) }         // corners while one is dragged
@@ -185,7 +187,7 @@ fun PolyPlan(r: Room, sel: String?, selOp: String?, modifier: Modifier = Modifie
             val k = min(size.width / lay.VW, size.height / lay.VH)
             val dx = (size.width - lay.VW * k) / 2f; val dy = (size.height - lay.VH * k) / 2f
             withTransform({ translate(dx, dy); scale(k, k, pivot = Offset.Zero) }) {
-                drawPoly(lay, r, g, mode, sel, selOp, unit, en, dn(r.name, lang), tm, ops.diagFirst, snap = snap)
+                drawPoly(lay, r, g, mode, sel, selOp, unit, en, dn(r.name, lang), tm, ops.diagFirst, snap = snap, m2 = m2)
                 if (mode == "shape") {
                     guides.first.forEach { x -> val gx = lay.ox + x * lay.s; drawLine(COB.copy(alpha = .75f), Offset(gx, 0f), Offset(gx, lay.VH), 1f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 4f))) }
                     guides.second.forEach { y -> val gy = lay.oy + y * lay.s; drawLine(COB.copy(alpha = .75f), Offset(0f, gy), Offset(lay.VW, gy), 1f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 4f))) }
@@ -314,15 +316,15 @@ private fun diagTap(app: uz.metrx.app.ui.App, pid: String, r: Room, lay: PolyLay
 }
 
 /** A drawn room's plan for the report; returns its height in the 360-wide units. */
-internal fun DrawScope.drawReportPoly(r: Room, unit: LenUnit, en: Boolean, label: String, tm: TextMeasurer, snap: Boolean): Float {
+internal fun DrawScope.drawReportPoly(r: Room, unit: LenUnit, en: Boolean, label: String, tm: TextMeasurer, snap: Boolean, labelMode: String = "both", m2: String = "m²"): Float {
     val g = polyGeo(r, snap); val lay = PolyLayout(g.verts, r.dim("T").v ?: 200)
-    Theme.onPaper { drawPoly(lay, r, g, "plan", null, null, unit, en, label, tm, null, report = true, snap = snap) }
+    Theme.onPaper { drawPoly(lay, r, g, "plan", null, null, unit, en, label, tm, null, report = true, snap = snap, m2 = m2, labelMode = labelMode) }
     return lay.VH
 }
 
 internal fun reportPolyHeight(r: Room, snap: Boolean): Float { val g = polyGeo(r, snap); return PolyLayout(g.verts, r.dim("T").v ?: 200).VH }
 
-private fun DrawScope.drawPoly(lay: PolyLayout, r: Room, g: PolyGeo, mode: String, sel: String?, selOp: String?, unit: LenUnit, en: Boolean, label: String, tm: TextMeasurer, diagFirst: Int?, report: Boolean = false, snap: Boolean = true) {
+private fun DrawScope.drawPoly(lay: PolyLayout, r: Room, g: PolyGeo, mode: String, sel: String?, selOp: String?, unit: LenUnit, en: Boolean, label: String, tm: TextMeasurer, diagFirst: Int?, report: Boolean = false, snap: Boolean = true, m2: String = "m²", labelMode: String = PlanLabel.mode) {
     val n = lay.n
     val inner = Path().apply { moveTo(lay.inner[0].x, lay.inner[0].y); lay.inner.drop(1).forEach { lineTo(it.x, it.y) }; close() }
     val outer = Path().apply { moveTo(lay.outer[0].x, lay.outer[0].y); lay.outer.drop(1).forEach { lineTo(it.x, it.y) }; close() }
@@ -376,7 +378,7 @@ private fun DrawScope.drawPoly(lay: PolyLayout, r: Room, g: PolyGeo, mode: Strin
     // name and floor area in the middle
     val a = areas(r, snap)
     val cx = lay.inner.map { it.x }.average().toFloat(); val cy = lay.inner.map { it.y }.average().toFloat()
-    centreLabel(tm, label, (if (a != null) fmtArea(a.floor, en) else "?") + " m²", Offset(cx, cy))
+    centreLabel(tm, label, (if (a != null) fmtArea(a.floor, en) else "?") + " " + m2, Offset(cx, cy), labelMode)
     // wall letters and corner numbers
     for (i in 0 until n) {
         val wa = lay.inner[i]; val wb = lay.inner[(i + 1) % n]

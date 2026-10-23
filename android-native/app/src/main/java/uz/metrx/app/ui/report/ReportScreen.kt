@@ -126,7 +126,7 @@ fun ReportScreen(pid: String, no: Int?) {
     // a furniture maker or a tiler in the simple app shares the design: no price, nothing to issue (a tiler's has no estimate)
     val design = quote == null && (p.isFurniture || p.isTiler || p.isElec || p.isPlumb || p.isWin) && !app.settings.advanced
     val sn = quote?.sn ?: snapshotOf(p, app.settings).let { if (design && (p.isTiler || p.isElec || p.isPlumb || p.isWin)) it.copy(pdf = it.pdf.copy(estimate = false)) else it }
-    val key = if (quote != null) "q${quote.no}" else (if (design) "d" else "") + fingerprint(sn) + sn.pdf + sn.lang + sn.extras.joinToString { it.text + it.checks }
+    val key = if (quote != null) "q${quote.no}" else (if (design) "d" else "") + fingerprint(sn) + sn.pdf + sn.lang + sn.roomLabel + sn.extras.joinToString { it.text + it.checks }
     val tm = remember { reportMeasurer(ctx) }
     val loader = remember { viewLoader(ctx) }
     val density = LocalDensity.current
@@ -150,7 +150,7 @@ fun ReportScreen(pid: String, no: Int?) {
         fun share() {
             val b = built ?: return
             app.say("sh.making", kind = ToastKind.INFO)
-            val fname = pdfName(dn(p.name, lang), if (quote != null) app.t("q.no", "n" to quote.no) else app.t(if (design) "rpt.design" else "es.draft"))
+            val fname = pdfName(dn(quote?.sn?.name ?: p.name, lang), if (quote != null) app.t("q.no", "n" to quote.no) else app.t(if (design) "rpt.design" else "es.draft"))
             // just after a set-up change the pages on screen are the old ones: the PDF is laid out again from the report as it is
             val fresh = b.first == key
             scope.launch {
@@ -342,12 +342,18 @@ fun ReportSetupSheet(s: Sheet.ReportSetup) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Label(tr("rpt.views"))
             val views = p.rooms.flatMap { it.views }
+            // the PDF prints the first four ticked views of the rooms in the report: only those show ticked, and a fifth is refused
+            val shown = p.rooms.filter { p.reportRooms[it.id] != false }.flatMap { it.views }.filter { p.reportViews[it.id] != false }.take(4).map { it.id }.toSet()
             if (views.isEmpty()) Text(tr("rpt.noViews"), style = ui(13.5f, 400, G.ink2))
-            else FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                views.forEach { v -> val on = p.reportViews[v.id] != false
+            else Text(tr("3d.inRep", "n" to shown.size), style = ui(13f, 400, G.ink2))
+            if (views.isNotEmpty()) FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                views.forEach { v -> val on = v.id in shown
                     val bmp by produceState<ImageBitmap?>(null, v.img) { value = withContext(Dispatchers.IO) { ViewFiles.load(ctx, v.img, 240)?.asImageBitmap() } }
                     Box(Modifier.clip(RoundedCornerShape(12.dp)).border(if (on) 2.dp else 1.dp, if (on) G.cobalt else G.rim, RoundedCornerShape(12.dp))
-                        .clickable(role = Role.Checkbox) { app.store.update(p.id, touch = false) { it.copy(reportViews = it.reportViews + (v.id to !on)) } }.padding(4.dp)) {
+                        .clickable(role = Role.Checkbox) {
+                            if (!on && shown.size >= 4) app.say("3d.max", kind = ToastKind.ERROR)
+                            else app.store.update(p.id, touch = false) { it.copy(reportViews = it.reportViews + (v.id to !on)) }
+                        }.padding(4.dp)) {
                         Box(Modifier.size(72.dp, 54.dp).alpha(if (on) 1f else .4f).background(Color.White)) { bmp?.let { Image(it, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) } }
                     }
                 }

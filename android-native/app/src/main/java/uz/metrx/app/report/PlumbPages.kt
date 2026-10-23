@@ -44,7 +44,7 @@ internal fun Doc.plumbPages(e: PlumbOrder) {
     if (calc.ctxs.none { fixesIn(p, it).isNotEmpty() || pointsIn(p, it).isNotEmpty() || it.pr.ufh }) return
     val dec = { s: String -> if (en) s else s.replace('.', ',') }
     fun d1(v: Double) = dec(String.format(java.util.Locale.ROOT, "%.1f", v))
-    val names = calc.ctxs.associate { c -> c.id to (c.free?.name?.ifBlank { t("sx.k.${c.free.kind}") } ?: all.firstOrNull { it.room.id == c.id }?.let { it.floorLabel.ifBlank { dn(it.room.name, l) } } ?: "") }
+    val names = calc.ctxs.associate { c -> c.id to (c.free?.let { f -> dn(f.name, l).ifBlank { t("sx.k.${f.kind}") } } ?: all.firstOrNull { it.room.id == c.id }?.let { tradeRoomName(it, all, l) } ?: "") }
     // on the page in hand when it has room (no near-empty first page)
     ensure(260f)
     h2(t("sx.r.title"))
@@ -117,9 +117,10 @@ internal fun Doc.plumbPages(e: PlumbOrder) {
             val rr = rads.filter { it.first.id == c.id }.map { it.second }
             val lp = calc.routes.loops.firstOrNull { it.roomId == c.id }
             if (rr.isEmpty() && lp == null || !drawn(c)) return@forEach
-            hr += listOf(cell(names[c.id] ?: ""), rcell("${(c.areaM2 * uz.metrx.app.plumb.W_M2).toInt()} W"),
-                rcell(if (rr.isEmpty()) "—" else "${rr.size} · ${rr.sumOf { radWatts(it) }} W"),
-                cell(lp?.let { t("sx.loopV", "n" to it.n, "s" to it.step / 10, "a" to d1(it.area)) + " · " + d1(it.each / 1000) + " " + t("u.m") } ?: "—"))
+            // watts in the report's language; a loop's length only with the estimate (the advanced app's PDF)
+            hr += listOf(cell(names[c.id] ?: ""), rcell(t("sx.watts", "w" to (c.areaM2 * uz.metrx.app.plumb.W_M2).toInt(), "a" to d1(c.areaM2))),
+                rcell(if (rr.isEmpty()) "—" else t("sx.radsV", "n" to rr.size, "w" to rr.sumOf { radWatts(it) })),
+                cell(lp?.let { t("sx.loopV", "n" to it.n, "s" to it.step / 10, "a" to d1(it.area)) + if (withLen) " · " + d1(it.each / 1000) + " " + t("u.m") else "" } ?: "—"))
         }
         table(hr, head = 1)
         fn(t("sx.r.heatNote"))

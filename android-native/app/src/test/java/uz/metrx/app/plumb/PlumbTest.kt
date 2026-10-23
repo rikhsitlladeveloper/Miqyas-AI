@@ -137,6 +137,12 @@ class PlumbTest {
         assertEquals(1, pipeNeed("water", 20, 95.0, "pex", 5).pieces)
         assertEquals(2, pipeNeed("ufh", 16, 250.0, "ppr", 0).pieces)
         assertEquals(0, pipeNeed("water", 20, 0.0, "ppr", 10).pieces)
+        // a coiled pipe under 50 m with the spare is bought by the metre, as the electrician's cable; the underfloor pipe too
+        val short = pipeNeed("water", 20, 40.0, "pex", 10)
+        assertEquals("m", short.unit); assertEquals(44, short.pieces); assertEquals(1, short.per)
+        assertEquals("m", pipeNeed("ufh", 16, 30.0, "ppr", 10).unit)
+        assertEquals("coil", pipeNeed("ufh", 16, 46.0, "ppr", 10).unit)
+        assertEquals("m", pipeNeed("heat", 20, 45.0, "mp", 10).unit)
     }
 
     @Test fun radiatorsSizedByTheFloorUnderTheWindow() {
@@ -225,7 +231,9 @@ class PlumbTest {
         assertEquals(8.0, r.facts["points"]!!, 0.0)
         // metal-plastic comes in coils
         val m = plumbRows(p.copy(plumb = p.plumb.copy(water = "mp")), TradeSet(), true) { k, v -> k + v.entries.joinToString("") { "|" + it.key + "=" + it.value } }
-        assertTrue(m.mats.any { it.name.startsWith("sx.e.pipeC") && it.qty.toInt() % 50 == 0 })
+        assertTrue(m.mats.any { it.name.startsWith("sx.e.pipeC") || it.name.startsWith("sx.e.pipeM") })
+        assertTrue(m.mats.filter { it.name.startsWith("sx.e.pipeC") }.all { it.qty.toInt() % 50 == 0 })
+        assertTrue(m.mats.filter { it.name.startsWith("sx.e.pipeM") }.all { it.qty.toInt() < 50 })
         assertTrue(m.mats.none { it.name == "sx.e.coup" })
     }
 

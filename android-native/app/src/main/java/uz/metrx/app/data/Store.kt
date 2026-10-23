@@ -41,6 +41,10 @@ class Store private constructor(context: Context) {
     var unreadableIds: Set<String> = emptySet(); private set
     var unreadableFiles: Set<String> = emptySet(); private set
 
+    /** Called on the main thread when saving fails (once, until a save works again): the app says so. */
+    var onSaveFailed: (() -> Unit)? = null
+    @Volatile private var failed = false
+
     init {
         val loaded = ArrayList<Project>()
         val badIds = HashSet<String>(); val badFiles = HashSet<String>()
@@ -58,8 +62,13 @@ class Store private constructor(context: Context) {
             }
         }
         unreadableIds = badIds; unreadableFiles = badFiles
-        projects.addAll(loaded.sortedByDescending { it.edited })
+        // drawn rooms saved before each kept its own 90°/45° snap get the setting they were shown with, written back once
+        val snap = context.getSharedPreferences("metrx", Context.MODE_PRIVATE).getBoolean("angleSnap", true)
+        val fixed = loaded.map { withSnap(it, snap) }
+        projects.addAll(fixed.sortedByDescending { it.edited })
+        fixed.forEachIndexed { i, p -> if (p !== loaded[i]) save(p) }
     }
+
 
     fun get(id: String?): Project? = projects.firstOrNull { it.id == id }
 
@@ -95,22 +104,30 @@ class Store private constructor(context: Context) {
         pending[p.id] = io.launch {
             if (!now) delay(250)
             unsaved.remove(p.id, p)
-            write(p)
+            // a failed write stays waiting: the next change or going to the background tries again
+            if (!write(p)) unsaved.putIfAbsent(p.id, p)
         }
     }
 
-    private fun write(p: Project) {
-        val text = json.encodeToString(Project.serializer(), p)
-        val w = db.writableDatabase
-        w.beginTransaction()
+    /** Writes one project; false when it failed (logged, and said once until a write works again). */
+    private fun write(p: Project): Boolean {
         try {
-            w.insertWithOnConflict("projects", null, ContentValues().apply {
-                put("id", p.id); put("edited", p.edited); put("json", text)
-            }, SQLiteDatabase.CONFLICT_REPLACE)
-            w.setTransactionSuccessful()
+            val text = json.encodeToString(Project.serializer(), p)
+            val w = db.writableDatabase
+            w.beginTransaction()
+            try {
+                w.insertWithOnConflict("projects", null, ContentValues().apply {
+                    put("id", p.id); put("edited", p.edited); put("json", text)
+                }, SQLiteDatabase.CONFLICT_REPLACE)
+                w.setTransactionSuccessful()
+            } finally { w.endTransaction() }
+            failed = false
+            return true
         } catch (e: Exception) {
             Log.e("METRX", "saving a project failed", e)
-        } finally { w.endTransaction() }
+            if (!failed) { failed = true; android.os.Handler(android.os.Looper.getMainLooper()).post { onSaveFailed?.invoke() } }
+            return false
+        }
     }
 
     /** Writes every change still waiting, right now (the app is going to the background). */
@@ -118,7 +135,7 @@ class Store private constructor(context: Context) {
         pending.values.forEach { it.cancel() }; pending.clear()
         val live = projects.map { it.id }.toSet()
         // on the writer's own thread and waited for: after a write it is in the middle of, so an older version cannot land last
-        ioThread.submit { unsaved.keys.toList().forEach { id -> unsaved.remove(id)?.let { if (it.id in live) write(it) } } }.get()
+        ioThread.submit { unsaved.keys.toList().forEach { id -> unsaved.remove(id)?.let { if (it.id in live && !write(it)) unsaved.putIfAbsent(id, it) } } }.get()
     }
 
     private class Db(context: Context) : SQLiteOpenHelper(context, "metrx.db", null, 1) {
@@ -129,6 +146,11 @@ class Store private constructor(context: Context) {
     }
 
     companion object {
+        /** [p] with each drawn room that has no snap of its own given [snap]; the same object when there is none. */
+        fun withSnap(p: Project, snap: Boolean): Project =
+            if (p.rooms.none { it.poly != null && it.poly.snap == null }) p
+            else p.copy(rooms = p.rooms.map { r -> if (r.poly != null && r.poly.snap == null) r.copy(poly = r.poly.copy(snap = snap)) else r })
+
         @Volatile private var inst: Store? = null
         fun get(context: Context) = inst ?: synchronized(this) { inst ?: Store(context).also { inst = it } }
     }

@@ -184,7 +184,10 @@ fun DrawScope.drawMark(e: MkEl, f: MkFmt, tm: TextMeasurer, alpha: Float = 1f, z
             val lay = tm.measure(dn(e.txt ?: "", f.lang), TextStyle(fontFamily = f.face, fontSize = 50.sp, fontWeight = FontWeight.SemiBold,
                 textAlign = androidx.compose.ui.text.style.TextAlign.Center), density = Density(1f),
                 constraints = androidx.compose.ui.unit.Constraints(maxWidth = room.toInt()))
-            val tl = Offset(e.pts[0][0] - lay.size.width / 2f, e.pts[0][1] - lay.size.height / 2f)
+            // the centre moves in as well, so a label near an edge stays whole in the picture
+            val hw = lay.size.width / 2f
+            val cx = if (hw * 2 >= 980f) 500f else e.pts[0][0].coerceIn(10f + hw, 990f - hw)
+            val tl = Offset(cx - hw, e.pts[0][1] - lay.size.height / 2f)
             drawText(lay, Color.White, tl, alpha = alpha, drawStyle = Stroke(11f, join = StrokeJoin.Round))
             drawText(lay, c, tl, alpha = alpha, drawStyle = androidx.compose.ui.graphics.drawscope.Fill)
         }

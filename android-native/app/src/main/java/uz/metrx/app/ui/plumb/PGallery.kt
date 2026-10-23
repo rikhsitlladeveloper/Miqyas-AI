@@ -401,7 +401,7 @@ fun PStepsScreen(rt: Route.PSteps) {
         val kind = if (k.kind == "heat") "room" else k.kind
         when (where) {
             "free" -> {
-                val f = freeOf(k, o, uid(), app.t(kindKey(kind)), sizes[0]!!, sizes[1]!!, sizes[2]!!)
+                val f = freeOf(k, o, uid(), "@" + kindKey(kind), sizes[0]!!, sizes[1]!!, sizes[2]!!)
                 app.updatePlumb(p.id) { it.copy(free = it.free + f) }
                 app.popTo { it is Route.Project && it.id == p.id }
                 app.push(Route.PView(p.id, "free:" + f.id)); app.say("el.kitAdded", "n" to kitName)

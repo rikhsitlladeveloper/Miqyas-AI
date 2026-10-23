@@ -86,8 +86,9 @@ fun labelPages(tm: TextMeasurer, sn: Snap, ws: Workshop, mats: List<Mat>, order:
                 edge(bd.l1, g, Offset(g.x + gw, g.y)); edge(bd.l2, Offset(g.x, g.y + gh), Offset(g.x + gw, g.y + gh))
                 edge(bd.s1, g, Offset(g.x, g.y + gh)); edge(bd.s2, Offset(g.x + gw, g.y), Offset(g.x + gw, g.y + gh))
                 s.code?.let { q ->
-                    val m = qs / (q.size + 2)
-                    val ox = s.x + cw - pad - qs + m; val oy = s.y + pad + m
+                    // a quiet zone of 4 modules round the code, as scanners want
+                    val m = qs / (q.size + 8)
+                    val ox = s.x + cw - pad - qs + 4 * m; val oy = s.y + pad + 4 * m
                     for (r in 0 until q.size) for (c in 0 until q.size) if (q[r, c]) drawRect(L_INK, Offset(ox + c * m, oy + r * m), Size(m + .05f, m + .05f))
                 }
             }

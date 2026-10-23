@@ -38,12 +38,18 @@ data class PCount(
 /** A coil's length for metal-plastic and PEX of [dia]: 100 m thin, 50 m thick. */
 fun coilFor(dia: Int) = if (dia <= 20) 100 else 50
 
-/** [m] metres of [kind] pipe [dia] in system [water] with [spare] %: whole sticks or coils. */
+/**
+ * [m] metres of [kind] pipe [dia] in system [water] with [spare] %: whole sticks, or coils. As the electrician's cable,
+ * a coiled pipe under [uz.metrx.app.elec.COIL_FROM] m with the spare is bought by the metre ("m", whole metres).
+ */
 fun pipeNeed(kind: String, dia: Int, m: Double, water: String, spare: Int): PipeNeed {
     val ws = m * (1 + spare / 100.0)
-    if (kind == "ufh") return PipeNeed(kind, 16, m, ws, if (ws <= 0) 0 else ceil(ws / UFH_COIL - 1e-9).toInt(), "coil", UFH_COIL)
+    fun coiled(d: Int, per: Int) =
+        if (ws > 0 && ws < uz.metrx.app.elec.COIL_FROM) PipeNeed(kind, d, m, ws, ceil(ws - 1e-9).toInt(), "m", 1)
+        else PipeNeed(kind, d, m, ws, if (ws <= 0) 0 else ceil(ws / per - 1e-9).toInt(), "coil", per)
+    if (kind == "ufh") return coiled(16, UFH_COIL)
     return if (water == "ppr") PipeNeed(kind, dia, m, ws, if (ws <= 0) 0 else ceil(ws / STICK - 1e-9).toInt(), "stick", STICK)
-    else coilFor(dia).let { per -> PipeNeed(kind, dia, m, ws, if (ws <= 0) 0 else ceil(ws / per - 1e-9).toInt(), "coil", per) }
+    else coiled(dia, coilFor(dia))
 }
 
 /** Everything order [p] takes, from its rooms [cs] and routes [rt]. */
@@ -130,7 +136,8 @@ fun plumbRows(p: Project, t: TradeSet, snap: Boolean, name: (String, Map<String,
     val sys = "~sx.sys.${p.plumb.water}"
     c.pipes.forEach { n ->
         val price = when (n.kind) { "ufh" -> t.pUfh; "heat" -> t.pHeat; else -> when (n.dia) { 32 -> t.pX32; 25 -> t.pX25; else -> t.pX20 } }
-        val key = when (n.kind) { "ufh" -> "ufh"; "heat" -> if (n.unit == "stick") "heatS" else "heatC"; else -> if (n.unit == "stick") "pipeS" else "pipeC" }
+        val by = when (n.unit) { "stick" -> "S"; "m" -> "M"; else -> "C" }
+        val key = when (n.kind) { "ufh" -> if (n.unit == "m") "ufhM" else "ufh"; "heat" -> "heat$by"; else -> "pipe$by" }
         mat(key, "m", (n.pieces * n.per).toDouble(), price, mapOf("s" to sys, "d" to n.dia, "n" to n.pieces), key + n.dia)
     }
     mat("d50", "m", ceil(c.drain50 - 1e-9), t.pD50)

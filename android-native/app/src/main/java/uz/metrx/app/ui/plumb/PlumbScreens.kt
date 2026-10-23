@@ -1,5 +1,6 @@
 package uz.metrx.app.ui.plumb
 
+import uz.metrx.app.data.putBack
 import androidx.compose.foundation.background
 import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.clickable
@@ -356,7 +357,7 @@ fun PRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                     .padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                     Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(G.cobalt.copy(alpha = .1f)), contentAlignment = Alignment.Center) { MIcon("cube", G.cobalt, 18.dp, 2f) }
                     Column(Modifier.weight(1f)) {
-                        Text(f.name.ifBlank { tr(kindKey(f.kind)) }, style = ui(14.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(uz.metrx.app.data.dn(f.name, lang).ifBlank { tr(kindKey(f.kind)) }, style = ui(14.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " " + tr("u.m") + " · " + tr("sx.freeCnt", "n" to freeCount(f), "m" to fmtLen(f.link, LenUnit.M, en)), style = ui(12.5f, 500, G.ink2), maxLines = 1)
                     }
                     MIcon("chev", G.ink3, 16.dp, 2f)
@@ -435,20 +436,22 @@ fun PNextStep(p: Project) {
     val app = LocalApp.current
     val lang = LocalLang.current
     val s = app.settings
-    val rooms = p.floors.mapNotNull { w -> p.rooms.firstOrNull { it.floorId == w.id }?.let { w to it } }
+    val rooms = uz.metrx.app.data.roomsByWorkspace(p)
     val undrawn = p.floors.firstOrNull { w -> p.rooms.none { it.floorId == w.id } }
     val unmeasured = rooms.firstOrNull { (_, r) -> stepKeys(r, s.angleSnap).any { r.dim(it).status != "conf" } }
     val bare = rooms.firstOrNull { (_, r) -> p.plumb.fixes.none { it.roomId == r.id } && p.plumb.room(r.id).pend.isEmpty() && !p.plumb.room(r.id).ufh &&
         p.plumb.room(r.id).kind.ifEmpty { ctxOf(p, r.id, s.angleSnap)?.kind ?: "" } in setOf("bath", "wc", "kitchen", "util") }
     val made = uz.metrx.app.trades.madeBy(p, "sx.e.")
+    // a typed-room-only order has no wall for a riser: it is not asked for one
+    val riser = uz.metrx.app.plumb.riserToPlace(p, s.angleSnap)
     data class Step(val title: String, val sub: String?, val button: String, val go: () -> Unit)
     val step: Step? = when {
         p.floors.isEmpty() && p.plumb.free.isEmpty() -> Step(tr("el.ns.pickT"), tr("sx.ns.pickS"), tr("ns.needB")) { app.push(Route.PGallery(p.id)) }
         undrawn != null -> Step(tr("ns.measureT"), floorName(undrawn, lang), tr("fo.drawRoom")) { app.drawTileRoom(p.id, undrawn, lang) }
         unmeasured != null -> Step(tr("ns.measureT"), tr("ns.measureS", "r" to floorName(unmeasured.first, lang)), tr("ns.measureB")) { app.openRoom(p.id, unmeasured.second.id) }
         bare != null -> Step(tr("sx.ns.roomT", "r" to floorName(bare.first, lang)), tr("sx.ns.roomS"), tr("ns.needB")) { app.push(Route.PGallery(p.id, bare.second.id)) }
-        uz.metrx.app.plumb.liveRiser(p) == null && uz.metrx.app.plumb.needsRiser(p) -> Step(tr("sx.ns.riserT"), tr("sx.ns.riserS"), tr("el.ns.panelB")) {
-            defaultRiser(p, s.angleSnap)?.let { d -> app.updatePlumb(p.id) { it.copy(riser = d) }; app.push(Route.PView(p.id, d.roomId)) }
+        riser != null -> Step(tr("sx.ns.riserT"), tr("sx.ns.riserS"), tr("el.ns.panelB")) {
+            app.updatePlumb(p.id) { it.copy(riser = riser) }; app.push(Route.PView(p.id, riser.roomId))
         }
         !s.advanced -> Step(tr("ns.shareT"), tr("sx.ns.shareS"), tr("ns.shareB")) { app.push(Route.Report(p.id)) }
         !made -> Step(tr("el.ns.estT"), tr("sx.ns.estS"), tr("trc.apply")) { app.applyPlumbRows(p); app.setProjectTab("estimate") }
@@ -539,7 +542,7 @@ fun PCountCard(p: Project, c: PCount) {
         Text(tr("el.countT"), style = ui(15f, 800))
         c.pipes.forEach { n ->
             val what = when (n.kind) { "ufh" -> tr("sx.c.ufh"); "heat" -> tr("sx.c.heat", "d" to n.dia); else -> tr("sx.c.water", "s" to tr("sx.sys.${p.plumb.water}"), "d" to n.dia) }
-            Kv(what, tr(if (n.unit == "stick") "sx.c.sticks" else "sx.c.coils", "m" to d1(n.m), "s" to d1(n.withSpare), "n" to n.pieces))
+            Kv(what, tr(when (n.unit) { "stick" -> "sx.c.sticks"; "m" -> "sx.c.metres"; else -> "sx.c.coils" }, "m" to d1(n.m), "s" to d1(n.withSpare), "n" to n.pieces))
         }
         if (c.drain50 > 0 || c.drain110 > 0) {
             Hairline()
@@ -666,10 +669,12 @@ private fun FixSheet(s: Sheet.PFix) {
     GlassSheet(tr("sx.t.${old.t}"), { app.sheet = null }, footer = {
         GBtn(tr("common.save"), ::save, enabled = err == null)
         GBtn(tr("common.delete"), {
-            val before = app.store.get(p.id) ?: return@GBtn
+            val fixes = app.store.get(p.id)?.plumb?.fixes ?: return@GBtn
+            val at = fixes.indexOfFirst { it.id == old.id }; val gone = fixes.getOrNull(at) ?: return@GBtn
             app.updatePlumb(p.id) { e -> e.copy(fixes = e.fixes.filter { it.id != old.id }) }
             app.sheet = null
-            app.say("sx.fixDel", action = "common.undo", onAction = { app.store.update(p.id) { before } })
+            // Undo puts back only this fixture, where it was
+            app.say("sx.fixDel", action = "common.undo", onAction = { app.updatePlumb(p.id) { e -> if (e.fixes.any { it.id == gone.id }) e else e.copy(fixes = e.fixes.putBack(gone, at)) } })
         }, Btn.SECONDARY)
     }) {
         Text(tr("tl.fixWall"), style = ui(15f, 700))
@@ -753,10 +758,12 @@ private fun PointSheet(s: Sheet.PPoint) {
             app.sheet = null; app.say("common.save")
         }, enabled = err == null)
         GBtn(tr("common.delete"), {
-            val before = app.store.get(p.id) ?: return@GBtn
+            val pts = app.store.get(p.id)?.plumb?.points ?: return@GBtn
+            val at = pts.indexOfFirst { it.id == old.id }; val gone = pts.getOrNull(at) ?: return@GBtn
             app.updatePlumb(p.id) { e -> e.copy(points = e.points.filter { it.id != old.id }) }
             app.sheet = null
-            app.say("el.devDel", action = "common.undo", onAction = { app.store.update(p.id) { before } })
+            // Undo puts back only this outlet, where it was
+            app.say("el.devDel", action = "common.undo", onAction = { app.updatePlumb(p.id) { e -> if (e.points.any { it.id == gone.id }) e else e.copy(points = e.points.putBack(gone, at)) } })
         }, Btn.SECONDARY)
     }) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -839,10 +846,15 @@ private fun RoomSetSheet(pid: String, rid: String) {
         }, Btn.SECONDARY, icon = "box")
         GBtn(tr("sx.marks"), { app.sheet = null; app.push(Route.WallView(pid, rid, c.g.walls.first().id)) }, Btn.SECONDARY, icon = "pin")
         if (p.plumb.fixes.any { it.roomId == rid } || p.plumb.points.any { it.roomId == rid }) GBtn(tr("sx.clear"), {
-            val before = app.store.get(pid) ?: return@GBtn
+            val before = app.store.get(pid)?.plumb ?: return@GBtn
+            val fixes = before.fixes.filter { it.roomId == rid }; val pts = before.points.filter { it.roomId == rid && it.from == null }
+            val kits = before.room(rid).kits; val ufh = before.room(rid).ufh
             app.updatePlumb(pid) { e -> e.copy(fixes = e.fixes.filter { it.roomId != rid }, points = e.points.filter { it.roomId != rid || it.from != null },
                 rooms = e.rooms.map { if (it.roomId == rid) it.copy(kits = emptyList(), ufh = false) else it }) }
-            app.sheet = null; app.say("el.cleared", action = "common.undo", onAction = { app.store.update(pid) { before } })
+            // Undo puts back only this room's fixtures, outlets, kits and underfloor heating
+            app.sheet = null; app.say("el.cleared", action = "common.undo", onAction = { app.updatePlumb(pid) { e ->
+                e.copy(fixes = e.fixes + fixes.filter { f -> e.fixes.none { it.id == f.id } }, points = e.points + pts.filter { q -> e.points.none { it.id == q.id } },
+                    rooms = e.rooms.map { if (it.roomId == rid) it.copy(kits = kits, ufh = ufh) else it }) } })
         }, Btn.DANGER)
     }
 }
@@ -961,6 +973,15 @@ private fun PricesSheet(pid: String?) {
     }
 }
 
+/** A switch line of the typed room's sheet. */
+@Composable
+private fun FreeSwitch(label: String, on: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(RoundedCornerShape(14.dp)).background(G.glass(.55f)).switchState(on).clickable(role = Role.Switch, onClick = onClick)
+        .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(label, style = ui(14f, 600, G.ink2), modifier = Modifier.weight(1f)); GSwitch(on)
+    }
+}
+
 /** A room typed by size: its name and kind, length, width and height, how many of each fixture, the heating and the pipe to the riser. */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -971,21 +992,27 @@ private fun FreeSheet(pid: String, fid: String?) {
     val unit = app.settings.unit
     val uw = tr(if (unit == LenUnit.CM) "u.cm" else "u.m")
     val old = fid?.let { id -> p.plumb.free.firstOrNull { it.id == id } }
-    val start = old ?: PlFree(uid(), app.t(kindKey("bath")), "bath")
+    val start = old ?: PlFree(uid(), "@" + kindKey("bath"), "bath")
     var kind by rememberSaveable { mutableStateOf(start.kind) }
-    var name by rememberSaveable { mutableStateOf(start.name) }
+    // a kind's own name is kept as its key, so it follows the language
+    var name by rememberSaveable { mutableStateOf(uz.metrx.app.data.dn(start.name, app.settings.lang)) }
+    fun keptName() = name.trim().let { t -> if (t == uz.metrx.app.data.dn(start.name, app.settings.lang)) start.name else if (t == app.t(kindKey(kind))) "@" + kindKey(kind) else t }
     var tl by rememberSaveable { mutableStateOf(fmtField(start.L, unit, en)) }
     var tw by rememberSaveable { mutableStateOf(fmtField(start.W, unit, en)) }
     var th by rememberSaveable { mutableStateOf(fmtField(start.H, unit, en)) }
     var tk by rememberSaveable { mutableStateOf(fmtField(start.link, unit, en)) }
-    var cnt by rememberSaveable { mutableStateOf(listOf(start.wc, start.basin, start.bath, start.shower, start.sink, start.wm, start.dw, start.wh, start.gb, start.rad)) }
+    // an older room shows the choices its kit made (towel rail, hand basin, cabin)
+    val kit0 = uz.metrx.app.plumb.withKit(start)
+    var cnt by rememberSaveable { mutableStateOf(listOf(start.wc, start.basin, start.bath, start.shower, start.sink, start.wm, start.dw, start.wh, start.gb, start.rad, kit0.tr)) }
     var ufh by rememberSaveable { mutableStateOf(start.ufh) }
+    var small by rememberSaveable { mutableStateOf(kit0.small) }
+    var cabin by rememberSaveable { mutableStateOf(kit0.cabin) }
     val L = parseMm(tl, unit); val W = parseMm(tw, unit); val H = parseMm(th, unit); val K = parseMm(tk, unit)
     val ok = L != null && W != null && H != null && K != null && L in 800..30000 && W in 800..30000 && H in 2000..6000
     fun save() {
         if (!ok || !app.once()) return
-        val f = start.copy(name = name.trim(), kind = kind, L = L!!, W = W!!, H = H!!, link = K!!, wc = cnt[0], basin = cnt[1], bath = cnt[2], shower = cnt[3], sink = cnt[4],
-            wm = cnt[5], dw = cnt[6], wh = cnt[7], gb = cnt[8], rad = cnt[9], ufh = ufh)
+        val f = start.copy(name = keptName(), kind = kind, L = L!!, W = W!!, H = H!!, link = K!!, wc = cnt[0], basin = cnt[1], bath = cnt[2], shower = cnt[3], sink = cnt[4],
+            wm = cnt[5], dw = cnt[6], wh = cnt[7], gb = cnt[8], rad = cnt[9], ufh = ufh, tr = cnt[10], small = small, cabin = cabin, kept = true)
         app.updatePlumb(pid) { e -> e.copy(free = if (old != null) e.free.map { if (it.id == f.id) f else it } else e.free + f) }
         app.sheet = null
         if (old == null) app.push(Route.PView(pid, "free:" + f.id))
@@ -1008,11 +1035,14 @@ private fun FreeSheet(pid: String, fid: String?) {
             GField(tr("tl.pbW"), tw, { v -> tw = v.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(7) }, "2", decimal = true, labelRight = uw, modifier = Modifier.weight(1f))
             GField(tr("tl.pbH"), th, { v -> th = v.filter { c -> c.isDigit() || c == ',' || c == '.' }.take(7) }, "2,7", decimal = true, labelRight = uw, modifier = Modifier.weight(1f))
         }
-        listOf("wc", "bs", "bath", "sh", "sink", "wm", "dw", "wh", "gb", "rad").forEachIndexed { i, k ->
+        listOf("wc", "bs", "bath", "sh", "sink", "wm", "dw", "wh", "gb", "rad", "tr").forEachIndexed { i, k ->
             Row(Modifier.fillMaxWidth().heightIn(min = 52.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(tr("sx.t.$k"), style = ui(15f, 600), modifier = Modifier.weight(1f))
                 Stepper(cnt[i]) { v -> cnt = cnt.toMutableList().also { it[i] = v.coerceIn(0, 6) } }
             }
+            // the basins as hand basins (cold only), the showers as cabins
+            if (k == "bs" && cnt[1] > 0) FreeSwitch(tr("sx.t.bsm"), small) { small = !small }
+            if (k == "sh" && cnt[3] > 0) FreeSwitch(tr("sx.t.cab"), cabin) { cabin = !cabin }
         }
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.7f)).switchState(ufh).clickable(role = Role.Switch) { ufh = !ufh }
             .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically) {

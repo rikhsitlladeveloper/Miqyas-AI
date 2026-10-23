@@ -319,9 +319,9 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
         val top = y
         if (pf.plan) {
             val label = dn(r.name, l)
-            val tm2 = tm; val un = unit; val e = en
+            val tm2 = tm; val un = unit; val e = en; val m2 = t("u.m2")
             draw {
-                translate(PX + .75f, top + .75f) { scale(.75f, .75f, Offset.Zero) { drawReportPlan(r, un, e, label, tm2, sn.snap) } }
+                translate(PX + .75f, top + .75f) { scale(.75f, .75f, Offset.Zero) { drawReportPlan(r, un, e, label, tm2, sn.snap, sn.roomLabel, m2) } }
                 drawRect(FIG, Offset(PX + .375f, top + .375f), Size(270.75f, planH - .75f), style = Stroke(.75f))
             }
         }
@@ -389,9 +389,9 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
         }
     }
 
-    /** 3D views two by two (prototype .views), at most four. */
+    /** 3D views two by two (prototype .views), at most four; a picture whose file is gone gives its place to the next. */
     fun views() {
-        val vs = sn.rooms.flatMap { it.room.views }.take(4).mapNotNull { v -> image(v.img) }
+        val vs = sn.rooms.flatMap { it.room.views }.asSequence().mapNotNull { v -> image(v.img) }.take(4).toList()
         if (vs.isEmpty()) return
         h2(t("r.views"))
         space(0f)
@@ -529,5 +529,5 @@ fun snapTotal(sn: Snap): BigInteger {
 }
 
 /** Measurements still waiting for confirmation in the report's rooms (prototype unconfCount over sn.rooms). */
-fun unconfirmed(sn: Snap): Int = sn.rooms.sumOf { sr -> uz.metrx.app.geo.unconfCount(sr.room) }
+fun unconfirmed(sn: Snap): Int = sn.rooms.sumOf { sr -> uz.metrx.app.geo.unconfCount(sr.room, sn.snap) }
 

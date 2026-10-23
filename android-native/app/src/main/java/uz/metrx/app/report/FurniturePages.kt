@@ -140,7 +140,7 @@ private fun Doc.materials(sn: Snap) {
     }
     if (sn.furniture.any { it.kind == "kitchen" }) mat("wt38")?.let { entries += Triple(t("mt.wtK"), presetName(it.id, it.name), it.rgb) }
     if (sn.furniture.any { (it.kx?.splash ?: 0) > 0 }) mat("splash6")?.let { entries += Triple(t("mt.splashK"), presetName(it.id, it.name), it.rgb) }
-    if (sn.fhandles.isNotBlank() && sn.furniture.any { f -> f.modules.any { it.handles } }) entries += Triple(t("hk.handle"), presetName(null, sn.fhandles), null)
+    if (sn.fhandles.isNotBlank() && sn.furniture.any { uz.metrx.app.furniture.hasHandles(it) }) entries += Triple(t("hk.handle"), presetName(null, sn.fhandles), null)
     if (entries.isEmpty()) return
     h2(t("fd.mats"))
     // the swatch in a narrow first column

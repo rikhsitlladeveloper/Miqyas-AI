@@ -52,6 +52,9 @@ class RoomOps(private val app: App) {
         app.setTop(uz.metrx.app.ui.Route.Editor(pid, rid, m))
     }
 
+    /** The editor was left: a drawn room's shape / diagonal mode does not come back with it next time. */
+    fun leave() { polyMode = "plan"; polyRoom = null; diagFirst = null }
+
     private fun snap(r: Room) = Snap(r.dims, r.openings, r.poly, r.rot, r.points, r.features)
     // a laser reading waiting on a value is not history: one that came after the snapshot stays
     private fun Room.restore(s: Snap) = copy(dims = s.dims.mapValues { (k, d) -> d.copy(pending = dims[k]?.pending ?: d.pending) },
@@ -127,11 +130,8 @@ class RoomOps(private val app: App) {
     /** Puts a reading on a wall or the height, waiting for confirmation (prototype trayAssign). */
     fun assignReading(pid: String, rid: String, id: String, k: String) {
         val x = app.settings.readings.firstOrNull { it.id == id } ?: return
-        // the same limit as a typed value (a 3 m reading is not a wall's thickness)
-        val max = uz.metrx.app.geo.dimMax(k)
-        if (x.mm > max) {
-            app.say("err.max", "max" to fmtLen(max, app.settings.unit, app.english()).replace(Regex("[.,]0+$"), "") + " " + app.unitName(), kind = ToastKind.ERROR); return
-        }
+        // the same limits as a typed value (a 3 m reading is not a wall's thickness, nor 1 m a room's height)
+        if (outOfLimits(pid, rid, k, x.mm)) return
         change(pid, rid, hist = false) { it.copy(dims = it.dims + (k to it.dim(k).copy(pending = Pending(x.mm, x.src, "quick")))) }
         app.settings.markReadingUsed(id, dimLabel(k))
         focus(rid, k)
@@ -161,7 +161,15 @@ class RoomOps(private val app: App) {
         app.say("ms.confirmed", "d" to dimLabel(k), "v" to fmtLen(mm, app.settings.unit, app.english(), full = true) + " " + app.unitName(), action = "common.undo") { undo(pid, rid) }
     }
 
-    fun confirm(pid: String, rid: String, k: String) { val p = room(pid, rid)?.dim(k)?.pending ?: return; apply(pid, rid, k, p.mm, p.src) }
+    fun confirm(pid: String, rid: String, k: String) { val p = room(pid, rid)?.dim(k)?.pending ?: return; if (outOfLimits(pid, rid, k, p.mm)) return; apply(pid, rid, k, p.mm, p.src) }
+
+    /** Says why reading [mm] cannot go on [k] (below the least or above the most a typed value takes); false when it fits. */
+    private fun outOfLimits(pid: String, rid: String, k: String, mm: Int): Boolean {
+        val r = room(pid, rid) ?: return true
+        val (key, lim) = uz.metrx.app.geo.readingLimit(k, mm, r.isPoly) ?: return false
+        app.say(key, (if (key == "err.min") "min" else "max") to fmtLen(lim, app.settings.unit, app.english()).replace(Regex("[.,]0+$"), "") + " " + app.unitName(), kind = ToastKind.ERROR)
+        return true
+    }
 
     /** Throws the reading away; with a confirmed value the card says "measuring again". */
     fun againReading(pid: String, rid: String, k: String) {

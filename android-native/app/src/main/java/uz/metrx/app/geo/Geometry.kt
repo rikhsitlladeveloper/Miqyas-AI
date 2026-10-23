@@ -28,6 +28,12 @@ fun dimMax(k: String) = DIM_MAX[k] ?: 100_000
 /** The least a room's measurement may be, mm: a rectangle's side 0,5 m, the height 1,8 m (a drawn room's walls may be short). */
 fun dimMin(k: String, poly: Boolean) = when { k == "H" -> 1_800; !poly && (k == "A" || k == "B") -> 500; else -> 0 }
 
+/** What keeps a reading [mm] off measurement [k], as a typed value: ("err.min", the least) or ("err.max", the most); null when it fits. */
+fun readingLimit(k: String, mm: Int, poly: Boolean): Pair<String, Int>? {
+    val min = dimMin(k, poly); val max = dimMax(k)
+    return if (mm in 1 until min) "err.min" to min else if (mm > max) "err.max" to max else null
+}
+
 /** A height above this is unusual: said under the field (it may be right: a hall, a loft). */
 const val H_TALL = 4_500
 
@@ -139,10 +145,16 @@ fun areas(r: Room, snap: Boolean = true): Areas? {
     // columns take floor and add their two sides to the walls; a niche from the floor adds floor and its sides
     val fx = r.features
     val floorF = floor - fx.filter { it.type == "column" }.sumOf { it.w.toLong() * it.d } + fx.filter { it.type == "niche" && it.sill == 0 }.sumOf { it.w.toLong() * it.d }
-    val perimF = perim + fx.filter { it.type == "column" || it.sill == 0 }.sumOf { 2L * it.d }
+    val ws = if (fx.any { it.type == "column" }) walls(r, snap) else emptyList()
+    // a column's side flush with a corner is no wall: it covers that much of the next wall instead (-d, not +d)
+    fun colSides(f: uz.metrx.app.data.Feature): Long {
+        val len = ws.firstOrNull { it.id == f.wall }?.len
+        return ((if (f.off <= 0) -1 else 1) + (if (len != null && f.off + f.w >= len) -1 else 1)).toLong() * f.d
+    }
+    val perimF = perim + fx.sumOf { if (it.type == "column") colSides(it) else if (it.sill == 0) 2L * it.d else 0L }
     if (H == null) return Areas(floorF, perimF, null, null, null)
     val extra = fx.sumOf { f ->
-        if (f.type == "column") 2L * f.d * H
+        if (f.type == "column") colSides(f) * H
         else {
             // a niche the room's height no longer reaches has nothing inside (and never a negative area)
             val nh = (if (f.h > 0) f.h else H - f.sill).coerceAtMost(H - f.sill).coerceAtLeast(0).toLong()
@@ -291,11 +303,15 @@ fun shoelace(v: List<Pt>): Double { var s = 0.0; for (i in v.indices) { val a = 
 // the report is drawn on a background thread while the screens read it too
 private val geoCache = java.util.concurrent.ConcurrentHashMap<String, Pair<Any, PolyGeo>>()
 
-/** Solves a drawn room from its measured walls (prototype skGeo). Cached on the room's shape, dims and the snap setting. */
+/**
+ * Solves a drawn room from its measured walls (prototype skGeo). Cached on the room's shape, dims and snap. The room's
+ * own snap (Poly.snap) wins; [angleSnap] is only for a room that has none (an old quote's rooms: the quote's snap).
+ */
 fun polyGeo(r: Room, angleSnap: Boolean = true): PolyGeo {
-    val key = Triple(angleSnap, r.poly, r.dims)
+    val snap = r.poly?.snap ?: angleSnap
+    val key = Triple(snap, r.poly, r.dims)
     geoCache[r.id]?.let { (k, g) -> if (k == key) return g }
-    val g = computePolyGeo(r, angleSnap)
+    val g = computePolyGeo(r, snap)
     if (geoCache.size > 200) geoCache.clear()
     geoCache[r.id] = key to g
     return g

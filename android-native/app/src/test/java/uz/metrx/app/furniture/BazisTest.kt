@@ -52,8 +52,8 @@ class BazisTest {
         val next = remnantsFor(after, "o2", false)
         assertFalse(next.any { it.id == "old" }); assertTrue(next.containsAll(kept))
         assertEquals(listOf("old"), remnantsFor(after, "o1", true).map { it.id })
-        // a deleted order's remnants are free again
-        assertTrue(remnantsFor(after, "o2", false) { it != "o1" }.any { it.id == "old" })
+        // a deleted order's remnants stay taken: that board was cut
+        assertFalse(remnantsFor(after, "o2", false).any { it.id == "old" })
         // undone: as before
         assertEquals(store, cutUndone(after, "o1"))
         // done twice: nothing kept twice
@@ -69,7 +69,8 @@ class BazisTest {
         // as many whole remnants as the carcass took sheets: no carcass sheet is bought
         val rems = List(lay.sheets.size) { Remnant("w$it", f.mats.carcass, sheet.l - 2 * ws.trim, sheet.w - 2 * ws.trim) }
         val withRems = costOf(listOf(f), ws, MAT_PRESETS, HW_PRESETS, rems = rems)
-        assertEquals(0.0, withRems.lines.first { it.group == "mat" && it.key == f.mats.carcass }.qty, 0.0)
+        // no sheet bought: no line at all (not a 0-sheet line saying its price is missing)
+        assertTrue(withRems.lines.none { it.group == "mat" && it.key == f.mats.carcass })
         assertTrue(withRems.total < plain.total)
         // cutting them is still work
         assertEquals(plain.lines.first { it.key == "fc.cut" }.qty, withRems.lines.first { it.key == "fc.cut" }.qty, 0.0)

@@ -139,7 +139,7 @@ fun EstimateTab(p: Project, lang: Lang) {
         Stats(p, lang)
         // after a quote: is the draft still the same as the last one issued? (prototype es.same / es.changed)
         p.quotes.lastOrNull()?.let { q ->
-            val same = uz.metrx.app.report.fingerprint(uz.metrx.app.report.snapshotOf(p, app.settings)) == q.fp
+            val same = uz.metrx.app.report.sameAsQuote(uz.metrx.app.report.snapshotOf(p, app.settings), q.fp)
             QuoteBanner(same, tr(if (same) "es.same" else "es.changed", "n" to q.no))
         }
         if (p.isTiler) uz.metrx.app.ui.tiles.TilesCard(p) else if (p.isElec) uz.metrx.app.ui.elec.ElecCard(p) else if (p.isPlumb) uz.metrx.app.ui.plumb.PlumbCard(p) else if (p.isWin) uz.metrx.app.ui.win.WinCard(p) else if (uz.metrx.app.trades.isTrade(p.industry)) uz.metrx.app.ui.projects.TradeCard(p)

@@ -32,7 +32,7 @@ private fun Doc.layoutLook(l: TileLayout) = t("tl.lk.${l.look}") + if (l.usesSec
 
 internal fun Doc.tilePages(ls: List<TileLayout>, troom: List<TileRoom>) {
     if (ls.isEmpty()) return
-    val names = sn.rooms.associate { it.room.id to it.floorLabel.ifBlank { dn(it.room.name, l) } }
+    val names = sn.rooms.associate { it.room.id to tradeRoomName(it, sn.rooms, l) }
     // the layouts of the report's rooms and those typed by size
     val shown = ls.filter { it.roomId == null || it.roomId in names }
     if (shown.isEmpty()) return

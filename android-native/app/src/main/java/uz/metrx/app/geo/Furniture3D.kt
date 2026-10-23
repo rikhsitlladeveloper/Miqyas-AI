@@ -107,7 +107,7 @@ class PartHi(val key: String, val role: String, val mods: Set<String>)
 
 /** The part names the 3D knows its boards by; the others light up every board of their role in their module. */
 private val TAGGED = setOf("fp.side", "fp.top", "fp.bottom", "fp.divider", "fp.shelf", "fp.back", "fp.door", "fp.dFace", "fp.rail", "fp.plinth",
-    "fp.panel", "fp.filler", "fp.slidePanel", "fp.dSide", "fp.dFront", "fp.dBottom")
+    "fp.panel", "fp.filler", "fp.slidePanel", "fp.dSide", "fp.dFront", "fp.dBottom", "fp.endLow", "fp.endUp")
 private const val HI = 0xF59E0B
 
 /** A handle's length along its door or drawer, mm: the piece's handle type (a knob, a long bar, the usual 128 skoba). */
@@ -186,13 +186,16 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
                     // a peninsula's side ends at the peninsula, which covers it: no end panel there
                     val penSide = f.layout == "P" && r == rs.firstOrNull { it.wall != ISLAND }
                     val ends = if (isl) listOf(lo to (f.layout != "P"), hi to true) else listOf(lo to (lo > 20), hi to (wl != null && hi < wl - 20 && !penSide))
-                    if (kx0.ends > 0) ends.forEach { (a, free) -> if (free) B.box(b, B.front, if (a == lo) a - 18 else a, if (a == lo) a else a + 18, 0, wt - K_TOP, 0, 600, true) }
+                    // the end panels are parts of no module (KitchenExtras.extrasParts): lit up from the parts list by their own name
+                    val sm = B.mod; val ss = B.sec; B.mod = ""; B.sec = ""
+                    if (kx0.ends > 0) ends.forEach { (a, free) -> if (free) B.box(b, B.role("front", "fp.endLow"), if (a == lo) a - 18 else a, if (a == lo) a else a + 18, 0, wt - K_TOP, 0, 600, true) }
                     val up = f.modules.filter { it.wall == r.wall && it.type == "wall" }
                     if (kx0.endsUp > 0 && up.isNotEmpty() && wl != null) {
                         val u0 = up.minOf { it.x }; val u1 = up.maxOf { it.x + it.w }; val y0 = up.minOf { it.elev }; val y1 = up.maxOf { it.elev + it.h }; val d = up.maxOf { it.d }
-                        if (u0 > 20) B.box(b, B.front, u0 - 18, u0, y0, y1, 0, d, true)
-                        if (u1 < wl - 20) B.box(b, B.front, u1, u1 + 18, y0, y1, 0, d, true)
+                        if (u0 > 20) B.box(b, B.role("front", "fp.endUp"), u0 - 18, u0, y0, y1, 0, d, true)
+                        if (u1 < wl - 20) B.box(b, B.role("front", "fp.endUp"), u1, u1 + 18, y0, y1, 0, d, true)
                     }
+                    B.mod = sm; B.sec = ss
                 }
                 // extras: the backsplash panel on the wall over the worktop, the cornice on the wall units
                 val kx = f.kx
@@ -289,10 +292,11 @@ private class Builder3(
             else -> { obb(p, x, true); picks += Pick(key, x) }
         }
         if (handles) {
-            // a knob is as wide as it is long
-            val hw = if (hLen < 60) hLen / 1000 else .012
-            val ho = o + e * ((fw - 40) / 1000) + tn * (t / 1000.0) + V3(0.0, (hy - hLen / 2) / 1000, 0.0)
-            obb(handle, Obb(ho, e * hw, V3(0.0, hLen / 1000, 0.0), tn * .025), false)
+            // a knob is as wide as it is long; a long handle is no longer than the door less 40 mm
+            val hl = min(hLen, max(20.0, h - 40))
+            val hw = if (hl < 60) hl / 1000 else .012
+            val ho = o + e * ((fw - 40) / 1000) + tn * (t / 1000.0) + V3(0.0, (hy - hl / 2) / 1000, 0.0)
+            obb(handle, Obb(ho, e * hw, V3(0.0, hl / 1000, 0.0), tn * .025), false)
         }
     }
 
@@ -304,7 +308,8 @@ private class Builder3(
         val nn = n + out
         val o = w.at(a0 / 1000, y0 / 1000, nn / 1000)
         val x = Obb(o, w.dir(fw / 1000, 0.0), V3(0.0, fh / 1000, 0.0), w.dir(0.0, t / 1000.0))
-        if (!bare) { obb(role(pr, "fp.dFace"), x, true); picks += Pick(key, x) }
+        // seeing inside, an inner drawer's face (behind a door, of the carcass board) stays: only fronts go
+        if (!bare || pr != "front") { obb(role(pr, "fp.dFace"), x, true); if (!bare) picks += Pick(key, x) }
         if (box && (out > 0 || bare)) {
             val bh = min(fh - 40, 150.0).coerceAtLeast(60.0); val bx0 = a0 + 26; val bx1 = a0 + fw - 26; val by = y0 + 20
             val c = role("carcass", "fp.dBox")
@@ -314,8 +319,10 @@ private class Builder3(
         }
         if (handles && !bare) {
             val hc = a0 + fw / 2
-            val hh = if (hLen < 60) hLen / 1000 else .012
-            obb(handle, Obb(w.at((hc - hLen / 2) / 1000, (y0 + fh - min(40.0, fh / 3)) / 1000, (nn + t) / 1000), w.dir(hLen / 1000, 0.0), V3(0.0, hh, 0.0), w.dir(0.0, .025)), false)
+            // a long handle is no longer than the front less 40 mm
+            val hl = min(hLen, max(20.0, fw - 40))
+            val hh = if (hl < 60) hl / 1000 else .012
+            obb(handle, Obb(w.at((hc - hl / 2) / 1000, (y0 + fh - min(40.0, fh / 3)) / 1000, (nn + t) / 1000), w.dir(hl / 1000, 0.0), V3(0.0, hh, 0.0), w.dir(0.0, .025)), false)
         }
     }
 

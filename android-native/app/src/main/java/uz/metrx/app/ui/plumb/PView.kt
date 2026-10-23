@@ -181,7 +181,7 @@ fun PViewScreen(rt: Route.PView) {
     val calc = rememberPCalc(p)
     val c = calc.ctxs.firstOrNull { it.id == rt.rid }
     val room = if (free) null else p.rooms.firstOrNull { it.id == rt.rid }
-    val title = c?.free?.let { it.name.ifBlank { tr(kindKey(it.kind)) } } ?: room?.let { r -> p.floors.firstOrNull { it.id == r.floorId }?.let { floorName(it, lang) } ?: dn(r.name, lang) } ?: ""
+    val title = c?.free?.let { dn(it.name, lang).ifBlank { tr(kindKey(it.kind)) } } ?: room?.let { r -> p.floors.firstOrNull { it.id == r.floorId }?.let { floorName(it, lang) } ?: dn(r.name, lang) } ?: ""
     var mode by rememberSaveable(rt) { mutableStateOf("3d") }
     var wall by rememberSaveable(rt) { mutableStateOf(c?.g?.walls?.firstOrNull()?.id ?: "A") }
     var layerS by rememberSaveable(rt) { mutableStateOf(LAYERS.joinToString(",")) }
@@ -579,6 +579,7 @@ private fun RiserCard(p: Project, c: PCtx, rs: PlRiser?) {
 /** The heating in this room: the boiler, the radiators and their heat against the room's need, the underfloor loops. */
 @Composable
 private fun HeatCard(p: Project, c: PCtx, calc: PlumbCalc) {
+    val app = LocalApp.current
     val lang = LocalLang.current
     val fs = fixesIn(p, c)
     val rads = fs.filter { it.t == "rad" }
@@ -591,7 +592,8 @@ private fun HeatCard(p: Project, c: PCtx, calc: PlumbCalc) {
         if (rads.isNotEmpty()) Kv(tr("sx.t.rad"), tr("sx.radsV", "n" to rads.size, "w" to rads.sumOf { uz.metrx.app.plumb.radWatts(it) }))
         if (loop != null) {
             Kv(tr("sx.s.ufh"), tr("sx.loopV", "n" to loop.n, "s" to loop.step / 10, "a" to d1(loop.area)))
-            Kv(tr("sx.loopLen"), d1(loop.each / 1000) + " " + tr("u.m") + (if (loop.n > 1) " × ${loop.n}" else ""))
+            // the loop's length is the advanced app's (a count for buying)
+            if (app.settings.advanced) Kv(tr("sx.loopLen"), d1(loop.each / 1000) + " " + tr("u.m") + (if (loop.n > 1) " × ${loop.n}" else ""))
         }
         if (calc.routes.heat == null) Text(tr("sx.w.noBoiler"), style = ui(12.5f, 500, G.amberInk, 1.35f))
     }

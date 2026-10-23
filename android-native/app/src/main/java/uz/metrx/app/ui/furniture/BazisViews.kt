@@ -446,7 +446,7 @@ private fun presetHwName(h: uz.metrx.app.furniture.Hw): String =
 
 /** The remnants order [p]'s cut list uses first (none in the simple app). */
 fun remsOf(app: App, p: Project): List<Remnant> =
-    if (!app.settings.advanced) emptyList() else remnantsFor(app.settings.remnants, p.id, p.cutAt > 0) { id -> app.store.get(id) != null }
+    if (!app.settings.advanced) emptyList() else remnantsFor(app.settings.remnants, p.id, p.cutAt > 0)
 
 /** The workshop's remnants: by material, their sizes and where they came from; each can be thrown away. */
 @Composable
@@ -464,16 +464,20 @@ fun RemnantsScreen() {
             Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(20.dp), fill = G.glass(.6f)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text((m?.let { presetMatName(it) } ?: mat) + " · ${list.size}", style = ui(15f, 800))
                 list.sortedByDescending { it.L.toLong() * it.W }.forEach { r ->
+                    val taken = !uz.metrx.app.furniture.removable(r)
                     Hairline()
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                         Column(Modifier.weight(1f)) {
                             Text("${r.L} × ${r.W} " + tr("u.mm") + if (r.grain) " ↕" else "", style = num(15f, 700))
                             val from = app.store.get(r.src)?.let { dn(it.name, lang) }
-                            val by = r.used.takeIf { it.isNotEmpty() }?.let { app.store.get(it) }?.let { dn(it.name, lang) }
-                            Text(listOfNotNull(from?.let { tr("bz.remFrom", "o" to it) }, by?.let { tr("bz.remBy", "o" to it) } ?: tr("bz.remFree")).joinToString(" · "),
-                                style = ui(12f, 400, if (by != null) G.amberInk else G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                            val by = r.used.takeIf { taken }?.let { app.store.get(it) }?.let { dn(it.name, lang) }
+                            Text(listOfNotNull(from?.let { tr("bz.remFrom", "o" to it) }, if (!taken) tr("bz.remFree") else by?.let { tr("bz.remBy", "o" to it) } ?: tr("bz.remTaken")).joinToString(" · "),
+                                style = ui(12f, 400, if (taken) G.amberInk else G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
                         }
-                        Box(Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button) {
+                        // a remnant a cut order took is locked: that board was cut, it is not in the store any more
+                        if (taken) Box(Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button) { app.say("bz.remLocked", kind = uz.metrx.app.ui.components.ToastKind.INFO) }
+                            .semantics { contentDescription = app.t("bz.remLocked") }, contentAlignment = Alignment.Center) { MIcon("lock", G.ink3, 20.dp, 2f) }
+                        else Box(Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button) {
                             val before = s.remnants
                             s.setRemnantList(before.filter { it.id != r.id })
                             app.say("bz.remDeleted", action = "common.undo") { s.setRemnantList(before) }
@@ -504,6 +508,7 @@ internal fun RemnantCard(p: Project, cost: uz.metrx.app.furniture.Cost) {
         if (p.cutAt == 0L) {
             Text(tr("bz.remWill", "n" to kept, "v" to s.workshop.remMin), style = ui(12.5f, 400, G.ink2, 1.4f))
             GBtn(tr("bz.cutDone"), {
+                if (!app.once()) return@GBtn
                 val before = s.remnants
                 s.setRemnantList(uz.metrx.app.furniture.cutDone(before, cost.layouts, s.mats, p.id, s.workshop.remMin, System.currentTimeMillis()) { uz.metrx.app.data.uid() })
                 app.store.update(p.id) { it.copy(cutAt = System.currentTimeMillis()) }
@@ -514,6 +519,8 @@ internal fun RemnantCard(p: Project, cost: uz.metrx.app.furniture.Cost) {
         } else {
             Text(tr("bz.cutWas", "d" to time), style = ui(12.5f, 600, Color(0xFF15803D), 1.4f))
             GBtn(tr("bz.cutUndo"), {
+                // an offcut of this order another order took was cut there: undoing would hand it out twice
+                if (!uz.metrx.app.furniture.canUndoCut(s.remnants, p.id)) { app.say("bz.undoTaken", kind = uz.metrx.app.ui.components.ToastKind.ERROR); return@GBtn }
                 s.setRemnantList(uz.metrx.app.furniture.cutUndone(s.remnants, p.id))
                 app.store.update(p.id) { it.copy(cutAt = 0) }
             }, Btn.SECONDARY, icon = "undo", height = 44.dp, corner = 14.dp, fontSize = 14f)
@@ -527,7 +534,8 @@ internal fun RemnantCard(p: Project, cost: uz.metrx.app.furniture.Cost) {
 internal fun partHomes(fs: List<Furniture>, r: uz.metrx.app.furniture.CutRow, ws: uz.metrx.app.furniture.Workshop): Map<String, Set<String>> {
     val key = r.p.copy(mod = "", qty = 0)
     return fs.associate { f ->
-        f.id to f.modules.flatMap { m -> uz.metrx.app.furniture.partsOf(m, wsOf(f, ws)) }
+        // a kitchen's end panels too (parts of no module)
+        f.id to (f.modules.flatMap { m -> uz.metrx.app.furniture.partsOf(m, wsOf(f, ws)) } + uz.metrx.app.furniture.extrasParts(f, ws))
             .filter { it.copy(mod = "", qty = 0) == key && uz.metrx.app.furniture.matFor(it.role, f.mats) == r.mat }.map { f.id + "|" + it.mod }.toSet()
     }.filterValues { it.isNotEmpty() }
 }

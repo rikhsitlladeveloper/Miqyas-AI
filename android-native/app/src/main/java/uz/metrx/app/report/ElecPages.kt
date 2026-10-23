@@ -47,7 +47,7 @@ internal fun Doc.elecPages(e: ElecOrder) {
     val withLen = sn.pdf.estimate
     val rows = ArrayList<List<Cell>>()
     rows += listOfNotNull(th(t("r.c.no")), th(t("el.r.group")), th(t("el.r.brk")), th(t("el.r.cable")), th(t("el.r.rooms")), if (withLen) th(t("el.r.len"), true) else null)
-    val names = calc.ctxs.associate { c -> c.id to (c.free?.name?.ifBlank { t("el.k.${c.free.kind}") } ?: all.firstOrNull { it.room.id == c.id }?.let { it.floorLabel.ifBlank { dn(it.room.name, l) } } ?: "") }
+    val names = calc.ctxs.associate { c -> c.id to (c.free?.let { f -> dn(f.name, l).ifBlank { t("el.k.${f.kind}") } } ?: all.firstOrNull { it.room.id == c.id }?.let { tradeRoomName(it, all, l) } ?: "") }
     calc.circuits.forEach { cc ->
         rows += listOfNotNull(cell("${cc.no}"), cell(t("el.g.${cc.group}")), cell(if (cc.amps > 0) t("el.brkV", "a" to cc.amps) + (if (cc.rcd) ", " + t("el.rcdS") else "") else "—"),
             cell(dec(if (cc.cable == "utp") "UTP" else "VVG " + cableName(cc.cable))), cell(cc.rooms.mapNotNull { names[it] }.joinToString(", ")),

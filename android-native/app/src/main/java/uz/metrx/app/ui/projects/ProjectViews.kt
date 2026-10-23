@@ -175,6 +175,9 @@ fun Plans2D(p: Project, lang: Lang) {
 fun MiniPlan(r: Room, s0: Float, name: String, unit: LenUnit, en: Boolean, snap: Boolean, maxW: androidx.compose.ui.unit.Dp) {
     val tm = rememberTextMeasurer()
     val cyr = uz.metrx.app.ui.theme.LocalLang.current.cyrillic
+    val m2 = tr("u.m2")
+    // the floor less its columns, plus niches from the floor, as everywhere else
+    val floor = uz.metrx.app.geo.areas(r, snap)?.floor
     val g = if (r.isPoly) polyGeo(r, snap) else null
     // the drawing's own size, as in the prototype's svg width/height
     val T = (r.dim("T").v ?: 200).toFloat()
@@ -194,7 +197,7 @@ fun MiniPlan(r: Room, s0: Float, name: String, unit: LenUnit, en: Boolean, snap:
     Canvas(Modifier.size((vw * k).dp, (vh * k).dp).semantics { contentDescription = name }) {
         val px = size.width / vw
         val u = 1f / (density * fontScale)
-        scaleTo(px) { Theme.onPaper { if (g != null) polyMini(r, g, s, T, name, en, tm, cyr, u) else rectMini(r, s, T, name, unit, en, tm, cyr, u) } }
+        scaleTo(px) { Theme.onPaper { if (g != null) polyMini(r, g, s, T, name, en, tm, cyr, u, floor, m2) else rectMini(r, s, T, name, unit, en, tm, cyr, u, floor, m2) } }
     }
 }
 
@@ -211,7 +214,7 @@ private fun DrawScope.label(tm: TextMeasurer, t: String, c: Offset, st: TextStyl
 private fun dimStyle(u: Float) = TextStyle(fontFamily = PlexCond, fontSize = (11f * u).sp, color = INK3)
 private fun nameStyle(u: Float, cyr: Boolean) = TextStyle(fontFamily = if (cyr) Manrope else Jakarta, fontSize = (10.5f * u).sp, fontWeight = FontWeight.SemiBold, letterSpacing = .05.em, color = INK)
 
-private fun DrawScope.rectMini(r: Room, s: Float, T: Float, name: String, unit: LenUnit, en: Boolean, tm: TextMeasurer, cyr: Boolean, u: Float) {
+private fun DrawScope.rectMini(r: Room, s: Float, T: Float, name: String, unit: LenUnit, en: Boolean, tm: TextMeasurer, cyr: Boolean, u: Float, floor: Long?, m2: String) {
     val ok = r.dim("A").v != null && r.dim("B").v != null
     val L = if (ok) r.dim("A").v!!.toFloat() else 4000f; val W = if (ok) r.dim("B").v!!.toFloat() else 3000f
     val t = max(2.5f, T * s); val iw = L * s; val ih = W * s
@@ -251,10 +254,10 @@ private fun DrawScope.rectMini(r: Room, s: Float, T: Float, name: String, unit: 
     }
     val cx = (x0 + x1) / 2; val cy = (y0 + y1) / 2
     label(tm, name.uppercase(), Offset(cx, cy - 2 - 4), nameStyle(u, cyr))
-    label(tm, (if (ok) fmtArea(L.toLong() * W.toLong(), en) else "?") + " m²", Offset(cx, cy + 11 - 4), dimStyle(u))
+    label(tm, (if (ok && floor != null) fmtArea(floor, en) else "?") + " " + m2, Offset(cx, cy + 11 - 4), dimStyle(u))
 }
 
-private fun DrawScope.polyMini(r: Room, g: uz.metrx.app.geo.PolyGeo, s: Float, T: Float, name: String, en: Boolean, tm: TextMeasurer, cyr: Boolean, u: Float) {
+private fun DrawScope.polyMini(r: Room, g: uz.metrx.app.geo.PolyGeo, s: Float, T: Float, name: String, en: Boolean, tm: TextMeasurer, cyr: Boolean, u: Float, floor: Long?, m2: String) {
     val v = g.verts; val minX = v.minOf { it.x }.toFloat(); val minY = v.minOf { it.y }.toFloat()
     val tw = max(2.5f, T * s); val ox = 18 + tw - minX * s; val oy = 18 + tw - minY * s
     val ip = v.map { Offset(ox + it.x.toFloat() * s, oy + it.y.toFloat() * s) }
@@ -286,7 +289,7 @@ private fun DrawScope.polyMini(r: Room, g: uz.metrx.app.geo.PolyGeo, s: Float, T
     val lp = labelPt(v.map { it.x to it.y })
     val c = Offset(ox + lp.first.toFloat() * s, oy + lp.second.toFloat() * s)
     label(tm, name.uppercase(), Offset(c.x, c.y - 2 - 4), nameStyle(u, cyr))
-    label(tm, (if (g.solved) fmtArea(abs(shoelace(v)).toLong(), en) else "?") + " m²", Offset(c.x, c.y + 11 - 4), dimStyle(u))
+    label(tm, (if (g.solved && floor != null) fmtArea(floor, en) else "?") + " " + m2, Offset(c.x, c.y + 11 - 4), dimStyle(u))
 }
 
 /** Where a drawn room's name goes: the centroid, or the middle of the widest run across it (prototype skLabelPt). */
@@ -323,7 +326,7 @@ fun Project3D(p: Project, route: Route.Project, lang: Lang) {
         }
     }
     if (rs.isEmpty()) { Text(tr("v3d.none"), style = ui(13.5f, 400, G.ink2), modifier = Modifier.padding(vertical = 6.dp)); return }
-    val key = rs.map { listOf(it.id, it.name, it.dims, it.openings, it.poly, it.wallColor, it.floorColor) }
+    val key = rs.map { listOf(it.id, it.name, it.dims, it.openings, it.poly, it.features, it.points, it.wallColor, it.floorColor) }
     val shell = remember(key, snap, lang) { buildShell(rs, false, snap) { dn(it.name, lang) } }
     val cam = remember(fid) { Cam3D() }
     val scope = rememberCoroutineScope()

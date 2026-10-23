@@ -147,6 +147,7 @@ fun RectPlan(
     modifier: Modifier = Modifier
 ) {
     val tm = rememberTextMeasurer()
+    val m2 = uz.metrx.app.ui.theme.tr("u.m2")
     var drag by remember { mutableStateOf<Pair<String, Int>?>(null) }      // opening id, live offset
     var finger by remember { mutableStateOf(Offset.Zero) }
     val lay = RectLayout(r)
@@ -188,7 +189,7 @@ fun RectPlan(
         val live = drag
         val room = if (live == null) r else r.copy(openings = r.openings.map { if (it.id == live.first) it.copy(off = live.second) else it })
         withTransform({ translate(dx, dy); scale(k, k, pivot = Offset.Zero) }) {
-            drawRectPlan(lay, room, sel, selOp ?: live?.first, unit, english, label, issueOf, tm)
+            drawRectPlan(lay, room, sel, selOp ?: live?.first, unit, english, label, issueOf, tm, m2 = m2)
         }
         if (live != null) {
             val o = room.openings.firstOrNull { it.id == live.first }
@@ -243,7 +244,7 @@ private fun pillCenter(lay: RectLayout, w: SideWall): Offset {
 }
 
 private fun DrawScope.drawRectPlan(lay: RectLayout, r: Room, sel: String?, selOp: String?, unit: LenUnit, english: Boolean, label: String,
-                                   issueOf: (Opening) -> Boolean, tm: TextMeasurer, report: Boolean = false) {
+                                   issueOf: (Opening) -> Boolean, tm: TextMeasurer, report: Boolean = false, m2: String = "m²", labelMode: String = PlanLabel.mode) {
     val tw = lay.tw; val inn = lay.inner
     val outer = Rect(inn.left - tw, inn.top - tw, inn.right + tw, inn.bottom + tw)
     // selected wall: a pale band with a blue edge, padded 5
@@ -271,7 +272,7 @@ private fun DrawScope.drawRectPlan(lay: RectLayout, r: Room, sel: String?, selOp
     // centre label: NAME and the floor area
     val a = areas(r)
     val cx = inn.center.x; val cy = inn.center.y
-    centreLabel(tm, label, (if (a != null) fmtArea(a.floor, english) else "?") + " m²", Offset(cx, cy))
+    centreLabel(tm, label, (if (a != null) fmtArea(a.floor, english) else "?") + " " + m2, Offset(cx, cy), labelMode)
 
     // wall letters (17 px inside) and corner numbers
     lay.walls.forEach { w ->
@@ -294,12 +295,14 @@ private fun DrawScope.drawRectPlan(lay: RectLayout, r: Room, sel: String?, selOp
 
 /**
  * A room's plan for the report (prototype planSVG with report:true), in the prototype's 360-wide units: returns the
- * drawing's height. Rectangle and drawn rooms alike; dimension values in plain white boxes.
+ * drawing's height. Rectangle and drawn rooms alike; dimension values in plain white boxes. [labelMode] is the quote's
+ * own room label (Snap.roomLabel), so changing it in Profile later leaves an issued quote as it was; [m2] "m²" in the
+ * report's language.
  */
-fun DrawScope.drawReportPlan(r: Room, unit: LenUnit, english: Boolean, label: String, tm: TextMeasurer, snap: Boolean): Float =
+fun DrawScope.drawReportPlan(r: Room, unit: LenUnit, english: Boolean, label: String, tm: TextMeasurer, snap: Boolean, labelMode: String = "both", m2: String = "m²"): Float =
     Theme.onPaper {
-        if (r.isPoly) drawReportPoly(r, unit, english, label, tm, snap)
-        else { val lay = RectLayout(r); drawRectPlan(lay, r, null, null, unit, english, label, { false }, tm, report = true); lay.VH }
+        if (r.isPoly) drawReportPoly(r, unit, english, label, tm, snap, labelMode, m2)
+        else { val lay = RectLayout(r); drawRectPlan(lay, r, null, null, unit, english, label, { false }, tm, report = true, m2 = m2, labelMode = labelMode); lay.VH }
     }
 
 /** The height of a room's plan drawing in the 360-wide units. */
@@ -434,11 +437,10 @@ private fun DrawScope.overall(lay: RectLayout, w: SideWall, r: Room, unit: LenUn
 /** What the middle of a room shows (Profile → Xona yorlig‘i): "both", "name", "area" or "none". Set from Settings. */
 object PlanLabel { var mode by androidx.compose.runtime.mutableStateOf("both") }
 
-/** The room's name and floor area in its middle, as chosen in Profile (prototype roomLabel). */
-internal fun DrawScope.centreLabel(tm: TextMeasurer, name0: String, area: String, c: Offset) {
+/** The room's name and floor area in its middle, as chosen in Profile (prototype roomLabel); [m] a quote's own choice. */
+internal fun DrawScope.centreLabel(tm: TextMeasurer, name0: String, area: String, c: Offset, m: String = PlanLabel.mode) {
     // a long name is cut with "…", so it stays inside the plan
     val name = if (name0.length > 24) name0.take(23).trimEnd() + "…" else name0
-    val m = PlanLabel.mode
     val nm = m == "both" || m == "name"; val ar = m == "both" || m == "area"
     val nameSt = TextStyle(fontFamily = Jakarta, fontSize = 11.5.sp, fontWeight = FontWeight.SemiBold, letterSpacing = .06.em, color = INK3)
     val areaSt = TextStyle(fontFamily = PlexCond, fontSize = 12.5.sp, color = INK3)
