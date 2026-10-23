@@ -133,7 +133,7 @@ func freeRoom(_ f: Furniture) -> Room {
         case "L":
             if ws.first == "D" { a = len(1); b = len(0) } else { a = len(0); b = len(1) }
         case "O": a = len(0); b = 3000
-        // the peninsula's seating overhang reaches past the side's end, with room for the stools beyond it
+        // the peninsula's finished back is past the side's end, with room to walk beyond it
         case "P": a = len(0) + PEN_BACK + 600; b = 3000
         default: a = len(0); b = 1800
         }
@@ -437,8 +437,8 @@ func islandPose(_ f: Furniture, _ wallLen: Int) -> Pose {
     let len = islandLen(f)
     let first = f.walls.first { $0 != ISLAND } ?? "A"
     if f.layout == "P" {
-        // it stands in front of the side's last (blind) unit, its seating overhang and finished back (PEN_BACK past
-        // its back) past the end of the side's lower row, inside the room
+        // it stands in front of the side's last (blind) unit, its finished back (PEN_BACK past its back) at the end of
+        // the side's lower row, inside the room
         let end = runsOf(f) { _ in nil }.first { $0.wall != ISLAND }.map { fillOf(f, $0, false).used + $0.lowStart } ?? wallLen
         return Pose(first, min(end, wallLen - PEN_BACK), 600, 90)
     }

@@ -147,9 +147,9 @@ func footsOf(_ f: Furniture, _ walls: [PlanWall], _ ws0: Workshop) -> [Foot] {
         if !up.isEmpty { row(up, up.map(\.d).max() ?? 350, up.map(\.elev).min() ?? 0, up.map { $0.elev + $0.h }.max() ?? 0, false) }
     }
     if let p = islandPoseIn(f, walls), let fr = frameOf(walls, p) {
-        // its worktop reaches 318 mm past its back, for sitting at
-        let l = Double(islandLen(f))
-        out.append(Foot(pts: [fr.o - fr.n * 318, fr.o + fr.u * l - fr.n * 318, fr.o + fr.u * l + fr.n * 600, fr.o + fr.n * 600],
+        // its worktop covers its cabinets and its finished back
+        let l = Double(islandLen(f)), bk = Double(PEN_BACK)
+        out.append(Foot(pts: [fr.o - fr.n * bk, fr.o + fr.u * l - fr.n * bk, fr.o + fr.u * l + fr.n * 600, fr.o + fr.n * 600],
                         lo: 0, hi: worktopTop(ws), wall: nil, a0: 0, a1: 0, floor: true, island: true))
     }
     return out

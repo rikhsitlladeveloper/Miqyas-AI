@@ -177,8 +177,8 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
                 let low = f.modules.filter { $0.wall == r.wall && !isUpper($0) && ($0.type == "base" || $0.type == "filler" || $0.app == "dishwasher") }.sorted { $0.x < $1.x }
                 let isl = r.wall == ISLAND
                 // one worktop over each stretch of touching units, no joint every unit; the corner square is the first
-                // side's. An island's is 900+ deep: it reaches 300 past its back for sitting at, and its back is finished.
-                let n0 = isl ? -318 : 0
+                // side's. An island's (a peninsula's) covers its cabinets and its finished back, no more.
+                let n0 = isl ? -PEN_BACK : 0
                 var a0 = -1, a1 = -1
                 func piece() {
                     guard a1 > a0 else { return }
@@ -186,7 +186,7 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
                     if isl { B.box(b, B.role("front"), a0, a1, 0, wt - K_TOP, -18, 0, true) }
                 }
                 for m in low { if a0 >= 0 && m.x <= a1 + 1 { a1 = max(a1, m.x + m.w) } else { piece(); a0 = m.x; a1 = m.x + m.w } }
-                // a peninsula in its usual place: the side's worktop runs on over the peninsula's overhang to its outer edge
+                // a peninsula in its usual place: the side's worktop runs on over the peninsula's finished back to its outer edge
                 if f.layout == "P" && f.pose == nil && r.wall == f.walls.first(where: { $0 != ISLAND }) && a1 > a0 { a1 += PEN_BACK }
                 piece()
                 // end panels where a row ends in the open room (not against a wall): the lower row's, the wall units'

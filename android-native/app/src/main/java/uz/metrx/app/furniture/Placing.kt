@@ -149,9 +149,9 @@ fun footsOf(f: Furniture, walls: List<PlanWall>, ws0: Workshop): List<Foot> {
         if (up.isNotEmpty()) row(up, up.maxOf { it.d }, up.minOf { it.elev }, up.maxOf { it.elev + it.h }, false)
     }
     islandPoseIn(f, walls)?.let { frameOf(walls, it) }?.let { fr ->
-        // its worktop reaches 318 mm past its back, for sitting at
-        val l = islandLen(f).toDouble()
-        out += Foot(listOf(fr.o - fr.n * 318.0, fr.o + fr.u * l - fr.n * 318.0, fr.o + fr.u * l + fr.n * 600.0, fr.o + fr.n * 600.0), 0, worktopTop(ws), null, 0.0, 0.0, true, island = true)
+        // its worktop covers its cabinets and its finished back
+        val l = islandLen(f).toDouble(); val bk = PEN_BACK.toDouble()
+        out += Foot(listOf(fr.o - fr.n * bk, fr.o + fr.u * l - fr.n * bk, fr.o + fr.u * l + fr.n * 600.0, fr.o + fr.n * 600.0), 0, worktopTop(ws), null, 0.0, 0.0, true, island = true)
     }
     return out
 }

@@ -76,7 +76,7 @@ class PlacingTest {
     @Test fun theIslandStandsWhereItWasDragged() {
         val k = placed(newFreeKitchen("Oshxona 1", "O", "O", listOf(3000), 1800, 2700, ws), listOf("A", ISLAND), "r1", "w1", ws = ws)
         val usual = footsOf(k, walls, ws).single { it.island }
-        // in front of wall A, its back 2,02 m out, the worktop 318 past it for sitting at
+        // in front of wall A, its back 2,02 m out, the worktop over its cabinets and finished back
         assertTrue(usual.pts.all { it.y in 1400.0..2350.0 })
         val moved = k.copy(pose = Pose("A", 3000, 1500, 180))
         assertTrue(footsOf(moved, walls, ws).single { it.island }.pts.all { it.y in 900.0..1830.0 })

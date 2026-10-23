@@ -21,8 +21,9 @@ let K_CORNER = 600
 /// The filler a run starts with past a corner, so its doors and handles clear the run before (mm).
 let CORNER_FILLER = 50
 
-/// A peninsula's seating overhang and finished back past its back, mm: a side that reaches its wall's end stops this short of it.
-let PEN_BACK = 336
+/// An island's or peninsula's finished back panel past its back, mm: its worktop covers the panel and the cabinets, no
+/// more; a peninsula's side that reaches its wall's end stops this short of it.
+let PEN_BACK = 18
 let K_UP_CORNER = 320
 let ISLAND = "island"
 
@@ -157,7 +158,7 @@ func autoFill(_ f: Furniture, _ runs: [Run], _ ws: Workshop, _ openings: [Openin
             let gas = points.first { $0.wall == r.wall && $0.t == "gas" }
             var sink = false, hob = false
             // the blind unit keeps a 50 mm filler before it, so the door beside it clears the next run's fronts
-            // a peninsula's side in a room ends PEN_BACK before the wall's end, so its overhang has floor under it
+            // a peninsula's side in a room ends PEN_BACK before the wall's end, so its finished back fits
             let penEnd = f.layout == "P" && ri == 0 && f.roomId != nil ? PEN_BACK : 0
             let row = slots(len - r.lowStart - pad - penEnd - (corner ? CORNER_FILLER : 0))
             var mine: [Module] = []

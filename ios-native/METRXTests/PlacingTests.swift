@@ -63,7 +63,7 @@ final class PlacingTests: XCTestCase {
 
     func testTheIslandStandsWhereItWasDragged() {
         var k = placed(newFreeKitchen("Oshxona 1", "O", "O", [3000], 1800, 2700, ws), ["A", ISLAND], "r1", "w1", ws: ws)
-        // in front of wall A, its back 2,02 m out, the worktop 318 past it for sitting at
+        // in front of wall A, its back 2,02 m out, the worktop over its cabinets and finished back
         XCTAssertTrue(footsOf(k, walls, ws).first { $0.island }!.pts.allSatisfy { (1400...2350).contains($0.y) })
         k.pose = Pose("A", 3000, 1500, 180)
         XCTAssertTrue(footsOf(k, walls, ws).first { $0.island }!.pts.allSatisfy { (900...1830).contains($0.y) })
