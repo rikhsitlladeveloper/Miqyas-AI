@@ -95,9 +95,10 @@ struct Shell3D {
 
     /// Only the floor: furniture without a room, drawn without walls (the walls' frames stay for placing it). With no
     /// walls, nothing faces the camera, so no furniture goes see-through.
-    func floorOnly() -> Shell3D {
+    /// th: the camera's start angle round it (nil: the usual one).
+    func floorOnly(_ th: Double? = nil) -> Shell3D {
         var s = Shell3D(parts: parts.filter { $0.role == .floor }, edges: [], groups: groups.map { Group3(cx: $0.cx, cz: $0.cz, normals: [:]) }, labels: [],
-                        rooms3: rooms3, L: L, W: W, H: H, tgt: tgt, r: r, theta: theta, phi: phi, bounds: bounds, rMin: rMin, fit: fit,
+                        rooms3: rooms3, L: L, W: W, H: H, tgt: tgt, r: r, theta: th ?? theta, phi: phi, bounds: bounds, rMin: rMin, fit: fit,
                         gridSize: gridSize, gridDiv: gridDiv, gridCx: gridCx, gridCz: gridCz, light: light, far: far)
         s.bases = bases
         return s

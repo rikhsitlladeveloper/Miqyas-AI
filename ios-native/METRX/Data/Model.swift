@@ -69,6 +69,8 @@ struct Project: Codable, Equatable, Identifiable {
     var plumb = PlumbOrder()
     /// Windows-and-doors orders: the windows and doors filling the rooms' openings, and those without a room (Win/Win.swift).
     var win = WinOrder()
+    /// Furniture orders (Advanced): when the parts were cut and the offcuts kept as remnants (0: not yet).
+    var cutAt: Ms = 0
 
     var isFurniture: Bool { industry == "furniture" }
     /// A tiler's order (its own app: layouts in 3D, like the furniture maker's).
@@ -99,6 +101,7 @@ struct Project: Codable, Equatable, Identifiable {
         approvedAt = c.v(.approvedAt, 0); install = c.v(.install, 0); want = c.v(.want, nil); autoName = c.v(.autoName, false)
         tiles = c.v(.tiles, []); troom = c.v(.troom, []); elec = c.v(.elec, ElecOrder())
         plumb = c.v(.plumb, PlumbOrder()); win = c.v(.win, WinOrder())
+        cutAt = c.v(.cutAt, 0)
     }
 }
 

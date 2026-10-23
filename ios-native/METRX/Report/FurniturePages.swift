@@ -180,10 +180,18 @@ private extension Doc {
 
     /// Two sheets a page: the trimmed area, the parts with their cut list numbers.
     func sheets(_ lay: MatLayout, _ number: [Int: Int], _ name: String, _ ws: Workshop) {
-        for (i, s) in lay.sheets.enumerated() {
-            // small enough for two sheets a page
-            let w = min(CW, 296 * CGFloat(lay.sheetL) / CGFloat(lay.sheetW)), k = w / CGFloat(lay.sheetL), h = CGFloat(lay.sheetW) * k
-            let cap = a(t("fw.sheet", ["m": dn(name, l), "i": i + 1, "n": lay.sheets.count, "w": Int(lay.waste * 100)]), ui(10, 600)), cS = measure(cap, CW)
+        // the remnants used first (their own size, no trim), then the new sheets
+        let boards: [SheetPlan] = lay.rems + lay.sheets
+        for (bi, s) in boards.enumerated() {
+            let rem = s.rem != nil
+            let bl = s.rem?.L ?? lay.sheetL, bw = s.rem?.W ?? lay.sheetW
+            let i = bi - lay.rems.count
+            // small enough for two sheets a page; a remnant at the sheets' scale
+            let w0 = min(CW, 296 * CGFloat(lay.sheetL) / CGFloat(lay.sheetW)), k = w0 / CGFloat(lay.sheetL)
+            let w = CGFloat(bl) * k, h = CGFloat(bw) * k
+            let capText = rem ? t("bz.remBoard", ["m": dn(name, l), "l": bl, "w": bw])
+                : t("fw.sheet", ["m": dn(name, l), "i": i + 1, "n": lay.sheets.count, "w": Int(lay.waste * 100)])
+            let cap = a(capText, ui(10, 600)), cS = measure(cap, CW)
             space(10)
             if y + cS.height + 4 + h + 14 > LIMIT { newPage(); space(10) }
             let top = y + cS.height + 4
@@ -193,7 +201,7 @@ private extension Doc {
                 return (pl, lr, measure(lr))
             }
             let note = a(t("fw.sheetNote", ["l": lay.sheetL, "w": lay.sheetW, "k": ws.kerf, "t": ws.trim]), ui(8.5, 400, F_INK3U)), nS = measure(note, CW)
-            let tr0 = CGFloat(ws.trim) * k
+            let tr0: CGFloat = rem ? 0 : CGFloat(ws.trim) * k
             draw { ctx in
                 drawText(ctx, cap, CGRect(x: PX, y: top - cS.height - 4, width: CW, height: cS.height))
                 let sheet = CGRect(x: PX, y: top, width: w, height: h)
@@ -268,12 +276,12 @@ private func fmtQty(_ d: Doc, _ q: Double) -> String {
 }
 
 /// The pack: summary, cut list a material, the sheets, hardware, modules, cost and profit. Not for the customer.
-func workshopPages(_ sn: Snap, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], _ pr: Priced, _ mode: String, now: Ms = nowMs()) -> [RPage] {
+func workshopPages(_ sn: Snap, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], _ pr: Priced, _ mode: String, now: Ms = nowMs(), rems: [Remnant] = []) -> [RPage] {
     let d = Doc(sn, false, nil, { _ in nil }, now)
     d.quoteTitle = "fw.title"
     d.subLine = d.t("fw.sub", ["d": fmtDate(now)])
     let fs = labelled(sn.furniture)
-    let cost = costOf(fs, ws, mats, hws)
+    let cost = costOf(fs, ws, mats, hws, rems: rems)
     func matName(_ id: String) -> String { mats.first { $0.id == id }.map { d.presetName($0.id, $0.name) } ?? id }
     d.newPage()
     d.para(d.a(dn(sn.name, d.l) + " · " + fs.map { dn($0.name, d.l) }.joined(separator: " + "), d.ui(11, 600)), top: 0, bottom: 4)

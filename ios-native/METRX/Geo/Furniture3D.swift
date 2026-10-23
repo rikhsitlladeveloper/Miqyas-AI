@@ -90,19 +90,42 @@ func poseBasis(_ w: WallBasis, _ p: Pose, _ len: Double) -> WallBasis {
     return WallBasis(ox: o.x, oz: o.z, ux: w.ux * c + w.nx * s, uz: w.uz * c + w.nz * s, nx: w.nx * c - w.ux * s, nz: w.nz * c - w.uz * s, len: len)
 }
 
+/// What to light up (parts list → 3D, bazis ideas 23 Oct 2026): boards of role `role` named key (Parts.swift) in the
+/// modules or sections mods, each "pieceId|module" as Parts.swift names them (a section "id/2").
+struct PartHi: Equatable {
+    let key: String, role: String, mods: Set<String>
+    init(_ key: String, _ role: String, _ mods: Set<String>) { self.key = key; self.role = role; self.mods = mods }
+}
+
+/// The part names the 3D knows its boards by; the others light up every board of their role in their module.
+private let PART_TAGGED: Set<String> = ["fp.side", "fp.top", "fp.bottom", "fp.divider", "fp.shelf", "fp.back", "fp.door", "fp.dFace", "fp.rail", "fp.plinth",
+                                        "fp.panel", "fp.filler", "fp.slidePanel", "fp.dSide", "fp.dFront", "fp.dBottom"]
+private let HI_PART = 0xF59E0B
+
+/// A handle's length along its door or drawer, mm: the piece's handle type (a knob, a long bar, the usual 128 skoba).
+func handleLen(_ id: String) -> Int {
+    switch id {
+    case "handleKnob": return 24
+    case "handleLong": return 320
+    default: return 128
+    }
+}
+
 /// The furniture fs of a room whose walls are bases. rgb gives a material's colour; open holds the keys of open doors
 /// and drawers, or amt says how far each one is open, 0 to 1 (moving between the two while it opens or shuts).
+/// bare: "See inside", no doors, drawer fronts or sliding doors (the drawers' boxes stay, shut); hi a part lit up.
 func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop, _ rgb: (String) -> Int, _ open: Set<String>,
-                 amt: ((String) -> Double)? = nil) -> Furn3D {
+                 amt: ((String) -> Double)? = nil, bare: Bool = false, hi: PartHi? = nil) -> Furn3D {
     let how: (String) -> Double = amt ?? { k in open.contains(k) ? 1 : 0 }
     let st = FStore()
     for f in fs {
         let colors = ["carcass": rgb(f.mats.carcass), "front": rgb(f.mats.front), "back": rgb(f.mats.back), "top": rgb("wt38"),
                       "mirror": MIRROR, "glass": GLASS_P, "splash": rgb("splash6"),
                       "metal": METAL, "dark": DARK, "handle": HANDLE, "white": WHITE,
-                      "clear": CLEAR, "mattress": MATTRESS, "lamel": LAMEL, "led": LED]
+                      "clear": CLEAR, "mattress": MATTRESS, "lamel": LAMEL, "led": LED, "hi": HI_PART]
         let fws = wsOf(f, ws)
         let B = FBuilder(fws, colors, st, how)
+        B.bare = bare; B.hi = hi; B.piece = f.id; B.hLen = Double(handleLen(f.handle))
         let lens = { (id: String) in bases[id].map { Int(($0.len * 1000).rounded(.towardZero)) } }
         // the island (or peninsula) stands where it was dragged, else 900 mm out from the front of the first wall's
         // units, its fronts facing them
@@ -121,6 +144,7 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
             var mm = m
             if free != nil { mm.x = m.x - (mainX ?? m.x) }
             B.wall = m.wall
+            B.mod = m.label.isEmpty ? m.id : m.label; B.sec = ""
             if m.type == "wardrobe" {
                 // what stands past each end along its wall: the wall's corner, or another box close by (of another piece or this one)
                 let L = bases[m.wall ?? ""].map { Int($0.len * 1000) }
@@ -159,7 +183,7 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
                 func piece() {
                     guard a1 > a0 else { return }
                     B.box(b, B.p("top"), a0, a1, wt - K_TOP, wt, n0, 600, true)
-                    if isl { B.box(b, B.p("front"), a0, a1, 0, wt - K_TOP, -18, 0, true) }
+                    if isl { B.box(b, B.role("front"), a0, a1, 0, wt - K_TOP, -18, 0, true) }
                 }
                 for m in low { if a0 >= 0 && m.x <= a1 + 1 { a1 = max(a1, m.x + m.w) } else { piece(); a0 = m.x; a1 = m.x + m.w } }
                 piece()
@@ -167,12 +191,12 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
                 if let kx0 = f.kx, let lo = low.first?.x, let hi = low.map({ $0.x + $0.w }).max() {
                     let wl: Int? = isl ? nil : Int((b.len * 1000).rounded())
                     let ends: [(Int, Bool)] = isl ? [(lo, f.layout != "P"), (hi, true)] : [(lo, lo > 20), (hi, wl.map { hi < $0 - 20 } ?? false)]
-                    if kx0.ends > 0 { for (a, open) in ends where open { B.box(b, B.p("front"), a == lo ? a - 18 : a, a == lo ? a : a + 18, 0, wt - K_TOP, 0, 600, true) } }
+                    if kx0.ends > 0 { for (a, open) in ends where open { B.box(b, B.role("front"), a == lo ? a - 18 : a, a == lo ? a : a + 18, 0, wt - K_TOP, 0, 600, true) } }
                     let up = f.modules.filter { $0.wall == r.wall && $0.type == "wall" }
                     if kx0.endsUp > 0, let wl, let u0 = up.map(\.x).min(), let u1 = up.map({ $0.x + $0.w }).max() {
                         let y0 = up.map(\.elev).min() ?? 0, y1 = up.map { $0.elev + $0.h }.max() ?? 0, dd = up.map(\.d).max() ?? 300
-                        if u0 > 20 { B.box(b, B.p("front"), u0 - 18, u0, y0, y1, 0, dd, true) }
-                        if u1 < wl - 20 { B.box(b, B.p("front"), u1, u1 + 18, y0, y1, 0, dd, true) }
+                        if u0 > 20 { B.box(b, B.role("front"), u0 - 18, u0, y0, y1, 0, dd, true) }
+                        if u1 < wl - 20 { B.box(b, B.role("front"), u1, u1 + 18, y0, y1, 0, dd, true) }
                     }
                 }
                 // extras: the backsplash panel on the wall over the worktop, the cornice on the wall units
@@ -182,7 +206,7 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
                     if kx.splash > 0 && a1 > a0 { B.box(b, B.p("splash"), a0, a1, wt, wt + kx.splash, 0, 6, true) }
                     if kx.cornice {
                         for m in f.modules where m.wall == r.wall && m.type == "wall" {
-                            B.box(b, B.p("front"), m.x, m.x + m.w, m.elev + m.h, m.elev + m.h + 60, 0, m.d + 30, true)
+                            B.box(b, B.role("front"), m.x, m.x + m.w, m.elev + m.h, m.elev + m.h + 60, 0, m.d + 30, true)
                         }
                     }
                 }
@@ -211,6 +235,12 @@ private final class FBuilder {
     /// The piece being built has nothing past its left / right end (no wall, no neighbour): a door hinged there opens wide.
     var freeL = false
     var freeR = false
+    /// See inside (no fronts); what to light up; the piece and module (and section) being built, as Parts.swift names
+    /// them; the handles' length.
+    var bare = false
+    var hi: PartHi? = nil
+    var piece = "", mod = "", sec = ""
+    var hLen = 128.0
     let t: Int, g: Double, edge: Double
     init(_ ws: Workshop, _ colors: [String: Int], _ st: FStore, _ how: @escaping (String) -> Double) {
         self.ws = ws; self.colors = colors; self.st = st; self.how = how
@@ -224,6 +254,17 @@ private final class FBuilder {
         // clear glass is seen through
         let x = Part3(0, w, .furn, c, k == "clear" ? 0.38 : 1); st.parts[key] = x; st.order.append(key); return x
     }
+    /// Board k of role r (carcass, front, back) being drawn: in the highlight's colour when it is the part asked for.
+    func role(_ r: String, _ k: String = "") -> Part3 {
+        guard let h = hi else { return p(r) }
+        let here = piece + "|" + mod
+        let inMod = h.mods.contains(here) || (!sec.isEmpty && h.mods.contains(here + "/" + sec))
+        let dBox = h.key == "fp.dSide" || h.key == "fp.dFront" || h.key == "fp.dBottom"
+        let named = !PART_TAGGED.contains(h.key) || k == h.key || (dBox && k == "fp.dBox")
+        if inMod && named && (h.role == r || dBox) { return p("hi") }
+        return p(r)
+    }
+
     var edges: Edges3 {
         let w = wall == ISLAND ? "island" : (wall ?? "island")
         if let e = st.edges[w] { return e }
@@ -247,6 +288,8 @@ private final class FBuilder {
     /// handle's middle hy above the door's bottom.
     func door(_ w: WallBasis, _ key: String, _ ha: Double, _ n: Double, _ y0: Double, _ h: Double, _ fw: Double, _ s: Double, _ handles: Bool, _ hy: Double, _ part: Part3? = nil,
               deg: Double = SHUT_DEG, face: String = "") {
+        // seeing inside: no doors at all
+        if bare { return }
         st.keys.append(key)
         let th = deg * .pi / 180 * how(key)
         let e = w.dir(s * cos(th), sin(th)), tn = w.dir(-s * sin(th), cos(th))
@@ -267,46 +310,52 @@ private final class FBuilder {
             obb(p("clear"), Obb(o: po, a: e * (W - 2 * fr), b: up * (H - 2 * fr), c: tn * 0.004), false)
         case "mirror":
             // a mirror on the board door's face
-            obb(part ?? p("front"), x, true)
+            obb(part ?? role("front", "fp.door"), x, true)
             let mo: V3 = o + e * 0.005 + up * 0.005 + tn * T
             obb(p("mirror"), Obb(o: mo, a: e * (fw / 1000 - 0.01), b: up * (h / 1000 - 0.01), c: tn * 0.004), false)
-        default: obb(part ?? p("front"), x, true)
+        default: obb(part ?? role("front", "fp.door"), x, true)
         }
         st.picks.append(Pick(key: key, box: x))
         if handles {
-            let ho = o + e * ((fw - 40) / 1000) + tn * (Double(t) / 1000) + V3(0, (hy - 64) / 1000, 0)
-            obb(p("handle"), Obb(o: ho, a: e * 0.012, b: V3(0, 0.128, 0), c: tn * 0.025), false)
+            // a knob is as wide as it is long
+            let hw: Double = hLen < 60 ? hLen / 1000 : 0.012
+            let lift = V3(0, (hy - hLen / 2) / 1000, 0)
+            let ho: V3 = o + e * ((fw - 40) / 1000) + tn * (Double(t) / 1000) + lift
+            obb(p("handle"), Obb(o: ho, a: e * hw, b: V3(0, hLen / 1000, 0), c: tn * 0.025), false)
         }
     }
 
-    /// A drawer front (and its box, out when open): a0 along, y0 up, the front's back face at n.
-    func drawer(_ w: WallBasis, _ key: String, _ a0: Double, _ fw: Double, _ y0: Double, _ fh: Double, _ n: Double, _ dd: Double, _ handles: Bool, _ part: Part3? = nil) {
-        st.keys.append(key)
-        let out = dd * 0.75 * how(key)
+    /// A drawer front (and its box, out when open): a0 along, y0 up, the front's back face at n; pr the front's role.
+    func drawer(_ w: WallBasis, _ key: String, _ a0: Double, _ fw: Double, _ y0: Double, _ fh: Double, _ n: Double, _ dd: Double, _ handles: Bool, _ pr: String = "front") {
+        // seeing inside: the drawer's box stays (shut), its front goes
+        if !bare { st.keys.append(key) }
+        let out: Double = bare ? 0 : dd * 0.75 * how(key)
         let nn = n + out
         let o = w.at(a0 / 1000, y0 / 1000, nn / 1000)
         let x = Obb(o: o, a: w.dir(fw / 1000, 0), b: V3(0, fh / 1000, 0), c: w.dir(0, Double(t) / 1000))
-        obb(part ?? p("front"), x, true); st.picks.append(Pick(key: key, box: x))
-        if out > 0 {
+        if !bare { obb(role(pr, "fp.dFace"), x, true); st.picks.append(Pick(key: key, box: x)) }
+        if out > 0 || bare {
             let bh = max(60, min(fh - 40, 150)), bx0 = a0 + 26, bx1 = a0 + fw - 26, by = y0 + 20
-            let c = p("carcass")
+            let c = role("carcass", "fp.dBox")
             box(w, c, bx0, bx1, by, by + 12, nn - dd + 40, nn)
             box(w, c, bx0, bx0 + 12, by, by + bh, nn - dd + 40, nn); box(w, c, bx1 - 12, bx1, by, by + bh, nn - dd + 40, nn)
             box(w, c, bx0, bx1, by, by + bh, nn - dd + 40, nn - dd + 52)
         }
-        if handles {
+        if handles && !bare {
             let hc = a0 + fw / 2
-            obb(p("handle"), Obb(o: w.at((hc - 64) / 1000, (y0 + fh - min(40, fh / 3)) / 1000, (nn + Double(t)) / 1000), a: w.dir(0.128, 0), b: V3(0, 0.012, 0), c: w.dir(0, 0.025)), false)
+            let hh: Double = hLen < 60 ? hLen / 1000 : 0.012
+            let at = w.at((hc - hLen / 2) / 1000, (y0 + fh - min(40, fh / 3)) / 1000, (nn + Double(t)) / 1000)
+            obb(p("handle"), Obb(o: at, a: w.dir(hLen / 1000, 0), b: V3(0, hh, 0), c: w.dir(0, 0.025)), false)
         }
     }
 
     /// A kitchen unit: base, wall or tall carcass with its fronts; appliance spaces and fillers.
     func kitchenUnit(_ w: WallBasis, _ m: Module) {
         let x0 = d(m.x), x1 = x0 + d(m.w), y0 = d(m.elev), y1 = y0 + d(m.h), dd = d(m.d), T = d(t)
-        let carcass = p("carcass"), front = p("front"), metal = p("metal"), handle = p("handle")
+        let metal = p("metal"), handle = p("handle")
         switch m.type {
         // a strip of front board flush with the row's fronts
-        case "filler": let fn = d(isUpper(m) ? K_WALL_D : K_BASE_D); box(w, front, x0, x1, y0, y1, fn, fn + T, true); return
+        case "filler": let fn = d(isUpper(m) ? K_WALL_D : K_BASE_D); box(w, role("front", "fp.filler"), x0, x1, y0, y1, fn, fn + T, true); return
         case "gap":
             switch m.app {
             case "fridge":
@@ -316,9 +365,13 @@ private final class FBuilder {
                 box(w, handle, x0 + 30, x0 + 42, split + 120, split + 420, dd, dd + 25); box(w, handle, x0 + 30, x0 + 42, split - 420, split - 120, dd, dd + 25)
             case "dishwasher":
                 box(w, metal, x0 + 3, x1 - 3, y0, y1 - 10, 0, dd - 20)
-                if let (fh, fw) = frontSizes(m.fronts, m.w, m.h, ws).first {
-                    box(w, front, x0 + edge, x0 + edge + d(fw), y0 + edge, y0 + edge + d(fh), dd, dd + T, true)
-                    if m.handles { box(w, handle, x0 + d(m.w) / 2 - 64, x0 + d(m.w) / 2 + 64, y0 + edge + d(fh) - 46, y0 + edge + d(fh) - 34, dd + T, dd + T + 25) }
+                if !bare, let (fh, fw) = frontSizes(m.fronts, m.w, m.h, ws).first {
+                    let fp = role("front", m.fronts.kind == "panel" ? "fp.panel" : "fp.door")
+                    box(w, fp, x0 + edge, x0 + edge + d(fw), y0 + edge, y0 + edge + d(fh), dd, dd + T, true)
+                    if m.handles {
+                        let mid = x0 + d(m.w) / 2
+                        box(w, handle, mid - hLen / 2, mid + hLen / 2, y0 + edge + d(fh) - 46, y0 + edge + d(fh) - 34, dd + T, dd + T + 25)
+                    }
                 }
             default: break
             }
@@ -326,15 +379,21 @@ private final class FBuilder {
         default: break
         }
         // the carcass: sides, bottom, top (two rails on base units), back, shelves
-        box(w, carcass, x0, x0 + T, y0, y1, 0, dd, true); box(w, carcass, x1 - T, x1, y0, y1, 0, dd, true)
-        box(w, carcass, x0 + T, x1 - T, y0, y0 + T, 0, dd, true)
-        if m.type == "base" { box(w, carcass, x0 + T, x1 - T, y1 - T, y1, dd - 100, dd, true); box(w, carcass, x0 + T, x1 - T, y1 - T, y1, 0, 100, true) }
-        else { box(w, carcass, x0 + T, x1 - T, y1 - T, y1, 0, dd, true) }
+        let side = role("carcass", "fp.side")
+        box(w, side, x0, x0 + T, y0, y1, 0, dd, true); box(w, side, x1 - T, x1, y0, y1, 0, dd, true)
+        // a base unit's bottom is its own part; a wall or tall unit's top and bottom are one
+        box(w, role("carcass", m.type == "base" ? "fp.bottom" : "fp.top"), x0 + T, x1 - T, y0, y0 + T, 0, dd, true)
+        if m.type == "base" {
+            let rail = role("carcass", "fp.rail")
+            box(w, rail, x0 + T, x1 - T, y1 - T, y1, dd - 100, dd, true); box(w, rail, x0 + T, x1 - T, y1 - T, y1, 0, 100, true)
+        }
+        else { box(w, role("carcass", "fp.top"), x0 + T, x1 - T, y1 - T, y1, 0, dd, true) }
         // the back sits in grooves between the sides, the bottom and the top (Parts backPanel)
-        box(w, p("back"), x0 + T, x1 - T, y0 + T, y1 - T, 0, 3)
+        box(w, role("back", "fp.back"), x0 + T, x1 - T, y0 + T, y1 - T, 0, 3)
         let shelves = m.inserts.filter { $0.kind == "shelf" }.reduce(0) { $0 + $1.qty }
         if m.fronts.kind != "drawer" && shelves > 0 {
-            for k in 1...shelves { let y = y0 + (d(m.h) - T) * Double(k) / Double(shelves + 1); box(w, carcass, x0 + T, x1 - T, y, y + T, 20, dd - 20, true) }
+            let shelf = role("carcass", "fp.shelf")
+            for k in 1...shelves { let y = y0 + (d(m.h) - T) * Double(k) / Double(shelves + 1); box(w, shelf, x0 + T, x1 - T, y, y + T, 20, dd - 20, true) }
         }
         // a plinth under base and tall units on legs
         if m.legs && m.type != "wall" && y0 > 0 { box(w, metal, x0, x1, 0, y0 - 2, dd - 70, dd - 54) }
@@ -361,7 +420,7 @@ private final class FBuilder {
             for (j, (fh, fw)) in fs.enumerated() {
                 y -= d(fh)
                 if m.fronts.kind == "drawer" { drawer(w, "\(m.id):f\(j)", x0 + edge, d(fw), y, d(fh), dd, dd, m.handles) }
-                else { box(w, front, x0 + edge, x0 + edge + d(fw), y, y + d(fh), dd, dd + T, true) }
+                else if !bare { box(w, role("front", "fp.panel"), x0 + edge, x0 + edge + d(fw), y, y + d(fh), dd, dd + T, true) }
                 y -= g
             }
         default: break
@@ -408,17 +467,19 @@ private final class FBuilder {
         let base = d(wardBase(m))
         let yb = z0 + base, yt = z0 + d(m.h)
         let sl = m.sideL ? T : 0, sr = m.sideR ? T : 0
-        let carcass = p("carcass"), metal = p("metal")
-        if m.sideL { box(w, carcass, x0, x0 + T, z0, yt, 0, dd, true) }
-        if m.sideR { box(w, carcass, x1 - T, x1, z0, yt, 0, dd, true) }
-        // the bottom under every section but a desk's knee space
-        if !m.sections.contains(where: \.knee) { box(w, carcass, x0 + sl, x1 - sr, yb, yb + T, 0, dd, true) }
+        let metal = p("metal")
+        if m.sideL { box(w, role("carcass", "fp.side"), x0, x0 + T, z0, yt, 0, dd, true) }
+        if m.sideR { box(w, role("carcass", "fp.side"), x1 - T, x1, z0, yt, 0, dd, true) }
+        // the bottom under every section but a desk's knee space (a wardrobe's top and bottom are one part, a desk's
+        // bottoms their own)
+        if !m.sections.contains(where: \.knee) { box(w, role("carcass", "fp.top"), x0 + sl, x1 - sr, yb, yb + T, 0, dd, true) }
         else {
             var a = x0
-            for s in m.sections { if !s.knee { box(w, carcass, max(a, x0 + sl), min(a + d(s.w), x1 - sr), yb, yb + T, 0, dd, true) }; a += d(s.w) }
+            let bottom = role("carcass", "fp.bottom")
+            for s in m.sections { if !s.knee { box(w, bottom, max(a, x0 + sl), min(a + d(s.w), x1 - sr), yb, yb + T, 0, dd, true) }; a += d(s.w) }
         }
-        box(w, carcass, x0 + sl, x1 - sr, yt - T, yt, 0, dd, true)
-        if !m.legs { box(w, carcass, x0 + sl, x1 - sr, z0, z0 + base, dd - 60, dd - 44, true) }
+        box(w, role("carcass", "fp.top"), x0 + sl, x1 - sr, yt - T, yt, 0, dd, true)
+        if !m.legs { box(w, role("carcass", "fp.plinth"), x0 + sl, x1 - sr, z0, z0 + base, dd - 60, dd - 44, true) }
         else {
             // on legs: a pair under each side and each divider, as the hardware list counts them
             // (none at an end without a side: a corner desk's second arm rests on the first there)
@@ -432,21 +493,23 @@ private final class FBuilder {
         let secs = m.sections
         for (i, s) in secs.enumerated() {
             let a0 = acc, a1 = acc + d(s.w)
+            sec = ""
             if i > 0 {
                 // beside a knee space the divider stands on the floor (or the legs) like a side
                 let toFloor = s.knee || secs[i - 1].knee
-                box(w, carcass, a0 - T / 2, a0 + T / 2, toFloor ? z0 : yb + T, yt - T, 0, toFloor ? dd : di, true)
+                box(w, role("carcass", "fp.divider"), a0 - T / 2, a0 + T / 2, toFloor ? z0 : yb + T, yt - T, 0, toFloor ? dd : di, true)
             }
+            sec = "\(i + 1)"
             if s.knee { acc = a1; continue }
             let iw = d(wardInner(m, secs, i, t))
             let il = i == 0 ? a0 + sl : a0 + T / 2
             // the back sits in grooves between the sides (or dividers), the bottom and the top
-            box(w, p("back"), il, il + iw, yb + T, yt - T, 0, 3)
+            box(w, role("back", "fp.back"), il, il + iw, yb + T, yt - T, 0, 3)
             let floor = yb + T
             for x in s.inserts {
                 let y = floor + d(x.pos)
                 switch x.kind {
-                case "shelf": box(w, carcass, il, il + iw, y, y + T, 3, di - 17, true)
+                case "shelf": box(w, role("carcass", "fp.shelf"), il, il + iw, y, y + T, 3, di - 17, true)
                 case "glass": box(w, p("clear"), il, il + iw, y, y + 6, 3, di - 17, true)
                 case "rail": box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, di / 2 - 12, di / 2 + 12)
                 case "lift":
@@ -454,8 +517,8 @@ private final class FBuilder {
                     box(w, metal, il + 5, il + 25, y + 54, y + d(blockH(x)), di / 2 - 15, di / 2 + 15)
                 case "drawer":
                     // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
-                    if s.fronts.kind == "open" { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 2, iw - 4, y, d(blockH(x)), di - T, di - 60, m.handles, p("front")) }
-                    else { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), di - 40 - T, di - 60, m.handles, carcass) }
+                    if s.fronts.kind == "open" { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 2, iw - 4, y, d(blockH(x)), di - T, di - 60, m.handles, "front") }
+                    else { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), di - 40 - T, di - 60, m.handles, "carcass") }
                 default:
                     // trouser and shoe racks: a frame that pulls out
                     let key = "\(m.id):s\(i):r\(x.pos)"
@@ -491,6 +554,7 @@ private final class FBuilder {
             }
             acc = a1
         }
+        sec = ""
         // a vitrina's light along the inside of its top
         if m.led { box(w, p("led"), x0 + sl + 10, x1 - sr - 10, yt - T - 8, yt - T, di - 70, di - 50) }
         if let sd = m.slide { slidingDoors(w, m, sd, x0 + sl, yb + T, dd) }
@@ -525,16 +589,16 @@ private final class FBuilder {
     }
 
     /// The part a board of an item is drawn in.
-    private func itemPart(_ role: String) -> Part3 {
-        switch role {
-        case "carcass": return p("carcass")
+    private func itemPart(_ r: String, _ key: String) -> Part3 {
+        switch r {
+        case "carcass": return role("carcass", key)
         case "top": return p("top")
         case "metal": return p("metal")
         case "white": return p("white")
         case "mattress": return p("mattress")
         case "lamel": return p("lamel")
         case "mirror": return p("mirror")
-        default: return p("front")
+        default: return role("front", key)
         }
     }
 
@@ -549,7 +613,7 @@ private final class FBuilder {
         let th = 38.0 * .pi / 180 * (lifts ? how(liftKey) : 0)
         let pivotY = Double(m.h - BED_SINK - 30), pivotN = Double(t) + 4
         for b in bs {
-            let part = itemPart(b.role)
+            let part = itemPart(b.role, b.key)
             let line = !b.key.isEmpty || b.role == "mirror"
             if b.lift && th > 1e-6 { tilted(w, part, x0, b, pivotY, pivotN, th, line) }
             else if b.round > 0 { roundTop(w, part, x0, b) }
@@ -575,6 +639,7 @@ private final class FBuilder {
     /// Sliding doors: n in two tracks at the front, each overlapping the next; a frame of profiles round its filling
     /// (board, mirror or glass). A tapped door slides over its neighbour.
     func slidingDoors(_ w: WallBasis, _ m: Module, _ sl: Slide, _ ax: Double, _ y0: Double, _ dd: Double) {
+        if bare { return }
         let n = min(4, max(2, sl.n))
         let (dwi, dhi) = slideDoor(m, t)
         let dw = d(dwi), dh = d(dhi)
@@ -589,7 +654,7 @@ private final class FBuilder {
             let n0 = dd - 95 + Double(j % 2) * 45, n1 = n0 + 22
             let y = y0 + d(SLIDE_CLEAR) / 2
             let fill: Part3
-            switch sl.panel(j) { case "mirror": fill = p("mirror"); case "glass": fill = p("glass"); default: fill = p("front") }
+            switch sl.panel(j) { case "mirror": fill = p("mirror"); case "glass": fill = p("glass"); default: fill = role("front", "fp.slidePanel") }
             let fw = d(SLIDE_FRAME_W), fh = d(SLIDE_FRAME_H) / 2
             box(w, fill, a + fw, a + dw - fw, y + fh, y + dh - fh, n0 + 6, n1 - 6, true)
             // the frame: two uprights, the top and the bottom

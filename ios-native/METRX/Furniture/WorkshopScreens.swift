@@ -25,6 +25,8 @@ private func moneyF(_ key: String, _ kp: WritableKeyPath<Workshop, String>) -> W
 private let FIELDS: [WField] = [
     intF("gap", .mm10, \.gap10), intF("edge", .mm10, \.edge10), intF("band", .mm10, \.band10), intF("legH", .mm, \.legH),
     intF("sheetL", .mm, \.sheetL), intF("sheetW", .mm, \.sheetW), intF("kerf", .mm, \.kerf), intF("trim", .mm, \.trim),
+    // remnants: offcuts at least this big each way are kept (bazis ideas, 23 Oct 2026)
+    WField(key: "remMin", label: "bz.remMin", kind: .mm, get: { String($0.remMin) }, set: { w, v in w.remMin = Int(v) ?? w.remMin }),
     intF("margin", .pct, \.margin), intF("prepay", .pct, \.prepay),
     moneyF("rCut", \.rCut), moneyF("rBand", \.rBand), moneyF("rAsm", \.rAsm), moneyF("rInstall", \.rInstall), moneyF("rDeliver", \.rDeliver)
 ]
@@ -125,6 +127,11 @@ struct WorkshopScreen: View {
                     .accessibilityIdentifier("wk.bandOff")
             }
             WCard(title: tr("wk.sheet")) { rows(["sheetL", "sheetW", "kerf", "trim"]) }
+            // remnants: what the cut lists keep and use first (bazis ideas, 23 Oct 2026)
+            WCard(title: tr("bz.rem")) {
+                rows(["remMin"])
+                ValRow(label: tr("bz.remList"), value: tr("bz.remN", ["n": s.remnants.filter { $0.used.isEmpty }.count]), id: "wk.remList") { app.push(.remnants) }
+            }
             WCard(title: tr("wk.price")) { rows(["margin", "prepay", "rCut", "rBand", "rAsm", "rInstall", "rDeliver"]) }
             HStack(alignment: .top, spacing: 8) { MIcon("info", G.ink2, 16, 2); T(tr("wk.note"), ui(13, 400, G.ink2, lh: 1.4)) }
             SampleCard(w: w, en: en)
@@ -276,6 +283,7 @@ private func mmRange(_ key: String) -> ClosedRange<Int> {
     case "sheetL", "sheetW": return 300...5000
     case "kerf": return 0...10
     case "trim": return 0...100
+    case "remMin": return 100...2000
     case "legH": return 0...300
     default: return 0...10000
     }

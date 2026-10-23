@@ -29,10 +29,10 @@ private func metres(_ m: Double) -> Double { (m - 1e-9).rounded(.up) }
 private func roundHalfUp(_ x: Decimal) -> Decimal { var a = x, r = Decimal(); NSDecimalRound(&r, &a, 0, .plain); return r }
 
 /// The cost of fs with this workshop's settings and lists. order adds installation and delivery once (an order with
-/// furniture in it).
-func costOf(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], order: Bool = true) -> Cost {
+/// furniture in it). The store's remnants rems are cut first: only the new sheets are bought.
+func costOf(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], order: Bool = true, rems: [Remnant] = []) -> Cost {
     let rows = cutList(fs, ws)
-    let lays = layouts(rows, mats, ws)
+    let lays = layouts(rows, mats, ws, rems)
     var lines: [CostLine] = []
     func mat(_ id: String) -> Mat? { mats.first { $0.id == id } }
     for l in lays {
@@ -62,9 +62,20 @@ func costOf(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], order
         let q = metres(m), p = money(mat(id)?.price)
         lines.append(CostLine(group: "mat", key: id, qty: q, unit: "m", price: p ?? 0, amount: (p ?? 0) * Decimal(Int(q)), missing: p == nil))
     }
-    for (k, v) in hardware(fs, ws).pairs {
-        // the last item of a kind counts: the workshop's own item added after the preset takes over
-        let hw = hws.last { $0.kind == k }
+    // handles of a kind chosen for a piece ("Change for all") are priced at that item, the rest at the usual one
+    var counts: [HwCount] = hardware(fs, ws).pairs.map { HwCount(kind: $0.0, hw: usualHw(hws, $0.0), n: $0.1) }
+    let usualHandle = usualHw(hws, "handle")
+    for f in fs {
+        guard let own = hws.first(where: { $0.id == f.handle && $0.kind == "handle" }) else { continue }
+        guard let ui = counts.firstIndex(where: { $0.kind == "handle" && $0.hw == usualHandle }) else { continue }
+        let n = min(hardware([f], ws)["handle"] ?? 0, counts[ui].n)
+        if n <= 0 || own == usualHandle { continue }
+        counts[ui].n -= n
+        if let oi = counts.firstIndex(where: { $0.kind == "handle" && $0.hw == own }) { counts[oi].n += n }
+        else { counts.append(HwCount(kind: "handle", hw: own, n: n)) }
+    }
+    for c in counts where c.n > 0 {
+        let k = c.kind, v = c.n, hw = c.hw
         let p = money(hw?.price)
         // rails and profiles by the whole metre, mirror and glass by the m² (to 0,01), the rest by the piece
         let area = AREA_KINDS.contains(k)
@@ -72,7 +83,8 @@ func costOf(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], order
         let amount = area ? roundHalfUp((p ?? 0) * Decimal(string: String(format: "%.2f", q))!) : (p ?? 0) * Decimal(Int(q.rounded(.up)))
         lines.append(CostLine(group: "hw", key: hw?.id ?? k, qty: q, unit: hwUnit(k), price: p ?? 0, amount: amount, missing: p == nil))
     }
-    let sheets = lays.reduce(0) { $0 + $1.sheets.count + $1.unplaced.count }
+    // cutting a remnant is as much work as a sheet
+    let sheets = lays.reduce(0) { $0 + $1.sheets.count + $1.unplaced.count + $1.rems.count }
     let modules = fs.reduce(0) { a, f in a + f.modules.reduce(0) { $0 + ($1.type == "wardrobe" ? max(1, $1.sections.count) : 1) } }
     func lab(_ key: String, _ q: Double, _ unit: String, _ rate: String) {
         let r = money(rate) ?? 0
@@ -84,6 +96,13 @@ func costOf(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], order
     if order && fs.contains(where: { !$0.modules.isEmpty }) { lab("fc.install", 1, "order", ws.rInstall); lab("fc.deliver", 1, "order", ws.rDeliver) }
     return Cost(lines: lines, layouts: lays, rows: rows)
 }
+
+/// A hardware kind's count priced at one item (Kotlin's map keyed by kind and item, in the order first seen).
+private struct HwCount { let kind: String; let hw: Hw?; var n: Int }
+
+/// The item a hardware kind is priced at: the last of the kind (the workshop's own item added after the preset takes
+/// over), but not one of the extra handle kinds offered for "Change for all".
+func usualHw(_ hws: [Hw], _ kind: String) -> Hw? { hws.last { $0.kind == kind && !HANDLE_MORE.contains($0.id) } }
 
 /// The customer price from the cost with the workshop's margin, rounded half up.
 func withMargin(_ cost: Decimal, _ pct: Int) -> Decimal { roundHalfUp(cost * Decimal(100 + pct) / 100) }

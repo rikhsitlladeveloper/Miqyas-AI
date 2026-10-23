@@ -69,6 +69,8 @@ final class AppSettings {
     private(set) var workshop: Workshop
     private(set) var mats: [Mat]
     private(set) var hws: [Hw]
+    /// The workshop's remnants (Advanced): offcuts kept for the next orders' cut lists.
+    private(set) var remnants: [Remnant]
     /// Simulated laser state; not saved, a new start begins disconnected like a real Bluetooth device.
     var laser: Laser = .disconnected
 
@@ -104,6 +106,7 @@ final class AppSettings {
         mats = sm + MAT_PRESETS.filter { p in !sm.contains { $0.id == p.id } }
         let sh = d.data(forKey: "hws").flatMap { try? JSONDecoder().decode([Hw].self, from: $0) } ?? []
         hws = sh + HW_PRESETS.filter { p in !sh.contains { $0.id == p.id } }
+        remnants = d.data(forKey: "remnants").flatMap { try? JSONDecoder().decode([Remnant].self, from: $0) } ?? []
         rowDrafts = (d.data(forKey: "rowDrafts")).flatMap { try? JSONDecoder().decode([String: [String: String]].self, from: $0) } ?? [:]
         visit = d.integer(forKey: "visit") + (d.object(forKey: "visit") == nil ? 0 : 1)
         d.set(visit, forKey: "visit")
@@ -127,6 +130,7 @@ final class AppSettings {
     func setWorkshopRules(_ v: Workshop) { workshop = v; d.set(try? JSONEncoder().encode(v), forKey: "workshop") }
     func setMatList(_ v: [Mat]) { mats = v; d.set(try? JSONEncoder().encode(v), forKey: "mats") }
     func setHwList(_ v: [Hw]) { hws = v; d.set(try? JSONEncoder().encode(v), forKey: "hws") }
+    func setRemnantList(_ v: [Remnant]) { remnants = v; d.set(try? JSONEncoder().encode(v), forKey: "remnants") }
     func setRoomLabel(_ v: String) { roomLabel = v; d.set(v, forKey: "roomLabel") }
     func setDefaults(_ dw: Int, _ dh: Int, _ ww: Int, _ wh: Int, _ ws: Int) {
         doorW = dw; doorH = dh; winW = ww; winH = wh; winSill = ws

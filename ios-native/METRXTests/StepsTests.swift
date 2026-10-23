@@ -14,11 +14,11 @@ final class StepsTests: XCTestCase {
 
     func testAKitchenAsksItsSidesItsIslandAndTheCeiling() {
         XCTAssertEqual(stepsOf(fModel("I")!).map(\.key), ["s0", "h"])
-        XCTAssertEqual(stepsOf(fModel("L")!).map(\.key), ["s0", "s1", "h"])
+        XCTAssertEqual(stepsOf(fModel("L")!).map(\.key), ["sh", "ms", "s0", "s1", "h"])
         XCTAssertEqual(stepsOf(fModel("U")!).map(\.key), ["s0", "s1", "s2", "h"])
         XCTAssertEqual(stepsOf(fModel("O")!).map(\.key), ["s0", "isl", "h"])
         XCTAssertEqual(stepsOf(fModel("P")!)[1].label, "fz.pP")
-        XCTAssertEqual(stepsOf(fModel("L")!).map(\.usual), [3000, 2000, 2700])
+        XCTAssertEqual(stepsOf(fModel("L")!).map(\.usual), [0, 0, 3000, 2000, 2700])
     }
 
     func testACabinetAsksWidthHeightDepth() {
@@ -38,7 +38,7 @@ final class StepsTests: XCTestCase {
         let k = pieceOf(fModel("L")!, ["s0": 3400, "h": 2650], ws, "Oshxona 1")
         XCTAssertEqual(k.free?.sides, [3400, 2000])
         XCTAssertEqual(k.free?.h, 2650)
-        XCTAssertEqual(valsOf(k, ws), ["s0": 3400, "s1": 2000, "h": 2650])
+        XCTAssertEqual(valsOf(k, ws), ["s0": 3400, "s1": 2000, "h": 2650, "sh": 0, "ms": 0])
         let d = pieceOf(fModel("dresser")!, ["w": 1200, "h": 900, "d": 500], ws, "Komod 1")
         XCTAssertEqual(d.type, "dresser")
         XCTAssertEqual(valsOf(d, ws), ["w": 1200, "h": 900, "d": 500])

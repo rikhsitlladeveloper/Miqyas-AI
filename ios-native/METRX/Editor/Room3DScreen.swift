@@ -67,7 +67,7 @@ struct Room3DScreen: View {
             } else {
                 let base = f3.base(r, snap)
                 // a furniture order's furniture stands in its room; a tap opens a door or a drawer
-                let fur: (Shell3D, Furn3D, String)? = p.isFurniture ? furnShell(p, r, base, mo.prog, snap, cache: f3) : nil
+                let fur: (Shell3D, Furn3D, String)? = p.isFurniture ? furnShell(p, r, base, mo.prog, snap, cache: f3, inside: mo.bare) : nil
                 // a tiler's order: every tile of the room's layouts at its place; an electrician's: its devices and routes
                 let tiled: (Shell3D, String)? = tradeShell(p, r, base, snap)
                 let shell = fur?.0 ?? tiled?.0 ?? base
@@ -77,6 +77,12 @@ struct Room3DScreen: View {
                             let (e, d) = cam.ray(pt.x, pt.y)
                             if let k = f.1.pick(e, d) { mo.toggle(k) }
                         } }) {
+                    // a furniture order's room: hide every door to see inside
+                    if fur != nil {
+                        InsidePill(on: mo.bare) { mo.bare.toggle() }
+                            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                            .padding(.top, 10).padding(.leading, 10)
+                    }
                     ShotPill(icon: "camera", label: tr("3d.save")) { save() }
                         .accessibilityIdentifier("3d.save")
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)

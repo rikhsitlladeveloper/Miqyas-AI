@@ -67,10 +67,11 @@ func kindKey(_ f: Furniture) -> String { f.kind == "wardrobe" && !f.type.isEmpty
 /// How many runs along walls a layout has (an island or a peninsula is not one).
 func sidesOf(_ layout: String) -> Int { layout == "L" ? 2 : layout == "U" ? 3 : 1 }
 
-/// The made-up room's walls for a layout: the first run on A; a U goes left wall D, back wall A, right wall B.
-func freeWalls(_ layout: String) -> [String] {
+/// The made-up room's walls for a layout: the first run on A; a U goes left wall D, back wall A, right wall B. An L with
+/// its corner on the left (hand "L") goes on the left wall D and turns onto the back wall A.
+func freeWalls(_ layout: String, _ hand: String = "") -> [String] {
     switch layout {
-    case "L": return ["A", "B"]
+    case "L": return hand == "L" ? ["D", "A"] : ["A", "B"]
     case "U": return ["D", "A", "B"]
     case "O", "P": return ["A", ISLAND]
     default: return ["A"]
@@ -115,9 +116,13 @@ func freeRoom(_ f: Furniture) -> Room {
         let w1: String? = f.walls.count > 1 ? f.walls[1] : nil
         let onA = bs.filter { $0.wall == w0 }
         let onB = bs.filter { $0.wall == w1 }
-        a = onA.map { $0.x + $0.w + W_GAP_SIDE }.max() ?? 2000
-        if let bEnd = onB.map({ $0.x + $0.w }).max() { b = max(2000, bEnd + 600) }
-        else { b = max(2000, (bs.map(\.d).max() ?? W_DEPTH) + 1400) }
+        let a0 = onA.map { $0.x + $0.w + W_GAP_SIDE }.max() ?? 2000
+        let b0: Int
+        if let bEnd = onB.map({ $0.x + $0.w }).max() { b0 = max(2000, bEnd + 600) }
+        else { b0 = max(2000, (bs.map(\.d).max() ?? W_DEPTH) + 1400) }
+        // a corner piece with its corner on the left starts on the left wall D (as long as the room's B) and turns onto A
+        let left = f.walls.first == "D"
+        a = left ? b0 : a0; b = left ? a0 : b0
         let ws0 = Workshop()
         h = (bs.map { topOf($0, ws0) }.max() ?? 2200) + 300
     } else {
@@ -125,7 +130,8 @@ func freeRoom(_ f: Furniture) -> Room {
         func len(_ i: Int) -> Int { i < ws.count ? (lens[ws[i]] ?? 3000) : 3000 }
         switch f.layout {
         case "U": a = len(1); b = max(len(0), len(2))
-        case "L": a = len(0); b = len(1)
+        case "L":
+            if ws.first == "D" { a = len(1); b = len(0) } else { a = len(0); b = len(1) }
         case "O", "P": a = len(0); b = 3000
         default: a = len(0); b = 1800
         }
@@ -145,10 +151,11 @@ private func slots(_ len: Int) -> [Int] {
 }
 
 /// A new room-less kitchen of layout with its sides (run order), island and ceiling, filled with plain units.
-func newFreeKitchen(_ name: String, _ model: String, _ layout: String, _ sides: [Int], _ island: Int, _ h: Int, _ ws: Workshop, now: Ms = 0) -> Furniture {
-    let walls = freeWalls(layout)
+func newFreeKitchen(_ name: String, _ model: String, _ layout: String, _ sides: [Int], _ island: Int, _ h: Int, _ ws: Workshop, now: Ms = 0, hand: String = "") -> Furniture {
+    let hd = layout == "L" ? hand : ""
+    let walls = freeWalls(layout, hd)
     var f = Furniture(id: uid(), kind: "kitchen", name: name, roomId: nil, walls: walls, created: now, layout: layout,
-                      free: FreeSize(Array(sides.prefix(sidesOf(layout))), walls.contains(ISLAND) ? island : 0, h), model: model, kx: kExtrasFor(layout))
+                      free: FreeSize(Array(sides.prefix(sidesOf(layout))), walls.contains(ISLAND) ? island : 0, h), model: model, kx: kExtrasFor(layout), hand: hd)
     let ff = f
     let runs = runsOf(f) { freeLen(ff, $0) }
     f = autoFill(f, runs, ws, [], usualPoints(runs))
@@ -195,6 +202,16 @@ func newFreeCabinet(_ name: String, _ type: String, _ w: Int, _ h: Int, _ d: Int
 }
 
 /* ---------------- into a room and out again ---------------- */
+
+/// A kitchen's side number (from 1) of its run i as the steps ask it: the main wall first. An L with its corner on the
+/// left runs from the side wall to the main one, so the other way round.
+func sideNo(_ f: Furniture, _ i: Int) -> Int {
+    if f.kind == "kitchen" && f.layout == "L" && f.hand == "L" { return f.walls.filter { $0 != ISLAND }.count - i }
+    return i + 1
+}
+
+/// A corner wardrobe's or desk's made-up walls: the corner on the right of the main wall (A, B) or on its left (D, A).
+func cornerWalls(_ hand: String) -> [String] { hand == "L" ? ["D", "A"] : ["A", "B"] }
 
 /// The walls the piece takes in a room whose walls go ids (clockwise), its first side on first.
 func placeWalls(_ f: Furniture, _ ids: [String], _ first: String) -> [String] {
@@ -456,11 +473,12 @@ func placed(_ f: Furniture, _ walls: [String], _ roomId: String, _ wsId: String,
 func takenOut(_ f0: Furniture, _ len: (String) -> Int?, _ roomH: Int?) -> Furniture {
     if f0.kind == "wardrobe" {
         let corner = CORNER_TYPES.contains(f0.type)
-        var g = onWalls(f0, corner ? ["A", "B"] : ["A"]); g.roomId = nil; g.ws = ""; g.keep = false; g.pose = nil
+        var g = onWalls(f0, corner ? cornerWalls(f0.hand) : ["A"]); g.roomId = nil; g.ws = ""; g.keep = false; g.pose = nil
         if corner {
+            let first = g.walls.first
             g.modules = g.modules.map { m in
                 var x = m
-                if m.wall == "A" { x.x = W_GAP_SIDE }
+                if m.wall == first { x.x = W_GAP_SIDE }
                 return x
             }
             return cornerFit(g, nil)
@@ -480,7 +498,7 @@ func takenOut(_ f0: Furniture, _ len: (String) -> Int?, _ roomH: Int?) -> Furnit
     let runs = runsOf(f, len)
     let sides = runs.filter { $0.wall != ISLAND }.map { max(runEnd(f, $0), 600) }
     let island = runs.first { $0.wall == ISLAND }.map { fillOf(f, $0, false).used } ?? 0
-    var g = onWalls(f, freeWalls(f.layout)); g.roomId = nil; g.ws = ""; g.keep = false
+    var g = onWalls(f, freeWalls(f.layout, f.hand)); g.roomId = nil; g.ws = ""; g.keep = false
     g.free = FreeSize(sides, island, roomH ?? f.free?.h ?? 2700)
     let gg = g
     return pack(g, runsOf(g) { freeLen(gg, $0) })

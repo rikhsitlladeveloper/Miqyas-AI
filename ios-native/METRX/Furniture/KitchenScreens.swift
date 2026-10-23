@@ -27,7 +27,9 @@ struct KitchenScreen: View {
             let runs = kRuns(f, room, snap)
             let run = runs.first { $0.wall == wall } ?? runs.first
             let ws = wsOf(f, s.workshop), mats = s.mats
-            let found = checks(f, runs, ws, room?.openings ?? [], room?.points ?? [])
+            // the designer's checks and the board rules of the order's Check list (a part bigger than the sheet, a drawer, a long shelf)
+            let board: [FCheck] = boardIssues(f, ws, mats).map { FCheck(level: $0.level, key: $0.key, vars: $0.vars, mid: $0.mid) }
+            let found = checks(f, runs, ws, room?.openings ?? [], room?.points ?? []) + board
             let bad = badOf(found)
             let sel = f.modules.first { $0.id == kit.sel && $0.wall == run?.wall }
             ZStack {
@@ -118,6 +120,7 @@ struct KitchenScreen: View {
                             }
                             .padding(.horizontal, 16).padding(.bottom, 28)
                         }
+                        LivePrice(app: app, p: p, f: f)
                         }
                     } else {
                         T(tr("kt.roomLost"), ui(15, 500, G.ink2, lh: 1.45)).padding(24)
@@ -309,6 +312,8 @@ func checkText(_ c: FCheck, _ f: Furniture) -> String {
     var vars: [String: Any] = c.vars.mapValues { $0.base }
     if let id = c.mid, let m = f.modules.first(where: { $0.id == id }) { vars["m"] = modName(m) }
     if c.key == "kc.socket", let t = c.vars["t"]?.base as? String { vars["t"] = tr("pt." + t) }
+    // the board rules (Furniture/Core/FurnChecks.swift): the part's name
+    if c.key.hasPrefix("bz.ck."), let pk = c.vars["p"]?.base as? String { vars["p"] = tr(pk) }
     let key = c.key == "kc.sinkFar" && ((c.vars["v"]?.base as? Int) ?? 0) < 0 ? "kc.sinkWall" : c.key
     return tr(key, vars)
 }

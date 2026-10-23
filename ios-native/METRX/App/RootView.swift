@@ -150,6 +150,9 @@ struct RootView: View {
         case .wardrobe(let pid, let fid, let step, let sec, let d3, let mod): WardrobeScreen(app: app, pid: pid, fid: fid, step: step, sec: sec, d3: d3, mod: mod)
         case .fCut(let pid): CutScreen(app: app, pid: pid)
         case .fPack(let pid): PackScreen(app: app, pid: pid)
+        case .fLabels(let pid): PackScreen(app: app, pid: pid, labels: true)
+        case .fCheck(let pid): CheckScreen(app: app, pid: pid)
+        case .remnants: RemnantsScreen(app: app)
         case .fGallery(let pid, let rid, let fromNew): FGalleryScreen(app: app, pid: pid, rid: rid, fromNew: fromNew)
         case .fSteps(let pid, let model, let fid, let vals): FStepsScreen(app: app, pid: pid, model: model, fid: fid, vals: vals)
         case .fWhere(let pid, let model, let vals): FWhereScreen(app: app, pid: pid, model: model, vals: vals)
@@ -180,6 +183,7 @@ struct RootView: View {
             else if ElecSheet.handles(s) { ElecSheet(app: app, sheet: s) }
             else if TileSheet.handles(s) { TileSheet(app: app, sheet: s) }
             else if OrderFlowSheet.handles(s) { OrderFlowSheet(app: app, sheet: s) }
+            else if case .fSwap(let pid) = s { SwapSheet(app: app, pid: pid) }
             else if TradeSheet.handles(s) { TradeSheet(app: app, sheet: s) }
             else if FurnitureSheet.handles(s) { FurnitureSheet(app: app, sheet: s) }
             else if WorkshopSheet.handles(s) { WorkshopSheet(app: app, sheet: s) }

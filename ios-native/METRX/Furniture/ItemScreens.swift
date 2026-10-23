@@ -81,6 +81,7 @@ struct ItemScreen: View {
                 }
                 .padding(.horizontal, 16).padding(.bottom, 28)
             }
+            LivePrice(app: app, p: p, f: f)
         }
     }
 
@@ -95,12 +96,21 @@ struct ItemScreen: View {
 /// The piece in 3D, turned by a sideways drag.
 private struct ItemPicture: View {
     let f: Furniture
+    /// "See inside": the fronts hidden.
+    @State private var bare = false
     var body: some View {
         let s = AppSettings.shared
-        let scene = pieceScene(f, s.workshop, s.mats)
+        let scene = pieceScene(f, s.workshop, s.mats, bare: bare)
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
+        // a bed's drawers, a loft's cabinet: hide the fronts to see inside
+        let fronts = f.modules.contains { m in m.sections.contains { $0.fronts.kind != "open" } || m.opt?.bed == "drawers" }
         ZStack(alignment: .bottomTrailing) {
             PieceView(scene: scene, hi: nil, label: nil)
+            if fronts {
+                InsidePill(on: bare) { bare.toggle() }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(10)
+            }
             T(tr("fx.drag"), ui(11, 600, G.ink3)).padding(10).allowsHitTesting(false)
         }
         .aspectRatio(1 / 0.8, contentMode: .fit)

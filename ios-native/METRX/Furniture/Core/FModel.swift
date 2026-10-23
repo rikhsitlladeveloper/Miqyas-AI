@@ -35,12 +35,16 @@ struct Furniture: Codable, Equatable, Identifiable {
     var pose: Pose? = nil
     /// Kitchens: the legs' height under the units, mm (the carcass stays 720, the worktop follows); nil: the workshop's.
     var baseH: Int? = nil
+    /// Corner pieces without a room: "L" the corner at the left end of the main wall (made-up walls D, A), "" at the right.
+    var hand = ""
+    /// The handles' hardware id for the whole piece ("Change for all"); "" the workshop's usual handle.
+    var handle = ""
     init(id: String, kind: String, name: String = "", roomId: String? = nil, walls: [String] = [], modules: [Module] = [], mats: FMats = FMats(),
          created: Ms = 0, layout: String = "I", ws: String = "", free: FreeSize? = nil, model: String = "", keep: Bool = false, kx: KExtras? = nil, type: String = "",
-         pose: Pose? = nil, baseH: Int? = nil) {
+         pose: Pose? = nil, baseH: Int? = nil, hand: String = "", handle: String = "") {
         self.id = id; self.kind = kind; self.name = name; self.roomId = roomId; self.walls = walls; self.modules = modules; self.mats = mats
         self.created = created; self.layout = layout; self.ws = ws; self.free = free; self.model = model; self.keep = keep; self.kx = kx; self.type = type
-        self.pose = pose; self.baseH = baseH
+        self.pose = pose; self.baseH = baseH; self.hand = hand; self.handle = handle
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -48,7 +52,7 @@ struct Furniture: Codable, Equatable, Identifiable {
         walls = c.v(.walls, []); modules = c.v(.modules, []); mats = c.v(.mats, FMats()); created = c.v(.created, 0)
         layout = c.v(.layout, "I"); ws = c.v(.ws, "")
         free = c.v(.free, nil); model = c.v(.model, ""); keep = c.v(.keep, false); kx = c.v(.kx, nil); type = c.v(.type, "")
-        pose = c.v(.pose, nil); baseH = c.v(.baseH, nil)
+        pose = c.v(.pose, nil); baseH = c.v(.baseH, nil); hand = c.v(.hand, ""); handle = c.v(.handle, "")
     }
 }
 

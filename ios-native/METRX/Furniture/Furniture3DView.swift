@@ -12,6 +12,8 @@ import Observation
 @Observable final class DoorMotion {
     private(set) var target: Set<String> = []
     private(set) var prog: [String: Double] = [:]
+    /// "See inside" (bazis ideas, 23 Oct 2026): every door, drawer front and sliding door hidden.
+    var bare = false
     @ObservationIgnored private var job: Task<Void, Never>? = nil
 
     @MainActor func toggle(_ k: String) {
@@ -94,10 +96,10 @@ private func doorInner(_ door: String, _ keys: Set<String>) -> Set<String> {
 /// The room's scene with this order's furniture in it, each door and drawer as far open as amt says (0 to 1), what can
 /// be opened, and the key the scene is rebuilt by (the camera stays where it is when only doors move: the furniture has
 /// as many parts open as closed). With cache (whose base gave base) the key is short and stable, not a dump of the furniture.
-func furnShell(_ p: Project, _ room: Room, _ base: Shell3D, _ amt: [String: Double], _ snap: Bool, cache: Furn3DCache? = nil) -> (Shell3D, Furn3D, String) {
+func furnShell(_ p: Project, _ room: Room, _ base: Shell3D, _ amt: [String: Double], _ snap: Bool, cache: Furn3DCache? = nil, inside: Bool = false) -> (Shell3D, Furn3D, String) {
     let s = AppSettings.shared, ws = s.workshop, mats = s.mats
     let fs = p.furniture.filter { $0.roomId == room.id || ($0.roomId == nil && FREE_ROOM + $0.id == room.id) }
-    let fur = furniture3D(fs, base.bases, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [], amt: { k in amt[k] ?? 0 })
+    let fur = furniture3D(fs, base.bases, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [], amt: { k in amt[k] ?? 0 }, bare: inside)
     var moving: [String] = []
     for k in amt.keys.sorted() { moving.append(k + "=" + String(Int(((amt[k] ?? 0) * 1000).rounded()))) }
     let key: String
@@ -106,7 +108,19 @@ func furnShell(_ p: Project, _ room: Room, _ base: Shell3D, _ amt: [String: Doub
     } else {
         key = shellKey([room], snap) + "|\(fs)|\(ws)|\(mats.map(\.rgb))|" + moving.joined(separator: ",")
     }
-    return (base.plus(fur.parts, fur.edges), fur, key)
+    // seeing inside is another scene (fewer parts), the camera stays
+    return (base.plus(fur.parts, fur.edges), fur, key + (inside ? "|inside" : ""))
+}
+
+/// The "See inside" pill over a 3D picture: hides every door and drawer front, a second tap brings them back.
+struct InsidePill: View {
+    let on: Bool
+    let action: () -> Void
+    var body: some View {
+        ShotPill(icon: on ? "door" : "box", label: tr(on ? "bz.doorsBack" : "bz.inside"), action: action)
+            .accessibilityIdentifier("bz.inside")
+            .accessibilityAddTraits(on ? .isSelected : [])
+    }
 }
 
 /// What a room's 3D with furniture is built from, kept between redraws: the room's walls and floor are built again only
@@ -116,6 +130,7 @@ final class Furn3DCache {
     private var room: Room? = nil
     private var snap = true
     private var bare = false
+    private var theta: Double? = nil
     private var shell: Shell3D? = nil
     /// What the walls and floor were built from (Scene3D's baseKey).
     private(set) var key = ""
@@ -124,13 +139,13 @@ final class Furn3DCache {
     private var mats: [Mat] = []
     private var rev = 0
 
-    /// The room's shell; bare: only its floor (furniture without a room).
-    func base(_ r: Room, _ snap: Bool, bare: Bool = false) -> Shell3D {
-        if let shell, room == r, self.snap == snap, self.bare == bare { return shell }
+    /// The room's shell; bare: only its floor (furniture without a room), the camera starting at theta (nil: as usual).
+    func base(_ r: Room, _ snap: Bool, bare: Bool = false, theta: Double? = nil) -> Shell3D {
+        if let shell, room == r, self.snap == snap, self.bare == bare, self.theta == theta { return shell }
         let built = buildShell([r], single: true, snap: snap)
-        let s = bare ? built.floorOnly() : built
-        room = r; self.snap = snap; self.bare = bare; shell = s
-        key = shellKey([r], snap) + (bare ? "|bare" : "")
+        let s = bare ? built.floorOnly(theta) : built
+        room = r; self.snap = snap; self.bare = bare; self.theta = theta; shell = s
+        key = shellKey([r], snap) + (bare ? "|bare" : "") + (theta != nil ? "|left" : "")
         return s
     }
 
@@ -190,17 +205,22 @@ struct Furniture3DPane: View {
         } else {
             // furniture without a room stands on a floor of its size, no walls round it
             let free = isFreeRoom(room)
-            let base = cache.base(room, snap, bare: free)
-            let (shell, fur, key) = furnShell(p, room, base, mo.prog, snap, cache: cache)
+            // a room-less corner piece with its corner on the left (made-up walls D, A) is seen from the right
+            let left = free && p.furniture.contains { FREE_ROOM + $0.id == room.id && $0.walls.first == "D" && $0.layout != "U" }
+            let base = cache.base(room, snap, bare: free, theta: left ? Double.pi / 2 - 0.75 : nil)
+            let (shell, fur, key) = furnShell(p, room, base, mo.prog, snap, cache: cache, inside: mo.bare)
             Scene3D(shell: shell, key: key, baseKey: cache.key, cam: cam, shot: shot, points: shell.labels.map(\.p), label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
                     onTap: { pt in toggle(fur, pt) }) {
+                InsidePill(on: mo.bare) { mo.bare.toggle() }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                    .padding(.top, 10).padding(.leading, 10)
                 if !free {
                     ShotPill(icon: "camera", label: tr("3d.save")) { save() }
                         .accessibilityIdentifier("3d.save")
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         .padding(.top, 10).padding(.trailing, 10)
                 }
-                T(tr("f3.hint"), ui(12.5, 600, G.ink2)).padding(.horizontal, 10).padding(.vertical, 6)
+                T(tr(mo.bare ? "bz.insideHint" : "f3.hint"), ui(12.5, 600, G.ink2)).padding(.horizontal, 10).padding(.vertical, 6)
                     .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(G.sheet(0.7)))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                     .padding(12)
@@ -208,7 +228,7 @@ struct Furniture3DPane: View {
             }
             VStack(alignment: .leading, spacing: 10) {
                 HStack(spacing: 10) {
-                    GBtn(tr("f3.openAll"), kind: .secondary, height: 44, corner: 12, fontSize: 14) { mo.openAll(fur.keys) }.accessibilityIdentifier("f3.openAll")
+                    GBtn(tr("f3.openAll"), kind: .secondary, enabled: !mo.bare, height: 44, corner: 12, fontSize: 14) { mo.openAll(fur.keys) }.accessibilityIdentifier("f3.openAll")
                     GBtn(tr("f3.close"), kind: .secondary, enabled: !mo.target.isEmpty, height: 44, corner: 12, fontSize: 14) { mo.closeAll() }.accessibilityIdentifier("f3.close")
                 }
                 HStack(spacing: 10) {

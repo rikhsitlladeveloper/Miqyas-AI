@@ -57,7 +57,8 @@ final class PiecesTests: XCTestCase {
         XCTAssertEqual(stepsOf(fModel("dining")!).map(\.key), ["w", "d", "h", "lg", "tp", "rc"])
         XCTAssertEqual(stepsOf(fModel("mirrorC")!).map(\.key), ["w", "h", "d", "e"])
         XCTAssertEqual(stepsOf(fModel("sinkV")!).map(\.key), ["w", "h", "d", "mt"])
-        XCTAssertEqual(stepsOf(fModel("cornerW")!).map(\.key), ["w", "w2", "h", "d"])
+        // the shape and which sides were measured come first (bazis ideas, 23 Oct 2026)
+        XCTAssertEqual(stepsOf(fModel("cornerW")!).map(\.key), ["sh", "ms", "w", "w2", "h", "d"])
     }
 
     func testABedIsBuiltRoundItsMattressAndItsKindIsChosen() {

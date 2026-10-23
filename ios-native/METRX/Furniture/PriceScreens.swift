@@ -49,7 +49,7 @@ struct FPriceTab: View {
             .padding(.horizontal, 16).padding(.top, 14)
         } else {
             let fp = p.fprice
-            let pr = priceOf(fs, fp, s.workshop, s.mats, s.hws)
+            let pr = priceOf(fs, fp, s.workshop, s.mats, s.hws, remsOf(p))
             let cost = pr.cost, cur = Money.cur(p.currency)
             let pct = fp.pct ?? s.workshop.margin
             VStack(alignment: .leading, spacing: 12) {
@@ -249,12 +249,18 @@ struct CutScreen: View {
     @State private var tab = "l"
     @State private var mat = ""
     @State private var sheet = 0
+    /// A parts row tapped: that part lit up in its piece's 3D (-1 none), the piece shown.
+    @State private var hiRow = -1
+    @State private var hiPiece: String? = nil
     var body: some View {
         let s = AppSettings.shared
         if !s.advanced { Color.clear.onAppear { app.dropAdvanced() } } else
         if let p = Store.shared.get(pid) {
             let fs = p.furniture.filter { !$0.modules.isEmpty }
-            let cost = costOf(fs, s.workshop, s.mats, s.hws)
+            // the store's remnants first (Advanced), only new sheets bought
+            let cost = costOf(fs, s.workshop, s.mats, s.hws, rems: remsOf(p))
+            let remBoards = cost.layouts.reduce(0) { $0 + $1.rems.count }
+            let subRem = remBoards > 0 ? " · " + tr("bz.remShort", ["n": remBoards]) : ""
             let lay = cost.layouts.first { $0.mat == mat } ?? cost.layouts.first
             let idx = cost.rows.enumerated().filter { $0.element.mat == lay?.mat }
             let number: [Int: Int] = Dictionary(uniqueKeysWithValues: idx.enumerated().map { ($0.element.offset, $0.offset + 1) })
@@ -263,7 +269,7 @@ struct CutScreen: View {
                     GlassIconButton("back", tr("nt.back")) { app.pop() }.accessibilityIdentifier("back")
                     VStack(alignment: .leading, spacing: 0) {
                         T(tr("fc.title"), ui(19, 800), lines: 1)
-                        T(tr("fc.sub", ["n": cost.rows.reduce(0) { $0 + $1.p.qty }, "s": cost.layouts.reduce(0) { $0 + $1.sheets.count }]), ui(12, 400, G.ink2), lines: 1)
+                        T(tr("fc.sub", ["n": cost.rows.reduce(0) { $0 + $1.p.qty }, "s": cost.layouts.reduce(0) { $0 + $1.sheets.count }]) + subRem, ui(12, 400, G.ink2), lines: 1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -275,13 +281,23 @@ struct CutScreen: View {
                             ScrollView(.horizontal, showsIndicators: false) {
                                 HStack(spacing: 6) {
                                     ForEach(cost.layouts, id: \.mat) { l in
-                                        FChip(label: (s.mats.first { $0.id == l.mat }?.name ?? l.mat) + " · \(l.sheets.count)", on: l.mat == lay.mat) { mat = l.mat; sheet = 0 }
+                                        let extra = l.rems.isEmpty ? "" : " + \(l.rems.count)"
+                                        FChip(label: (s.mats.first { $0.id == l.mat }?.name ?? l.mat) + " · \(l.sheets.count)" + extra, on: l.mat == lay.mat) { mat = l.mat; sheet = 0; hiRow = -1 }
                                             .accessibilityIdentifier("fc.mat." + l.mat)
                                     }
                                 }
                             }
+                            if tab == "l", hiRow >= 0, hiRow < cost.rows.count, cost.rows[hiRow].mat == lay.mat {
+                                PartIn3D(p: p, r: cost.rows[hiRow], fid: hiPiece, onPiece: { hiPiece = $0 }, onClose: { hiRow = -1; hiPiece = nil })
+                            }
                             if tab == "l" { partsList(idx, number) } else { sheetView(lay, number, s.workshop, s.mats) }
-                            GBtn(tr("fw.btn"), kind: .secondary, icon: "doc", height: 48, corner: 16, fontSize: 15) { app.push(.fPack(pid: p.id)) }
+                            RemnantCard(app: app, p: p, cost: cost)
+                            HStack(spacing: 10) {
+                                GBtn(tr("fw.btn"), kind: .secondary, icon: "doc", height: 48, corner: 16, fontSize: 15, lines: 2) { app.push(.fPack(pid: p.id)) }
+                                // the part labels: a sticker for every part
+                                GBtn(tr("bz.lab.btn"), kind: .secondary, icon: "note", height: 48, corner: 16, fontSize: 15, lines: 2) { app.push(.fLabels(pid: p.id)) }
+                                    .accessibilityIdentifier("bz.labels")
+                            }
                         }
                         .padding(.horizontal, 16).padding(.bottom, 24)
                     }
@@ -306,6 +322,7 @@ struct CutScreen: View {
             .padding(.bottom, 4)
             ForEach(idx, id: \.offset) { i, r in
                 Hairline()
+                let on = i == hiRow
                 HStack(spacing: 8) {
                     T("\(number[i] ?? 0)", num(13, 700, G.ink2)).frame(width: 24, alignment: .leading)
                     VStack(alignment: .leading, spacing: 0) {
@@ -317,37 +334,51 @@ struct CutScreen: View {
                     T("× \(r.p.qty)", num(13, 600, G.ink2), lines: 1).frame(width: 34, alignment: .leading)
                     BandGlyph(r: r).frame(width: 52, alignment: .leading)
                 }
-                .frame(minHeight: 40)
+                .frame(minHeight: 44)
+                .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(on ? Color(argb: 0x33F59E0B) : Color.clear))
+                .contentShape(Rectangle())
+                .pressable(0.99) { hiRow = on ? -1 : i; hiPiece = nil }
+                .accessibilityIdentifier("fc.row.\(i)")
             }
-            T(tr("fc.bandNote"), ui(12, 400, G.ink2, lh: 1.4)).padding(.top, 6)
+            T(tr("fc.bandNote") + " " + tr("bz.tapPart"), ui(12, 400, G.ink2, lh: 1.4)).padding(.top, 6)
         }
         .padding(12)
         .glassCard(RoundedRectangle(cornerRadius: 20, style: .continuous), fill: G.glass(0.6))
     }
 
     @ViewBuilder private func sheetView(_ lay: MatLayout, _ number: [Int: Int], _ ws: Workshop, _ mats: [Mat]) -> some View {
-        let n = lay.sheets.count, i = min(max(sheet, 0), max(0, n - 1))
+        // the remnants used first, then the new sheets
+        let boards: [SheetPlan] = lay.rems + lay.sheets
+        let n = boards.count, i = min(max(sheet, 0), max(0, n - 1))
+        let bd: SheetPlan? = i < n ? boards[i] : nil
+        let bl = bd?.rem?.L ?? lay.sheetL, bw = bd?.rem?.W ?? lay.sheetW
+        let isRem = bd?.rem != nil
+        let title = isRem ? tr("bz.remBoardN", ["i": i + 1, "n": lay.rems.count, "l": bl, "w": bw])
+            : tr("fc.sheetN", ["i": i + 1 - lay.rems.count, "n": lay.sheets.count, "l": lay.sheetL, "w": lay.sheetW])
         HStack(spacing: 8) {
             GlassIconButton("back", tr("rp2.prev"), tint: i > 0 ? G.ink : PC.offIcon) { if i > 0 { sheet = i - 1 } }.accessibilityIdentifier("fc.prev")
-            T(tr("fc.sheetN", ["i": i + 1, "n": n, "l": lay.sheetL, "w": lay.sheetW]), ui(14, 700), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
-            T(tr("fc.waste", ["v": Int(lay.waste * 100)]), ui(12.5, 600, G.ink2))
+            T(title, ui(14, 700), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
+            if !isRem { T(tr("fc.waste", ["v": Int(lay.waste * 100)]), ui(12.5, 600, G.ink2)) }
             GlassIconButton("chev", tr("rp2.next"), tint: i < n - 1 ? G.ink : PC.offIcon) { if i < n - 1 { sheet = i + 1 } }.accessibilityIdentifier("fc.next")
         }
-        if i < n {
-            let sp = lay.sheets[i]
+        if let sp = bd {
+            // a remnant drawn at the sheets' scale (a small one at half the width at least), without trimmed edges
+            let share: CGFloat = min(1, max(0.5, CGFloat(bl) / CGFloat(lay.sheetL)))
+            let ratio: CGFloat = CGFloat(bl) / (share * CGFloat(bw))
             Canvas { c, size in
-                let k = size.width / CGFloat(lay.sheetL), tr0 = CGFloat(ws.trim) * k
+                let board = CGRect(x: 0, y: 0, width: size.width * share, height: size.height)
+                let bg = isRem ? Color(argb: 0xFFFFF7E6) : Color(argb: 0xFFF3F6FA)
+                c.fill(Path(roundedRect: board, cornerRadius: 6), with: .color(bg))
+                let k = board.width / CGFloat(bl), tr0: CGFloat = isRem ? 0 : CGFloat(ws.trim) * k
                 for pl in sp.placed {
                     let r = CGRect(x: tr0 + CGFloat(pl.x) * k, y: tr0 + CGFloat(pl.y) * k, width: CGFloat(pl.w) * k, height: CGFloat(pl.h) * k)
                     c.fill(Path(r), with: .color(Color(argb: 0xFFDDE6F5))); c.stroke(Path(r), with: .color(Color(argb: 0xFF3E4A61)), lineWidth: 1)
                     let fsz = min(13, min(r.width, r.height) * 0.42)
                     if fsz >= 6 { c.text("\(number[pl.row] ?? 0)", CGPoint(x: r.midX, y: r.midY), .num, fsz, 700, Color(argb: 0xFF0E1C36)) }
                 }
+                c.stroke(Path(roundedRect: board.insetBy(dx: 0.5, dy: 0.5), cornerRadius: 6), with: .color(G.ink), lineWidth: 1)
             }
-            .aspectRatio(CGFloat(lay.sheetL) / CGFloat(lay.sheetW), contentMode: .fit)
-            .background(Color(argb: 0xFFF3F6FA))
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(G.ink, lineWidth: 1))
+            .aspectRatio(ratio, contentMode: .fit)
             .accessibilityIdentifier("fc.sheet")
         }
         T(tr("fw.sheetNote", ["l": lay.sheetL, "w": lay.sheetW, "k": ws.kerf, "t": ws.trim]), ui(12.5, 400, G.ink2, lh: 1.4))
@@ -363,6 +394,10 @@ struct CutScreen: View {
 struct PackScreen: View {
     let app: AppModel
     let pid: String
+    /// The part labels (stickers) instead of the pack.
+    var labels = false
+    /// The part labels: a QR code on each, or not.
+    @State private var qr = true
     @State private var pages: [RPage] = []
     @State private var images: [UIImage] = []
     @State private var page = 0
@@ -372,8 +407,9 @@ struct PackScreen: View {
         if !s.advanced { Color.clear.onAppear { app.dropAdvanced() } } else
         if let p = Store.shared.get(pid) {
             let sn = snapshotOf(p)
-            let pr = priceOf(sn.furniture, p.fprice, s.workshop, s.mats, s.hws)
-            let key = fingerprint(sn) + "\(s.workshop)\(s.mats)\(s.hws)\(p.fprice)"
+            let rems = remsOf(p)
+            let pr = priceOf(sn.furniture, p.fprice, s.workshop, s.mats, s.hws, rems)
+            let key = fingerprint(sn) + "\(s.workshop)\(s.mats)\(s.hws)\(p.fprice)\(rems.map(\.id))" + (labels ? "|labels\(qr)" : "")
             GeometryReader { geo in
                 let w = geo.size.width - 32
                 ZStack {
@@ -381,7 +417,7 @@ struct PackScreen: View {
                         HStack(spacing: 10) {
                             GlassIconButton("back", tr("nt.back")) { app.pop() }.accessibilityIdentifier("back")
                             VStack(alignment: .leading, spacing: 0) {
-                                T(tr("fw.title"), ui(17, 700, G.ink, lh: 1.2), lines: 1)
+                                T(tr(labels ? "bz.lab.title" : "fw.title"), ui(17, 700, G.ink, lh: 1.2), lines: 1)
                                 T(dn(p.name), ui(12.5, 400, G.ink2, lh: 1.2), lines: 1)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -389,16 +425,23 @@ struct PackScreen: View {
                         .padding(.leading, 14).padding(.trailing, 12).frame(height: 64)
                         ScrollView {
                             VStack(spacing: 10) {
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 0) {
-                                        T(tr("fw.inside"), ui(12, 700, Color(argb: 0xFFFDE2C8)))
-                                        T(tr("fw.costShort", ["v": money(p, pr.cost.total) + " " + Money.cur(p.currency)]), num(16, 700, .white), lines: 1)
+                                if labels {
+                                    HStack(spacing: 8) {
+                                        T(tr("bz.lab.sub", ["n": labelsOf(sn.furniture, s.workshop).count]), ui(13, 500, G.ink2, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
+                                        FChip(label: tr("bz.lab.qr"), on: qr) { qr.toggle() }.accessibilityIdentifier("bz.lab.qr")
                                     }
-                                    Spacer()
-                                    T(pages.isEmpty ? "…" : tr("rp2.pages", ["n": pages.count]), ui(12.5, 400, Color(argb: 0xFFFDE2C8)))
+                                } else {
+                                    HStack {
+                                        VStack(alignment: .leading, spacing: 0) {
+                                            T(tr("fw.inside"), ui(12, 700, Color(argb: 0xFFFDE2C8)))
+                                            T(tr("fw.costShort", ["v": money(p, pr.cost.total) + " " + Money.cur(p.currency)]), num(16, 700, .white), lines: 1)
+                                        }
+                                        Spacer()
+                                        T(pages.isEmpty ? "…" : tr("rp2.pages", ["n": pages.count]), ui(12.5, 400, Color(argb: 0xFFFDE2C8)))
+                                    }
+                                    .padding(.horizontal, 14).padding(.vertical, 10)
+                                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(argb: 0xFF7A2E0E)))
                                 }
-                                .padding(.horizontal, 14).padding(.vertical, 10)
-                                .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(Color(argb: 0xFF7A2E0E)))
                                 TabView(selection: $page) {
                                     ForEach(0..<max(1, images.count), id: \.self) { i in
                                         Group { if i < images.count { Image(uiImage: images[i]).resizable() } else { Color.white } }
@@ -423,7 +466,7 @@ struct PackScreen: View {
                             GBtn(tr("rpt.share"), icon: "share") {
                                 guard !pages.isEmpty else { return }
                                 app.say("sh.making", kind: .info)
-                                if let url = pdfFile(pages, pdfName(dn(p.name), tr("fw.file"))) { presentShare(url) } else { app.say("cm.shareErr", kind: .error) }
+                                if let url = pdfFile(pages, pdfName(dn(p.name), tr(labels ? "bz.lab.file" : "fw.file"))) { presentShare(url) } else { app.say("cm.shareErr", kind: .error) }
                             }
                             .accessibilityIdentifier("pk.share")
                         }
@@ -432,7 +475,7 @@ struct PackScreen: View {
                 }
                 .task(id: key + "\(Int(w))") {
                     guard w > 0 else { return }
-                    let built = workshopPages(sn, s.workshop, s.mats, s.hws, pr, p.fprice.mode)
+                    let built = labels ? labelPagesOf(sn, s.workshop, s.mats, p.id, qr) : workshopPages(sn, s.workshop, s.mats, s.hws, pr, p.fprice.mode, rems: rems)
                     pages = built
                     images = built.compactMap { pageImage($0, width: w) }
                     if page >= built.count { page = max(0, built.count - 1) }

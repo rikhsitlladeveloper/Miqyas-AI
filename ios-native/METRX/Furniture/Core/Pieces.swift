@@ -285,27 +285,33 @@ private func stenka(_ ws: Workshop, _ w: Int, _ h: Int, _ d: Int) -> [Module] {
     return out
 }
 
-/// A corner unit cw wide (usually d + 400): a door beside its blind part (the other arm closes it), a rail and a shelf inside.
-private func cornerUnit(_ ws: Workshop, _ x: Int, _ h: Int, _ d: Int, _ cw0: Int? = nil) -> Module {
+/// A corner unit cw wide (usually d + 400): a door beside its blind part (the other arm closes it), a rail and a shelf
+/// inside; open: no door, open shelves to the top.
+private func cornerUnit(_ ws: Workshop, _ x: Int, _ h: Int, _ d: Int, _ cw0: Int? = nil, open: Bool = false) -> Module {
     let cw = cw0 ?? d + 400
     var base = Module(id: uid(), type: "wardrobe", w: cw, h: h, d: d, x: x, wall: "A", legs: false)
     let ih = wardInnerH(base, ws.t)
+    if open {
+        let sec = Section(cw, fronts: Fronts("open", 0), inserts: Array(repeating: Insert("shelf"), count: 5), blind: d)
+        base.sections = [spreadShelves(sec, ih, ws.t)]
+        return base
+    }
     let rail = min(ih - 420, 1800 - wardBase(base) - ws.t)
     base.sections = [Section(cw, fronts: Fronts("door", 1), inserts: [Insert("rail", pos: rail), Insert("shelf", pos: rail + 70)], hinge: "L", blind: d)]
     return base
 }
 
 /// A corner wardrobe w along the first wall and w2 along the second (each with the corner's depth in it).
-private func cornerWard(_ ws: Workshop, _ w: Int, _ w2: Int, _ h: Int, _ d: Int) -> [Module] {
+private func cornerWard(_ ws: Workshop, _ w: Int, _ w2: Int, _ h: Int, _ d: Int, open: Bool = false) -> [Module] {
     let cw = d + 400
     var out: [Module] = []
     let aw = w - cw
     // too short for a wardrobe beside the corner unit: the corner unit takes the whole typed length (its door narrower)
     if aw >= 300 {
         out.append(wardrobeTemplate(ws, "A", W_GAP_SIDE, aw, h, builtIn: false, d: d))
-        out.append(cornerUnit(ws, W_GAP_SIDE + aw, h, d))
+        out.append(cornerUnit(ws, W_GAP_SIDE + aw, h, d, open: open))
     } else {
-        out.append(cornerUnit(ws, W_GAP_SIDE, h, d, max(d + 300, w)))
+        out.append(cornerUnit(ws, W_GAP_SIDE, h, d, max(d + 300, w), open: open))
     }
     let bw = w2 - d
     if bw >= 300 { out.append(wardrobeTemplate(ws, "B", d, bw, h, builtIn: false, d: d)) }
@@ -414,7 +420,7 @@ func newPiece(_ type: String, _ v: (String) -> Int, _ ws: Workshop, _ name: Stri
     case "bar": mods = [itemModule("bar", ws, "A", x, v("w"), v("h"), v("d"), ItemOpt(top: "wt"))]
     case "mirrorP": mods = [itemModule("hooks", ws, "A", x, v("w"), v("h"), 0, ItemOpt(hooks: 4, shelf: true, mirW: 450, mirH: 1000), elev: 300)]
     case "stenka": mods = stenka(ws, v("w"), v("h"), v("d"))
-    case "cornerW": walls = ["A", "B"]; mods = cornerWard(ws, v("w"), v("w2"), v("h"), v("d"))
+    case "cornerW": walls = ["A", "B"]; mods = cornerWard(ws, v("w"), v("w2"), v("h"), v("d"), open: shapeOpen(type, v("sh")))
     case "cornerDesk": walls = ["A", "B"]; mods = cornerDesk(ws, v("w"), v("w2"), v("h"), v("d"))
     case "vitrina": mods = vitrina(ws, v("w"), v("h"), v("d"))
     case "washer": mods = washer(ws, v("w"), v("h"), v("d"))
@@ -422,6 +428,11 @@ func newPiece(_ type: String, _ v: (String) -> Int, _ ws: Workshop, _ name: Stri
     }
     let f = Furniture(id: uid(), kind: "wardrobe", name: name, roomId: nil, walls: walls, modules: mods, mats: BATH_TYPES.contains(type) ? bathMats() : FMats(),
                       created: now, model: type, type: type)
+    // a corner piece with its corner on the left: the same arms on the made-up room's left and back walls
+    if CORNER_TYPES.contains(type) && shapeLeft(type, v("sh")) {
+        var g = onWalls(f, cornerWalls("L")); g.hand = "L"
+        return packPiece(g, nil, ws: ws)
+    }
     return packPiece(f, nil, ws: ws)
 }
 
@@ -466,7 +477,10 @@ func pieceVals(_ f: Furniture, _ ws: Workshop) -> [String: Int] {
         let wa: Int = a.reduce(0) { $0 + $1.w }
         let wb: Int = b.reduce(0) { $0 + $1.w }
         let top: Int = bs.map { topOf($0, ws) }.max() ?? main.h
-        return ["w": wa, "w2": d + wb, "h": top, "d": d]
+        // the shape: the corner on the left, the corner wardrobe's open shelves
+        let open = f.type == "cornerW" && bs.contains { m in m.sections.contains { $0.blind > 0 && $0.fronts.kind == "open" } }
+        let sh = (open ? 2 : 0) + (f.hand == "L" ? 1 : 0)
+        return ["w": wa, "w2": d + wb, "h": top, "d": d, "sh": sh, "ms": 0]
     case "vitrina", "washer":
         let top: Int = bs.map { topOf($0, ws) }.max() ?? main.h
         return ["w": main.w, "h": top, "d": main.d]

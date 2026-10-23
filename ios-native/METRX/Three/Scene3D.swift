@@ -22,6 +22,8 @@ private func f3(_ v: V3) -> SIMD3<Float> { SIMD3(Float(v.x), Float(v.y), Float(v
 @Observable
 final class Cam3D {
     @ObservationIgnored var theta = Double.pi / 2 + 0.75
+    /// "From the corner" turns the camera back to this (a corner piece with its corner on the left is seen from the right).
+    @ObservationIgnored var cornerTheta = Double.pi / 2 + 0.75
     @ObservationIgnored var phi = 0.95
     @ObservationIgnored var r = 12.0
     @ObservationIgnored var tgt = V3(0, 1, 0)
@@ -55,6 +57,7 @@ final class Cam3D {
         dims = [s.L, s.W, s.H]
         tgt = s.tgt; r = s.r
         if let t = s.theta { theta = t }
+        cornerTheta = s.theta ?? .pi / 2 + 0.75
         if let p = s.phi { phi = p }
         bounds = s.bounds; rMin = s.rMin; rMax = nil; fit = s.fit; rFit = nil
         if w > 0 { applyFit() }
@@ -101,7 +104,7 @@ final class Cam3D {
     /// "From above" and "From the corner": back to the middle at the start distance (prototype preset + ux).
     func preset(top: Bool) {
         stop()
-        if top { phi = 0.07; theta = .pi / 2 } else { phi = 0.95; theta = .pi / 2 + 0.75 }
+        if top { phi = 0.07; theta = .pi / 2 } else { phi = 0.95; theta = cornerTheta }
         tgt = V3(dims[0] / 2, dims[2] * 0.3, dims[1] / 2)
         r = rFit ?? (max(dims[0], dims[1]) * 2.2 + 2.5)
         moved()

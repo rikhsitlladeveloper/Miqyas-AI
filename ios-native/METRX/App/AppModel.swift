@@ -40,6 +40,12 @@ enum Route: Hashable {
     case wardrobe(pid: String, fid: String, step: Int, sec: Int, d3: Bool = false, mod: String? = nil)
     /// Furniture orders: the parts and sheet layout, and the workshop pack.
     case fCut(pid: String), fPack(pid: String)
+    /// The part labels (stickers) of a furniture order (Android FPack with labels).
+    case fLabels(pid: String)
+    /// A furniture order's one "Check" list before it is sent (bazis ideas, 23 Oct 2026).
+    case fCheck(pid: String)
+    /// The workshop's remnants (Advanced): what is kept, deleting them.
+    case remnants
     /// Adding furniture (gallery v5, 21 Oct 2026; Android Gallery.kt): the models by room (rid a room it is for,
     /// fromNew right after a new order); a model's sizes step by step (fid: changing a piece's); which room; into a room.
     /// fPlace places piece fid, or a new piece of model with the sizes vals ("s0=3000,h=2700"; nil: sizes from the room).
@@ -136,6 +142,8 @@ enum Sheet: Equatable {
     /// The trades' calculator settings; a column or a niche (fid nil: a new one).
     case tradeCalc(pid: String), featureForm(pid: String, rid: String, fid: String?, type: String)
     case fModule(pid: String, fid: String, mid: String), fLibrary(pid: String, fid: String, wall: String, group: String)
+    /// "Change for all": the fronts' board and the handles of every piece of an order.
+    case fSwap(pid: String)
     /// A kitchen's legs' height.
     case kLegs(pid: String, fid: String)
     /// The wardrobe: one size (key w, h, d, x or secW of section sec), an insert, more inserts for a section.
@@ -236,6 +244,7 @@ final class AppModel {
                 case .report(let pid, let no): return store.get(pid).map { p in no == nil || p.quotes.contains { $0.no == no } } == true
                 case .kitchen(let pid, let fid, _, _), .wardrobe(let pid, let fid, _, _, _, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
                 case .fCut(let pid), .fPack(let pid), .fWhere(let pid, _, _): return store.get(pid) != nil
+                case .fLabels(let pid), .fCheck(let pid): return store.get(pid) != nil
                 case .fGallery(let pid, let rid, _): return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
                 case .fSteps(let pid, _, let fid, _): return store.get(pid).map { p in fid == nil || p.furniture.contains { $0.id == fid } } == true
                 case .fPlace(let pid, let fid, let rid, _, _): return store.get(pid).map { p in (fid == nil || p.furniture.contains { $0.id == fid }) && p.rooms.contains { $0.id == rid } } == true
@@ -271,7 +280,7 @@ final class AppModel {
         for (t, st) in stacks {
             let keep = st.filter { r in
                 switch r {
-                case .fCut, .fPack, .workshop, .materials: return false
+                case .fCut, .fPack, .fLabels, .workshop, .materials, .remnants: return false
                 case .report(_, let no): return no == nil
                 default: return true
                 }

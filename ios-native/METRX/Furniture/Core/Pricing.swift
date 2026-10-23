@@ -55,8 +55,9 @@ private func roundHalfUp(_ x: Decimal) -> Decimal { var a = x, r = Decimal(); NS
 /// Running metres of a kitchen's lower rows, in millimetres.
 func runMm(_ f: Furniture) -> Int { f.modules.filter { !isUpper($0) && $0.type != "tall" && !($0.type == "gap" && ($0.app == "fridge" || $0.app == "space")) }.reduce(0) { $0 + $1.w } }
 
-func priceOf(_ fs: [Furniture], _ fp: FPrice, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw]) -> Priced {
-    let cost = costOf(fs, ws, mats, hws)
+/// The order's price; the store's remnants rems lower the cost (and so the profit), not each piece's price.
+func priceOf(_ fs: [Furniture], _ fp: FPrice, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], _ rems: [Remnant] = []) -> Priced {
+    let cost = costOf(fs, ws, mats, hws, rems: rems)
     let pct = fp.pct ?? ws.margin
     let built = fs.filter { !$0.modules.isEmpty }
     // delivery and installation once an order, with the margin

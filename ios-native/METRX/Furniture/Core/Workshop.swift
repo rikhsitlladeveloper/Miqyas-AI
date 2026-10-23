@@ -32,6 +32,8 @@ struct Workshop: Codable, Equatable {
     var rAsm = "120000"
     var rInstall = "1500000"
     var rDeliver = "300000"
+    /// Remnants (Advanced): offcuts at least this many mm each way are kept for the next orders.
+    var remMin = REM_MIN
     init() {}
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -39,6 +41,7 @@ struct Workshop: Codable, Equatable {
         sheetL = c.v(.sheetL, 2800); sheetW = c.v(.sheetW, 2070); kerf = c.v(.kerf, 4); trim = c.v(.trim, 10); legH = c.v(.legH, 100)
         margin = c.v(.margin, 30); prepay = c.v(.prepay, 50)
         rCut = c.v(.rCut, "45000"); rBand = c.v(.rBand, "3000"); rAsm = c.v(.rAsm, "120000"); rInstall = c.v(.rInstall, "1500000"); rDeliver = c.v(.rDeliver, "300000")
+        remMin = c.v(.remMin, REM_MIN)
     }
 }
 
@@ -89,11 +92,17 @@ let MAT_PRESETS: [Mat] = [
     Mat("band04", "band", "Kromka PVX 0,4 mm", 4, l: 0, w: 0, price: "1500", preset: true)
 ]
 
+/// The handle presets beyond the usual skoba: offered for a whole order, never the usual price.
+let HANDLE_MORE: Set<String> = ["handleLong", "handleKnob"]
+
 let HW_PRESETS: [Hw] = [
     Hw("hingeSoft", "hingeSoft", "Petlya, yumshoq yopilish", "18000", true),
     Hw("hinge", "hinge", "Petlya, oddiy", "9000", true),
     Hw("runner", "runner", "Yo‘naltiruvchi 300–600", "95000", true),
     Hw("handle", "handle", "Tutqich skoba 128", "25000", true),
+    // more handles to pick for a whole order ("Change for all", 23 Oct 2026); the price stays the skoba's otherwise
+    Hw("handleLong", "handle", "Tutqich uzun 320", "45000", true),
+    Hw("handleKnob", "handle", "Tutqich knopka", "15000", true),
     Hw("leg", "leg", "Oyoq 100 mm", "6000", true),
     Hw("pin", "pin", "Polka ushlagich", "300", true),
     Hw("rail", "rail", "Shtanga (metr)", "35000", true),

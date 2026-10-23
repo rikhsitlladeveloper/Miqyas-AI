@@ -193,12 +193,16 @@ struct FRoomsTab: View {
         let snap = AppSettings.shared.angleSnap
         let amounts = pieceAmounts(p)
         VStack(spacing: 10) {
+            // everything that is wrong with the order's pieces, in one place (bazis ideas, 23 Oct 2026)
+            CheckCard(app: app, p: p)
             FreeCard(app: app, p: p)
             if p.floors.isEmpty && !p.furniture.contains(where: { $0.roomId == nil }) {
                 T(tr("fz.empty"), ui(14.5, 400, G.ink2), align: .center).padding(22).frame(maxWidth: .infinity)
                     .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
             }
             ForEach(p.floors) { w in roomCard(w, snap, amounts) }
+            // the fronts' board and the handles of every piece in one tap
+            SwapButton(app: app, p: p)
             if !p.rooms.isEmpty {
                 HStack(spacing: 8) {
                     GBtn(tr("pj.v2d"), kind: .secondary, icon: "room", height: 48, fontSize: 15) { app.setProjectView("2d") }.accessibilityIdentifier("pj.v2d")
@@ -442,7 +446,10 @@ struct NextStep: View {
         let installed = installDate(p).map { tr("fo.installV", ["d": fmtDay($0)]) }
         let pid = p.id
         // the simple app has no stages: the steps of making the furniture, then sending the design
-        let share = Step(title: tr("ns.shareT"), sub: tr("ns.shareS"), button: tr("ns.shareB")) { app.push(.report(pid: pid, no: nil)) }
+        // sending the design: with an error in the Check list, the list first
+        let errs = s.advanced ? 0 : orderIssues(p).filter { $0.level == "err" }.count
+        let shareSub = errs > 0 ? tr("bz.sendErr", ["n": errs]) : tr("ns.shareS")
+        let share = Step(title: tr("ns.shareT"), sub: shareSub, button: tr("ns.shareB")) { app.push(errs > 0 ? .fCheck(pid: pid) : .report(pid: pid, no: nil)) }
         if !s.advanced && k >= 2 { return share }
         if k >= 6 { return nil }
         if k == 5 {

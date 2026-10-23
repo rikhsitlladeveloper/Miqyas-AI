@@ -208,7 +208,10 @@ struct FStepsScreen: View {
     let pid: String
     let model: String
     let fid: String?
-    @State private var texts: [String]
+    /// What was typed, by step key; a choice step keeps the index of what was chosen ("" the usual one).
+    @State private var texts: [String: String]
+    /// The sizes the page started from (a corner piece's shape when it is changed later).
+    private let had: [String: Int]
     /// 0 … n-1 a size, n the summary; back: the step was opened from the summary, was: its text then.
     @State private var at: Int
     @State private var back = false
@@ -221,18 +224,37 @@ struct FStepsScreen: View {
     init(app: AppModel, pid: String, model: String, fid: String?, vals: String? = nil) {
         self.app = app; self.pid = pid; self.model = model; self.fid = fid
         let s = AppSettings.shared
-        let st = fModel(model).map { stepsOf($0) } ?? []
         let edit = fid.flatMap { id in Store.shared.get(pid)?.furniture.first { $0.id == id } }
         let have = vals.map { decodeVals($0) } ?? edit.map { valsOf($0, s.workshop) } ?? [:]
-        // a choice step keeps the index of what was chosen ("" the usual one)
-        _texts = State(initialValue: st.map { step in have[step.key].map { step.choice ? "\($0)" : Geo.fmtField($0, s.unit, s.lang == .en) } ?? "" })
-        _at = State(initialValue: vals != nil ? st.count : 0)
+        had = have
+        let all = fModel(model).map { stepsOf($0, have) } ?? []
+        var t: [String: String] = [:]
+        for (k, v) in have {
+            let choice = all.contains { $0.key == k && $0.choice }
+            t[k] = choice ? "\(v)" : Geo.fmtField(v, s.unit, s.lang == .en)
+        }
+        _texts = State(initialValue: t)
+        // a corner piece's shape is chosen once, when it is made
+        let n = all.filter { edit == nil || $0.key != "sh" }.count
+        _at = State(initialValue: vals != nil ? n : 0)
     }
+
+    /// The steps now: a corner piece's side steps follow which sides were measured; its shape only for a new piece.
+    private func stepsNow(_ m: FModelDef) -> [SizeStep] {
+        let ms = texts["ms"].flatMap { Int($0) }
+        let all = stepsOf(m, ms.map { ["ms": $0] } ?? [:])
+        if fid == nil { return all }
+        return all.filter { $0.key != "sh" }
+    }
+
+    /// Step i's text.
+    private func txt(_ steps: [SizeStep], _ i: Int) -> String { i < steps.count ? texts[steps[i].key] ?? "" : "" }
+    private func setTxt(_ steps: [SizeStep], _ i: Int, _ v: String) { if i < steps.count { texts[steps[i].key] = v } }
 
     var body: some View {
         if let p = Store.shared.get(pid), let m = fModel(model) {
             let s = AppSettings.shared, ws = s.workshop, unit = s.unit
-            let steps = stepsOf(m), n = steps.count
+            let steps = stepsNow(m), n = steps.count
             let edit = fid.flatMap { id in p.furniture.first { $0.id == id } }
             // only sizes within their range reach the piece: a typed 99999 would otherwise build a 100 m kitchen on every key
             let vals = typedVals(steps, unit)
@@ -240,7 +262,10 @@ struct FStepsScreen: View {
             let scene = pieceScene(piece, ws, s.mats)
             let uw = unitWord(unit)
             let hi: String? = at < n && !steps[at].choice ? steps[at].key : nil
-            let label: String? = hi != nil ? (parseLen(texts[at], unit).map { Geo.fmtLen($0, unit, en) + " " + uw } ?? "?") : nil
+            let label: String? = hi != nil ? (parseLen(txt(steps, at), unit).map { Geo.fmtLen($0, unit, en) + " " + uw } ?? "?") : nil
+            // the sides worked out from the ones typed (a corner piece), and whether one comes out of what the piece can be
+            let derived = derivedSides(m, vals)
+            let allOk = steps.indices.allSatisfy { ok(steps, $0, unit) } && !derived.contains { $0.bad }
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
                     HStack(spacing: 6) {
@@ -267,9 +292,10 @@ struct FStepsScreen: View {
                             .aspectRatio(typing && at < n ? 2.1 : 1 / 0.92, contentMode: .fit)
                             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(G.rim, lineWidth: 1))
-                            if at < n && steps[at].choice { choiceAsk(steps[at]) }
-                            else if at < n { ask(steps[at], unit, uw) }
-                            else { summary(steps, unit, uw, noteKey(m, edit)) }
+                            if at < n && steps[at].pics { picsAsk(m, steps) }
+                            else if at < n && steps[at].choice { choiceAsk(steps) }
+                            else if at < n { ask(steps, unit, uw) }
+                            else { summary(steps, unit, uw, derived, noteKey(m, edit)) }
                         }
                         .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 120)
                     }
@@ -279,7 +305,7 @@ struct FStepsScreen: View {
                     if at < n {
                         GBtn(tr("common.next"), enabled: ok(steps, at, unit)) { next(steps, unit) }.accessibilityIdentifier("fx.next")
                     } else if let edit {
-                        GBtn(tr("common.save"), enabled: steps.indices.allSatisfy { ok(steps, $0, unit) }) {
+                        GBtn(tr("common.save"), enabled: allOk) {
                             guard app.once() else { return }
                             let g = resized(edit, vals, ws)
                             Store.shared.update(pid) { pr in pr.furniture = pr.furniture.map { $0.id == g.id ? g : $0 } }
@@ -287,7 +313,7 @@ struct FStepsScreen: View {
                         }
                         .accessibilityIdentifier("fx.save")
                     } else {
-                        GBtn(tr("fr.continue"), enabled: steps.indices.allSatisfy { ok(steps, $0, unit) }) {
+                        GBtn(tr("fr.continue"), enabled: allOk) {
                             // the sizes stay with this page, so coming back from "Which room?" finds them
                             app.setTop(.fSteps(pid: pid, model: m.id, fid: nil, vals: encodeVals(vals)))
                             app.push(.fWhere(pid: pid, model: m.id, vals: encodeVals(vals)))
@@ -313,8 +339,8 @@ struct FStepsScreen: View {
     /// The values typed so far that are within their ranges.
     private func typedVals(_ steps: [SizeStep], _ unit: LenUnit) -> [String: Int] {
         var out: [String: Int] = [:]
-        for i in steps.indices where i < texts.count {
-            if let v = typed(steps[i], texts[i], unit), stepIssue(steps[i], v) == nil { out[steps[i].key] = v }
+        for i in steps.indices {
+            if let v = typed(steps[i], txt(steps, i), unit), stepIssue(steps[i], v) == nil { out[steps[i].key] = v }
         }
         return out
     }
@@ -339,7 +365,12 @@ struct FStepsScreen: View {
         guard let r = stepIssue(s, mm) else { return nil }
         return tr(r.0, ["v": Geo.fmtLen(r.1, unit, en) + " " + unitWord(unit)])
     }
-    private func ok(_ steps: [SizeStep], _ i: Int, _ unit: LenUnit) -> Bool { steps[i].choice || (parseLen(texts[i], unit) != nil && issue(steps[i], texts[i], unit) == nil) }
+    private func ok(_ steps: [SizeStep], _ i: Int, _ unit: LenUnit) -> Bool {
+        guard i < steps.count else { return false }
+        if steps[i].choice { return true }
+        let t = txt(steps, i)
+        return parseLen(t, unit) != nil && issue(steps[i], t, unit) == nil
+    }
     private func next(_ steps: [SizeStep], _ unit: LenUnit) {
         guard at < steps.count, ok(steps, at, unit) else { return }
         laser = nil
@@ -349,36 +380,40 @@ struct FStepsScreen: View {
         laser = nil
         // back to the summary: a size left empty or wrong gets its old value again
         if at < n && back {
-            if let m = fModel(model), !ok(stepsOf(m), at, AppSettings.shared.unit) { texts[at] = was }
+            if let m = fModel(model) {
+                let st = stepsNow(m)
+                if !ok(st, at, AppSettings.shared.unit) { setTxt(st, at, was) }
+            }
             back = false; at = n
         } else if at > 0 { at -= 1 } else { app.pop() }
     }
 
-    @ViewBuilder private func ask(_ s: SizeStep, _ unit: LenUnit, _ uw: String) -> some View {
+    @ViewBuilder private func ask(_ steps: [SizeStep], _ unit: LenUnit, _ uw: String) -> some View {
         let i = at
-        let bad = issue(s, texts[i], unit)
+        let s = steps[i]
+        let bad = issue(s, txt(steps, i), unit)
         let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
         let on = AppSettings.shared.laser == .connected
         VStack(alignment: .leading, spacing: 6) {
             T(tr(s.label), ui(21, 800, G.ink, lh: 1.2)).padding(.top, 4)
             T(tr(s.help), ui(13, 400, G.ink2, lh: 1.4))
             HStack(spacing: 10) {
-                TextField("", text: Binding(get: { i < texts.count ? texts[i] : "" }, set: { v in
-                    if i < texts.count { texts[i] = String(v.filter { $0.isNumber || $0 == "," || $0 == "." }.prefix(8)); laser = nil }
+                TextField("", text: Binding(get: { txt(steps, i) }, set: { v in
+                    setTxt(steps, i, String(v.filter { $0.isNumber || $0 == "," || $0 == "." }.prefix(8))); laser = nil
                 }), prompt: Text(Geo.fmtField(s.usual, unit, en)).foregroundColor(Color(argb: 0xFFA7B0C0)))
                 .font(num(24, 700).font).foregroundColor(G.ink)
                 .keyboardType(.decimalPad).focused($typing)
                 .accessibilityLabel(tr(s.label)).accessibilityIdentifier("fx.value")
                 T(uw, ui(15, 700, G.ink3))
                 // the laser's button sits in the field, so it stays in sight above the keyboard
-                if on { GBtn(tr("fx.laser"), icon: "laser", enabled: laser != "busy", height: 44, corner: 14, fontSize: 13.5, fill: false) { reading(s, unit) }.accessibilityIdentifier("fx.laser") }
+                if on { GBtn(tr("fx.laser"), icon: "laser", enabled: laser != "busy", height: 44, corner: 14, fontSize: 13.5, fill: false) { reading(steps, unit) }.accessibilityIdentifier("fx.laser") }
             }
             .padding(.horizontal, 16).frame(minHeight: 60)
             .background(shape.fill(G.glass(0.85)))
             .overlay(shape.strokeBorder(bad != nil ? G.err : G.cobalt, lineWidth: 2))
             if let bad { HStack(alignment: .top, spacing: 6) { MIcon("alert", G.err, 18, 2); T(bad, ui(13.5, 500, G.err)) } }
             // the usual sizes (a mattress's) a tap away
-            if !s.picks.isEmpty { picksRow(s, i, unit) }
+            if !s.picks.isEmpty { picksRow(steps, i, unit) }
             // one line under the field: the laser's state or its reading; without a laser, the way to connect one
             HStack(spacing: 8) {
                 Circle().fill(on ? Color(argb: 0xFF16A34A) : G.ink3).frame(width: 9, height: 9)
@@ -391,26 +426,37 @@ struct FStepsScreen: View {
         }
     }
 
-    private func picksRow(_ s: SizeStep, _ i: Int, _ unit: LenUnit) -> some View {
-        let cur = i < texts.count ? parseLen(texts[i], unit) : nil
+    private func picksRow(_ steps: [SizeStep], _ i: Int, _ unit: LenUnit) -> some View {
+        let s = steps[i]
+        let cur = parseLen(txt(steps, i), unit)
         return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(s.picks, id: \.self) { v in
-                    FChip(label: Geo.fmtLen(v, unit, en), on: cur == v) { if i < texts.count { texts[i] = Geo.fmtField(v, unit, en); laser = nil } }
+                    FChip(label: Geo.fmtLen(v, unit, en), on: cur == v) { setTxt(steps, i, Geo.fmtField(v, unit, en)); laser = nil }
                         .accessibilityIdentifier("fx.pick.\(v)")
                 }
             }
         }
     }
 
-    /// A choice on its own step (a bed's kind, a table's legs): one card an option, the chosen one marked.
-    @ViewBuilder private func choiceAsk(_ s: SizeStep) -> some View {
+    /// A corner piece's shape, or which of its sides were measured, as small top-down pictures.
+    private func picsAsk(_ m: FModelDef, _ steps: [SizeStep]) -> some View {
         let i = at
-        let cur = (i < texts.count ? Int(texts[i]) : nil) ?? s.usual
+        let s = steps[i]
+        let cur = Int(txt(steps, i)) ?? s.usual
+        let sh = texts["sh"].flatMap { Int($0) } ?? had["sh"] ?? 0
+        return PicsAsk(m: m, s: s, cur: cur, sh: sh) { v in setTxt(steps, i, "\(v)") }
+    }
+
+    /// A choice on its own step (a bed's kind, a table's legs): one card an option, the chosen one marked.
+    @ViewBuilder private func choiceAsk(_ steps: [SizeStep]) -> some View {
+        let i = at
+        let s = steps[i]
+        let cur = Int(txt(steps, i)) ?? s.usual
         VStack(alignment: .leading, spacing: 8) {
             T(tr(s.label), ui(21, 800, G.ink, lh: 1.2)).padding(.top, 4)
             T(tr(s.help), ui(13, 400, G.ink2, lh: 1.4))
-            ForEach(Array(s.opts.enumerated()), id: \.offset) { k, key in choiceCard(key, k == cur) { if i < texts.count { texts[i] = "\(k)" } } }
+            ForEach(Array(s.opts.enumerated()), id: \.offset) { k, key in choiceCard(key, k == cur) { setTxt(steps, i, "\(k)") } }
         }
     }
 
@@ -438,23 +484,25 @@ struct FStepsScreen: View {
 
     /// The laser's newest reading not used yet (its readings' inbox) fills the field, and the next step opens; with none,
     /// nothing is made up: it says so.
-    private func reading(_ s: SizeStep, _ unit: LenUnit) {
-        guard laser != "busy", !s.choice else { return }
+    private func reading(_ steps: [SizeStep], _ unit: LenUnit) {
         let i = at
+        guard laser != "busy", i < steps.count, !steps[i].choice else { return }
+        let s = steps[i]
         guard let r = AppSettings.shared.readings.last(where: { $0.used == nil && $0.src != "manual" }) else { laser = tr("fx.noReading"); return }
         AppSettings.shared.markReadingUsed(r.id, tr(s.label))
-        if i < texts.count { texts[i] = Geo.fmtField(r.mm, unit, en) }
+        setTxt(steps, i, Geo.fmtField(r.mm, unit, en))
         laser = tr("fx.got", ["v": Geo.fmtLen(r.mm, unit, en) + " " + unitWord(unit)])
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
             guard at == i, let m = fModel(model) else { return }
-            let st = stepsOf(m)
+            let st = stepsNow(m)
             if ok(st, i, unit) { next(st, unit) }
         }
     }
 
     /// What a step's value reads as in the summary: a choice's name, or a size with its unit.
-    private func shown(_ s: SizeStep, _ i: Int, _ unit: LenUnit, _ uw: String) -> String {
-        let text = i < texts.count ? texts[i] : ""
+    private func shown(_ steps: [SizeStep], _ i: Int, _ unit: LenUnit, _ uw: String) -> String {
+        let s = steps[i]
+        let text = txt(steps, i)
         if s.choice {
             let k = Int(text) ?? s.usual
             return tr(k >= 0 && k < s.opts.count ? s.opts[k] : s.opts[0])
@@ -462,19 +510,23 @@ struct FStepsScreen: View {
         return (parseLen(text, unit).map { Geo.fmtLen($0, unit, en) } ?? text) + " " + uw
     }
 
-    @ViewBuilder private func summary(_ steps: [SizeStep], _ unit: LenUnit, _ uw: String, _ note: String) -> some View {
+    @ViewBuilder private func summary(_ steps: [SizeStep], _ unit: LenUnit, _ uw: String, _ derived: [DerivedSide], _ note: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             ForEach(Array(steps.enumerated()), id: \.offset) { i, s in
                 HStack(spacing: 10) {
                     T(tr(s.label), ui(14.5, 600)).frame(maxWidth: .infinity, alignment: .leading)
-                    T(shown(s, i, unit, uw), num(17, 700), lines: 1)
+                    T(shown(steps, i, unit, uw), num(17, 700), lines: 1)
                     T(tr("fz.change"), ui(12.5, 700, G.cobalt2))
                 }
                 .padding(.horizontal, 12).padding(.vertical, 8).frame(minHeight: 54)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.glass(0.7)))
-                .pressable(0.98) { was = texts[i]; back = true; at = i }
+                .pressable(0.98) { was = txt(steps, i); back = true; at = i }
                 .accessibilityElement(children: .combine).accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("fx.row.\(i)")
+            }
+            // a corner piece: the sides worked out from the ones typed, marked as such
+            if !derived.isEmpty {
+                DerivedCard(rows: derived.map { d in (tr(d.key), Geo.fmtLen(d.mm, unit, en) + " " + uw, d.bad) })
             }
             T(tr(note), ui(12.5, 400, G.ink2, lh: 1.45)).padding(.top, 4).padding(.leading, 4)
         }
@@ -494,7 +546,8 @@ struct FWhereScreen: View {
             let s = AppSettings.shared, ws = s.workshop, snap = s.angleSnap, unit = s.unit
             let v = decodeVals(vals)
             let probe = pieceOf(m, v, ws, "")
-            let sizes = stepsOf(m).filter { !$0.choice && ($0.key != "h" || m.kind != "kitchen") }.map { st in v[st.key].map { Geo.fmtLen($0, unit, en) } ?? "?" }
+            let dv = derive(m, v)
+            let sizes = stepsOf(m).filter { !$0.choice && ($0.key != "h" || m.kind != "kitchen") }.map { st in dv[st.key].map { Geo.fmtLen($0, unit, en) } ?? "?" }
                 .joined(separator: m.kind == "kitchen" ? " + " : " × ") + " " + unitWord(unit)
             FPage(eyebrow: tr("fz.m." + m.id), title: tr("fq.title"), back: { app.pop() }) {
                 T(tr("fz.m." + m.id) + ": " + sizes, ui(13.5, 500, G.ink2))

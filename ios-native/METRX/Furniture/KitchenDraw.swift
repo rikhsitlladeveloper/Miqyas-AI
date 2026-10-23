@@ -96,7 +96,7 @@ func modSub(_ m: Module) -> String {
 /// A wall's chip: "Devor A · 3400", or the island; furniture without a room has sides ("1-tomon").
 func runName(_ f: Furniture, _ r: Run, withLen: Bool = true) -> String {
     if r.wall == ISLAND { return tr(f.layout == "P" ? "kt.peninsula" : "kt.island") }
-    let name = f.roomId == nil ? tr("fz.sideN", ["n": (f.walls.firstIndex(of: r.wall) ?? -1) + 1]) : tr("kt.wallN", ["w": r.wall])
+    let name = f.roomId == nil ? tr("fz.sideN", ["n": sideNo(f, f.walls.firstIndex(of: r.wall) ?? -1)]) : tr("kt.wallN", ["w": r.wall])
     return name + (withLen && r.len != nil ? " · \(r.len!)" : "")
 }
 

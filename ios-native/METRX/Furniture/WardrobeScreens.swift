@@ -389,11 +389,13 @@ struct WardrobeScreen: View {
                                 .padding(14)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.6))
-                                ChecksCard(f: f, found: cx.found) { _ in }
+                                // with the Check list's drawer rule (its sheet and shelf rules are the designer's own)
+                                ChecksCard(f: f, found: cx.found + drawerRule(f, ws, mats)) { _ in }
                                 CostCard(p: p, f: f)
                             }
                             .padding(.horizontal, 16).padding(.bottom, 28)
                         }
+                        LivePrice(app: app, p: p, f: f)
                         }
                     } else {
                         T(tr("kt.roomLost"), ui(15, 500, G.ink2, lh: 1.45)).padding(24)
@@ -402,6 +404,11 @@ struct WardrobeScreen: View {
                 }
             }
     }
+}
+
+/// The Check list's drawer rule for the wardrobe designer (Furniture/Core/FurnChecks.swift boardIssues).
+private func drawerRule(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> [FCheck] {
+    boardIssues(f, ws, mats).filter { $0.key == "bz.ck.drawer" }.map { FCheck(level: $0.level, key: $0.key, vars: $0.vars, mid: $0.mid) }
 }
 
 /// The boxes of a piece of several (a stenka's pieces, a corner wardrobe's arms, a vitrina's halves): which one the steps

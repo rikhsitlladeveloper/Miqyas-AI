@@ -92,6 +92,18 @@ func elecSnap(_ sn: Snap, _ p: Project, _ snap: Bool) -> Snap {
     return out
 }
 
+/// The handles the order's pieces have: the usual one, or those picked for a whole piece ("Change for all").
+private func handleNames(_ fs: [Furniture], _ hws: [Hw]) -> String {
+    let usual = usualHw(hws, "handle")
+    var names: [String] = []
+    for f in fs where f.modules.contains(where: { $0.handles }) {
+        let own = hws.first { $0.id == f.handle && $0.kind == "handle" }
+        if let n = (own ?? usual)?.name, !names.contains(n) { names.append(n) }
+    }
+    if names.isEmpty, let u = usual { names = [u.name] }
+    return names.joined(separator: ", ")
+}
+
 /// A furniture order's part of the snapshot: the furniture, its materials, the price lines and the terms.
 func furnSnap(_ sn: Snap, _ p: Project, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw]) -> Snap {
     let fs = p.furniture.filter { !$0.modules.isEmpty }
@@ -102,7 +114,7 @@ func furnSnap(_ sn: Snap, _ p: Project, _ ws: Workshop, _ mats: [Mat], _ hws: [H
     out.furniture = fs; out.fmats = mats.filter { used.contains($0.id) }
     out.flines = pr.lines.map { SnapLine(key: $0.key, amount: Money.digits($0.amount)) }
     out.ftotal = Money.digits(pr.price); out.fprepay = ws.prepay; out.fdays = p.fprice.days; out.finst = p.fprice.inst
-    out.fhandles = hws.last { $0.kind == "handle" }?.name ?? ""; out.fws = ws
+    out.fhandles = handleNames(fs, hws); out.fws = ws
     return out
 }
 

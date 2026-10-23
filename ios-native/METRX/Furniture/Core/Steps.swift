@@ -24,6 +24,8 @@ struct SizeStep: Equatable {
     let key: String, label: String, help: String, usual: Int, min: Int, max: Int
     var opts: [String] = []
     var picks: [Int] = []
+    /// A choice drawn as small top-down pictures (a corner piece's shape, which sides were measured).
+    var pics = false
     var choice: Bool { !opts.isEmpty }
 }
 
@@ -92,13 +94,139 @@ private func newSteps(_ m: FModelDef) -> [SizeStep]? {
     }
 }
 
+/* ---------------- corner pieces: the shape, and whichever sides were measured (bazis ideas, 23 Oct 2026) ---------------- */
+
+/// The corner pieces asked their shape and which sides were measured: the corner wardrobe and desk, the L kitchen.
+func isCornerModel(_ m: FModelDef) -> Bool { CORNER_TYPES.contains(m.type) || (m.kind == "kitchen" && m.layout == "L") }
+
+/// The shapes our engine builds, in the order the pictures go: the corner wardrobe's door or open shelves, each corner on the right or left.
+func shapesOf(_ m: FModelDef) -> [String] {
+    if m.type == "cornerW" { return ["bz.sh.doorR", "bz.sh.doorL", "bz.sh.openR", "bz.sh.openL"] }
+    if m.type == "cornerDesk" { return ["bz.sh.deskR", "bz.sh.deskL"] }
+    if m.kind == "kitchen" && m.layout == "L" { return ["bz.sh.kR", "bz.sh.kL"] }
+    return []
+}
+
+/// Shape sh of a corner piece has its corner on the left of the main wall.
+func shapeLeft(_ type: String, _ sh: Int) -> Bool { type == "cornerW" ? sh % 2 == 1 : sh == 1 }
+
+/// Shape sh of the corner wardrobe has open shelves in the corner instead of a door.
+func shapeOpen(_ type: String, _ sh: Int) -> Bool { type == "cornerW" && sh >= 2 }
+
+/// The ways a corner piece's sides can be measured: its arms along the walls, its fronts, or the walls themselves.
+func measuresOf(_ m: FModelDef) -> [String] {
+    if CORNER_TYPES.contains(m.type) { return ["bz.ms.out", "bz.ms.in", "bz.ms.wall"] }
+    if m.kind == "kitchen" && m.layout == "L" { return ["bz.ms.kWall", "bz.ms.kIn"] }
+    return []
+}
+
+/// A kitchen's worktop depth: its front edge is this far from the wall.
+let K_WT_D = 600
+
+/// The side steps of a corner piece measured the way ms says (base: its steps measured along the walls).
+private func sideSteps(_ m: FModelDef, _ ms: Int, _ base: [SizeStep]) -> [SizeStep] {
+    let g = W_GAP_SIDE
+    if m.kind == "kitchen" {
+        if ms != 1 { return base }
+        return base.map { b in
+            guard b.key == "s0" || b.key == "s1" else { return b }
+            let i = String(b.key.dropFirst())
+            return SizeStep(key: "f" + i, label: "bz.f" + i, help: "bz.f" + i + ".h", usual: b.usual - K_WT_D, min: 300, max: b.max - K_WT_D)
+        }
+    }
+    guard let d = base.first(where: { $0.key == "d" }) else { return base }
+    switch ms {
+    case 1:
+        return base.map { b in
+            if b.key == "w" { return SizeStep(key: "ai", label: "bz.ai", help: "bz.ai.h", usual: b.usual + g - d.usual, min: 300, max: b.max) }
+            if b.key == "w2" { return SizeStep(key: "bi", label: "bz.bi", help: "bz.bi.h", usual: b.usual - d.usual, min: 300, max: b.max) }
+            return b
+        }
+    case 2:
+        return base.map { b in
+            if b.key == "w" { return SizeStep(key: "la", label: "bz.la", help: "bz.la.h", usual: b.usual + 2 * g, min: b.min + 2 * g, max: b.max + 2 * g) }
+            if b.key == "w2" { return SizeStep(key: "lb", label: "bz.lb", help: "bz.lb.h", usual: b.usual + g, min: b.min + g, max: b.max + g) }
+            return b
+        }
+    default: return base
+    }
+}
+
+/// The sizes a corner piece is built from (its arms w, w2, or a kitchen's sides s0, s1) worked out from the sides that
+/// were measured (v["ms"]); a side not typed yet takes its usual length. Other pieces: v as it is.
+func derive(_ m: FModelDef, _ v: [String: Int]) -> [String: Int] {
+    let ms = v["ms"] ?? 0
+    if !isCornerModel(m) || ms == 0 { return v }
+    var st: [String: Int] = [:]
+    for s in stepsOf(m, v) { st[s.key] = s.usual }
+    func g(_ k: String) -> Int { v[k] ?? st[k] ?? 0 }
+    let gap = W_GAP_SIDE
+    var out = v
+    if m.kind == "kitchen" { out["s0"] = g("f0") + K_WT_D; out["s1"] = g("f1") + K_WT_D; return out }
+    switch ms {
+    case 1: out["w"] = g("ai") + g("d") - gap; out["w2"] = g("bi") + g("d")
+    case 2: out["w"] = g("la") - 2 * gap; out["w2"] = g("lb") - gap
+    default: break
+    }
+    return out
+}
+
+/// One side of a corner piece worked out, not typed, for the summary: its strings key, its length, and whether it is
+/// outside what the piece can be (the range of the arm it is built from).
+struct DerivedSide: Equatable {
+    let key: String, mm: Int, bad: Bool
+    init(_ key: String, _ mm: Int, _ bad: Bool) { self.key = key; self.mm = mm; self.bad = bad }
+}
+
+/// The sides of a corner piece that were worked out, not typed, for the summary.
+func derivedSides(_ m: FModelDef, _ v: [String: Int]) -> [DerivedSide] {
+    if !isCornerModel(m) { return [] }
+    let ms = v["ms"] ?? 0
+    let dv = derive(m, v)
+    var outer: [String: SizeStep] = [:]
+    for s in stepsOf(m) { outer[s.key] = s }
+    func bad(_ k: String) -> Bool {
+        guard let s = outer[k], let x = dv[k] else { return false }
+        return x < s.min || x > s.max
+    }
+    func usual(_ k: String) -> Int { outer[k]?.usual ?? 0 }
+    let gap = W_GAP_SIDE
+    if m.kind == "kitchen" {
+        let s0 = dv["s0"] ?? usual("s0"), s1 = dv["s1"] ?? usual("s1")
+        if ms == 1 { return [DerivedSide("fz.w1", s0, bad("s0")), DerivedSide("fz.w2", s1, bad("s1"))] }
+        return [DerivedSide("bz.f0", s0 - K_WT_D, false), DerivedSide("bz.f1", s1 - K_WT_D, false)]
+    }
+    let w = dv["w"] ?? usual("w"), w2 = dv["w2"] ?? usual("w2")
+    let d = dv["d"] ?? usual("d")
+    let arms = [DerivedSide("fz.wA", w, bad("w")), DerivedSide("fz.wB", w2, bad("w2"))]
+    let front = [DerivedSide("bz.ai", w + gap - d, false), DerivedSide("bz.bi", w2 - d, false)]
+    let walls = [DerivedSide("bz.la", w + 2 * gap, false), DerivedSide("bz.lb", w2 + gap, false)]
+    switch ms {
+    case 1: return arms + walls
+    case 2: return arms + front
+    default: return front + walls
+    }
+}
+
 /// Models built by Pieces.swift (newPiece / pieceVals / pieceResized) rather than the older rules.
 func isNewModel(_ type: String) -> Bool {
     !type.isEmpty && (ITEM_TYPES.contains(type) || PIECE_TYPES.contains(type) || MORE_TYPES.contains(type) || type == "vanity")
 }
 
-/// The main sizes of a model, in the order they are asked: a kitchen's sides, its island or peninsula and the ceiling; a cabinet's width, height, depth.
-func stepsOf(_ m: FModelDef) -> [SizeStep] {
+/// The main sizes of a model, in the order they are asked: a kitchen's sides, its island or peninsula and the ceiling; a
+/// cabinet's width, height, depth. A corner piece first shows its shapes and asks which sides were measured; its side
+/// steps follow that choice (v["ms"]).
+func stepsOf(_ m: FModelDef, _ v: [String: Int] = [:]) -> [SizeStep] {
+    let base = baseSteps(m)
+    if !isCornerModel(m) { return base }
+    let shapes = shapesOf(m), measures = measuresOf(m)
+    let sh = SizeStep(key: "sh", label: "bz.shape", help: "bz.shape.h", usual: 0, min: 0, max: shapes.count - 1, opts: shapes, pics: true)
+    let ms = SizeStep(key: "ms", label: "bz.ms", help: "bz.ms.h", usual: 0, min: 0, max: measures.count - 1, opts: measures, pics: true)
+    let at = Swift.min(Swift.max(v["ms"] ?? 0, 0), measures.count - 1)
+    return [sh, ms] + sideSteps(m, at, base)
+}
+
+private func baseSteps(_ m: FModelDef) -> [SizeStep] {
     if m.kind == "kitchen" {
         let labels: [String], helps: [String]
         switch m.layout {
@@ -132,11 +260,24 @@ func stepIssue(_ s: SizeStep, _ mm: Int?) -> (String, Int)? {
 }
 
 /// The piece of model m with the sizes v (a missing one takes its usual size).
-func pieceOf(_ m: FModelDef, _ v: [String: Int], _ ws: Workshop, _ name: String, now: Ms = 0) -> Furniture {
-    let st = Dictionary(uniqueKeysWithValues: stepsOf(m).map { ($0.key, $0.usual) })
+func pieceOf(_ m: FModelDef, _ v0: [String: Int], _ ws: Workshop, _ name: String, now: Ms = 0) -> Furniture {
+    var steps: [String: SizeStep] = [:]
+    for s in stepsOf(m) { steps[s.key] = s }
+    let st = steps.mapValues { $0.usual }
+    // a corner piece's arms from whichever sides were measured, held to what the piece can be
+    var v = derive(m, v0)
+    if isCornerModel(m) {
+        for (k, x) in v {
+            if let s = steps[k], !s.choice { v[k] = Swift.min(Swift.max(x, s.min), s.max) }
+        }
+    }
     func g(_ k: String) -> Int { v[k] ?? st[k] ?? 0 }
     if m.kind == "kitchen" {
-        return newFreeKitchen(name, m.id, m.layout, (0..<sidesOf(m.layout)).map { g("s\($0)") }, m.layout == "O" || m.layout == "P" ? g("isl") : 0, g("h"), ws, now: now)
+        // an L with its corner on the left runs from the side wall to the main one: its sides the other way round
+        let left = m.layout == "L" && shapeLeft("", g("sh"))
+        let sides: [Int] = (0..<sidesOf(m.layout)).map { g("s\($0)") }
+        let island = m.layout == "O" || m.layout == "P" ? g("isl") : 0
+        return newFreeKitchen(name, m.id, m.layout, left ? Array(sides.reversed()) : sides, island, g("h"), ws, now: now, hand: left ? "L" : "")
     }
     if isNewModel(m.type) { return newPiece(m.type, g, ws, name, now: now) }
     if !m.type.isEmpty { return newFreeCabinet(name, m.type, g("w"), g("h"), g("d"), ws, now: now) }
@@ -148,9 +289,10 @@ func valsOf(_ f: Furniture, _ ws: Workshop) -> [String: Int] {
     if f.kind == "kitchen" {
         guard let fs = f.free else { return [:] }
         var out: [String: Int] = [:]
-        for (i, s) in fs.sides.enumerated() { out["s\(i)"] = s }
+        for (i, s) in fs.sides.enumerated() { out["s\(sideNo(f, i) - 1)"] = s }
         if fs.island > 0 { out["isl"] = fs.island }
         out["h"] = fs.h
+        if f.layout == "L" { out["sh"] = f.hand == "L" ? 1 : 0; out["ms"] = 0 }
         return out
     }
     if isNewModel(f.type) { return pieceVals(f, ws) }
@@ -175,12 +317,14 @@ func modelOf(_ f: Furniture) -> FModelDef {
 
 /// The piece with new sizes v: a room-less kitchen's runs follow its sides (units that no longer fit are cut, the rest
 /// stays); a cabinet keeps its sections, spread again over a new width.
-func resized(_ f: Furniture, _ v: [String: Int], _ ws: Workshop) -> Furniture {
+func resized(_ f: Furniture, _ v0: [String: Int], _ ws: Workshop) -> Furniture {
+    let v = derive(modelOf(f), v0)
     if f.kind == "kitchen" {
         let n = sidesOf(f.layout)
         let old = f.free ?? FreeSize()
         var nf = f
-        nf.free = FreeSize((0..<n).map { v["s\($0)"] ?? ($0 < old.sides.count ? old.sides[$0] : 3000) }, f.walls.contains(ISLAND) ? v["isl"] ?? old.island : 0, v["h"] ?? old.h)
+        let sides: [Int] = (0..<n).map { i in v["s\(sideNo(f, i) - 1)"] ?? (i < old.sides.count ? old.sides[i] : 3000) }
+        nf.free = FreeSize(sides, f.walls.contains(ISLAND) ? v["isl"] ?? old.island : 0, v["h"] ?? old.h)
         let nn = nf
         return fitTo(nf, nf.walls, { freeLen(nn, $0) }, nil, ws)
     }

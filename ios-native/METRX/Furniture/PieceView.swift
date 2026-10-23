@@ -72,11 +72,12 @@ private let PV_BLUE = 0x3550E0
 private let PV_BG = 0xF6F8FC
 private let PV_EDGE = 0x1E293B
 
-func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> PieceScene {
+/// The piece's scene; bare without its doors and fronts ("See inside"), hi a part lit up (parts list → 3D).
+func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat], bare: Bool = false, hi: PartHi? = nil) -> PieceScene {
     let room = freeRoom(f)
     let shell = buildShell([room], single: true, snap: true)
     let b = shell.bases
-    let fur = furniture3D([f], b, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [])
+    let fur = furniture3D([f], b, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [], bare: bare, hi: hi)
     // every box of furniture3D adds its six faces to its part one after another
     let furn: [SBox] = fur.parts.flatMap { p in
         stride(from: 0, to: p.faces.count - 5, by: 6).map { k in SBox(p.faces[k..<k + 6].map { SFace(pts: $0.pts, n: $0.n, rgb: p.rgb, op: p.op, tag: p.wall) }) }
@@ -102,7 +103,8 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> PieceScene {
             guard let bas = b[w] else { continue }
             let sides = f.free?.sides ?? []
             let l = Double(i < sides.count ? sides[i] : Int(bas.len * 1000)) / 1000
-            dims["s\(i)"] = DimLine(a: bas.at(0, y, 0.68), b: bas.at(l, y, 0.68), tick: PV_UP); tint["s\(i)"] = w
+            let k = "s\(sideNo(f, i) - 1)"
+            dims[k] = DimLine(a: bas.at(0, y, 0.68), b: bas.at(l, y, 0.68), tick: PV_UP); tint[k] = w
         }
         // the island (or peninsula) where furniture3D puts it: its length past its seating side
         let w0 = onWalls.first.flatMap { b[$0] }
@@ -116,6 +118,11 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> PieceScene {
     } else if let m = wardOfF(f), let bas = b[f.walls.first ?? "A"] ?? b["A"] {
         pieceDims(f, m, ws, b, bas, &dims)
     }
+    // a corner piece measured along its fronts or its walls shows the arm (or side) being asked
+    for (k, of) in [("ai", "w"), ("la", "w"), ("bi", "w2"), ("lb", "w2"), ("f0", "s0"), ("f1", "s1")] {
+        if let dl = dims[of] { dims[k] = dl }
+        if let tn = tint[of] { tint[k] = tn }
+    }
     let center = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     let radius = max(0.45, V3(x1 - x0, y1 - y0, z1 - z0).len / 2)
     let ext = pvCorners(x0, y0, z0, x1, y1, z1)
@@ -124,9 +131,11 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> PieceScene {
     let dimCenter = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     let dimRadius = max(0.45, V3(x1 - x0, y1 - y0, z1 - z0).len / 2)
     // an L turns into the right-hand wall: seen from the left so both runs show from inside
+    // one with its corner on the left (made-up walls D, A) is seen from the right
+    let left = f.walls.first == "D" && f.layout != "U"
     let az0: Double
-    if f.kind != "kitchen" { az0 = CORNER_TYPES.contains(f.type) ? -0.6 : 0.55 }
-    else { az0 = f.layout == "L" ? -0.6 : f.layout == "U" ? 0.15 : 0.6 }
+    if f.kind != "kitchen" { az0 = CORNER_TYPES.contains(f.type) ? (left ? 0.6 : -0.6) : 0.55 }
+    else { az0 = f.layout == "L" ? (left ? 0.6 : -0.6) : f.layout == "U" ? 0.15 : 0.6 }
     return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter: dimCenter, dimRadius: dimRadius, ext: ext, dimExt: pvCorners(x0, y0, z0, x1, y1, z1))
 }
 
