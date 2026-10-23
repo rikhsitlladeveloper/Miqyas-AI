@@ -175,6 +175,8 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
                 var a0 = -1; var a1 = -1
                 fun piece() { if (a1 > a0) { B.box(b, B.top, a0, a1, wt - K_TOP, wt, n0, 600, true); if (isl) B.box(b, B.front, a0, a1, 0, wt - K_TOP, -18, 0, true) } }
                 low.forEach { m -> if (a0 >= 0 && m.x <= a1 + 1) a1 = maxOf(a1, m.x + m.w) else { piece(); a0 = m.x; a1 = m.x + m.w } }
+                // a peninsula in its usual place: the side's worktop runs on over the peninsula's overhang to its outer edge
+                if (f.layout == "P" && f.pose == null && r == rs.firstOrNull { it.wall != ISLAND } && a1 > a0) a1 += uz.metrx.app.furniture.PEN_BACK
                 piece()
                 // end panels where a row ends in the open room (not against a wall): the lower row's, the wall units'
                 val kx0 = f.kx

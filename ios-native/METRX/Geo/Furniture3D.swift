@@ -186,6 +186,8 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
                     if isl { B.box(b, B.role("front"), a0, a1, 0, wt - K_TOP, -18, 0, true) }
                 }
                 for m in low { if a0 >= 0 && m.x <= a1 + 1 { a1 = max(a1, m.x + m.w) } else { piece(); a0 = m.x; a1 = m.x + m.w } }
+                // a peninsula in its usual place: the side's worktop runs on over the peninsula's overhang to its outer edge
+                if f.layout == "P" && f.pose == nil && r.wall == f.walls.first(where: { $0 != ISLAND }) && a1 > a0 { a1 += PEN_BACK }
                 piece()
                 // end panels where a row ends in the open room (not against a wall): the lower row's, the wall units'
                 if let kx0 = f.kx, let lo = low.first?.x, let hi = low.map({ $0.x + $0.w }).max() {
