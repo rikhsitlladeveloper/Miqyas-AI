@@ -60,13 +60,13 @@ private struct WNNewRoomSheet: View {
     @FocusState private var focus: WNNF?
     init(app: AppModel, pid: String) {
         self.app = app; self.pid = pid
-        let base = tr("dw.roomName")
-        let n = Store.shared.get(pid)?.floors.filter { $0.name.hasPrefix(base) }.count ?? 0
-        _name = State(initialValue: n > 0 ? "\(base) \(n + 1)" : base)
+        _name = State(initialValue: Store.shared.get(pid).map { nextName($0, "dw.roomName") } ?? tr("dw.roomName"))
     }
     var body: some View {
         GlassSheet(tr("fo.addRoom"), onClose: { app.sheet = nil }) {
-            GField(label: tr("fr.name"), value: $name, placeholder: tr("dw.roomName"), focus: $focus, me: .name, submit: .done, onSubmit: create)
+            GField(label: tr("fr.name"), value: $name, placeholder: tr("dw.roomName"), error: name.trimmingCharacters(in: .whitespaces).isEmpty ? tr("nr.nameReq") : nil,
+                   showError: true, focus: $focus, me: .name, submit: .done, onSubmit: create)
+                .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
             T(tr("dw.roomB"), ui(12.5, 400, G.ink2, lh: 1.4))
         } footer: {
             GBtn(tr("fo.drawRoom"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("dw.roomCreate")
@@ -75,7 +75,8 @@ private struct WNNewRoomSheet: View {
     private func create() {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty, app.once() else { return }
-        let rid = addWinRoom(pid, n)
+        // a suggested name is kept as its key, so it follows the language
+        let rid = addWinRoom(pid, suggestedName(n, "dw.roomName"))
         app.sheet = nil
         openRoom(app, pid, rid)
     }
@@ -206,7 +207,7 @@ private struct WNPricesSheet: View {
             if i < texts.count { texts[i] = String(v.filter { $0.isASCII && $0.isNumber }.prefix(12)) }
         })
         let id = tab + "." + f.key
-        return GField(label: tr("dw.pr." + f.key), value: text, placeholder: "0", focus: $focus, me: id, labelRight: f.unit.isEmpty ? nil : f.unit, number: true, id: "dwf." + id)
+        return GField(label: tr("dw.pr." + f.key), value: text, placeholder: "0", focus: $focus, me: id, labelRight: f.unit.isEmpty ? nil : unitText(f.unit), number: true, id: "dwf." + id)
             .frame(maxWidth: .infinity)
     }
     private func save() {
@@ -219,7 +220,7 @@ private struct WNPricesSheet: View {
         st.win = w
         AppSettings.shared.setTradeSet(st)
         app.sheet = nil
-        if let id = pid, let pr = Store.shared.get(id), pr.estimate.materials.contains(where: { $0.id.hasPrefix("t-") }) { applyWinRows(app, pr) }
+        if let id = pid, let pr = Store.shared.get(id), madeBy(pr, "dw.e.") { applyWinRows(app, pr) }
         else { app.say("common.save") }
     }
 }

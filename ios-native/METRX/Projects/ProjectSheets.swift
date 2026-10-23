@@ -32,7 +32,8 @@ private struct ProjectMenu: View {
     let pid: String
     var body: some View {
         // a furniture maker's project is an order
-        let fu = Store.shared.get(pid)?.isFurniture == true
+        // a furniture maker's or a tradesman's project is an order
+        let fu = Store.shared.get(pid).map { $0.industry != "build" } == true
         GlassSheet(tr(fu ? "fo.details" : "pr.menuEdit"), onClose: { app.sheet = nil }) {
             ListBox {
                 ActionRow(icon: "edit", label: tr(fu ? "fo.details" : "pr.menuEdit")) { app.sheet = nil; app.push(.newProject(editId: pid)) }
@@ -88,6 +89,7 @@ private struct NewSpace: View {
             GlassSheet(tr(edit != nil ? "ws.menuEdit" : "ws.new"), onClose: { app.sheet = nil }) {
                 GField(label: tr("ws.name"), value: $name, placeholder: wsSuggest(p, type), error: err, showError: tried, focus: $focus, me: .name,
                        submit: .done, onSubmit: { save(p, edit) })
+                    .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
                 VStack(alignment: .leading, spacing: 6) {
                     T(tr("ws.type"), ui(15, 700))
                     FlowLayout(spacing: 8) {
@@ -178,10 +180,19 @@ private struct SpaceDelete: View {
                         let at = rooms.map { r in p.rooms.firstIndex { $0.id == r.id } ?? p.rooms.count }
                         let ids = Set(rooms.map(\.id))
                         let pieces = p.furniture.filter { $0.roomId.map(ids.contains) ?? false }
-                        Store.shared.update(p.id) { pr in pr.furniture = outOfRooms(pr, ids); pr.floors.removeAll { $0.id == w.id }; pr.rooms.removeAll { $0.floorId == w.id } }
+                        // the trades' data in its rooms goes too (tiles, wiring, plumbing; their windows stay without a room), kept for Undo
+                        var gone = TradesGone()
+                        Store.shared.update(p.id) { pr in
+                            let furn = outOfRooms(pr, ids)
+                            let (q, g) = tradesOut(pr, ids)
+                            gone = g
+                            pr = q
+                            pr.furniture = furn; pr.floors.removeAll { $0.id == w.id }; pr.rooms.removeAll { $0.floorId == w.id }
+                        }
+                        let taken = gone
                         app.sheet = nil; app.dropMissing()
                         app.say("ws.deleted", ["n": name], action: "common.undo") {
-                            Store.shared.update(p.id) { pr in pr.floors.insert(w, at: min(idx, pr.floors.count))
+                            Store.shared.update(p.id) { pr in pr = tradesBack(pr, taken); pr.floors.insert(w, at: min(idx, pr.floors.count))
                                 for (j, r) in rooms.enumerated() { pr.rooms.insert(r, at: min(at[j], pr.rooms.count)) }
                                 pr.furniture = pr.furniture.map { f in pieces.first { $0.id == f.id } ?? f } }
                         }

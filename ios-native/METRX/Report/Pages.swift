@@ -348,7 +348,11 @@ final class Doc {
         let tx = pf.plan ? PX + 271.5 + 14 : PX, tw = PX + CW - tx
         // the block's height before drawing it, to move the whole room to the next page when it does not fit
         let tableH = pf.dims ? tableHeight(rows, tw) + 16 : 0
-        let titleS = t("r.room", ["i": i, "n": dn(r.name, l), "f": floorLabel])
+        // "1. Oshxona, Oshxona": a workspace named as its room (or none) is not said twice
+        let shownName = dn(r.name, l).trimmingCharacters(in: .whitespaces)
+        let ws = floorLabel.trimmingCharacters(in: .whitespaces)
+        let same = ws.isEmpty || ws.caseInsensitiveCompare(shownName) == .orderedSame
+        let titleS = same ? "\(i). " + dn(r.name, l) : t("r.room", ["i": i, "n": dn(r.name, l), "f": floorLabel])
         let titleH = measure(a(titleS, ui(12, 600)), CW).height
         if !fits(12 + titleH + 4 + max(planH, tableH)) { newPage() }
         h2(titleS)
@@ -478,9 +482,9 @@ final class Doc {
     }
 
     /// Builder's and customer's signature lines (prototype .sig).
-    func signatures() {
+    func signatures(_ maker: String = "r.sigB") {
         let w = (CW - 30) / 2
-        let sa = a(t("r.sigB"), ui(9, 400, INK3)), sb = a(t("r.sigC"), ui(9, 400, INK3))
+        let sa = a(t(maker), ui(9, 400, INK3)), sb = a(t("r.sigC"), ui(9, 400, INK3))
         let ha = measure(sa, w).height, hb = measure(sb, w).height
         let h = 0.75 + 3 + max(ha, hb)
         space(22); if y + h > LIMIT { newPage(); space(22) }
@@ -529,13 +533,17 @@ func reportPages(_ sn: Snap, draft: Bool, meta: QuoteMeta?, image: @escaping (St
     // design: a tiler's simple app shares the design: dated, no draft mark (its snapshot has no estimate)
     let d = Doc(sn, draft && !design, meta, image, now)
     if design { d.quoteTitle = "rpt.design"; d.subLine = fmtDate(now) }
+    // a trade's order names its own maker (tiler, electrician…), not the builder
+    let trade = TRADES.contains(sn.industry)
+    if trade { d.makerKey = "rpt.maker." + sn.industry }
     let rooms = sn.rooms
     d.newPage(); d.parties()
     // with the plans and the measurements both off the rooms print nothing: no empty pages for them
     let roomsOn = sn.pdf.plan || sn.pdf.dims
     if roomsOn {
         if let first = rooms.first { d.roomBlock(first.room, 1, first.floorLabel) }
-        d.fn(d.t("r.geoNote"))
+        // the note on the room model only with a room printed (an order without rooms has nothing it is about)
+        if !rooms.isEmpty { d.fn(d.t("r.geoNote")) }
         var i = 1
         while i < rooms.count {
             d.newPage()
@@ -550,6 +558,8 @@ func reportPages(_ sn: Snap, draft: Bool, meta: QuoteMeta?, image: @escaping (St
     if let e = sn.plumb, !e.empty { d.plumbPages(e) }
     // a windows-and-doors order: the summary table, then each product's drawing from inside with its sizes and make
     if let e = sn.win, !e.empty { d.winPages(e) }
+    // a tiler's order: the layouts, each room's floor from above and its tiled walls
+    if let ls = sn.tiles { d.tilePages(ls, sn.troom) }
     d.figurePages()
     d.notesPages()
     // the first page holding only the parties has room for the rest
@@ -558,8 +568,9 @@ func reportPages(_ sn: Snap, draft: Bool, meta: QuoteMeta?, image: @escaping (St
     if sn.pdf.estimate { d.estimate(sn.estimate) }
     if !sn.notes.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty { d.h2(d.t("rpt.notes")); d.para(d.a(sn.notes, d.ui(10)), top: 10, bottom: 10) }
     // the notes on quantities and money are the estimate's
-    if sn.pdf.estimate { d.fn(d.t("r.qtyNote")); d.fn(d.t("r.moneyNote", ["c": sn.currency])) }
-    if sn.pdf.sign { d.signatures() }
+    // a trade's quantities are worked out by the app from the sizes; a builder's are typed
+    if sn.pdf.estimate { d.fn(d.t(trade ? "r.qtyCalc" : "r.qtyNote")); d.fn(d.t("r.moneyNote", ["c": sn.currency])) }
+    if sn.pdf.sign { d.signatures(trade ? "r.sig." + sn.industry : "r.sigB") }
     return d.finish()
 }
 

@@ -190,7 +190,8 @@ struct TRoomsTab: View {
                 T(tr("tl.empty"), ui(14.5, 400, G.ink2), align: .center).padding(22).frame(maxWidth: .infinity)
                     .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
             }
-            ForEach(p.floors) { w in TRoomCard(app: app, p: p, w: w) }
+            // every room of each workspace (an older project may have several in one), a workspace without one once
+            ForEach(wsRooms(p)) { s in TRoomCard(app: app, p: p, w: s.w, room: s.room, several: s.several) }
             // layouts typed by their sizes, without a room
             if !loose.isEmpty {
                 VStack(alignment: .leading, spacing: 10) {
@@ -227,9 +228,10 @@ private struct TRoomCard: View {
     let app: AppModel
     let p: Project
     let w: Workspace
+    let room: Room?
+    var several = false
     var body: some View {
         let snap = AppSettings.shared.angleSnap
-        let room = p.rooms.first { $0.floorId == w.id }
         let measured = room.map { measuredRoom($0, snap) } ?? false
         let ls = room.map { r in p.tiles.filter { $0.roomId == r.id } } ?? []
         let n = w.items.count
@@ -255,7 +257,7 @@ private struct TRoomCard: View {
         let a = room?.dim("A").v, b = room?.dim("B").v, h = room?.dim("H").v
         let sub: String = {
             if measured, let a, let b, room?.isPoly != true {
-                return Geo.fmtLen(a, .m, en) + " × " + Geo.fmtLen(b, .m, en) + " m" + (h.map { " · h " + Geo.fmtLen($0, .m, en) } ?? "")
+                return Geo.fmtLen(a, .m, en) + " × " + Geo.fmtLen(b, .m, en) + U_M + (h.map { " · h " + Geo.fmtLen($0, .m, en) } ?? "")
             }
             if measured { return tr("tl.measured") }
             return tr(room != nil ? "fo.notMeasured" : "fo.notDrawn")
@@ -268,7 +270,7 @@ private struct TRoomCard: View {
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(Theme.shared.dark ? 0.1 : 0.8)))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                T(floorName(w), ui(16, 700), lines: 1)
+                T(wsRoomTitle(w, room, several), ui(16, 700), lines: 1)
                 T(sub, ui(12.5, 400, G.ink2), lines: 1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -310,6 +312,9 @@ struct LayoutLine: View {
 
 /// Draws the first room of a workspace that has none yet.
 func drawTileRoom(_ app: AppModel, _ pid: String, _ w: Workspace) {
+    // a second tap does not add a second room
+    if let have = Store.shared.get(pid)?.rooms.first(where: { $0.floorId == w.id }) { openRoom(app, pid, have.id); return }
+    if !app.once() { return }
     let r = Room(id: uid(), floorId: w.id, name: floorName(w), created: nowMs())
     Store.shared.update(pid) { $0.rooms.append(r) }
     openRoom(app, pid, r.id)
@@ -330,7 +335,7 @@ struct TNextStep: View {
         let undrawn = p.floors.first { w in !p.rooms.contains { $0.floorId == w.id } }
         let unmeasured = rooms.first { wr in Geo.stepKeys(wr.1, snap).contains { wr.1.dim($0).status != "conf" } }
         let bare = rooms.first { wr in !p.tiles.contains { $0.roomId == wr.1.id } }
-        let made = p.estimate.materials.contains { $0.id.hasPrefix("t-") }
+        let made = madeBy(p, "tl.e.")
         let pick = Step(title: tr("tl.ns.pickT"), sub: tr("tl.ns.pickS"), button: tr("ns.needB")) { app.push(.tGallery(pid: pid)) }
         if p.floors.isEmpty && p.tiles.isEmpty { return pick }
         if let undrawn { return Step(title: tr("ns.measureT"), sub: floorName(undrawn), button: tr("fo.drawRoom")) { drawTileRoom(app, pid, undrawn) } }
@@ -380,11 +385,8 @@ struct TNextStep: View {
 
 /* ---------------- the advanced app: counts and the estimate ---------------- */
 
-/// The adhesive's kg a m² as set (5 when unset or wrong).
-func tileGlueBase() -> Double {
-    let v = Double(AppSettings.shared.trade.glueKg.replacingOccurrences(of: ",", with: ".")) ?? 0
-    return v > 0 ? v : 5
-}
+/// The adhesive's kg a m² as set (0 kept: no adhesive bought; 5 when unset or wrong).
+func tileGlueBase() -> Double { glueBaseOf(AppSettings.shared.trade.glueKg) }
 
 /// The order's counted tiles, worked out again only when the order or the settings change.
 final class TileCountCache {
@@ -461,14 +463,19 @@ struct TilesCard: View {
     var body: some View {
         let lang = AppSettings.shared.lang
         let c = TileCountCache.shared.of(p)
-        let made = p.estimate.materials.contains { $0.id.hasPrefix("t-") } || p.estimate.labor.contains { $0.id.hasPrefix("t-") }
+        let made = madeBy(p, "tl.e.")
         VStack(alignment: .leading, spacing: 8) {
             T(tr("tl.cardT"), ui(16, 800))
             T(tr("trc.tiler", ["a": Num.fixed(c.m2, 1, lang), "b": c.boxes]), num(14.5, 700))
             T(tr("tl.cardB"), ui(12.5, 400, G.ink2, lh: 1.4))
             if p.tiles.isEmpty { T(tr("tl.noLayouts"), ui(13, 500, G.amberInk, lh: 1.4)) }
+            // a surface of too many tiles to count is not in these numbers: said before they go into the estimate
+            if c.tooMany { T(tr("tl.tooMany"), ui(12.5, 600, G.amberInk, lh: 1.4)) }
             HStack(spacing: 8) {
-                GBtn(tr(made ? "trc.update" : "trc.apply"), enabled: c.m2 > 0, height: 44, corner: 14, fontSize: 14, lines: 2) { applyTiles(app, p) }
+                GBtn(tr(made ? "trc.update" : "trc.apply"), enabled: c.m2 > 0, height: 44, corner: 14, fontSize: 14, lines: 2) {
+                    applyTiles(app, p)
+                    if c.tooMany { app.say("tl.tooMany", kind: .info) }
+                }
                     .accessibilityIdentifier("tl.apply")
                 GBtn(tr("tl.prices"), kind: .secondary, icon: "sliders", height: 44, corner: 14, fontSize: 14, lines: 2) { app.sheet = .tPrices(pid: p.id) }
                     .accessibilityIdentifier("tl.prices")
@@ -500,9 +507,9 @@ struct CountCard: View {
             }
             Hairline()
             TKv(k: tr("tl.e.glue0"), v: tr("tl.bagsV", ["n": c.glueBags, "k": d1(c.glueKg)]))
-            TKv(k: tr("tl.e.grout0"), v: d1(c.groutKg) + " kg")
-            if c.skirtM > 0 { TKv(k: tr("tl.skirt"), v: d1(c.skirtM) + " m") }
-            if c.profileM > 0 { TKv(k: tr("tl.prof"), v: d1(c.profileM) + " m") }
+            TKv(k: tr("tl.e.grout0"), v: d1(c.groutKg) + " " + tr("u.kg"))
+            if c.skirtM > 0 { TKv(k: tr("tl.skirt"), v: d1(c.skirtM) + U_M) }
+            if c.profileM > 0 { TKv(k: tr("tl.prof"), v: d1(c.profileM) + U_M) }
             if c.wpM2 > 0 { TKv(k: tr("tl.wp"), v: d1(c.wpM2) + " " + tr("u.m2")) }
             if let onLayout {
                 T(tr("tl.countSet"), ui(13.5, 700, G.cobalt2)).padding(.vertical, 6).padding(.horizontal, 2)
@@ -521,12 +528,14 @@ struct CountCard: View {
             VStack(alignment: .leading, spacing: 1) {
                 T("\(n.a) × \(n.b) · " + tr("tl.lk." + n.look), ui(13.5, 700), lines: 1)
                 T(tr("tl.cnt", ["w": n.whole, "c": n.cut, "r": n.reused]) + sk, ui(12, 400, G.ink2, lh: 1.35))
-                T(tr("tl.cntSpare", ["t": n.tiles + n.skirtTiles, "p": n.spare, "s": n.withSpare]), ui(12, 400, G.ink2, lh: 1.35))
+                // layouts of this tile with different spares: no single % to show
+                T(n.spare >= 0 ? tr("tl.cntSpare", ["t": n.tiles + n.skirtTiles, "p": n.spare, "s": n.withSpare])
+                    : tr("tl.cntSpareMix", ["t": n.tiles + n.skirtTiles, "s": n.withSpare]), ui(12, 400, G.ink2, lh: 1.35))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             VStack(alignment: .trailing, spacing: 1) {
                 T(tr("tl.boxN", ["n": n.boxes]), num(14, 800))
-                T(tr("tl.perBox", ["n": n.perBox]), ui(11, 400, G.ink3))
+                if n.perBox > 0 { T(tr("tl.perBox", ["n": n.perBox]), ui(11, 400, G.ink3)) }
             }
         }
     }
@@ -578,9 +587,8 @@ private struct TNewRoomSheet: View {
         _name = State(initialValue: TNewRoomSheet.nameFor(t, p))
     }
     static func nameFor(_ t: String, _ p: Project?) -> String {
-        let base = tr(tRoomKey(t))
-        let n = p?.floors.filter { $0.name.hasPrefix(base) }.count ?? 0
-        return n > 0 ? "\(base) \(n + 1)" : base
+        guard let p else { return tr(tRoomKey(t)) }
+        return nextName(p, tRoomKey(t))
     }
     var body: some View {
         let p = Store.shared.get(pid)
@@ -589,7 +597,9 @@ private struct TNewRoomSheet: View {
             FlowLayout(spacing: 8) {
                 ForEach(T_ROOMS, id: \.self) { t in FChip(label: tr(tRoomKey(t)), on: t == type) { type = t; name = TNewRoomSheet.nameFor(t, p) } }
             }
-            GField(label: tr("fr.name"), value: $name, placeholder: tr(tRoomKey(type)), focus: $focus, me: .name, submit: .done, onSubmit: create)
+            GField(label: tr("fr.name"), value: $name, placeholder: tr(tRoomKey(type)), error: name.trimmingCharacters(in: .whitespaces).isEmpty ? tr("nr.nameReq") : nil,
+                   showError: true, focus: $focus, me: .name, submit: .done, onSubmit: create)
+                .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
         } footer: {
             GBtn(tr("fo.drawRoom"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("tl.roomCreate")
         }
@@ -597,7 +607,8 @@ private struct TNewRoomSheet: View {
     private func create() {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty, app.once() else { return }
-        let rid = addTileRoom(pid, type, n)
+        // a suggested name is kept as its key, so it follows the language
+        let rid = addTileRoom(pid, type, suggestedName(n, tRoomKey(type)))
         app.sheet = nil
         openRoom(app, pid, rid)
     }
@@ -820,7 +831,7 @@ private struct TPricesSheet: View {
             let c = v.filter { $0.isASCII && ($0.isNumber || (dec && ($0 == "," || $0 == "."))) }.replacingOccurrences(of: ",", with: ".")
             if i < texts.count { texts[i] = String(c.prefix(12)) }
         })
-        return GField(label: label(f.key), value: text, placeholder: "0", focus: $focus, me: f.key, labelRight: f.unit, number: !dec, decimal: dec, id: "tlf." + f.key)
+        return GField(label: label(f.key), value: text, placeholder: "0", focus: $focus, me: f.key, labelRight: unitText(f.unit), number: !dec, decimal: dec, id: "tlf." + f.key)
             .frame(maxWidth: .infinity)
     }
 
@@ -832,7 +843,7 @@ private struct TPricesSheet: View {
         }
         AppSettings.shared.setTradeSet(t)
         app.sheet = nil
-        if let id = pid, let pr = Store.shared.get(id), pr.estimate.materials.contains(where: { $0.id.hasPrefix("t-") }) { applyTiles(app, pr) }
+        if let id = pid, let pr = Store.shared.get(id), madeBy(pr, "tl.e.") { applyTiles(app, pr) }
         else { app.say("common.save") }
     }
 }

@@ -209,6 +209,12 @@ func wardrobeChecks(_ m: Module, _ wallL: Int?, _ roomH: Int?, _ ws: Workshop, _
         default: break
         }
     }
+    // a part longer than the sheet's usable length cannot be cut from it (the price counts a sheet of its own for it)
+    let uL = ws.sheetL - 2 * ws.trim, uW = ws.sheetW - 2 * ws.trim
+    let tooLong = partsOf(m, ws).filter { p in !((p.L <= uL && p.W <= uW) || (!p.grain && p.L <= uW && p.W <= uL)) }
+    if let v = tooLong.map({ $0.L }).max() {
+        out.append(FCheck(level: "err", key: "wc.sheet", vars: ["v": v, "max": uL], mid: m.id))
+    }
     let ih = wardInnerH(m, t)
     // sliding doors: a door wider than 1100 or narrower than 500 runs badly
     if let sl = m.slide {

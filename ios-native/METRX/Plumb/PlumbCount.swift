@@ -118,7 +118,12 @@ func pCountOf(_ p: Project, _ cs: [PCtx], _ rt: PRoutes) -> PCount {
         allPts += pointsIn(p, c).count
         fixes += fixesIn(p, c)
     }
-    let riserKinds = rt.riser.map { $0.hot ? 2 : 1 } ?? 0
+    // the riser's meter, filter and main valve: one set for its cold when cold water runs from it, another for its hot only
+    // when the hot water comes up it (not from a gas boiler or a water heater); a heating-only order needs none
+    let coldOut = rt.runs.contains { $0.kind == "cold" }
+    let hotFromRiser = rt.riser?.hot == true && rt.hot != nil && rt.hot?.fix == nil
+    let hotOut = hotFromRiser && rt.runs.contains { $0.kind == "hot" }
+    let riserKinds = rt.riser == nil ? 0 : (coldOut ? 1 : 0) + (hotOut ? 1 : 0)
     func bends(_ ds: [PDrain]) -> Int { ds.reduce(0) { acc, d in acc + 1 + d.runs.reduce(0) { $0 + $1.corners } } }
     var res = PCount()
     res.pipes = pipes
@@ -132,7 +137,8 @@ func pCountOf(_ p: Project, _ cs: [PCtx], _ rt: PRoutes) -> PCount {
     res.plates = ws.reduce(0) { $0 + $1.branches }
     res.balls = sup.reduce(0) { $0 + $1.branches }
     res.mainValves = riserKinds; res.meters = riserKinds; res.filters = riserKinds
-    res.manifolds = rt.loops.isEmpty ? 0 : 1
+    // each manifold placed (a typed room with underfloor heating has its own)
+    res.manifolds = rt.loops.isEmpty ? 0 : max(1, fixes.filter { $0.t == "manif" }.count)
     res.manifOuts = rt.loops.reduce(0) { $0 + $1.n }
     res.loops = rt.loops.reduce(0) { $0 + $1.n }
     res.points = allPts
@@ -211,8 +217,11 @@ func plumbRows(_ p: Project, _ t: TradeSet, _ snap: Bool, _ name: (String, [Stri
     mat("manif", "pcs", Double(c.manifolds), t.pManif, ["n": "\(c.manifOuts)"])
     lab("lPts", Double(c.points) * pNum(t.lPPt), ["n": "\(c.points)"])
     lab("lFix", Double(c.fixtures) * pNum(t.lPFix), ["n": "\(c.fixtures)"])
-    lab("lMetre", c.pipeM * pNum(t.lPM), ["a": pQty(eMathRoundP(c.pipeM * 10) / 10)])
+    // the metres the line shows are the ones it is priced by, so quantity × rate is its amount
+    let pipeM = eMathRoundP(c.pipeM * 10) / 10
+    let chaseM = eMathRoundP(c.chaseM * 10) / 10
+    lab("lMetre", pipeM * pNum(t.lPM), ["a": pQty(pipeM)])
     lab("lRad", Double(c.radiators) * pNum(t.lPRad), ["n": "\(c.radiators)"])
-    lab("lChase", c.chaseM * pNum(t.lPChase), ["a": pQty(eMathRoundP(c.chaseM * 10) / 10)])
+    lab("lChase", chaseM * pNum(t.lPChase), ["a": pQty(chaseM)])
     return TradeResult(mats: mats, labor: labor, facts: ["points": Double(c.points), "pipe": c.pipeM])
 }

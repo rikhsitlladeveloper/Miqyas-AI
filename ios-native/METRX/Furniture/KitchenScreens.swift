@@ -41,8 +41,8 @@ struct KitchenScreen: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         GlassIconButton("undo", tr("common.undo"), tint: kit.canUndo(f.id) ? G.ink : PC.offIcon) { kit.undo(p.id, f.id) }.accessibilityIdentifier("kt.undo")
-                        GlassIconButton("redo", "redo", tint: kit.canRedo(f.id) ? G.ink : PC.offIcon) { kit.redo(p.id, f.id) }
-                        GlassIconButton("more", "menu") { app.sheet = .fMenu(pid: p.id, fid: f.id) }.accessibilityIdentifier("kt.menu")
+                        GlassIconButton("redo", tr("common.redo"), tint: kit.canRedo(f.id) ? G.ink : PC.offIcon) { kit.redo(p.id, f.id) }
+                        GlassIconButton("more", tr("common.menu")) { app.sheet = .fMenu(pid: p.id, fid: f.id) }.accessibilityIdentifier("kt.menu")
                     }
                     .padding(.horizontal, 16).frame(height: 64)
                     if let room, let run {
@@ -168,14 +168,14 @@ private struct ExtrasCard: View {
                     T(tr("kx.worktopAt", ["v": wtAt]), ui(12.5, 400, G.ink2))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                T("\(legH) mm", num(14.5, 700)); MIcon("chev", G.ink3, 16, 2)
+                T("\(legH)" + U_MM, num(14.5, 700)); MIcon("chev", G.ink3, 16, 2)
             }
             .padding(.horizontal, 4).frame(minHeight: 48)
             .pressable(0.99) { app.sheet = .kLegs(pid: p.id, fid: f.id) }
             .accessibilityIdentifier("kx.legs")
-            FToggle(label: tr("kx.plinth") + " · " + m(plinthMm(f)) + " m", on: x.plinth, id: "kx.plinth") { set { $0.plinth.toggle() } }
-            FToggle(label: tr("kx.cornice") + " · " + m(wu) + " m", on: x.cornice, id: "kx.cornice") { set { $0.cornice.toggle() } }
-            FToggle(label: tr("kx.led") + " · " + m(wu) + " m", on: x.led, id: "kx.led") { set { $0.led.toggle() } }
+            FToggle(label: tr("kx.plinth") + " · " + m(plinthMm(f)) + U_M, on: x.plinth, id: "kx.plinth") { set { $0.plinth.toggle() } }
+            FToggle(label: tr("kx.cornice") + " · " + m(wu) + U_M, on: x.cornice, id: "kx.cornice") { set { $0.cornice.toggle() } }
+            FToggle(label: tr("kx.led") + " · " + m(wu) + U_M, on: x.led, id: "kx.led") { set { $0.led.toggle() } }
             FStepper(label: tr("kx.ends"), v: x.ends, lo: 0, hi: 8, id: "kx.ends") { v in set { $0.ends = v } }
             FStepper(label: tr("kx.endsUp"), v: x.endsUp, lo: 0, hi: 8, id: "kx.endsUp") { v in set { $0.endsUp = v } }
             if AppSettings.shared.advanced { T(tr("kx.note"), ui(12.5, 400, G.ink2, lh: 1.4)) }
@@ -359,6 +359,11 @@ struct CostCard: View {
                 }
                 T(tr(f.kind == "kitchen" ? "kt.costNote" : "wd.costNote"), ui(12.5, 400, G.ink2, lh: 1.4))
                 if cost.missing > 0 { T(tr("kt.noPrice", ["n": cost.missing]), ui(12.5, 600, G.amberInk)) }
+                // parts longer than a sheet: priced a sheet each, said here too (not only on the cut list)
+                ForEach(cost.layouts.filter { !$0.unplaced.isEmpty }, id: \.mat) { lay in
+                    let nm = s.mats.first { $0.id == lay.mat }?.name ?? lay.mat
+                    T(tr("fw.unplaced", ["m": dn(nm), "n": lay.unplaced.count]), ui(12.5, 600, G.err, lh: 1.4))
+                }
             }
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -521,7 +526,7 @@ private struct LegsSheet: View {
             }
             GlassSheet(tr("kx.legs"), onClose: { app.sheet = nil }) {
                 GField(label: tr("kx.legs"), value: $v, placeholder: "\(now)", error: tr("km.bad", ["a": 50, "b": 250]), showError: vi == nil, focus: $focus, me: .a,
-                       submit: .done, onSubmit: save, labelRight: "mm", number: true, id: "kl.value")
+                       submit: .done, onSubmit: save, labelRight: tr("u.mm"), number: true, id: "kl.value")
                 T(tr("kx.worktopAt", ["v": wtAt]), ui(13, 400, G.ink2, lh: 1.4))
             } footer: {
                 GBtn(tr("common.save"), enabled: vi != nil) { save() }.accessibilityIdentifier("kl.save")
@@ -641,7 +646,7 @@ private struct LibrarySheet: View {
                     let wi = Int(w)
                     let ok = wi != nil && (10...1200).contains(wi!)
                     GField(label: tr("kt.spW"), value: $w, placeholder: "50", error: tr("km.bad", ["a": 10, "b": 1200]), showError: !ok && !w.isEmpty, focus: $focus, me: .a,
-                           submit: .done, labelRight: "mm", number: true, id: "lib.w")
+                           submit: .done, labelRight: tr("u.mm"), number: true, id: "lib.w")
                         .onAppear { if w.isEmpty { w = String(min(600, max(10, free ?? 50))) } }
                         .onChange(of: w) { _, v in let t = String(v.filter(\.isNumber).prefix(4)); if t != v { w = t } }
                     if let lowLeft { T(tr("kt.spLeft", ["v": lowLeft]) + (!island && upLeft != nil ? " · " + tr("kt.up") + ": \(upLeft!)" : ""), ui(13, 400, G.ink2)) }
@@ -813,9 +818,9 @@ private struct ModuleSheet: View {
                     }
                 }
                 HStack(alignment: .top, spacing: 8) {
-                    GField(label: tr("km.w"), value: $w, placeholder: "600", error: tr("km.bad", ["a": wMin, "b": 1200]), showError: wi == nil, focus: $focus, me: .a, labelRight: "mm", number: true, id: "km.w")
-                    GField(label: tr("km.h"), value: $h, placeholder: "720", error: tr("km.bad", ["a": hMin, "b": hMax]), showError: hi == nil, focus: $focus, me: .b, labelRight: "mm", number: true, id: "km.h")
-                    GField(label: tr("km.d"), value: $d, placeholder: "560", error: tr("km.bad", ["a": 16, "b": 800]), showError: di == nil, focus: $focus, me: .c, submit: .done, labelRight: "mm", number: true, id: "km.d")
+                    GField(label: tr("km.w"), value: $w, placeholder: "600", error: tr("km.bad", ["a": wMin, "b": 1200]), showError: wi == nil, focus: $focus, me: .a, labelRight: tr("u.mm"), number: true, id: "km.w")
+                    GField(label: tr("km.h"), value: $h, placeholder: "720", error: tr("km.bad", ["a": hMin, "b": hMax]), showError: hi == nil, focus: $focus, me: .b, labelRight: tr("u.mm"), number: true, id: "km.h")
+                    GField(label: tr("km.d"), value: $d, placeholder: "560", error: tr("km.bad", ["a": 16, "b": 800]), showError: di == nil, focus: $focus, me: .c, submit: .done, labelRight: tr("u.mm"), number: true, id: "km.d")
                 }
                 if let run, let wi, let avail = fillOf(f, run, isUpper(m)).avail {
                     let used = fillOf(f, run, isUpper(m)).used - m.w + wi

@@ -93,7 +93,8 @@ private struct BigCard: View {
                 Spacer(minLength: 28)
                 HStack(alignment: .bottom, spacing: 12) {
                     VStack(alignment: .leading, spacing: 4) {
-                        T(tr("hm.t.new"), ui(30, 800, G.ink, lh: 1.1, ls: -0.02))
+                        // a furniture maker or a tradesman makes orders, a builder projects
+                        T(tr(orderWords() ? "fo.new" : "hm.t.new"), ui(30, 800, G.ink, lh: 1.1, ls: -0.02))
                         T(tr("gl.newS"), ui(15, 400, G.ink2))
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

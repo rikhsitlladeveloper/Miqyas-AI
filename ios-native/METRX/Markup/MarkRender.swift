@@ -166,10 +166,17 @@ func drawMark(_ ctx: GraphicsContext, _ e: MkEl, _ f: MkFmt, alpha: Double = 1, 
         let s = dn(e.txt ?? "", f.lang)
         let font = UIFont(name: face(f.lang, 600), size: 50) ?? .systemFont(ofSize: 50, weight: .semibold)
         let p = pt(e.pts[0])
-        let outline = NSAttributedString(string: s, attributes: [.font: font, .strokeColor: UIColor.white.withAlphaComponent(alpha), .strokeWidth: 22])
-        let fill = NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: UIColor(c)])
-        let sz = outline.size()
-        let r = CGRect(x: p.x - sz.width / 2, y: p.y - sz.height / 2, width: sz.width + 4, height: sz.height)
+        // a long label wraps to stay inside the picture (1000 units wide), centred where it was put
+        let para = NSMutableParagraphStyle()
+        para.alignment = .center
+        let room: CGFloat = min(980, max(300, 2 * min(p.x, 1000 - p.x) - 20))
+        let outline = NSAttributedString(string: s, attributes: [.font: font, .strokeColor: UIColor.white.withAlphaComponent(alpha), .strokeWidth: 22, .paragraphStyle: para])
+        let fill = NSAttributedString(string: s, attributes: [.font: font, .foregroundColor: UIColor(c), .paragraphStyle: para])
+        let one = outline.size()
+        let box = one.width + 4 <= room ? one : outline.boundingRect(with: CGSize(width: room, height: .greatestFiniteMagnitude),
+                                                                     options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil).size
+        let w = min(room, ceil(box.width) + 4)
+        let r = CGRect(x: p.x - w / 2, y: p.y - ceil(box.height) / 2, width: w, height: ceil(box.height))
         drawText(ctx, outline, r); drawText(ctx, fill, r)
     case "arrow":
         guard e.pts.count > 1 else { return }

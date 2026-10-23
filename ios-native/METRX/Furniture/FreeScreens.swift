@@ -118,21 +118,50 @@ func freeSub(_ f: Furniture, _ en: Bool) -> String {
     func m(_ v: Int) -> String { Geo.fmtLen(v, .m, en) }
     if f.kind == "wardrobe" {
         guard let w = wardOfF(f) else { return "" }
-        let name: String? = f.model.isEmpty ? nil : tr(!f.type.isEmpty ? "ft." + f.model : "fz.m." + f.model)
+        // a sliding wardrobe is named by the doors it has now, not by the model it started from ("Kupe, 3 eshik" → 4)
+        let modelName: String? = f.model.isEmpty ? nil : tr(!f.type.isEmpty ? "ft." + f.model : "fz.m." + f.model)
+        let name: String? = w.slide.map { tr("fz.slideNow", ["n": $0.n]) } ?? modelName
         // the height as asked: a cabinet's with its legs
         let v = valsOf(f, AppSettings.shared.workshop)
         let h = v["h"] ?? w.h
         let sizes: String
-        if let mw = v["mw"] { sizes = m(mw) + " × " + m(v["ml"] ?? 0) + " m" }
-        else if let w2 = v["w2"] { sizes = m(v["w"] ?? w.w) + " + " + m(w2) + " × " + m(h) + " m" }
-        else { sizes = m(v["w"] ?? w.w) + " × " + m(h) + " × " + m(v["d"] ?? w.d) + " m" }
+        if let mw = v["mw"] { sizes = m(mw) + " × " + m(v["ml"] ?? 0) + U_M }
+        else if let w2 = v["w2"] { sizes = m(v["w"] ?? w.w) + " + " + m(w2) + " × " + m(h) + U_M }
+        else { sizes = m(v["w"] ?? w.w) + " × " + m(h) + " × " + m(v["d"] ?? w.d) + U_M }
         return [name, sizes].compactMap { $0 }.joined(separator: " · ")
     }
     let fs = f.free
     let run = fs.map { freeRunMm(f.layout, $0.sides, $0.island) } ?? runMm(f)
     let t = (max(0, run) + 50) / 100
-    let sizes = fs.map { ($0.sides + ($0.island > 0 ? [$0.island] : [])).map { m($0) }.joined(separator: " + ") + " m" }
+    let sizes = fs.map { ($0.sides + ($0.island > 0 ? [$0.island] : [])).map { m($0) }.joined(separator: " + ") + U_M }
     return [tr(f.model.isEmpty ? "kt.l" + f.layout : "fz.m." + f.model), sizes, "\(t / 10)\(en ? "." : ",")\(t % 10) " + tr("kt.pm")].compactMap { $0 }.joined(separator: " · ")
+}
+
+/// The place-in-room page's helpers: the room's depth in front of a wall, where "fit" moves a cabinet, whether it helps.
+enum FPlaceDepth {
+    /// How deep the room is in front of wall id, once every wall is measured (nil: not yet).
+    static func of(_ ws: [Geo.Wall], _ id: String) -> Int? {
+        guard ws.allSatisfy({ $0.len != nil }), let w = ws.first(where: { $0.id == id }) else { return nil }
+        return depthFrom(w.p0, w.p1, ws.map(\.p0))
+    }
+
+    /// A distance from the corner that leaves no room for a cabinet comes back to where 300 mm still fit.
+    static func fitOff(_ ward: Bool, _ offMm: Int?, _ wallL: Int?) -> Int? {
+        guard ward, let v = offMm, let wl = wallL else { return offMm }
+        let most = wl - 300 - W_GAP_SIDE
+        if v <= most { return offMm }
+        return most > 0 ? most : nil
+    }
+
+    /// Whether fitting the piece changes what does not fit.
+    static func changes(_ fitTry: Furniture, _ f: Furniture, _ on: [String], _ len: (String) -> Int?, _ roomH: Int?, _ ws: Workshop,
+                        _ fo: Int?, _ offMm: Int?, _ start: Int, _ deep: (String) -> Int?) -> Bool {
+        var a = fitTry; a.pose = nil
+        var b = f; b.pose = nil
+        let after = fitIssues(a, on, len, roomH, ws, off: fo, start: start, deep: deep)
+        let before = fitIssues(b, on, len, roomH, ws, off: offMm, start: start, deep: deep)
+        return after != before
+    }
 }
 
 /// "Xonasiz mebel": the order's pieces without a room, each with its price and "Xonaga qo‘yish".
@@ -194,7 +223,7 @@ struct PickRoomSheet: View {
                         MIcon(w?.type == "kitchen" ? "kitchen" : "room", G.cobalt, 22, 2)
                         VStack(alignment: .leading, spacing: 1) {
                             T(w.map { floorName($0) } ?? dn(r.name), ui(15.5, 700), lines: 1)
-                            T(m(r.dim("A").v) + " × " + m(r.dim("B").v) + " m · h " + m(r.dim("H").v), num(12.5, 500, G.ink2), lines: 1)
+                            T(m(r.dim("A").v) + " × " + m(r.dim("B").v) + U_M + " · h " + m(r.dim("H").v), num(12.5, 500, G.ink2), lines: 1)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         MIcon("chev", G.ink3, 16, 2)
@@ -327,7 +356,14 @@ struct FPlaceScreen: View {
                 let on = placeWalls(f, ids, first)
                 // a free-standing piece where it was dragged is not held to a wall's length
                 let fp: Furniture = { var x = f; x.pose = canStandFree(f) ? pose : nil; return x }()
-                let issues = fitIssues(fp, on, len, roomH, ws, off: offMm, start: start)
+                // the room's depth in front of a wall, once every wall is measured (a piece deeper than that goes through the wall opposite)
+                let deep: (String) -> Int? = { id in FPlaceDepth.of(wl, id) }
+                let issues = fitIssues(fp, on, len, roomH, ws, off: offMm, start: start, deep: deep)
+                // a distance from the corner that leaves no room for a cabinet comes back to where 300 mm still fit
+                let fo: Int? = FPlaceDepth.fitOff(ward, offMm, on.first.flatMap { len($0) })
+                let fitTry: Furniture = fitTo(placed(f, on, room.id, room.floorId, off: fo, ws: ws), on, len, roomH, ws, off: fo)
+                // fitting that changes nothing (a bed longer than the wall, a corner unit alone, too deep) is not offered
+                let canFit = FPlaceDepth.changes(fitTry, f, on, len, roomH, ws, fo, offMm, start, deep)
                 // where it would stand, and what it would be in the way of there
                 let pw = planWalls(room, snap)
                 let g = placed(f, on, room.id, room.floorId, off: offMm, keep: !issues.isEmpty, len: len, ws: ws, start: start, pose: pose)
@@ -370,7 +406,7 @@ struct FPlaceScreen: View {
                     T(tr(ward ? "fz.wallQ" : "fz.first"), ui(15, 700))
                     FlowLayout(spacing: 8) {
                         ForEach(wl, id: \.id) { w in
-                            FChip(label: tr("kt.wallN", ["w": w.id]) + (len(w.id).map { " · \($0)" } ?? ""), on: w.id == first) { if w.id != first { first = w.id; start = 0; pose = nil; reset() } }
+                            FChip(label: tr("kt.wallN", ["w": w.id]) + (len(w.id).map { " · " + Geo.fmtLen($0, unit, en) + " " + unitWord(unit) } ?? ""), on: w.id == first) { if w.id != first { first = w.id; start = 0; pose = nil; reset() } }
                                 .accessibilityIdentifier("fz.wall." + w.id)
                         }
                     }
@@ -395,7 +431,7 @@ struct FPlaceScreen: View {
                         if pose == nil { HStack(spacing: 8) {
                             FChip(label: tr("fz.corner"), on: offMm == nil) { off = ""; pose = nil; reset() }
                             GField(label: nil, value: Binding(get: { off }, set: { off = String($0.filter { $0.isASCII && $0.isNumber }.prefix(5)); reset() }), placeholder: "0",
-                                   focus: $focus, me: .off, submit: .done, onSubmit: { focus = nil }, labelRight: "mm", number: true)
+                                   focus: $focus, me: .off, submit: .done, onSubmit: { focus = nil }, labelRight: tr("u.mm"), number: true)
                         } }
                     }
                     if !issues.isEmpty {
@@ -411,15 +447,15 @@ struct FPlaceScreen: View {
                         .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                         .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(keep ? G.amberWash : G.errWash))
                         let heightOnly = issues.allSatisfy { $0.key == "fz.high" }
+                        if !canFit { T(tr(canStandFree(f) ? "fz.noFitFree" : "fz.noFit"), ui(12.5, 500, G.ink2, lh: 1.4)) }
                         HStack(spacing: 8) {
-                            GBtn(tr(heightOnly ? "fz.fitH" : "fz.fit"), kind: .secondary, height: 46, corner: 14, fontSize: 14) {
-                                // a distance from the corner that leaves no room for a cabinet comes back to where 300 mm still fit
-                                let wl = on.first.flatMap { len($0) }
-                                var o = offMm
-                                if ward, let v = offMm, let wl, v > wl - 300 - W_GAP_SIDE { let b = wl - 300 - W_GAP_SIDE; o = b > 0 ? b : nil; off = o.map { String($0) } ?? "" }
-                                fitted = fitTo(placed(f, on, room.id, room.floorId, off: o, ws: ws), on, len, roomH, ws, off: o); keep = false; app.say("fz.fitted")
+                            if canFit {
+                                GBtn(tr(heightOnly ? "fz.fitH" : "fz.fit"), kind: .secondary, height: 46, corner: 14, fontSize: 14) {
+                                    if fo != offMm { off = fo.map { String($0) } ?? "" }
+                                    fitted = fitTry; keep = false; app.say("fz.fitted")
+                                }
+                                .accessibilityIdentifier("fz.fit")
                             }
-                            .accessibilityIdentifier("fz.fit")
                             GBtn(tr("fz.keep"), kind: keep ? .primary : .secondary, height: 46, corner: 14, fontSize: 14) { keep = true }.accessibilityIdentifier("fz.keep")
                         }
                     }

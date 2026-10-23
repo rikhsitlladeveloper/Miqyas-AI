@@ -10,6 +10,13 @@ let TRADES = ["tiler", "elec", "plumb", "win"]
 
 func isTrade(_ industry: String?) -> Bool { industry.map { TRADES.contains($0) } ?? false }
 
+/// Whether order p's estimate already has the lines its trade's own count makes: "t-" lines named by prefix
+/// ("tl.e.", "el.e.", "sx.e.", "dw.e."). The older trades' calculator's "t-" lines ("tr.…") do not count.
+func madeBy(_ p: Project, _ prefix: String, labourToo: Bool = true) -> Bool {
+    let rows = p.estimate.materials + (labourToo ? p.estimate.labor : [])
+    return rows.contains { $0.id.hasPrefix("t-") && $0.name.hasPrefix("@" + prefix) }
+}
+
 /// The calculator's settings, one set for all trades. Lengths in mm; money as typed (whole currency units).
 struct TradeSet: Codable, Equatable {
     // tiler
@@ -118,7 +125,9 @@ func tradeRows(_ trade: String, _ rooms: [Room], _ t: TradeSet, _ name: (String,
         mat("tile", "m2", boxes * box, t.pTile, ["w": "\(t.tileW)", "h": "\(t.tileH)", "n": "\(i64(boxes))"])
         mat("glue", "bag", up(area * num(t.glueKg) / 25), t.pGlue)
         mat("grout", "kg", up(area * num(t.groutKg)), t.pGrout)
-        lab("tileLab", area * num(t.lTile), ["a": Money.num(qty((area * 10).rounded() / 10), en)])
+        // priced by the area it shows, so quantity × rate is its amount
+        let areaR = (area * 10).rounded() / 10
+        lab("tileLab", areaR * num(t.lTile), ["a": Money.num(qty(areaR), en)])
     case "elec":
         let sockets = measured.reduce(0) { $0 + $1.points.filter { $0.t == "socket" }.count }
         let switches = measured.reduce(0) { $0 + $1.points.filter { $0.t == "switch" }.count }

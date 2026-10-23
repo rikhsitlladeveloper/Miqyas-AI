@@ -30,6 +30,9 @@ struct ECount: Equatable {
     var points: Int { sockets + switches + lights + low }
 }
 
+/// Less cable than this (m, with the spare) is bought by the metre; more in whole coils.
+let COIL_FROM = 50
+
 /// Whole coils of COIL m for m metres.
 func coilsFor(_ m: Double) -> Int { m <= 0 ? 0 : tInt((m / Double(COIL) - 1e-9).rounded(.up)) }
 
@@ -93,7 +96,8 @@ func countOf(_ p: Project, _ cs: [ECtx], _ rt: Routes) -> ECount {
         if placed > 0 { jb += placed } else if ds.contains(where: { devType($0.t).cat != "box" }) { jb += 1 }
     }
     // chases and channels: each stretch of wall once (cables share them), each drop once; pipe: every cable its own
-    var wallM = 0.0, drops = 0.0, ceilM = 0.0, rises = 0.0
+    // the rise from the panel: one shared chase or channel (the longest), but in gofra every circuit has its own pipe
+    var wallM = 0.0, drops = 0.0, ceilM = 0.0, rises = 0.0, risesAll = 0.0
     for c in cs {
         let runs = rt.inRoom(c.id)
         if runs.isEmpty { continue }
@@ -109,11 +113,12 @@ func countOf(_ p: Project, _ cs: [ECtx], _ rt: Routes) -> ECount {
         drops += dk.reduce(0.0) { $0 + (dv[$1] ?? 0) }
         ceilM += runs.reduce(0.0) { $0 + $1.ceil }
         rises = max(rises, runs.map(\.rise).max() ?? 0)
+        risesAll += runs.reduce(0.0) { $0 + $1.rise }
     }
     let cableM = rt.circuits.reduce(0.0) { $0 + rt.cableOf($1) } / 1000
     var chase = 0.0, gofra = 0.0, channel = 0.0
     switch rt.method {
-    case "gofra": chase = drops / 1000; gofra = (ceilM + rises) / 1000
+    case "gofra": chase = drops / 1000; gofra = (ceilM + risesAll) / 1000
     case "channel": channel = (wallM + drops + rises + ceilM) / 1000
     default: chase = (wallM + drops + rises) / 1000; gofra = ceilM / 1000
     }
@@ -175,8 +180,14 @@ func elecRows(_ p: Project, _ t: TradeSet, _ snap: Bool, _ name: (String, [Strin
         case "utp": price = t.pUtp
         default: price = t.pCable
         }
-        let label = n.type == "utp" ? "UTP" : "VVG " + cableName(n.type)
-        mat("cab", "m", Double(n.coils * COIL), price, ["c": label, "n": "\(n.coils)"], "cab" + n.type)
+        // (a non-breaking space after VVG: a stored line's values lose plain spaces)
+        let label = n.type == "utp" ? "UTP" : "VVG\u{00A0}" + cableName(n.type)
+        // a short run is bought by the metre, from COIL_FROM m in whole coils
+        if n.coils == 0 || n.withSpare < Double(COIL_FROM) {
+            mat("cabM", "m", (n.withSpare - 1e-9).rounded(.up), price, ["c": label], "cab" + n.type)
+        } else {
+            mat("cab", "m", Double(n.coils * COIL), price, ["c": label, "n": "\(n.coils)"], "cab" + n.type)
+        }
     }
     mat("sock", "pcs", Double(c.sockets), t.pSocket)
     mat("sw", "pcs", Double(c.switches), t.pSwitch)
@@ -193,8 +204,11 @@ func elecRows(_ p: Project, _ t: TradeSet, _ snap: Bool, _ name: (String, [Strin
     mat("gofra", "m", (c.gofraM - 1e-9).rounded(.up), t.pConduit)
     mat("chan", "m", (c.channelM - 1e-9).rounded(.up), t.pChan)
     lab("lPts", Double(c.points) * eNum(t.lPoint), ["n": "\(c.points)"])
-    lab("lChase", c.chaseM * eNum(t.lChase), ["a": eQty(eMathRound(c.chaseM * 10) / 10)])
-    lab("lCable", c.cableM * eNum(t.lMetre), ["a": eQty(eMathRound(c.cableM * 10) / 10)])
+    // the metres a labour line shows are the ones it is priced by, so quantity × rate is its amount
+    let chaseM = eMathRound(c.chaseM * 10) / 10
+    let cableM = eMathRound(c.cableM * 10) / 10
+    lab("lChase", chaseM * eNum(t.lChase), ["a": eQty(chaseM)])
+    lab("lCable", cableM * eNum(t.lMetre), ["a": eQty(cableM)])
     if !c.breakers.isEmpty { lab("lPanel", eNum(t.lPanel), ["n": "\(c.circuits)"]) }
     return TradeResult(mats: mats, labor: labor, facts: ["points": Double(c.points), "cable": c.cableM])
 }

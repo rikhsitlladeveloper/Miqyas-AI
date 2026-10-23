@@ -201,6 +201,8 @@ private struct PVRoom3D: View {
         let pid = p.id, rid = r.id
         func full() -> Bool { (Store.shared.get(pid)?.rooms.first { $0.id == rid }?.views.count ?? 4) >= 4 }
         if taking { return }
+        // a double tap takes one picture, not two alike
+        if !app.once() { return }
         if full() { app.say("3d.max", kind: .error); return }
         taking = true
         shot.take { img in
@@ -599,7 +601,7 @@ private struct PVFixtures: View {
     private func fixTitle(_ f: PlFix) -> String {
         let base = tr("sx.t." + f.t)
         if f.t != "rad" { return base }
-        return base + " · " + Geo.fmtLen(fixW(f), .m, pvEn) + " m"
+        return base + " · " + Geo.fmtLen(fixW(f), .m, pvEn) + U_M
     }
 
     private func fixSub(_ f: PlFix) -> String {
@@ -652,16 +654,16 @@ private struct PVFreeCard: View {
     let c: PCtx
     var body: some View {
         if let f = c.free {
-            let size = Geo.fmtLen(f.L, .m, pvEn) + " × " + Geo.fmtLen(f.W, .m, pvEn) + " × " + Geo.fmtLen(f.H, .m, pvEn) + " m"
-            let all: [(String, Int)] = [("wc", f.wc), ("bs", f.basin), ("bath", f.bath), ("sh", f.shower), ("sink", f.sink),
-                                        ("wm", f.wm), ("dw", f.dw), ("wh", f.wh), ("gb", f.gb), ("rad", f.rad)]
+            let size = Geo.fmtLen(f.L, .m, pvEn) + " × " + Geo.fmtLen(f.W, .m, pvEn) + " × " + Geo.fmtLen(f.H, .m, pvEn) + U_M
+            let all: [(String, Int)] = [("wc", f.wc), (f.small ? "bsm" : "bs", f.basin), ("bath", f.bath), (f.cabin ? "cab" : "sh", f.shower), ("sink", f.sink),
+                                        ("wm", f.wm), ("dw", f.dw), ("wh", f.wh), ("gb", f.gb), ("rad", f.rad), ("tr", f.tr)]
             let counts = all.filter { $0.1 > 0 }
             VStack(alignment: .leading, spacing: 6) {
                 T(tr("el.freeT"), ui(15, 800))
                 EKv(k: tr("el.size"), v: size)
                 ForEach(counts, id: \.0) { k, n in EKv(k: tr("sx.t." + k), v: "\(n)") }
                 if f.ufh { EKv(k: tr("sx.s.ufh"), v: "✓") }
-                EKv(k: tr("sx.freeLink"), v: Geo.fmtLen(f.link, .m, pvEn) + " m")
+                EKv(k: tr("sx.freeLink"), v: Geo.fmtLen(f.link, .m, pvEn) + U_M)
                 T(tr("sx.freeNote"), ui(12.5, 400, G.ink2, lh: 1.4))
                 GBtn(tr("fz.change"), kind: .secondary, icon: "edit", height: 44, corner: 14, fontSize: 14) { app.sheet = .pFree(pid: p.id, fid: f.id) }
             }
@@ -743,7 +745,7 @@ private struct PVHeatCard: View {
         let v = tr("sx.loopV", ["n": loop.n, "s": loop.step / 10, "a": pvD1(loop.area)])
         let more = loop.n > 1 ? " × \(loop.n)" : ""
         EKv(k: tr("sx.s.ufh"), v: v)
-        EKv(k: tr("sx.loopLen"), v: pvD1(loop.each / 1000) + " m" + more)
+        EKv(k: tr("sx.loopLen"), v: pvD1(loop.each / 1000) + U_M + more)
     }
 }
 
@@ -780,7 +782,7 @@ private struct PVRoomCount: View {
         return HStack(spacing: 10) {
             Circle().fill(eColor(kindRgb(k))).frame(width: 12, height: 12)
             T(tr("sx.o." + k) + " · Ø\(dia)", ui(14, 600)).frame(maxWidth: .infinity, alignment: .leading)
-            T(pvD1(len) + " m", num(13.5, 700))
+            T(pvD1(len) + U_M, num(13.5, 700))
         }
     }
 }

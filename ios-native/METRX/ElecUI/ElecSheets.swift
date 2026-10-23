@@ -53,9 +53,8 @@ private struct ENewRoomSheet: View {
         _name = State(initialValue: ENewRoomSheet.nameFor(k, p))
     }
     static func nameFor(_ k: String, _ p: Project?) -> String {
-        let base = tr(eKindKey(k))
-        let n = p?.floors.filter { $0.name.hasPrefix(base) }.count ?? 0
-        return n > 0 ? "\(base) \(n + 1)" : base
+        guard let p else { return tr(eKindKey(k)) }
+        return nextName(p, eKindKey(k))
     }
     var body: some View {
         let p = Store.shared.get(pid)
@@ -64,15 +63,19 @@ private struct ENewRoomSheet: View {
             FlowLayout(spacing: 8) {
                 ForEach(KINDS, id: \.self) { k in FChip(label: tr(eKindKey(k)), on: k == kind) { kind = k; name = ENewRoomSheet.nameFor(k, p) } }
             }
-            GField(label: tr("fr.name"), value: $name, placeholder: tr(eKindKey(kind)), focus: $focus, me: .name, submit: .done, onSubmit: create)
+            let blank = name.trimmingCharacters(in: .whitespaces).isEmpty
+            GField(label: tr("fr.name"), value: $name, placeholder: tr(eKindKey(kind)), error: blank ? tr("nr.nameReq") : nil, showError: true,
+                   focus: $focus, me: .name, submit: .done, onSubmit: create)
         } footer: {
             GBtn(tr("fo.drawRoom"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("el.roomCreate")
         }
+        .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
     }
     private func create() {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty, app.once() else { return }
-        let rid = addElecRoom(pid, kind, n)
+        // a suggested name is kept as its key, so it follows the language
+        let rid = addElecRoom(pid, kind, suggestedName(n, eKindKey(kind)))
         app.sheet = nil
         openRoom(app, pid, rid)
     }
@@ -285,7 +288,7 @@ private struct ERoomSetSheet: View {
     }
     @ViewBuilder private func content(_ p: Project, _ c: ECtx, _ snap: Bool) -> some View {
         let er = p.elec.room(rid)
-        let pn = p.elec.panel
+        let pn = livePanel(p)
         let pc = pn.flatMap { ctxOf(p, $0.roomId, snap) }
         let unit = AppSettings.shared.unit
         GlassSheet(tr("el.roomSet"), onClose: { app.sheet = nil }) {
@@ -453,7 +456,7 @@ private struct EPricesSheet: View {
         let text = Binding(get: { i < texts.count ? texts[i] : "" }, set: { v in
             if i < texts.count { texts[i] = String(v.filter { $0.isASCII && $0.isNumber }.prefix(12)) }
         })
-        return GField(label: tr("el.p." + f.key), value: text, placeholder: "0", focus: $focus, me: f.key, labelRight: f.unit.isEmpty ? nil : f.unit, number: true, id: "elf." + f.key)
+        return GField(label: tr("el.p." + f.key), value: text, placeholder: "0", focus: $focus, me: f.key, labelRight: f.unit.isEmpty ? nil : unitText(f.unit), number: true, id: "elf." + f.key)
             .frame(maxWidth: .infinity)
     }
     private func save() {
@@ -464,7 +467,7 @@ private struct EPricesSheet: View {
         }
         AppSettings.shared.setTradeSet(t)
         app.sheet = nil
-        if let id = pid, let pr = Store.shared.get(id), pr.estimate.materials.contains(where: { $0.id.hasPrefix("t-") }) { applyElecRows(app, pr) }
+        if let id = pid, let pr = Store.shared.get(id), madeBy(pr, "el.e.") { applyElecRows(app, pr) }
         else { app.say("common.save") }
     }
 }
@@ -523,6 +526,7 @@ private struct EFreeSheet: View {
                 ForEach(KINDS, id: \.self) { k in FChip(label: tr(eKindKey(k)), on: k == kind) { pickKind(k) } }
             }
             GField(label: tr("fr.name"), value: $name, placeholder: tr(eKindKey(kind)), focus: $focus, me: .name)
+                .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
             HStack(alignment: .top, spacing: 8) {
                 GField(label: tr("tl.pa"), value: lenText($tl, 7), placeholder: "4", focus: $focus, me: .l, labelRight: uw, decimal: true).frame(maxWidth: .infinity)
                 GField(label: tr("tl.pbW"), value: lenText($tw, 7), placeholder: "3", focus: $focus, me: .w, labelRight: uw, decimal: true).frame(maxWidth: .infinity)

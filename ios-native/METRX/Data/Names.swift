@@ -25,6 +25,49 @@ func keyName(_ key: String, _ vars: [String: String]) -> String {
     return "@" + key + "?" + vars.sorted { $0.key < $1.key }.map { $0.key + "=" + $0.value.replacingOccurrences(of: ",", with: "").replacingOccurrences(of: " ", with: "") }.joined(separator: "&")
 }
 
+/// A room's name as the app suggested it from strings key `key` ("Hammom", "Hammom 2") kept as that key, so it follows
+/// the language later ("@fr.bath", "@nm.n?b=~fr.bath&n=2"); a name typed or changed stays as typed. `vars`: the key's values.
+func suggestedName(_ typed: String, _ key: String, _ l: Lang = AppSettings.shared.lang, _ vars: [String: String] = [:]) -> String {
+    let t = typed.trimmingCharacters(in: .whitespaces)
+    let base = Strings.t(key, l, vars.isEmpty ? nil : (vars as [String: Any]))
+    if t == base { return vars.isEmpty ? "@" + key : keyName(key, vars) }
+    let pre = base + " "
+    if vars.isEmpty && t.hasPrefix(pre), let n = Int(t.dropFirst(pre.count)), "\(base) \(n)" == t { return "@nm.n?b=~\(key)&n=\(n)" }
+    return t
+}
+
+/// The suggested name for a new room from strings key `key`: "Hammom", or "Hammom 2" when there is one (counted in the language shown).
+func nextName(_ p: Project, _ key: String, _ l: Lang = AppSettings.shared.lang) -> String {
+    let base = Strings.t(key, l)
+    let n = p.floors.filter { floorName($0, l).hasPrefix(base) }.count
+    return n > 0 ? "\(base) \(n + 1)" : base
+}
+
+/// A workspace and one of its rooms (nil: none drawn yet) for a trade's rooms tab; several: the workspace has more than one.
+struct WsRoom: Identifiable {
+    let w: Workspace
+    let room: Room?
+    let several: Bool
+    var id: String { w.id + "|" + (room?.id ?? "") }
+}
+
+/// Every room of each workspace (an older project may have several in one), a workspace without one once.
+func wsRooms(_ p: Project) -> [WsRoom] {
+    var out: [WsRoom] = []
+    for w in p.floors {
+        let rs = p.rooms.filter { $0.floorId == w.id }
+        if rs.isEmpty { out.append(WsRoom(w: w, room: nil, several: false)) }
+        for r in rs { out.append(WsRoom(w: w, room: r, several: rs.count > 1)) }
+    }
+    return out
+}
+
+/// A rooms tab card's title: the workspace, and the room's own name when the workspace holds several.
+func wsRoomTitle(_ w: Workspace, _ room: Room?, _ several: Bool) -> String {
+    guard several, let room else { return floorName(w) }
+    return floorName(w) + " · " + dn(room.name)
+}
+
 func floorName(_ w: Workspace, _ l: Lang = AppSettings.shared.lang) -> String {
     if w.name == "@floor1" { return Strings.t("pr.floorName", l, ["n": 1]) }
     if w.name.hasPrefix("@floor:") { return Strings.t("pr.floorName", l, ["n": String(w.name.dropFirst(7))]) }

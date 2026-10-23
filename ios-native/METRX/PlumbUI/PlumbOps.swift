@@ -84,7 +84,8 @@ func takeInPlumbPoints(_ pid: String, _ rid: String) {
     let snap = AppSettings.shared.angleSnap
     guard let p = Store.shared.get(pid), let c = pCtxOf(p, rid, snap) else { return 0 }
     let have = p.plumb.fixes.filter { $0.roomId == rid }
-    var riser = p.plumb.riser
+    // a riser left on a deleted room counts as none
+    var riser = liveRiser(p)
     if riser == nil && k.kind != "heat" {
         let wet = p.rooms.contains { r in
             guard r.id != rid, let k2 = pCtxOf(p, r.id, snap)?.kind else { return false }
@@ -105,9 +106,10 @@ func takeInPlumbPoints(_ pid: String, _ rid: String) {
         er.ufh = er.ufh || o.ufh
         if o.ufh { er.step = o.step }
         pr.plumb.fixes += fs
-        if let placedRiser, pr.plumb.riser == nil { pr.plumb.riser = placedRiser }
+        if let placedRiser, liveRiser(pr) == nil { pr.plumb.riser = placedRiser }
         pr.plumb.rooms = pr.plumb.rooms.filter { $0.roomId != rid } + [er]
-        if pr.plumb.riser == nil, let d = defaultRiser(pr, snap) { pr.plumb.riser = d }
+        // a riser of its own only when there is water or a drain to bring (radiators and underfloor heating alone need none)
+        if liveRiser(pr) == nil && needsRiser(pr), let d = defaultRiser(pr, snap) { pr.plumb.riser = d }
     }
     return fs.count
 }
@@ -155,7 +157,11 @@ func fixSummary(_ fs: [PlFix]) -> String {
 }
 
 /// How many fixtures a room typed by size has.
-func freeCount(_ f: PlFree) -> Int { f.wc + f.basin + f.bath + f.shower + f.sink + f.wm + f.dw + f.wh + f.gb + f.rad }
+func freeCount(_ f: PlFree) -> Int {
+    let a = f.wc + f.basin + f.bath + f.shower + f.sink
+    let b = f.wm + f.dw + f.wh + f.gb + f.rad + f.tr
+    return a + b
+}
 
 /// A room's name in the order: its workspace's, or its own.
 func pRoomName(_ p: Project, _ r: Room) -> String { p.floors.first { $0.id == r.floorId }.map { floorName($0) } ?? dn(r.name) }

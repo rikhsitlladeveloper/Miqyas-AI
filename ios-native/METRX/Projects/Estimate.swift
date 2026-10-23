@@ -413,7 +413,11 @@ private struct RowSheet: View {
             let nameErr = blank("ename") ? tr("re.nameReq") : nil
             let q: Dec = mat ? Money.parse(f("eqty"), 3) : .empty
             let pr = Money.parse(mat ? f("eprice") : f("eamount"), p.precision)
-            let qErr = mat ? decErr(q) : nil, pErr = decErr(pr)
+            // a sensible most: a million of a unit, a price or a labour line of a trillion (a longer number is a slip and breaks the layout)
+            let qBig = mat && (q.value ?? 0) > Decimal(1_000_000)
+            let pBig = (pr.value ?? 0) > Decimal(1_000_000_000_000)
+            let qErr: String? = mat ? (qBig ? tr("err.most", ["max": "1 000 000"]) : decErr(q)) : nil
+            let pErr: String? = pBig ? tr("err.most", ["max": "1 000 000 000 000"]) : decErr(pr)
             let reserve = f("ereserve") == "1" && f("eunit") == "@u.m2"
             let qShown: String? = mat && q.value != nil ? Money.num(reserve ? Money.withSpare(f("eqty")) : Money.canon(f("eqty")), en) : nil
             let lt: Decimal? = mat ? (q.value != nil && pr.value != nil ? Money.line(reserve ? Money.withSpare(f("eqty")) : f("eqty"), f("eprice"), p.precision) : nil) : pr.value

@@ -35,7 +35,9 @@ enum Strings {
         guard let vars else { return s }
         s = replace(s, plural) { g in
             let raw = vars[g[1]]
-            let n = (raw as? Int).map(Double.init) ?? (raw as? Double) ?? Double(g[1]) ?? 0
+            // a number, or a number as text (a stored line's values: "n=1", "a=2,5")
+            let txt: Double? = (raw as? String).flatMap { Double($0.replacingOccurrences(of: ",", with: ".").replacingOccurrences(of: " ", with: "")) }
+            let n = (raw as? Int).map(Double.init) ?? (raw as? Double) ?? txt ?? Double(g[1]) ?? 0
             return pluralForm(n, g[2], lang)
         }
         s = replace(s, variable) { g in vars[g[1]].map { "\($0)" } ?? g[0] }

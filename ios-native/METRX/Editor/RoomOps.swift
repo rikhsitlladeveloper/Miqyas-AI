@@ -256,7 +256,16 @@ final class RoomOps {
         let r = p.rooms[idx]
         let pieces = p.furniture.filter { $0.roomId == rid }
         let inReport = p.reportRooms[rid]   // left out of the report: Undo keeps it out
-        Store.shared.update(pid) { $0.furniture = outOfRooms($0, [rid]); $0.rooms.removeAll { $0.id == rid }; $0.reportRooms.removeValue(forKey: rid) }
+        // the trades' data in it goes too (tiles, wiring, plumbing; its windows stay without a room), kept for Undo
+        var gone = TradesGone()
+        Store.shared.update(pid) { pr in
+            let furn = outOfRooms(pr, [rid])
+            let (q, g) = tradesOut(pr, [rid])
+            gone = g
+            pr = q
+            pr.furniture = furn; pr.rooms.removeAll { $0.id == rid }; pr.reportRooms.removeValue(forKey: rid)
+        }
+        let taken = gone
         app.sheet = nil
         app.popTo { r in
             switch r { case .editor, .wallView: return false; default: return true }
@@ -264,6 +273,7 @@ final class RoomOps {
         app.dropMissing()   // the room's pages in the other tabs' stacks go too
         app.say("room.deleted", ["n": dn(r.name)], action: "common.undo") {
             Store.shared.update(pid) { pr in
+                pr = tradesBack(pr, taken)
                 pr.rooms.insert(r, at: min(idx, pr.rooms.count)); pr.furniture = pr.furniture.map { f in pieces.first { $0.id == f.id } ?? f }
                 if let inReport { pr.reportRooms[rid] = inReport }
             }

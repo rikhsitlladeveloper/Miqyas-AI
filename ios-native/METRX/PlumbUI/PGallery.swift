@@ -558,7 +558,7 @@ struct PStepsScreen: View {
                             }
                             stepBody(p, k, cur)
                         }
-                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 120)
+                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 168)
                     }
                     .scrollDismissesKeyboard(.interactively)
                 }
@@ -671,7 +671,7 @@ struct PStepsScreen: View {
         let ready = measuredRoom(r, snap)
         if ready && !r.isPoly {
             let a = Geo.fmtLen(r.dim("A").v, .m, pgEn), b = Geo.fmtLen(r.dim("B").v, .m, pgEn)
-            return a + " × " + b + " m"
+            return a + " × " + b + U_M
         }
         return tr(ready ? "tl.measured" : "el.s.later")
     }
@@ -702,9 +702,9 @@ struct PStepsScreen: View {
             app.push(.pView(pid: pid, rid: "free:" + f.id))
             app.say("el.kitAdded", ["n": kitName])
         case "new":
-            let base = tr(pKindKey(kind))
-            let cnt = p.floors.filter { $0.name.hasPrefix(base) }.count
-            let nrid = addPlumbRoom(pid, kind, cnt > 0 ? "\(base) \(cnt + 1)" : base)
+            // the suggested name kept as its key, so it follows the language
+            let key = pKindKey(kind)
+            let nrid = addPlumbRoom(pid, kind, suggestedName(nextName(p, key), key))
             let pick = PKitPick(kit: k.id, o: o)
             updatePRoom(pid, nrid) { $0.pend.append(pick) }
             app.popTo(toProject)

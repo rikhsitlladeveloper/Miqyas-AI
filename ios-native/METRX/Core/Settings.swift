@@ -110,9 +110,11 @@ final class AppSettings {
     }
 
     func setLanguage(_ l: Lang) {
-        // as in the prototype, choosing the app language also sets the report language
-        lang = l; reportLang = l
-        d.set(l.code, forKey: "lang"); d.set(l.code, forKey: "reportLang")
+        // the report language is its own setting: only the first choice (no report language set yet) sets it too
+        lang = l
+        let first = d.string(forKey: "reportLang") == nil
+        if first { reportLang = l; d.set(l.code, forKey: "reportLang") }
+        d.set(l.code, forKey: "lang")
     }
     func setReportLangDefault(_ l: Lang) { reportLang = l; d.set(l.code, forKey: "reportLang") }
     func setCurrencyDefault(_ c: String) { currency = c; d.set(c, forKey: "currency") }
@@ -156,3 +158,8 @@ final class AppSettings {
 
 /// The current language's text for [key] (reads the setting, so a screen follows a language change).
 func tr(_ key: String, _ vars: [String: Any]? = nil) -> String { Strings.t(key, AppSettings.shared.lang, vars) }
+
+/// " m", " m²", " mm" after a number, in the app's language (Russian and Cyrillic Uzbek "м", "м²", "мм").
+var U_M: String { " " + tr("u.m") }
+var U_M2: String { " " + tr("u.m2") }
+var U_MM: String { " " + tr("u.mm") }

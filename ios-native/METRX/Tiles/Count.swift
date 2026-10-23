@@ -11,8 +11,10 @@ struct TileNeed: Equatable {
     var look: String, a: Int, b: Int, whole: Int, cut: Int, reused: Int, tiles: Int, skirtTiles: Int
     var spare: Int, withSpare: Int, perBox: Int, boxes: Int, m2: Double
     var price = ""
+    /// Layouts of one tile merged with different box sizes: what their boxes hold together, m² (-1: from boxes × perBox).
+    var boxed = -1.0
     /// What the boxes hold, m².
-    var boxedM2: Double { Double(boxes) * Double(perBox) * Double(a) * Double(b) / 1e6 }
+    var boxedM2: Double { boxed >= 0 ? boxed : Double(boxes) * Double(perBox) * Double(a) * Double(b) / 1e6 }
 }
 
 /// Ceiling that a value a hair over a whole number does not push up (Kotlin ceil(x - 1e-9)).
@@ -52,8 +54,21 @@ struct TileCount: Equatable {
             f.tiles = ns.reduce(0) { $0 + $1.tiles }
             f.skirtTiles = ns.reduce(0) { $0 + $1.skirtTiles }
             f.withSpare = ws
-            f.boxes = tCeil(Double(ws) / Double(f.perBox))
             f.m2 = ns.reduce(0.0) { $0 + $1.m2 }
+            // one box size: the boxes of the whole; layouts with their own box sizes: each one's boxes, added up.
+            // The spare % is said only when it is the same for all (spare -1: they differ)
+            let pb0 = ns[0].perBox, sp0 = ns[0].spare
+            let onePb = ns.allSatisfy { $0.perBox == pb0 }
+            f.spare = ns.allSatisfy { $0.spare == sp0 } ? sp0 : -1
+            if onePb {
+                f.boxes = tCeil(Double(ws) / Double(pb0))
+                f.perBox = pb0
+                f.boxed = -1
+            } else {
+                f.boxes = ns.reduce(0) { $0 + $1.boxes }
+                f.perBox = 0
+                f.boxed = ns.reduce(0.0) { $0 + $1.boxedM2 }
+            }
             merged.append(f)
         }
         return TileCount(needs: merged, m2: x.m2 + o.m2, glueKg: x.glueKg + o.glueKg, groutKg: x.groutKg + o.groutKg, skirtM: x.skirtM + o.skirtM,
@@ -291,6 +306,12 @@ func geoFor(_ p: Project, _ roomId: String?, _ snap: Bool, _ dx: Double = 0, _ d
     return roomGeo(r, snap, p.troom.first { $0.roomId == r.id }?.fixes ?? [], dx, dz)
 }
 
+/// The adhesive's kg a m² as typed in the trade's prices; 0 is kept (no adhesive bought), blank or wrong is the usual 5.
+func glueBaseOf(_ s: String) -> Double {
+    guard let v = Double(s.replacingOccurrences(of: " ", with: "").replacingOccurrences(of: ",", with: ".")), v >= 0 else { return 5 }
+    return v
+}
+
 /// What layout l of order p takes; zero until its room is measured.
 func countLayout(_ p: Project, _ l: TileLayout, _ snap: Bool, _ glueBase: Double = 5) -> TileCount {
     guard let rid = l.roomId else {
@@ -331,8 +352,7 @@ private func tMoney(_ v: Double) -> String { String(tInt(tRound(v))) }
 /// profiles, waterproofing, and the labour for the tiling, skirting, profiles and waterproofing. name gives a line's
 /// stored words (strings key, values).
 func tileRows(_ p: Project, _ t: TradeSet, _ snap: Bool, _ name: (String, [String: String]) -> String) -> TradeResult {
-    let gk = tNum(t.glueKg)
-    let c = countOrder(p, snap, gk > 0 ? gk : 5)
+    let c = countOrder(p, snap, glueBaseOf(t.glueKg))
     var mats: [Row] = [], labor: [Row] = []
     func mat(_ key: String, _ unit: String, _ q: Double, _ price: String, _ vars: [String: String] = [:], _ id: String? = nil) {
         if q <= 0 { return }
@@ -351,10 +371,12 @@ func tileRows(_ p: Project, _ t: TradeSet, _ snap: Bool, _ name: (String, [Strin
     mat("grout", "kg", Double(tCeil(c.groutKg)), t.pGrout)
     mat("prof", "m", Double(tCeil(c.profileM * 1.05 * 10)) / 10, t.pProf)
     mat("wp", "m2", Double(tCeil(c.wpM2 * 10)) / 10, t.pWp)
-    let m2r = tRound(c.m2 * 10) / 10
-    lab("lab", c.m2 * tNum(t.lTile), ["a": tQty(m2r)])
-    lab("labSkirt", c.skirtM * tNum(t.lSkirt), ["a": tQty(tRound(c.skirtM * 10) / 10)])
-    lab("labProf", c.profileM * tNum(t.lProf), ["a": tQty(tRound(c.profileM * 10) / 10)])
-    lab("labWp", c.wpM2 * tNum(t.lWp), ["a": tQty(tRound(c.wpM2 * 10) / 10)])
+    // each labour line is priced by the quantity it shows, so quantity × rate is its amount
+    func r1(_ v: Double) -> Double { tRound(v * 10) / 10 }
+    let m2r = r1(c.m2), skR = r1(c.skirtM), prR = r1(c.profileM), wpR = r1(c.wpM2)
+    lab("lab", m2r * tNum(t.lTile), ["a": tQty(m2r)])
+    lab("labSkirt", skR * tNum(t.lSkirt), ["a": tQty(skR)])
+    lab("labProf", prR * tNum(t.lProf), ["a": tQty(prR)])
+    lab("labWp", wpR * tNum(t.lWp), ["a": tQty(wpR)])
     return TradeResult(mats: mats, labor: labor, facts: ["area": c.m2, "boxes": Double(c.boxes)])
 }

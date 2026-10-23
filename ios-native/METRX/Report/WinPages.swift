@@ -16,7 +16,8 @@ extension Doc {
         let items = e.items
         if items.isEmpty { return }
         let withPrice = sn.pdf.estimate && !sn.winPrice.isEmpty
-        newPage()
+        // on the page in hand when it has room (no near-empty first page)
+        ensure(260)
         h2(t("dw.r.title"))
         var head: [Cell] = [th("№"), th(t("dw.r.item")), th(t("dw.r.where")), th(t("dw.r.size"), right: true), th(t("dw.r.qty"), right: true)]
         if withPrice { head.append(th(t("dw.r.price"), right: true)) }
@@ -48,7 +49,8 @@ extension Doc {
 
     private func wpWhere(_ it: WinItem) -> String {
         if !it.inRoom { return t("dw.noRoom") }
-        guard let sr = sn.rooms.first(where: { $0.room.id == it.roomId }) else { return t("dw.noRoom") }
+        // every room (a window in a room left out of the report still has its room and opening)
+        guard let sr = (sn.rooms + sn.calcRooms).first(where: { $0.room.id == it.roomId }) else { return t("dw.noRoom") }
         let r = sr.room
         let name = sr.floorLabel.trimmingCharacters(in: .whitespaces).isEmpty ? dn(r.name, l) : sr.floorLabel
         guard let o = r.openings.first(where: { $0.id == it.opening }) else { return name }
@@ -90,7 +92,7 @@ extension Doc {
         lines.append(t("dw.r.at", ["w": wpWhere(it)]))
         if it.inRoom, let rid = it.roomId {
             var p = Project(id: "s", name: "")
-            p.rooms = sn.rooms.map(\.room)
+            p.rooms = (sn.rooms + sn.calcRooms).map(\.room)
             if let c = wCtxOf(p, rid, sn.snap), let pl = wPlaced(c, it) {
                 lines.append(t("dw.r.op", ["s": "\(pl.o.w) × \(pl.o.h)", "g": it.gap]))
             }

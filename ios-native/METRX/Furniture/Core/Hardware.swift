@@ -39,7 +39,8 @@ func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
         switch f.kind {
         case "door":
             for (fh, fw) in fs {
-                n.add(hinge, hingesFor(fh)); if m.handles { n.add("handle", 1) }
+                // a glass door in its frame opens by push (no handle, as the 3D shows it)
+                n.add(hinge, hingesFor(fh)); if m.handles && face != "glass" { n.add("handle", 1) }
                 // a vitrina's glass door in its frame, a mirror glued on a board door
                 if face == "glass" { n.add("glassDoor", fh * fw) } else if face == "mirror" { n.add("mirror", (fh - 10) * (fw - 10)) }
             }

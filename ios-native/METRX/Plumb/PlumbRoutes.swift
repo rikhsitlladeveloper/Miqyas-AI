@@ -526,11 +526,14 @@ func pRoutesOf(_ p: Project, _ cs: [PCtx]) -> PRoutes {
         let link = rs != nil || c.free != nil ? Double(c.free?.link ?? c.pr.link) : 0.0
         for pt in (pts[c.id] ?? []) where pt.t == "drain" { drains.append(drainOf(pt, c, rc, rs, link)) }
     }
-    // the underfloor heating: from the order's manifold
+    // the underfloor heating: from the room's own manifold when it has one, else the order's first
     let mfix = fixes.first { $0.t == "manif" }
-    let mc: PCtx? = mfix.flatMap { byId[$0.roomId] }
-    let mpt: APt? = mfix.flatMap { fixPoints($0).first }
     var loops: [PLoop] = []
-    for c in cs where c.pr.ufh { loops.append(loopOf(c, fixes.filter { $0.roomId == c.id }, mc, mpt)) }
+    for c in cs where c.pr.ufh {
+        let mf: PlFix? = fixes.first { $0.t == "manif" && $0.roomId == c.id } ?? mfix
+        let mc: PCtx? = mf.flatMap { byId[$0.roomId] }
+        let mpt: APt? = mf.flatMap { fixPoints($0).first }
+        loops.append(loopOf(c, fixes.filter { $0.roomId == c.id }, mc, mpt))
+    }
     return PRoutes(runs: runs, drains: drains, riser: rs, hot: srcs["hot"], heat: srcs["hs"], loops: loops)
 }

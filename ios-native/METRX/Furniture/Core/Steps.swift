@@ -71,7 +71,7 @@ private func newSteps(_ m: FModelDef) -> [SizeStep]? {
                 hStep(2200, 1500, 3000), dStep(600, 400, 700)]
     case "cornerDesk":
         return [SizeStep(key: "w", label: "fz.wA", help: "fz.wA.h", usual: 1400, min: 900, max: 3000),
-                SizeStep(key: "w2", label: "fz.wB", help: "fz.wB.h", usual: 1200, min: 900, max: 3000),
+                SizeStep(key: "w2", label: "fz.wB", help: "fz.wB.h", usual: 1200, min: 1100, max: 3000),
                 hStep(750, 650, 850, "fx.hHLegs"), dStep(600, 450, 800)]
     case "vitrina": return [wStep(800, 400, 1600), hStep(2000, 1400, 2500), dStep(400, 300, 600)]
     case "washer": return [wStep(650, 600, 900), hStep(2000, 1500, 2600), dStep(600, 550, 700)]
@@ -156,6 +156,16 @@ func valsOf(_ f: Furniture, _ ws: Workshop) -> [String: Int] {
     if isNewModel(f.type) { return pieceVals(f, ws) }
     guard let m = wardOfF(f) else { return [:] }
     return ["w": m.w, "h": f.type.isEmpty ? m.h : outerH(m, ws), "d": m.d]
+}
+
+/// A piece's sizes in a line: a bed's mattress, a corner piece's two arms, else width × height × depth; mm the unit's word.
+func sizeLine(_ f: Furniture, _ ws: Workshop, _ mm: String) -> String {
+    let v = valsOf(f, ws)
+    func g(_ k: String, _ d: Int) -> String { "\(v[k] ?? d)" }
+    if v["mw"] != nil { return g("mw", 0) + " × " + g("ml", 0) + " · h " + g("h", 0) + " " + mm }
+    if v["w2"] != nil { return g("w", 0) + " + " + g("w2", 0) + " × " + g("h", 0) + " × " + g("d", 0) + " " + mm }
+    guard let m = wardOfF(f) else { return "" }
+    return g("w", m.w) + " × " + g("h", m.h) + " × " + g("d", m.d) + " " + mm
 }
 
 /// The model a piece was made from (a kitchen made before the gallery: its layout's model; a wardrobe: two doors).

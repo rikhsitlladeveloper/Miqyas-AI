@@ -27,10 +27,10 @@ private func ward(_ pid: String, _ fid: String, _ fn: @escaping (Module) -> Modu
         y.modules = x.modules.map { mod in
             guard mod.id == cur.id else { return mod }
             let m = fn(mod)
-            if many { return m }
+            // without a room there are no walls to meet: its side panels stay as they are (a free-standing kupe keeps both)
+            guard !many, let room else { return m }
             // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
-            let len = room.flatMap { wallLen($0, snap, m.wall ?? "") } ?? (m.x + m.w + W_GAP_SIDE)
-            return withSides(m, len, free: free)
+            return withSides(m, wallLen(room, snap, m.wall ?? ""), free: free)
         }
         // the other boxes make room: a stenka's pieces side by side, a corner's arms, a box on another
         let lenA = room.flatMap { wallLen($0, snap, x.walls.first ?? "") }
@@ -67,7 +67,13 @@ private struct WardCtx {
         room = roomOf(p, f)
         wallL = room.flatMap { wallLen($0, snap, m.wall ?? "") }
         roomH = wardRoomH(room)
-        found = wardrobeChecks(m, wallL, roomH, ws, room?.openings ?? [], room?.points ?? [])
+        var c = wardrobeChecks(m, wallL, roomH, ws, room?.openings ?? [], room?.points ?? [])
+        // a piece of several boxes (a stenka) is checked as a whole too: its run along the wall, not only the box picked
+        if let room, let w0 = f.walls.first, !CORNER_TYPES.contains(f.type), boxes(f).count > 1, let runL = wallLen(room, snap, w0) {
+            let over = runStart(f) + runLen(f) - runL
+            if over > 0 && !c.contains(where: { $0.key == "wc.wide" }) { c.append(FCheck(level: "err", key: "wc.wide", vars: ["v": over], mid: m.id)) }
+        }
+        found = c
         var b: [Int: String] = [:]
         for c in found { if let n = c.vars["s"]?.base as? Int, c.level == "err" || b[n] == nil { b[n] = c.level } }
         bad = b
@@ -147,7 +153,8 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
                     let fx = sl + g + CGFloat(j) * (fw + g)
                     c.fill(rect(fx, ft, fw, fb - ft), with: .color(fill)); c.stroke(rect(fx, ft, fw, fb - ft), with: .color(onF), lineWidth: 0.8)
                     if s.face == "glass" { c.stroke(rect(fx, ft, fw, fb - ft), with: .color(PROFILE_C), lineWidth: max(1.2, 20 * lay.s)) }
-                    if m.handles {
+                    // a glass door in its frame opens by push (no handle)
+                    if m.handles && s.face != "glass" {
                         let hx = n == 2 ? (j == 0 ? fx + fw - 3 : fx + 3) : (!hingeRight(m, i) ? fx + fw - 3 : fx + 3)
                         // about 1 m up, but on the door of a low or hung cabinet
                         let hmm = max(min(z0 + 1000, z0 + m.h - 90), z0 + base + 90)
@@ -357,8 +364,8 @@ struct WardrobeScreen: View {
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         GlassIconButton("undo", tr("common.undo"), tint: kit.canUndo(f.id) ? G.ink : PC.offIcon) { kit.undo(p.id, f.id) }.accessibilityIdentifier("kt.undo")
-                        GlassIconButton("redo", "redo", tint: kit.canRedo(f.id) ? G.ink : PC.offIcon) { kit.redo(p.id, f.id) }
-                        GlassIconButton("more", "menu") { app.sheet = .fMenu(pid: p.id, fid: f.id) }.accessibilityIdentifier("kt.menu")
+                        GlassIconButton("redo", tr("common.redo"), tint: kit.canRedo(f.id) ? G.ink : PC.offIcon) { kit.redo(p.id, f.id) }
+                        GlassIconButton("more", tr("common.menu")) { app.sheet = .fMenu(pid: p.id, fid: f.id) }.accessibilityIdentifier("kt.menu")
                     }
                     .padding(.horizontal, 16).frame(height: 64)
                     if let room = cx.room {
@@ -417,10 +424,12 @@ private struct BoxPicker: View {
     private func add(_ k: String) {
         let nb = stenkaPart(f, k, AppSettings.shared.workshop)
         let id = cur.id
+        // a shelf hangs over a low piece, so it goes in next to one (never over a tall cabinet)
         edit { l in
             var o = l
-            let i = l.firstIndex { $0.id == id }
-            o.insert(nb, at: i.map { $0 + 1 } ?? l.count)
+            let i = l.firstIndex { $0.id == id } ?? -1
+            let at0 = k == "shelf" ? stenkaShelfAt(l, i) : (i < 0 ? l.count : i + 1)
+            o.insert(nb, at: min(max(at0, 0), o.count))
             return o
         }
         KitOps.shared.sel = nb.id
@@ -442,7 +451,8 @@ private struct BoxPicker: View {
     }
 
     private func remove(_ n: Int) {
-        if n <= 1 { return }
+        // the last floor piece stays: the shelves hang over it
+        if !canDropBox(f, cur) { return }
         let id = cur.id, role = tr(boxRole(f, cur)), pid = p.id, fid = f.id
         edit { l in l.filter { $0.id != id } }
         KitOps.shared.sel = nil
@@ -481,7 +491,7 @@ private struct BoxPicker: View {
         HStack(spacing: 8) {
             GBtn(tr("pc.left"), kind: .secondary, icon: "undo", height: 42, corner: 14, fontSize: 14) { move(-1) }.accessibilityIdentifier("pc.left")
             GBtn(tr("pc.right"), kind: .secondary, icon: "redo", height: 42, corner: 14, fontSize: 14) { move(1) }.accessibilityIdentifier("pc.right")
-            GBtn(tr("common.delete"), kind: .danger, icon: "trash", enabled: n > 1, height: 42, corner: 14, fontSize: 14) { remove(n) }.accessibilityIdentifier("pc.delete")
+            GBtn(tr("common.delete"), kind: .danger, icon: "trash", enabled: canDropBox(f, cur), height: 42, corner: 14, fontSize: 14) { remove(n) }.accessibilityIdentifier("pc.delete")
         }
     }
 }
@@ -576,15 +586,15 @@ private struct PlaceStep: View {
                     HStack(spacing: 6) {
                         ForEach(Geo.walls(room, snap), id: \.id) { w in
                             let len = wallLen(room, snap, w.id)
-                            FChip(label: tr("kt.wallN", ["w": w.id]) + (len.map { " · \($0)" } ?? ""), on: w.id == m.wall) {
+                            FChip(label: tr("kt.wallN", ["w": w.id]) + (len.map { " · " + Geo.fmtLen($0, AppSettings.shared.unit, AppSettings.shared.lang == .en) + " " + unitWord(AppSettings.shared.unit) } ?? ""), on: w.id == m.wall) {
                                 if w.id != m.wall { moveTo(w.id, len) }
                             }
                             .accessibilityIdentifier("wd.wall." + w.id)
                         }
                     }
                 }
-                WValRow(label: tr("wd.x"), value: "\(m.x) mm", id: "wd.x") { app.sheet = .wField(pid: p.id, fid: f.id, key: "x", sec: 0) }
-                WValRow(label: tr("wd.w"), value: "\(m.w) mm", id: "wd.w") { app.sheet = .wField(pid: p.id, fid: f.id, key: "w", sec: 0) }
+                WValRow(label: tr("wd.x"), value: "\(m.x)" + U_MM, id: "wd.x") { app.sheet = .wField(pid: p.id, fid: f.id, key: "x", sec: 0) }
+                WValRow(label: tr("wd.w"), value: "\(m.w)" + U_MM, id: "wd.w") { app.sheet = .wField(pid: p.id, fid: f.id, key: "w", sec: 0) }
                 // the room's plan, to drag it where it should stand
                 GBtn(tr("fz.move"), kind: .secondary, icon: "room", height: 44, corner: 14, fontSize: 14) { app.push(.fPlace(pid: p.id, fid: f.id, rid: room.id)) }
                     .accessibilityIdentifier("wd.move")
@@ -602,9 +612,9 @@ private struct WardSizeStep: View {
         let ws = AppSettings.shared.workshop
         VStack(alignment: .leading, spacing: 10) {
             T(tr("wd.sizes"), ui(15.5, 800))
-            WValRow(label: tr("wd.w"), value: "\(m.w) mm", id: "wd.w") { app.sheet = .wField(pid: p.id, fid: f.id, key: "w", sec: 0) }
-            WValRow(label: tr("wd.h"), value: "\(m.h) mm", id: "wd.h") { app.sheet = .wField(pid: p.id, fid: f.id, key: "h", sec: 0) }
-            WValRow(label: tr("wd.d"), value: "\(m.d) mm", id: "wd.d") { app.sheet = .wField(pid: p.id, fid: f.id, key: "d", sec: 0) }
+            WValRow(label: tr("wd.w"), value: "\(m.w)" + U_MM, id: "wd.w") { app.sheet = .wField(pid: p.id, fid: f.id, key: "w", sec: 0) }
+            WValRow(label: tr("wd.h"), value: "\(m.h)" + U_MM, id: "wd.h") { app.sheet = .wField(pid: p.id, fid: f.id, key: "h", sec: 0) }
+            WValRow(label: tr("wd.d"), value: "\(m.d)" + U_MM, id: "wd.d") { app.sheet = .wField(pid: p.id, fid: f.id, key: "d", sec: 0) }
             T(tr("wd.base"), ui(14.5, 700))
             WardBase(app: app, p: p, f: f, m: m)
             FStepper(label: tr("wd.secCount"), v: m.sections.count, lo: 1, hi: 8, id: "wd.secs") { n in
@@ -644,9 +654,9 @@ private struct WardSizeStep: View {
             // a dressing table's mirror on the wall over it
             if let r = f.modules.first(where: { $0.type == "mirror" }) {
                 T(tr("pc.mirror"), ui(14.5, 700))
-                WValRow(label: tr("fz.mirW"), value: "\(r.w) mm", id: "pc.mirW") { app.sheet = .iField(pid: p.id, fid: f.id, mid: r.id, key: "w") }
-                WValRow(label: tr("fz.mirH"), value: "\(r.h) mm", id: "pc.mirH") { app.sheet = .iField(pid: p.id, fid: f.id, mid: r.id, key: "h") }
-                WValRow(label: tr("fz.elev"), value: "\(r.elev) mm", id: "pc.mirE") { app.sheet = .iField(pid: p.id, fid: f.id, mid: r.id, key: "e") }
+                WValRow(label: tr("fz.mirW"), value: "\(r.w)" + U_MM, id: "pc.mirW") { app.sheet = .iField(pid: p.id, fid: f.id, mid: r.id, key: "w") }
+                WValRow(label: tr("fz.mirH"), value: "\(r.h)" + U_MM, id: "pc.mirH") { app.sheet = .iField(pid: p.id, fid: f.id, mid: r.id, key: "h") }
+                WValRow(label: tr("fz.elev"), value: "\(r.elev)" + U_MM, id: "pc.mirE") { app.sheet = .iField(pid: p.id, fid: f.id, mid: r.id, key: "e") }
             }
             let carcass = AppSettings.shared.mats.first { $0.id == f.mats.carcass }?.name ?? f.mats.carcass
             T(tr("wd.sizeNote", ["d": m.d, "b": m.legs ? tr("wd.legs") : tr("wd.plinth"), "m": carcass]), ui(12.5, 400, G.ink2, lh: 1.4))
@@ -674,10 +684,10 @@ private struct WardBase: View {
                 }
             }
             if isHung && !stacked {
-                WValRow(label: tr("fz.elev"), value: "\(m.elev) mm", id: "wd.elev") { app.sheet = .wField(pid: pid, fid: fid, key: "e", sec: 0) }
+                WValRow(label: tr("fz.elev"), value: "\(m.elev)" + U_MM, id: "wd.elev") { app.sheet = .wField(pid: pid, fid: fid, key: "e", sec: 0) }
             } else if !isHung {
                 let baseV = m.legs ? legsOf(m, ws) : wardBase(m)
-                WValRow(label: tr(m.legs ? "wd.legsH" : "wd.plinthH"), value: "\(baseV) mm", id: "wd.base") { app.sheet = .wField(pid: pid, fid: fid, key: "base", sec: 0) }
+                WValRow(label: tr(m.legs ? "wd.legsH" : "wd.plinthH"), value: "\(baseV)" + U_MM, id: "wd.base") { app.sheet = .wField(pid: pid, fid: fid, key: "base", sec: 0) }
             }
         }
     }
@@ -686,11 +696,15 @@ private struct WardBase: View {
     static func based(_ mm: Module, _ k: String, _ ws: Workshop) -> Module {
         var n = mm
         if k == "wall" {
-            n.legs = false; n.base = 0; n.elev = max(100, legsOf(mm, ws) + wardBase(mm))
+            // on the wall its top stays where it was: lifted by its plinth or legs, the carcass that much lower
+            let e = max(100, legsOf(mm, ws) + wardBase(mm))
+            n.legs = false; n.base = 0; n.elev = e; n.h = max(300, outerH(mm, ws) - e)
             return n
         }
         let legs = k == "legs" ? ws.legH : 0
-        let whole = hung(mm) ? mm.h + (k == "legs" ? legs : PLINTH) : outerH(mm, ws)
+        // back on the floor: what it was lifted by (at most a plinth's or the legs' height) comes back, so a round trip keeps its height
+        let lift = min(mm.elev, max(100, PLINTH, ws.legH))
+        let whole = hung(mm) ? mm.h + lift : outerH(mm, ws)
         n.legs = k == "legs"; n.base = nil; n.elev = 0; n.h = max(300, whole - legs)
         return n
     }
@@ -1029,7 +1043,7 @@ private struct WFieldSheet: View {
             }
             GlassSheet(title, onClose: { app.sheet = nil }) {
                 GField(label: title, value: $v, placeholder: v, error: tr("km.bad", ["a": range.lowerBound, "b": range.upperBound]), showError: vi == nil, focus: $focus, me: .a,
-                       submit: .done, onSubmit: save, labelRight: "mm", number: true, id: "wf.value")
+                       submit: .done, onSubmit: save, labelRight: tr("u.mm"), number: true, id: "wf.value")
                 if key == "secW" {
                     T(tr("wd.secNote"), ui(12.5, 400, G.ink2, lh: 1.4))
                     if secLock {
@@ -1082,10 +1096,10 @@ private struct WInsertSheet: View {
             }
             GlassSheet(tr("wi." + x.kind), onClose: { app.sheet = nil }) {
                 GField(label: tr("wd.pos"), value: $pos, placeholder: "0", error: tr("km.bad", ["a": 0, "b": ih]), showError: pi == nil, focus: $focus, me: .a,
-                       submit: block ? .next : .done, onSubmit: { if block { focus = .b } else { save() } }, labelRight: "mm", number: true, id: "wi.pos")
+                       submit: block ? .next : .done, onSubmit: { if block { focus = .b } else { save() } }, labelRight: tr("u.mm"), number: true, id: "wi.pos")
                 if block {
                     GField(label: tr("wd.bh"), value: $h, placeholder: "200", error: tr("km.bad", ["a": 60, "b": 1200]), showError: hi == nil, focus: $focus, me: .b,
-                           submit: .done, onSubmit: save, labelRight: "mm", number: true, id: "wi.h")
+                           submit: .done, onSubmit: save, labelRight: tr("u.mm"), number: true, id: "wi.h")
                 }
                 T(tr("wd.posNote", ["v": ih]), ui(12.5, 400, G.ink2, lh: 1.4))
             } footer: {

@@ -207,6 +207,9 @@ final class FeaturesAndTradesTests: XCTestCase {
         XCTAssertEqual(area, want, accuracy: 1e-9)
         let tr = tradeRows("tiler", [room], tw, words)
         XCTAssertEqual(tr.mats.map(\.id), ["t-tile", "t-glue", "t-grout"])
+        // priced by the area the line shows (to 0,1 m²), so quantity × rate is its amount
+        let shown = (area * 10).rounded() / 10
+        XCTAssertEqual(tr.labor.first?.amount, String(Int((shown * 80000).rounded())))
         let e = tradeRows("elec", [room], t, words)
         XCTAssertEqual(e.facts["points"], 4); XCTAssertEqual(e.facts["cable"] ?? 0, 18 + 10, accuracy: 1e-9)
         XCTAssertEqual(e.labor.first?.amount, "240000")

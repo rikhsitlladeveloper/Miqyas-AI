@@ -11,16 +11,19 @@ private let E_FRAME = 0xC3CEDF
 
 extension Doc {
     func elecPages(_ e: ElecOrder) {
+        // worked out with every room (the circuits and cable stay the same when a room is left out); only the report's rooms are drawn
         var p = Project(id: "snap", name: sn.name)
-        p.rooms = sn.rooms.map(\.room)
+        p.rooms = (sn.rooms + sn.calcRooms).map(\.room)
         p.industry = "elec"
         p.elec = e
         let calc = calcOf(p, sn.snap)
         if !calc.ctxs.contains(where: { !devsIn(p, $0).isEmpty }) { return }
+        let shown = Set(sn.rooms.map(\.room.id))
         let byDev = circuitByDev(calc)
         let isEn = en
         let dec = { (s: String) -> String in isEn ? s : s.replacingOccurrences(of: ".", with: ",") }
-        newPage()
+        // on the page in hand when it has room (no near-empty first page)
+        ensure(260)
         h2(t("el.r.title"))
         para(a(t("el.r.method", ["m": t("el.m." + e.method)]) + " " + t("el.m." + e.method + "S"), ui(9.5, 400)), top: 2, bottom: 6)
         // the circuits
@@ -43,12 +46,12 @@ extension Doc {
         legend(p, calc)
         fn(t("el.r.note"))
         // each room: from above, then its walls
-        for c in calc.ctxs { roomPage(p, c, calc, byDev, names[c.id] ?? "") }
+        for c in calc.ctxs where c.free != nil || shown.contains(c.id) { roomPage(p, c, calc, byDev, names[c.id] ?? "") }
     }
 
     private func roomName(_ c: ECtx) -> String {
         if let f = c.free { return f.name.trimmingCharacters(in: .whitespaces).isEmpty ? t("el.k." + f.kind) : f.name }
-        guard let sr = sn.rooms.first(where: { $0.room.id == c.id }) else { return "" }
+        guard let sr = (sn.rooms + sn.calcRooms).first(where: { $0.room.id == c.id }) else { return "" }
         return sr.floorLabel.trimmingCharacters(in: .whitespaces).isEmpty ? dn(sr.room.name, l) : sr.floorLabel
     }
 

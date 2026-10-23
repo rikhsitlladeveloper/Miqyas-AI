@@ -225,6 +225,8 @@ private struct ERoom3D: View {
         let pid = p.id, rid = r.id
         func full() -> Bool { (Store.shared.get(pid)?.rooms.first { $0.id == rid }?.views.count ?? 4) >= 4 }
         if taking { return }
+        // a double tap takes one picture, not two alike
+        if !app.once() { return }
         if full() { app.say("3d.max", kind: .error); return }
         taking = true
         shot.take { img in
@@ -499,7 +501,7 @@ private struct ECircuitsCard: View {
                 T(sub(cc), ui(12.5, 400, G.ink2), lines: 2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if AppSettings.shared.advanced { T(Num.fixed(calc.routes.cableOf(cc) / 1000, 1, lang) + " m", num(13.5, 700)) }
+            if AppSettings.shared.advanced { T(Num.fixed(calc.routes.cableOf(cc) / 1000, 1, lang) + U_M, num(13.5, 700)) }
         }
     }
 }
@@ -548,7 +550,7 @@ private struct EDevicesCard: View {
     private func sub(_ d: ElecDev) -> String {
         if d.onCeiling { return tr("el.onCeil") }
         let at = tr("tl.wallN", ["w": d.wall ?? ""]) + " · " + tr("el.atH", ["h": Geo.fmtLen(d.h, .m, en)])
-        return d.t == "led" ? at + " · " + Geo.fmtLen(d.len, .m, en) + " m" : at
+        return d.t == "led" ? at + " · " + Geo.fmtLen(d.len, .m, en) + U_M : at
     }
 
     private func row(_ d: ElecDev) -> some View {
@@ -579,13 +581,13 @@ private struct EFreeCard: View {
     let c: ECtx
     var body: some View {
         if let f = c.free {
-            let size = Geo.fmtLen(f.L, .m, en) + " × " + Geo.fmtLen(f.W, .m, en) + " × " + Geo.fmtLen(f.H, .m, en) + " m"
+            let size = Geo.fmtLen(f.L, .m, en) + " × " + Geo.fmtLen(f.W, .m, en) + " × " + Geo.fmtLen(f.H, .m, en) + U_M
             let counts: [(String, Int)] = [("sock", f.sock), ("sw", f.sw), ("light", f.light), ("low", f.low), ("power", f.power)].filter { $0.1 > 0 }
             VStack(alignment: .leading, spacing: 6) {
                 T(tr("el.freeT"), ui(15, 800))
                 EKv(k: tr("el.size"), v: size)
                 ForEach(counts, id: \.0) { k, n in EKv(k: tr("el.fc." + k), v: "\(n)") }
-                EKv(k: tr("el.link"), v: Geo.fmtLen(f.link, .m, en) + " m")
+                EKv(k: tr("el.link"), v: Geo.fmtLen(f.link, .m, en) + U_M)
                 T(tr("el.freeNote"), ui(12.5, 400, G.ink2, lh: 1.4))
                 GBtn(tr("fz.change"), kind: .secondary, icon: "edit", height: 44, corner: 14, fontSize: 14) { app.sheet = .eFree(pid: p.id, fid: f.id) }
             }

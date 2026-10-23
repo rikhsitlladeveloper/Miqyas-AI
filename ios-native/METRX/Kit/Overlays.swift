@@ -132,7 +132,9 @@ struct ToastHost: View {
             shown = m
             withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) { visible = true }
             let id = m.id
-            DispatchQueue.main.asyncAfter(deadline: .now() + (m.kind == .error || m.action != nil ? 5.2 : 3.4)) { if shown?.id == id { hide() } }
+            // a toast with Undo stays long enough to reach it (about 6 s)
+            let wait: Double = m.action != nil ? 6.5 : (m.kind == .error ? 5.2 : 3.4)
+            DispatchQueue.main.asyncAfter(deadline: .now() + wait) { if shown?.id == id { hide() } }
         }
     }
 

@@ -221,7 +221,7 @@ struct FRoomsTab: View {
         let kind = roomKind(w)
         let a = room?.dim("A").v, b = room?.dim("B").v, h = room?.dim("H").v
         let sub: String = {
-            if drawn, let a, let b { return Geo.fmtLen(a, .m, en) + " × " + Geo.fmtLen(b, .m, en) + " m" + (h.map { " · h " + Geo.fmtLen($0, .m, en) } ?? "") }
+            if drawn, let a, let b { return Geo.fmtLen(a, .m, en) + " × " + Geo.fmtLen(b, .m, en) + U_M + (h.map { " · h " + Geo.fmtLen($0, .m, en) } ?? "") }
             return tr(room != nil ? "fo.notMeasured" : "fo.notDrawn")
         }()
         return VStack(alignment: .leading, spacing: 10) {
@@ -257,7 +257,7 @@ struct FRoomsTab: View {
         let ward = f.kind == "wardrobe"
         let sub: String
         if ward && (isItemPiece(f) || boxes(f).count > 1) { sub = freeSub(f, en) }
-        else if ward { sub = wardOfF(f).map { Geo.fmtLen($0.w, .m, en) + " × " + Geo.fmtLen(valsOf(f, AppSettings.shared.workshop)["h"] ?? $0.h, .m, en) + " m" } ?? "" }
+        else if ward { sub = wardOfF(f).map { Geo.fmtLen($0.w, .m, en) + " × " + Geo.fmtLen(valsOf(f, AppSettings.shared.workshop)["h"] ?? $0.h, .m, en) + U_M } ?? "" }
         else { sub = tr("kt.l" + f.layout) + " · " + runMetres(f, en) + " " + tr("kt.pm") }
         return HStack(spacing: 10) {
             MIcon(ward ? "board" : "kitchen", G.ink3, 18, 2)
@@ -352,9 +352,8 @@ private struct NewRoomSheet: View {
         _name = State(initialValue: NewRoomSheet.nameFor(t, p))
     }
     static func nameFor(_ t: String, _ p: Project?) -> String {
-        let base = tr("fr." + t)
-        let n = p?.floors.filter { $0.name.hasPrefix(base) }.count ?? 0
-        return n > 0 ? "\(base) \(n + 1)" : base
+        guard let p else { return tr("fr." + t) }
+        return nextName(p, "fr." + t)
     }
     var body: some View {
         let p = Store.shared.get(pid)
@@ -363,7 +362,9 @@ private struct NewRoomSheet: View {
             FlowLayout(spacing: 8) {
                 ForEach(F_ROOMS, id: \.self) { t in FChip(label: tr("fr." + t), on: t == type) { type = t; name = NewRoomSheet.nameFor(t, p) } }
             }
-            GField(label: tr("fr.name"), value: $name, placeholder: tr("fr." + type), focus: $focus, me: .name, submit: .done, onSubmit: create)
+            GField(label: tr("fr.name"), value: $name, placeholder: tr("fr." + type), error: name.trimmingCharacters(in: .whitespaces).isEmpty ? tr("nr.nameReq") : nil,
+                   showError: true, focus: $focus, me: .name, submit: .done, onSubmit: create)
+                .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
         } footer: {
             GBtn(tr("fo.drawRoom"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("fr.create")
         }
@@ -371,7 +372,8 @@ private struct NewRoomSheet: View {
     private func create() {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty, app.once() else { return }
-        let rid = addFurnRoom(pid, type, n)
+        // a suggested name is kept as its key, so it follows the language
+        let rid = addFurnRoom(pid, type, suggestedName(n, "fr." + type))
         if let fid { app.placeAfter = (rid, fid) }
         app.sheet = nil
         openRoom(app, pid, rid)

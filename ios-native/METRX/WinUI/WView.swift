@@ -134,6 +134,8 @@ private struct WVRoom3D: View {
         let pid = p.id, rid = r.id
         func full() -> Bool { (Store.shared.get(pid)?.rooms.first { $0.id == rid }?.views.count ?? 4) >= 4 }
         if taking { return }
+        // a double tap takes one picture, not two alike
+        if !app.once() { return }
         if full() { app.say("3d.max", kind: .error); return }
         taking = true
         shot.take { img in

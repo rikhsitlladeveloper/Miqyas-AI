@@ -125,7 +125,8 @@ struct WRoomsTab: View {
                     .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
             }
             if !p.win.items.isEmpty { WNOrderCard(app: app, p: p, calc: calc) }
-            ForEach(p.floors) { w in WNRoomCard(app: app, p: p, w: w, calc: calc) }
+            // every room of each workspace (an older project may have several in one), a workspace without one once
+            ForEach(wsRooms(p)) { s in WNRoomCard(app: app, p: p, w: s.w, room: s.room, several: s.several, calc: calc) }
             if !free.isEmpty { freeCard(free, calc) }
             HStack(spacing: 8) {
                 dashed("plus", tr("dw.addItem"), "dw.addItem") { app.push(.wGallery(pid: pid)) }
@@ -191,10 +192,11 @@ private struct WNRoomCard: View {
     let app: AppModel
     let p: Project
     let w: Workspace
+    let room: Room?
+    var several = false
     let calc: WinCalc
     var body: some View {
         let snap = AppSettings.shared.angleSnap
-        let room = p.rooms.first { $0.floorId == w.id }
         let ready = room.map { Geo.ready3D($0, snap) } ?? false
         let items: [WinItem] = room.map { r in p.win.items.filter { $0.roomId == r.id } } ?? []
         VStack(alignment: .leading, spacing: 10) {
@@ -221,7 +223,7 @@ private struct WNRoomCard: View {
         let a = room?.dim("A").v, b = room?.dim("B").v
         let ops = room?.openings.count ?? 0
         if ready, let a, let b, room?.isPoly != true {
-            return Geo.fmtLen(a, .m, wnEn) + " × " + Geo.fmtLen(b, .m, wnEn) + " m · " + tr("dw.opsN", ["n": ops])
+            return Geo.fmtLen(a, .m, wnEn) + " × " + Geo.fmtLen(b, .m, wnEn) + U_M + " · " + tr("dw.opsN", ["n": ops])
         }
         if ready { return tr("tl.measured") + " · " + tr("dw.opsN", ["n": ops]) }
         return tr(room != nil ? "fo.notMeasured" : "fo.notDrawn")
@@ -237,7 +239,7 @@ private struct WNRoomCard: View {
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(Theme.shared.dark ? 0.1 : 0.8)))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                T(floorName(w), ui(16, 700), lines: 1)
+                T(wsRoomTitle(w, room, several), ui(16, 700), lines: 1)
                 T(sub, ui(12.5, 400, G.ink2), lines: 1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -344,7 +346,7 @@ struct WNextStep: View {
         let unmeasured = rooms.first { wr in Geo.stepKeys(wr.1, snap).contains { wr.1.dim($0).status != "conf" } }
         let noOps = rooms.first { wr in wr.1.openings.isEmpty && !p.win.items.contains { $0.roomId == wr.1.id } }
         let unfilled = rooms.first { wr in unfilledRoom(wr.1, snap) }
-        let made = p.estimate.materials.contains { $0.id.hasPrefix("t-") }
+        let made = madeBy(p, "dw.e.")
         if p.floors.isEmpty && p.win.items.isEmpty {
             return Step(title: tr("dw.ns.pickT"), sub: tr("dw.ns.pickS"), button: tr("ns.needB")) { app.push(.wGallery(pid: pid)) }
         }
@@ -443,7 +445,7 @@ struct WinCard: View {
     var body: some View {
         let lang = AppSettings.shared.lang
         let c = WinCalcCache.shared.of(p).count
-        let made = p.estimate.materials.contains { $0.id.hasPrefix("t-") } || p.estimate.labor.contains { $0.id.hasPrefix("t-") }
+        let made = madeBy(p, "dw.e.")
         VStack(alignment: .leading, spacing: 8) {
             T(tr("dw.cardT"), ui(16, 800))
             T(tr("dw.cardN", ["n": c.pieces, "a": Num.fixed(c.winM2, 1, lang)]), num(14.5, 700))
@@ -483,7 +485,7 @@ struct WCountCard: View {
         var parts: [String] = []
         if c.glass1 > 0 { parts.append(tr("dw.g.1") + " " + d2(c.glass1)) }
         if c.glass2 > 0 { parts.append(tr("dw.g.2") + " " + d2(c.glass2)) }
-        return parts.joined(separator: ", ") + " m²"
+        return parts.joined(separator: ", ") + U_M2
     }
 
     private var priceLine: String {
@@ -496,15 +498,15 @@ struct WCountCard: View {
             T(title, ui(15, 800))
             ForEach(W_PROFILES.filter { c.sys[$0] != nil }, id: \.self) { s in sysLines(s) }
             if c.glassM2 > 0 { EKv(k: tr("dw.c.glass"), v: glassLine) }
-            if c.panel > 0 { EKv(k: tr("dw.t.panel"), v: d2(c.panel) + " m²") }
-            if c.lamM > 0 { EKv(k: tr("dw.c.lam"), v: d1(c.lamM) + " m") }
+            if c.panel > 0 { EKv(k: tr("dw.t.panel"), v: d2(c.panel) + U_M2) }
+            if c.lamM > 0 { EKv(k: tr("dw.c.lam"), v: d1(c.lamM) + U_M) }
             ForEach(c.doors.keys.sorted(), id: \.self) { k in
                 let v = c.doors[k] ?? (0, 0)
                 EKv(k: tr("dw.k." + k), v: tr("dw.c.doorV", ["n": v.0, "a": d2(v.1)]))
             }
-            if c.sillM > 0 { EKv(k: tr("dw.x.sill"), v: d1(c.sillM) + " m") }
-            if c.dripM > 0 { EKv(k: tr("dw.x.drip"), v: d1(c.dripM) + " m") }
-            if c.revealM2 > 0 { EKv(k: tr("dw.x.reveals"), v: d2(c.revealM2) + " m²") }
+            if c.sillM > 0 { EKv(k: tr("dw.x.sill"), v: d1(c.sillM) + U_M) }
+            if c.dripM > 0 { EKv(k: tr("dw.x.drip"), v: d1(c.dripM) + U_M) }
+            if c.revealM2 > 0 { EKv(k: tr("dw.x.reveals"), v: d2(c.revealM2) + U_M2) }
             if c.nets > 0 { EKv(k: tr("dw.x.net"), v: "\(c.nets)") }
             if c.handles > 0 { EKv(k: tr("dw.x.handles"), v: "\(c.handles)") }
             if price != nil {

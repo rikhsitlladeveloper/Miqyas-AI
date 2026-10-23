@@ -52,6 +52,11 @@ private extension Doc {
     /// "Oshxona 1 (L, 5,4 pog. m): korpus, fasadlar, stoleshnitsa, furnitura" or "Shkaf 1 (2400 × 2500, 4 bo‘lim, 7 eshik)".
     func pieceText(_ f: Furniture, _ ws: Workshop?) -> String {
         let name = dn(f.name, l)
+        // a bed, a table, a stenka, a corner piece…: its own sizes (the first box alone would tell the wrong ones)
+        if f.kind == "wardrobe" && (isItemPiece(f) || boxes(f).count > 1) {
+            let s = sizeLine(f, ws ?? Workshop(), t("u.mm"))
+            return s.isEmpty ? name : name + " (" + s + ")"
+        }
         if f.kind == "wardrobe" {
             guard let m = wardOf(f) else { return name }
             let doors = m.sections.reduce(0) { $0 + ($1.fronts.kind == "door" ? $1.fronts.n : 0) }
@@ -81,6 +86,14 @@ private extension Doc {
     }
 
     /// Carcass, fronts, worktop and handles as colour swatches with their names.
+    /// A board's or the handle's name in the report's language: the app's own preset ("LDSP 16 · Oq", "Tutqich skoba 128")
+    /// by its strings key; a name the workshop typed or changed stays as typed.
+    func presetName(_ id: String?, _ name: String) -> String {
+        if let m = MAT_PRESETS.first(where: { $0.id == id && $0.name == name }), Strings.has("mp." + m.id) { return t("mp." + m.id) }
+        if let h = HW_PRESETS.first(where: { ($0.id == id || id == nil) && $0.name == name }), Strings.has("hp." + h.id) { return t("hp." + h.id) }
+        return name
+    }
+
     func materials(_ sn: Snap) {
         var entries: [(String, String, String?)] = []   // role label, name, colour
         func mat(_ id: String) -> Mat? { sn.fmats.first { $0.id == id } }
@@ -89,12 +102,13 @@ private extension Doc {
             for f in sn.furniture where !ids.contains(get(f)) { ids.append(get(f)) }
             for id in ids {
                 let who = ids.count > 1 ? " (" + sn.furniture.filter { get($0) == id }.map { dn($0.name, l) }.joined(separator: ", ") + ")" : ""
-                entries.append((t("wd." + role) + who, mat(id)?.name ?? id, mat(id)?.rgb))
+                let shown = mat(id).map { presetName($0.id, $0.name) } ?? id
+                entries.append((t("wd." + role) + who, shown, mat(id)?.rgb))
             }
         }
-        if sn.furniture.contains(where: { $0.kind == "kitchen" }), let w = mat("wt38") { entries.append((t("mt.wtK"), w.name, w.rgb)) }
+        if sn.furniture.contains(where: { $0.kind == "kitchen" }), let w = mat("wt38") { entries.append((t("mt.wtK"), presetName(w.id, w.name), w.rgb)) }
         if !sn.fhandles.trimmingCharacters(in: .whitespaces).isEmpty && sn.furniture.contains(where: { $0.modules.contains(where: \.handles) }) {
-            entries.append((t("hk.handle"), sn.fhandles, nil))
+            entries.append((t("hk.handle"), presetName(nil, sn.fhandles), nil))
         }
         if entries.isEmpty { return }
         h2(t("fd.mats"))
@@ -260,7 +274,7 @@ func workshopPages(_ sn: Snap, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], _ pr:
     d.subLine = d.t("fw.sub", ["d": fmtDate(now)])
     let fs = labelled(sn.furniture)
     let cost = costOf(fs, ws, mats, hws)
-    func matName(_ id: String) -> String { mats.first { $0.id == id }?.name ?? id }
+    func matName(_ id: String) -> String { mats.first { $0.id == id }.map { d.presetName($0.id, $0.name) } ?? id }
     d.newPage()
     d.para(d.a(dn(sn.name, d.l) + " · " + fs.map { dn($0.name, d.l) }.joined(separator: " + "), d.ui(11, 600)), top: 0, bottom: 4)
     d.para(d.a(d.t("fw.inside"), d.ui(9, 700, F_INK3U)), top: 0, bottom: 8)
@@ -272,7 +286,7 @@ func workshopPages(_ sn: Snap, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], _ pr:
         sum.append([d.cell(dn(matName(lay.mat), d.l)), d.rcell("\(lay.sheets.count)"), d.rcell("\(parts)"), d.rcell("\(Int(lay.waste * 100)) %")])
     }
     for ln in cost.lines where ln.group == "mat" && ln.unit == "m" {
-        sum.append([d.cell(dn(matName(ln.key), d.l)), d.rcell(fmtQty(d, ln.qty) + " m"), d.cell(""), d.cell("")])
+        sum.append([d.cell(dn(matName(ln.key), d.l)), d.rcell(fmtQty(d, ln.qty) + " " + d.t("u.m")), d.cell(""), d.cell("")])
     }
     d.table(sum, head: 1)
     for lay in cost.layouts where !lay.unplaced.isEmpty { d.fn(d.t("fw.unplaced", ["m": matName(lay.mat), "n": lay.unplaced.count])) }
@@ -299,7 +313,8 @@ func workshopPages(_ sn: Snap, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], _ pr:
     var hr: [[Cell]] = [[d.th(d.t("fw.c.name")), d.th(d.t("fw.c.qty"), right: true), d.th(d.t("fw.c.price"), right: true), d.th(d.t("fw.c.sum"), right: true)]]
     for ln in cost.lines where ln.group == "hw" {
         let hw = hws.first { $0.id == ln.key }
-        hr.append([d.cell(hw?.name ?? d.t("hk." + ln.key)), d.rcell(fmtQty(d, ln.qty) + (ln.unit == "m" ? " m" : "")),
+        let unitW = ln.unit == "m" ? " " + d.t("u.m") : ln.unit == "m2" ? " " + d.t("u.m2") : ""
+        hr.append([d.cell(hw.map { d.presetName($0.id, $0.name) } ?? d.t("hk." + ln.key)), d.rcell(fmtQty(d, ln.qty) + unitW),
                    d.rcell(ln.missing ? "—" : d.money(ln.price)), d.rcell(d.money(ln.amount))])
     }
     hr.append([d.cell(d.t("r.total"), d.ui(10, 700), span: 3), d.rcell(d.money(cost.sum("hw")), d.num(10, 700))])

@@ -36,8 +36,8 @@ func tenths(_ v: Int, _ en: Bool) -> String { v % 10 == 0 ? "\(v / 10)" : "\(v /
 private func shown(_ f: WField, _ w: Workshop) -> String {
     let s = AppSettings.shared, en = s.lang == .en, raw = f.get(w)
     switch f.kind {
-    case .mm10: return tenths(Int(raw) ?? 0, en) + " mm"
-    case .mm: return raw + " mm"
+    case .mm10: return tenths(Int(raw) ?? 0, en) + U_MM
+    case .mm: return raw + U_MM
     case .pct: return raw + " %"
     case .money: return Money.str(Decimal(string: raw) ?? 0, 0, en) + " " + Money.cur(s.currency)
     }
@@ -107,7 +107,7 @@ struct WorkshopScreen: View {
                 Hairline()
                 HStack {
                     T(tr("wk.t"), ui(14.5, 500)).frame(maxWidth: .infinity, alignment: .leading)
-                    Seg(items: [("16", "16 mm"), ("18", "18 mm")], cur: String(w.t)) { v in var n = w; n.t = Int(v) ?? 16; s.setWorkshopRules(n) }.frame(width: 150)
+                    Seg(items: [("16", "16" + U_MM), ("18", "18" + U_MM)], cur: String(w.t)) { v in var n = w; n.t = Int(v) ?? 16; s.setWorkshopRules(n) }.frame(width: 150)
                 }
                 .padding(.vertical, 8)
                 Hairline()
@@ -189,7 +189,7 @@ struct MaterialsScreen: View {
                 }
             } else {
                 ForEach(s.hws) { h in
-                    ItemRow(swatch: nil, name: h.name, sub: tr("hk." + h.kind), price: priceOf(h.price, en), unit: tr(h.kind == "rail" ? "mt.perM" : "mt.perPc")) { app.sheet = .hwForm(id: h.id) }
+                    ItemRow(swatch: nil, name: h.name, sub: tr("hk." + h.kind), price: priceOf(h.price, en), unit: tr(perKey(h.kind))) { app.sheet = .hwForm(id: h.id) }
                         .accessibilityIdentifier("hw." + h.id)
                 }
             }
@@ -206,14 +206,24 @@ struct MaterialsScreen: View {
 
 private func matSub(_ m: Mat, _ en: Bool) -> String {
     switch m.kind {
-    case "band": return tr("mt.bandK") + " · " + tenths(m.t, en) + " mm"
+    case "band": return tr("mt.bandK") + " · " + tenths(m.t, en) + U_MM
     case "back": return tr("mt.backK") + " · \(m.l) × \(m.w)"
     case "worktop": return tr("mt.wtK") + " · \(m.t) mm · \(m.l) × \(m.w)"
     default: return tr("mt.board") + " · \(m.t) mm · \(m.l) × \(m.w)" + (m.grain ? " · ↕" : "")
     }
 }
 
-private func unitOf(_ m: Mat) -> String { tr(m.kind == "band" || m.kind == "worktop" ? "mt.perM" : "mt.perSheet") }
+private func unitOf(_ m: Mat) -> String { tr(m.kind == "band" || m.kind == "worktop" || m.kind == "splash" ? "mt.perM" : "mt.perSheet") }
+
+/// A hardware kind's price unit: by the metre (slide tracks, profiles, cornice, LED, plinth, bar rail), by the m² (mirror,
+/// glass, glass shelf, glass door), else a piece (Hardware.swift hwUnit).
+private func perKey(_ kind: String) -> String {
+    switch hwUnit(kind) {
+    case "m": return "mt.perM"
+    case "m2": return "mt.perM2"
+    default: return "mt.perPc"
+    }
+}
 
 private func priceOf(_ p: String, _ en: Bool) -> String {
     p.range(of: "^\\d+$", options: .regularExpression) != nil ? Money.str(Decimal(string: p) ?? 0, 0, en) : tr("mt.noPrice")
@@ -358,14 +368,14 @@ private struct MatSheet: View {
                 }
             }
             HStack(alignment: .top, spacing: 10) {
-                GField(label: tr("mt.t"), value: $t, placeholder: "16", focus: $focus, me: .b, labelRight: band ? "0,1 mm" : "mm", number: true)
+                GField(label: tr("mt.t"), value: $t, placeholder: "16", focus: $focus, me: .b, labelRight: band ? "0,1" + U_MM : tr("u.mm"), number: true)
                 GField(label: tr("mt.price"), value: $price, placeholder: "0", focus: $focus, me: .c,
-                       labelRight: tr(band || kind == "worktop" ? "mt.perM" : "mt.perSheet"), number: true, id: "mt.price")
+                       labelRight: tr(band || kind == "worktop" || kind == "splash" ? "mt.perM" : "mt.perSheet"), number: true, id: "mt.price")
             }
             if !band {
                 HStack(alignment: .top, spacing: 10) {
-                    GField(label: tr("mt.l"), value: $l, placeholder: "2800", focus: $focus, me: .d, labelRight: "mm", number: true)
-                    GField(label: tr("mt.w"), value: $w, placeholder: "2070", focus: $focus, me: .e, labelRight: "mm", number: true)
+                    GField(label: tr("mt.l"), value: $l, placeholder: "2800", focus: $focus, me: .d, labelRight: tr("u.mm"), number: true)
+                    GField(label: tr("mt.w"), value: $w, placeholder: "2070", focus: $focus, me: .e, labelRight: tr("u.mm"), number: true)
                 }
             }
             if kind == "board" {
@@ -433,7 +443,7 @@ private struct HwSheet: View {
         return GlassSheet(edit?.name ?? tr("mt.addHw"), onClose: { app.sheet = nil }) {
             GField(label: tr("mt.name"), value: $name, placeholder: "GTV, Blum, Boyard…", focus: $focus, me: .a, id: "mt.name")
             GField(label: tr("mt.price"), value: $price, placeholder: "0", focus: $focus, me: .b, submit: .done,
-                   labelRight: tr(kind == "rail" ? "mt.perM" : "mt.perPc"), number: true, id: "mt.price")
+                   labelRight: tr(perKey(kind)), number: true, id: "mt.price")
             if edit == nil {
                 VStack(alignment: .leading, spacing: 6) {
                     T(tr("mt.hwKind"), ui(15, 700))

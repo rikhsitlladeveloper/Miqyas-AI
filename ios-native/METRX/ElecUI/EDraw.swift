@@ -341,7 +341,14 @@ func drawElecWall(_ cg: CGContext, _ c: ECtx, _ w: TWall, _ m: EWallMap, _ ds: [
             eText(cg, t, CGPoint(x: at.x + bw / 2 + 3, y: at.y - t.size().height / 2))
         }
     }
-    for d in ds where d.wall == w.id {
+    // the heights: beside the device where neither another height nor a device's symbol is, else left out (as the plumber's)
+    var symbols: [CGRect] = []
+    for d in ds where d.wall == w.id && d.t != "led" {
+        let a: CGPoint = (drag != nil && drag!.0 == d.id) ? drag!.1 : m.at(Double(d.off), Double(d.h))
+        symbols.append(CGRect(x: a.x - r0, y: a.y - r0, width: 2 * r0, height: 2 * r0))
+    }
+    var taken: [CGRect] = []
+    for d in ds.filter({ $0.wall == w.id }).sorted(by: { $0.off < $1.off }) {
         let col = circuitOf(d.id).map { eCG($0.rgb) } ?? eCG(0x94A3B8)
         let ink = eCG(bad.contains(d.id) ? E_WARN_RGB : E_INK_RGB)
         let dragged: CGPoint? = (drag != nil && drag!.0 == d.id) ? drag!.1 : nil
@@ -356,7 +363,15 @@ func drawElecWall(_ cg: CGContext, _ c: ECtx, _ w: TWall, _ m: EWallMap, _ ds: [
         if let label {
             eLine(cg, CGPoint(x: at.x, y: at.y + r0), CGPoint(x: at.x, y: m.y(0)), eCG(0x3E4A61, 0x55 / 255.0), 1, dash: [3, 3])
             let hh = dragged.map { tInt((m.yF - Double($0.y)) / m.k) } ?? d.h
-            eText(cg, label("\(hh)"), CGPoint(x: at.x + r0 * 0.9, y: at.y + r0 * 0.3))
+            let t = label("\(hh)")
+            let sz = t.size()
+            let own = CGRect(x: at.x - r0, y: at.y - r0, width: 2 * r0, height: 2 * r0)
+            let spots: [CGPoint] = [CGPoint(x: at.x + r0 * 0.9, y: at.y + r0 * 0.3), CGPoint(x: at.x - r0 * 0.9 - sz.width, y: at.y + r0 * 0.3),
+                                    CGPoint(x: at.x + r0 * 0.9, y: at.y - r0 * 0.3 - sz.height), CGPoint(x: at.x - r0 * 0.9 - sz.width, y: at.y - r0 * 0.3 - sz.height)]
+            let free = spots.map { CGRect(origin: $0, size: sz) }.first { r in
+                !taken.contains { $0.intersects(r) } && !symbols.contains { $0 != own && $0.intersects(r) }
+            }
+            if let free { taken.append(free); eText(cg, t, free.origin) }
         }
         devSymbol(cg, d.t, at, r0, col, ink)
         if d.id == sel { eStrokeCircle(cg, at, r0 * 1.7, eCG(E_DOOR_RGB), 2) }

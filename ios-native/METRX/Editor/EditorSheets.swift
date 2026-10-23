@@ -94,12 +94,16 @@ private struct Note: View {
 
 private enum NF: Hashable { case name }
 
+/// The longest name a room, a workspace or a product takes: a longer one does not fit the plan, the cards or the PDF.
+let NAME_MAX = 40
+
 private struct NewRoomSheet: View {
     let app: AppModel
     let pid: String
     let wid: String
     @State private var name = ""
     @State private var loaded = false
+    @State private var roomN = 1
     @FocusState private var focus: NF?
 
     var body: some View {
@@ -126,14 +130,19 @@ private struct NewRoomSheet: View {
                 guard !loaded else { return }
                 loaded = true
                 let own = ["room", "bath", "kitchen", "balcony"].contains(w.type) && !p.rooms.contains { $0.floorId == w.id }
-                name = own ? floorName(w) : tr("real.roomN", ["n": p.rooms.count + 1])
+                roomN = p.rooms.count + 1
+                name = own ? floorName(w) : tr("real.roomN", ["n": roomN])
             }
+            .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
         }
     }
 
     private func create(_ p: Project, _ w: Workspace, _ shape: String) {
-        let nm = name.trimmingCharacters(in: .whitespaces)
-        guard !nm.isEmpty else { return }
+        let typed = name.trimmingCharacters(in: .whitespaces)
+        guard !typed.isEmpty else { return }
+        // the suggested name is kept as a key ("Xona 1" follows the language, as "1-qavat" does); a typed one as typed
+        let own = ["room", "bath", "kitchen", "balcony"].contains(w.type) && !p.rooms.contains { $0.floorId == w.id }
+        let nm = own && typed == floorName(w) ? w.name : suggestedName(typed, "real.roomN", AppSettings.shared.lang, ["n": "\(roomN)"])
         var r = Room(id: uid(), floorId: w.id, name: nm, created: nowMs())
         if shape == "lshape" {
             r.template = "poly"; r.shape = "poly"; r.dims = Geo.polyDims(Geo.L_SHAPE.count); r.poly = Poly(verts: Geo.L_SHAPE, template: "lshape")
@@ -184,7 +193,8 @@ private struct MeasureSheet: View {
             let unit = AppSettings.shared.unit, en = AppSettings.shared.lang == .en
             let d = r.dim(k)
             let title = k == "H" ? tr("ed.H") : k == "T" ? tr("ed.T") : k.hasPrefix("X") ? tr("sk.diagName", ["d": k]) : tr("ed.wallLen", ["w": k])
-            let parsed = Geo.lenErr(v, Geo.dimMax(k), unit, en)
+            let parsed = Geo.lenErr(v, Geo.dimMax(k), unit, en, min: Geo.dimMin(k, r.isPoly))
+            let tall = k == "H" && (parsed.value ?? 0) > Int64(Geo.H_TALL)
             GlassSheet(title, onClose: close) {
                 if !ops.laserOn {
                     HStack(spacing: 10) {
@@ -194,7 +204,9 @@ private struct MeasureSheet: View {
                     }
                     .padding(12).background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.amberWash))
                 }
-                NumField(label: title, value: $v, suffix: unitName(), error: errText(parsed), showError: touched, focus: $focus, me: .v, id: "ms.value")
+                // a wrong value says why as it is typed (Save stays off without a word otherwise)
+                NumField(label: title, value: $v, suffix: unitName(), error: errText(parsed), showError: touched || !v.isEmpty, focus: $focus, me: .v, id: "ms.value")
+                if tall { T(tr("ms.tall"), ui(13, 500, G.amberInk, lh: 1.35)) }
                 T(tr("ms.hint", ["ex": Geo.fmtLen(4255, unit, en)]), ui(13, 400, G.ink2))
                 T(tr("ms.current", ["v": d.v != nil ? Geo.fmtLen(d.v, unit, en, full: true) + " " + unitName() + " (" + tr("src." + (d.src ?? "manual")) + ")" : tr("ms.none")]), ui(13, 400, G.ink2))
                 Note(text: tr("ms.manualNote"))
@@ -494,6 +506,8 @@ struct Seg: View {
     let items: [(String, String)]
     let cur: String
     var subs: [String: String] = [:]
+    /// 2: a long label (table legs, the top's board) wraps instead of being cut
+    var lines = 1
     let onPick: (String) -> Void
     var body: some View {
         // more than four items (a drawn room's walls) scroll sideways instead of squeezing
@@ -513,7 +527,7 @@ struct Seg: View {
             ForEach(items, id: \.0) { k, label in
                 let on = k == cur
                 VStack(spacing: 0) {
-                    T(label, ui(14, on ? 600 : 500, on ? G.ink : G.ink2), lines: 1)
+                    T(label, ui(lines > 1 ? 13 : 14, on ? 600 : 500, on ? G.ink : G.ink2), align: .center, lines: lines)
                     if let s = subs[k] { T(s, num(11.5, 400, on ? G.ink : G.ink2), lines: 1) }
                 }
                 .padding(.horizontal, 6).padding(.vertical, 4)
@@ -573,7 +587,7 @@ private struct RoomInfoSheet: View {
             let vol: String = {
                 guard let a, let H else { return "—" }
                 let s = String(format: "%.2f", Double(a.floor) * Double(H) / 1e9)
-                return (en ? s : s.replacingOccurrences(of: ".", with: ",")) + " m³"
+                return (en ? s : s.replacingOccurrences(of: ".", with: ",")) + " " + tr("u.m3")
             }()
             GlassSheet(dn(r.name), onClose: close) {
                 ListBox {
@@ -630,6 +644,7 @@ private struct RenameSheet: View {
             } footer: {
                 GBtn(tr("common.save"), enabled: err == nil) { RoomOps.shared.rename(pid, rid, name) }
             }
+            .onChange(of: v) { _, n in if n.count > NAME_MAX { v = String(n.prefix(NAME_MAX)) } }
             .onAppear {
                 guard !loaded else { return }
                 loaded = true; v = dn(r.name)

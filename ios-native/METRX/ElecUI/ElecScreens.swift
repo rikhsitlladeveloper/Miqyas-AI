@@ -74,7 +74,7 @@ func takeInPoints(_ pid: String, _ rid: String) {
     takeInPoints(pid, rid)
     let snap = AppSettings.shared.angleSnap
     guard let p = Store.shared.get(pid), let c = ctxOf(p, rid, snap) else { return 0 }
-    let ds = placeKit(k, c, p.elec.devs.filter { $0.roomId == rid }, { uid() }, o, p.elec.panel)
+    let ds = placeKit(k, c, p.elec.devs.filter { $0.roomId == rid }, { uid() }, o, livePanel(p))
     let kind = c.kind
     Store.shared.update(pid) { pr in
         var er = pr.elec.room(rid)
@@ -82,7 +82,8 @@ func takeInPoints(_ pid: String, _ rid: String) {
         er.kits.append(k.id)
         pr.elec.devs += ds
         pr.elec.rooms = pr.elec.rooms.filter { $0.roomId != rid } + [er]
-        if pr.elec.panel == nil {
+        // a panel left on a deleted room counts as none
+        if livePanel(pr) == nil {
             let d = defaultPanel(pr, snap)
             if let d { pr.elec.panel = d }
         }
@@ -257,7 +258,8 @@ struct ERoomsTab: View {
                     .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
             }
             if !calc.ctxs.isEmpty { EOrderCard(app: app, p: p, calc: calc) }
-            ForEach(p.floors) { w in ERoomCard(app: app, p: p, w: w, calc: calc) }
+            // every room of each workspace (an older project may have several in one), a workspace without one once
+            ForEach(wsRooms(p)) { s in ERoomCard(app: app, p: p, w: s.w, room: s.room, several: s.several, calc: calc) }
             // rooms typed by size, without a plan
             if !p.elec.free.isEmpty { freeCard }
             HStack(spacing: 8) {
@@ -273,8 +275,14 @@ struct ERoomsTab: View {
         }
         .padding(.horizontal, 16).padding(.top, 12)
         // kits chosen before a room was measured go in now that it is
-        .onAppear { applyPending(app, pid) }
-        .onChange(of: p.rooms) { _, _ in applyPending(app, pid) }
+        .onAppear { takeInAll(pid); applyPending(app, pid) }
+        .onChange(of: p.rooms) { _, _ in takeInAll(pid); applyPending(app, pid) }
+    }
+
+    /// The rooms' marked sockets and switches taken in (once each), so the tab and the next step count them.
+    private func takeInAll(_ pid: String) {
+        guard let p = Store.shared.get(pid) else { return }
+        for r in p.rooms { takeInPoints(pid, r.id) }
     }
 
     private var freeCard: some View {
@@ -302,7 +310,7 @@ private struct EFreeLine: View {
     let f: ElecFree
     let action: () -> Void
     var body: some View {
-        let size = Geo.fmtLen(f.L, .m, en) + " × " + Geo.fmtLen(f.W, .m, en) + " m · "
+        let size = Geo.fmtLen(f.L, .m, en) + " × " + Geo.fmtLen(f.W, .m, en) + U_M + " · "
         let cnt = tr("el.freeCnt", ["s": f.sock + f.power, "k": f.sw, "l": f.light])
         HStack(spacing: 10) {
             MIcon("cube", G.cobalt, 18, 2)
@@ -328,10 +336,11 @@ private struct ERoomCard: View {
     let app: AppModel
     let p: Project
     let w: Workspace
+    let room: Room?
+    var several = false
     let calc: ElecCalc
     var body: some View {
         let snap = AppSettings.shared.angleSnap
-        let room = p.rooms.first { $0.floorId == w.id }
         let ready = room.map { Geo.ready3D($0, snap) } ?? false
         let ds: [ElecDev] = room.map { r in p.elec.devs.filter { $0.roomId == r.id } } ?? []
         let er = room.map { p.elec.room($0.id) }
@@ -356,7 +365,7 @@ private struct ERoomCard: View {
         let a = room?.dim("A").v, b = room?.dim("B").v, h = room?.dim("H").v
         let sub: String = {
             if ready, let a, let b, room?.isPoly != true {
-                return Geo.fmtLen(a, .m, en) + " × " + Geo.fmtLen(b, .m, en) + " m" + (h.map { " · h " + Geo.fmtLen($0, .m, en) } ?? "")
+                return Geo.fmtLen(a, .m, en) + " × " + Geo.fmtLen(b, .m, en) + U_M + (h.map { " · h " + Geo.fmtLen($0, .m, en) } ?? "")
             }
             if ready { return tr("tl.measured") }
             return tr(room != nil ? "fo.notMeasured" : "fo.notDrawn")
@@ -369,7 +378,7 @@ private struct ERoomCard: View {
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(Theme.shared.dark ? 0.1 : 0.8)))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                T(floorName(w), ui(16, 700), lines: 1)
+                T(wsRoomTitle(w, room, several), ui(16, 700), lines: 1)
                 T(sub, ui(12.5, 400, G.ink2), lines: 1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -415,14 +424,16 @@ private struct EOrderCard: View {
     let p: Project
     let calc: ElecCalc
     var body: some View {
-        let pn = p.elec.panel
+        let pn = livePanel(p)
         let pr = pn.flatMap { x in p.rooms.first { $0.id == x.roomId } }
         let panelSub: String = {
             guard let pn, let pr else { return tr("el.panelNone") }
             return eRoomName(p, pr) + " · " + tr("tl.wallN", ["w": pn.wall])
         }()
         let nCirc = calc.circuits.filter { $0.amps > 0 }.count
-        let circSub = tr("el.circN", ["n": nCirc]) + (calc.count.rcds > 0 ? " · " + tr("el.rcdN", ["n": calc.count.rcds]) : "")
+        // the RCDs only in the advanced app
+        let rcdOn = calc.count.rcds > 0 && AppSettings.shared.advanced
+        let circSub = tr("el.circN", ["n": nCirc]) + (rcdOn ? " · " + tr("el.rcdN", ["n": calc.count.rcds]) : "")
         VStack(spacing: 0) {
             ELine(icon: "box", title: tr("el.panel"), sub: panelSub) { panelTap() }
             Hairline()
@@ -445,7 +456,7 @@ private struct EOrderCard: View {
     }
 
     private func panelTap() {
-        if let pn = p.elec.panel { app.push(.eView(pid: p.id, rid: pn.roomId)); return }
+        if let pn = livePanel(p) { app.push(.eView(pid: p.id, rid: pn.roomId)); return }
         if let d = defaultPanel(p, AppSettings.shared.angleSnap) {
             updateElec(p.id) { $0.panel = d }
             app.push(.eView(pid: p.id, rid: d.roomId)); app.say("el.panelSet")
@@ -489,7 +500,7 @@ struct ENextStep: View {
         let undrawn = p.floors.first { w in !p.rooms.contains { $0.floorId == w.id } }
         let unmeasured = rooms.first { wr in Geo.stepKeys(wr.1, snap).contains { wr.1.dim($0).status != "conf" } }
         let bare = rooms.first { wr in !p.elec.devs.contains { $0.roomId == wr.1.id } && p.elec.room(wr.1.id).pend.isEmpty }
-        let made = p.estimate.materials.contains { $0.id.hasPrefix("t-") }
+        let made = madeBy(p, "el.e.")
         if p.floors.isEmpty && p.elec.free.isEmpty {
             return Step(title: tr("el.ns.pickT"), sub: tr("el.ns.pickS"), button: tr("ns.needB")) { app.push(.eGallery(pid: pid)) }
         }
@@ -502,7 +513,7 @@ struct ENextStep: View {
             let (w, r) = b
             return Step(title: tr("el.ns.roomT", ["r": floorName(w)]), sub: tr("el.ns.roomS"), button: tr("ns.needB")) { app.push(.eGallery(pid: pid, rid: r.id)) }
         }
-        if p.elec.panel == nil && !p.elec.devs.isEmpty {
+        if livePanel(p) == nil && !p.elec.devs.isEmpty {
             return Step(title: tr("el.ns.panelT"), sub: tr("el.ns.panelS"), button: tr("el.ns.panelB")) {
                 guard let cur = Store.shared.get(pid), let d = defaultPanel(cur, snap) else { return }
                 updateElec(pid) { $0.panel = d }
@@ -605,7 +616,7 @@ struct ElecCard: View {
     var body: some View {
         let lang = AppSettings.shared.lang
         let c = ElecCalcCache.shared.of(p).count
-        let made = p.estimate.materials.contains { $0.id.hasPrefix("t-") } || p.estimate.labor.contains { $0.id.hasPrefix("t-") }
+        let made = madeBy(p, "el.e.")
         VStack(alignment: .leading, spacing: 8) {
             T(tr("el.cardT"), ui(16, 800))
             T(tr("trc.elec", ["n": c.points, "m": Num.fixed(c.cableM, 1, lang)]), num(14.5, 700))
@@ -635,7 +646,10 @@ struct ECountCard: View {
             T(tr("el.countT"), ui(15, 800))
             ForEach(Array(c.cables.enumerated()), id: \.offset) { _, n in
                 let nm = lang == .en ? cableName(n.type) : cableName(n.type).replacingOccurrences(of: ".", with: ",")
-                EKv(k: tr("el.cab", ["c": nm]), v: tr("el.cabV", ["m": d1(n.m), "s": d1(n.withSpare), "n": n.coils]))
+                // a short run by the metre, a long one in whole coils (as the estimate buys it)
+                let byM = n.coils == 0 || n.withSpare < Double(COIL_FROM)
+                let v = byM ? tr("el.cabVm", ["m": d1(n.m), "s": d1(n.withSpare)]) : tr("el.cabV", ["m": d1(n.m), "s": d1(n.withSpare), "n": n.coils])
+                EKv(k: tr("el.cab", ["c": nm]), v: v)
             }
             if !c.breakers.isEmpty {
                 Hairline()
@@ -646,9 +660,9 @@ struct ECountCard: View {
             Hairline()
             EKv(k: tr("el.boxes"), v: "\(c.boxes)")
             EKv(k: tr("el.jboxes"), v: "\(c.jboxes)")
-            if c.chaseM > 0 { EKv(k: tr("el.m.chase"), v: d1(c.chaseM) + " m") }
-            if c.gofraM > 0 { EKv(k: tr("el.m.gofra"), v: d1(c.gofraM) + " m") }
-            if c.channelM > 0 { EKv(k: tr("el.m.channel"), v: d1(c.channelM) + " m") }
+            if c.chaseM > 0 { EKv(k: tr("el.m.chase"), v: d1(c.chaseM) + U_M) }
+            if c.gofraM > 0 { EKv(k: tr("el.m.gofra"), v: d1(c.gofraM) + U_M) }
+            if c.channelM > 0 { EKv(k: tr("el.m.channel"), v: d1(c.channelM) + U_M) }
             EKv(k: tr("el.points"), v: "\(c.points)")
         }
         .padding(14)
@@ -686,7 +700,7 @@ func newDev(_ c: ECtx, _ p: Project, _ t: String, _ wall: String?) -> ElecDev? {
             let l = tInt(eClamp(w.len - 400, 300, 2000))
             return ElecDev(id: uid(), t: t, roomId: c.id, wall: w.id, off: tInt(w.len / 2), h: h, len: l)
         }
-        guard let x = spotOn(w, w.len / 2, h, ty.dw, ty.dh, blocksOn(c, w.id, t, have, p.elec.panel)) else { continue }
+        guard let x = spotOn(w, w.len / 2, h, ty.dw, ty.dh, blocksOn(c, w.id, t, have, livePanel(p))) else { continue }
         return ElecDev(id: uid(), t: t, roomId: c.id, wall: w.id, off: x, h: h)
     }
     return nil

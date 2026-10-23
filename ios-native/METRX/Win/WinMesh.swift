@@ -66,7 +66,8 @@ private func wDoorBoxes(_ it: WinItem, _ bx: WBoxes, _ r: Double, _ D: Double) {
     case "dsl":
         // the leaf hangs in front of the wall on its rail, closed over the opening
         bx.add(-30, W + 30, 8, 48, 10, H + 10, cin)
-        bx.add(-40, 2 * W, 0, 60, H + 30, H + 80, W_DRIP_RGB)
+        // the rail runs on past the opening the way the leaf slides open (towards its hinge side)
+        if left { bx.add(-W, W + 40, 0, 60, H + 30, H + 80, W_DRIP_RGB) } else { bx.add(-40, 2 * W, 0, 60, H + 30, H + 80, W_DRIP_RGB) }
         let hx: Double = left ? W - 20 : 20
         bx.add(hx - 12, hx + 12, 48, 70, 900, 1100, W_HANDLE_DARK)
     case "dgl":

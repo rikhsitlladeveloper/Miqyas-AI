@@ -26,8 +26,10 @@ final class Store {
         let dec = JSONDecoder()
         var loaded: [Project] = []
         for f in (try? FileManager.default.contentsOfDirectory(at: dir, includingPropertiesForKeys: nil)) ?? [] where f.pathExtension == "json" {
-            if let data = try? Data(contentsOf: f), let p = try? dec.decode(Project.self, from: data) { loaded.append(p) }
-            else { NSLog("METRX: a saved project could not be read and was skipped: %@", f.lastPathComponent) }
+            if let data = try? Data(contentsOf: f), let p = try? dec.decode(Project.self, from: data) {
+                // trade data left on rooms deleted before deleting took it along goes now (shown nowhere, still counted)
+                loaded.append(withoutOrphans(p))
+            } else { NSLog("METRX: a saved project could not be read and was skipped: %@", f.lastPathComponent) }
         }
         projects = loaded.sorted { $0.edited > $1.edited }
     }

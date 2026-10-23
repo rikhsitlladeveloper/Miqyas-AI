@@ -95,6 +95,27 @@ func drawLaid(_ cg: CGContext, _ laid: Laid, _ l: TileLayout, _ map: (Surf) -> (
     }
 }
 
+/// Above this many pieces a 2D drawing fills the surfaces in their look's colour instead of tile by tile (a mosaic stays quick).
+let MAX_DRAWN_2D = 4000
+
+/// Like drawLaid, but with more than most pieces each surface is filled in its tile's colour; a surface whose tiles
+/// were too many to work out is filled so too (not left in the grout's colour).
+func drawLaidCapped(_ cg: CGContext, _ laid: Laid, _ l: TileLayout, _ map: (Surf) -> ((V2) -> CGPoint?), most: Int = MAX_DRAWN_2D, outline: Bool = false) {
+    let flat = laid.pieces.count > most
+    if !flat { drawLaid(cg, laid, l, map, false, outline: outline) }
+    for (si, s) in laid.surfs.enumerated() {
+        if !flat && !laid.tooMany.contains(si) { continue }
+        let m = map(s)
+        let main = lookFor(l, s.alt ? 1 : 0)
+        let fill = tileCG(main.rgb)
+        for poly in backingOf(s) {
+            let pts = poly.compactMap { m($0) }
+            if pts.count != poly.count || pts.count < 3 { continue }
+            cg.addPath(pathOf(pts)); cg.setFillColor(fill); cg.fillPath()
+        }
+    }
+}
+
 private func drawPieceT(_ cg: CGContext, _ pc: TPiece, _ l: TileLayout, _ m: @escaping (V2) -> CGPoint?, _ textures: Bool, _ px: CGFloat, _ cutK: Double, _ line: CGColor?) {
     let lk = lookFor(l, pc.prod)
     let rgb = pc.cut && cutK > 0 ? cutRgb(lk.rgb, cutK) : toneOf(lk, pc.seed)
@@ -217,7 +238,10 @@ func drawPreview(_ cg: CGContext, _ size: CGSize, _ pv: TPreview, _ az: Double =
         let fr = g.wallFrame(w)
         quad(cg, cam, [fr.at(0, 0), fr.at(w.len, 0), fr.at(w.len, g.H), fr.at(0, g.H)], id == "A" ? WALL_RGB : scaleRgb(WALL_RGB, 0.96))
     }
-    drawLaid(cg, pv.laid, pv.l, { s in { q in cam.p(s.frame.at(q.x, q.y, 0.002)) } }, textures, cutK, outline: true)
+    // a mosaic (thousands of small tiles) is filled flat, so a drag stays smooth
+    let onCam: (Surf) -> ((V2) -> CGPoint?) = { s in { q in cam.p(s.frame.at(q.x, q.y, 0.002)) } }
+    if pv.laid.pieces.count > MAX_DRAWN_2D { drawLaidCapped(cg, pv.laid, pv.l, onCam) }
+    else { drawLaid(cg, pv.laid, pv.l, onCam, textures, cutK, outline: true) }
     // the corner's line
     if let w = g.wall("A") {
         let fr = g.wallFrame(w)
@@ -299,6 +323,8 @@ final class TPreviewCache {
     private var pv: TPreview? = nil
     func get(_ x: TileLayout) -> TPreview? {
         if let l, l == x { return pv }
+        // a size being typed (0, 9999) is not laid: the last picture stays
+        if !(20...3000).contains(x.a) || !(20...3000).contains(x.b) { return pv }
         l = x; pv = previewOf(x)
         return pv
     }

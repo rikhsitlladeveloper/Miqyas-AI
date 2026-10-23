@@ -18,9 +18,19 @@ enum Parsed: Equatable {
 }
 
 enum Geo {
-    /// Limits of a typed dimension, mm (prototype DIM_MAX).
-    static let DIM_MAX: [String: Int] = ["A": 100_000, "B": 100_000, "H": 20_000, "T": 2_000]
+    /// Limits of a typed dimension, mm (prototype DIM_MAX); a room is at most 6 m high.
+    static let DIM_MAX: [String: Int] = ["A": 100_000, "B": 100_000, "H": 6_000, "T": 2_000]
     static func dimMax(_ k: String) -> Int { DIM_MAX[k] ?? 100_000 }
+
+    /// The least a room's measurement may be, mm: a rectangle's side 0,5 m, the height 1,8 m (a drawn room's walls may be short).
+    static func dimMin(_ k: String, _ poly: Bool) -> Int {
+        if k == "H" { return 1_800 }
+        if !poly && (k == "A" || k == "B") { return 500 }
+        return 0
+    }
+
+    /// A height above this is unusual: said under the field (it may be right: a hall, a loft).
+    static let H_TALL = 4_500
 
     /* ---------------- units and number formats ---------------- */
 
@@ -69,10 +79,15 @@ enum Geo {
     static func unitDecimals(_ unit: LenUnit) -> Int { unit == .cm ? 1 : 3 }
 
     /// A typed length in mm, or the error (key + values) to show. max in mm; zeroOk for an offset or a sill.
-    static func lenErr(_ str: String?, _ max: Int, _ unit: LenUnit, _ en: Bool, zeroOk: Bool = false) -> Parsed {
+    static func lenErr(_ str: String?, _ max: Int, _ unit: LenUnit, _ en: Bool, zeroOk: Bool = false, min: Int = 0) -> Parsed {
         let r = parseDec(str, unitDecimals(unit))
         guard let mm = r.value else { return r }
         if mm == 0 && !zeroOk { return .err("err.zero", [:]) }
+        if mm >= 1 && mm < Int64(min) {
+            var m = fmtLen(min, unit, en)
+            if let rg = m.range(of: "[.,]0+$", options: .regularExpression) { m.removeSubrange(rg) }
+            return .err("err.min", ["min": m + " " + (unit == .cm ? "@u.cm" : "@u.m")])
+        }
         if mm > Int64(max) {
             var m = fmtLen(max, unit, en)
             if let rg = m.range(of: "[.,]0+$", options: .regularExpression) { m.removeSubrange(rg) }
@@ -176,7 +191,11 @@ enum Geo {
         let w = walls(r, snap).first { $0.id == o.wall }
         guard let L = w?.len else { return Issue(field: "wall", key: "op.needWall", vars: ["w": w?.derived == true ? w!.dimKey : o.wall]) }
         if o.off + o.w > L { return Issue(field: "w", key: "op.exceeds", vars: ["o": kindName, "x": fmtLen(o.off + o.w - L, .m, en)]) }
-        if let H = r.dim("H").v, o.sill + o.h > H { return Issue(field: "h", key: "op.tooTall", vars: ["o": kindName, "x": fmtLen(o.sill + o.h - H, .m, en)]) }
+        // a door has no sill: only its height can give way
+        if let H = r.dim("H").v, o.sill + o.h > H {
+            let key = o.type == "door" ? "op.tooTallDoor" : "op.tooTall"
+            return Issue(field: "h", key: key, vars: ["o": kindName, "x": fmtLen(o.sill + o.h - H, .m, en)])
+        }
         for x in r.openings where x.id != o.id && x.wall == o.wall && o.off < x.off + x.w && x.off < o.off + o.w {
             return Issue(field: "off", key: "op.overlap", vars: ["o": kindName])
         }

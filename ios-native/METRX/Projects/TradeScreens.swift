@@ -76,6 +76,22 @@ struct TradeSheet: View {
 
 /// One number of the calculator's settings: a label, the value as typed, its unit; dec for a decimal mark (a rate, up to
 /// 3 decimals; prices are whole), max for a count or size, pos more than 0 (what a box holds: it divides).
+/// A unit as "kg/m²", "/m", "mm" in the app's script ("кг/м²").
+func unitText(_ u: String) -> String {
+    let words: [(String, String)] = [("mm", tr("u.mm")), ("m²", tr("u.m2")), ("kg", tr("u.kg")), ("m", tr("u.m"))]
+    var out = ""
+    var rest = Substring(u)
+    while !rest.isEmpty {
+        if let w = words.first(where: { rest.hasPrefix($0.0) }) {
+            out += w.1
+            rest = rest.dropFirst(w.0.count)
+        } else {
+            out.append(rest.removeFirst())
+        }
+    }
+    return out
+}
+
 private struct TF {
     let key: String
     let unit: String
@@ -170,7 +186,7 @@ private struct TradeCalcSheet: View {
             if c != texts[f.key] { texts[f.key] = c }
         })
         return GField(label: tr("trf.\(f.key)"), value: text, placeholder: "0", error: fieldErr(f, texts[f.key] ?? ""), showError: tried, focus: $focus, me: f.key,
-                      labelRight: f.unit.isEmpty ? nil : f.unit, number: !f.dec, decimal: f.dec, id: "trf." + f.key)
+                      labelRight: f.unit.isEmpty ? nil : unitText(f.unit), number: !f.dec, decimal: f.dec, id: "trf." + f.key)
     }
 
     /// What a typed setting is wrong with, in words; nil when fine or empty (an empty one keeps the old value).

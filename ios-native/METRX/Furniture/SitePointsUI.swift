@@ -176,8 +176,9 @@ struct PointSheet: View {
                 }
                 if ops.laserOn {
                     HStack(spacing: 16) {
-                        laserLink(tr("pt.laserOff")) { offv = Geo.fmtField(Int.random(in: 200..<max(400, (L ?? 3000) - 100)) / 10 * 10, unit, en); src = "sim" }
-                        laserLink(tr("pt.laserH")) { hv = Geo.fmtField(pointDefaults(type).h + Int.random(in: -30...30), unit, en); src = "sim" }
+                        // the laser's newest reading not used yet (its readings' inbox); with none, nothing is made up: it says so
+                        laserLink(tr("pt.laserOff")) { if let v = laserReading(tr("pt.laserOff")) { offv = Geo.fmtField(v, unit, en); src = "sim" } }
+                        laserLink(tr("pt.laserH")) { if let v = laserReading(tr("pt.laserH")) { hv = Geo.fmtField(v, unit, en); src = "sim" } }
                     }
                 }
                 if src == "sim" { HStack(spacing: 8) { MIcon("clock", G.amberInk, 16, 2); T(tr("pt.fromLaser"), ui(13, 500, G.amberInk)) } }
@@ -236,5 +237,15 @@ struct PointSheet: View {
     private func laserLink(_ label: String, _ action: @escaping () -> Void) -> some View {
         HStack(spacing: 6) { MIcon("laser", G.cobalt, 18, 2); T(label, ui(14, 600, G.cobalt)) }
             .padding(.horizontal, 4).frame(minHeight: 44).pressable(0.97, action)
+    }
+
+    /// The laser's newest reading not used yet, marked used for where; none: it says so (nothing is made up).
+    private func laserReading(_ where_: String) -> Int? {
+        guard let rd = AppSettings.shared.readings.last(where: { $0.used == nil && $0.src != "manual" }) else {
+            app.say("fx.noReading", kind: .info)
+            return nil
+        }
+        AppSettings.shared.markReadingUsed(rd.id, where_)
+        return rd.mm
     }
 }

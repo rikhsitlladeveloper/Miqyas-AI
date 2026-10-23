@@ -114,6 +114,8 @@ struct ElecFree: Codable, Equatable, Identifiable {
     var power = 0
     var link = 4000
     var kit = ""
+    /// The power points' types in order (pst stove, pov oven, pac AC, pwh water heater); past the list, or in an older order, AC.
+    var powers: [String] = []
 }
 
 extension ElecFree {
@@ -122,7 +124,7 @@ extension ElecFree {
         id = try c.decode(String.self, forKey: .id)
         name = c.v(.name, ""); kind = c.v(.kind, "other"); L = c.v(.L, 4000); W = c.v(.W, 3000); H = c.v(.H, 2700)
         sock = c.v(.sock, 4); sw = c.v(.sw, 1); light = c.v(.light, 1); low = c.v(.low, 0); power = c.v(.power, 0)
-        link = c.v(.link, 4000); kit = c.v(.kit, "")
+        link = c.v(.link, 4000); kit = c.v(.kit, ""); powers = c.v(.powers, [])
     }
 }
 

@@ -1,10 +1,15 @@
 import SwiftUI
 import CoreLocation
 
+/// Whether the app speaks of orders (a furniture maker's or a tradesman's) rather than a builder's projects.
+func orderWords() -> Bool {
+    guard let i = AppSettings.shared.industry else { return false }
+    return i != "build"
+}
+
 /// Projects: search with a round +, three chips, compact rows (prototype glass PAGES.projects).
 struct ProjectsList: View {
     let app: AppModel
-    @State private var seg = "active"
     @State private var q = ""
 
     /// A paid furniture order counts as done in the chips.
@@ -41,7 +46,9 @@ struct ProjectsList: View {
         let others = all.filter { !mine($0, furniture, tiler, elec) }
         // the simple furniture and tiler apps have no stages: no "in work / finished", just all of them (and the other industry's)
         let staged = !(furniture || tiler || elec || plumb) || AppSettings.shared.advanced
-        let seg = !staged && self.seg != "other" ? "all" : self.seg
+        // the filter lives with the app, so opening or deleting an order does not reset it
+        let seg0 = app.ordersSeg
+        let seg: String = seg0 == "other" && others.isEmpty ? (staged ? "active" : "all") : (!staged && seg0 != "other" ? "all" : seg0)
         let stages: [(String, String)] = staged ? [("active", "pl.active"), ("done", "pl.doneSeg")] : []
         let chips: [(String, String)] = stages + [("all", "pl.allSeg")] + (others.isEmpty ? [] : [("other", "fo.other")])
         VStack(alignment: .leading, spacing: 0) {
@@ -63,7 +70,7 @@ struct ProjectsList: View {
                             MIcon("plus", .white, 24, 2.4).frame(width: 52, height: 52)
                                 .background(Circle().fill(G.cobalt)).topHighlight(Circle(), 0.4)
                                 .boxShadow(G.cobalt.opacity(0.38), blur: 22, y: 10)
-                                .pressable(0.95, label: tr("hm.t.new")) { app.push(.newProject(editId: nil)) }
+                                .pressable(0.95, label: tr(orderWords() ? "fo.new" : "hm.t.new")) { app.push(.newProject(editId: nil)) }
                                 .accessibilityIdentifier("projects.new")
                         }
                         ScrollView(.horizontal, showsIndicators: false) {
@@ -74,7 +81,7 @@ struct ProjectsList: View {
                                         .padding(.horizontal, 16).padding(.vertical, 10).frame(minHeight: 40)
                                         .background(Capsule().fill(on ? G.ink : G.glass(0.45)))
                                         .overlay(Capsule().strokeBorder(on ? G.ink : G.rim, lineWidth: 1))
-                                        .pressable(0.97) { self.seg = k }
+                                        .pressable(0.97) { app.ordersSeg = k }
                                         .accessibilityAddTraits(on ? .isSelected : [])
                                 }
                             }
@@ -90,7 +97,9 @@ struct ProjectsList: View {
                                 else { ProjectRow(p: p) { app.push(.project(id: p.id, tab: "rooms")) } }
                             }
                             if list.isEmpty {
-                                T(tr(needle.isEmpty ? "pl.none" : "pl.noMatch"), ui(14.5, 400, G.ink2), align: .center).frame(maxWidth: .infinity).padding(.vertical, 24)
+                                let ow = orderWords()
+                                let emptyKey = needle.isEmpty ? (ow ? "fo.none" : "pl.none") : (ow ? "fo.noMatch" : "pl.noMatch")
+                                T(tr(emptyKey), ui(14.5, 400, G.ink2), align: .center).frame(maxWidth: .infinity).padding(.vertical, 24)
                             }
                         }
                     }
@@ -115,14 +124,16 @@ struct ProjectsEmpty: View {
                         .padding(3).background(Circle().fill(G.solid.opacity(0.9))).offset(x: 9, y: -9)
                 }
                 .padding(.bottom, 8)
-                T(tr("pl.e.t"), ui(21, 800, G.ink, lh: 1.2, ls: -0.01), align: .center)
-                T(tr("pl.e.b"), ui(15, 400, G.ink2, lh: 1.5), align: .center).frame(maxWidth: 300).padding(.bottom, 10)
-                GlassButton(tr("pl.e.new"), icon: "plus") { app.push(.newProject(editId: nil)) }.accessibilityIdentifier("projects.first")
+                // a furniture maker's or a tradesman's words are orders
+                let pre = orderWords() ? "fo.e." : "pl.e."
+                T(tr(pre + "t"), ui(21, 800, G.ink, lh: 1.2, ls: -0.01), align: .center)
+                T(tr(pre + "b"), ui(15, 400, G.ink2, lh: 1.5), align: .center).frame(maxWidth: 300).padding(.bottom, 10)
+                GlassButton(tr(pre + "new"), icon: "plus") { app.push(.newProject(editId: nil)) }.accessibilityIdentifier("projects.first")
             }
             .padding(.horizontal, 22).padding(.top, 34).padding(.bottom, 22)
             .frame(maxWidth: .infinity)
             .glassCard(RoundedRectangle(cornerRadius: 26, style: .continuous), fill: G.glass(0.55))
-            T(tr("pl.e.foot"), ui(13.5, 400, G.ink3), align: .center).frame(maxWidth: .infinity).padding(.top, 8)
+            T(tr(orderWords() ? "fo.e.foot" : "pl.e.foot"), ui(13.5, 400, G.ink3), align: .center).frame(maxWidth: .infinity).padding(.top, 8)
         }
         .padding(.horizontal, 20).padding(.top, 14)
         .contentMargins(.bottom, 24 + NAV_SPACE, for: .scrollContent)
@@ -200,7 +211,8 @@ struct NewProjectScreen: View {
 
     private var edit: Project? { editId.flatMap { Store.shared.get($0) } }
     /// A furniture order (new for a furniture maker, or one being edited) says "order" instead of "project".
-    private var furn: Bool { edit?.isFurniture ?? AppSettings.shared.furniture }
+    // a furniture maker's or a tradesman's project is an order
+    private var furn: Bool { edit.map { $0.industry != "build" } ?? orderWords() }
 
     var body: some View {
         let nameErr = name.trimmingCharacters(in: .whitespaces).isEmpty ? tr("np.nameReq") : nil

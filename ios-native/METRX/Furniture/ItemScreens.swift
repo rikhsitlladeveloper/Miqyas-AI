@@ -48,8 +48,8 @@ struct ItemScreen: View {
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     GlassIconButton("undo", tr("common.undo"), tint: kit.canUndo(f.id) ? G.ink : PC.offIcon) { kit.undo(p.id, f.id) }.accessibilityIdentifier("kt.undo")
-                    GlassIconButton("redo", "redo", tint: kit.canRedo(f.id) ? G.ink : PC.offIcon) { kit.redo(p.id, f.id) }
-                    GlassIconButton("more", "menu") { app.sheet = .fMenu(pid: p.id, fid: f.id) }.accessibilityIdentifier("kt.menu")
+                    GlassIconButton("redo", tr("common.redo"), tint: kit.canRedo(f.id) ? G.ink : PC.offIcon) { kit.redo(p.id, f.id) }
+                    GlassIconButton("more", tr("common.menu")) { app.sheet = .fMenu(pid: p.id, fid: f.id) }.accessibilityIdentifier("kt.menu")
                 }
                 .padding(.horizontal, 16).frame(height: 64)
                 if let room = roomOf(p, f) { content(room) } else {
@@ -132,7 +132,7 @@ private struct ISize: View {
     var body: some View {
         let v = itemGet(m, key)
         let none = (key == "mirW" || key == "mirH") && v == 0
-        WValRow(label: tr(sizeLabel(m, key)), value: none ? tr("fb.none") : "\(v) mm", id: "it." + key) {
+        WValRow(label: tr(sizeLabel(m, key)), value: none ? tr("fb.none") : "\(v)" + U_MM, id: "it." + key) {
             app.sheet = .iField(pid: p.id, fid: f.id, mid: m.id, key: key)
         }
     }
@@ -202,7 +202,7 @@ private struct LoftUnder: View {
         let pid = p.id, fid = f.id
         VStack(alignment: .leading, spacing: 10) {
             T(tr("fb.und"), ui(14.5, 700))
-            Seg(items: kinds, cur: under) { k in
+            Seg(items: kinds, cur: under, lines: 2) { k in
                 if k != under { KitOps.shared.change(pid, fid) { x in withUnder(x, k, AppSettings.shared.workshop) } }
             }
             if let u = f.modules.first(where: { $0.type == "wardrobe" }) {
@@ -225,9 +225,9 @@ private struct TableOptions: View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(["w", "d", "h"], id: \.self) { k in ISize(app: app, p: p, f: f, m: m, key: k) }
             T(tr("fb.lg"), ui(14.5, 700))
-            Seg(items: legs, cur: o.legs) { k in setOpt(p, f, m) { var x = $0; x.legs = k; return x } }
+            Seg(items: legs, cur: o.legs, lines: 2) { k in setOpt(p, f, m) { var x = $0; x.legs = k; return x } }
             T(tr("fb.tp"), ui(14.5, 700))
-            Seg(items: [("ldsp", tr("fb.tp.ldsp")), ("wt", tr("fb.tp.wt"))], cur: o.top) { k in setOpt(p, f, m) { var x = $0; x.top = k; return x } }
+            Seg(items: [("ldsp", tr("fb.tp.ldsp")), ("wt", tr("fb.tp.wt"))], cur: o.top, lines: 2) { k in setOpt(p, f, m) { var x = $0; x.top = k; return x } }
             FToggle(label: tr("fb.rc"), on: o.round, id: "it.round") { setOpt(p, f, m) { var x = $0; x.round.toggle(); return x } }
         }
     }
@@ -241,7 +241,7 @@ private struct BarOptions: View {
         VStack(alignment: .leading, spacing: 10) {
             ForEach(["w", "d", "h", "over"], id: \.self) { k in ISize(app: app, p: p, f: f, m: m, key: k) }
             T(tr("fb.tp"), ui(14.5, 700))
-            Seg(items: [("ldsp", tr("fb.tp.ldsp")), ("wt", tr("fb.tp.wt"))], cur: o.top) { k in setOpt(p, f, m) { var x = $0; x.top = k; return x } }
+            Seg(items: [("ldsp", tr("fb.tp.ldsp")), ("wt", tr("fb.tp.wt"))], cur: o.top, lines: 2) { k in setOpt(p, f, m) { var x = $0; x.top = k; return x } }
             FToggle(label: tr("fb.shelves"), on: o.shelves, id: "it.shelves") { setOpt(p, f, m) { var x = $0; x.shelves.toggle(); return x } }
             FToggle(label: tr("fb.foot"), on: o.foot, id: "it.foot") { setOpt(p, f, m) { var x = $0; x.foot.toggle(); return x } }
         }
@@ -289,7 +289,7 @@ struct IFieldSheet: View {
             }
             GlassSheet(title, onClose: { app.sheet = nil }) {
                 GField(label: title, value: $v, placeholder: "\(start)", error: tr("km.bad", ["a": range.lowerBound, "b": range.upperBound]), showError: vi == nil,
-                       focus: $focus, me: .a, submit: .done, onSubmit: save, labelRight: "mm", number: true, id: "if.value")
+                       focus: $focus, me: .a, submit: .done, onSubmit: save, labelRight: tr("u.mm"), number: true, id: "if.value")
                 if key == "mirW" || key == "mirH" { T(tr("fb.mirNote"), ui(12.5, 400, G.ink2, lh: 1.4)) }
             } footer: {
                 GBtn(tr("common.save"), enabled: vi != nil) { save() }.accessibilityIdentifier("if.save")
@@ -302,14 +302,7 @@ struct IFieldSheet: View {
 }
 
 /// A piece's sizes in a line: a bed's mattress, a corner piece's two arms, else width × height × depth (mm).
-func pieceLine(_ f: Furniture, _ ws: Workshop) -> String {
-    let v = valsOf(f, ws)
-    func g(_ k: String, _ d: Int) -> String { "\(v[k] ?? d)" }
-    if v["mw"] != nil { return g("mw", 0) + " × " + g("ml", 0) + " · h " + g("h", 0) + " mm" }
-    if v["w2"] != nil { return g("w", 0) + " + " + g("w2", 0) + " × " + g("h", 0) + " × " + g("d", 0) + " mm" }
-    guard let m = wardOfF(f) else { return "" }
-    return g("w", m.w) + " × " + g("h", m.h) + " × " + g("d", m.d) + " mm"
-}
+func pieceLine(_ f: Furniture, _ ws: Workshop) -> String { sizeLine(f, ws, tr("u.mm")) }
 
 /// What a card's picture is made from: the piece, its size, the workshop and the boards.
 private struct PieceThumbKey: Equatable {

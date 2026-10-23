@@ -606,16 +606,24 @@ func freeFixes(_ f: PlFree, _ c: PCtx) -> [PlFix] {
     var out: [PlFix] = []
     var n = 0
     func nid() -> String { let s = "f:\(f.id):\(n)"; n += 1; return s }
+    // a small typed room: what does not fit clear of its made-up door's swing still goes in (the door is only a guess);
+    // what is bigger than the room stays out (pFreeMissing says so)
+    var bareRoom = c.room
+    bareRoom.openings = []
+    let bare = PCtx(id: c.id, room: bareRoom, g: c.g, kind: c.kind, pr: c.pr, free: c.free)
     func put(_ t: String, _ k: Int) {
         let times = eClampI(k, 0, 6)
         if times == 0 { return }
         for _ in 0..<times {
             let id = nid()
-            if let x = placeFix(t, c, out, nil, id) { out.append(x) }
+            if let x = placeFix(t, c, out, nil, id) { out.append(x); continue }
+            let id2 = nid()
+            if let x = placeFix(t, bare, out, nil, id2) { out.append(x) }
         }
     }
-    put("bath", f.bath); put("sh", f.shower); put("wc", f.wc); put("bs", f.basin); put("sink", f.sink); put("wm", f.wm); put("dw", f.dw)
-    put("wh", f.wh); put("gb", f.gb)
+    put("bath", f.bath); put(f.cabin ? "cab" : "sh", f.shower); put("wc", f.wc); put(f.small ? "bsm" : "bs", f.basin); put("sink", f.sink)
+    put("wm", f.wm); put("dw", f.dw)
+    put("wh", f.wh); put("gb", f.gb); put("tr", f.tr)
     if f.rad > 0 {
         let w = c.wall("C") ?? c.g.walls[c.g.walls.count - 1]
         let secs = max(3, tInt((Double(radSections(c.areaM2)) / Double(f.rad)).rounded(.up)))
@@ -634,6 +642,18 @@ func freeFixes(_ f: PlFree, _ c: PCtx) -> [PlFix] {
 }
 
 /// A kit's counts for a room typed by size.
+/// What a typed room's counts ask for that does not fit in it (type and how many), e.g. a 1,7 m bath in a 1,2 m room.
+func pFreeMissing(_ f: PlFree, _ placed: [PlFix]) -> [(String, Int)] {
+    let want: [(String, Int)] = [("bath", f.bath), (f.cabin ? "cab" : "sh", f.shower), ("wc", f.wc), (f.small ? "bsm" : "bs", f.basin), ("sink", f.sink),
+                                 ("wm", f.wm), ("dw", f.dw), ("wh", f.wh), ("gb", f.gb), ("tr", f.tr)]
+    var out: [(String, Int)] = []
+    for (t, n) in want {
+        let miss = eClampI(n, 0, 6) - placed.filter { $0.t == t }.count
+        if miss > 0 { out.append((t, miss)) }
+    }
+    return out
+}
+
 func pFreeOf(_ k: PKit, _ o: POpts, _ id: String, _ name: String, _ L: Int, _ W: Int, _ H: Int) -> PlFree {
     let ts = kitTypes(k, o)
     func cnt(_ t: [String]) -> Int { ts.filter { t.contains($0) }.count }
@@ -641,6 +661,10 @@ func pFreeOf(_ k: PKit, _ o: POpts, _ id: String, _ name: String, _ L: Int, _ W:
     f.wc = cnt(["wc"]); f.basin = cnt(["bs", "bsm"]); f.bath = cnt(["bath"]); f.shower = cnt(["sh", "cab"])
     f.sink = cnt(["sink"]); f.wm = cnt(["wm"]); f.dw = cnt(["dw"]); f.wh = cnt(["wh"]); f.gb = cnt(["gb"])
     f.rad = o.rad ? 1 : 0; f.ufh = o.ufh; f.kit = k.id
+    // what the kit chose stays: a towel rail, a hand basin (cold only), a shower cabin
+    f.tr = cnt(["tr"])
+    f.small = cnt(["bsm"]) > 0 && cnt(["bs"]) == 0
+    f.cabin = cnt(["cab"]) > 0 && cnt(["sh"]) == 0
     return f
 }
 

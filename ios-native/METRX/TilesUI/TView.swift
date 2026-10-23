@@ -166,6 +166,8 @@ private struct TRoom3D: View {
         let pid = p.id, rid = r.id
         func full() -> Bool { (Store.shared.get(pid)?.rooms.first { $0.id == rid }?.views.count ?? 4) >= 4 }
         if taking { return }
+        // a double tap takes one picture, not two alike
+        if !app.once() { return }
         if full() { app.say("3d.max", kind: .error); return }
         taking = true
         shot.take { img in
@@ -269,12 +271,14 @@ private struct TRoomPlan: View {
                 guard let dr = drag else { return l }
                 var x = l; x.ox = dr.0; x.oy = dr.1; return x
             }
-            let floors = ls.filter { l in l.surfs.contains { $0.id == "floor" } }.map { l in l.id == live?.id ? live! : l }
+            // laid out once per change, not on every move of a drag: the dragged layout's tiles move with the finger until it lets go
+            let floors = ls.filter { l in l.surfs.contains { $0.id == "floor" } }
             let laid = cache.get(floors, g)
             GeometryReader { geo in
                 let fit = PlanFit(g.floor, geo.size)
+                let moved: (String, CGSize)? = TRoomPlan.moveOf(fl, drag, fit.k)
                 ZStack {
-                    Canvas { ctx, size in drawPlan(ctx, size, g, laid, fixes, live, fit) }
+                    Canvas { ctx, size in drawPlan(ctx, size, g, laid, fixes, live, fit, moved) }
                         .contentShape(Rectangle())
                         .gesture(DragGesture(minimumDistance: 2).onChanged { v in
                             guard let fl else { return }
@@ -301,14 +305,29 @@ private struct TRoomPlan: View {
         }
     }
 
-    private func drawPlan(_ ctx: GraphicsContext, _ size: CGSize, _ g: TRoomGeo, _ laid: [(TileLayout, Laid)], _ fixes: [TFix], _ live: TileLayout?, _ fit: PlanFit) {
+    /// How far the dragged layout's tiles have moved on the plan (points), while its start point is dragged.
+    static func moveOf(_ fl: TileLayout?, _ drag: (Int, Int)?, _ k: Double) -> (String, CGSize)? {
+        guard let fl, let dr = drag else { return nil }
+        let dx = Double(dr.0 - fl.ox) * k, dy = Double(dr.1 - fl.oy) * k
+        return (fl.id, CGSize(width: dx, height: dy))
+    }
+
+    private func drawPlan(_ ctx: GraphicsContext, _ size: CGSize, _ g: TRoomGeo, _ laid: [(TileLayout, Laid)], _ fixes: [TFix], _ live: TileLayout?, _ fit: PlanFit,
+                          _ moved: (String, CGSize)?) {
         let outline = Path { pth in
             let o = g.floor.map { fit.at($0) }
             if let f = o.first { pth.move(to: f); for q in o.dropFirst() { pth.addLine(to: q) }; pth.closeSubpath() }
         }
         ctx.fill(outline, with: .color(Color(argb: 0xFFE9EDF3)))
+        let clip = outline.cgPath
         ctx.withCGContext { cg in
-            for (l, ld) in laid { drawLaid(cg, ld, l, { _ in { q in fit.at(q) } }, ld.pieces.count < 500, outline: true) }
+            for (l, ld) in laid {
+                let move: CGSize? = moved.flatMap { $0.0 == l.id ? $0.1 : nil }
+                if let move { cg.saveGState(); cg.addPath(clip); cg.clip(); cg.translateBy(x: move.width, y: move.height) }
+                if ld.pieces.count > MAX_DRAWN_2D { drawLaidCapped(cg, ld, l, { _ in { q in fit.at(q) } }, outline: true) }
+                else { drawLaid(cg, ld, l, { _ in { q in fit.at(q) } }, ld.pieces.count < 500, outline: true) }
+                if move != nil { cg.restoreGState() }
+            }
         }
         ctx.stroke(outline, with: .color(Color(argb: 0xFF0E1C36)), style: StrokeStyle(lineWidth: 5, lineJoin: .miter))
         // doors and windows on the walls
@@ -392,6 +411,8 @@ private struct TLayoutCard: View {
     private func delete() {
         guard let before = Store.shared.get(p.id) else { return }
         let id = l.id, pid = p.id
+        // a second tap finds it gone: nothing more is deleted and no other page is left
+        if !before.tiles.contains(where: { $0.id == id }) { return }
         Store.shared.update(pid) { pr in pr.tiles.removeAll { $0.id == id } }
         if l.roomId == nil { app.pop() }
         app.say("tl.deleted", action: "common.undo") { Store.shared.update(pid) { $0 = before } }
@@ -400,7 +421,7 @@ private struct TLayoutCard: View {
 
 /// What a layout covers, in words: "Pol, devor A, B (1,5 m gacha)".
 private func surfText(_ l: TileLayout) -> String {
-    if l.roomId == nil, let pn = l.panel { return Geo.fmtLen(pn.a, .m, en) + " × " + Geo.fmtLen(pn.b, .m, en) + " m" }
+    if l.roomId == nil, let pn = l.panel { return Geo.fmtLen(pn.a, .m, en) + " × " + Geo.fmtLen(pn.b, .m, en) + U_M }
     let parts: [String] = l.surfs.map { s in
         var t: String
         if s.id == "floor" { t = tr("tl.pk.floor") }
@@ -463,7 +484,7 @@ private struct TExtras: View {
         TSwRow(title: tr("tl.skirt"), sub: tr("tl.skirtS"), on: on) { all(floors) { $0.skirt = on ? 0 : 100 } }
         if on {
             FlowLayout(spacing: 8) {
-                ForEach([80, 100, 120], id: \.self) { h in FChip(label: "\(h) mm", on: floors.first?.skirt == h) { all(floors) { $0.skirt = h } } }
+                ForEach([80, 100, 120], id: \.self) { h in FChip(label: "\(h)" + U_MM, on: floors.first?.skirt == h) { all(floors) { $0.skirt = h } } }
             }
             .padding(.horizontal, 14).padding(.vertical, 4)
         }
@@ -473,7 +494,7 @@ private struct TExtras: View {
         T(tr("tl.showerH"), ui(13, 600, G.ink2)).padding(.horizontal, 14)
         FlowLayout(spacing: 8) {
             ForEach([1800, 2000, 2200], id: \.self) { h in
-                FChip(label: Geo.fmtLen(h, .m, en) + " m", on: tr0.showerH == h) { updateTileRoom(p.id, r.id) { $0.showerH = h } }
+                FChip(label: Geo.fmtLen(h, .m, en) + U_M, on: tr0.showerH == h) { updateTileRoom(p.id, r.id) { $0.showerH = h } }
             }
         }
         .padding(.horizontal, 14).padding(.vertical, 4)

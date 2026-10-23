@@ -447,6 +447,22 @@ func freeStretch(_ c: ECtx, _ w: TWall, _ h: Int) -> (Double, Double)? {
     return eMaxBy(out) { $0.1 - $0.0 }
 }
 
+/// How many points kit k (with choices o) asks for in room c (its spots by the ceiling's grid).
+func kitWanted(_ k: ElecKit, _ c: ECtx, _ o0: KitOpts? = nil) -> Int {
+    let o = o0 ?? defaultOpts(k)
+    var s = 0
+    for i in kitItems(k, o) {
+        switch i.at {
+        case "spots": s += spotGrid(c).count
+        case "row": s += rowOf(c, i.n).count
+        case "bed", "pair": s += min(i.n, 2)
+        case "main", "work", "corner": s += i.n
+        default: s += 1
+        }
+    }
+    return s
+}
+
 /* ---------------- a room typed by size ---------------- */
 
 /// A typed room's devices from its counts: switches by the door, sockets round the walls, lights over the ceiling.
@@ -463,20 +479,26 @@ func freeDevs(_ f: ElecFree, _ c: ECtx) -> [ElecDev] {
     }
     let ws = c.g.walls.filter { $0.id != "A" } + [a]
     var k = 0
+    // a bathroom's sockets are splash-proof ones
+    let st = c.kind == "bath" ? "sw" : "s1"
+    let sh = usualH(st, c.H, c.kind)
     for _ in 0..<eClampI(f.sock, 0, 60) {
         let w = ws[k % ws.count]
         let slot = k / ws.count
         k += 1
         let prefer = w.len * Double(slot % 3 + 1) / 4
-        if let x = spotOn(w, prefer, 300, 86, 86, blocksOn(c, w.id, "s1", out)) {
-            out.append(ElecDev(id: nid(), t: "s1", roomId: c.id, wall: w.id, off: x, h: 300))
+        if let x = spotOn(w, prefer, sh, 86, 86, blocksOn(c, w.id, st, out)) {
+            out.append(ElecDev(id: nid(), t: st, roomId: c.id, wall: w.id, off: x, h: sh))
         }
     }
-    let hp = absH(-300, c.H)
+    // each power point as its kit had it (a stove's on its 32 A line, a water heater's high), at its usual height
     for i in 0..<eClampI(f.power, 0, 10) {
+        let t = i < f.powers.count ? f.powers[i] : "pac"
+        let hp = usualH(t, c.H, c.kind)
         let w = ws[(i + 1) % ws.count]
-        if let x = spotOn(w, w.len - 400, hp, 86, 86, blocksOn(c, w.id, "pac", out)) {
-            out.append(ElecDev(id: nid(), t: "pac", roomId: c.id, wall: w.id, off: x, h: hp))
+        let shift: Double = t == "pac" ? 0 : 700.0 * Double(i % 2)
+        if let x = spotOn(w, w.len - 400 - shift, hp, 86, 86, blocksOn(c, w.id, t, out)) {
+            out.append(ElecDev(id: nid(), t: t, roomId: c.id, wall: w.id, off: x, h: hp))
         }
     }
     let all = c.g.walls
@@ -509,6 +531,11 @@ func freeOf(_ k: ElecKit, _ o: KitOpts, _ id: String, _ name: String, _ L: Int, 
     e.low = cnt { devType($0.t).cat == "low" }
     e.power = cnt { devType($0.t).cat == "sock" && devType($0.t).group != "sock" }
     e.kit = k.id
+    var pw: [String] = []
+    for it in items where devType(it.t).cat == "sock" && devType(it.t).group != "sock" {
+        for _ in 0..<max(0, it.n) { pw.append(it.t) }
+    }
+    e.powers = pw
     return e
 }
 

@@ -51,6 +51,10 @@ func pWarningsOf(_ p: Project, _ cs: [PCtx], _ rt: PRoutes) -> [PWarn] {
         all += pts
         out += fixWarnings(c, fs, pts)
         for f in fs { typeOf[f.id] = f.t }
+        // a typed room too small for what it was given
+        if let fr = c.free {
+            for (t, n) in pFreeMissing(fr, fs) { out.append(PWarn(key: "sx.w.noFit", roomId: c.id, target: nil, vars: ["t": "~sx.t." + t, "n": "\(n)"])) }
+        }
     }
     for d in rt.drains {
         let who = d.pt.fix ?? d.pt.id
@@ -65,9 +69,28 @@ func pWarningsOf(_ p: Project, _ cs: [PCtx], _ rt: PRoutes) -> [PWarn] {
             out.append(PWarn(key: "sx.w.long", roomId: d.pt.roomId, target: who, vars: ["m": pM1(d.horiz), "x": pM1(Double(p.plumb.drainMax))]))
         }
     }
-    if rt.riser == nil && !all.isEmpty { out.append(PWarn(key: "sx.w.noRiser", roomId: nil, target: nil)) }
+    // heating alone (radiators, underfloor) needs no riser: only water or a drain does
+    if rt.riser == nil && all.contains(where: { $0.t == "cold" || $0.t == "drain" }) { out.append(PWarn(key: "sx.w.noRiser", roomId: nil, target: nil)) }
     if rt.riser != nil && rt.hot == nil && all.contains(where: { $0.t == "hot" }) { out.append(PWarn(key: "sx.w.noHot", roomId: nil, target: nil)) }
     let heating = all.contains { $0.t == "hs" || $0.t == "hr" } || cs.contains { $0.pr.ufh }
     if rt.heat == nil && heating { out.append(PWarn(key: "sx.w.noBoiler", roomId: nil, target: nil)) }
     return out
+}
+
+/// The order's riser while its room is there (a riser left on a deleted room counts as none).
+func liveRiser(_ p: Project) -> PlRiser? {
+    guard let r = p.plumb.riser, p.rooms.contains(where: { $0.id == r.roomId }) else { return nil }
+    return r
+}
+
+/// Whether order p has water or a drain to bring (a cold or drain outlet): a heating-only order needs no riser.
+func needsRiser(_ p: Project) -> Bool {
+    let wet: (String) -> Bool = { $0 == "cold" || $0 == "drain" }
+    if p.plumb.fixes.contains(where: { f in fixPoints(f).contains { wet($0.t) } }) { return true }
+    if p.plumb.points.contains(where: { wet($0.t) }) { return true }
+    return p.plumb.free.contains { f in
+        let a = f.wc + f.basin + f.bath + f.shower + f.sink
+        let b = f.wm + f.dw + f.wh + f.gb
+        return a + b > 0
+    }
 }

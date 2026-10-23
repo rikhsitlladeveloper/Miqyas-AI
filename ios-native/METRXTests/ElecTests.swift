@@ -213,7 +213,12 @@ final class ElecTests: XCTestCase {
         XCTAssertTrue((r.mats + r.labor).allSatisfy { $0.id.hasPrefix("t-") })
         let cab = r.mats.filter { $0.name.hasPrefix("el.e.cab") }
         XCTAssertEqual(cab.count, 3)
-        XCTAssertTrue(cab.allSatisfy { (Int($0.qty) ?? 1) % 100 == 0 })
+        // a short run is bought by the metre (a whole 100 m coil only from 50 m)
+        XCTAssertTrue(cab.allSatisfy { $0.name.hasPrefix("el.e.cabM") && (1..<COIL_FROM).contains(Int($0.qty) ?? 0) })
+        var withSpare: [String: Double] = [:]
+        for n in calcOf(p, true).count.cables { withSpare[n.type] = n.withSpare }
+        let six = ((withSpare["6"] ?? 0) - 1e-9).rounded(.up)
+        XCTAssertEqual(r.mats.first { $0.id == "t-cab6" }.flatMap { Int($0.qty) }, Int(six))
         XCTAssertTrue(r.mats.contains { $0.name == "el.e.brk|a=32" && $0.qty == "1" })
         XCTAssertTrue(r.mats.contains { $0.name == "el.e.rcd" && $0.qty == "1" })
         XCTAssertTrue(r.mats.contains { $0.name.hasPrefix("el.e.panel") && $0.price == "\(12000 * 12)" })

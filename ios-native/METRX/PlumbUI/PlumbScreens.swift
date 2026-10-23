@@ -131,7 +131,8 @@ struct PRoomsTab: View {
                     .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
             }
             if !calc.ctxs.isEmpty { PSOrderCard(app: app, p: p, calc: calc) }
-            ForEach(p.floors) { w in PSRoomCard(app: app, p: p, w: w, calc: calc) }
+            // every room of each workspace (an older project may have several in one), a workspace without one once
+            ForEach(wsRooms(p)) { s in PSRoomCard(app: app, p: p, w: s.w, room: s.room, several: s.several, calc: calc) }
             // rooms typed by size, without a plan
             if !p.plumb.free.isEmpty { freeCard }
             HStack(spacing: 8) {
@@ -147,8 +148,15 @@ struct PRoomsTab: View {
         }
         .padding(.horizontal, 16).padding(.top, 12)
         // kits chosen before a room was measured go in now that it is
-        .onAppear { applyPPending(app, pid) }
-        .onChange(of: p.rooms) { _, _ in applyPPending(app, pid) }
+        // the rooms' water and drain marks are taken in as outlets here too (not only when a room's page opens), so the
+        // order's counts, its next step and the PDF have them
+        .onAppear { takeInAllPlumb(pid); applyPPending(app, pid) }
+        .onChange(of: p.rooms) { _, _ in takeInAllPlumb(pid); applyPPending(app, pid) }
+    }
+
+    private func takeInAllPlumb(_ pid: String) {
+        guard let p = Store.shared.get(pid) else { return }
+        for r in p.rooms { takeInPlumbPoints(pid, r.id) }
     }
 
     private var freeCard: some View {
@@ -176,7 +184,7 @@ private struct PSFreeLine: View {
     let f: PlFree
     let action: () -> Void
     var body: some View {
-        let size: String = Geo.fmtLen(f.L, .m, psEn) + " × " + Geo.fmtLen(f.W, .m, psEn) + " m · "
+        let size: String = Geo.fmtLen(f.L, .m, psEn) + " × " + Geo.fmtLen(f.W, .m, psEn) + U_M + " · "
         let cnt = tr("sx.freeCnt", ["n": freeCount(f), "m": Geo.fmtLen(f.link, .m, psEn)])
         let nm: String = f.name.trimmingCharacters(in: .whitespaces).isEmpty ? tr(pKindKey(f.kind)) : f.name
         HStack(spacing: 10) {
@@ -203,10 +211,11 @@ private struct PSRoomCard: View {
     let app: AppModel
     let p: Project
     let w: Workspace
+    let room: Room?
+    var several = false
     let calc: PlumbCalc
     var body: some View {
         let snap = AppSettings.shared.angleSnap
-        let room = p.rooms.first { $0.floorId == w.id }
         let ready = room.map { Geo.ready3D($0, snap) } ?? false
         let fs: [PlFix] = room.map { r in p.plumb.fixes.filter { $0.roomId == r.id } } ?? []
         let er = room.map { p.plumb.room($0.id) }
@@ -232,7 +241,7 @@ private struct PSRoomCard: View {
         let a = room?.dim("A").v, b = room?.dim("B").v, h = room?.dim("H").v
         if ready, let a, let b, room?.isPoly != true {
             let hs: String = h.map { " · h " + Geo.fmtLen($0, .m, psEn) } ?? ""
-            return Geo.fmtLen(a, .m, psEn) + " × " + Geo.fmtLen(b, .m, psEn) + " m" + hs
+            return Geo.fmtLen(a, .m, psEn) + " × " + Geo.fmtLen(b, .m, psEn) + U_M + hs
         }
         if ready { return tr("tl.measured") }
         return tr(room != nil ? "fo.notMeasured" : "fo.notDrawn")
@@ -248,7 +257,7 @@ private struct PSRoomCard: View {
             .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(Color.white.opacity(Theme.shared.dark ? 0.1 : 0.8)))
             .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
             VStack(alignment: .leading, spacing: 1) {
-                T(floorName(w), ui(16, 700), lines: 1)
+                T(wsRoomTitle(w, room, several), ui(16, 700), lines: 1)
                 T(sub, ui(12.5, 400, G.ink2), lines: 1)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -296,7 +305,7 @@ private struct PSOrderCard: View {
     let p: Project
     let calc: PlumbCalc
     var body: some View {
-        let rs = p.plumb.riser
+        let rs = liveRiser(p)
         let rr = rs.flatMap { x in p.rooms.first { $0.id == x.roomId } }
         let riserSub: String = {
             guard let rs, let rr else { return tr("el.panelNone") }
@@ -317,7 +326,7 @@ private struct PSOrderCard: View {
     }
 
     private func riserTap() {
-        if let rs = p.plumb.riser { app.push(.pView(pid: p.id, rid: rs.roomId)); return }
+        if let rs = liveRiser(p) { app.push(.pView(pid: p.id, rid: rs.roomId)); return }
         if let d = defaultRiser(p, AppSettings.shared.angleSnap) {
             updatePlumb(p.id) { $0.riser = d }
             app.push(.pView(pid: p.id, rid: d.roomId)); app.say("sx.riserSet")
@@ -326,7 +335,7 @@ private struct PSOrderCard: View {
 
     private func warnTap() {
         let first = calc.warns.first(where: { $0.roomId != nil })?.roomId
-        let rid = first ?? p.plumb.riser?.roomId ?? calc.ctxs.first?.id
+        let rid = first ?? liveRiser(p)?.roomId ?? calc.ctxs.first?.id
         if let rid { app.push(.pView(pid: p.id, rid: rid)) }
     }
 }
@@ -376,7 +385,7 @@ struct PNextStep: View {
         let undrawn = p.floors.first { w in !p.rooms.contains { $0.floorId == w.id } }
         let unmeasured = rooms.first { wr in Geo.stepKeys(wr.1, snap).contains { wr.1.dim($0).status != "conf" } }
         let bare = rooms.first { wr in isBare(wr.1, snap) }
-        let made = p.estimate.materials.contains { $0.id.hasPrefix("t-") }
+        let made = madeBy(p, "sx.e.")
         if p.floors.isEmpty && p.plumb.free.isEmpty {
             return Step(title: tr("el.ns.pickT"), sub: tr("sx.ns.pickS"), button: tr("ns.needB")) { app.push(.pGallery(pid: pid)) }
         }
@@ -389,7 +398,7 @@ struct PNextStep: View {
             let (w, r) = b
             return Step(title: tr("sx.ns.roomT", ["r": floorName(w)]), sub: tr("sx.ns.roomS"), button: tr("ns.needB")) { app.push(.pGallery(pid: pid, rid: r.id)) }
         }
-        if p.plumb.riser == nil && !p.plumb.fixes.isEmpty {
+        if liveRiser(p) == nil && needsRiser(p) {
             return Step(title: tr("sx.ns.riserT"), sub: tr("sx.ns.riserS"), button: tr("el.ns.panelB")) {
                 guard let cur = Store.shared.get(pid), let d = defaultRiser(cur, snap) else { return }
                 updatePlumb(pid) { $0.riser = d }
@@ -479,7 +488,7 @@ struct PlumbCard: View {
     var body: some View {
         let lang = AppSettings.shared.lang
         let c = PlumbCalcCache.shared.of(p).count
-        let made = p.estimate.materials.contains { $0.id.hasPrefix("t-") } || p.estimate.labor.contains { $0.id.hasPrefix("t-") }
+        let made = madeBy(p, "sx.e.")
         let can = c.points > 0 || c.ufhM > 0
         VStack(alignment: .leading, spacing: 8) {
             T(tr("sx.cardT"), ui(16, 800))
@@ -520,7 +529,7 @@ struct PCountCard: View {
     }
 
     private func drainValue(_ m: Double, _ bends: Int, _ tees: Int) -> String {
-        d1(m) + " m · " + tr("sx.c.bends", ["n": bends, "t": tees])
+        d1(m) + U_M + " · " + tr("sx.c.bends", ["n": bends, "t": tees])
     }
 
     var body: some View {
@@ -540,7 +549,7 @@ struct PCountCard: View {
             EKv(k: tr("sx.e.ball"), v: "\(c.balls)")
             if c.meters > 0 { EKv(k: tr("sx.c.riser"), v: tr("sx.c.riserV", ["n": c.meters])) }
             if c.manifolds > 0 { EKv(k: tr("sx.t.manif"), v: tr("sx.c.loops", ["n": c.loops, "m": d1(c.ufhM)])) }
-            if c.chaseM > 0 { EKv(k: tr("sx.c.chase"), v: d1(c.chaseM) + " m") }
+            if c.chaseM > 0 { EKv(k: tr("sx.c.chase"), v: d1(c.chaseM) + U_M) }
             EKv(k: tr("sx.points"), v: "\(c.points)")
         }
         .padding(14)

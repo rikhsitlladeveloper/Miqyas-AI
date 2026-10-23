@@ -437,13 +437,27 @@ struct Scene3D<Overlay: View>: View {
         ZStack {
             Scene3DView(shell: shell, key: key, baseKey: baseKey, cam: cam, shot: shot, onTap: onTap)
             let _ = cam.tick
-            ForEach(points.indices, id: \.self) { i in
-                if let p = cam.project(points[i]) { label(i).position(p) }
+            // kept inside the picture, under the buttons along its top (a wall letter must not sit on the tabs above or under a button)
+            GeometryReader { geo in
+                ForEach(points.indices, id: \.self) { i in
+                    if let p = cam.project(points[i]) { label(i).position(lbl3DAt(p, geo.size)) }
+                }
             }
+            .clipped()
             overlay
         }
         .background(Color(uiColor: uiColor(BG3D)))
     }
+}
+
+/// Where a label's centre goes: its point, kept inside a picture of size s (a margin at the sides and the bottom, the
+/// buttons' band along the top).
+private func lbl3DAt(_ p: CGPoint, _ s: CGSize) -> CGPoint {
+    let hw: CGFloat = 16, hh: CGFloat = 14, pad: CGFloat = 4, top: CGFloat = 56
+    let x = min(max(p.x, pad + hw), max(pad + hw, s.width - pad - hw))
+    let yLo = min(top + hh, max(hh, s.height - hh))
+    let y = min(max(p.y, yLo), max(top + hh, s.height - pad - hh))
+    return CGPoint(x: x, y: y)
 }
 
 /// A wall letter or a room name over the picture (prototype .three .lbl).

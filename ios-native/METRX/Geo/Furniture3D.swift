@@ -388,7 +388,8 @@ private final class FBuilder {
     /// A wardrobe: sides (none at a wall), top and bottom, plinth, dividers, backs, inside, doors.
     /// A vanity's basin on its top, the tap behind it.
     func basin(_ w: WallBasis, _ m: Module) {
-        let top = Double(legsOf(m, ws) + m.h)
+        // a wall-hung vanity's top is its height above the floor up
+        let top = Double(m.elev + legsOf(m, ws) + m.h)
         let mid = Double(m.x) + Double(m.w) / 2, bw = min(500, Double(m.w) - 120), bd = min(380, Double(m.d) - 80)
         guard bw >= 200, bd >= 200 else { return }
         let n0 = (Double(m.d) - bd) / 2 + 20

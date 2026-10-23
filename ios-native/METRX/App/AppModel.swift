@@ -185,6 +185,8 @@ final class AppModel {
     var dir = 1
     var sheet: Sheet? = nil
     var toast: ToastMsg? = nil
+    /// The orders list's filter (active, done, all, other trades): kept while an order is opened, changed or deleted.
+    var ordersSeg = "active"
     var auth: [AuthStep] = []
     var authFromProfile = false
     var editMe = false
@@ -277,6 +279,11 @@ final class AppModel {
             if keep.count != st.count { stacks[t] = keep }
         }
         if MeasureCalc.shared.tool == "sheet" { MeasureCalc.shared.tool = "area" }
+    }
+
+    /// The trade changed (Profile → Soha): the other tabs go back to their first page, so no order of the old trade stays open there.
+    func dropRole() {
+        for (t, st) in stacks where t != tab && st.count > 1 { stacks[t] = [.root] }
     }
 
     /// Back until a page that matches (or the first page).

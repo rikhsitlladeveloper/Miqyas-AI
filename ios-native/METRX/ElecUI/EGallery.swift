@@ -463,7 +463,7 @@ struct EStepsScreen: View {
                             }
                             stepBody(p, k, step)
                         }
-                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 120)
+                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 168)
                     }
                     .scrollDismissesKeyboard(.interactively)
                 }
@@ -552,7 +552,7 @@ struct EStepsScreen: View {
         let ready = measuredRoom(r, snap)
         if ready && !r.isPoly {
             let a = Geo.fmtLen(r.dim("A").v, .m, en), b = Geo.fmtLen(r.dim("B").v, .m, en)
-            return a + " × " + b + " m"
+            return a + " × " + b + U_M
         }
         return tr(ready ? "tl.measured" : "el.s.later")
     }
@@ -582,9 +582,9 @@ struct EStepsScreen: View {
             app.push(.eView(pid: pid, rid: "free:" + f.id))
             app.say("el.kitAdded", ["n": kitName])
         case "new":
-            let base = tr(eKindKey(k.kind))
-            let cnt = p.floors.filter { $0.name.hasPrefix(base) }.count
-            let nrid = addElecRoom(pid, k.kind, cnt > 0 ? "\(base) \(cnt + 1)" : base)
+            // the suggested name kept as its key, so it follows the language
+            let key = eKindKey(k.kind)
+            let nrid = addElecRoom(pid, k.kind, suggestedName(nextName(p, key), key))
             let pick = pickOf(k, o)
             updateERoom(pid, nrid) { $0.pend.append(pick) }
             app.popTo(toProject)
@@ -594,9 +594,11 @@ struct EStepsScreen: View {
             guard let r = p.rooms.first(where: { $0.id == wher }) else { return }
             app.popTo(toProject)
             if Geo.ready3D(r, AppSettings.shared.angleSnap) {
+                let want = ctxOf(p, r.id, AppSettings.shared.angleSnap).map { kitWanted(k, $0, o) } ?? 0
                 let got = applyKit(pid, r.id, k, o)
                 app.push(.eView(pid: pid, rid: r.id))
-                app.say("el.kitPlaced", ["n": got])
+                // fewer than the kit has: the room had no clear place for the rest (doors, windows, water)
+                if got < want { app.say("el.kitFewer", ["n": got, "m": want], kind: .info) } else { app.say("el.kitPlaced", ["n": got]) }
             } else {
                 let pick = pickOf(k, o)
                 updateERoom(pid, r.id) { $0.pend.append(pick) }

@@ -36,7 +36,8 @@ func costOf(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], order
     var lines: [CostLine] = []
     func mat(_ id: String) -> Mat? { mats.first { $0.id == id } }
     for l in lays {
-        let p = money(mat(l.mat)?.price), n = l.sheets.count
+        // a part longer than the sheet is not left out of the price: a sheet of its own each (bought longer or joined)
+        let p = money(mat(l.mat)?.price), n = l.sheets.count + l.unplaced.count
         lines.append(CostLine(group: "mat", key: l.mat, qty: Double(n), unit: "sheet", price: p ?? 0, amount: (p ?? 0) * Decimal(n), missing: p == nil))
     }
     // kitchens: the worktop as one simple item by the running metre (plan section 7; joints and cut-outs in Stage 1b)
@@ -71,7 +72,7 @@ func costOf(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], order
         let amount = area ? roundHalfUp((p ?? 0) * Decimal(string: String(format: "%.2f", q))!) : (p ?? 0) * Decimal(Int(q.rounded(.up)))
         lines.append(CostLine(group: "hw", key: hw?.id ?? k, qty: q, unit: hwUnit(k), price: p ?? 0, amount: amount, missing: p == nil))
     }
-    let sheets = lays.reduce(0) { $0 + $1.sheets.count }
+    let sheets = lays.reduce(0) { $0 + $1.sheets.count + $1.unplaced.count }
     let modules = fs.reduce(0) { a, f in a + f.modules.reduce(0) { $0 + ($1.type == "wardrobe" ? max(1, $1.sections.count) : 1) } }
     func lab(_ key: String, _ q: Double, _ unit: String, _ rate: String) {
         let r = money(rate) ?? 0

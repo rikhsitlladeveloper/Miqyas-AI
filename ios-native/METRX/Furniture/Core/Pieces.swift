@@ -86,7 +86,7 @@ func packPiece(_ f: Furniture, _ lenA: Int? = nil, changed: String? = nil, ws: W
     if CORNER_TYPES.contains(f.type) { return cornerFit(f, lenA) }
     if f.type == "stenka" { return stenkaPack(f) }
     if STACK_TYPES.contains(f.type) { return stackPack(f, changed, ws) }
-    if f.type == "loft" { return loftPack(f, ws) }
+    if f.type == "loft" { return loftPack(f, ws, changed) }
     if f.modules.contains(where: { $0.type == "mirror" }) { return mirrorPack(f, ws) }
     return f
 }
@@ -123,7 +123,7 @@ func cornerFit(_ f: Furniture, _ lenA: Int?) -> Furniture {
     return g
 }
 
-/// A stenka: the floor pieces side by side in their order; each hung shelf centred over the floor piece before it.
+/// A stenka: the floor pieces side by side in their order; each hung shelf centred over the low piece nearest it in the list.
 func stenkaPack(_ f: Furniture) -> Furniture {
     let bs = boxes(f)
     if bs.isEmpty { return f }
@@ -131,10 +131,8 @@ func stenkaPack(_ f: Furniture) -> Furniture {
     var x = floor.map(\.x).min() ?? W_GAP_SIDE
     var xs: [String: Int] = [:]
     for m in floor { xs[m.id] = x; x += m.w }
-    var under: Module? = floor.first
-    for m in bs {
-        if !hung(m) { under = m }
-        else if let u = under, let ux = xs[u.id] { xs[m.id] = ux + (u.w - m.w) / 2 }
+    for (i, m) in bs.enumerated() where hung(m) {
+        if let u = stenkaUnder(bs, i), let ux = xs[u.id] { xs[m.id] = ux + (u.w - m.w) / 2 }
     }
     let pos = xs
     var g = f
@@ -144,6 +142,36 @@ func stenkaPack(_ f: Furniture) -> Furniture {
         return n
     }
     return g
+}
+
+/// A stenka's floor piece lower than this is a low one (a shelf may hang over it); taller ones are its tall cabinets.
+let STENKA_TALL = 1200
+
+/// The floor piece the stenka's shelf at i (of its boxes bs) hangs over: the low piece nearest it in the list (the
+/// one before it first), never a tall cabinet; with no low piece, the floor piece before it.
+func stenkaUnder(_ bs: [Module], _ i: Int) -> Module? {
+    let low = bs.indices.filter { !hung(bs[$0]) && bs[$0].h < STENKA_TALL }
+    let j = low.min { a, b in
+        let ka = abs(a - i) * 2 + (a < i ? 0 : 1)
+        let kb = abs(b - i) * 2 + (b < i ? 0 : 1)
+        return ka < kb
+    }
+    if let j { return bs[j] }
+    let before = Array(bs.prefix(max(0, i)))
+    return before.last(where: { !hung($0) }) ?? bs.first(where: { !hung($0) })
+}
+
+/// Where a new shelf goes in a stenka's modules bs when the one at cur is picked: just after the low piece nearest it (else after it).
+func stenkaShelfAt(_ bs: [Module], _ cur: Int) -> Int {
+    let low = bs.indices.filter { isBox(bs[$0]) && !hung(bs[$0]) && bs[$0].h < STENKA_TALL }
+    guard let j = low.min(by: { abs($0 - cur) < abs($1 - cur) }) else { return cur < 0 ? bs.count : cur + 1 }
+    return j + 1
+}
+
+/// A stenka's floor piece can be taken away only while another one stays (the shelves hang over them).
+func canDropBox(_ f: Furniture, _ m: Module) -> Bool {
+    let bs = boxes(f)
+    return bs.count > 1 && (hung(m) || bs.filter { !hung($0) }.count > 1)
 }
 
 /// A box on another: the upper one as wide as the lower and on it; the one just changed leads.
@@ -169,17 +197,21 @@ func stackPack(_ f: Furniture, _ changed: String?, _ ws: Workshop) -> Furniture 
     return g
 }
 
-/// A loft bed: the desk or wardrobe under it at the end away from the ladder, under its platform, inside its frame.
-func loftPack(_ f: Furniture, _ ws: Workshop) -> Furniture {
+/// A loft bed: the desk or wardrobe under it at the end away from the ladder, under its platform, inside its frame. When
+/// the bed itself changed (changed its id) the under-part takes its usual size again where the frame allows (it grows
+/// back as well as shrinks); a change to the under-part only keeps it inside the frame.
+func loftPack(_ f: Furniture, _ ws: Workshop, _ changed: String? = nil) -> Furniture {
     guard let bed = f.modules.first(where: { $0.type == "loft" }) else { return f }
     let t = ws.t
     let o = bed.opt ?? ItemOpt()
+    let usual: Module? = changed == bed.id ? loftUnder(o.under, ws, bed) : nil
     var g = f
     g.modules = f.modules.map { m in
         guard m.type == "wardrobe" else { return m }
-        let w = min(m.w, bed.w - 2 * t - 10), d = min(m.d, frameD(bed) - 2 * t)
         let room = upperDeck(bed) - 160 - (m.legs ? legsOf(m, ws) : 0)
-        let h = min(m.h, room)
+        let w = min(usual?.w ?? m.w, bed.w - 2 * t - 10)
+        let d = min(usual?.d ?? m.d, frameD(bed) - 2 * t)
+        let h = min(usual?.h ?? m.h, room)
         let x = o.ladder == "R" ? bed.x + t + 5 : bed.x + bed.w - t - 5 - w
         var n = m
         n.x = x; n.w = w; n.d = d; n.h = h; n.wall = bed.wall
@@ -253,9 +285,9 @@ private func stenka(_ ws: Workshop, _ w: Int, _ h: Int, _ d: Int) -> [Module] {
     return out
 }
 
-/// A corner unit d + 400 wide: a door beside its blind part (the other arm closes it), a rail and a shelf inside.
-private func cornerUnit(_ ws: Workshop, _ x: Int, _ h: Int, _ d: Int) -> Module {
-    let cw = d + 400
+/// A corner unit cw wide (usually d + 400): a door beside its blind part (the other arm closes it), a rail and a shelf inside.
+private func cornerUnit(_ ws: Workshop, _ x: Int, _ h: Int, _ d: Int, _ cw0: Int? = nil) -> Module {
+    let cw = cw0 ?? d + 400
     var base = Module(id: uid(), type: "wardrobe", w: cw, h: h, d: d, x: x, wall: "A", legs: false)
     let ih = wardInnerH(base, ws.t)
     let rail = min(ih - 420, 1800 - wardBase(base) - ws.t)
@@ -268,8 +300,13 @@ private func cornerWard(_ ws: Workshop, _ w: Int, _ w2: Int, _ h: Int, _ d: Int)
     let cw = d + 400
     var out: [Module] = []
     let aw = w - cw
-    if aw >= 300 { out.append(wardrobeTemplate(ws, "A", W_GAP_SIDE, aw, h, builtIn: false, d: d)) }
-    out.append(cornerUnit(ws, W_GAP_SIDE + max(0, aw), h, d))
+    // too short for a wardrobe beside the corner unit: the corner unit takes the whole typed length (its door narrower)
+    if aw >= 300 {
+        out.append(wardrobeTemplate(ws, "A", W_GAP_SIDE, aw, h, builtIn: false, d: d))
+        out.append(cornerUnit(ws, W_GAP_SIDE + aw, h, d))
+    } else {
+        out.append(cornerUnit(ws, W_GAP_SIDE, h, d, max(d + 300, w)))
+    }
     let bw = w2 - d
     if bw >= 300 { out.append(wardrobeTemplate(ws, "B", d, bw, h, builtIn: false, d: d)) }
     return out
@@ -278,7 +315,8 @@ private func cornerWard(_ ws: Workshop, _ w: Int, _ w2: Int, _ h: Int, _ d: Int)
 /// A corner desk: a desk along each wall, the knee space going round the corner (the second arm has no side there).
 private func cornerDesk(_ ws: Workshop, _ w: Int, _ w2: Int, _ h: Int, _ d: Int) -> [Module] {
     let a = cabinetTemplate("desk", ws, "A", W_GAP_SIDE, w, h, d)
-    var b = cabinetTemplate("desk", ws, "B", d, max(450, w2 - d), h, d)
+    // the second arm keeps the typed length (the steps ask at least the deepest desk + 300)
+    var b = cabinetTemplate("desk", ws, "B", d, max(300, w2 - d), h, d)
     b.sections = Array(b.sections.reversed())
     b.sideL = false
     return [a, b]
@@ -414,9 +452,11 @@ func pieceVals(_ f: Furniture, _ ws: Workshop) -> [String: Int] {
     case "bar": return ["w": main.w, "h": main.h, "d": main.d]
     case "mirrorP": return ["w": main.w, "h": main.h]
     case "stenka":
-        let fl = bs.filter { !hung($0) }
-        let top: Int = fl.map { topOf($0, ws) }.max() ?? 0
-        let deep: Int = fl.map(\.d).max() ?? 0
+        // no floor piece left (an older order): the shelves' sizes, else the usual ones
+        let fl0 = bs.filter { !hung($0) }
+        let fl = fl0.isEmpty ? bs : fl0
+        let top: Int = fl.map { topOf($0, ws) }.max() ?? 2200
+        let deep: Int = fl.map(\.d).max() ?? 400
         return ["w": runLen(f), "h": top, "d": deep]
     case "cornerW", "cornerDesk":
         let w0: String? = f.walls.first
@@ -425,10 +465,10 @@ func pieceVals(_ f: Furniture, _ ws: Workshop) -> [String: Int] {
         let d = a.last?.d ?? main.d
         let wa: Int = a.reduce(0) { $0 + $1.w }
         let wb: Int = b.reduce(0) { $0 + $1.w }
-        let top: Int = bs.map { topOf($0, ws) }.max() ?? 0
+        let top: Int = bs.map { topOf($0, ws) }.max() ?? main.h
         return ["w": wa, "w2": d + wb, "h": top, "d": d]
     case "vitrina", "washer":
-        let top: Int = bs.map { topOf($0, ws) }.max() ?? 0
+        let top: Int = bs.map { topOf($0, ws) }.max() ?? main.h
         return ["w": main.w, "h": top, "d": main.d]
     default: return cabinetVals(f, main, ws)
     }

@@ -8,10 +8,34 @@ import Foundation
 func snapshotOf(_ p: Project, _ s: AppSettings = .shared, pdf: PdfParts? = nil) -> Snap {
     let sn = baseSnapshot(p, s, pdf: pdf)
     if p.isFurniture { return furnSnap(sn, p, s.workshop, s.mats, s.hws) }
-    if p.isElec { return elecSnap(sn, p, s.angleSnap) }
-    if p.isPlumb { return plumbSnap(sn, p, s.angleSnap) }
-    if p.isWin { return winSnap(sn, p, s.advanced ? s.trade.win : nil) }
+    if p.isElec { return withCalcRooms(elecSnap(sn, p, s.angleSnap), p) }
+    if p.isPlumb { return withCalcRooms(plumbSnap(sn, p, s.angleSnap), p) }
+    if p.isWin { return withCalcRooms(winSnap(sn, p, s.advanced ? s.trade.win : nil), p) }
+    if p.isTiler { return tileSnap(sn, p) }
     return sn
+}
+
+/// A tiler's order's part of the snapshot: its layouts and rooms' extras, for the layout drawings.
+func tileSnap(_ sn: Snap, _ p: Project) -> Snap {
+    if p.tiles.isEmpty { return sn }
+    var out = sn
+    out.tiles = p.tiles
+    out.troom = p.troom
+    return out
+}
+
+/// The rooms left out of the report, so a trade's circuits, pipes and windows are worked out with every room (only the ticked ones are drawn).
+func withCalcRooms(_ sn: Snap, _ p: Project) -> Snap {
+    let l = Lang.of(p.reportLang)
+    let out: [SnapRoom] = p.rooms.filter { p.reportRooms[$0.id] == false }.map { r in
+        var rr = r
+        rr.views = []
+        return SnapRoom(room: rr, floorLabel: p.floors.first { $0.id == r.floorId }.map { floorName($0, l) } ?? "")
+    }
+    if out.isEmpty { return sn }
+    var s2 = sn
+    s2.calcRooms = out
+    return s2
 }
 
 /// A windows-and-doors order's part of the snapshot: its products, and with prices (the advanced app) each one's price.
@@ -99,7 +123,7 @@ private func baseSnapshot(_ p: Project, _ s: AppSettings, pdf: PdfParts?) -> Sna
     return Snap(name: p.name, customer: p.customer, phone: p.phone, address: p.address, location: p.location,
                 currency: p.currency, precision: p.precision, unit: s.unit == .cm ? "cm" : "m", lang: l.code, notes: p.reportNotes,
                 builderName: s.builderName, builderPhone: s.builderPhone, pdf: pdf ?? s.pdf, rooms: rooms, estimate: p.estimate, extras: extras,
-                snap: s.angleSnap)
+                snap: s.angleSnap, industry: p.industry)
 }
 
 /// What decides whether the draft still matches an issued quote (prototype fingerprint): the parties, currency,
@@ -126,6 +150,9 @@ func fingerprint(_ sn: Snap) -> String {
         var pl: PlumbOrder? = nil
         /// windows-and-doors orders only: the products and each one's price
         var dw: WinOrder? = nil, dwp: [String: Int64]? = nil
+        /// trades' orders with rooms left out of the report: those rooms (the tile layouts are not in it: tilers' quotes
+        /// issued before the layout drawings still match, their estimate follows the layouts)
+        var cr: [Room]? = nil
     }
     let f = F(name: sn.name, customer: sn.customer, address: sn.address, currency: sn.currency, precision: sn.precision, lang: sn.lang,
               unit: sn.unit, notes: sn.notes, builder: [sn.builderName, sn.builderPhone],
@@ -147,6 +174,7 @@ func fingerprint(_ sn: Snap) -> String {
     if let e = sn.elec { g.el = e }
     if let e = sn.plumb { g.pl = e }
     if let e = sn.win { g.dw = e; g.dwp = sn.winPrice }
+    if !sn.calcRooms.isEmpty { g.cr = sn.calcRooms.map(\.room) }
     let enc = JSONEncoder(); enc.outputFormatting = [.sortedKeys]
     return (try? enc.encode(g)).flatMap { String(data: $0, encoding: .utf8) } ?? ""
 }

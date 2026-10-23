@@ -139,8 +139,8 @@ private struct WsNums: View {
     var body: some View {
         let t = totals()
         HStack(spacing: 8) {
-            NumTile(label: tr("pl.wall"), value: t.0, unit: "m²")
-            NumTile(label: tr("ws.floor"), value: t.1, unit: "m²")
+            NumTile(label: tr("pl.wall"), value: t.0, unit: tr("u.m2"))
+            NumTile(label: tr("ws.floor"), value: t.1, unit: tr("u.m2"))
             NumTile(label: tr("pl.meas"), value: t.2, unit: nil)
         }
         .padding(.horizontal, 16).padding(.bottom, 12)

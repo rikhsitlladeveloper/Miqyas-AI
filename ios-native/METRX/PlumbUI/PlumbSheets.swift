@@ -90,9 +90,8 @@ private struct PSNewRoomSheet: View {
         _name = State(initialValue: PSNewRoomSheet.nameFor("bath", Store.shared.get(pid)))
     }
     static func nameFor(_ k: String, _ p: Project?) -> String {
-        let base = tr(pKindKey(k))
-        let n = p?.floors.filter { $0.name.hasPrefix(base) }.count ?? 0
-        return n > 0 ? "\(base) \(n + 1)" : base
+        guard let p else { return tr(pKindKey(k)) }
+        return nextName(p, pKindKey(k))
     }
     var body: some View {
         let p = Store.shared.get(pid)
@@ -101,7 +100,9 @@ private struct PSNewRoomSheet: View {
             FlowLayout(spacing: 8) {
                 ForEach(P_KINDS, id: \.self) { k in FChip(label: tr(pKindKey(k)), on: k == kind) { kind = k; name = PSNewRoomSheet.nameFor(k, p) } }
             }
-            GField(label: tr("fr.name"), value: $name, placeholder: tr(pKindKey(kind)), focus: $focus, me: .name, submit: .done, onSubmit: create)
+            GField(label: tr("fr.name"), value: $name, placeholder: tr(pKindKey(kind)), error: name.trimmingCharacters(in: .whitespaces).isEmpty ? tr("nr.nameReq") : nil,
+                   showError: true, focus: $focus, me: .name, submit: .done, onSubmit: create)
+                .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
         } footer: {
             GBtn(tr("fo.drawRoom"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("sx.roomCreate")
         }
@@ -109,7 +110,8 @@ private struct PSNewRoomSheet: View {
     private func create() {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty, app.once() else { return }
-        let rid = addPlumbRoom(pid, kind, n)
+        // a suggested name is kept as its key, so it follows the language
+        let rid = addPlumbRoom(pid, kind, suggestedName(n, pKindKey(kind)))
         app.sheet = nil
         openRoom(app, pid, rid)
     }
@@ -153,12 +155,13 @@ private struct PSFixNewSheet: View {
         .accessibilityIdentifier("sx.fix." + tid)
     }
     private func spot(_ p: Project, _ c: PCtx, _ tid: String, _ have: [PlFix]) -> PlFix? {
-        if tid == "rad" { return placeRadiators(c, have, p.plumb.riser, { uid() }).first }
+        let liveR = liveRiser(p)
+        if tid == "rad" { return placeRadiators(c, have, liveR, { uid() }).first }
         let ty = fixType(tid)
-        if let w = c.wall(wall), let x = fixSpot(c, tid, w, w.len / 2, ty.w, have, p.plumb.riser) {
+        if let w = c.wall(wall), let x = fixSpot(c, tid, w, w.len / 2, ty.w, have, liveR) {
             return newFix(uid(), tid, c, w, x)
         }
-        return placeFix(tid, c, have, p.plumb.riser, uid())
+        return placeFix(tid, c, have, liveR, uid())
     }
     private func add(_ p: Project, _ c: PCtx, _ tid: String) {
         guard app.once() else { return }
@@ -207,18 +210,21 @@ private struct PSFixEditSheet: View {
         return hs.map { parseLen($0, unit) }
     }
 
-    private func errOf(_ c: PCtx) -> String? {
+    private func errOf(_ c: PCtx, _ old: PlFix) -> String? {
         let unit = AppSettings.shared.unit
-        guard let vOff = psOff(tOff, unit), parseLen(tW, unit) != nil else { return tr("tl.fixErr") }
+        guard let vOff = psOff(tOff, unit), let vW = parseLen(tW, unit) else { return tr("tl.fixErr") }
         let vH = heights()
         if vH.contains(where: { $0 == nil }) { return tr("tl.fixErr") }
-        if let wl = c.wall(wall)?.len, Double(vOff) > wl { return tr("pt.offBig") }
+        // a radiator of two sections at least (and no wider than its wall)
+        let wl = c.wall(wall)?.len
+        if old.t == "rad" && (vW < 2 * SEC_MM || (wl.map { Double(vW) > $0 } ?? false)) { return tr("sx.radMin", ["a": 2 * SEC_MM]) }
+        if let wl, Double(vOff) > wl { return tr("pt.offBig") }
         if vH.contains(where: { ($0 ?? 0) > c.H }) { return tr("pt.hBig") }
         return nil
     }
 
     @ViewBuilder private func content(_ c: PCtx, _ old: PlFix) -> some View {
-        let err = errOf(c)
+        let err = errOf(c, old)
         GlassSheet(tr("sx.t." + old.t), onClose: { app.sheet = nil }) {
             T(tr("tl.fixWall"), ui(15, 700))
             PSWallChips(c: c, wall: wall) { wall = $0 }
@@ -282,7 +288,7 @@ private struct PSFixEditSheet: View {
     }
 
     private func save(_ c: PCtx, _ old: PlFix) {
-        guard errOf(c) == nil, app.once() else { return }
+        guard errOf(c, old) == nil, app.once() else { return }
         let unit = AppSettings.shared.unit
         guard let vOff = psOff(tOff, unit), let vW = parseLen(tW, unit) else { return }
         let vH = heights()
@@ -469,7 +475,7 @@ private struct PSRoomSetSheet: View {
 
     @ViewBuilder private func content(_ p: Project, _ c: PCtx, _ snap: Bool) -> some View {
         let er = p.plumb.room(rid)
-        let rs = p.plumb.riser
+        let rs = liveRiser(p)
         let rc = rs.flatMap { pCtxOf(p, $0.roomId, snap) }
         GlassSheet(tr("el.roomSet"), onClose: { app.sheet = nil }) {
             T(tr("fr.type"), ui(15, 700))
@@ -752,7 +758,7 @@ private struct PSPricesSheet: View {
         let text = Binding(get: { i < texts.count ? texts[i] : "" }, set: { v in
             if i < texts.count { texts[i] = String(v.filter { $0.isASCII && $0.isNumber }.prefix(12)) }
         })
-        return GField(label: tr("sx.p." + f.key), value: text, placeholder: "0", focus: $focus, me: f.key, labelRight: f.unit.isEmpty ? nil : f.unit, number: true, id: "sxf." + f.key)
+        return GField(label: tr("sx.p." + f.key), value: text, placeholder: "0", focus: $focus, me: f.key, labelRight: f.unit.isEmpty ? nil : unitText(f.unit), number: true, id: "sxf." + f.key)
             .frame(maxWidth: .infinity)
     }
     private func save() {
@@ -763,7 +769,7 @@ private struct PSPricesSheet: View {
         }
         AppSettings.shared.setTradeSet(t)
         app.sheet = nil
-        if let id = pid, let pr = Store.shared.get(id), pr.estimate.materials.contains(where: { $0.id.hasPrefix("t-") }) { applyPlumbRows(app, pr) }
+        if let id = pid, let pr = Store.shared.get(id), madeBy(pr, "sx.e.") { applyPlumbRows(app, pr) }
         else { app.say("common.save") }
     }
 }
@@ -823,6 +829,7 @@ private struct PSFreeSheet: View {
                 ForEach(P_KINDS, id: \.self) { k in FChip(label: tr(pKindKey(k)), on: k == kind) { pickKind(k) } }
             }
             GField(label: tr("fr.name"), value: $name, placeholder: tr(pKindKey(kind)), focus: $focus, me: .name)
+                .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
             dims
             ForEach(0..<PSFreeSheet.KEYS.count, id: \.self) { i in countRow(i) }
             PSSwitchRow(title: tr("sx.s.ufh"), on: ufh) { ufh.toggle() }

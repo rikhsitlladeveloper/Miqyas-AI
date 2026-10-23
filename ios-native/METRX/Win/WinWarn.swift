@@ -76,6 +76,10 @@ func wSashWarnings(_ it: WinItem, _ roomId: String?) -> [WWarn] {
 func wPlacedWarnings(_ c: WCtx, _ pl: WPlaced, _ obs: [WObst], _ doors: [WSweep]) -> [WWarn] {
     let it = pl.it, o = pl.o
     var out: [WWarn] = []
+    // the opening was made a door (or a window) after the product went in: it is the wrong kind for it now
+    if !wFillsType(it.kind, o.type) {
+        out.append(WWarn(key: "dw.w.type", roomId: c.id, target: it.id, vars: ["k": "~dw.k." + it.kind, "o": "~" + (o.type == "door" ? "op.door" : "op.window")]))
+    }
     if it.w > o.w || it.h > o.h {
         let vars = ["w": wwCm(Double(it.w)), "h": wwCm(Double(it.h)), "a": wwCm(Double(o.w)), "b": wwCm(Double(o.h))]
         out.append(WWarn(key: "dw.w.big", roomId: c.id, target: it.id, vars: vars))

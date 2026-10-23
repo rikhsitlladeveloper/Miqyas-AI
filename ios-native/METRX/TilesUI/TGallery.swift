@@ -443,9 +443,10 @@ private struct TSizeStep: View {
         let b = Binding(get: { text.wrappedValue }, set: { nv in
             let c = String(nv.filter { $0.isASCII && $0.isNumber }.prefix(4))
             text.wrappedValue = c
-            if let x = Int(c), (20...3000).contains(x) { set(x) }
+            // what is typed is what the layout gets, wrong or not: a wrong size keeps Next off (no earlier value slips through)
+            set(Int(c) ?? 0)
         })
-        return GField(label: label, value: b, placeholder: ph, error: bad ? tr("tl.sizeErr") : nil, showError: true, focus: focus, me: me, labelRight: "mm", number: true)
+        return GField(label: label, value: b, placeholder: ph, error: bad ? tr("tl.sizeErr") : nil, showError: true, focus: focus, me: me, labelRight: tr("u.mm"), number: true)
             .frame(maxWidth: .infinity)
     }
 }
@@ -492,7 +493,7 @@ private struct TSecondStep: View {
         if d.place != "floor" {
             T(tr("tl.s.bandAt"), ui(15, 700))
             FlowLayout(spacing: 8) {
-                ForEach(TSecondStep.BANDS, id: \.self) { h in FChip(label: Geo.fmtLen(h, .m, en) + " m", on: d.band == h) { d.band = h } }
+                ForEach(TSecondStep.BANDS, id: \.self) { h in FChip(label: Geo.fmtLen(h, .m, en) + U_M, on: d.band == h) { d.band = h } }
             }
         }
     }
@@ -560,7 +561,7 @@ private struct TWhereStep: View {
     private func roomOption(_ r: Room) -> some View {
         let w = p.floors.first { $0.id == r.floorId }
         let ready = measuredRoom(r, snap)
-        let sub = ready && !r.isPoly ? Geo.fmtLen(r.dim("A").v, .m, en) + " × " + Geo.fmtLen(r.dim("B").v, .m, en) + " m" : tr(ready ? "tl.measured" : "fo.notMeasured")
+        let sub = ready && !r.isPoly ? Geo.fmtLen(r.dim("A").v, .m, en) + " × " + Geo.fmtLen(r.dim("B").v, .m, en) + U_M : tr(ready ? "tl.measured" : "fo.notMeasured")
         return TOption(title: w.map { floorName($0) } ?? dn(r.name), sub: sub, on: d.roomId == r.id) {
             d.roomId = r.id; d.panel = nil
             d.surfs = defaultSurfs(d, r, p, snap)
@@ -570,9 +571,9 @@ private struct TWhereStep: View {
     private func newRoom() {
         guard app.once() else { return }
         let type = d.place == "bath" ? "bath" : d.place == "apron" ? "kitchen" : "living"
-        let base = tr(tRoomKey(type))
-        let k = p.floors.filter { $0.name.hasPrefix(base) }.count
-        let rid = addTileRoom(p.id, type, k > 0 ? "\(base) \(k + 1)" : base)
+        // the suggested name kept as its key, so it follows the language
+        let key = tRoomKey(type)
+        let rid = addTileRoom(p.id, type, suggestedName(nextName(p, key), key))
         let r = Store.shared.get(p.id)?.rooms.first { $0.id == rid }
         d.roomId = rid; d.panel = nil
         d.surfs = defaultSurfs(d, r, Store.shared.get(p.id) ?? p, snap)
@@ -626,7 +627,7 @@ private struct TSurfStep: View {
         let s = d.surfs.first { $0.id == id }
         let unit = AppSettings.shared.unit
         return VStack(alignment: .leading, spacing: 8) {
-            TCheckRow(title: tr("tl.wallN", ["w": id]), sub: len.map { Geo.fmtLen($0, .m, en) + " m" }, on: s != nil) { toggle(id) }
+            TCheckRow(title: tr("tl.wallN", ["w": id]), sub: len.map { Geo.fmtLen($0, .m, en) + U_M }, on: s != nil) { toggle(id) }
             if let s {
                 VStack(alignment: .leading, spacing: 8) {
                     Seg(items: [("full", tr("tl.m.full")), ("to", tr("tl.m.to")), ("band", tr("tl.m.band"))], cur: s.mode) { m in pickMode(s, m) }
@@ -670,11 +671,16 @@ private struct THeightField: View {
     }
     var body: some View {
         let v = parseLen(t, unit)
+        // too big is refused and said (it is not cut to what was typed before: 999 m is not kept as 9 m)
+        let big = (v ?? 0) > 20_000
+        let maxText = tr("tl.sizeMax", ["v": Geo.fmtLen(20_000, unit, AppSettings.shared.lang == .en) + " " + unitWord(unit)])
+        let err: String? = big ? maxText : (v == nil ? tr("tl.sizeErr") : nil)
         let b = Binding(get: { t }, set: { s in
             t = String(s.filter { $0.isNumber || $0 == "," || $0 == "." }.prefix(7))
-            if let x = parseLen(t, unit), x <= 20_000 { onMm(x) }
+            let x = parseLen(t, unit)
+            onMm(x.map { $0 <= 20_000 ? $0 : 0 } ?? 0)
         })
-        GField(label: label, value: b, placeholder: "1,5", error: v == nil ? tr("tl.sizeErr") : nil, showError: !t.isEmpty, focus: focus, me: me,
+        GField(label: label, value: b, placeholder: "1,5", error: err, showError: !t.isEmpty, focus: focus, me: me,
                labelRight: unitWord(unit), decimal: true)
             .frame(maxWidth: .infinity)
     }

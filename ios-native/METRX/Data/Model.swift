@@ -421,6 +421,13 @@ struct Snap: Codable, Equatable {
     /// Windows-and-doors orders: the products, for the drawings; winPrice each product's price (the advanced app's, else empty).
     var win: WinOrder? = nil
     var winPrice: [String: Int64] = [:]
+    /// The order's trade ("build", "tiler", "elec", "plumb", "win"; "" an older quote): the maker's word and the notes in the PDF.
+    var industry = ""
+    /// Rooms left out of the report: a trade's circuits, pipes and windows are still worked out with them, but not drawn.
+    var calcRooms: [SnapRoom] = []
+    /// Tilers' orders: the tile layouts and each room's tray, bath and waterproofing, for the layout drawings.
+    var tiles: [TileLayout]? = nil
+    var troom: [TileRoom] = []
 }
 
 extension Snap {
@@ -435,6 +442,7 @@ extension Snap {
         fprepay = c.v(.fprepay, 50); fdays = c.v(.fdays, 0); finst = c.v(.finst, 0); fhandles = c.v(.fhandles, ""); fws = c.v(.fws, nil)
         snap = c.v(.snap, true); elec = c.v(.elec, nil); plumb = c.v(.plumb, nil)
         win = c.v(.win, nil); winPrice = c.v(.winPrice, [:])
+        industry = c.v(.industry, ""); calcRooms = c.v(.calcRooms, []); tiles = c.v(.tiles, nil); troom = c.v(.troom, [])
     }
 }
 

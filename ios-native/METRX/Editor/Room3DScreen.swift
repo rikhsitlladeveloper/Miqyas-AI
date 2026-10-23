@@ -48,7 +48,7 @@ struct Room3DScreen: View {
                 .padding(.leading, 2).frame(maxWidth: .infinity, alignment: .leading)
                 GlassIconButton("undo", tr("common.undo")) { if ops.canUndo(r.id) { ops.undo(p.id, r.id) } }.opacity(ops.canUndo(r.id) ? 1 : 0.4)
                 Color.clear.frame(width: 8, height: 1)
-                GlassIconButton("redo", "redo") { if ops.canRedo(r.id) { ops.redo(p.id, r.id) } }.opacity(ops.canRedo(r.id) ? 1 : 0.4)
+                GlassIconButton("redo", tr("common.redo")) { if ops.canRedo(r.id) { ops.redo(p.id, r.id) } }.opacity(ops.canRedo(r.id) ? 1 : 0.4)
             }
             .padding(.leading, 8).padding(.trailing, 12).frame(height: 64)
             // sub-bar: Plan | 3D, the laser
@@ -102,6 +102,8 @@ struct Room3DScreen: View {
         // at most 4 views: counted on the room as saved now, not as this screen last drew it
         func full() -> Bool { (RoomOps.shared.room(pid, rid)?.views.count ?? 4) >= 4 }
         if taking { return }
+        // a double tap takes one picture, not two alike
+        if !app.once() { return }
         if full() { app.say("3d.max", kind: .error); return }
         taking = true
         shot.take { img in

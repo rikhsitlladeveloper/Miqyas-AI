@@ -285,9 +285,24 @@ func wResized(_ it: WinItem, _ w: Int, _ h: Int) -> WinItem {
 
 /* ---------------- changing the sashes ---------------- */
 
-/// Splits column ci in two halves (a new vertical mullion); the new half copies the sash.
+/// The narrowest column or sash a split may leave (between the mullions' axes), mm: a narrower one has no room for its sash.
+let W_SPLIT_MIN = 300
+
+/// Whether column ci can take another vertical mullion (each half at least W_SPLIT_MIN).
+func wCanSplitCol(_ it: WinItem, _ ci: Int) -> Bool {
+    guard ci >= 0, ci < it.cols.count else { return false }
+    return it.cols[ci].w / 2 >= W_SPLIT_MIN
+}
+
+/// Whether sash ri of column ci can take another transom (each half at least W_SPLIT_MIN).
+func wCanSplitRow(_ it: WinItem, _ ci: Int, _ ri: Int) -> Bool {
+    guard ci >= 0, ci < it.cols.count, ri >= 0, ri < it.cols[ci].rows.count else { return false }
+    return it.cols[ci].rows[ri].h / 2 >= W_SPLIT_MIN
+}
+
+/// Splits column ci in two halves (a new vertical mullion); the new half copies the sash. Too narrow to split: as it was.
 func wSplitCol(_ it: WinItem, _ ci: Int) -> WinItem {
-    guard ci >= 0, ci < it.cols.count else { return it }
+    guard ci >= 0, ci < it.cols.count, wCanSplitCol(it, ci) else { return it }
     let c = it.cols[ci]
     let a = (c.w / 2 / 5) * 5
     var cs = it.cols
@@ -307,11 +322,11 @@ func wSplitCol(_ it: WinItem, _ ci: Int) -> WinItem {
     return out
 }
 
-/// Splits sash ri of column ci in two (a new transom), the upper half fixed.
+/// Splits sash ri of column ci in two (a new transom), the upper half fixed. Too low to split: as it was.
 func wSplitRow(_ it: WinItem, _ ci: Int, _ ri: Int) -> WinItem {
     guard ci >= 0, ci < it.cols.count else { return it }
     let c = it.cols[ci]
-    guard ri >= 0, ri < c.rows.count else { return it }
+    guard ri >= 0, ri < c.rows.count, wCanSplitRow(it, ci, ri) else { return it }
     let r = c.rows[ri]
     let top = (r.h / 2 / 5) * 5
     var rows = c.rows
@@ -360,6 +375,8 @@ func wMoveMullion(_ it: WinItem, _ ci: Int, _ x: Int, _ mn: Int = 150) -> WinIte
     if ci < 0 || ci >= it.cols.count - 1 { return it }
     let start = it.cols.prefix(ci).reduce(0) { $0 + $1.w }
     let pair = it.cols[ci].w + it.cols[ci + 1].w
+    // two columns narrower together than two of the least: nothing to move
+    if pair < 2 * mn { return it }
     let a = min(max(x - start, mn), pair - mn)
     var out = it
     out.cols[ci].w = a
@@ -374,6 +391,7 @@ func wMoveTransom(_ it: WinItem, _ ci: Int, _ ri: Int, _ y: Int, _ mn: Int = 150
     if ri < 0 || ri >= c.rows.count - 1 { return it }
     let start = c.rows.prefix(ri).reduce(0) { $0 + $1.h }
     let pair = c.rows[ri].h + c.rows[ri + 1].h
+    if pair < 2 * mn { return it }
     let a = min(max(y - start, mn), pair - mn)
     var out = it
     out.cols[ci].rows[ri].h = a
@@ -402,6 +420,41 @@ func wSetRowH(_ it: WinItem, _ ci: Int, _ ri: Int, _ h: Int) -> WinItem {
     }
     let all = c.rows.reduce(0) { $0 + $1.h }
     return wMoveTransom(it, ci, ri - 1, all - h)
+}
+
+/// The size card's fields applied to x (in opening o, or none): a new gap g refits it to the opening; W × H are a size by
+/// hand only when they differ from its size as it was; a column's or (in column ci) a sash's field only when its text was
+/// changed (cols, rows: the texts shown first and now).
+func wSizeApplied(_ x: WinItem, _ o: Opening?, _ W: Int, _ H: Int, _ g: Int?, _ cols: ([String], [String]), _ ci: Int,
+                  _ rows: ([String], [String])) -> WinItem {
+    var y = x
+    if let o, let g, g != x.gap {
+        y.gap = g
+        if y.fit { y = wRefit(y, o.w, o.h, o.type) }
+    }
+    if W != x.w || H != x.h {
+        let gap = y.gap
+        y = wResized(y, W, H)
+        if let o {
+            let s = wSizeFor(o.w, o.h, o.type, gap)
+            y.fit = s.0 == W && s.1 == H
+        } else {
+            y.fit = true
+        }
+    }
+    for (i, s) in cols.1.dropLast().enumerated() {
+        if i < cols.0.count && s == cols.0[i] { continue }
+        guard let v = Int(s) else { continue }
+        if i < y.cols.count && v == y.cols[i].w { continue }
+        y = wSetColW(y, i, v)
+    }
+    for (j, s) in rows.1.dropLast().enumerated() {
+        if j < rows.0.count && s == rows.0[j] { continue }
+        guard let v = Int(s) else { continue }
+        if ci >= 0 && ci < y.cols.count && j < y.cols[ci].rows.count && v == y.cols[ci].rows[j].h { continue }
+        y = wSetRowH(y, ci, j, v)
+    }
+    return y
 }
 
 /// Changes sash ri of column ci.

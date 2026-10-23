@@ -12,8 +12,9 @@ private let PP_FRAME = 0xC3CEDF
 
 extension Doc {
     func plumbPages(_ e: PlumbOrder) {
+        // worked out with every room (the riser's room may be left out of the report); only the report's rooms are drawn
         var p = Project(id: "snap", name: sn.name)
-        p.rooms = sn.rooms.map(\.room)
+        p.rooms = (sn.rooms + sn.calcRooms).map(\.room)
         p.industry = "plumb"
         p.plumb = e
         let calc = plumbCalcOf(p, sn.snap)
@@ -21,7 +22,8 @@ extension Doc {
         if !hasWork { return }
         var names: [String: String] = [:]
         for c in calc.ctxs { names[c.id] = ppRoomName(c) }
-        newPage()
+        // on the page in hand when it has room (no near-empty first page)
+        ensure(260)
         h2(t("sx.r.title"))
         let rs = calc.routes.riser
         var sys = t("sx.r.system", ["s": t("sx.sys." + e.water), "r": t("sx.run." + e.run), "h": t("sx.run." + e.hrun)])
@@ -34,8 +36,11 @@ extension Doc {
         if !calc.warns.isEmpty { fn(t("sx.r.warn", ["n": calc.warns.count])) }
         fn(t("sx.r.note"))
         // each room: from above, then the walls with fixtures or outlets
-        for c in calc.ctxs { ppRoomPage(p, c, calc, names[c.id] ?? "") }
+        for c in calc.ctxs where ppDrawn(c) { ppRoomPage(p, c, calc, names[c.id] ?? "") }
     }
+
+    /// A room the report draws: one typed by size, or a room ticked for the report.
+    private func ppDrawn(_ c: PCtx) -> Bool { c.free != nil || sn.rooms.contains { $0.room.id == c.id } }
 
     private func ppD1(_ v: Double) -> String {
         let s = String(format: "%.1f", v)
@@ -44,7 +49,7 @@ extension Doc {
 
     private func ppRoomName(_ c: PCtx) -> String {
         if let f = c.free { return f.name.trimmingCharacters(in: .whitespaces).isEmpty ? t("sx.k." + f.kind) : f.name }
-        guard let sr = sn.rooms.first(where: { $0.room.id == c.id }) else { return "" }
+        guard let sr = (sn.rooms + sn.calcRooms).first(where: { $0.room.id == c.id }) else { return "" }
         return sr.floorLabel.trimmingCharacters(in: .whitespaces).isEmpty ? dn(sr.room.name, l) : sr.floorLabel
     }
 
@@ -57,7 +62,7 @@ extension Doc {
         for c in calc.ctxs {
             let fs = fixesIn(p, c)
             let pts = pointsIn(p, c, fs)
-            if fs.isEmpty && pts.isEmpty && !c.pr.ufh { continue }
+            if (fs.isEmpty && pts.isEmpty && !c.pr.ufh) || !ppDrawn(c) { continue }
             var what: [String] = []
             for ty in FIX_TYPES {
                 let n = fs.filter { $0.t == ty.id }.count
@@ -158,7 +163,7 @@ extension Doc {
         for c in calc.ctxs {
             let rr = fixesIn(p, c).filter { $0.t == "rad" }
             let lp = calc.routes.loops.first { $0.roomId == c.id }
-            if rr.isEmpty && lp == nil { continue }
+            if (rr.isEmpty && lp == nil) || !ppDrawn(c) { continue }
             let need = "\(tInt(c.areaM2 * Double(W_M2))) W"
             let radW = rr.reduce(0) { $0 + radWatts($1) }
             let rad = rr.isEmpty ? "—" : "\(rr.count) · \(radW) W"

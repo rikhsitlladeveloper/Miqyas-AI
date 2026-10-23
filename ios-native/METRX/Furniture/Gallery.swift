@@ -269,7 +269,7 @@ struct FStepsScreen: View {
                             .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(G.rim, lineWidth: 1))
                             if at < n && steps[at].choice { choiceAsk(steps[at]) }
                             else if at < n { ask(steps[at], unit, uw) }
-                            else { summary(steps, unit, uw, m.kind == "kitchen" ? "fx.noteK" : ITEM_TYPES.contains(m.type) ? "fx.noteI" : "fx.noteW") }
+                            else { summary(steps, unit, uw, noteKey(m, edit)) }
                         }
                         .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 120)
                     }
@@ -319,9 +319,24 @@ struct FStepsScreen: View {
         return out
     }
 
+    /// The summary's note: a piece of several boxes is built again from its sizes, so what was changed box by box goes
+    /// (said before saving).
+    private func noteKey(_ m: FModelDef, _ edit: Furniture?) -> String {
+        if let edit, PIECE_TYPES.contains(edit.type) || edit.type == "loft" { return "fx.noteRebuild" }
+        if m.kind == "kitchen" { return "fx.noteK" }
+        return ITEM_TYPES.contains(m.type) ? "fx.noteI" : "fx.noteW"
+    }
+
     private func issue(_ s: SizeStep, _ text: String, _ unit: LenUnit) -> String? {
         if s.choice { return nil }
-        guard let mm = parseLen(text, unit), let r = stepIssue(s, mm) else { return nil }
+        guard let mm = parseLen(text, unit) else {
+            // 0 or a wrong number says so (Next stays off without a word otherwise)
+            let t = text.trimmingCharacters(in: .whitespaces)
+            if t.isEmpty { return nil }
+            let digits = t.drop { $0 == "0" || $0 == "," || $0 == "." }
+            return tr(digits.isEmpty ? "err.zero" : "tl.sizeErr")
+        }
+        guard let r = stepIssue(s, mm) else { return nil }
         return tr(r.0, ["v": Geo.fmtLen(r.1, unit, en) + " " + unitWord(unit)])
     }
     private func ok(_ steps: [SizeStep], _ i: Int, _ unit: LenUnit) -> Bool { steps[i].choice || (parseLen(texts[i], unit) != nil && issue(steps[i], texts[i], unit) == nil) }
@@ -421,19 +436,19 @@ struct FStepsScreen: View {
         .accessibilityIdentifier("fx.opt." + key)
     }
 
-    /// The simulated laser: a reading near the usual size fills the field, and the next step opens.
+    /// The laser's newest reading not used yet (its readings' inbox) fills the field, and the next step opens; with none,
+    /// nothing is made up: it says so.
     private func reading(_ s: SizeStep, _ unit: LenUnit) {
         guard laser != "busy", !s.choice else { return }
         let i = at
-        laser = "busy"
+        guard let r = AppSettings.shared.readings.last(where: { $0.used == nil && $0.src != "manual" }) else { laser = tr("fx.noReading"); return }
+        AppSettings.shared.markReadingUsed(r.id, tr(s.label))
+        if i < texts.count { texts[i] = Geo.fmtField(r.mm, unit, en) }
+        laser = tr("fx.got", ["v": Geo.fmtLen(r.mm, unit, en) + " " + unitWord(unit)])
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-            let v = (s.usual + Int.random(in: -120...120)) / 5 * 5
-            if i < texts.count { texts[i] = Geo.fmtField(v, unit, en) }
-            laser = tr("fx.got", ["v": Geo.fmtLen(v, unit, en) + " " + unitWord(unit)])
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) {
-                guard at == i, let m = fModel(model) else { return }
-                next(stepsOf(m), unit)
-            }
+            guard at == i, let m = fModel(model) else { return }
+            let st = stepsOf(m)
+            if ok(st, i, unit) { next(st, unit) }
         }
     }
 
@@ -535,7 +550,7 @@ struct FWhereScreen: View {
                 if ready {
                     let fit = bestFirst(probe, Geo.walls(r, snap).map(\.id), { wallLen(r, snap, $0) }, r.dim("H").v, s.workshop)
                     let good = fit.1.isEmpty
-                    T(f(r.dim("A").v) + " × " + f(r.dim("B").v) + " m · h " + f(r.dim("H").v), num(12.5, 500, G.ink2))
+                    T(f(r.dim("A").v) + " × " + f(r.dim("B").v) + U_M + " · h " + f(r.dim("H").v), num(12.5, 500, G.ink2))
                     T(good ? "✓ " + tr("fq.fits") : issueText(fit.1[0]), ui(12, 700, good ? Color(argb: 0xFF15803D) : G.err, lh: 1.3))
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(good ? G.greenWash : G.errWash))

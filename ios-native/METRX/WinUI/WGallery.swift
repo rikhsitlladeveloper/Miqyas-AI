@@ -182,7 +182,9 @@ struct WPlaceScreen: View {
         self.app = app; self.pid = pid; self.kind = kind; self.rid = rid; self.oid = oid
         let k = wkind(kind)
         var start: [String] = []
-        if let rid, let oid { start.append(rid + "|" + oid) }
+        // the opening it came from, when this type fills it (no window in a door's opening, no door in a window's)
+        if let rid, let oid, let op = Store.shared.get(pid)?.rooms.first(where: { $0.id == rid })?.openings.first(where: { $0.id == oid }),
+           wFillsType(kind, op.type) { start.append(rid + "|" + oid) }
         _picks = State(initialValue: start)
         _free = State(initialValue: Store.shared.get(pid)?.rooms.isEmpty ?? true)
         _tw = State(initialValue: "\(k.w)")
@@ -220,7 +222,7 @@ struct WPlaceScreen: View {
                                 if free { freeFields }
                             }
                         }
-                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 120)
+                        .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 168)
                     }
                     .scrollDismissesKeyboard(.interactively)
                 }
@@ -312,7 +314,7 @@ struct WPlaceScreen: View {
         var made: [WinItem] = []
         for pk in picks {
             let parts = pk.split(separator: "|", maxSplits: 1).map(String.init)
-            guard parts.count == 2, let c = wCtxOf(p, parts[0], snap), let o = c.opening(parts[1]) else { continue }
+            guard parts.count == 2, let c = wCtxOf(p, parts[0], snap), let o = c.opening(parts[1]), wFillsType(k.id, o.type) else { continue }
             made.append(wFillOpening(uid(), k, c, o, p.win.gap))
         }
         if made.isEmpty { return }

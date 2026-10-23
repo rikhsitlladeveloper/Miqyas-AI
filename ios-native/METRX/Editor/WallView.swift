@@ -206,9 +206,9 @@ private struct Stats: View {
         let st = Geo.wallStats(fr.lenKnown ? fr.L : r.dim(w.dimKey).pending?.mm, r.dim("H").v ?? r.dim("H").pending?.mm, ops)
         VStack(alignment: .leading, spacing: 6) {
             HStack(alignment: .top, spacing: 0) {
-                StatCell(label: tr("wv.gross"), v: st.gross.map { Geo.fmtArea($0, en) + " m²" } ?? "—")
-                StatCell(label: tr("rp.openings"), v: ops.isEmpty ? "—" : Geo.fmtArea(st.open, en) + " m²")
-                StatCell(label: tr("wv.net"), v: st.net.map { Geo.fmtArea($0, en) + " m²" } ?? "—", bold: true)
+                StatCell(label: tr("wv.gross"), v: st.gross.map { Geo.fmtArea($0, en) + U_M2 } ?? "—")
+                StatCell(label: tr("rp.openings"), v: ops.isEmpty ? "—" : Geo.fmtArea(st.open, en) + U_M2)
+                StatCell(label: tr("wv.net"), v: st.net.map { Geo.fmtArea($0, en) + U_M2 } ?? "—", bold: true)
             }
             if st.gross == nil { T(tr("wv.missing"), ui(12.5, 400, G.ink2)) }
             else if fr.provisional { T(tr("wv.prov"), ui(12.5, 500, PC.amber)) }

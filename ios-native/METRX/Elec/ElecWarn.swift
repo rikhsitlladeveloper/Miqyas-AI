@@ -46,7 +46,10 @@ func devWarnings(_ c: ECtx, _ ds: [ElecDev]) -> [EWarn] {
             continue
         }
         let sockish = ty.cat == "sock"
-        if c.kind == "bath" && sockish {
+        // the water heater's own socket goes high beside the heater, made for it: not a splash-zone socket
+        if c.kind == "bath" && sockish && d.t == "pwh" {
+            // nothing to warn about
+        } else if c.kind == "bath" && sockish {
             let wet = nearestOf(c, d, water)
             if d.t != "sw" || (wet != nil && wet! < Double(WATER_MM)) { out.append(EWarn(key: "el.w.splash", roomId: c.id, devId: d.id)) }
         } else if sockish {
@@ -89,6 +92,12 @@ func warningsOf(_ p: Project, _ cs: [ECtx], _ circuits: [Circuit]) -> [EWarn] {
             out.append(EWarn(key: "el.w.load", roomId: only, devId: nil, vars: ["g": "\(cc.no)", "kw": String(format: "%.1f", Double(cc.load) / 1000), "a": "\(d.amps)"]))
         }
     }
-    if p.elec.panel == nil && !p.elec.devs.isEmpty { out.append(EWarn(key: "el.w.noPanel", roomId: nil, devId: nil)) }
+    if livePanel(p) == nil && !p.elec.devs.isEmpty { out.append(EWarn(key: "el.w.noPanel", roomId: nil, devId: nil)) }
     return out
+}
+
+/// The order's panel while its room is there (a panel left on a deleted room counts as none).
+func livePanel(_ p: Project) -> ElecPanel? {
+    guard let pn = p.elec.panel, p.rooms.contains(where: { $0.id == pn.roomId }) else { return nil }
+    return pn
 }

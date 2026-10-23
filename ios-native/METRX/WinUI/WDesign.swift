@@ -276,8 +276,13 @@ private struct WDSashCard: View {
     private func buttons(_ n: Int) -> some View {
         let a = ci, b = ri
         return HStack(spacing: 8) {
-            GBtn(tr("dw.addV"), kind: .secondary, height: 42, corner: 14, fontSize: 13.5, lines: 2) { upd { w in wSplitCol(w, a) } }
-            GBtn(tr("dw.addH"), kind: .secondary, height: 42, corner: 14, fontSize: 13.5, lines: 2) { upd { w in wSplitRow(w, a, b) } }
+            // too narrow (low) to split: it says why instead of making a sash with no room for its glass
+            GBtn(tr("dw.addV"), kind: .secondary, height: 42, corner: 14, fontSize: 13.5, lines: 2) {
+                if wCanSplitCol(it, a) { upd { w in wSplitCol(w, a) } } else { AppModel.shared.say("dw.tooNarrow", ["n": 2 * W_SPLIT_MIN], kind: .error) }
+            }
+            GBtn(tr("dw.addH"), kind: .secondary, height: 42, corner: 14, fontSize: 13.5, lines: 2) {
+                if wCanSplitRow(it, a, b) { upd { w in wSplitRow(w, a, b) } } else { AppModel.shared.say("dw.tooLow", ["n": 2 * W_SPLIT_MIN], kind: .error) }
+            }
             GBtn(tr("dw.merge"), kind: .secondary, enabled: n > 1, height: 42, corner: 14, fontSize: 13.5, lines: 2) {
                 upd { w in wMergeAt(w, a, b) }
                 onSel(0, 0)
@@ -404,6 +409,7 @@ private struct WDSizeCard: View {
 
     @ViewBuilder private func freeFields(_ mm: String) -> some View {
         GField(label: tr("fr.name"), value: $tName, placeholder: tr("dw.k." + it.kind), optional: true, focus: $focus, me: .name)
+            .onChange(of: tName) { _, n in if n.count > NAME_MAX { tName = String(n.prefix(NAME_MAX)) } }
         HStack {
             T(tr("dw.qty"), ui(15, 600)).frame(maxWidth: .infinity, alignment: .leading)
             EStepper(v: it.qty) { v in
@@ -434,31 +440,14 @@ private struct WDSizeCard: View {
         let g = Int(tg), op = o, c = ci
         let name = tName.trimmingCharacters(in: .whitespaces), wallT = Int(tT)
         let cs = cols, rs = rows
+        // the fields as they were first shown: only a changed one is applied (a new size does not bring back old columns)
+        let cs0: [String] = it.cols.map { "\($0.w)" }
+        let rs0: [String] = c < it.cols.count ? it.cols[c].rows.map { "\($0.h)" } : []
         updateWinItem(pid, it.id) { x in
-            var y = x
-            if let op, let g, g != x.gap {
-                y.gap = g
-                if y.fit { y = wRefit(y, op.w, op.h, op.type) }
-            }
-            if W != y.w || H != y.h {
-                let gp = y.gap
-                y = wResized(y, W, H)
-                if let op {
-                    let s = wSizeFor(op.w, op.h, op.type, gp)
-                    y.fit = s.0 == W && s.1 == H
-                } else {
-                    y.fit = true
-                }
-            }
+            var y = wSizeApplied(x, op, W, H, g, (cs0, cs), c, (rs0, rs))
             if !x.inRoom {
                 y.name = name
                 y.freeT = min(max(wallT ?? x.freeT, 80), 800)
-            }
-            for (i, s) in cs.dropLast().enumerated() {
-                if let v = Int(s), i < y.cols.count, v != y.cols[i].w { y = wSetColW(y, i, v) }
-            }
-            for (j, s) in rs.dropLast().enumerated() {
-                if let v = Int(s), c < y.cols.count, j < y.cols[c].rows.count, v != y.cols[c].rows[j].h { y = wSetRowH(y, c, j, v) }
             }
             return y
         }

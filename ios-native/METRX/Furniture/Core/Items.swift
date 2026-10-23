@@ -230,18 +230,23 @@ private func hooksBoards(_ m: Module, _ ws: Workshop, _ out: inout [Board]) {
     let W = m.w, H = m.h, E = m.elev
     out.append(Board("fp.panel", "front", 0, W, E, E + H, 0, t))
     var mirR = 0
+    var mirB = E + H
     if o.mirW > 0 && o.mirH > 0 {
         let mw = min(o.mirW, W - 160), mh = min(o.mirH, H - 200)
         out.append(Board("", "mirror", 80, 80 + mw, E + H - 120 - mh, E + H - 120, t, t + 4))
         mirR = 80 + mw
+        mirB = E + H - 120 - mh
     }
-    // the hooks in a row beside the mirror, a little under the top
+    // the hooks in a row beside the mirror, a little under the top; no room beside it: across the panel under it
     let n = min(12, max(0, o.hooks))
     if n > 0 {
-        let a0 = mirR + 100, a1 = W - 80
+        let spread = n > 1 ? 40 * (n - 1) : 0
+        let beside = mirR + 100 + spread <= W - 80
+        let a0 = beside ? mirR + 100 : 80
+        let a1 = W - 80
+        let y = (beside || mirR == 0) ? E + H - 260 : max(E + 80, mirB - 100)
         for i in 0..<n {
             let a = n == 1 ? (a0 + a1) / 2 : a0 + (a1 - a0) * i / (n - 1)
-            let y = E + H - 260
             out.append(Board("", "metal", a - 8, a + 8, y - 60, y + 10, t, t + 60))
         }
     }
