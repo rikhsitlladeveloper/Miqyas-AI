@@ -135,7 +135,7 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat], bare: Bool = fals
     let left = f.walls.first == "D" && f.layout != "U"
     let az0: Double
     if f.kind != "kitchen" { az0 = CORNER_TYPES.contains(f.type) ? (left ? 0.6 : -0.6) : 0.55 }
-    else { az0 = f.layout == "L" ? (left ? 0.6 : -0.6) : f.layout == "U" ? 0.15 : 0.6 }
+    else { az0 = f.layout == "L" ? (left ? 0.6 : -0.6) : f.layout == "U" ? 0.15 : f.layout == "P" ? -0.6 : 0.6 }
     return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter: dimCenter, dimRadius: dimRadius, ext: ext, dimExt: pvCorners(x0, y0, z0, x1, y1, z1))
 }
 

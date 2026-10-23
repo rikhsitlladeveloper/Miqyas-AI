@@ -26,6 +26,9 @@ const val K_CORNER = 600
 
 /** The filler a run starts with past a corner, so its doors and handles clear the run before (mm). */
 const val CORNER_FILLER = 50
+
+/** A peninsula's seating overhang and finished back past its back, mm: a side that reaches its wall's end stops this short of it. */
+const val PEN_BACK = 336
 const val K_UP_CORNER = 320
 const val ISLAND = "island"
 
@@ -146,7 +149,9 @@ fun autoFill(f: Furniture, runs: List<Run>, ws: Workshop, openings: List<Opening
             val gas = points.firstOrNull { it.wall == r.wall && it.t == "gas" }
             var sink = false; var hob = false
             // the blind unit keeps a 50 mm filler before it, so the door beside it clears the next run's fronts
-            val row = slots(r.len - r.lowStart - pad - if (corner) CORNER_FILLER else 0)
+            // a peninsula's side in a room ends PEN_BACK before the wall's end, so its overhang has floor under it
+            val penEnd = if (f.layout == "P" && ri == 0 && f.roomId != null) PEN_BACK else 0
+            val row = slots(r.len - r.lowStart - pad - penEnd - if (corner) CORNER_FILLER else 0)
             val mine = ArrayList<Module>()
             row.forEachIndexed { k, w ->
                 val inside = { p: SitePoint? -> p != null && p.off in x until x + w }

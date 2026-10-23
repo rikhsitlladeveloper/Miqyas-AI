@@ -177,7 +177,7 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>, bare: Boolean = fals
     // an L turns into the right-hand wall: seen from the left so both runs show from inside
     // one with its corner on the left (made-up walls D, A) is seen from the right
     val left = f.walls.firstOrNull() == "D" && f.layout != "U"
-    val az0 = when (f.layout.takeIf { f.kind == "kitchen" } ?: "L".takeIf { f.type in uz.metrx.app.furniture.CORNER_TYPES }) { "L" -> if (left) .6 else -.6; "U" -> .15; null -> .55; else -> .6 }
+    val az0 = when (f.layout.takeIf { f.kind == "kitchen" } ?: "L".takeIf { f.type in uz.metrx.app.furniture.CORNER_TYPES }) { "L" -> if (left) .6 else -.6; "U" -> .15; "P" -> -.6; null -> .55; else -> .6 }
     return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter, dimRadius, ext, corners(x0, y0, z0, x1, y1, z1))
 }
 

@@ -126,7 +126,9 @@ fun freeRoom(f: Furniture): Room {
         when (f.layout) {
             "U" -> { a = len(1); b = max(len(0), len(2)) }
             "L" -> if (ws.firstOrNull() == "D") { a = len(1); b = len(0) } else { a = len(0); b = len(1) }
-            "O", "P" -> { a = len(0); b = 3000 }
+            "O" -> { a = len(0); b = 3000 }
+            // the peninsula's seating overhang reaches past the side's end, with room for the stools beyond it
+            "P" -> { a = len(0) + PEN_BACK + 600; b = 3000 }
             else -> { a = len(0); b = 1800 }
         }
         h = f.free?.h?.takeIf { it > 0 } ?: 2700
@@ -372,9 +374,10 @@ fun islandPose(f: Furniture, wallLen: Int): Pose {
     val len = islandLen(f)
     val first = f.walls.first { it != ISLAND }
     if (f.layout == "P") {
-        // its seating overhang and finished back (336 mm past its back) stay inside the room
-        val end = runsOf(f) { null }.firstOrNull { it.wall != ISLAND }?.let { runEnd(f, it) } ?: wallLen
-        return Pose(first, min(end, wallLen - 336), 600, 90)
+        // it stands in front of the side's last (blind) unit, its seating overhang and finished back (PEN_BACK past
+        // its back) past the end of the side's lower row, inside the room
+        val end = runsOf(f) { null }.firstOrNull { it.wall != ISLAND }?.let { fillOf(f, it, false).used + it.lowStart } ?: wallLen
+        return Pose(first, min(end, wallLen - PEN_BACK), 600, 90)
     }
     return Pose(first, (wallLen - len) / 2 + len, K_BASE_D + 900 + K_BASE_D, 180)
 }

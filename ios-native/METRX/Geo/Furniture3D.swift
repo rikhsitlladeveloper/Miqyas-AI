@@ -190,7 +190,10 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
                 // end panels where a row ends in the open room (not against a wall): the lower row's, the wall units'
                 if let kx0 = f.kx, let lo = low.first?.x, let hi = low.map({ $0.x + $0.w }).max() {
                     let wl: Int? = isl ? nil : Int((b.len * 1000).rounded())
-                    let ends: [(Int, Bool)] = isl ? [(lo, f.layout != "P"), (hi, true)] : [(lo, lo > 20), (hi, wl.map { hi < $0 - 20 } ?? false)]
+                    // a peninsula's side ends at the peninsula, which covers it: no end panel there
+                    let penSide = f.layout == "P" && r.wall == f.walls.first { $0 != ISLAND }
+                    let hiOpen = (wl.map { hi < $0 - 20 } ?? false) && !penSide
+                    let ends: [(Int, Bool)] = isl ? [(lo, f.layout != "P"), (hi, true)] : [(lo, lo > 20), (hi, hiOpen)]
                     if kx0.ends > 0 { for (a, open) in ends where open { B.box(b, B.role("front"), a == lo ? a - 18 : a, a == lo ? a : a + 18, 0, wt - K_TOP, 0, 600, true) } }
                     let up = f.modules.filter { $0.wall == r.wall && $0.type == "wall" }
                     if kx0.endsUp > 0, let wl, let u0 = up.map(\.x).min(), let u1 = up.map({ $0.x + $0.w }).max() {

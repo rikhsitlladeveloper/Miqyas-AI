@@ -181,7 +181,9 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
                 if (kx0 != null && low.isNotEmpty()) {
                     val lo = low.first().x; val hi = low.maxOf { it.x + it.w }
                     val wl = if (isl) null else (b.len * 1000).toInt()
-                    val ends = if (isl) listOf(lo to (f.layout != "P"), hi to true) else listOf(lo to (lo > 20), hi to (wl != null && hi < wl - 20))
+                    // a peninsula's side ends at the peninsula, which covers it: no end panel there
+                    val penSide = f.layout == "P" && r == rs.firstOrNull { it.wall != ISLAND }
+                    val ends = if (isl) listOf(lo to (f.layout != "P"), hi to true) else listOf(lo to (lo > 20), hi to (wl != null && hi < wl - 20 && !penSide))
                     if (kx0.ends > 0) ends.forEach { (a, free) -> if (free) B.box(b, B.front, if (a == lo) a - 18 else a, if (a == lo) a else a + 18, 0, wt - K_TOP, 0, 600, true) }
                     val up = f.modules.filter { it.wall == r.wall && it.type == "wall" }
                     if (kx0.endsUp > 0 && up.isNotEmpty() && wl != null) {
