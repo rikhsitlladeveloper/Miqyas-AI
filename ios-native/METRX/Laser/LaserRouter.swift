@@ -77,9 +77,17 @@ final class LaserRouter {
         if AppSettings.shared.laser != st { AppSettings.shared.laser = st }
     }
 
+    /// The radar page's "Sinab ko‘ring" box: while the page is open, a measurement goes there first.
+    @ObservationIgnored var radarTake: ((LaserReading) -> Void)? = nil
+
     /// A measurement from the real laser (main thread).
     func dispatch(_ r: LaserReading) {
         if r.mm <= 0 { return }
+        if let t = radarTake {
+            LaserLog.add("reading \(r.mm) mm → the radar page")
+            t(r)
+            return
+        }
         if let w = waiter {
             waiter = nil
             LaserLog.add("reading \(r.mm) mm → the waiting button")
@@ -109,10 +117,12 @@ final class LaserRouter {
         case "connected":
             simOn = false
             if user && app.sheet == .device { app.sheet = nil }
-            app.say("lz.connected", ["n": name ?? "ZB-08"])
+            // the radar page shows it in big (green centre, "Ulandi")
+            if !real.radar { app.say("lz.connected", ["n": name ?? "ZB-08"]) }
         case "lost":
             cancel()
-            app.say("lz.lost", kind: .info)
+            // elsewhere a toast and a reconnect after 1 s; the radar page has its own 4 s countdown card
+            if !real.radar { app.say("lz.lost", kind: .info) }
         default: break
         }
     }

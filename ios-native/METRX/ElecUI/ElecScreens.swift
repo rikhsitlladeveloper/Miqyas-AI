@@ -153,7 +153,7 @@ struct ElecHome: View {
         let lines = tr("el.lines").split(separator: "|").map(String.init)
         let orders = Store.shared.projects.filter(\.isElec).sorted { $0.created > $1.created }
         VStack(spacing: 0) {
-            GlassHeader { app.sheet = .device }
+            GlassHeader { app.openLaser() }
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {

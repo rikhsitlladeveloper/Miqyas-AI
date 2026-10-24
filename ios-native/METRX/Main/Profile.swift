@@ -18,7 +18,7 @@ struct ProfileScreen: View {
         VStack(spacing: 0) {
             HStack {
                 PageTitle(text: tr("tab.profile")).padding(.leading, 16).padding(.top, 6).frame(maxWidth: .infinity, alignment: .leading)
-                LaserButton { app.sheet = .device }
+                LaserButton { app.openLaser() }
             }
             .padding(.leading, 4).padding(.trailing, 16).padding(.vertical, 8)
             ScrollView {

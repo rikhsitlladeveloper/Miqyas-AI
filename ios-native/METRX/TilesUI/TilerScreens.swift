@@ -81,7 +81,7 @@ struct TilerHome: View {
         let lines = tr("tl.lines").split(separator: "|").map(String.init)
         let orders = Store.shared.projects.filter(\.isTiler).sorted { $0.created > $1.created }
         VStack(spacing: 0) {
-            GlassHeader { app.sheet = .device }
+            GlassHeader { app.openLaser() }
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {

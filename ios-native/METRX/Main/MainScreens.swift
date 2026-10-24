@@ -54,7 +54,7 @@ struct HomeScreen: View {
         let lines = tr("gl.lines").split(separator: "|").map(String.init)
         let line = lines.isEmpty ? "" : lines[s.visit % lines.count]
         VStack(spacing: 0) {
-            GlassHeader { app.sheet = .device }
+            GlassHeader { app.openLaser() }
             ScrollView {
                 VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 10) {

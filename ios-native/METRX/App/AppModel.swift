@@ -82,6 +82,8 @@ enum Route: Hashable {
     case wView(pid: String, rid: String)
     /// Device sheet → "Lazer sinovi": what a Bluetooth laser sends, read only (Main/LaserTest.swift).
     case laserTest
+    /// The Bluetooth button with no laser connected, or the Device sheet's "Qidirish": the laser radar (Main/LaserRadar.swift).
+    case laserRadar
 
     /// The same page with another tab does not slide.
     var pageKey: String {

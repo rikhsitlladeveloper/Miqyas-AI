@@ -8,9 +8,22 @@ func lzOpenSettings() {
     UIApplication.shared.open(u)
 }
 
+/// This phone has Bluetooth LE (false on the simulator).
+func lzHasBt() -> Bool { lzBtState(nil) != .unsupported }
+
+extension AppModel {
+    /// The Bluetooth button on the home pages and Profile (Android MainNav.laser): with a laser connected (or the
+    /// simulator) the small Device sheet shows its status; else the radar finds one. With no Bluetooth at all (the
+    /// simulator) the sheet, which has the simulated laser.
+    func openLaser() {
+        let rl = LaserRouter.shared
+        if rl.isReal || rl.simOn || !lzHasBt() { sheet = .device } else { push(.laserRadar) }
+    }
+}
+
 /// The measuring device (prototype SHEETS.device; Android ui/main/DeviceSheet.kt): the real ZB-08 over Bluetooth, and
-/// the simulator for when there is none. "Qidirish" scans 15 s; lasers come first, other named devices under them; a
-/// tap connects. The laser connected last is remembered and connected again by itself (opening this sheet tries it at
+/// the simulator for when there is none. "Qidirish" opens the laser radar (Main/LaserRadar.swift), which finds and
+/// connects the laser; a scan's results still show here (lasers first, other named devices under them; a tap connects). The laser connected last is remembered and connected again by itself (opening this sheet tries it at
 /// once); "Uzish" disconnects and stops that until the next start, "Unutish" forgets it. Typing values always works.
 struct DeviceSheet: View {
     let app: AppModel
@@ -41,7 +54,10 @@ struct DeviceSheet: View {
             } else if real.scanning {
                 GlassButton(tr("lt.stop") + " · " + tr("lt.scanning", ["s": real.scanLeft]), primary: false, icon: "search") { real.stopScan() }
             } else {
-                GlassButton(tr("dv.search"), icon: "search") { search() }
+                // "Qidirish" opens the radar page (it asks for Bluetooth itself)
+                GlassButton(tr("dv.search"), icon: "search") {
+                    if lzHasBt() { app.sheet = nil; app.push(.laserRadar) } else { search() }
+                }
             }
         }
         .onAppear { real.opened() }

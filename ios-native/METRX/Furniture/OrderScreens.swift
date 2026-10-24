@@ -100,7 +100,7 @@ struct FurnitureHome: View {
         let orders = s.advanced ? all : all.sorted { $0.created > $1.created }
         let (debt, nDebt) = owed(orders)
         VStack(spacing: 0) {
-            GlassHeader { app.sheet = .device }
+            GlassHeader { app.openLaser() }
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
                     VStack(alignment: .leading, spacing: 8) {

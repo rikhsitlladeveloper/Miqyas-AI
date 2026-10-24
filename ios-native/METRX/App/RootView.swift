@@ -179,6 +179,7 @@ struct RootView: View {
         case .wDesign(let pid, let iid): WDesignScreen(app: app, pid: pid, iid: iid)
         case .wView(let pid, let rid): WViewScreen(app: app, pid: pid, rid: rid)
         case .laserTest: LaserTestScreen(app: app)
+        case .laserRadar: LaserRadarScreen(app: app)
         }
     }
 
