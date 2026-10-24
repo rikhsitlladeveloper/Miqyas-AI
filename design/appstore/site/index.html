@@ -1,0 +1,279 @@
+<!doctype html>
+<html lang="uz-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>METRX — Support</title>
+<meta name="description" content="METRX: laser measuring, 3D rooms and PDF quotes for builders and trades. Support and contact.">
+<meta name="color-scheme" content="light dark">
+<style>
+/* METRX support + privacy site. Plain CSS, no scripts, no web fonts. */
+:root {
+  --accent: #3550E0;
+  --accent-ink: #ffffff;
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --ink: #141826;
+  --ink2: #4a5068;
+  --ink3: #6c7390;
+  --line: #e2e5ef;
+  --soft: #eef1fd;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #8396ff;
+    --accent-ink: #0d1020;
+    --bg: #0e1018;
+    --card: #171a26;
+    --ink: #eef0f7;
+    --ink2: #b6bbcf;
+    --ink3: #8c92aa;
+    --line: #2a2f42;
+    --soft: #1d2236;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.lang { max-width: 760px; margin: 0 auto; padding: 0 16px 48px; }
+
+/* header: brand, page links, language switch (repeated in each language section) */
+.top {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  padding: 18px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 28px;
+}
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 800; letter-spacing: .02em; font-size: 19px; margin-right: auto; }
+.mark { width: 32px; height: 32px; border-radius: 9px; background: #3550E0; display: grid; place-items: center; flex: none; }
+.pages, .switch { display: flex; gap: 4px; flex-wrap: wrap; }
+.pages a, .switch a {
+  color: var(--ink2); text-decoration: none; font-size: 15px; font-weight: 600;
+  padding: 6px 10px; border-radius: 999px; border: 1px solid transparent;
+}
+.pages a:hover, .switch a:hover { color: var(--accent); }
+.pages a[aria-current="page"] { color: var(--accent); background: var(--soft); }
+.switch { border: 1px solid var(--line); border-radius: 999px; padding: 2px; background: var(--card); }
+.switch a { padding: 4px 10px; font-size: 14px; }
+.switch a[aria-current="true"] { background: var(--accent); color: var(--accent-ink); }
+
+h1 { font-size: 30px; line-height: 1.2; margin: 0 0 10px; letter-spacing: -0.01em; }
+h2 { font-size: 21px; line-height: 1.3; margin: 36px 0 10px; }
+h3 { font-size: 17px; line-height: 1.4; margin: 22px 0 6px; }
+p, ul, ol { margin: 0 0 12px; }
+ul, ol { padding-left: 22px; }
+li { margin: 4px 0; }
+a { color: var(--accent); }
+.lead { font-size: 18px; color: var(--ink2); }
+.meta { color: var(--ink3); font-size: 15px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 8px; margin: 18px 0; }
+.card h2:first-child, .card h3:first-child { margin-top: 0; }
+
+/* the contact email: plain selectable text, one tap selects it all */
+.email {
+  display: inline-block; font: 600 18px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  background: var(--soft); color: var(--ink); padding: 8px 12px; border-radius: 10px;
+  -webkit-user-select: all; user-select: all; word-break: break-all;
+}
+.btn { display: inline-block; margin: 8px 0 12px; padding: 10px 16px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); text-decoration: none; font-weight: 700; font-size: 15px; }
+
+.faq h3 { color: var(--ink); }
+.faq p, .faq li { color: var(--ink2); }
+.note { border-left: 3px solid var(--accent); padding: 2px 0 2px 12px; color: var(--ink2); }
+
+footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink3); font-size: 14px; }
+footer a { color: var(--ink3); }
+
+/* one language at a time where the browser supports :has(); older browsers show all three, one after another */
+@supports selector(:has(a)) {
+  .lang { display: none; }
+  .lang:target { display: block; }
+  body:not(:has(.lang:target)) .lang.default { display: block; }
+}
+@media (max-width: 480px) {
+  h1 { font-size: 26px; }
+  .brand { width: 100%; }
+}
+@media print {
+  .lang { display: block !important; }
+  .pages, .switch { display: none; }
+}
+</style>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%233550E0'/%3E%3Cpath d='M7 22h18M7 22v-5M25 22v-5M16 22v-3' stroke='white' stroke-width='2.4' stroke-linecap='round' fill='none'/%3E%3Cpath d='M8 10h16' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-dasharray='2 4'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<!-- ============================== O‘ZBEKCHA ============================== -->
+<section class="lang default" id="uz" lang="uz-Latn">
+  <header class="top">
+    <a class="brand" href="index.html#uz"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 17h18M3 17v-4M21 17v-4M12 17v-2"/><path d="M4 7h16" stroke-dasharray="2 3"/></svg></span>METRX</a>
+    <nav class="pages" aria-label="Sahifalar"><a href="index.html#uz" aria-current="page">Yordam</a><a href="privacy.html#uz">Maxfiylik</a></nav>
+    <nav class="switch" aria-label="Til"><a href="#uz" aria-current="true" hreflang="uz">O‘zbekcha</a><a href="#ru" hreflang="ru">Русский</a><a href="#en" hreflang="en">English</a></nav>
+  </header>
+
+  <h1>METRX — yordam</h1>
+  <p class="lead">METRX — quruvchilar va ustalar uchun iPhone ilovasi. Xonani Bluetooth lazer bilan yoki qo‘lda o‘lchaysiz, ilova uni 3D da ko‘rsatadi, kerakli materiallarni hisoblaydi va mijozga PDF taklif tayyorlaydi.</p>
+  <p>Olti soha: quruvchi, mebelchi, kafelchi, elektrik, santexnik, deraza-eshik. Ilova bepul, internetsiz ishlaydi va hisob ochishni talab qilmaydi.</p>
+
+  <div class="card">
+    <h2>Biz bilan bog‘lanish</h2>
+    <p>Savol, xato yoki taklif bo‘lsa, yozing:</p>
+    <p><span class="email">developer.sanjar@gmail.com</span></p>
+    <p><a class="btn" href="mailto:developer.sanjar@gmail.com?subject=METRX">Xat yozish</a></p>
+    <p class="meta">Xatda iPhone modeli va iOS versiyasini yozing. Xato bo‘lsa, ekran rasmini ham qo‘shing.</p>
+  </div>
+
+  <h2>Ko‘p so‘raladigan savollar</h2>
+  <div class="faq">
+    <h3>Lazerni qanday ulayman?</h3>
+    <ol>
+      <li>ZB-08 lazerini yoqing va iPhone’da Bluetooth yoqilganini tekshiring.</li>
+      <li>METRX’da lazer (Bluetooth) tugmasini bosing — qidiruv sahifasi ochiladi.</li>
+      <li>Lazeringiz chiqqanda uni bosing. iPhone Bluetooth’ga ruxsat so‘rasa, ruxsat bering.</li>
+      <li>O‘lchash uchun ilovada o‘lchamni tanlang va lazerning o‘z tugmasini bosing. Masofa shu joyga tushadi, siz tekshirib tasdiqlaysiz.</li>
+    </ol>
+    <p>METRX lazerni eslab qoladi va keyingi safar lazer yoqilganda o‘zi ulanadi.</p>
+    <p><strong>Topilmasa:</strong> lazerni yaqinroq tuting, uni o‘chirib qayta yoqing. iPhone Sozlamalari (Settings) › METRX ichida Bluetooth yoqilganini tekshiring. Lazer boshqa telefonga ulangan bo‘lsa, u yerda uzib qo‘ying.</p>
+
+    <h3>Lazersiz ishlasa bo‘ladimi?</h3>
+    <p>Ha. Har qanday o‘lchamni qo‘lda yozish mumkin, qolgan hamma narsa xuddi shunday ishlaydi. Ilova hech qachon o‘lchamni o‘zi o‘ylab topmaydi.</p>
+
+    <h3>Narx, raskroy va takliflar ko‘rinmayapti</h3>
+    <p>Mebelchi, kafelchi, elektrik, santexnik va deraza-eshik sohalarida ular Profildagi «Kengaytirilgan rejim»da ochiladi. Quruvchida smeta va PDF taklif doim bor.</p>
+
+    <h3>Ma’lumotlarim qayerda saqlanadi?</h3>
+    <p>Faqat shu iPhone’da, ilovaning ichida. Hisob ham, server ham yo‘q, biz loyihalaringizni ko‘ra olmaymiz. Ilovani o‘chirsangiz, uning barcha ma’lumotlari ham o‘chadi. iCloud zaxirasi yoki kompyuterga zaxira qilsangiz, iOS METRX ma’lumotlarini ham shu zaxiraga qo‘shadi.</p>
+
+    <h3>Yangi telefonga qanday o‘taman?</h3>
+    <p class="note">Ochig‘ini aytamiz: METRX’da hozircha o‘z zaxira nusxasi, eksport yoki sinxronlash yo‘q.</p>
+    <p>Yangi iPhone’ni eskisining zaxirasidan (iCloud, kompyuter yoki Quick Start) sozlasangiz, iOS odatda ilova ma’lumotlarini ham ko‘chiradi. Lekin biz buni METRX bilan hali sinab ko‘rmaganmiz. Eski telefonni tozalash yoki berib yuborishdan oldin yangisida METRX’ni ochib, loyihalar joyida ekanini tekshiring. Yuborgan PDF takliflaringiz qayerga yuborgan bo‘lsangiz, o‘sha yerda qoladi. Android va iPhone o‘rtasida ko‘chirish hozircha yo‘q.</p>
+
+    <h3>Qaysi tillar bor?</h3>
+    <p>O‘zbekcha (lotin va kirill), ruscha va inglizcha. Hisobot tilini ilova tilidan alohida tanlash mumkin.</p>
+
+    <h3>Pullikmi?</h3>
+    <p>Yo‘q. METRX bepul, ichida xaridlar va reklama yo‘q.</p>
+  </div>
+
+  <footer><a href="privacy.html#uz">Maxfiylik siyosati</a> · developer.sanjar@gmail.com</footer>
+</section>
+
+<!-- ============================== РУССКИЙ ============================== -->
+<section class="lang" id="ru" lang="ru">
+  <header class="top">
+    <a class="brand" href="index.html#ru"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 17h18M3 17v-4M21 17v-4M12 17v-2"/><path d="M4 7h16" stroke-dasharray="2 3"/></svg></span>METRX</a>
+    <nav class="pages" aria-label="Страницы"><a href="index.html#ru" aria-current="page">Поддержка</a><a href="privacy.html#ru">Конфиденциальность</a></nav>
+    <nav class="switch" aria-label="Язык"><a href="#uz" hreflang="uz">O‘zbekcha</a><a href="#ru" aria-current="true" hreflang="ru">Русский</a><a href="#en" hreflang="en">English</a></nav>
+  </header>
+
+  <h1>METRX — поддержка</h1>
+  <p class="lead">METRX — приложение для iPhone для строителей и мастеров. Вы замеряете комнату Bluetooth-лазером или вручную, приложение показывает её в 3D, считает материалы и готовит для заказчика PDF-предложение.</p>
+  <p>Шесть профессий: строитель, мебельщик, плиточник, электрик, сантехник, окна и двери. Приложение бесплатное, работает без интернета и без аккаунта.</p>
+
+  <div class="card">
+    <h2>Связаться с нами</h2>
+    <p>Вопрос, ошибка или идея — напишите:</p>
+    <p><span class="email">developer.sanjar@gmail.com</span></p>
+    <p><a class="btn" href="mailto:developer.sanjar@gmail.com?subject=METRX">Написать письмо</a></p>
+    <p class="meta">Укажите модель iPhone и версию iOS. Если что-то не так, приложите снимок экрана.</p>
+  </div>
+
+  <h2>Частые вопросы</h2>
+  <div class="faq">
+    <h3>Как подключить лазер?</h3>
+    <ol>
+      <li>Включите лазер ZB-08 и проверьте, что на iPhone включён Bluetooth.</li>
+      <li>В METRX нажмите кнопку лазера (Bluetooth) — откроется страница поиска.</li>
+      <li>Когда появится ваш лазер, нажмите на него. Если iPhone спросит доступ к Bluetooth, выберите «Разрешить».</li>
+      <li>Чтобы замерить, выберите размер в приложении и нажмите кнопку на самом лазере. Расстояние встанет на место, вы проверяете и подтверждаете.</li>
+    </ol>
+    <p>METRX запоминает лазер и в следующий раз подключается сам, когда лазер включён.</p>
+    <p><strong>Если не находит:</strong> поднесите лазер ближе, выключите и включите его. Проверьте в Настройках iPhone › METRX, что Bluetooth включён. Если лазер подключён к другому телефону, отключите его там.</p>
+
+    <h3>Можно без лазера?</h3>
+    <p>Да. Любой размер можно ввести вручную, всё остальное работает так же. Приложение никогда не придумывает замеры само.</p>
+
+    <h3>Не видно цен, раскроя и предложений</h3>
+    <p>У мебельщика, плиточника, электрика, сантехника и в «Окна и двери» они открываются в «Расширенном режиме» в Профиле. У строителя смета и PDF-предложение есть всегда.</p>
+
+    <h3>Где хранятся мои данные?</h3>
+    <p>Только на этом iPhone, внутри приложения. Аккаунта и сервера нет, мы не видим ваши проекты. Если удалить приложение, удалятся и все его данные. Если вы делаете резервную копию в iCloud или на компьютер, iOS включает в неё и данные METRX.</p>
+
+    <h3>Как перейти на новый телефон?</h3>
+    <p class="note">Честно: своей резервной копии, экспорта или синхронизации в METRX пока нет.</p>
+    <p>Если настроить новый iPhone из копии старого (iCloud, компьютер или «Быстрое начало»), iOS обычно переносит и данные приложений. Но с METRX мы это ещё не проверяли. Прежде чем стирать или отдавать старый телефон, откройте METRX на новом и убедитесь, что проекты на месте. Отправленные PDF-предложения остаются там, куда вы их отправили. Переноса между Android и iPhone пока нет.</p>
+
+    <h3>Какие языки?</h3>
+    <p>Узбекский (латиница и кириллица), русский и английский. Язык отчёта можно выбрать отдельно от языка приложения.</p>
+
+    <h3>Это платно?</h3>
+    <p>Нет. METRX бесплатный, без покупок и рекламы.</p>
+  </div>
+
+  <footer><a href="privacy.html#ru">Политика конфиденциальности</a> · developer.sanjar@gmail.com</footer>
+</section>
+
+<!-- ============================== ENGLISH ============================== -->
+<section class="lang" id="en" lang="en">
+  <header class="top">
+    <a class="brand" href="index.html#en"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 17h18M3 17v-4M21 17v-4M12 17v-2"/><path d="M4 7h16" stroke-dasharray="2 3"/></svg></span>METRX</a>
+    <nav class="pages" aria-label="Pages"><a href="index.html#en" aria-current="page">Support</a><a href="privacy.html#en">Privacy</a></nav>
+    <nav class="switch" aria-label="Language"><a href="#uz" hreflang="uz">O‘zbekcha</a><a href="#ru" hreflang="ru">Русский</a><a href="#en" aria-current="true" hreflang="en">English</a></nav>
+  </header>
+
+  <h1>METRX support</h1>
+  <p class="lead">METRX is an iPhone app for builders and tradespeople. You measure a room with a Bluetooth laser or by hand. The app shows it in 3D, works out the materials and makes a PDF quote for your customer.</p>
+  <p>Six trades: builder, furniture maker, tiler, electrician, plumber, and windows and doors. The app is free, works offline and needs no account.</p>
+
+  <div class="card">
+    <h2>Contact us</h2>
+    <p>A question, a bug or an idea? Write to:</p>
+    <p><span class="email">developer.sanjar@gmail.com</span></p>
+    <p><a class="btn" href="mailto:developer.sanjar@gmail.com?subject=METRX">Send an email</a></p>
+    <p class="meta">Please include your iPhone model and iOS version. If something looks wrong, add a screenshot.</p>
+  </div>
+
+  <h2>Frequently asked questions</h2>
+  <div class="faq">
+    <h3>How do I connect the laser?</h3>
+    <ol>
+      <li>Turn on the ZB-08 laser and check that Bluetooth is on on your iPhone.</li>
+      <li>In METRX, tap the laser (Bluetooth) button. The search page opens.</li>
+      <li>When your laser appears, tap it. If the iPhone asks for Bluetooth access, choose Allow.</li>
+      <li>To measure, pick a size in the app and press the laser’s own button. The distance goes in, and you check and confirm it.</li>
+    </ol>
+    <p>METRX remembers the laser and connects by itself next time the laser is on.</p>
+    <p><strong>If it isn’t found:</strong> hold the laser closer, and turn it off and on. In iPhone Settings › METRX, check that Bluetooth is on. If the laser is connected to another phone, disconnect it there.</p>
+
+    <h3>Can I use it without a laser?</h3>
+    <p>Yes. You can type any size by hand, and everything else works the same. The app never makes up a measurement.</p>
+
+    <h3>I can’t see prices, cut lists or quotes</h3>
+    <p>For furniture makers, tilers, electricians, plumbers, and windows and doors, they appear when you turn on Advanced mode in Profile. Builders always have the estimate and the PDF quote.</p>
+
+    <h3>Where is my data stored?</h3>
+    <p>Only on this iPhone, inside the app. There is no account and no server, so we can’t see your projects. Deleting the app deletes all its data. If you back up to iCloud or a computer, iOS includes METRX’s data in that backup.</p>
+
+    <h3>How do I move to a new phone?</h3>
+    <p class="note">To be honest: METRX has no backup, export or sync of its own yet.</p>
+    <p>If you set up the new iPhone from a backup of the old one (iCloud, a computer or Quick Start), iOS normally brings app data along. We have not tested this with METRX yet, though. Before you erase or give away the old phone, open METRX on the new one and check that your projects are there. PDF quotes you sent stay wherever you sent them. Moving between Android and iPhone isn’t possible yet.</p>
+
+    <h3>Which languages are there?</h3>
+    <p>Uzbek (Latin and Cyrillic), Russian and English. You can choose the report language separately from the app language.</p>
+
+    <h3>Does it cost anything?</h3>
+    <p>No. METRX is free, with no purchases and no ads.</p>
+  </div>
+
+  <footer><a href="privacy.html#en">Privacy policy</a> · developer.sanjar@gmail.com</footer>
+</section>
+
+</body>
+</html>

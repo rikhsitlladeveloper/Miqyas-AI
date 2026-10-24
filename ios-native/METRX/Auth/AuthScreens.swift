@@ -350,8 +350,9 @@ struct LocalScreen: View {
     @State private var tPhone = false
     @FocusState private var focus: F?
     var body: some View {
-        let nErr = name.trimmingCharacters(in: .whitespaces).isEmpty ? tr("bd.req") : nil
-        let pErr = Phone.errorKey(phone, required: true).map { tr($0) }
+        // both optional (App Store 5.1.1): they only go on the PDF quotes; a phone, when typed, must still be valid
+        let nErr: String? = nil
+        let pErr = Phone.errorKey(phone, required: false).map { tr($0) }
         let ok = nErr == nil && pErr == nil
         let start = { hideKeyboard(); AppSettings.shared.saveBuilder(name, phone); nav.done() }
         AuPage(title: title ?? tr(AuthFlags.accounts ? "au.skip" : "fr.builderTitle"), step: nil, onBack: nav.back) {

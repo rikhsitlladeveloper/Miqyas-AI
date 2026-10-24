@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="uz-Latn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>METRX — Privacy Policy</title>
+<meta name="description" content="METRX privacy policy: the app collects no data. Everything stays on your iPhone.">
+<meta name="color-scheme" content="light dark">
+<style>
+/* METRX support + privacy site. Plain CSS, no scripts, no web fonts. */
+:root {
+  --accent: #3550E0;
+  --accent-ink: #ffffff;
+  --bg: #f6f7fb;
+  --card: #ffffff;
+  --ink: #141826;
+  --ink2: #4a5068;
+  --ink3: #6c7390;
+  --line: #e2e5ef;
+  --soft: #eef1fd;
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --accent: #8396ff;
+    --accent-ink: #0d1020;
+    --bg: #0e1018;
+    --card: #171a26;
+    --ink: #eef0f7;
+    --ink2: #b6bbcf;
+    --ink3: #8c92aa;
+    --line: #2a2f42;
+    --soft: #1d2236;
+  }
+}
+
+* { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 17px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+}
+
+.lang { max-width: 760px; margin: 0 auto; padding: 0 16px 48px; }
+
+/* header: brand, page links, language switch (repeated in each language section) */
+.top {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+  padding: 18px 0 14px; border-bottom: 1px solid var(--line); margin-bottom: 28px;
+}
+.brand { display: flex; align-items: center; gap: 10px; color: var(--ink); text-decoration: none; font-weight: 800; letter-spacing: .02em; font-size: 19px; margin-right: auto; }
+.mark { width: 32px; height: 32px; border-radius: 9px; background: #3550E0; display: grid; place-items: center; flex: none; }
+.pages, .switch { display: flex; gap: 4px; flex-wrap: wrap; }
+.pages a, .switch a {
+  color: var(--ink2); text-decoration: none; font-size: 15px; font-weight: 600;
+  padding: 6px 10px; border-radius: 999px; border: 1px solid transparent;
+}
+.pages a:hover, .switch a:hover { color: var(--accent); }
+.pages a[aria-current="page"] { color: var(--accent); background: var(--soft); }
+.switch { border: 1px solid var(--line); border-radius: 999px; padding: 2px; background: var(--card); }
+.switch a { padding: 4px 10px; font-size: 14px; }
+.switch a[aria-current="true"] { background: var(--accent); color: var(--accent-ink); }
+
+h1 { font-size: 30px; line-height: 1.2; margin: 0 0 10px; letter-spacing: -0.01em; }
+h2 { font-size: 21px; line-height: 1.3; margin: 36px 0 10px; }
+h3 { font-size: 17px; line-height: 1.4; margin: 22px 0 6px; }
+p, ul, ol { margin: 0 0 12px; }
+ul, ol { padding-left: 22px; }
+li { margin: 4px 0; }
+a { color: var(--accent); }
+.lead { font-size: 18px; color: var(--ink2); }
+.meta { color: var(--ink3); font-size: 15px; }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 18px 8px; margin: 18px 0; }
+.card h2:first-child, .card h3:first-child { margin-top: 0; }
+
+/* the contact email: plain selectable text, one tap selects it all */
+.email {
+  display: inline-block; font: 600 18px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  background: var(--soft); color: var(--ink); padding: 8px 12px; border-radius: 10px;
+  -webkit-user-select: all; user-select: all; word-break: break-all;
+}
+.btn { display: inline-block; margin: 8px 0 12px; padding: 10px 16px; border-radius: 12px; background: var(--accent); color: var(--accent-ink); text-decoration: none; font-weight: 700; font-size: 15px; }
+
+.faq h3 { color: var(--ink); }
+.faq p, .faq li { color: var(--ink2); }
+.note { border-left: 3px solid var(--accent); padding: 2px 0 2px 12px; color: var(--ink2); }
+
+footer { margin-top: 40px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--ink3); font-size: 14px; }
+footer a { color: var(--ink3); }
+
+/* one language at a time where the browser supports :has(); older browsers show all three, one after another */
+@supports selector(:has(a)) {
+  .lang { display: none; }
+  .lang:target { display: block; }
+  body:not(:has(.lang:target)) .lang.default { display: block; }
+}
+@media (max-width: 480px) {
+  h1 { font-size: 26px; }
+  .brand { width: 100%; }
+}
+@media print {
+  .lang { display: block !important; }
+  .pages, .switch { display: none; }
+}
+</style>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='9' fill='%233550E0'/%3E%3Cpath d='M7 22h18M7 22v-5M25 22v-5M16 22v-3' stroke='white' stroke-width='2.4' stroke-linecap='round' fill='none'/%3E%3Cpath d='M8 10h16' stroke='white' stroke-width='2.4' stroke-linecap='round' stroke-dasharray='2 4'/%3E%3C/svg%3E">
+</head>
+<body>
+
+<!-- ============================== O‘ZBEKCHA ============================== -->
+<section class="lang default" id="uz" lang="uz-Latn">
+  <header class="top">
+    <a class="brand" href="index.html#uz"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 17h18M3 17v-4M21 17v-4M12 17v-2"/><path d="M4 7h16" stroke-dasharray="2 3"/></svg></span>METRX</a>
+    <nav class="pages" aria-label="Sahifalar"><a href="index.html#uz">Yordam</a><a href="privacy.html#uz" aria-current="page">Maxfiylik</a></nav>
+    <nav class="switch" aria-label="Til"><a href="#uz" aria-current="true" hreflang="uz">O‘zbekcha</a><a href="#ru" hreflang="ru">Русский</a><a href="#en" hreflang="en">English</a></nav>
+  </header>
+
+  <h1>Maxfiylik siyosati</h1>
+  <p class="meta">iPhone uchun METRX · Kuchga kirish sanasi: 2026-yil 25-oktabr</p>
+
+  <div class="card">
+    <h2>Qisqacha</h2>
+    <ul>
+      <li>METRX hech qanday ma’lumot to‘plamaydi. Hisob, server, statistika, reklama va kuzatish yo‘q.</li>
+      <li>Siz kiritgan hamma narsa — loyihalar, o‘lchamlar, suratlar, mijozlar ma’lumotlari — iPhone’ingizda qoladi.</li>
+      <li>Bluetooth, kamera, suratlar va joylashuv faqat o‘zingiz ishga tushirgan funksiyalar uchun va faqat telefonning o‘zida ishlatiladi.</li>
+    </ul>
+  </div>
+
+  <h2>1. Kim javobgar</h2>
+  <p>METRX’ni yakka dasturchi yaratgan va chiqargan. U METRX’ning App Store sahifasida sotuvchi sifatida ko‘rsatilgan. Ushbu siyosat uchun dasturchi javobgar. Aloqa: <span class="email">developer.sanjar@gmail.com</span></p>
+
+  <h2>2. Ilova telefoningizda nimalarni saqlaydi</h2>
+  <p>METRX’dan foydalanganingizda u iPhone’ingizda, ilovaning ichida quyidagilarni saqlaydi:</p>
+  <ul>
+    <li>loyiha va buyurtmalaringiz: xonalar, o‘lchamlar, eshik va derazalar, mebel, kafel, elektr, santexnika, deraza-eshik, smeta, narxlar va takliflar;</li>
+    <li>ilovada olgan yoki tanlagan suratlaringiz va saqlagan 3D rasmlaringiz;</li>
+    <li>o‘zingiz yozgan ma’lumotlar: ismingiz va telefoningiz (takliflaringizda chiqadi), mijozlaringizning ismi, telefoni va manzili;</li>
+    <li>loyiha joylashuvi, agar uni qo‘shgan bo‘lsangiz;</li>
+    <li>til, soha, valyuta kabi sozlamalar va ulangan lazer.</li>
+  </ul>
+  <p>Bularning hech biri bizga yoki boshqa birovga yuborilmaydi. Biz ularni ko‘ra olmaymiz va yo‘qolsa, tiklab bera olmaymiz.</p>
+
+  <h2>3. Nimalarni qilmaymiz</h2>
+  <ul>
+    <li>Hisob va kirish yo‘q.</li>
+    <li>Server yo‘q: ilovaning o‘z internet aloqasi yo‘q, u internetsiz ishlaydi.</li>
+    <li>Statistika, reklama va kuzatish yo‘q. Ma’lumotlarni sotmaymiz va hech kimga bermaymiz.</li>
+    <li>Ilova ichida boshqa kompaniyalarning kodi (SDK) yo‘q.</li>
+  </ul>
+
+  <h2>4. Ruxsatlar va ular nima uchun</h2>
+  <p>Ilova bularning har biridan foydalanishidan oldin iOS sizdan so‘raydi. Rad etishingiz va keyin iPhone Sozlamalari (Settings) › METRX’da o‘zgartirishingiz mumkin. Faqat shu ruxsatga bog‘liq funksiya ishlamay qoladi.</p>
+  <ul>
+    <li><strong>Bluetooth</strong> — lazer o‘lchagichingizni (ZB-08) topish va u o‘lchagan masofani olish uchun. Lazerni qidirganingizda so‘raladi.</li>
+    <li><strong>Kamera</strong> — devor yoki teshikni suratga olib, ustiga o‘lcham chizish uchun. Suratga olganingizda so‘raladi.</li>
+    <li><strong>Suratlar</strong> — galereyadagi suratni ochib, ustiga o‘lcham chizish uchun. Ilova faqat siz tanlagan suratni oladi.</li>
+    <li><strong>Joylashuv (ixtiyoriy)</strong> — faqat loyiha ma’lumotlarida «Joylashuvni aniqlash»ni bosganingizda. Ilova joylashuvni bir marta oladi va obyektni keyin topish uchun shu loyihada saqlaydi. U shu loyihaning PDF taklifida ham chiqadi. Ilova sizni kuzatmaydi va joylashuvdan fonda foydalanmaydi. Uni istalgan vaqtda loyihadan olib tashlashingiz mumkin.</li>
+  </ul>
+
+  <h2>5. Ulashganingizda</h2>
+  <p>Ba’zi tugmalar ma’lumotni boshqa ilovaga beradi, faqat siz bosganingizda:</p>
+  <ul>
+    <li>«PDF ulashish» iPhone’ning ulashish menyusini ochadi. Taklif siz tanlagan ilova yoki odamga ketadi.</li>
+    <li>«Qo‘ng‘iroq» mijoz raqami bilan Telefon ilovasini ochadi.</li>
+    <li>«Xaritada ochish» loyihaning saqlangan koordinatalari bilan Google Maps’ni (ilova yoki sayt) ochadi. U yerda Google’ning maxfiylik siyosati amal qiladi.</li>
+  </ul>
+  <p>Undan keyin nima bo‘lishi sizga va o‘sha ilovaga bog‘liq.</p>
+
+  <h2>6. Zaxira nusxalar</h2>
+  <p>METRX’ning o‘z zaxira nusxasi yo‘q. iCloud zaxirasi yoki kompyuterga zaxiradan foydalansangiz, iOS METRX ma’lumotlarini ham shu zaxiraga qo‘shadi. Bu zaxiralarni Apple o‘z maxfiylik siyosati bo‘yicha saqlaydi.</p>
+
+  <h2>7. Apple</h2>
+  <p>Ilovani Apple App Store orqali tarqatadi. Agar iPhone sozlamalarida dasturchilar bilan statistika ulashishga rozi bo‘lgan bo‘lsangiz, Apple bizga umumlashtirilgan statistika va nosozlik hisobotlarini ko‘rsatishi mumkin. Ular ilovadan emas, Apple’dan keladi va kimligingizni bildirmaydi.</p>
+
+  <h2>8. Ma’lumotlarni o‘chirish</h2>
+  <p>Loyihani ilovada o‘chirsangiz, u o‘chadi. Ilovani o‘chirsangiz, uning barcha ma’lumotlari telefondan o‘chadi. Bizda hech qanday nusxa yo‘q, shuning uchun bizdan o‘chirishni so‘rashga hojat yo‘q.</p>
+
+  <h2>9. Mijozlaringiz ma’lumotlari</h2>
+  <p>Mijozlaringiz ma’lumotlarini kiritsangiz, ular telefoningizda qoladi. Faqat ish uchun keraklisini kiriting va keragi qolmagan loyihalarni o‘chiring.</p>
+
+  <h2>10. Bolalar</h2>
+  <p>METRX kattalar uchun ish quroli, bolalarga mo‘ljallanmagan. U hech kimdan, jumladan bolalardan ham, ma’lumot to‘plamaydi.</p>
+
+  <h2>11. Xavfsizlik</h2>
+  <p>Ma’lumotlaringizni iPhone’ning o‘z himoyasi saqlaydi. Telefoningizni boshqalar ocha olmasligi uchun parol yoki Face ID qo‘ying.</p>
+
+  <h2>12. Siyosatdagi o‘zgarishlar</h2>
+  <p>Siyosat o‘zgarsa, shu sahifani va kuchga kirish sanasini yangilaymiz. Agar kelajakdagi versiya ma’lumotni telefondan tashqariga yuboradigan bo‘lsa (masalan, bulutli zaxira), o‘sha versiya chiqishidan oldin siyosatni yangilaymiz va buni ilovada tushuntiramiz.</p>
+
+  <h2>13. Aloqa</h2>
+  <p>Savollar bo‘lsa, yozing: <span class="email">developer.sanjar@gmail.com</span></p>
+
+  <footer><a href="index.html#uz">Yordam</a> · developer.sanjar@gmail.com</footer>
+</section>
+
+<!-- ============================== РУССКИЙ ============================== -->
+<section class="lang" id="ru" lang="ru">
+  <header class="top">
+    <a class="brand" href="index.html#ru"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 17h18M3 17v-4M21 17v-4M12 17v-2"/><path d="M4 7h16" stroke-dasharray="2 3"/></svg></span>METRX</a>
+    <nav class="pages" aria-label="Страницы"><a href="index.html#ru">Поддержка</a><a href="privacy.html#ru" aria-current="page">Конфиденциальность</a></nav>
+    <nav class="switch" aria-label="Язык"><a href="#uz" hreflang="uz">O‘zbekcha</a><a href="#ru" aria-current="true" hreflang="ru">Русский</a><a href="#en" hreflang="en">English</a></nav>
+  </header>
+
+  <h1>Политика конфиденциальности</h1>
+  <p class="meta">METRX для iPhone · Дата вступления в силу: 25 октября 2026 г.</p>
+
+  <div class="card">
+    <h2>Коротко</h2>
+    <ul>
+      <li>METRX не собирает никаких данных. Нет аккаунта, сервера, аналитики, рекламы и слежки.</li>
+      <li>Всё, что вы вводите, — проекты, замеры, фото, данные заказчиков — остаётся на вашем iPhone.</li>
+      <li>Bluetooth, камера, фото и геолокация используются только для функций, которые вы запускаете сами, и только на телефоне.</li>
+    </ul>
+  </div>
+
+  <h2>1. Кто отвечает</h2>
+  <p>METRX создан и выпущен частным разработчиком. Он указан как продавец на странице METRX в App Store. За эту политику отвечает разработчик. Контакт: <span class="email">developer.sanjar@gmail.com</span></p>
+
+  <h2>2. Что приложение хранит на телефоне</h2>
+  <p>Когда вы пользуетесь METRX, приложение сохраняет на вашем iPhone, внутри себя:</p>
+  <ul>
+    <li>ваши проекты и заказы: комнаты, размеры, двери и окна, мебель, плитку, электрику, сантехнику, окна и двери, сметы, цены и предложения;</li>
+    <li>фото, сделанные или выбранные в приложении, и сохранённые 3D-виды;</li>
+    <li>данные, которые вы вводите: ваше имя и телефон (печатаются в предложениях), имена, телефоны и адреса заказчиков;</li>
+    <li>местоположение проекта, если вы его добавили;</li>
+    <li>настройки: язык, профессию, валюту и подключённый лазер.</li>
+  </ul>
+  <p>Ничего из этого не отправляется ни нам, ни кому-либо ещё. Мы не видим эти данные и не сможем восстановить их, если они пропадут.</p>
+
+  <h2>3. Чего мы не делаем</h2>
+  <ul>
+    <li>Нет аккаунта и входа.</li>
+    <li>Нет серверов: у приложения нет своего подключения к интернету, оно работает офлайн.</li>
+    <li>Нет аналитики, рекламы и слежки. Мы не продаём и никому не передаём данные.</li>
+    <li>Нет стороннего кода (SDK) внутри приложения.</li>
+  </ul>
+
+  <h2>4. Разрешения и зачем они</h2>
+  <p>Прежде чем приложение сможет использовать каждое из них, iOS спросит вас. Можно отказать и позже изменить выбор в Настройках iPhone › METRX. Перестанет работать только функция, которой нужно это разрешение.</p>
+  <ul>
+    <li><strong>Bluetooth</strong> — чтобы найти лазерный дальномер (ZB-08) и получать измеренные им расстояния. Запрашивается при поиске лазера.</li>
+    <li><strong>Камера</strong> — чтобы сфотографировать стену или проём и нанести на фото размеры. Запрашивается, когда вы делаете снимок.</li>
+    <li><strong>Фото</strong> — чтобы открыть снимок из галереи и нанести на него размеры. Приложение получает только выбранный вами снимок.</li>
+    <li><strong>Геолокация (по желанию)</strong> — только когда вы нажимаете «Определить местоположение» в данных проекта. Приложение определяет место один раз и сохраняет его в этом проекте, чтобы потом найти объект. Оно также печатается в PDF-предложении этого проекта. Приложение не следит за вами и не использует геолокацию в фоне. Место можно в любой момент убрать из проекта.</li>
+  </ul>
+
+  <h2>5. Когда вы делитесь</h2>
+  <p>Некоторые кнопки передают данные другому приложению, только когда вы их нажимаете:</p>
+  <ul>
+    <li>«Поделиться PDF» открывает меню «Поделиться» на iPhone. Предложение уходит в приложение или человеку, которого вы выберете.</li>
+    <li>«Позвонить» открывает приложение «Телефон» с номером заказчика.</li>
+    <li>«Открыть на карте» открывает Google Карты (приложение или сайт) с сохранёнными координатами проекта. Там действует политика конфиденциальности Google.</li>
+  </ul>
+  <p>Что происходит дальше, зависит от вас и этого приложения.</p>
+
+  <h2>6. Резервные копии</h2>
+  <p>Своей резервной копии в METRX нет. Если вы пользуетесь резервной копией iCloud или копируете iPhone на компьютер, iOS включает в копию и данные METRX. Эти копии Apple хранит по своей политике конфиденциальности.</p>
+
+  <h2>7. Apple</h2>
+  <p>Приложение распространяется через App Store компании Apple. Если в настройках iPhone вы согласились делиться аналитикой с разработчиками, Apple может показывать нам обобщённую статистику и отчёты о сбоях. Они приходят от Apple, а не из приложения, и не говорят нам, кто вы.</p>
+
+  <h2>8. Удаление данных</h2>
+  <p>Удалите проект в приложении, и он исчезнет. Если удалить приложение, с телефона удалятся все его данные. У нас нет копий, поэтому просить нас что-то удалить не нужно.</p>
+
+  <h2>9. Данные ваших заказчиков</h2>
+  <p>Если вы вводите данные заказчиков, они остаются на вашем телефоне. Вводите только то, что нужно для работы, и удаляйте проекты, которые больше не нужны.</p>
+
+  <h2>10. Дети</h2>
+  <p>METRX — рабочий инструмент для взрослых, он не предназначен для детей. Приложение ни у кого не собирает данные, в том числе у детей.</p>
+
+  <h2>11. Безопасность</h2>
+  <p>Ваши данные защищает встроенная защита iPhone. Поставьте код-пароль или Face ID, чтобы другие не могли открыть телефон.</p>
+
+  <h2>12. Изменения политики</h2>
+  <p>Если политика изменится, мы обновим эту страницу и дату вступления в силу. Если будущая версия когда-нибудь начнёт отправлять данные с телефона, например для облачной копии, мы обновим политику до выхода этой версии и объясним это в приложении.</p>
+
+  <h2>13. Контакты</h2>
+  <p>Если есть вопросы, напишите: <span class="email">developer.sanjar@gmail.com</span></p>
+
+  <footer><a href="index.html#ru">Поддержка</a> · developer.sanjar@gmail.com</footer>
+</section>
+
+<!-- ============================== ENGLISH ============================== -->
+<section class="lang" id="en" lang="en">
+  <header class="top">
+    <a class="brand" href="index.html#en"><span class="mark"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M3 17h18M3 17v-4M21 17v-4M12 17v-2"/><path d="M4 7h16" stroke-dasharray="2 3"/></svg></span>METRX</a>
+    <nav class="pages" aria-label="Pages"><a href="index.html#en">Support</a><a href="privacy.html#en" aria-current="page">Privacy</a></nav>
+    <nav class="switch" aria-label="Language"><a href="#uz" hreflang="uz">O‘zbekcha</a><a href="#ru" hreflang="ru">Русский</a><a href="#en" aria-current="true" hreflang="en">English</a></nav>
+  </header>
+
+  <h1>Privacy policy</h1>
+  <p class="meta">METRX for iPhone · Effective date: 25 October 2026</p>
+
+  <div class="card">
+    <h2>In short</h2>
+    <ul>
+      <li>METRX collects no data. There is no account, no server, no analytics, no ads and no tracking.</li>
+      <li>Everything you enter — projects, measurements, photos, customers’ details — stays on your iPhone.</li>
+      <li>Bluetooth, the camera, photos and location are used only for features you start yourself, and only on the phone.</li>
+    </ul>
+  </div>
+
+  <h2>1. Who is responsible</h2>
+  <p>METRX is made and published by an individual developer, who is shown as the seller on METRX’s App Store page. The developer is responsible for this policy. Contact: <span class="email">developer.sanjar@gmail.com</span></p>
+
+  <h2>2. What the app keeps on your phone</h2>
+  <p>When you use METRX, it saves these on your iPhone, inside the app:</p>
+  <ul>
+    <li>your projects and orders: rooms, sizes, doors and windows, furniture, tiles, wiring, plumbing, windows and doors, estimates, prices and quotes;</li>
+    <li>photos you take or pick in the app, and 3D pictures you save;</li>
+    <li>details you type: your name and phone number (printed on your quotes), and your customers’ names, phone numbers and addresses;</li>
+    <li>a project’s location, if you chose to add one;</li>
+    <li>settings such as language, trade and currency, and the laser you connected.</li>
+  </ul>
+  <p>None of it is sent to us or to anyone else. We cannot see it, and we cannot restore it if it is lost.</p>
+
+  <h2>3. What we don’t do</h2>
+  <ul>
+    <li>No account or sign-in.</li>
+    <li>No servers: the app has no internet connection of its own and works offline.</li>
+    <li>No analytics, no advertising, no tracking. We don’t sell or share data.</li>
+    <li>No third-party code (SDKs) inside the app.</li>
+  </ul>
+
+  <h2>4. Permissions and why</h2>
+  <p>iOS asks you before the app can use each of these. You can say no, and change it later in iPhone Settings › METRX. Only the feature that needs it stops working.</p>
+  <ul>
+    <li><strong>Bluetooth</strong> — to find your laser meter (ZB-08) and read the distances it measures. Asked when you search for the laser.</li>
+    <li><strong>Camera</strong> — to take a photo of a wall or opening and draw dimensions on it. Asked when you take a photo.</li>
+    <li><strong>Photos</strong> — to open a photo from your library and draw dimensions on it. The app gets only the photo you pick.</li>
+    <li><strong>Location (optional)</strong> — only when you tap “Get my location” in a project’s details. The app takes your position once and saves it in that project so you can find the site later. It is also printed on that project’s PDF quote. The app doesn’t track you or use location in the background. You can remove it from the project at any time.</li>
+  </ul>
+
+  <h2>5. When you share</h2>
+  <p>Some buttons hand information to another app, only when you tap them:</p>
+  <ul>
+    <li>“Share PDF” opens the iPhone share menu. The quote goes to the app or person you choose.</li>
+    <li>“Call” opens the Phone app with the customer’s number.</li>
+    <li>“Open in maps” opens Google Maps (the app or the website) with the project’s saved coordinates. Google’s privacy policy applies there.</li>
+  </ul>
+  <p>What happens after that is up to you and that app.</p>
+
+  <h2>6. Backups</h2>
+  <p>METRX has no backup of its own. If you use iCloud Backup or back up your iPhone to a computer, iOS includes METRX’s data in that backup. Apple keeps those backups under its own privacy policy.</p>
+
+  <h2>7. Apple</h2>
+  <p>Apple distributes the app through the App Store. If you agreed in your iPhone settings to share analytics with app developers, Apple may show us combined statistics and crash reports. These come from Apple, not from the app, and don’t tell us who you are.</p>
+
+  <h2>8. Deleting your data</h2>
+  <p>Delete a project in the app to remove it. Deleting the app removes all its data from the phone. We hold no copy, so there is nothing to ask us to delete.</p>
+
+  <h2>9. Your customers’ details</h2>
+  <p>If you enter your customers’ details, they stay on your phone. Please enter only what you need for the job, and delete projects you no longer need.</p>
+
+  <h2>10. Children</h2>
+  <p>METRX is a work tool for adults and isn’t meant for children. It doesn’t collect data from anyone, including children.</p>
+
+  <h2>11. Security</h2>
+  <p>Your data is protected by your iPhone’s own security. Use a passcode or Face ID so that others can’t open your phone.</p>
+
+  <h2>12. Changes to this policy</h2>
+  <p>If this policy changes, we will update this page and its effective date. If a future version ever sends data off your phone, for example for a cloud backup, we will update this policy before that version comes out and explain it in the app.</p>
+
+  <h2>13. Contact</h2>
+  <p>Questions? Write to <span class="email">developer.sanjar@gmail.com</span></p>
+
+  <footer><a href="index.html#en">Support</a> · developer.sanjar@gmail.com</footer>
+</section>
+
+</body>
+</html>

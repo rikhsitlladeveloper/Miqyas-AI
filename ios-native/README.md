@@ -30,6 +30,37 @@ Sideloadly (free Apple ID; it has to be re-signed every 7 days).
 
 With a Mac: `brew install xcodegen`, then `cd ios-native && xcodegen generate && open METRX.xcodeproj`.
 
+## Publishing
+
+Two workflows that run only by hand (GitHub lists a hand-run workflow only once its file is on the default branch,
+`main`; the branch to build is then picked in the Run workflow menu).
+
+**TestFlight** (`.github/workflows/ios-testflight.yml`). First, once:
+
+1. Register the bundle id `uz.metrx.app` (developer.apple.com → Certificates, Identifiers & Profiles → Identifiers →
+   App IDs, explicit, no extra capabilities), then in App Store Connect → Apps → New App make the app's record with it
+   (platform iOS, any free name). The upload needs the record.
+2. In App Store Connect → Users and Access → Integrations → App Store Connect API, make a team key with the **Admin**
+   role and download its `.p8` file (it can be downloaded only once).
+3. In the GitHub repository → Settings → Secrets and variables → Actions, add four repository secrets:
+   - `ASC_KEY_ID`: the key's Key ID,
+   - `ASC_ISSUER_ID`: the Issuer ID shown above the keys,
+   - `ASC_KEY_P8`: the whole text of the `.p8` file (BEGIN and END lines included),
+   - `APPLE_TEAM_ID`: the team ID from developer.apple.com → Account → Membership details.
+
+Then: Actions → **iOS TestFlight** → Run workflow, or push a tag named `testflight-…` (e.g. `git tag testflight-1 && git push origin testflight-1`; the Run workflow button appears only once the file is on `main`). It archives a Release build with automatic signing (the API key lets
+Xcode make the certificate and profile on the runner), exports the signed IPA (artifact `METRX-appstore-ipa`, kept 7
+days) and uploads it. The build number is the workflow's run number, so every upload is new; the version is
+`MARKETING_VERSION` in `project.yml`. The build shows in TestFlight after Apple's processing. A missing secret stops the
+run at once with its name.
+
+**App Store screenshots** (`.github/workflows/ios-screenshots.yml`): Actions → **iOS App Store screenshots** → Run
+workflow, or push a tag named `shots-…`. It boots the biggest iPhone simulator on the runner (iPhone 17 Pro Max or 16 Pro Max, the 6.9-inch size),
+sets the status bar to 9:41 with full battery and signal, and runs `METRXUITests/AppStoreShots.swift`, which makes its
+sample projects through the app's screens and saves six pictures in Uzbek, Russian and English: `01-home`, `02-laser`,
+`03-kitchen-3d`, `04-tiles-3d`, `05-wiring` (and `05b-wiring-3d`), `06-estimate-pdf`, named like `uz-01-home.png`.
+Artifact: `appstore-screens`. The class is skipped in the usual CI run.
+
 ## Where things are
 
 | Path | What |

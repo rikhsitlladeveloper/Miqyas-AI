@@ -1,0 +1,129 @@
+# App Store screenshots of the iPhone app (ios-native/), in Uzbek, Russian and English.
+# Run it by hand: Actions → iOS App Store screenshots → Run workflow.
+# It builds for the simulator, boots the biggest current iPhone (the 6.9-inch class: iPhone 17 Pro Max or 16 Pro Max,
+# picked by name), sets a clean status bar (9:41, full battery, full signal), and runs the one UI test class
+# METRXUITests/AppStoreShots.swift, which makes its sample projects through the app's own screens and saves six
+# pictures a language (uz-01-home.png … en-06-estimate-pdf.png).
+# Artifacts: appstore-screens (the PNGs) and appstore-screens-logs.
+name: iOS App Store screenshots
+
+on:
+  workflow_dispatch:
+  # a tag starts it from any branch (hand-run workflows only show "Run workflow" once they are on main)
+  push:
+    tags: ["shots-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-screenshots
+  cancel-in-progress: true
+
+jobs:
+  screenshots:
+    runs-on: macos-latest
+    timeout-minutes: 60
+    defaults:
+      run:
+        working-directory: ios-native
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Newest Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1)
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: Pick the biggest iPhone
+        id: sim
+        run: |
+          python3 - <<'PY' | tee -a "$GITHUB_OUTPUT"
+          # The newest "iPhone N Pro Max" on the newest iOS runtime (6.9-inch: 16 Pro Max and later); made when the
+          # runner has the device type but no simulator of it.
+          import json, re, subprocess
+          def j(*a): return json.loads(subprocess.check_output(["xcrun", "simctl", "list", *a, "-j"]))
+          def ver(rt):
+              m = re.search(r"iOS-(\d+)-(\d+)", rt)
+              return (int(m.group(1)), int(m.group(2))) if m else None
+          best = None
+          for rt, devs in j("devices", "available")["devices"].items():
+              v = ver(rt)
+              if not v: continue
+              for d in devs:
+                  n = re.fullmatch(r"iPhone (\d+) Pro Max", d["name"])
+                  if n:
+                      key = (int(n.group(1)), v)
+                      if best is None or key > best[0]: best = (key, d["udid"], d["name"], rt)
+          if best is None or best[0][0] < 16:
+              types = [t for t in j("devicetypes")["devicetypes"] if re.fullmatch(r"iPhone (\d+) Pro Max", t["name"])]
+              rts = [r for r in j("runtimes")["runtimes"] if r.get("isAvailable") and r["identifier"].startswith("com.apple.CoreSimulator.SimRuntime.iOS")]
+              if types and rts:
+                  t = max(types, key=lambda t: int(re.search(r"\d+", t["name"]).group()))
+                  r = max(rts, key=lambda r: ver(r["identifier"]) or (0, 0))
+                  udid = subprocess.check_output(["xcrun", "simctl", "create", t["name"], t["identifier"], r["identifier"]]).decode().strip()
+                  best = ((0, (0, 0)), udid, t["name"], r["identifier"])
+          if best is None:
+              raise SystemExit("no iPhone Pro Max simulator on this runner")
+          print(f"udid={best[1]}")
+          print(f"name={best[2]} ({best[3].split('.')[-1]})")
+          PY
+
+      - name: Boot it with a clean status bar
+        run: |
+          U="${{ steps.sim.outputs.udid }}"
+          xcrun simctl boot "$U" 2>/dev/null || true
+          xcrun simctl bootstatus "$U" -b
+          xcrun simctl ui "$U" appearance light || true
+          xcrun simctl status_bar "$U" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          echo "booted ${{ steps.sim.outputs.name }}"
+
+      - name: Build for the simulator
+        run: |
+          mkdir -p out/appstore
+          xcodebuild build-for-testing -project METRX.xcodeproj -scheme METRX -destination "id=${{ steps.sim.outputs.udid }}" \
+            -derivedDataPath out/dd > out/build.log 2>&1 || {
+              echo "== source errors"; { grep -E "^/.*\.swift:[0-9]+:[0-9]+: error" out/build.log || true; } | sed 's|.*/ios-native/||' | sort -u | head -n 120
+              echo "== other errors"; { grep -nE "error:|FAILED" out/build.log || true; } | head -n 40
+              exit 1; }
+          echo "built"
+
+      - name: Take the screenshots
+        run: |
+          U="${{ steps.sim.outputs.udid }}"
+          # set again right before the tests, in case the build touched the simulator
+          xcrun simctl status_bar "$U" override --time 9:41 --batteryState charged --batteryLevel 100 --cellularBars 4 --wifiBars 3
+          R=0
+          TEST_RUNNER_APPSTORE_SHOTS="$PWD/out/appstore" xcodebuild test-without-building -project METRX.xcodeproj -scheme METRX \
+            -destination "id=$U" -derivedDataPath out/dd -only-testing:METRXUITests/AppStoreShots \
+            -parallel-testing-enabled NO -retry-tests-on-failure -test-iterations 2 \
+            > out/shots.log 2>&1 || R=$?
+          echo "== results"; grep -E "Test [Cc]ase .*(passed|failed|skipped)" out/shots.log | sed 's/^.*Test [Cc]ase //' | sort | uniq | tail -n 40
+          echo "== failures"; { grep -E "error: -\[|error: .*Test" out/shots.log || true; } | sed 's|.*/ios-native/||' | sort -u | head -n 40
+          echo "== pictures"; ls -la out/appstore
+          N=$(ls out/appstore/*.png 2>/dev/null | wc -l | tr -d ' ')
+          echo "### $N App Store screenshots on ${{ steps.sim.outputs.name }}" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$N" = "0" ]; then echo "::error::no screenshots were made"; exit 1; fi
+          exit $R
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: appstore-screens
+          path: ios-native/out/appstore/*.png
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: appstore-screens-logs
+          path: |
+            ios-native/out/build.log
+            ios-native/out/shots.log
+          if-no-files-found: ignore

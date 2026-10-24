@@ -1,0 +1,177 @@
+# The iPhone app (ios-native/) to TestFlight: archive signed for the App Store, export the signed IPA, upload it.
+# Run it by hand: Actions → iOS TestFlight → Run workflow (pick the branch to build, usually ios-native).
+#
+# Repository secrets it needs (Settings → Secrets and variables → Actions → New repository secret):
+#   ASC_KEY_ID     the App Store Connect API key's Key ID (10 characters, e.g. 2X9R4HXF34)
+#   ASC_ISSUER_ID  the Issuer ID shown above the keys list (a UUID)
+#   ASC_KEY_P8     the whole text of the AuthKey_<KEY_ID>.p8 file, from "-----BEGIN PRIVATE KEY-----" to the END line
+#   APPLE_TEAM_ID  the Apple Developer team ID (10 characters, Membership details)
+# The key is made in App Store Connect → Users and Access → Integrations → App Store Connect API (Team Keys), with the
+# Admin role: Xcode's automatic signing uses it to make the certificate and the provisioning profile on the runner.
+# The app's record (bundle id uz.metrx.app) must exist in App Store Connect before the first upload.
+#
+# Each upload's build number is this workflow's run number (CURRENT_PROJECT_VERSION, passed to xcodebuild; project.yml
+# keeps 1); the version is project.yml's MARKETING_VERSION. Artifact: METRX-appstore-ipa (the signed IPA, kept 7 days).
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+  # a tag starts it from any branch (hand-run workflows only show "Run workflow" once they are on main)
+  push:
+    tags: ["testflight-*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+jobs:
+  testflight:
+    runs-on: macos-latest
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: ios-native
+    env:
+      ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+      ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+      ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+      BUILD_NO: ${{ github.run_number }}
+    steps:
+      - name: Check the secrets
+        working-directory: .
+        run: |
+          missing=""
+          for n in ASC_KEY_ID ASC_ISSUER_ID ASC_KEY_P8 APPLE_TEAM_ID; do
+            [ -n "${!n}" ] || missing="$missing $n"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error title=Missing secrets::These repository secrets are not set:$missing. Add them in Settings → Secrets and variables → Actions (see the top of .github/workflows/ios-testflight.yml)."
+            exit 1
+          fi
+          # their shape only (the values themselves are never printed)
+          [[ "$ASC_KEY_ID" =~ ^[A-Z0-9]{10}$ ]] || echo "::warning::ASC_KEY_ID is usually 10 capital letters and digits; check it if signing fails."
+          [[ "$APPLE_TEAM_ID" =~ ^[A-Z0-9]{10}$ ]] || echo "::warning::APPLE_TEAM_ID is usually 10 capital letters and digits; check it if signing fails."
+          [[ "$ASC_ISSUER_ID" =~ ^[0-9a-fA-F-]{36}$ ]] || echo "::warning::ASC_ISSUER_ID is usually a UUID (36 characters); check it if signing fails."
+          echo "secrets present"
+
+      - uses: actions/checkout@v4
+
+      - name: Newest Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1)
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+
+      - name: Generate the Xcode project
+        run: |
+          brew install xcodegen
+          xcodegen generate
+
+      - name: The API key
+        run: |
+          # where xcrun altool looks for it, and the path xcodebuild's -authenticationKeyPath gets
+          D="$HOME/.appstoreconnect/private_keys"
+          mkdir -p "$D"
+          K="$D/AuthKey_${ASC_KEY_ID}.p8"
+          printf '%s\n' "$ASC_KEY_P8" | tr -d '\r' > "$K"
+          # pasted as base64 instead of the text: decoded
+          if ! grep -q "BEGIN PRIVATE KEY" "$K"; then
+            printf '%s' "$ASC_KEY_P8" | base64 --decode > "$K" 2>/dev/null || true
+          fi
+          chmod 600 "$K"
+          if ! grep -q "BEGIN PRIVATE KEY" "$K"; then
+            echo "::error title=ASC_KEY_P8 is not a .p8 key::The secret ASC_KEY_P8 must be the whole text of the AuthKey_${ASC_KEY_ID}.p8 file, BEGIN and END lines included."
+            exit 1
+          fi
+          echo "ASC_KEY_PATH=$K" >> "$GITHUB_ENV"
+          echo "key written"
+
+      - name: Archive (Release, automatic signing)
+        run: |
+          mkdir -p out
+          xcodebuild archive -project METRX.xcodeproj -scheme METRX -configuration Release \
+            -destination 'generic/platform=iOS' -archivePath out/METRX.xcarchive \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            DEVELOPMENT_TEAM="$APPLE_TEAM_ID" CODE_SIGN_STYLE=Automatic CURRENT_PROJECT_VERSION="$BUILD_NO" \
+            > out/archive.log 2>&1 || {
+              echo "== errors"; { grep -nE "error:|Signing|provisioning|certificate|FAILED" out/archive.log || true; } | sort -u | head -n 80
+              echo "== last lines"; tail -n 40 out/archive.log
+              exit 1; }
+          /usr/libexec/PlistBuddy -c "Print :ApplicationProperties" out/METRX.xcarchive/Info.plist
+
+      - name: Export the signed IPA
+        run: |
+          cat > out/ExportOptions.plist <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key><string>app-store-connect</string>
+            <key>teamID</key><string>${APPLE_TEAM_ID}</string>
+            <key>signingStyle</key><string>automatic</string>
+            <key>uploadSymbols</key><true/>
+            <key>manageAppVersionAndBuildNumber</key><false/>
+            <key>destination</key><string>export</string>
+          </dict>
+          </plist>
+          EOF
+          plutil -lint out/ExportOptions.plist
+          xcodebuild -exportArchive -archivePath out/METRX.xcarchive -exportOptionsPlist out/ExportOptions.plist -exportPath out/export \
+            -allowProvisioningUpdates \
+            -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+            > out/export.log 2>&1 || {
+              echo "== errors"; { grep -nE "error:|Signing|provisioning|certificate|FAILED" out/export.log || true; } | sort -u | head -n 80
+              echo "== last lines"; tail -n 40 out/export.log
+              exit 1; }
+          IPA=$(ls out/export/*.ipa | head -1)
+          mv "$IPA" "out/export/METRX-${BUILD_NO}.ipa"
+          ls -la out/export
+
+      # the signed IPA goes up first, so a failed upload still leaves it to look at or to upload with Transporter
+      - uses: actions/upload-artifact@v4
+        with:
+          name: METRX-appstore-ipa
+          path: ios-native/out/export/*.ipa
+          retention-days: 7
+          if-no-files-found: error
+
+      - name: Upload to TestFlight
+        run: |
+          IPA="out/export/METRX-${BUILD_NO}.ipa"
+          # altool finds the key by its id in ~/.appstoreconnect/private_keys
+          if xcrun altool --upload-app -f "$IPA" -t ios --apiKey "$ASC_KEY_ID" --apiIssuer "$ASC_ISSUER_ID" > out/upload.log 2>&1; then
+            tail -n 20 out/upload.log
+          else
+            echo "== altool did not upload:"; tail -n 40 out/upload.log
+            echo "== trying xcodebuild's own upload (destination upload)"
+            cp out/ExportOptions.plist out/ExportUpload.plist
+            plutil -replace destination -string upload out/ExportUpload.plist
+            xcodebuild -exportArchive -archivePath out/METRX.xcarchive -exportOptionsPlist out/ExportUpload.plist -exportPath out/upload \
+              -allowProvisioningUpdates \
+              -authenticationKeyPath "$ASC_KEY_PATH" -authenticationKeyID "$ASC_KEY_ID" -authenticationKeyIssuerID "$ASC_ISSUER_ID" \
+              > out/upload2.log 2>&1 || { grep -nE "error:|FAILED" out/upload2.log | head -n 60; tail -n 40 out/upload2.log; exit 1; }
+            tail -n 20 out/upload2.log
+          fi
+          V=$(/usr/libexec/PlistBuddy -c "Print :ApplicationProperties:CFBundleShortVersionString" out/METRX.xcarchive/Info.plist)
+          echo "### METRX $V ($BUILD_NO) uploaded to App Store Connect" >> "$GITHUB_STEP_SUMMARY"
+          echo "It shows in TestFlight after Apple's processing (usually 5-30 minutes)." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: testflight-logs
+          path: |
+            ios-native/out/*.log
+            ios-native/out/ExportOptions.plist
+          retention-days: 7
+          if-no-files-found: ignore
+
+      - name: Remove the key
+        if: always()
+        run: rm -rf "$HOME/.appstoreconnect/private_keys"
