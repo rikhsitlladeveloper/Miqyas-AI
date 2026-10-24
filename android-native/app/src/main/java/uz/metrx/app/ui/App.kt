@@ -102,6 +102,8 @@ sealed interface Route {
     data object LiveCam : Route
     /** Device sheet → "Lazer sinovi": finding a real Bluetooth laser and logging what it sends (main/LaserTest.kt). */
     data object LaserTest : Route
+    /** The Bluetooth button with no laser connected, or the Device sheet's "Qidirish": the laser radar (main/LaserRadar.kt). */
+    data object LaserRadar : Route
 }
 
 /** Bottom sheets. One at a time, like the prototype's U.sheet. */
@@ -332,7 +334,7 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.FCut -> store.get(r.pid) != null
                     is Route.FPack -> store.get(r.pid) != null
                     is Route.FCheck -> store.get(r.pid) != null
-                    Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, Route.Remnants, is Route.Measure, Route.LiveCam, Route.LaserTest -> true
+                    Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, Route.Remnants, is Route.Measure, Route.LiveCam, Route.LaserTest, Route.LaserRadar -> true
                 }
             }
             if (keep.size != st.size) { st.clear(); st.addAll(keep) }

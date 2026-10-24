@@ -45,12 +45,13 @@ import uz.metrx.app.ui.theme.ui
 
 /**
  * The measuring device (prototype SHEETS.device): the real ZB-08 over Bluetooth, and the simulator for when there is
- * none. "Qidirish" scans 15 s; lasers come first, other named devices under them; a tap connects. The laser connected
+ * none. "Qidirish" opens the laser radar (main/LaserRadar.kt), which finds and connects the laser; a scan's results still
+ * show here (lasers first, other named devices under them; a tap connects). The laser connected
  * last is remembered and connected again by itself (opening this sheet tries it at once); "Uzish" disconnects and
  * stops that until the next start, "Unutish" forgets it. Typing values always works.
  */
 @Composable
-fun DeviceSheet(onClose: () -> Unit, onTest: () -> Unit = {}) {
+fun DeviceSheet(onClose: () -> Unit, onTest: () -> Unit = {}, onRadar: () -> Unit = {}) {
     val app = LocalApp.current
     val ctx = LocalContext.current
     val rl = app.laser
@@ -88,7 +89,8 @@ fun DeviceSheet(onClose: () -> Unit, onTest: () -> Unit = {}) {
         when {
             real.connected -> GlassButton(tr("dv.disconnect"), { real.disconnect() }, primary = false)
             real.scanning -> GlassButton(tr("lt.stop") + " · " + tr("lt.scanning", "s" to real.scanLeft), { real.stopScan() }, primary = false, icon = "search")
-            else -> GlassButton(tr("dv.search"), ::search, icon = "search")
+            // "Qidirish" opens the radar page (it asks for Bluetooth and the permissions itself)
+            else -> GlassButton(tr("dv.search"), { if (hasBt) onRadar() else search() }, icon = "search")
         }
     }) {
         // the state, in the words every screen uses

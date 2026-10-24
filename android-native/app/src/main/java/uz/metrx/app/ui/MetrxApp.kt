@@ -142,7 +142,8 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
         override fun soon() { soon = true }
     }
     val mainNav = object : MainNav {
-        override fun laser() { app.sheet = Sheet.Device }
+        // with a laser connected (or the simulator) the small Device sheet shows its status; else the radar finds one
+        override fun laser() { if (app.laser.isReal || app.laser.simOn) app.sheet = Sheet.Device else app.push(Route.LaserRadar) }
         override fun newProject() { app.push(Route.NewProject()) }
         override fun measure() { app.push(Route.Measure(false)) }
         override fun calculator() { app.push(Route.Measure(true)) }
@@ -252,6 +253,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.Markup -> uz.metrx.app.ui.markup.MarkupScreen(route)
                                     Route.LiveCam -> uz.metrx.app.ui.markup.LiveCamScreen()
                                     Route.LaserTest -> uz.metrx.app.ui.main.LaserTestScreen()
+                                    Route.LaserRadar -> uz.metrx.app.ui.main.LaserRadarScreen()
                                 }
                                 // the page sliding away takes no taps, so a second tap cannot create or go back twice
                                 if (t != app.tab || pageKey(route) != pageKey(app.top)) Box(Modifier.matchParentSize().pointerInput(Unit) {
@@ -266,7 +268,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                 if (navOn) Box(Modifier.align(Alignment.BottomCenter)) { GlassNav(app.tab, { app.selectTab(it) }) }
                 when (val sh = app.sheet) {
                     Sheet.Language -> LanguageSheet(lang, { settings.setLanguage(it); app.sheet = null }) { app.sheet = null }
-                    Sheet.Device -> DeviceSheet(onClose = { app.sheet = null }, onTest = { app.sheet = null; app.push(Route.LaserTest) })
+                    Sheet.Device -> DeviceSheet(onClose = { app.sheet = null }, onTest = { app.sheet = null; app.push(Route.LaserTest) }, onRadar = { app.sheet = null; app.push(Route.LaserRadar) })
                     null -> {}
                     else -> if (!uz.metrx.app.ui.win.WinSheet(sh) && !uz.metrx.app.ui.plumb.PlumbSheet(sh) && !uz.metrx.app.ui.elec.ElecSheet(sh) && !uz.metrx.app.ui.tiles.TileSheet(sh) && !uz.metrx.app.ui.furniture.OrderFlowSheet(sh) && !uz.metrx.app.ui.furniture.BazisSheet(sh) && !uz.metrx.app.ui.furniture.FreeSheet(sh) && !uz.metrx.app.ui.projects.TradeSheet(sh) && !uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
                 }

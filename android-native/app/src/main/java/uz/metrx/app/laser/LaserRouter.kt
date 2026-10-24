@@ -86,9 +86,13 @@ class LaserRouter(private val app: App) {
     fun addSink(take: (Int) -> Boolean) = Sink(take).also { sinks.add(it) }
     fun removeSink(s: Sink) { sinks.remove(s) }
 
+    /** The radar page's "Sinab ko‘ring" box: while the page is open, a measurement goes there first. */
+    var radarTake: ((LaserReading) -> Unit)? = null
+
     /** A measurement from the real laser (main thread). */
     fun dispatch(r: LaserReading) {
         if (r.mm <= 0) return
+        radarTake?.let { t -> LaserLog.add("reading ${r.mm} mm → the radar page"); t(r); return }
         waiter?.let { w -> waiter = null; LaserLog.add("reading ${r.mm} mm → the waiting button"); w.take(r.mm); return }
         for (s in sinks.asReversed().toList()) if (s.take(r.mm)) { LaserLog.add("reading ${r.mm} mm → the size in focus"); return }
         app.settings.addReading(r.mm, "laser")
@@ -103,9 +107,11 @@ class LaserRouter(private val app: App) {
             "connected" -> {
                 simOn = false
                 if (user && app.sheet == uz.metrx.app.ui.Sheet.Device) app.sheet = null
-                app.say("lz.connected", "n" to (name ?: "ZB-08"), kind = ToastKind.OK)
+                // the radar page shows it in big (green centre, "Ulandi")
+                if (!real.radar) app.say("lz.connected", "n" to (name ?: "ZB-08"), kind = ToastKind.OK)
             }
-            "lost" -> { cancel(); app.say("lz.lost", kind = ToastKind.INFO) }
+            // elsewhere a toast and a reconnect after 1 s; the radar page has its own 4 s countdown card
+            "lost" -> { cancel(); if (!real.radar) app.say("lz.lost", kind = ToastKind.INFO) }
         }
     }
 }
