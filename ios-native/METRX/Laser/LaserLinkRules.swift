@@ -3,7 +3,8 @@ import Foundation
 /*
  * The pure rules behind the laser's radar page (Main/LaserRadar.swift) and RealLaser (Android laser/LinkRules.kt, the
  * same numbers): where a laser sits on the radar, what a disconnect means, when a run of failures becomes "busy" or
- * "3 tries", how long to wait before the next try. No CoreBluetooth here (unit-tested in LaserLinkRulesTests).
+ * "3 tries", how long to wait before the next try, what a service discovery means, when background tries stop, how
+ * often the radar redraws a laser. No CoreBluetooth here (unit-tested in LaserLinkRulesTests).
  */
 
 /// Why a connection the builder asked for did not come up (or went away): each has its own card on the radar page.
@@ -24,10 +25,23 @@ enum LaserFail: Equatable {
 enum LaserDrop: Equatable {
     /// The link was up and ready: it went away (laser off or out of range).
     case lost
-    /// Dropped at once (right after connecting, or a refusal): counted towards LaserFail.busy.
+    /// Dropped right after "connected": counted towards LaserFail.busy.
     case quick
+    /// Refused before any connection (a 133/8/257 status; iOS: didFailToConnect): tried once more quietly, then "no
+    /// answer", never "busy".
+    case refused
     /// Anything else before the link was ready: treated like no answer.
     case noAnswer
+}
+
+/// What one service discovery means (Android Discovery).
+enum LaserDiscovery: Equatable {
+    /// The SPS service with a TX characteristic that can notify: the laser.
+    case ok
+    /// The discovery itself failed (an error, or no services at all): the link is tried again, the device is not judged.
+    case retry
+    /// A discovery that worked, without the SPS service: not a laser METRX can read.
+    case notLaser
 }
 
 enum LaserLinkRules {
@@ -52,8 +66,34 @@ enum LaserLinkRules {
     static func drop(status: Int, ready: Bool, gattUp: Bool, msSinceUp: Int64) -> LaserDrop {
         if ready { return .lost }
         if gattUp && msSinceUp >= 0 && msSinceUp <= quickMs { return .quick }
-        if !gattUp && quickStatuses.contains(status) { return .quick }
+        if !gattUp && quickStatuses.contains(status) { return .refused }
         return .noAnswer
+    }
+
+    /// Quiet retries in one try after a refusal before "connected" or a failed service discovery (then "no answer").
+    static let softRetries = 1
+
+    /// Whether soft failure number n (1 first) of a try is retried quietly; a background try is not (its plan tries again).
+    static func softRetry(_ n: Int, user: Bool) -> Bool { user && n <= softRetries }
+
+    /// A service discovery's status (0 = no error), how many services came, whether sps (with TX that notifies) is there.
+    static func discovery(status: Int, services: Int, sps: Bool) -> LaserDiscovery {
+        if status != 0 || services <= 0 { return .retry }
+        return sps ? .ok : .notLaser
+    }
+
+    /// Background tries in a row at the remembered laser without an answer before the app stops and scans for it instead.
+    static let bgTries = 5
+    /// With the radar page open: after this many, its "didn't answer" card shows (and the tries stop).
+    static let radarBgTries = 3
+
+    static func bgCapped(_ fails: Int, radarOpen: Bool) -> Bool { fails >= (radarOpen ? radarBgTries : bgTries) }
+
+    /// While scanning for the remembered laser: this one is it (the same identifier, or the same name at a new one).
+    static func sameLaser(savedAddr: String?, savedName: String?, addr: String, name: String?) -> Bool {
+        if let a = savedAddr, addr.caseInsensitiveCompare(a) == .orderedSame { return true }
+        guard let sn = savedName?.trimmingCharacters(in: .whitespaces), !sn.isEmpty, let n = name else { return false }
+        return n.trimmingCharacters(in: .whitespaces).caseInsensitiveCompare(sn) == .orderedSame
     }
 
     static func isBusy(_ quickDrops: Int) -> Bool { quickDrops >= busyAfter }
@@ -129,4 +169,16 @@ enum LaserRadarMath {
     }
 
     static func stale(_ seenAt: Int64, _ now: Int64) -> Bool { seenAt > 0 && now - seenAt > staleMs }
+
+    /// A device's list entry is redrawn at most this often…
+    static let publishMs: Int64 = 500
+    /// …unless its smoothed signal moved this much (dB), or it is new, renamed or turned out (not) a laser.
+    static let publishDb: Double = 1.5
+
+    /// Whether the newest advertisement next should replace the entry the radar shows (shown) now.
+    static func publish(shown: LzFound?, next: LzFound, now: Int64) -> Bool {
+        guard let shown else { return true }
+        if shown.name != next.name || shown.laser != next.laser { return true }
+        return now - shown.seen >= publishMs || abs(next.avg - shown.avg) >= publishDb
+    }
 }

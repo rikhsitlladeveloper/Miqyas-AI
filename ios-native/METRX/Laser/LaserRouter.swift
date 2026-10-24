@@ -31,9 +31,11 @@ final class LaserRouter {
         return .disconnected
     }
 
-    /// A button waiting for the next measurement, made on page owner (leaving the page cancels it).
+    /// A button waiting for the next measurement, made on page owner, in sheet when it was pressed inside one: leaving
+    /// the page, or closing that sheet, cancels it (LaserWaitRules.keeps).
     struct Waiter {
         let owner: Route
+        let sheet: Sheet?
         let onCancel: (() -> Void)?
         let take: (Int) -> Void
     }
@@ -44,7 +46,16 @@ final class LaserRouter {
         let old = waiter
         waiter = nil
         old?.onCancel?()
-        waiter = Waiter(owner: AppModel.shared.top, onCancel: onCancel, take: take)
+        let app = AppModel.shared
+        waiter = Waiter(owner: app.top, sheet: app.sheet, onCancel: onCancel, take: take)
+    }
+
+    /// The page or the sheet changed: a button waiting from somewhere no longer on screen stops waiting.
+    func check(_ top: Route, _ sheet: Sheet?) {
+        guard let w = waiter else { return }
+        if LaserWaitRules.keeps(ownerPage: w.owner, ownerSheet: w.sheet, top: top, sheet: sheet) { return }
+        LaserLog.add("the waiting laser button left the screen: cancelled")
+        cancel()
     }
 
     func cancel() {
@@ -82,7 +93,7 @@ final class LaserRouter {
 
     /// A measurement from the real laser (main thread).
     func dispatch(_ r: LaserReading) {
-        if r.mm <= 0 { return }
+        if !JrtParser.plausible(r.mm) { return }
         if let t = radarTake {
             LaserLog.add("reading \(r.mm) mm → the radar page")
             t(r)
@@ -128,6 +139,27 @@ final class LaserRouter {
     }
 }
 
+/// Whether a waiting laser button is still on screen (pure; unit-tested in LaserWaitRulesTests; Android WaitRules).
+enum LaserWaitRules {
+    /// The page a button belongs to: the same page shown another way (the editor's plan ↔ 3D, a project's view) is still it.
+    static func pageKey(_ r: Route) -> Route {
+        switch r {
+        case .editor(let pid, let rid, _): return .editor(pid: pid, rid: rid, mode: "plan")
+        case .project(let id, _, _, _): return .project(id: id, tab: "rooms", view: "list", floor: nil)
+        case .kitchen(let pid, let fid, _, _): return .kitchen(pid: pid, fid: fid, wall: nil, d3: false)
+        case .wardrobe(let pid, let fid, let step, let sec, _, let mod): return .wardrobe(pid: pid, fid: fid, step: step, sec: sec, d3: false, mod: mod)
+        default: return r
+        }
+    }
+
+    /// A button pressed on ownerPage (in ownerSheet, if any) still waits while top is that page and that sheet is open.
+    static func keeps(ownerPage: Route, ownerSheet: Sheet?, top: Route, sheet: Sheet?) -> Bool {
+        guard pageKey(ownerPage) == pageKey(top) else { return false }
+        guard let os = ownerSheet else { return true }
+        return os == sheet
+    }
+}
+
 /// A screen's "size in focus": take returns false to pass the measurement on.
 final class LzSinkBox {
     var take: (Int) -> Bool
@@ -154,8 +186,13 @@ extension View {
 
 /// "Lazerda o‘lchang…" at the top while a button waits for the real laser, with Cancel (Android LaserWaitBar).
 struct LaserWaitBar: View {
+    @Environment(\.accessibilityReduceMotion) private var reduced
+
     var body: some View {
         let on = LaserRouter.shared.waiter != nil
+        // reduced motion: the bar shows and goes without sliding
+        let move: AnyTransition = reduced ? .opacity : .move(edge: .top).combined(with: .opacity)
+        let anim: Animation = reduced ? .linear(duration: 0.01) : .spring(response: 0.34, dampingFraction: 0.8)
         VStack {
             if on {
                 HStack(spacing: 12) {
@@ -177,12 +214,12 @@ struct LaserWaitBar: View {
                 .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color(argb: 0xFF0F1626)))
                 .boxShadow(Color(argb: 0x52000000), blur: 32, y: 12)
                 .padding(.horizontal, 10).padding(.top, 8)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .transition(move)
                 .accessibilityElement(children: .contain)
             }
             Spacer()
         }
-        .animation(.spring(response: 0.34, dampingFraction: 0.8), value: on)
+        .animation(anim, value: on)
         .allowsHitTesting(on)
     }
 }

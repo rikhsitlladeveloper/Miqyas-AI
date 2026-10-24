@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 @main
 struct METRXApp: App {
@@ -24,7 +25,35 @@ struct METRXApp: App {
                 // very large text sizes would break the glass layouts; up to xxLarge follows the phone's setting
                 .dynamicTypeSize(...DynamicTypeSize.xxLarge)
         }
-        // everything typed is on disk before the app can be closed in the background
-        .onChange(of: phase) { _, p in if p != .active { Store.shared.flush() } }
+        .onChange(of: phase) { _, p in
+            // everything typed is on disk before the app can be closed in the background
+            if p != .active { Store.shared.flush() }
+            // the real laser: no scans or reconnecting in the background, the link let go soon (other phones may take
+            // it); back in front, the remembered laser is tried again at once
+            if p == .background { LzBgTime.begin(); RealLaser.shared.background() }
+            if p == .active { RealLaser.shared.foreground(); LzBgTime.end() }
+        }
+    }
+}
+
+/// A little time in the background, so the laser's link can be let go there (RealLaser.bgGraceS) rather than when the
+/// app comes back; iOS ends it by itself after about half a minute.
+enum LzBgTime {
+    private static var task: UIBackgroundTaskIdentifier = .invalid
+    private static var gen = 0
+
+    static func begin() {
+        end()
+        gen += 1
+        let g = gen
+        task = UIApplication.shared.beginBackgroundTask(withName: "metrx.laser") { LzBgTime.end() }
+        // the link is let go after bgGraceS: the time is given back just after
+        DispatchQueue.main.asyncAfter(deadline: .now() + RealLaser.bgGraceS + 1) { if g == LzBgTime.gen { LzBgTime.end() } }
+    }
+
+    static func end() {
+        if task == .invalid { return }
+        UIApplication.shared.endBackgroundTask(task)
+        task = .invalid
     }
 }

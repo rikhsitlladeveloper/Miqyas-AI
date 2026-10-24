@@ -73,7 +73,7 @@ struct DeviceSheet: View {
     }
 
     private var statusRow: some View {
-        let st: String = real.connected || rl.simOn ? "dev.conn" : real.scanning ? "dev.scan" : real.link == .connecting ? "lz.connecting" : "dev.disc"
+        let st: String = real.connected || rl.simOn ? "dev.conn" : real.scanning ? "dev.scan" : real.link == .connecting || real.btWait ? "lz.connecting" : "dev.disc"
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         return HStack {
             T(tr("dv.status"), ui(14, 500, G.ink2)).frame(maxWidth: .infinity, alignment: .leading)
@@ -106,7 +106,8 @@ struct DeviceSheet: View {
                 forgetLink
             }
         } else if let sid = real.savedId, !real.paused {
-            let connecting = real.link == .connecting && real.linkId == sid
+            // (a tap before iOS said Bluetooth is on shows as connecting: it goes on by itself once it is)
+            let connecting = (real.link == .connecting && real.linkId == sid) || real.btWait
             let line = connecting ? tr("lz.connecting") : real.stopped ? tr("lz.off") : tr("lz.retry")
             LzRealCard(name: real.savedName ?? "ZB-08", idText: lzShortId(sid), line: tr("lz.saved") + " · " + line, on: false) {
                 if !connecting && (real.bt == .on || real.bt == .unknown) {
@@ -128,7 +129,8 @@ struct DeviceSheet: View {
         let lasers = all.filter { $0.laser }.sorted { $0.rssi > $1.rssi }
         let others = all.filter { !$0.laser }.sorted { $0.rssi > $1.rssi }
         let busy = real.link == .connecting
-        let canTap = !busy && real.bt == .on
+        // with Bluetooth off or not allowed a tap still answers (RealLaser says why on the sheet)
+        let canTap = !busy && real.bt != .unsupported
         if real.scanning || !all.isEmpty { T(tr("dv.found"), ui(13, 700, G.ink3)) }
         ForEach(lasers) { d in
             LzDevRow(d: d, connecting: busy && real.linkId == d.id, enabled: canTap) { real.connect(d.id, d.name) }

@@ -31,6 +31,10 @@ final class JrtParser {
     private static let head = 6
     private static let maxCount = 16
     private static let maxBuf = 256
+    /// The longest distance taken as a measurement (200 m; the ZB-08 reaches far less): FF FF FF FF or noise that passes
+    /// the checksum is not one.
+    static let maxMm = 200_000
+    static func plausible(_ mm: Int) -> Bool { mm >= 1 && mm <= maxMm }
 
     private var buf: [UInt8] = []
     private var lastFeed: Int64 = 0

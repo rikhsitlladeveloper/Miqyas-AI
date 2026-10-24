@@ -136,7 +136,7 @@ struct MeasureScreen: View {
                         .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(G.cobalt.opacity(0.12)))
                         .pressable(0.97) { app.sheet = .qmManual }
                         .accessibilityIdentifier("qm.manual")
-                    if !on { GBtn(tr("qc.connect"), icon: "bt") { app.sheet = .device }.accessibilityIdentifier("qm.connect") }
+                    if !on { GBtn(tr("qc.connect"), icon: "bt") { app.openLaser() }.accessibilityIdentifier("qm.connect") }
                     else if c.cont && !real {
                         GBtn(tr("qc.saveLive"), icon: "save", enabled: c.liveVal != nil) {
                             if let v = c.liveVal { c.fill(s.addReading(v, "sim")); app.say("qm.saved") }

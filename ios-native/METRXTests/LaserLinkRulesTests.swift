@@ -83,12 +83,83 @@ final class LaserLinkRulesTests: XCTestCase {
         XCTAssertEqual(LaserLinkRules.drop(status: 0, ready: false, gattUp: true, msSinceUp: LaserLinkRules.quickMs + 1), .noAnswer)
     }
 
-    func testRefusalStatusesBeforeConnectingAreQuickOthersAreNoAnswer() {
+    func testRefusalStatusesBeforeConnectingAreRefusalsOthersAreNoAnswer() {
         for s in [133, 8, 257] {
-            XCTAssertEqual(LaserLinkRules.drop(status: s, ready: false, gattUp: false, msSinceUp: -1), .quick)
+            XCTAssertEqual(LaserLinkRules.drop(status: s, ready: false, gattUp: false, msSinceUp: -1), .refused)
         }
         XCTAssertEqual(LaserLinkRules.drop(status: 62, ready: false, gattUp: false, msSinceUp: -1), .noAnswer)
         XCTAssertEqual(LaserLinkRules.drop(status: 0, ready: false, gattUp: false, msSinceUp: -1), .noAnswer)
+    }
+
+    func testBusyOnlyAfterALinkWasEstablished() {
+        // two quick refusals before any "connected": never quick, so never counted towards busy
+        for _ in 0..<2 { XCTAssertEqual(LaserLinkRules.drop(status: 133, ready: false, gattUp: false, msSinceUp: -1), .refused) }
+        // two drops right after "connected": quick, and the second is busy
+        let quick: [LaserDrop] = (1...2).map { _ in LaserLinkRules.drop(status: 133, ready: false, gattUp: true, msSinceUp: 200) }
+        XCTAssertTrue(quick.allSatisfy { $0 == .quick })
+        XCTAssertTrue(LaserLinkRules.isBusy(quick.count))
+    }
+
+    func testRefusalsAndFailedDiscoveriesAreRetriedOnceForTheBuilder() {
+        XCTAssertTrue(LaserLinkRules.softRetry(1, user: true))
+        XCTAssertFalse(LaserLinkRules.softRetry(2, user: true))
+        // a background try is not retried at once: its plan tries again later
+        XCTAssertFalse(LaserLinkRules.softRetry(1, user: false))
+    }
+
+    // ---- service discovery ----
+
+    func testAFailedDiscoveryIsRetriedNeverNotALaser() {
+        XCTAssertEqual(LaserLinkRules.discovery(status: 133, services: 0, sps: false), .retry)
+        XCTAssertEqual(LaserLinkRules.discovery(status: 129, services: 5, sps: false), .retry)
+        XCTAssertEqual(LaserLinkRules.discovery(status: 133, services: 5, sps: true), .retry)
+        // "success" with nothing in it (a stale GATT cache) says nothing about the device either
+        XCTAssertEqual(LaserLinkRules.discovery(status: 0, services: 0, sps: false), .retry)
+    }
+
+    func testNotALaserOnlyAfterADiscoveryThatWorked() {
+        XCTAssertEqual(LaserLinkRules.discovery(status: 0, services: 4, sps: false), .notLaser)
+        XCTAssertEqual(LaserLinkRules.discovery(status: 0, services: 4, sps: true), .ok)
+    }
+
+    // ---- background tries ----
+
+    func testBackgroundTriesStopAfterFiveOrThreeWithTheRadarOpen() {
+        XCTAssertFalse(LaserLinkRules.bgCapped(LaserLinkRules.bgTries - 1, radarOpen: false))
+        XCTAssertTrue(LaserLinkRules.bgCapped(LaserLinkRules.bgTries, radarOpen: false))
+        XCTAssertFalse(LaserLinkRules.bgCapped(2, radarOpen: true))
+        XCTAssertTrue(LaserLinkRules.bgCapped(LaserLinkRules.radarBgTries, radarOpen: true))
+        XCTAssertLessThan(LaserLinkRules.radarBgTries, LaserLinkRules.bgTries)
+        XCTAssertEqual(LaserLinkRules.bgTries, 5)
+        XCTAssertEqual(LaserLinkRules.radarBgTries, 3)
+    }
+
+    func testTheFallbackScanKnowsTheRememberedLaserByIdentifierOrName() {
+        let addr = "38:1F:C5:55:2E:C8"
+        XCTAssertTrue(LaserLinkRules.sameLaser(savedAddr: addr, savedName: "ZB-08", addr: addr, name: nil))
+        XCTAssertTrue(LaserLinkRules.sameLaser(savedAddr: addr, savedName: "ZB-08", addr: addr.lowercased(), name: "ZB-08"))
+        // a new identifier with the same name: learned again
+        XCTAssertTrue(LaserLinkRules.sameLaser(savedAddr: addr, savedName: "ZB-08", addr: "11:22:33:44:55:66", name: " zb-08 "))
+        // another laser, or no name to go by
+        XCTAssertFalse(LaserLinkRules.sameLaser(savedAddr: addr, savedName: "ZB-08", addr: "11:22:33:44:55:66", name: "ZB-10"))
+        XCTAssertFalse(LaserLinkRules.sameLaser(savedAddr: addr, savedName: "ZB-08", addr: "11:22:33:44:55:66", name: nil))
+        XCTAssertFalse(LaserLinkRules.sameLaser(savedAddr: addr, savedName: nil, addr: "11:22:33:44:55:66", name: "ZB-08"))
+        // iPhone identifiers (UUIDs) work the same way
+        let id = UUID().uuidString
+        XCTAssertTrue(LaserLinkRules.sameLaser(savedAddr: id, savedName: nil, addr: id.lowercased(), name: nil))
+    }
+
+    // ---- redrawing the radar ----
+
+    func testADeviceIsRedrawnAtMostTwiceASecondUnlessItReallyChanged() {
+        let a = LzFound(id: UUID(), name: "ZB-08", rssi: -60, laser: true, avg: -60, seen: 1_000)
+        func with(_ f: (inout LzFound) -> Void) -> LzFound { var d = a; f(&d); return d }
+        XCTAssertTrue(LaserRadarMath.publish(shown: nil, next: a, now: 1_000))
+        XCTAssertFalse(LaserRadarMath.publish(shown: a, next: with { $0.rssi = -61; $0.avg = -60.4; $0.seen = 1_200 }, now: 1_200))
+        XCTAssertTrue(LaserRadarMath.publish(shown: a, next: with { $0.avg = -60.4; $0.seen = 1_500 }, now: 1_500))
+        XCTAssertTrue(LaserRadarMath.publish(shown: a, next: with { $0.avg = -62; $0.seen = 1_100 }, now: 1_100))
+        XCTAssertTrue(LaserRadarMath.publish(shown: a, next: with { $0.laser = false; $0.seen = 1_100 }, now: 1_100))
+        XCTAssertTrue(LaserRadarMath.publish(shown: a, next: with { $0.name = "ZB-09"; $0.seen = 1_100 }, now: 1_100))
     }
 
     func testOneQuickDropIsRetriedTheSecondIsBusy() {

@@ -94,6 +94,20 @@ final class LaserJrtTests: XCTestCase {
         XCTAssertEqual(mms(p.feed(bytes("AA 00 00 22 00 03 00 00 30 39 00 40 CE"))), [12345])
     }
 
+    func testAllOnesIsParsedButIsNoDistance() {
+        // FF FF FF FF passes the checksum (25 + 4 × FF = 0x421 → 0x21) but is not a measurement: RealLaser and the router drop it
+        let p = JrtParser()
+        let r = mms(p.feed(bytes("AA 00 00 22 00 03 FF FF FF FF 00 00 21")))
+        XCTAssertEqual(r, [Int(Int32.max)])
+        XCTAssertFalse(JrtParser.plausible(r[0]))
+    }
+
+    func testTheDistanceLimits() {
+        XCTAssertFalse(JrtParser.plausible(0)); XCTAssertFalse(JrtParser.plausible(-5))
+        XCTAssertTrue(JrtParser.plausible(1)); XCTAssertTrue(JrtParser.plausible(128)); XCTAssertTrue(JrtParser.plausible(JrtParser.maxMm))
+        XCTAssertFalse(JrtParser.plausible(JrtParser.maxMm + 1)); XCTAssertFalse(JrtParser.plausible(2_147_483_647))
+    }
+
     func testAStaleHalfFrameIsForgotten() {
         let p = JrtParser()
         let all = bytes(f128)

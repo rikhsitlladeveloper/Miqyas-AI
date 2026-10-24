@@ -52,7 +52,7 @@ struct ProjectsList: View {
         let stages: [(String, String)] = staged ? [("active", "pl.active"), ("done", "pl.doneSeg")] : []
         let chips: [(String, String)] = stages + [("all", "pl.allSeg")] + (others.isEmpty ? [] : [("other", "fo.other")])
         VStack(alignment: .leading, spacing: 0) {
-            GlassHeader { app.sheet = .device }
+            GlassHeader { app.openLaser() }
             PageTitle(text: tr(furniture || tiler || elec || plumb ? "fo.tab" : "tab.projects")).padding(.horizontal, 20).padding(.top, 14).padding(.bottom, 4)
             if all.isEmpty {
                 ProjectsEmpty(app: app)

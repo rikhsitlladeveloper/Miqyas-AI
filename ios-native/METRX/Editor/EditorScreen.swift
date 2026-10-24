@@ -12,13 +12,17 @@ struct EditorScreen: View {
     var body: some View {
         Group {
             if let p = Store.shared.get(pid), let r = p.rooms.first(where: { $0.id == rid }) {
-                if mode == "3d" { Room3DScreen(app: app, p: p, r: r) } else { plan(p, r) }
+                if mode == "3d" {
+                    Room3DScreen(app: app, p: p, r: r)
+                } else {
+                    // a real laser's measurement goes to the size the step card shows (or the typing sheet's); else to
+                    // the readings' inbox. Only on the plan: the 3D view has no size in focus (Android the same)
+                    plan(p, r).laserSink { mm in RoomOps.shared.realReading(pid, rid, mm) }
+                }
             }
         }
         // a drawn room's shape / diagonal mode does not come back when the editor is opened again
         .onDisappear { RoomOps.shared.leave() }
-        // a real laser's measurement goes to the size the step card shows (or the typing sheet's); else to the readings' inbox
-        .laserSink { mm in RoomOps.shared.realReading(pid, rid, mm) }
     }
 
     /// The plan page: the room's drawing, the step card and the tools.

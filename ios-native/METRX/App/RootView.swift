@@ -29,8 +29,10 @@ struct RootView: View {
             // the real laser (one for the whole app): its measurements and news go through the router
             LaserRouter.shared.start()
         }
-        // a button waiting for the laser stops waiting when its page is left or the laser goes away
-        .onChange(of: app.top) { _, t in if let w = LaserRouter.shared.waiter, w.owner != t { LaserRouter.shared.cancel() } }
+        // a button waiting for the laser stops waiting when its page is left (not when it only shows another view, plan ↔
+        // 3D), when the sheet it was pressed in closes, or when the laser goes away
+        .onChange(of: app.top) { _, t in LaserRouter.shared.check(t, app.sheet) }
+        .onChange(of: app.sheet) { _, s in LaserRouter.shared.check(app.top, s) }
         .onChange(of: LaserRouter.shared.isReal) { _, real in if !real { LaserRouter.shared.cancel() } }
     }
 

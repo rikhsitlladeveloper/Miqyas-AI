@@ -137,6 +137,8 @@ final class LaserProbe: LzBleOwner {
     @ObservationIgnored private var tickWork: DispatchWorkItem? = nil
     @ObservationIgnored private var opWork: DispatchWorkItem? = nil
     @ObservationIgnored private var listWork: DispatchWorkItem? = nil
+    /// No "connected" within 10 s: the try is given up (iOS itself would wait for ever).
+    @ObservationIgnored private var connWork: DispatchWorkItem? = nil
     @ObservationIgnored private let jrt = JrtParser()
     @ObservationIgnored private let timeFmt: DateFormatter = {
         let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "HH:mm:ss"; return f
@@ -175,7 +177,7 @@ final class LaserProbe: LzBleOwner {
     func dispose() {
         stopScan(quiet: true)
         disconnect()
-        tickWork?.cancel(); opWork?.cancel(); listWork?.cancel()
+        tickWork?.cancel(); opWork?.cancel(); listWork?.cancel(); connWork?.cancel()
         log("===== laser test page closed =====")
     }
 
@@ -198,10 +200,12 @@ final class LaserProbe: LzBleOwner {
         log("Bluetooth: \(bt) (authorization \(CBCentralManager.authorization.rawValue))")
         if bt == .on {
             if pendingScan { pendingScan = false; startScan() }
-        } else if bt != .unknown {
-            pendingScan = false
+        } else {
+            // off, resetting, not allowed: iOS has dropped every link and the peripherals it gave are no longer valid
+            if bt != .unknown { pendingScan = false }
             stopScan(quiet: false)
             disconnect()
+            known = [:]
         }
     }
 
@@ -240,7 +244,7 @@ final class LaserProbe: LzBleOwner {
 
     func stopScan(quiet: Bool = false) {
         tickWork?.cancel(); tickWork = nil
-        if let cm, cm.isScanning { cm.stopScan() }
+        if let cm, cm.state == .poweredOn, cm.isScanning { cm.stopScan() }
         guard scanning else { return }
         scanning = false; scanLeft = 0
         if !quiet {
@@ -298,7 +302,8 @@ final class LaserProbe: LzBleOwner {
     // ---------- connecting ----------
 
     func connect(_ id: UUID) {
-        guard let cm, let p = known[id] ?? cm.retrievePeripherals(withIdentifiers: [id]).first else { log("BLE: \(id.uuidString) is not known to iOS"); return }
+        guard let cm, cm.state == .poweredOn else { log("BLE: Bluetooth is not on (\(bt))"); return }
+        guard let p = known[id] ?? cm.retrievePeripherals(withIdentifiers: [id]).first else { log("BLE: \(id.uuidString) is not known to iOS"); return }
         disconnect(); stopScan(quiet: false)
         conn = .connecting; connId = id; services = []; nNotify = 0; listed = false
         ops = []; cur = nil; jrt.reset()
@@ -306,10 +311,16 @@ final class LaserProbe: LzBleOwner {
         p.delegate = proxy
         log("=== BLE connect \(devices[id]?.name ?? p.name ?? "—") \(id.uuidString) ===")
         cm.connect(p, options: nil)
+        connWork = after(10) { [weak self] in
+            guard let self, self.conn == .connecting, self.periph === p else { return }
+            self.log("GATT: no answer in 10 s; given up")
+            self.disconnect()
+        }
     }
 
     func bleConnected(_ p: CBPeripheral) {
         guard p === periph else { return }
+        connWork?.cancel(); connWork = nil
         conn = .connected
         log("GATT: connected (iOS chooses the MTU: \(p.maximumWriteValueLength(for: .withoutResponse) + 3))")
         log("discovering services…")
@@ -329,7 +340,7 @@ final class LaserProbe: LzBleOwner {
     }
 
     private func endLink() {
-        opWork?.cancel(); listWork?.cancel(); ops = []; cur = nil
+        opWork?.cancel(); listWork?.cancel(); connWork?.cancel(); ops = []; cur = nil
         periph = nil
         conn = .idle
     }
@@ -460,8 +471,9 @@ final class LaserProbe: LzBleOwner {
     // ---------- disconnect ----------
 
     func disconnect() {
-        opWork?.cancel(); listWork?.cancel(); ops = []; cur = nil
-        if let p = periph, let cm {
+        opWork?.cancel(); listWork?.cancel(); connWork?.cancel(); ops = []; cur = nil
+        // with Bluetooth not on iOS has dropped the link already (cancelling then is an API misuse)
+        if let p = periph, let cm, cm.state == .poweredOn {
             log("BLE: disconnect")
             cm.cancelPeripheralConnection(p)
         }

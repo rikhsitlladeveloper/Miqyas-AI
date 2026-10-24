@@ -147,6 +147,15 @@ private struct LrFx {
         guard let start else { return 1 }
         return min(max((now - start) / dur, 0), 1)
     }
+
+    /// Something of this is still moving at now (the radar's clock runs only then).
+    func moving(_ now: Double) -> Bool {
+        if glide.dur > 0 && now < glide.at + glide.dur { return true }
+        if gone.dur > 0 && now < gone.at + gone.dur { return true }
+        if LrFx.progress(snapAt, now, 1.1) < 1 { return true }
+        if LrFx.progress(shakeAt, now, 0.5) < 1 { return true }
+        return LrFx.progress(joltAt, now, 0.66) < 1
+    }
 }
 
 private func lrNow() -> Double { Date().timeIntervalSinceReferenceDate }
@@ -162,7 +171,8 @@ private func lrNow() -> Double { Date().timeIntervalSinceReferenceDate }
             UIImpactFeedbackGenerator(style: .rigid).impactOccurred()
         }
     } else {
-        UINotificationFeedbackGenerator().notificationOccurred(.success)
+        // one soft tap (a "success" notification would be a double pulse)
+        UIImpactFeedbackGenerator(style: .soft).impactOccurred()
     }
 }
 
@@ -200,14 +210,25 @@ struct LaserRadarScreen: View {
     @State private var fx = LrFx()
     @State private var modeToken = 0
     @State private var lostToken = 0
+    /// +1 when a glide, fade or shake has ended: the page is drawn once more, so the radar's clock can stop.
+    @State private var settle = 0
 
     private var real: RealLaser { RealLaser.shared }
 
     // ---------- what the page is in ----------
 
+    /// The remembered laser is being tried in the background (planned or going on): the dashed bubble, no beam.
+    private var savedTrying: Bool {
+        guard real.savedId != nil, !real.stopped, !real.paused else { return false }
+        return real.retryAt != nil || (real.link == .connecting && !real.userConnect)
+    }
+
     private var lasersNow: [LzFound] {
         let up = lzUptimeMs()
-        let all = real.found.values.filter { $0.laser && !LaserRadarMath.stale($0.seen, up) }
+        let trying = savedTrying
+        let sid = real.savedId
+        // the remembered laser is the dashed bubble while it is tried; every other laser the scan hears shows beside it
+        let all = real.found.values.filter { d in d.laser && !LaserRadarMath.stale(d.seen, up) && !(trying && d.id == sid) }
         return all.sorted { $0.avg > $1.avg }
     }
 
@@ -224,10 +245,11 @@ struct LaserRadarScreen: View {
         if real.bt == .off { return .off }
         if real.bt == .unauthorized { return .denied }
         if real.connected { return .connected }
-        if real.link == .connecting { return .connecting }
+        // a background try is shown calmly (the dashed SAVED bubble), unless the link was just lost here
+        if real.link == .connecting && (real.userConnect || lostActive) { return .connecting }
         if fail != nil { return .failed }
         if lostActive { return .lost }
-        if real.savedId != nil && !real.stopped && !real.paused { return .saved }
+        if savedTrying { return .saved }
         if !lasers.isEmpty { return .found }
         if let f = searchFrom, now.timeIntervalSince(f) >= 8 { return .nothing }
         return .search
@@ -245,8 +267,10 @@ struct LaserRadarScreen: View {
     // ---------- the page ----------
 
     var body: some View {
+        let _ = settle
         let lasers = lasersNow
         let m = modeNow(lasers)
+        let every = tickEvery(m)
         GeometryReader { geo in
             let size: CGFloat = min(geo.size.width * 0.84, geo.size.height * 0.40, 310)
             ZStack(alignment: .bottom) {
@@ -258,15 +282,16 @@ struct LaserRadarScreen: View {
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity)
-                cardArea(m, lasers)
+                cardArea(m, lasers, maxH: geo.size.height * 0.46)
                 if othersOpen { othersSheet }
             }
         }
         .onAppear { opened() }
         .onDisappear { closed() }
-        .task { await tick() }
+        .task(id: every) { await tick(every) }
         .task(id: scanKey(m)) { await scanLoop(m) }
-        .onChange(of: m) { _, v in modeChanged(v) }
+        // (initial: the page opened during a try in progress still gets its glide, check and tap)
+        .onChange(of: m, initial: true) { _, v in modeChanged(v) }
         .onChange(of: searchish(m), initial: true) { _, v in searchFrom = v ? Date() : nil }
         .onChange(of: real.failSeq) { _, v in failChanged(v) }
         .onChange(of: real.lostSeq) { _, v in lostChanged(v) }
@@ -305,6 +330,9 @@ struct LaserRadarScreen: View {
     private func closed() {
         LaserLog.add("=== radar page closed ===")
         real.radar = false
+        // the delayed check, tap and snap of this page do not come after it closed
+        modeToken += 1
+        lostToken += 1
         LaserRouter.shared.radarTake = nil
         if real.scanning { real.stopScan() }
         real.clearFailure()
@@ -312,23 +340,39 @@ struct LaserRadarScreen: View {
         if othersOpen { app.backOverride = nil }
     }
 
-    /// The page's clock (the countdown, "nothing found" after 8 s, lasers not heard for a while leaving).
-    private func tick() async {
+    /// How often the page's clock ticks in mode m (0: not at all): the lost link's countdown bar 10 a second, the moving
+    /// dots of a title 3 a second, "nothing found" after 8 s and lasers not heard for a while leaving once a second.
+    private func tickEvery(_ m: LrMode) -> Double {
+        if m == .lost { return 0.1 }
+        let dotted = m == .search || m == .nothing || m == .saved || m == .connecting || (m == .connected && !checkOn)
+        if dotted && !reduced { return 0.3 }
+        if dotted || searchish(m) { return 1 }
+        return 0
+    }
+
+    /// The page's clock (see tickEvery); nothing redraws the page while no clock is needed.
+    private func tick(_ every: Double) async {
+        now = Date()
+        if every <= 0 { return }
+        let ns = UInt64(every * 1_000_000_000)
         while !Task.isCancelled {
+            try? await Task.sleep(nanoseconds: ns)
             now = Date()
-            try? await Task.sleep(nanoseconds: 200_000_000)
         }
     }
 
-    private func scanKey(_ m: LrMode) -> String { "\(searchish(m))-\(real.scanning)" }
+    /// Scanning goes on while searching and beside the remembered laser's background tries (another laser may show).
+    private func scanMode(_ m: LrMode) -> Bool { searchish(m) || m == .saved }
+
+    private func scanKey(_ m: LrMode) -> String { "\(scanMode(m))-\(real.scanning)-\(real.link)" }
 
     /// Scan after scan while searching (15 s each, the list kept); a scan that would not start is tried again.
     private func scanLoop(_ m: LrMode) async {
-        if !searchish(m) {
+        if !scanMode(m) {
             if real.scanning { real.stopScan() }
             return
         }
-        if real.scanning { return }
+        if real.scanning || real.link != .idle { return }
         try? await Task.sleep(nanoseconds: 300_000_000)
         while !Task.isCancelled {
             real.startScan(keep: true)
@@ -348,6 +392,10 @@ struct LaserRadarScreen: View {
             seenConnecting = true; checkOn = false
             fx.glide.snap(0); fx.gone.snap(0)
             reading = nil
+        case .saved:
+            // the remembered laser coming up by itself gets the same glide, check and tap as a tapped one
+            seenConnecting = true; checkOn = false
+            fx.glide.snap(0); fx.gone.snap(0)
         case .connected:
             if seenConnecting {
                 seenConnecting = false
@@ -358,7 +406,9 @@ struct LaserRadarScreen: View {
                     guard token == modeToken else { return }
                     checkOn = true
                     lrBuzz(twice: false)
-                    fx.gone.go(1, lrNow(), reduced ? 0 : 0.32)
+                    let fade: Double = reduced ? 0 : 0.32
+                    fx.gone.go(1, lrNow(), fade)
+                    settleAfter(fade)
                 }
             } else {
                 checkOn = true; fx.glide.snap(1); fx.gone.snap(1)
@@ -378,6 +428,15 @@ struct LaserRadarScreen: View {
         if line { fx.snapAt = t }
         fx.shakeAt = t
         fx.joltAt = t
+        settleAfter(1.1)
+    }
+
+    /// Draws the page once more after s seconds, when the motion started now has ended (the radar's clock stops then).
+    private func settleAfter(_ s: Double) {
+        Task { @MainActor in
+            try? await Task.sleep(nanoseconds: UInt64((s + 0.05) * 1_000_000_000))
+            settle += 1
+        }
     }
 
     private func failChanged(_ seq: Int) {
@@ -460,7 +519,8 @@ struct LaserRadarScreen: View {
         case .saved:
             let word = tr("lr.reconnecting") + "…"
             let b = bub(real.savedId, real.savedName) { i, n, r, v in LrBub(id: i, name: n, rssi: r, avg: v, saved: true, sigText: word) }
-            return b.map { [$0] } ?? []
+            let others: [LrBub] = lasers.map { LrBub(id: $0.id, name: $0.name ?? "ZB", rssi: $0.rssi, avg: $0.avg, sig: true) }
+            return (b.map { [$0] } ?? []) + others
         case .connecting:
             let b = bub(real.linkId, real.linkName) { i, n, r, v in LrBub(id: i, name: n, rssi: r, avg: v, sig: real.found[i] != nil) }
             return b.map { [$0] } ?? []
@@ -498,7 +558,7 @@ struct LaserRadarScreen: View {
     private func tapLaser(_ b: LrBub, _ m: LrMode) {
         switch m {
         case .search, .nothing, .found: real.connect(b.id, b.name)
-        case .saved: real.connect(b.id, real.savedName ?? b.name)
+        case .saved: real.connect(b.id, b.id == real.savedId ? (real.savedName ?? b.name) : b.name)
         default: break
         }
     }
@@ -574,15 +634,21 @@ struct LaserRadarScreen: View {
         }
     }
 
-    private func cardArea(_ m: LrMode, _ lasers: [LzFound]) -> some View {
+    private func cardArea(_ m: LrMode, _ lasers: [LzFound], maxH: CGFloat) -> some View {
         let key = cardKey(m, lasers)
         let warnCard = (m == .failed && real.failure != .notLaser) || m == .lost || m == .noBt || m == .off || m == .denied
         let shape = RoundedRectangle(cornerRadius: 24, style: .continuous)
         let rise: AnyTransition = reduced ? .opacity : .asymmetric(insertion: .offset(y: 20).combined(with: .opacity), removal: .opacity)
+        let inner = VStack(alignment: .leading, spacing: 0) { cardBody(m, lasers) }
+            .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         return ZStack(alignment: .bottom) {
-            VStack(alignment: .leading, spacing: 0) { cardBody(m, lasers) }
-                .padding(16)
-                .frame(maxWidth: .infinity, alignment: .leading)
+            // the card never grows over the words under the radar (Russian, large text, the help list): it scrolls instead
+            ViewThatFits(in: .vertical) {
+                inner
+                ScrollView { inner }
+            }
+                .frame(maxHeight: maxH)
                 .glassCard(shape, fill: warnCard ? LrC.warnBg : G.sheet(0.78), shadowBlur: 30, shadowY: 14)
                 .id(key)
                 .transition(rise)
@@ -744,8 +810,12 @@ private struct LrRadar: View {
     let onTap: (LrBub) -> Void
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: nil, paused: look.reduced)) { tl in
-            LrRadarFrame(look: look, size: size, t: tl.date.timeIntervalSinceReferenceDate, onTap: onTap)
+        // the clock runs only while the radar turns, the beam shows or a glide, fade or shake is going on
+        let t0 = lrNow()
+        let still = look.reduced || (!look.active && !look.beamOn && !look.fx.moving(t0))
+        TimelineView(.animation(minimumInterval: nil, paused: still)) { tl in
+            let t: Double = still ? t0 : tl.date.timeIntervalSinceReferenceDate
+            LrRadarFrame(look: look, size: size, t: t, onTap: onTap)
         }
         .frame(width: size, height: size)
     }
