@@ -8,8 +8,8 @@ import Observation
  *  1. the app's "Lazer" button that is waiting for it (waitFor; the "Lazerda o‘lchang…" bar with Cancel shows meanwhile),
  *  2. the size the screen (or its sheet) has in focus (.laserSink, the newest one on screen first; a sink may pass),
  *  3. the readings' inbox (AppSettings.readings, src "laser"), which the editor's tray and the Measure page show.
- * Without the real laser, the screens make up readings as before ("sim"), when the simulator is connected (simOn):
- * a founder decision, so the app can be tried without a laser.
+ * Without the real laser, a "Lazer" button opens the radar page to connect one (AppModel.openLaser). Only the screen
+ * tests can connect the simulator (simAllowed), and then the screens make up readings as before ("sim").
  */
 @Observable
 final class LaserRouter {
@@ -18,7 +18,13 @@ final class LaserRouter {
     var real: RealLaser { RealLaser.shared }
     /// The simulated laser is "connected".
     private(set) var simOn = false
-    func setSim(_ on: Bool) { simOn = on }
+    /// App Store v1 (founder, 25 Oct 2026): no made-up laser values on iPhone. The simulator is only for the screen
+    /// tests (their -uiReset start, or -uiSimLaser); everyone else connects the real laser or types.
+    static let simAllowed: Bool = {
+        let a = ProcessInfo.processInfo.arguments
+        return a.contains("-uiSimLaser") || a.contains("-uiReset")
+    }()
+    func setSim(_ on: Bool) { simOn = on && Self.simAllowed }
 
     /// A real laser is connected: every laser button waits for its measurement, nothing is made up.
     var isReal: Bool { real.connected }

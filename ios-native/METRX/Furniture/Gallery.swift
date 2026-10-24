@@ -424,7 +424,7 @@ struct FStepsScreen: View {
             }
             .padding(.horizontal, 4).frame(minHeight: 40)
             .contentShape(Rectangle())
-            .onTapGesture { if !on { app.sheet = .device } }
+            .onTapGesture { if !on { app.openLaser() } }
         }
     }
 
@@ -498,9 +498,9 @@ struct FStepsScreen: View {
         return true
     }
 
-    /// With the real laser, its next measurement. Else the laser's newest reading not used yet (its readings' inbox)
-    /// fills the field first, and the next step opens; with none, a made-up one near the usual size (the simulator, as
-    /// the editor's laser button).
+    /// With the real laser, its next measurement; with no laser, the radar to connect one. With the screen tests'
+    /// simulator the laser's newest reading not used yet (its readings' inbox) fills the field first, and the next step
+    /// opens; with none, a made-up one near the usual size (as the editor's laser button).
     private func reading(_ steps: [SizeStep], _ unit: LenUnit) {
         let i = at
         guard laser != "busy", i < steps.count, !steps[i].choice else { return }
@@ -512,6 +512,7 @@ struct FStepsScreen: View {
             laser = "busy"
             return
         }
+        guard LaserRouter.shared.simOn else { app.openLaser(); return }
         let s = steps[i]
         if let r = AppSettings.shared.readings.last(where: { $0.used == nil && $0.src != "manual" }) {
             AppSettings.shared.markReadingUsed(r.id, tr(s.label))

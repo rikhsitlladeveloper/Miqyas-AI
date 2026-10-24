@@ -9,7 +9,7 @@ enum Tab: CaseIterable { case home, projects, profile
 
 /// A page on a tab's stack (prototype: S.nav.stacks[tab] = [{s:'projects'}, {s:'project', id, tab}, …]).
 enum Route: Hashable {
-    case root, settingsMore, subscription
+    case root, settingsMore
     /// Profile → the workshop's rules, and its boards and hardware (furniture makers).
     case workshop, materials
     /// New project, or edit project editId.

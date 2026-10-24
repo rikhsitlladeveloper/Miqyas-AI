@@ -43,7 +43,7 @@ struct EditorScreen: View {
                         T(dn(p.name) + (w.map { " › " + floorName($0) } ?? ""), ui(12, 400, G.ink2), lines: 1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    LaserButton { app.sheet = .device }.frame(width: 44, height: 44)
+                    LaserButton { app.openLaser() }.frame(width: 44, height: 44)
                     GlassIconButton("more", tr("common.menu")) { app.sheet = .roomInfo(pid: p.id, rid: r.id) }.accessibilityIdentifier("ed.menu")
                 }
                 .padding(.horizontal, 16).frame(height: 64)
@@ -301,7 +301,7 @@ private struct StepCard: View {
             default:
                 CardBtn(label: tr("ed2.manual"), icon: "kbd", primary: false) { app.sheet = .measure(pid: pid, rid: r.id, k: k) }.accessibilityIdentifier("ed.manual")
                 if ops.laserOn { CardBtn(label: tr("ed2.getLaser"), icon: "laser", primary: true) { ops.laser(pid, r.id, k) }.accessibilityIdentifier("ed.laser") }
-                else { CardBtn(label: tr("ed2.dev"), icon: "bt", primary: true) { app.sheet = .device } }
+                else { CardBtn(label: tr("ed2.dev"), icon: "bt", primary: true) { app.openLaser() } }
             }
         }
     }

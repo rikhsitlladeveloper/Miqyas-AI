@@ -112,7 +112,7 @@ struct LiveCamScreen: View {
                 }
                 .padding(.horizontal, 10).frame(minHeight: 36)
                 .background(RoundedRectangle(cornerRadius: 10).fill(Color.white.opacity(0.14)))
-                .pressable(0.97) { app.sheet = .device }
+                .pressable(0.97) { app.openLaser() }
             }
             .padding(.leading, 6).padding(.trailing, 12).frame(minHeight: 56)
             if let err {
@@ -157,7 +157,7 @@ struct LiveCamScreen: View {
                 .padding(.horizontal, 16).padding(.top, 4)
             HStack(spacing: 8) {
                 LcBtn(icon: "kbd", label: tr("ed2.manual"), enabled: s.line != nil, pri: false) { app.sheet = .lcManual }
-                LcBtn(icon: "laser", label: tr("qc.measure"), enabled: s.line != nil && bt, pri: true) { measure() }.layoutPriority(1)
+                LcBtn(icon: "laser", label: tr("qc.measure"), enabled: s.line != nil, pri: true) { measure() }.layoutPriority(1)
                 LcBtn(icon: "save", label: tr("common.save"), enabled: s.v != nil && on, pri: false) { save() }
             }
             .padding(.horizontal, 10).padding(.vertical, 12)
@@ -173,7 +173,8 @@ struct LiveCamScreen: View {
         }
     }
 
-    /// The real laser's next measurement, else a made-up length (the simulator).
+    /// The real laser's next measurement; with no laser the radar to connect one; the screen tests' simulator: a
+    /// made-up length.
     private func measure() {
         let ln = LiveLine.shared
         if LaserRouter.shared.isReal {
@@ -182,6 +183,7 @@ struct LiveCamScreen: View {
             }
             return
         }
+        guard LaserRouter.shared.simOn else { app.openLaser(); return }
         ln.v = 600 + Int.random(in: 0...7600); ln.src = "laser"
     }
 

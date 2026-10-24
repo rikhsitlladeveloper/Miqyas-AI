@@ -754,7 +754,12 @@ struct LaserRadarScreen: View {
         if many(m) {
             LrCardHead(icon: LrIcon.help, tone: .warn, title: tr("lr.fManyTitle"),
                        bullets: [tr("lr.fMany1"), tr("lr.fMany2"), tr("lr.fMany3"), tr("lr.fMany4")])
-            LrTwo(secLabel: tr("lt.row"), sec: { app.push(.laserTest) }, label: tr("lr.retry")) { retry() }
+            // the laser test page is there only in test mode (7 taps on Profile's version line)
+            if AppSettings.shared.devMode {
+                LrTwo(secLabel: tr("lt.row"), sec: { app.push(.laserTest) }, label: tr("lr.retry")) { retry() }
+            } else {
+                LrTwo(secLabel: tr("lr.toSearch"), sec: { toSearch() }, label: tr("lr.retry")) { retry() }
+            }
         } else if fail == .timeout {
             LrCardHead(icon: LrIcon.bang, tone: .warn, title: tr("lr.fTimeoutTitle"), bullets: [tr("lr.fTimeout1"), tr("lr.fTimeout2")])
             LrTwo(secLabel: tr("lr.toSearch"), sec: { toSearch() }, label: tr("lr.retry")) { retry() }

@@ -66,7 +66,7 @@ final class MeasureCalc {
         timer?.invalidate()
         timer = Timer.scheduledTimer(withTimeInterval: 0.4, repeats: true) { [weak self] _ in
             guard let self else { return }
-            if AppSettings.shared.laser != .connected { self.setLive(false); return }
+            if AppSettings.shared.laser != .connected || !LaserRouter.shared.simOn { self.setLive(false); return }
             self.liveVal = min(max((self.liveVal ?? Int.random(in: 600..<8200)) + Int.random(in: -3...3), 300), 9000)
         }
     }
@@ -95,7 +95,7 @@ struct MeasureScreen: View {
                 HStack(spacing: 12) {
                     GlassIconButton("back", tr("nt.back")) { app.pop() }.accessibilityIdentifier("back")
                     T(tr(calcTitle ? "gl.calc" : "tab.measure"), ui(36, 800, G.ink, lh: 1.15, ls: -0.02), lines: 1).frame(maxWidth: .infinity, alignment: .leading)
-                    LaserButton { app.sheet = .device }.frame(width: 52, height: 52)
+                    LaserButton { app.openLaser() }.frame(width: 52, height: 52)
                 }
                 .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 8)
                 ScrollViewReader { sr in
@@ -144,7 +144,9 @@ struct MeasureScreen: View {
                     } else {
                         GBtn(tr("qc.measure"), icon: "laser") {
                             if real { LaserRouter.shared.waitFor { mm in c.fill(s.addReading(mm, "laser")) } }
-                            else { c.fill(s.addReading(Int.random(in: 600..<8200), "sim")) }
+                            // made-up readings only with the screen tests' simulator; else connect the laser
+                            else if LaserRouter.shared.simOn { c.fill(s.addReading(Int.random(in: 600..<8200), "sim")) }
+                            else { app.openLaser() }
                         }
                         .accessibilityIdentifier("qm.measure")
                     }

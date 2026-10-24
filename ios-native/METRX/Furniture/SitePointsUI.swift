@@ -174,26 +174,27 @@ struct PointSheet: View {
                     NumField(label: tr("pt.h"), value: Binding(get: { hv }, set: { hv = $0; src = "manual" }), suffix: unitName(), error: errText(ph),
                              showError: tried, focus: $focus, me: .h, id: "pt.h")
                 }
-                if ops.laserOn {
-                    HStack(spacing: 16) {
-                        // with the real laser, its next measurement; else the laser's newest reading not used yet (its
-                        // readings' inbox) first, and with none a made-up one (the simulator)
-                        laserLink(tr("pt.laserOff")) {
-                            if LaserRouter.shared.isReal {
-                                LaserRouter.shared.waitFor { mm in offv = Geo.fmtField(mm, unit, en); src = "laser" }
-                                return
-                            }
-                            let hi = max(400, (L ?? 3000) - 100)
-                            offv = Geo.fmtField(laserReading(tr("pt.laserOff")) { Int.random(in: 200..<hi) / 10 * 10 }, unit, en); src = "sim"
+                HStack(spacing: 16) {
+                    // with the real laser, its next measurement; with no laser the radar to connect one; the screen
+                    // tests' simulator: the laser's newest reading not used yet (its readings' inbox) first, and with
+                    // none a made-up one
+                    laserLink(tr("pt.laserOff")) {
+                        if LaserRouter.shared.isReal {
+                            LaserRouter.shared.waitFor { mm in offv = Geo.fmtField(mm, unit, en); src = "laser" }
+                            return
                         }
-                        laserLink(tr("pt.laserH")) {
-                            if LaserRouter.shared.isReal {
-                                LaserRouter.shared.waitFor { mm in hv = Geo.fmtField(mm, unit, en); src = "laser" }
-                                return
-                            }
-                            let h0 = pointDefaults(type).h
-                            hv = Geo.fmtField(laserReading(tr("pt.laserH")) { h0 + Int.random(in: -30...30) }, unit, en); src = "sim"
+                        guard LaserRouter.shared.simOn else { app.openLaser(); return }
+                        let hi = max(400, (L ?? 3000) - 100)
+                        offv = Geo.fmtField(laserReading(tr("pt.laserOff")) { Int.random(in: 200..<hi) / 10 * 10 }, unit, en); src = "sim"
+                    }
+                    laserLink(tr("pt.laserH")) {
+                        if LaserRouter.shared.isReal {
+                            LaserRouter.shared.waitFor { mm in hv = Geo.fmtField(mm, unit, en); src = "laser" }
+                            return
                         }
+                        guard LaserRouter.shared.simOn else { app.openLaser(); return }
+                        let h0 = pointDefaults(type).h
+                        hv = Geo.fmtField(laserReading(tr("pt.laserH")) { h0 + Int.random(in: -30...30) }, unit, en); src = "sim"
                     }
                 }
                 if src == "sim" || src == "laser" { HStack(spacing: 8) { MIcon("clock", G.amberInk, 16, 2); T(tr("pt.fromLaser"), ui(13, 500, G.amberInk)) } }

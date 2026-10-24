@@ -669,7 +669,11 @@ private struct DimSheet: View {
             // the sheet says which line it is (the photo is behind it, often covered by the keyboard)
             GlassSheet(tr("mk.dimT") + (mkLetters(it)[e.id].map { " " + $0 } ?? ""), onClose: { app.sheet = nil }) {
                 if !on {
-                    HStack(alignment: .top, spacing: 8) { MIcon("btoff", G.ink2, 18, 2); T(tr("mk.noLaser"), ui(13.5, 400, G.ink2, lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading) }
+                    // no laser: typing works; "Ulash" opens the radar to connect one
+                    HStack(alignment: .top, spacing: 8) {
+                        MIcon("btoff", G.ink2, 18, 2); T(tr("mk.noLaser"), ui(13.5, 400, G.ink2, lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading)
+                        T(tr("ms.connect"), ui(14, 700, G.cobalt)).padding(.horizontal, 6).frame(minHeight: 44).pressable(0.96) { app.openLaser() }
+                    }
                 } else if let recv = ops.recv {
                     HStack(spacing: 10) {
                         MIcon("laser", G.amberInk, 18, 2)
@@ -682,6 +686,8 @@ private struct DimSheet: View {
                 } else {
                     GBtn(tr("mk.laser"), kind: .secondary, icon: "laser") {
                         if LaserRouter.shared.isReal { LaserRouter.shared.waitFor { mm in MarkOps.shared.recv = mm }; return }
+                        // made-up values only with the screen tests' simulator
+                        guard LaserRouter.shared.simOn else { app.openLaser(); return }
                         let base = e.v ?? (800 + Int.random(in: 0...3400))
                         ops.recv = max(50, base + kround((Double.random(in: 0..<1) - 0.5) * Double(e.v != nil ? 6 : 40)))
                     }

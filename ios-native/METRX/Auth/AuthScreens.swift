@@ -1,5 +1,10 @@
 import SwiftUI
 
+/// App Store v1 (founder, 25 Oct 2026): no accounts. The app opens straight into use: the welcome screen has only
+/// "Boshlash" (the builder's name and phone, kept on this phone), then the trade. The sign-up, log-in and Google screens
+/// stay in the code for a later version, unreachable while this is false.
+enum AuthFlags { static let accounts = false }
+
 /// Where the sign-in flow goes next. Sign-up and log-in are screens only for now: their buttons explain that.
 struct AuthNav {
     var signUp: () -> Void
@@ -25,7 +30,8 @@ private struct Rise: ViewModifier {
 }
 private extension View { func rise(_ play: Bool, _ delayMs: Double) -> some View { modifier(Rise(play: play, delay: delayMs / 1000)) } }
 
-/// Welcome: the sample room card, the promise, three sign-in buttons and "continue without an account".
+/// Welcome: the sample room card, the promise and "Boshlash" (with accounts: three sign-in buttons and "continue
+/// without an account").
 struct WelcomeScreen: View {
     let nav: AuthNav
     let fromSplash: Bool
@@ -56,14 +62,18 @@ struct WelcomeScreen: View {
                         T(tr("au.tagline"), au(15, 400, Au.ink2, lh: 1.45))
                     }
                     .rise(fromSplash, 80)
-                    VStack(spacing: 10) {
-                        AuButton(tr("au.signup"), nav.signUp)
-                        AuButton(tr("au.login"), kind: .outline, nav.logIn)
-                        AuButton(label: tr("au.google"), kind: .outline, fontSize: 15, action: nav.soon, leading: { GoogleLogo() }, trailing: { EmptyView() })
+                    if AuthFlags.accounts {
+                        VStack(spacing: 10) {
+                            AuButton(tr("au.signup"), nav.signUp)
+                            AuButton(tr("au.login"), kind: .outline, nav.logIn)
+                            AuButton(label: tr("au.google"), kind: .outline, fontSize: 15, action: nav.soon, leading: { GoogleLogo() }, trailing: { EmptyView() })
+                        }
+                        .padding(.top, 4).rise(fromSplash, 160)
+                        SkipCard(onClick: nav.local).rise(fromSplash, 160)
+                        Terms().padding(.top, 2).rise(fromSplash, 160)
+                    } else {
+                        StartBlock(onClick: nav.local).padding(.top, 4).rise(fromSplash, 160)
                     }
-                    .padding(.top, 4).rise(fromSplash, 160)
-                    SkipCard(onClick: nav.local).rise(fromSplash, 160)
-                    Terms().padding(.top, 2).rise(fromSplash, 160)
                 }
                 .padding(.horizontal, 20).padding(.top, 4).padding(.bottom, 10)
             }
@@ -179,6 +189,21 @@ private struct PlanDrawing: View {
             }
             lab(lx, CGPoint(x: 150, y: 28), 0)
             lab(ly, CGPoint(x: 252, y: 112), 90)
+        }
+    }
+}
+
+/// v1's start: one button to the builder's details, and where everything is kept.
+private struct StartBlock: View {
+    let onClick: () -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            AuButton(label: tr("fr.start"), action: onClick, leading: { EmptyView() }, trailing: { PathIcon(NEXT_ARROW, .white, 18, 1.8) })
+                .accessibilityIdentifier("welcome.skip")
+            HStack(alignment: .top, spacing: 8) {
+                MIcon("device", Au.ink2, 18, 1.8)
+                T(tr("au.skipNote"), au(13, 400, Au.ink2, lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
     }
 }
@@ -329,13 +354,13 @@ struct LocalScreen: View {
         let pErr = Phone.errorKey(phone, required: true).map { tr($0) }
         let ok = nErr == nil && pErr == nil
         let start = { hideKeyboard(); AppSettings.shared.saveBuilder(name, phone); nav.done() }
-        AuPage(title: title ?? tr("au.skip"), step: nil, onBack: nav.back) {
+        AuPage(title: title ?? tr(AuthFlags.accounts ? "au.skip" : "fr.builderTitle"), step: nil, onBack: nav.back) {
             AuHeading(title: tr("fr.aboutTitle"), lead: tr("fr.aboutBody"))
             AuField(label: tr("su.name"), value: $name, placeholder: tr("fr.namePh"), error: nErr, showError: tName, focus: $focus, me: .name,
                     onSubmit: { focus = .phone }, onBlur: { tName = true })
             AuField(label: tr("su.phone"), value: $phone, kind: .phone, placeholder: "90 123 45 67", error: pErr, showError: tPhone, focus: $focus, me: .phone,
                     submit: .done, onSubmit: { if ok { start() } else { focus = nil } }, onBlur: { tPhone = true })
-            HStack(alignment: .top, spacing: 8) { MIcon("device", Au.ink2, 18, 1.8); T(tr("fr.noAccount"), au(13, 400, Au.ink2, lh: 1.4)) }
+            HStack(alignment: .top, spacing: 8) { MIcon("device", Au.ink2, 18, 1.8); T(tr(AuthFlags.accounts ? "fr.noAccount" : "au.skipNote"), au(13, 400, Au.ink2, lh: 1.4)) }
         } footer: {
             AuButton(title != nil ? tr("common.save") : tr("fr.start"), enabled: ok, start)
                 .accessibilityIdentifier("local.start")

@@ -16,7 +16,9 @@ class ScreenTestCase: XCTestCase {
 
     func launch(lang: String? = nil, extra: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments = ["-uiReset"] + extra
+        // -uiSimLaser: the Device sheet's simulated laser, which only the screen tests have (the App Store app makes up no
+        // laser values; -uiReset alone turns it on too)
+        app.launchArguments = ["-uiReset", "-uiSimLaser"] + extra
         if let lang { app.launchEnvironment["UI_LANG"] = lang }
         app.launch()
         return app
@@ -149,7 +151,7 @@ class ScreenTestCase: XCTestCase {
 
 /// Part 1: first start, tabs, Profile, Russian.
 final class Part1Tests: ScreenTestCase {
-    /// First start without an account, then the three tabs, the laser sheet, Profile's pages and sheets, dark mode.
+    /// First start (no accounts), then the three tabs, the laser sheet, Profile's pages and sheets, dark mode.
     func testFirstRunAndTabs() {
         let app = launch()
         XCTAssertTrue(app.buttons["welcome.skip"].waitForExistence(timeout: 20)); sleep(3)
@@ -158,10 +160,8 @@ final class Part1Tests: ScreenTestCase {
         app.buttons["welcome.lang"].tap(); usleep(500_000); shot("04-welcome-lang-menu")
         tapOutside(app)
 
-        app.buttons["Hisob yaratish"].tap(); usleep(700_000); shot("05-signup")
-        app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Sanjar Usta")
-        app.textFields.element(boundBy: 1).tap(); usleep(400_000); shot("06-signup-typing")
-        app.buttons["Orqaga"].firstMatch.tap(); usleep(700_000)
+        // App Store v1 has no accounts: no "Hisob yaratish / Kirish / Google" on the welcome screen
+        XCTAssertFalse(app.buttons["Hisob yaratish"].exists)
 
         app.buttons["welcome.skip"].tap(); usleep(700_000)
         app.textFields.element(boundBy: 0).tap(); app.textFields.element(boundBy: 0).typeText("Sanjar Usta")

@@ -106,7 +106,8 @@ final class RoomOps {
     }
 
     /// The step card's laser button. With the real laser connected it waits for the next measurement (the card shows k
-    /// meanwhile); otherwise a simulated reading (prototype simTarget + edLaser): every third one is 2 mm off.
+    /// meanwhile); with no laser it opens the radar to connect one; only the screen tests' simulator makes up a reading
+    /// (prototype simTarget + edLaser): every third one is 2 mm off.
     func laser(_ pid: String, _ rid: String, _ k: String) {
         guard let r = room(pid, rid) else { return }
         if LaserRouter.shared.isReal {
@@ -117,6 +118,7 @@ final class RoomOps {
             }
             return
         }
+        guard LaserRouter.shared.simOn else { app.openLaser(); return }
         let target = simTarget(r, k)
         simCount += 1
         let mm = simCount % 3 == 0 ? target + 2 : target
@@ -162,10 +164,11 @@ final class RoomOps {
         return true
     }
 
-    /// The tray's laser button: the real laser's next measurement (into the readings), else a simulated reading near one
-    /// of the room's still-needed lengths (prototype trayLaser).
+    /// The tray's laser button: the real laser's next measurement (into the readings); with no laser the radar; the
+    /// screen tests' simulator: a reading near one of the room's still-needed lengths (prototype trayLaser).
     func trayReading(_ pid: String, _ rid: String) {
         if LaserRouter.shared.isReal { LaserRouter.shared.waitFor { mm in AppSettings.shared.addReading(mm, "laser") }; return }
+        guard LaserRouter.shared.simOn else { app.openLaser(); return }
         guard let r = room(pid, rid) else { return }
         let pool = Geo.stepKeys(r, snap).map { simTarget(r, $0) }
         let n = s.readings.count

@@ -12,12 +12,13 @@ func lzOpenSettings() {
 func lzHasBt() -> Bool { lzBtState(nil) != .unsupported }
 
 extension AppModel {
-    /// The Bluetooth button on the home pages and Profile (Android MainNav.laser): with a laser connected (or the
-    /// simulator) the small Device sheet shows its status; else the radar finds one. With no Bluetooth at all (the
-    /// simulator) the sheet, which has the simulated laser.
+    /// The Bluetooth button on the home pages and Profile (Android MainNav.laser), and every "Lazer" / "Ulash" button
+    /// while no laser is connected: with a laser connected (or the screen tests' simulator) the small Device sheet shows
+    /// its status; else the radar finds one (an open sheet closes first). With no Bluetooth at all (the iPhone
+    /// simulator) the sheet, which says so (and has the simulated laser in the screen tests).
     func openLaser() {
         let rl = LaserRouter.shared
-        if rl.isReal || rl.simOn || !lzHasBt() { sheet = .device } else { push(.laserRadar) }
+        if rl.isReal || rl.simOn || !lzHasBt() { sheet = .device } else { sheet = nil; push(.laserRadar) }
     }
 }
 
@@ -44,10 +45,11 @@ struct DeviceSheet: View {
             }
             realCard
             if !real.connected { foundList }
-            // the simulator, for trying the app without a laser (only while no real laser is connected)
-            if !real.connected { simRow }
+            // the simulator, for the screen tests only (App Store v1: no made-up values), while no real laser is connected
+            if !real.connected && LaserRouter.simAllowed { simRow }
             HStack(alignment: .top, spacing: 8) { MIcon("kbd", G.ink2, 18, 2); T(tr("dv.always"), ui(13, 400, G.ink2, lh: 1.4)) }
-            testRow
+            // the laser test page: only after the secret taps on Profile's version line
+            if AppSettings.shared.devMode { testRow }
         } footer: {
             if real.connected {
                 GlassButton(tr("dv.disconnect"), primary: false) { real.disconnect() }

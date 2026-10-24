@@ -55,7 +55,7 @@ struct Room3DScreen: View {
             HStack {
                 ModeSeg(cur: "3d") { if $0 == "plan" { ops.mode(p.id, r.id, "plan") } }
                 Spacer()
-                LaserButton { app.sheet = .device }.frame(width: 44, height: 44)
+                LaserButton { app.openLaser() }.frame(width: 44, height: 44)
             }
             .padding(.horizontal, 16).padding(.bottom, 8)
             if !Geo.ready3D(r, snap) {

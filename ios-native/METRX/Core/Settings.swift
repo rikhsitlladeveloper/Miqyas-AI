@@ -81,6 +81,9 @@ final class AppSettings {
     /// name); nil after "Unutish".
     private(set) var laserId: String?
     private(set) var laserName: String?
+    /// Test mode: the laser test page ("Lazer sinovi") shows in the Device sheet and the radar; turned on by 7 taps on
+    /// Profile's version line, kept.
+    private(set) var devMode: Bool
 
     private init() {
         // the screen tests start from a clean first run
@@ -116,6 +119,7 @@ final class AppSettings {
         hws = sh + HW_PRESETS.filter { p in !sh.contains { $0.id == p.id } }
         laserId = d.string(forKey: "laserId")
         laserName = d.string(forKey: "laserName")
+        devMode = d.bool(forKey: "devMode")
         remnants = d.data(forKey: "remnants").flatMap { try? JSONDecoder().decode([Remnant].self, from: $0) } ?? []
         rowDrafts = (d.data(forKey: "rowDrafts")).flatMap { try? JSONDecoder().decode([String: [String: String]].self, from: $0) } ?? [:]
         visit = d.integer(forKey: "visit") + (d.object(forKey: "visit") == nil ? 0 : 1)
@@ -136,6 +140,7 @@ final class AppSettings {
     func setDarkMode(_ on: Bool) { dark = on; d.set(on, forKey: "dark") }
     func setIndustryKind(_ v: String) { industry = v; d.set(v, forKey: "industry") }
     func setAdvancedOn(_ v: Bool) { advanced = v; d.set(v, forKey: "advanced") }
+    func setDevMode(_ on: Bool) { devMode = on; d.set(on, forKey: "devMode") }
     func setTradeSet(_ v: TradeSet) { trade = v; d.set(try? JSONEncoder().encode(v), forKey: "tradeSet") }
     func setWorkshopRules(_ v: Workshop) { workshop = v; d.set(try? JSONEncoder().encode(v), forKey: "workshop") }
     func setMatList(_ v: [Mat]) { mats = v; d.set(try? JSONEncoder().encode(v), forKey: "mats") }

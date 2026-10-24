@@ -135,7 +135,6 @@ struct RootView: View {
             case .profile: ProfileScreen(app: app)
             }
         case .settingsMore: SettingsMoreScreen(app: app)
-        case .subscription: SubscriptionScreen(app: app)
         case .workshop: WorkshopScreen(app: app)
         case .materials: MaterialsScreen(app: app)
         case .newProject(let e):

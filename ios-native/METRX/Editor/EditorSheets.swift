@@ -206,7 +206,7 @@ private struct MeasureSheet: View {
                     HStack(spacing: 10) {
                         MIcon("btoff", PC.amber, 18, 2)
                         T(tr("ms.discBody"), ui(13.5, 500, PC.amber, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
-                        T(tr("ms.connect"), ui(14, 700, G.cobalt)).padding(6).pressable(0.96) { app.sheet = .device }
+                        T(tr("ms.connect"), ui(14, 700, G.cobalt)).padding(6).pressable(0.96) { app.openLaser() }
                     }
                     .padding(12).background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.amberWash))
                 }
@@ -678,7 +678,7 @@ private struct TraySheet: View {
                 HStack(spacing: 8) {
                     MIcon("btoff", G.amberInk, 18, 2)
                     T(tr("ms.discBody"), ui(13.5, 500, G.ink, lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading)
-                    T(tr("ms.connect"), ui(14, 700, G.cobalt)).padding(.horizontal, 8).frame(minHeight: 44).pressable(0.96) { app.sheet = .device }
+                    T(tr("ms.connect"), ui(14, 700, G.cobalt)).padding(.horizontal, 8).frame(minHeight: 44).pressable(0.96) { app.openLaser() }
                 }
                 .padding(.leading, 12).padding(.trailing, 6).padding(.vertical, 6)
                 .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.amberWash))

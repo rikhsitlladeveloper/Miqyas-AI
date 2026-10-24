@@ -38,21 +38,10 @@ struct IndustryScreen: View {
                         .accessibilityIdentifier("ind.build")
                     IndustryCard(icon: FURN_ICON, title: tr("ind.furn"), sub: tr("ind.furnS"), on: pick == "furniture") { pick = "furniture" }
                         .accessibilityIdentifier("ind.furn")
-                    T(tr("ind.soon"), ui(13, 700, G.ink2)).padding(.top, 8)
-                    ForEach([["ind.tiler", "ind.elec"], ["ind.plumb", "ind.win"]], id: \.self) { pair in
-                        HStack(spacing: 8) {
-                            ForEach(pair, id: \.self) { k in
-                                let name = tr(k)
-                                HStack(spacing: 6) {
-                                    // the heading above says "coming soon" once; the chips keep the whole width for the trade's name
-                                    T(name, ui(13.5, 600, G.ink3), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                                .padding(.horizontal, 12).padding(.vertical, 8).frame(minHeight: 48)
-                                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(G.glass(0.25)))
-                                .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(G.ink3.opacity(0.35), lineWidth: 1))
-                                .pressable(0.98) { app.say("ind.soonToast", ["n": name], kind: .info) }
-                            }
-                        }
+                    // the four trades have their own apps too (App Store v1: all six, nothing "coming soon"), as Profile → Soha
+                    ForEach(TRADES, id: \.self) { k in
+                        IndustryCard(icon: TRADE_ICONS[k] ?? TILE_ICON, title: tr("ind." + k), sub: tr("ind." + k + "S"), on: pick == k, viewBox: 24) { pick = k }
+                            .accessibilityIdentifier("ind." + k)
                     }
                 }
                 .padding(.top, 22)
@@ -63,16 +52,25 @@ struct IndustryScreen: View {
     }
 }
 
+/// The trades' card icons (24-unit paths): tiles, a bolt, a drop, a window.
+private let TRADE_ICONS: [String: String] = [
+    "tiler": TILE_ICON,
+    "elec": "M13 2L4.5 13.5H11L10 22l8.5-11.5H12z",
+    "plumb": "M12 3C8 8 6 11.2 6 14a6 6 0 0 0 12 0c0-2.8-2-6-6-11z",
+    "win": W_WINDOW_ICON,
+]
+
 private struct IndustryCard: View {
     let icon: String
     let title: String
     let sub: String
     let on: Bool
+    var viewBox: CGFloat = 40
     let action: () -> Void
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 26, style: .continuous)
         HStack(spacing: 14) {
-            PathIcon(icon, G.cobalt, 40, 2, viewBox: 40).frame(width: 64, height: 64)
+            PathIcon(icon, G.cobalt, 40, viewBox == 40 ? 2 : 1.2, viewBox: viewBox).frame(width: 64, height: 64)
                 .background(RoundedRectangle(cornerRadius: 20, style: .continuous).fill(G.cobalt.opacity(0.1)))
             VStack(alignment: .leading, spacing: 3) { T(title, ui(19, 800)); T(sub, ui(13.5, 400, G.ink2, lh: 1.4)) }
                 .frame(maxWidth: .infinity, alignment: .leading)

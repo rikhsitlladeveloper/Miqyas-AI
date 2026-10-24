@@ -18,7 +18,13 @@ func presentShare(_ url: URL) {
           var vc = scene.keyWindow?.rootViewController ?? scene.windows.first?.rootViewController else { return }
     while let p = vc.presentedViewController { vc = p }
     let av = UIActivityViewController(activityItems: [url], applicationActivities: nil)
-    av.popoverPresentationController?.sourceView = vc.view
+    // a popover (an iPad showing the iPhone app at its own size, Mac): anchored in the middle, so it never asks for a
+    // source it does not have
+    if let pop = av.popoverPresentationController {
+        pop.sourceView = vc.view
+        pop.sourceRect = CGRect(x: vc.view.bounds.midX, y: vc.view.bounds.midY, width: 0, height: 0)
+        pop.permittedArrowDirections = []
+    }
     vc.present(av, animated: true)
 }
 

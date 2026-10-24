@@ -9,7 +9,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.0"
-    MARKETING_VERSION: "0.1"
+    MARKETING_VERSION: "1.0"
     CURRENT_PROJECT_VERSION: "1"
     DEVELOPMENT_TEAM: ""
 targets:
@@ -18,6 +18,11 @@ targets:
     platform: iOS
     sources:
       - path: METRX
+        excludes:
+          - PrivacyInfo.xcprivacy
+      # the privacy manifest (App Store): named here so it is always a resource of the app, whatever XcodeGen version
+      - path: METRX/PrivacyInfo.xcprivacy
+        buildPhase: resources
       - path: ../android-native/app/src/main/assets/strings.json
         buildPhase: resources
     settings:

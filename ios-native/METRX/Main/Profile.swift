@@ -1,12 +1,12 @@
 import SwiftUI
 
 /*
- * Profile (prototype profile.js "status first, short groups" with the glass Pro card) and its "More settings" page, the
- * subscription page and the settings sheets. Rows that need later parts (PDF parts, currency, door and window sizes,
- * hints) arrive with them. Dark mode is this app's own addition (founder's decision).
+ * Profile (prototype profile.js "status first, short groups") and its "More settings" page and the settings sheets.
+ * Dark mode is this app's own addition (founder's decision). App Store v1 (founder, 25 Oct 2026): free, no accounts and
+ * no subscription, so there is no Pro card, no subscription page and no sign-in row; the version line at the bottom
+ * turns test mode on after 7 taps (the laser test page).
  */
 
-private let GOLD = Color(argb: 0xFFF5C451)
 private let MOON = "M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z"
 
 struct ProfileScreen: View {
@@ -44,7 +44,6 @@ struct ProfileScreen: View {
                     }
                     .glassCard(RoundedRectangle(cornerRadius: 18, style: .continuous), fill: G.glass(0.55))
                     .padding(.horizontal, 16)
-                    ProCard { app.push(.subscription) }
                     // furniture makers: how the workshop builds and prices, and its boards and hardware (furniture plan section 6)
                     if s.furniture {
                         Group1(text: tr("wk.group"))
@@ -127,8 +126,11 @@ struct ProfileScreen: View {
                         Row1(icon: "door", title: tr("se.defaults"), value: Geo.fmtLen(s.doorW, s.unit, s.lang == .en) + " × " + Geo.fmtLen(s.doorH, s.unit, s.lang == .en)) { app.sheet = .defaults }
                         SwitchRow(icon: "ruler", title: tr("se.snap"), on: s.angleSnap) { s.setSnap(!s.angleSnap) }
                     }
-                    Group1(text: tr("ac.group"))
-                    Card { Row1(icon: "user", title: tr("ac.signIn"), value: nil, sub: tr("ac.noneB")) { signIn() } }
+                    // accounts are not in v1 (AuthFlags.accounts)
+                    if AuthFlags.accounts {
+                        Group1(text: tr("ac.group"))
+                        Card { Row1(icon: "user", title: tr("ac.signIn"), value: nil, sub: tr("ac.noneB")) { signIn() } }
+                    }
                     HStack(spacing: 10) {
                         MIcon("sliders", G.ink, 18, 2); T(tr("pf.more"), ui(15, 600)).frame(maxWidth: .infinity, alignment: .leading); MIcon("chev", G.ink2, 18, 2)
                     }
@@ -136,8 +138,9 @@ struct ProfileScreen: View {
                     .glassCard(RoundedRectangle(cornerRadius: 14, style: .continuous), fill: G.glass(0.55))
                     .pressable(0.99) { app.push(.settingsMore) }
                     .padding(.horizontal, 16).padding(.top, 14)
-                    HStack(alignment: .top, spacing: 8) { MIcon("device", G.ink2, 16, 2); T(tr("prof.local"), ui(12.5, 400, G.ink2, lh: 1.4)) }
+                    HStack(alignment: .top, spacing: 8) { MIcon("device", G.ink2, 16, 2); T(tr("prof.onPhone"), ui(12.5, 400, G.ink2, lh: 1.4)) }
                         .padding(.horizontal, 18).padding(.top, 12)
+                    VersionLine(app: app).padding(.horizontal, 18).padding(.top, 4)
                 }
                 .padding(.top, 2).padding(.bottom, 20 + NAV_SPACE)
             }
@@ -147,52 +150,30 @@ struct ProfileScreen: View {
     private func signIn() { app.authFromProfile = true; app.auth = [.welcome] }
 }
 
-/// METRX Pro: active during the pilot, everything open (glass .gl-pro: deep violet, a gold rim and a sheen).
-private struct ProCard: View {
-    let action: () -> Void
+/// "METRX 1.0 (1)": seven taps turn test mode on (the laser test page in the Device sheet and the radar), kept in
+/// the settings.
+private struct VersionLine: View {
+    let app: AppModel
+    @State private var taps = 0
+    @State private var last = Date.distantPast
     var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 28, style: .continuous)
-        VStack(alignment: .leading, spacing: 14) {
-            HStack(spacing: 12) {
-                MIcon("card", GOLD, 22, 2).frame(width: 46, height: 46).background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(GOLD.opacity(0.18)))
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 8) {
-                        T("METRX Pro", ui(19, 800, .white))
-                        T(tr("pf.subOn"), ui(12, 700, Color(argb: 0xFF7BE3A9))).padding(.horizontal, 9).padding(.vertical, 3)
-                            .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(Color(argb: 0x2E3DD68C)))
-                    }
-                    T(tr("gl.proOn"), ui(13, 400, Color(argb: 0xFFD4D7F7)))
-                }
-            }
-            HStack(spacing: 10) {
-                T(tr("sub.pilot"), ui(13, 400, Color(argb: 0xFFD4D7F7), lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading)
-                T(tr("gl.manage"), ui(14, 700, GOLD)); MIcon("chev", GOLD, 14, 2.4)
-            }
-            .padding(.top, 12)
-            .overlay(alignment: .top) { Rectangle().fill(Color.white.opacity(0.14)).frame(height: 0.67) }
-        }
-        .padding(18)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background {
-            ZStack {
-                shape.fill(LinearGradient(colors: [Color(argb: 0xFF171B45), Color(argb: 0xFF2B2A78), Color(argb: 0xFF52309A)], startPoint: .topLeading, endPoint: .bottomTrailing))
-                // the sheen: a soft light band across the card
-                GeometryReader { g in
-                    Path { p in
-                        let w = g.size.width, h = g.size.height
-                        p.move(to: CGPoint(x: w * 0.1, y: 0)); p.addLine(to: CGPoint(x: w * 0.45, y: 0)); p.addLine(to: CGPoint(x: w * 0.25, y: h)); p.addLine(to: CGPoint(x: -w * 0.1, y: h)); p.closeSubpath()
-                    }
-                    .fill(LinearGradient(colors: [.white.opacity(0), .white.opacity(0.1), .white.opacity(0)], startPoint: .leading, endPoint: .trailing))
-                }
-                .clipShape(shape)
-            }
-        }
-        .overlay(shape.strokeBorder(GOLD.opacity(0.6), lineWidth: 0.67))
-        .background(RoundedRectangle(cornerRadius: 32, style: .continuous).fill(GOLD.opacity(0.12)).padding(-4))
-        .boxShadow(Color(argb: 0x613C288C), blur: 40, y: 18)
-        .pressable(0.99, action)
-        .padding(.horizontal, 20).padding(.top, 12)
-        .accessibilityElement(children: .combine)
+        let info = Bundle.main.infoDictionary
+        let v = info?["CFBundleShortVersionString"] as? String ?? ""
+        let b = info?["CFBundleVersion"] as? String ?? ""
+        T("METRX " + v + (b.isEmpty ? "" : " (" + b + ")"), ui(12.5, 400, G.ink3))
+            .frame(maxWidth: .infinity, minHeight: 36, alignment: .leading)
+            .contentShape(Rectangle())
+            .onTapGesture { tap() }
+            .accessibilityIdentifier("pf.version")
+    }
+    private func tap() {
+        let s = AppSettings.shared
+        if s.devMode { return }
+        let now = Date()
+        // the taps count while they come within 1.5 s of each other
+        taps = now.timeIntervalSince(last) < 1.5 ? taps + 1 : 1
+        last = now
+        if taps >= 7 { taps = 0; s.setDevMode(true); app.say("lt.devOn", kind: .info) }
     }
 }
 
@@ -290,33 +271,8 @@ struct SettingsMoreScreen: View {
             }
             Card {
                 Row1(icon: "bt", title: tr("se.device"), value: tr(s.laser == .connected ? "pf.btOn" : "pf.btDisc")) { app.sheet = .device }
-                Row1(icon: "card", title: tr("se.sub"), value: tr("se.active")) { app.push(.subscription) }
             }
             Card { Row1(icon: "info", title: tr("se.about"), value: nil) { app.sheet = .about } }
-        }
-    }
-}
-
-/// METRX Pro (prototype PAGES.sub): active in the pilot; what keeps working and what would need a subscription.
-struct SubscriptionScreen: View {
-    let app: AppModel
-    var body: some View {
-        SubPage(app: app, title: tr("se.sub")) {
-            Card {
-                HStack { T(tr("dv.status"), ui(14, 400, G.ink2)).frame(maxWidth: .infinity, alignment: .leading); T(tr("se.active"), ui(15, 700)) }.padding(16)
-            }
-            T(tr("sub.pilot"), ui(14, 400, G.ink2, lh: 1.45)).padding(.horizontal, 24)
-            Group1(text: tr("sub.works"))
-            Card { li(["sub.w1", "sub.w2", "sub.w4"], "check", G.green) }
-            Group1(text: tr("sub.locked"))
-            Card { li(["sub.l1", "sub.l2", "sub.l3"], "lock", G.ink2) }
-        }
-    }
-    @ViewBuilder private func li(_ keys: [String], _ icon: String, _ tint: Color) -> some View {
-        ForEach(Array(keys.enumerated()), id: \.offset) { i, k in
-            if i > 0 { Hairline() }
-            HStack(spacing: 12) { MIcon(icon, tint, 20, 2.2); T(tr(k), ui(15, 500)) }
-                .padding(.horizontal, 14).frame(maxWidth: .infinity, minHeight: 52, alignment: .leading)
         }
     }
 }
