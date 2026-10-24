@@ -80,6 +80,8 @@ enum Route: Hashable {
     case wPlace(pid: String, kind: String, rid: String? = nil, oid: String? = nil)
     case wDesign(pid: String, iid: String)
     case wView(pid: String, rid: String)
+    /// Device sheet → "Lazer sinovi": what a Bluetooth laser sends, read only (Main/LaserTest.swift).
+    case laserTest
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -311,9 +313,4 @@ final class AppModel {
         toast = ToastMsg(text: tr(key, vars), kind: kind, action: action.map { tr($0) }, onAction: onAction)
     }
 
-    /// The simulated laser: searching takes a moment, then finds the simulator.
-    func searchLaser() {
-        AppSettings.shared.laser = .searching
-        DispatchQueue.main.asyncAfter(deadline: .now() + 1.4) { if AppSettings.shared.laser == .searching { AppSettings.shared.laser = .found } }
-    }
 }

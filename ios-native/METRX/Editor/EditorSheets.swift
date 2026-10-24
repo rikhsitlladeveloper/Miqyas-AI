@@ -214,7 +214,7 @@ private struct MeasureSheet: View {
                 NumField(label: title, value: $v, suffix: unitName(), error: errText(parsed), showError: touched || !v.isEmpty, focus: $focus, me: .v, id: "ms.value")
                 if tall { T(tr("ms.tall"), ui(13, 500, G.amberInk, lh: 1.35)) }
                 T(tr("ms.hint", ["ex": Geo.fmtLen(4255, unit, en)]), ui(13, 400, G.ink2))
-                T(tr("ms.current", ["v": d.v != nil ? Geo.fmtLen(d.v, unit, en, full: true) + " " + unitName() + " (" + tr("src." + (d.src ?? "manual")) + ")" : tr("ms.none")]), ui(13, 400, G.ink2))
+                T(tr("ms.current", ["v": d.v != nil ? Geo.fmtLen(d.v, unit, en, full: true) + " " + unitName() + " (" + tr(srcKey(d.src)) + ")" : tr("ms.none")]), ui(13, 400, G.ink2))
                 Note(text: tr("ms.manualNote"))
                 if ops.laserOn {
                     HStack(spacing: 6) { MIcon("laser", G.cobalt, 18, 2); T(tr("ms.useLaser"), ui(14, 600, G.cobalt)) }

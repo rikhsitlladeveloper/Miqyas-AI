@@ -176,18 +176,27 @@ struct PointSheet: View {
                 }
                 if ops.laserOn {
                     HStack(spacing: 16) {
-                        // the laser's newest reading not used yet (its readings' inbox) first; with none, a made-up one until the real meter is here
+                        // with the real laser, its next measurement; else the laser's newest reading not used yet (its
+                        // readings' inbox) first, and with none a made-up one (the simulator)
                         laserLink(tr("pt.laserOff")) {
+                            if LaserRouter.shared.isReal {
+                                LaserRouter.shared.waitFor { mm in offv = Geo.fmtField(mm, unit, en); src = "laser" }
+                                return
+                            }
                             let hi = max(400, (L ?? 3000) - 100)
                             offv = Geo.fmtField(laserReading(tr("pt.laserOff")) { Int.random(in: 200..<hi) / 10 * 10 }, unit, en); src = "sim"
                         }
                         laserLink(tr("pt.laserH")) {
+                            if LaserRouter.shared.isReal {
+                                LaserRouter.shared.waitFor { mm in hv = Geo.fmtField(mm, unit, en); src = "laser" }
+                                return
+                            }
                             let h0 = pointDefaults(type).h
                             hv = Geo.fmtField(laserReading(tr("pt.laserH")) { h0 + Int.random(in: -30...30) }, unit, en); src = "sim"
                         }
                     }
                 }
-                if src == "sim" { HStack(spacing: 8) { MIcon("clock", G.amberInk, 16, 2); T(tr("pt.fromLaser"), ui(13, 500, G.amberInk)) } }
+                if src == "sim" || src == "laser" { HStack(spacing: 8) { MIcon("clock", G.amberInk, 16, 2); T(tr("pt.fromLaser"), ui(13, 500, G.amberInk)) } }
                 if type == "sewer" {
                     VStack(alignment: .leading, spacing: 6) {
                         T(tr("pt.d"), ui(15, 700))

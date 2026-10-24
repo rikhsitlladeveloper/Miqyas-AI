@@ -681,6 +681,7 @@ private struct DimSheet: View {
                     .overlay(alignment: .leading) { Rectangle().fill(G.amberInk).frame(width: 3) }
                 } else {
                     GBtn(tr("mk.laser"), kind: .secondary, icon: "laser") {
+                        if LaserRouter.shared.isReal { LaserRouter.shared.waitFor { mm in MarkOps.shared.recv = mm }; return }
                         let base = e.v ?? (800 + Int.random(in: 0...3400))
                         ops.recv = max(50, base + kround((Double.random(in: 0..<1) - 0.5) * Double(e.v != nil ? 6 : 40)))
                     }
@@ -709,6 +710,8 @@ private struct DimSheet: View {
                 v = e.v.map { Geo.fmtLen($0, s.unit, en, full: true) } ?? ""
                 if !on { DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) { focus = .v } }
             }
+            // a real laser's measurement while this sheet is open is this line's: it waits here to be used, as a simulated one
+            .laserSink { mm in MarkOps.shared.recv = mm; return true }
         }
     }
 }

@@ -24,7 +24,14 @@ struct RootView: View {
         }
         .preferredColorScheme(splash || (settings.dark && !inAuth) ? .dark : .light)
         .onChange(of: inAuth, initial: true) { _, v in Theme.shared.inAuth = v }
-        .onAppear { if !settings.firstRunDone && app.auth.isEmpty { app.auth = [.welcome] } }
+        .onAppear {
+            if !settings.firstRunDone && app.auth.isEmpty { app.auth = [.welcome] }
+            // the real laser (one for the whole app): its measurements and news go through the router
+            LaserRouter.shared.start()
+        }
+        // a button waiting for the laser stops waiting when its page is left or the laser goes away
+        .onChange(of: app.top) { _, t in if let w = LaserRouter.shared.waiter, w.owner != t { LaserRouter.shared.cancel() } }
+        .onChange(of: LaserRouter.shared.isReal) { _, real in if !real { LaserRouter.shared.cancel() } }
     }
 
     /// The animation docks its tile where the next screen's header logo is.
@@ -90,6 +97,7 @@ struct RootView: View {
             }
             if let sh = app.sheet { sheetView(sh).zIndex(5) }
             if app.soon { SoonSheet(onLocal: { app.soon = false; authNav.local() }, onClose: { app.soon = false }).zIndex(6) }
+            LaserWaitBar().zIndex(6.5)
             ToastHost(msg: app.toast) { app.toast = nil }.zIndex(7)
         }
     }
@@ -170,6 +178,7 @@ struct RootView: View {
         case .wPlace(let pid, let kind, let rid, let oid): WPlaceScreen(app: app, pid: pid, kind: kind, rid: rid, oid: oid)
         case .wDesign(let pid, let iid): WDesignScreen(app: app, pid: pid, iid: iid)
         case .wView(let pid, let rid): WViewScreen(app: app, pid: pid, rid: rid)
+        case .laserTest: LaserTestScreen(app: app)
         }
     }
 

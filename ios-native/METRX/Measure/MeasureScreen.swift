@@ -82,8 +82,10 @@ struct MeasureScreen: View {
         let s = AppSettings.shared
         let en = s.lang == .en, u = s.unit, m = unitName()
         let on = s.laser == .connected
+        // the real laser measures on its own button, one press one reading: no continuous mode then
+        let real = LaserRouter.shared.isReal
         let rs = Array(s.readings.reversed())
-        let last = on && c.cont && c.liveVal != nil ? c.liveVal : rs.first?.mm
+        let last = on && !real && c.cont && c.liveVal != nil ? c.liveVal : rs.first?.mm
         // furniture makers have the sheets tool where builders have bricks; it is the advanced app's (simple mode has neither)
         let sheets = s.furniture && s.advanced
         let _ = { if sheets && c.tool == "brick" { DispatchQueue.main.async { c.tool = "sheet" } }
@@ -99,7 +101,7 @@ struct MeasureScreen: View {
                 ScrollViewReader { sr in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 12) {
-                            Meter(c: c, on: on, last: last, u: u, en: en, m: m)
+                            Meter(c: c, on: on, real: real, last: last, u: u, en: en, m: m)
                             Tools(c: c).id("tools")
                             CalcCard(app: app, c: c, u: u, en: en, m: m)
                             if !rs.isEmpty && !c.cur.contains(where: { $0 != nil }) { T(tr("qc.pick"), ui(13, 400, G.ink2, lh: 1.4)) }
@@ -135,18 +137,25 @@ struct MeasureScreen: View {
                         .pressable(0.97) { app.sheet = .qmManual }
                         .accessibilityIdentifier("qm.manual")
                     if !on { GBtn(tr("qc.connect"), icon: "bt") { app.sheet = .device }.accessibilityIdentifier("qm.connect") }
-                    else if c.cont {
+                    else if c.cont && !real {
                         GBtn(tr("qc.saveLive"), icon: "save", enabled: c.liveVal != nil) {
                             if let v = c.liveVal { c.fill(s.addReading(v, "sim")); app.say("qm.saved") }
                         }
                     } else {
-                        GBtn(tr("qc.measure"), icon: "laser") { c.fill(s.addReading(Int.random(in: 600..<8200), "sim")) }.accessibilityIdentifier("qm.measure")
+                        GBtn(tr("qc.measure"), icon: "laser") {
+                            if real { LaserRouter.shared.waitFor { mm in c.fill(s.addReading(mm, "laser")) } }
+                            else { c.fill(s.addReading(Int.random(in: 600..<8200), "sim")) }
+                        }
+                        .accessibilityIdentifier("qm.measure")
                     }
                 }
             }
             .padding(.bottom, NAV_SPACE - 12)
         }
         .onChange(of: on) { _, v in if !v { c.setLive(false) } }
+        .onChange(of: real, initial: true) { _, v in if v { c.setLive(false); c.cont = false } }
+        // every real-laser measurement taken while this page is open is a reading here (and fills the calculator)
+        .laserSink { mm in c.fill(s.addReading(mm, "laser")); return true }
     }
 }
 
@@ -156,6 +165,7 @@ func openCamera(_ app: AppModel) { app.sheet = .cameraPick }
 private struct Meter: View {
     let c: MeasureCalc
     let on: Bool
+    let real: Bool
     let last: Int?
     let u: LenUnit
     let en: Bool
@@ -171,7 +181,12 @@ private struct Meter: View {
                 Text(m).st(num(22, 500, G.ink2))
             }
             .frame(maxWidth: .infinity)
-            if on {
+            if on && real {
+                HStack(alignment: .top, spacing: 8) {
+                    MIcon("laser", G.cobalt, 18, 2)
+                    T(tr("lz.press"), ui(13.5, 500, G.ink2, lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading)
+                }
+            } else if on {
                 HStack(spacing: 2) {
                     ForEach([(false, "meas.single"), (true, "meas.cont")], id: \.1) { cont, k in
                         let sel = c.cont == cont

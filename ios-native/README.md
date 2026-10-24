@@ -41,7 +41,8 @@ With a Mac: `brew install xcodegen`, then `cd ios-native && xcodegen generate &&
 | `METRX/Kit/` | buttons, logo, laser button, header, switch, list rows, sheets, toasts |
 | `METRX/Splash/` | the "Room hops" B launch animation (3.4 s), on the same timeline as the Android app |
 | `METRX/Auth/` | welcome, sign up, log in, continue without an account, "accounts coming soon" |
-| `METRX/Main/` | tab bar, Home, Projects (empty), Profile, more settings, subscription, language and laser sheets |
+| `METRX/Main/` | tab bar, Home, Projects (empty), Profile, more settings, subscription, language and laser sheets, the "Lazer sinovi" test page |
+| `METRX/Laser/` | the real ZB-08 laser over Bluetooth LE (CoreBluetooth): JRT frame parser, app-wide connection with remember and reconnect, the router that sends each measurement to the waiting button, the size in focus or the readings |
 | `METRX/App/` | the app model (a page stack per tab, sheet, toast, sign-in steps) and the root view |
 | `METRX/Fonts/` | Plus Jakarta Sans and Manrope cut into static weights from the variable fonts (OFL), IBM Plex Sans Condensed and Mono |
 

@@ -85,6 +85,13 @@ enum Strings {
         "nt.simLaser": ["Simulyatsiya: haqiqiy lazer hali ulanmagan", "Симуляция: ҳақиқий лазер ҳали уланмаган", "Симуляция: настоящий лазер пока не подключён", "Simulation: no real laser is connected yet"],
         "nt.back": ["Orqaga", "Орқага", "Назад", "Back"],
         "nt.dark": ["Tungi rejim", "Тунги режим", "Тёмная тема", "Dark mode"],
+        // the laser test page on iPhone: no classic Bluetooth for apps
+        "nt.ltIos": [
+            "iPhone’da faqat Bluetooth LE ishlaydi: klassik Bluetooth (SPP) iPhone ilovalariga ochiq emas, shuning uchun bu yerda yo‘q.",
+            "iPhone’да фақат Bluetooth LE ишлайди: классик Bluetooth (SPP) iPhone иловаларига очиқ эмас, шунинг учун бу ерда йўқ.",
+            "На iPhone работает только Bluetooth LE: классический Bluetooth (SPP) недоступен приложениям iPhone, поэтому его здесь нет.",
+            "On iPhone only Bluetooth LE works: classic Bluetooth (SPP) is not open to iPhone apps, so it is not on this page."
+        ],
     ]
 }
 

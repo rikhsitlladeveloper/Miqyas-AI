@@ -17,6 +17,8 @@ struct EditorScreen: View {
         }
         // a drawn room's shape / diagonal mode does not come back when the editor is opened again
         .onDisappear { RoomOps.shared.leave() }
+        // a real laser's measurement goes to the size the step card shows (or the typing sheet's); else to the readings' inbox
+        .laserSink { mm in RoomOps.shared.realReading(pid, rid, mm) }
     }
 
     /// The plan page: the room's drawing, the step card and the tools.
@@ -254,7 +256,7 @@ private struct StepCard: View {
             switch f.kind {
             case "recv": return tr(d.pending?.from == "quick" ? "ed2.fromQuick" : "ed2.fromLaser", ["w": name])
             case "again": return tr("ed2.re", ["w": name])
-            case "conf": return name + ", " + tr("src." + (d.src ?? "manual"))
+            case "conf": return name + ", " + tr(srcKey(d.src))
             default: return tr("ed2.next", ["w": name])
             }
         }()
@@ -381,7 +383,7 @@ private struct FullList: View {
                             .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(on ? G.cobalt : G.ink.opacity(0.06)))
                         VStack(alignment: .leading, spacing: 0) {
                             T(ops.dimLabel(k), ui(14.5, 600))
-                            T(st == "recv" ? tr("ed2.st.recv") : st == "unset" ? tr("ed2.notMeasured") : tr("ed2.confirmed") + ", " + tr("src." + (d.src ?? "manual")), ui(12.5, 400, G.ink2))
+                            T(st == "recv" ? tr("ed2.st.recv") : st == "unset" ? tr("ed2.notMeasured") : tr("ed2.confirmed") + ", " + tr(srcKey(d.src)), ui(12.5, 400, G.ink2))
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         T(st == "recv" ? Geo.fmtLen(d.pending?.mm, unit, en, full: true) : st == "conf" ? Geo.fmtLen(d.v, unit, en) : "?",

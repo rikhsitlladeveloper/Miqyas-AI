@@ -157,7 +157,7 @@ struct LiveCamScreen: View {
                 .padding(.horizontal, 16).padding(.top, 4)
             HStack(spacing: 8) {
                 LcBtn(icon: "kbd", label: tr("ed2.manual"), enabled: s.line != nil, pri: false) { app.sheet = .lcManual }
-                LcBtn(icon: "laser", label: tr("qc.measure"), enabled: s.line != nil && bt, pri: true) { s.v = 600 + Int.random(in: 0...7600); s.src = "laser" }.layoutPriority(1)
+                LcBtn(icon: "laser", label: tr("qc.measure"), enabled: s.line != nil && bt, pri: true) { measure() }.layoutPriority(1)
                 LcBtn(icon: "save", label: tr("common.save"), enabled: s.v != nil && on, pri: false) { save() }
             }
             .padding(.horizontal, 10).padding(.vertical, 12)
@@ -165,6 +165,24 @@ struct LiveCamScreen: View {
         .background(LC_BG.ignoresSafeArea())
         .onAppear { begin() }
         .onDisappear { cam.stop() }
+        // with a line drawn, a real laser's measurement is its length
+        .laserSink { mm in
+            guard LiveLine.shared.line != nil else { return false }
+            LiveLine.shared.v = mm; LiveLine.shared.src = "laser"
+            return true
+        }
+    }
+
+    /// The real laser's next measurement, else a made-up length (the simulator).
+    private func measure() {
+        let ln = LiveLine.shared
+        if LaserRouter.shared.isReal {
+            LaserRouter.shared.waitFor { mm in
+                if ln.line != nil { ln.v = mm; ln.src = "laser" } else { AppSettings.shared.addReading(mm, "laser") }
+            }
+            return
+        }
+        ln.v = 600 + Int.random(in: 0...7600); ln.src = "laser"
     }
 
     private func at(_ p: CGPoint, _ size: CGSize) -> (Double, Double) {

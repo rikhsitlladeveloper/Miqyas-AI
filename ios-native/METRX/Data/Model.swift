@@ -203,7 +203,7 @@ struct Item: Codable, Equatable, Identifiable {
     }
 }
 
-/// A reading waiting for the builder's confirmation (prototype dims[k].pending): from the laser ("sim") or typed.
+/// A reading waiting for the builder's confirmation (prototype dims[k].pending): from the real laser ("laser"), the simulator ("sim") or typed.
 struct Pending: Codable, Equatable {
     var mm: Int
     var src = "sim"
@@ -459,7 +459,7 @@ extension Snap {
 /// A line of a furniture order's price in the customer's PDF: key a furniture id or "deliver".
 struct SnapLine: Codable, Equatable { var key: String; var amount: String }
 
-/// A reading on the Measure page: src "sim" (laser) or "manual"; used says where it went (a wall or the height).
+/// A reading on the Measure page: src "laser" (the real ZB-08), "sim" (the simulator) or "manual"; used says where it went (a wall or the height).
 struct Reading: Codable, Equatable, Identifiable { var id: String; var n: Int; var mm: Int; var ts: Ms; var src: String; var used: String? = nil }
 
 /// Short random ids like the prototype's uid().

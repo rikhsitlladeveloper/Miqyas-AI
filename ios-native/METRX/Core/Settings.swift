@@ -1,7 +1,7 @@
 import Foundation
 import Observation
 
-/// Laser connection states, as in the prototype. The laser itself is simulated until a real device is verified.
+/// Laser connection states, as in the prototype: the real ZB-08 when one is connected, else the simulator.
 enum Laser { case disconnected, searching, found, connected }
 
 /// How many Measure-page readings are kept (the oldest go first).
@@ -74,8 +74,13 @@ final class AppSettings {
     private(set) var hws: [Hw]
     /// The workshop's remnants (Advanced): offcuts kept for the next orders' cut lists.
     private(set) var remnants: [Remnant]
-    /// Simulated laser state; not saved, a new start begins disconnected like a real Bluetooth device.
+    /// The laser's state for every screen: the real laser's (Laser/RealLaser.swift) or the simulator's, set by the app's
+    /// LaserRouter only. Not saved: a new start begins disconnected and the remembered real laser connects by itself.
     var laser: Laser = .disconnected
+    /// The real laser last connected (iOS's identifier for it, as there are no Bluetooth addresses on iPhone, and its
+    /// name); nil after "Unutish".
+    private(set) var laserId: String?
+    private(set) var laserName: String?
 
     private init() {
         // the screen tests start from a clean first run
@@ -109,6 +114,8 @@ final class AppSettings {
         mats = sm + MAT_PRESETS.filter { p in !sm.contains { $0.id == p.id } }
         let sh = d.data(forKey: "hws").flatMap { try? JSONDecoder().decode([Hw].self, from: $0) } ?? []
         hws = sh + HW_PRESETS.filter { p in !sh.contains { $0.id == p.id } }
+        laserId = d.string(forKey: "laserId")
+        laserName = d.string(forKey: "laserName")
         remnants = d.data(forKey: "remnants").flatMap { try? JSONDecoder().decode([Remnant].self, from: $0) } ?? []
         rowDrafts = (d.data(forKey: "rowDrafts")).flatMap { try? JSONDecoder().decode([String: [String: String]].self, from: $0) } ?? [:]
         visit = d.integer(forKey: "visit") + (d.object(forKey: "visit") == nil ? 0 : 1)
@@ -134,6 +141,10 @@ final class AppSettings {
     func setMatList(_ v: [Mat]) { mats = v; d.set(try? JSONEncoder().encode(v), forKey: "mats") }
     func setHwList(_ v: [Hw]) { hws = v; d.set(try? JSONEncoder().encode(v), forKey: "hws") }
     func setRemnantList(_ v: [Remnant]) { remnants = v; d.set(try? JSONEncoder().encode(v), forKey: "remnants") }
+    func setLaserDevice(_ id: String?, _ name: String?) {
+        laserId = id; laserName = name
+        d.set(id, forKey: "laserId"); d.set(name, forKey: "laserName")
+    }
     func setRoomLabel(_ v: String) { roomLabel = v; d.set(v, forKey: "roomLabel") }
     func setDefaults(_ dw: Int, _ dh: Int, _ ww: Int, _ wh: Int, _ ws: Int) {
         doorW = dw; doorH = dh; winW = ww; winH = wh; winSill = ws

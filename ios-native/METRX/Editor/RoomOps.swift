@@ -105,9 +105,18 @@ final class RoomOps {
         focus(rid, w?.dimKey ?? wall)
     }
 
-    /// A simulated laser reading (prototype simTarget + edLaser): every third one is 2 mm off, like a real laser.
+    /// The step card's laser button. With the real laser connected it waits for the next measurement (the card shows k
+    /// meanwhile); otherwise a simulated reading (prototype simTarget + edLaser): every third one is 2 mm off.
     func laser(_ pid: String, _ rid: String, _ k: String) {
         guard let r = room(pid, rid) else { return }
+        if LaserRouter.shared.isReal {
+            focusRoom = rid; focusKey = k
+            LaserRouter.shared.waitFor { [weak self] mm in
+                guard let self else { return }
+                if !self.realReading(pid, rid, mm, k) { LaserRouter.shared.toInbox(mm) }
+            }
+            return
+        }
         let target = simTarget(r, k)
         simCount += 1
         let mm = simCount % 3 == 0 ? target + 2 : target
@@ -130,8 +139,33 @@ final class RoomOps {
         return Int.random(in: 2400...6400)
     }
 
-    /// The tray's laser button: a simulated reading near one of the room's still-needed lengths (prototype trayLaser).
+    /// A real laser's measurement while this room's editor is open: it goes to the size the step card shows (or the
+    /// typing sheet's; only, the size the waiting button was for), waiting for confirmation as a simulated one does.
+    /// False when no size is in focus (the inbox then).
+    @discardableResult func realReading(_ pid: String, _ rid: String, _ mm: Int, _ only: String? = nil) -> Bool {
+        guard let r = room(pid, rid) else { return false }
+        var key: String? = nil
+        if let sh = app.sheet {
+            guard case .measure(let spid, let srid, let sk) = sh, spid == pid, srid == rid else { return false }
+            key = sk
+        } else if let k = only {
+            key = k
+        } else {
+            let f = focusOf(r)
+            if let k = f.k, ["unset", "again", "recv", "conf"].contains(f.kind) { key = k }
+        }
+        guard let k = key else { return false }
+        if app.sheet != nil { app.sheet = nil }
+        change(pid, rid, hist: false) { $0.dims[k] = Dim(v: $0.dim(k).v, src: $0.dim(k).src, pending: Pending(mm: mm, src: "laser")) }
+        focusRoom = rid; focusKey = k
+        if again == "\(rid):\(k)" { again = nil }
+        return true
+    }
+
+    /// The tray's laser button: the real laser's next measurement (into the readings), else a simulated reading near one
+    /// of the room's still-needed lengths (prototype trayLaser).
     func trayReading(_ pid: String, _ rid: String) {
+        if LaserRouter.shared.isReal { LaserRouter.shared.waitFor { mm in AppSettings.shared.addReading(mm, "laser") }; return }
         guard let r = room(pid, rid) else { return }
         let pool = Geo.stepKeys(r, snap).map { simTarget(r, $0) }
         let n = s.readings.count
@@ -331,6 +365,15 @@ final class RoomOps {
     }
 
     var laserOn: Bool { s.laser == .connected }
+}
+
+/// A value's source as a string key: the real laser's ("laser") reads as the laser's, like the simulator's ("sim").
+func srcKey(_ src: String?) -> String {
+    switch src {
+    case nil: return "src.manual"
+    case "laser"?: return "src.sim"
+    default: return "src." + (src ?? "manual")
+    }
 }
 
 /// "m" or "sm" in the current language.

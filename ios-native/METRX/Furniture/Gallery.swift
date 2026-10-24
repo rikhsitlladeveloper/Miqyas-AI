@@ -330,6 +330,8 @@ struct FStepsScreen: View {
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { if at < n && !steps[at].choice { typing = true } }
             }
             .onDisappear { if BackOwner.last == backToken { app.backOverride = nil; BackOwner.last = 0 } }
+            // a real laser's measurement goes into the size being asked, then on to the next step when it fits
+            .laserSink { mm in gotReal(mm) }
         }
     }
 
@@ -482,11 +484,34 @@ struct FStepsScreen: View {
         .accessibilityIdentifier("fx.opt." + key)
     }
 
-    /// The laser's newest reading not used yet (its readings' inbox) fills the field first, and the next step opens; with
-    /// none, a made-up one near the usual size (until the real meter is here, as the editor's laser button).
+    /// A real laser's measurement goes into the size being asked, then on to the next step when it fits.
+    private func gotReal(_ mm: Int) -> Bool {
+        guard let m = fModel(model) else { return false }
+        let steps = stepsNow(m)
+        let i = at
+        guard i < steps.count, !steps[i].choice, !steps[i].pics else { return false }
+        let unit = AppSettings.shared.unit
+        let tv = Geo.fmtField(mm, unit, en)
+        setTxt(steps, i, tv)
+        laser = tr("fx.got", ["v": Geo.fmtLen(mm, unit, en) + " " + unitWord(unit)])
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { nextAfter(i, tv, unit) }
+        return true
+    }
+
+    /// With the real laser, its next measurement. Else the laser's newest reading not used yet (its readings' inbox)
+    /// fills the field first, and the next step opens; with none, a made-up one near the usual size (the simulator, as
+    /// the editor's laser button).
     private func reading(_ steps: [SizeStep], _ unit: LenUnit) {
         let i = at
         guard laser != "busy", i < steps.count, !steps[i].choice else { return }
+        if LaserRouter.shared.isReal {
+            LaserRouter.shared.waitFor(onCancel: { if laser == "busy" { laser = nil } }) { mm in
+                laser = nil
+                if !gotReal(mm) { AppSettings.shared.addReading(mm, "laser") }
+            }
+            laser = "busy"
+            return
+        }
         let s = steps[i]
         if let r = AppSettings.shared.readings.last(where: { $0.used == nil && $0.src != "manual" }) {
             AppSettings.shared.markReadingUsed(r.id, tr(s.label))
