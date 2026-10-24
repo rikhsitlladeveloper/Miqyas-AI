@@ -8,7 +8,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 
-/** Laser connection states, as in the prototype. The laser itself is simulated until a real device is verified. */
+/** Laser connection states, as in the prototype: the real ZB-08 when one is connected, else the simulator. */
 enum class Laser { DISCONNECTED, SEARCHING, FOUND, CONNECTED }
 
 /** How many Measure-page readings are kept (the oldest go first). */
@@ -117,8 +117,18 @@ class Settings(context: Context) {
     /** One visit = one cold start; the Home greeting line changes with it. */
     val visit: Int = (p.getInt("visit", -1) + 1).also { p.edit().putInt("visit", it).apply() }
 
-    /** Simulated laser state; not saved, a new start begins disconnected like a real Bluetooth device. */
+    /**
+     * The laser's state for every screen: the real laser's (laser/RealLaser.kt) or the simulator's, set by the app's
+     * LaserRouter only. Not saved: a new start begins disconnected and the remembered real laser connects by itself.
+     */
     var laser by mutableStateOf(Laser.DISCONNECTED)
+    /** The real laser last connected (its Bluetooth address and name); null after "Unutish". */
+    var laserAddr by mutableStateOf(p.getString("laserAddr", null)); private set
+    var laserName by mutableStateOf(p.getString("laserName", null)); private set
+    fun setLaserDevice(addr: String?, name: String?) {
+        laserAddr = addr; laserName = name
+        p.edit().putString("laserAddr", addr).putString("laserName", name).apply()
+    }
     var laserTick by mutableIntStateOf(0)
 
     /**

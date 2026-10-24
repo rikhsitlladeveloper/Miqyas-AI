@@ -109,9 +109,17 @@ class RoomOps(private val app: App) {
         focus(rid, if (w != null) w.dimKey else wall)
     }
 
-    /** A simulated laser reading (prototype simTarget + edLaser): every third one is 2 mm off, like a real laser. */
+    /**
+     * The step card's laser button. With the real laser connected it waits for the next measurement (the card shows
+     * [k] meanwhile); otherwise a simulated reading (prototype simTarget + edLaser): every third one is 2 mm off.
+     */
     fun laser(pid: String, rid: String, k: String) {
         val r = room(pid, rid) ?: return
+        if (app.laser.isReal) {
+            focusRoom = rid; focusKey = k
+            app.laser.await { mm -> if (!realReading(pid, rid, mm)) app.laser.dispatch(uz.metrx.app.laser.LaserReading(mm, 0, System.currentTimeMillis())) }
+            return
+        }
         val target = simTarget(r, k)
         val n = ++simCount
         val mm = if (n % 3 == 0) target + 2 else target
@@ -119,8 +127,28 @@ class RoomOps(private val app: App) {
         focusRoom = rid; focusKey = k
     }
 
-    /** The tray's laser button: a reading close to one of this room's walls or its height (prototype traySim). */
+    /**
+     * A real laser's measurement while this room's editor is open: it goes to the size the step card shows (or the
+     * typing sheet's), waiting for confirmation as a simulated one does. False when no size is in focus (the inbox then).
+     */
+    fun realReading(pid: String, rid: String, mm: Int): Boolean {
+        val r = room(pid, rid) ?: return false
+        val sh = app.sheet
+        val k = when {
+            sh is uz.metrx.app.ui.Sheet.Measure && sh.rid == rid -> sh.k
+            sh != null -> return false
+            else -> focusOf(r).let { f -> if (f.k != null && f.kind in setOf("unset", "again", "recv", "conf")) f.k else null }
+        } ?: return false
+        if (sh != null) app.sheet = null
+        change(pid, rid, hist = false) { it.copy(dims = it.dims + (k to it.dim(k).copy(pending = Pending(mm, "laser")))) }
+        focusRoom = rid; focusKey = k
+        if (again == "$rid:$k") again = null
+        return true
+    }
+
+    /** The tray's laser button: the real laser's next measurement, else a reading close to one of this room's walls or its height (prototype traySim). */
     fun trayReading(pid: String, rid: String) {
+        if (app.laser.isReal) { app.laser.await { mm -> app.settings.addReading(mm, "laser") }; return }
         val r = room(pid, rid) ?: return
         val pool = uz.metrx.app.geo.stepKeys(r, app.settings.angleSnap).map { simTarget(r, it) }
         val n = app.settings.readings.size
@@ -320,4 +348,6 @@ class RoomOps(private val app: App) {
 }
 
 fun App.english() = settings.lang == uz.metrx.app.core.Lang.EN
+/** A value's source as a string key: the real laser's ("laser") reads as the laser's, like the simulator's ("sim"). */
+fun srcKey(src: String?) = "src." + when (src) { null -> "manual"; "laser" -> "sim"; else -> src }
 fun App.unitName() = t(if (settings.unit == uz.metrx.app.geo.LenUnit.CM) "u.cm" else "u.m")

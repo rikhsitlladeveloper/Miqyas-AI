@@ -70,6 +70,11 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
 import androidx.core.location.LocationManagerCompat
 import kotlinx.coroutines.delay
+import uz.metrx.app.laser.JrtEvent
+import uz.metrx.app.laser.JrtParser
+import uz.metrx.app.laser.LaserLog
+import uz.metrx.app.laser.LaserPerms
+import uz.metrx.app.laser.RealLaser
 import uz.metrx.app.ui.LocalApp
 import uz.metrx.app.ui.components.GlassButton
 import uz.metrx.app.ui.components.GlassIconButton
@@ -89,8 +94,8 @@ import java.util.Locale
 import java.util.UUID
 
 /*
- * Device sheet → "Lazer sinovi": a tool to learn how a real Bluetooth laser rangefinder (the ZB-08) talks, before
- * real support is built. The simulated laser elsewhere stays as it is.
+ * Device sheet → "Lazer sinovi": a tool to learn how a Bluetooth laser rangefinder talks (the ZB-08 was decoded with it;
+ * the app's own support is laser/RealLaser.kt, which steps aside while this page is open).
  *
  * It finds devices both ways (BLE scan and classic discovery, plus paired ones), connects over BLE GATT or classic SPP
  * and ONLY READS: it reads readable characteristics, and the one thing it ever writes is the standard CCCD (0x2902)
@@ -103,27 +108,6 @@ private const val SCAN_S = 20
 private val SPP_UUID: UUID = UUID.fromString("00001101-0000-1000-8000-00805F9B34FB")
 private val CCCD_UUID: UUID = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
 private val USER_DESC_UUID: UUID = UUID.fromString("00002901-0000-1000-8000-00805f9b34fb")
-
-/** The test's log: kept while the app runs (leaving the page does not lose it); every line also goes to logcat. */
-object LaserLog {
-    val lines = mutableStateListOf<String>()
-    private val main = Handler(Looper.getMainLooper())
-    private val fmt = SimpleDateFormat("HH:mm:ss.SSS", Locale.US)
-
-    fun add(msg: String) {
-        val line = synchronized(fmt) { fmt.format(Date()) } + "  " + msg
-        Log.i(TAG, msg)
-        if (Looper.myLooper() == Looper.getMainLooper()) put(line) else main.post { put(line) }
-    }
-
-    private fun put(line: String) {
-        lines.add(line)
-        if (lines.size > 6000) lines.removeRange(0, lines.size - 5000)
-    }
-
-    fun text(): String = lines.joinToString("\n")
-    fun clear() { lines.clear(); Log.i(TAG, "----- log cleared -----") }
-}
 
 /** Reading the bytes a laser sends: hex, ASCII, and candidate distances (pure, unit-tested). */
 object LaserDecode {
@@ -530,6 +514,8 @@ class LaserProbe(private val ctx: Context) {
     private fun data(src: String, b: ByteArray) {
         val sb = StringBuilder("DATA $src len=${b.size}\n    hex:   ${LaserDecode.hex(b)}\n    ascii: \"${LaserDecode.ascii(b)}\"")
         val guesses = mutableListOf<String>()
+        // the ZB-08's JRT frames (laser/Jrt.kt), as the app itself reads them
+        if (src.startsWith("BLE")) for (e in jrt.feed(b, android.os.SystemClock.uptimeMillis())) if (e is JrtEvent.Reading) guesses += "JRT result = ${e.mm} mm (q ${e.quality})"
         LaserDecode.fnirsi(b)?.let { guesses += "FNIRSI rule (BE u16 @14 /1000) = %.3f m".format(Locale.US, it) }
         LaserDecode.textNumbers(b).forEach { guesses += "text: $it" }
         guesses.forEach { sb.append("\n    → ").append(it) }
@@ -540,6 +526,7 @@ class LaserProbe(private val ctx: Context) {
         }
     }
     private val timeFmt = SimpleDateFormat("HH:mm:ss", Locale.US)
+    private val jrt = JrtParser()
 
     // ---------- classic SPP ----------
 
@@ -626,23 +613,20 @@ class LaserProbe(private val ctx: Context) {
     private inline fun <T> safe(f: () -> T): T? = try { f() } catch (e: SecurityException) { log("permission missing: ${e.message}"); null } catch (_: Exception) { null }
 }
 
-/** The runtime permissions the test needs: location up to Android 11, scan and connect (and location) from Android 12. */
-private fun ltNeeded(): List<String> =
-    if (Build.VERSION.SDK_INT >= 31) listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION)
-    else listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+/** The runtime permissions the test needs (shared with the Device sheet: laser/LaserLog.kt LaserPerms). */
+private fun ltNeeded(): List<String> = LaserPerms.needed()
 
-private fun ltMissing(ctx: Context) = ltNeeded().filter { ContextCompat.checkSelfPermission(ctx, it) != PackageManager.PERMISSION_GRANTED }
+private fun ltMissing(ctx: Context) = LaserPerms.missing(ctx)
 
-private fun open(ctx: Context, intent: Intent) {
-    try { ctx.startActivity(intent) } catch (e: Exception) { LaserLog.add("could not open settings: $e") }
-}
+private fun open(ctx: Context, intent: Intent) = LaserPerms.open(ctx, intent)
 
 @Composable
 fun LaserTestScreen() {
     val app = LocalApp.current
     val ctx = LocalContext.current
     val probe = remember { LaserProbe(ctx.applicationContext) }
-    DisposableEffect(probe) { probe.start(); onDispose { probe.dispose() } }
+    // the app's own laser connection steps aside while this page has Bluetooth, and comes back after
+    DisposableEffect(probe) { RealLaser.get(ctx).pause(); probe.start(); onDispose { probe.dispose(); RealLaser.get(ctx).resume() } }
 
     var missing by remember { mutableStateOf(ltMissing(ctx)) }
     var asked by remember { mutableStateOf(false) }

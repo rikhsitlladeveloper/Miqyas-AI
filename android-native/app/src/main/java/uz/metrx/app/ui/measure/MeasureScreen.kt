@@ -144,7 +144,10 @@ fun MeasureScreen(calcTitle: Boolean) {
     val c = app.calc
     val u = s.unit; val m = app.unitName()
     val on = s.laser == Laser.CONNECTED
-    if (!on) c.live = false
+    // the real laser measures on its own button, one press one reading: no continuous mode then
+    val real = app.laser.isReal
+    if (!on || real) c.live = false
+    if (real) c.cont = false
     // continuous mode: the simulated laser keeps reporting a value that moves a little
     LaunchedEffect(c.live) {
         while (c.live) { c.liveVal = ((c.liveVal ?: Random.nextInt(600, 8200)) + Random.nextInt(-3, 4)).coerceIn(300, 9000); delay(400) }
@@ -152,6 +155,8 @@ fun MeasureScreen(calcTitle: Boolean) {
     val rs = s.readings.reversed()
     val last = if (on && c.cont && c.liveVal != null) c.liveVal else rs.firstOrNull()?.mm
     fun add(mm: Int, src: String) { val r = s.addReading(mm, src); c.fill(r) }
+    // every real-laser measurement taken while this page is open is a reading here (and fills the calculator)
+    uz.metrx.app.laser.LaserSink { mm -> add(mm, "laser"); true }
     // furniture makers have the sheets tool where builders have bricks; it is the advanced app's (simple mode has neither)
     val sheets = s.furniture && s.advanced
     LaunchedEffect(s.furniture, sheets) {
@@ -171,7 +176,7 @@ fun MeasureScreen(calcTitle: Boolean) {
             val gap = with(androidx.compose.ui.platform.LocalDensity.current) { 12.dp.roundToPx() }
             LaunchedEffect(calcTitle, toolsY) { if (calcTitle && toolsY >= 0) scroll.scrollTo(maxOf(0, toolsY - gap)) }
             Column(Modifier.weight(1f).verticalScroll(scroll).padding(start = 16.dp, end = 16.dp, top = 2.dp, bottom = 110.dp + uz.metrx.app.ui.main.NAV_SPACE).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Meter(on, c, last, u, en, m)
+                Meter(on, real, c, last, u, en, m)
                 Box(Modifier.onGloballyPositioned { if (toolsY < 0) toolsY = it.positionInParent().y.toInt() }) { Tools(c) }
                 CalcCard(c, u, en, m)
                 if (rs.isNotEmpty() && c.vals.getValue(c.tool).none { it != null }) Text(tr("qc.pick"), style = ui(13f, 400, G.ink2, 1.4f))
@@ -198,7 +203,7 @@ fun MeasureScreen(calcTitle: Boolean) {
                     // two lines rather than "Lazerni …" when the phone's font is set large
                     !on -> GBtn(tr("qc.connect"), { app.sheet = Sheet.Device }, icon = "bt", modifier = Modifier.weight(1f), maxLines = 2)
                     c.cont -> GBtn(tr("qc.saveLive"), { c.liveVal?.let { add(it, "sim"); app.say("qm.saved") } }, icon = "save", enabled = c.liveVal != null, modifier = Modifier.weight(1f), maxLines = 2)
-                    else -> GBtn(tr("qc.measure"), { add(Random.nextInt(600, 8200), "sim") }, icon = "laser", modifier = Modifier.weight(1f), maxLines = 2)
+                    else -> GBtn(tr("qc.measure"), { if (real) app.laser.await { add(it, "laser") } else add(Random.nextInt(600, 8200), "sim") }, icon = "laser", modifier = Modifier.weight(1f), maxLines = 2)
                 }
             }
         }
@@ -206,7 +211,7 @@ fun MeasureScreen(calcTitle: Boolean) {
 }
 
 @Composable
-private fun Meter(on: Boolean, c: MeasureCalc, last: Int?, u: LenUnit, en: Boolean, m: String) {
+private fun Meter(on: Boolean, real: Boolean, c: MeasureCalc, last: Int?, u: LenUnit, en: Boolean, m: String) {
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(20.dp), fill = G.glass(.55f)).padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Box(Modifier.size(7.dp).clip(CircleShape).background(if (on && c.live) G.green else G.greyIcon))
@@ -216,7 +221,9 @@ private fun Meter(on: Boolean, c: MeasureCalc, last: Int?, u: LenUnit, en: Boole
             Text(if (last != null) fmtLen(last, u, en, full = true) else "–,–––", style = ui(54f, 600, G.ink, 1f).copy(fontFamily = PlexCond), maxLines = 1)
             Text(m, style = ui(22f, 500, G.ink2, 1f).copy(fontFamily = PlexCond), modifier = Modifier.padding(start = 4.dp, bottom = 6.dp))
         }
-        if (on) {
+        if (on && real) Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            MIcon("laser", G.cobalt, 18.dp, 2f); Text(tr("lz.press"), style = ui(13.5f, 500, G.ink2, 1.4f), modifier = Modifier.weight(1f))
+        } else if (on) {
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(G.ink.copy(alpha = .06f)).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                 listOf(false to "meas.single", true to "meas.cont").forEach { (cont, k) ->
                     val sel = c.cont == cont; val sh = RoundedCornerShape(9.dp)

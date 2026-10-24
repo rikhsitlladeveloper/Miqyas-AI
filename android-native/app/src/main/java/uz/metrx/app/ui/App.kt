@@ -239,6 +239,8 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     var toast by mutableStateOf<ToastMsg?>(null)
     /** The orders list's filter (active, done, all, other trades): kept while an order is opened, changed or deleted. */
     var ordersSeg by mutableStateOf("active")
+    /** Where laser measurements go: the real ZB-08 when connected, else the simulator (laser/LaserRouter.kt). */
+    val laser = uz.metrx.app.laser.LaserRouter(this)
     /** The room editor's state and undo history. */
     val ops = uz.metrx.app.ui.editor.RoomOps(this)
     /** The Measure page's calculator, kept while the app runs. */

@@ -124,6 +124,8 @@ fun LiveCamScreen() {
     val en = LocalLang.current == Lang.EN
     val bt = app.settings.laser == Laser.CONNECTED
     val s = app.live
+    // with a line drawn, a real laser's measurement is its length
+    uz.metrx.app.laser.LaserSink { mm -> if (s.line == null) false else { s.v = mm; s.src = "laser"; true } }
     var granted by remember { mutableStateOf(ContextCompat.checkSelfPermission(ctx, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) }
     var err by rememberSaveable { mutableStateOf<String?>(null) }
     var on by remember { mutableStateOf(false) }
@@ -189,7 +191,10 @@ fun LiveCamScreen() {
         }
         Row(Modifier.fillMaxWidth().padding(10.dp, 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             LcBtn("kbd", tr("ed2.manual"), s.line != null, false, Modifier.weight(1f)) { app.sheet = Sheet.LcManual }
-            LcBtn("laser", tr("qc.measure"), s.line != null && bt, true, Modifier.weight(1.3f)) { s.v = 600 + Random.nextInt(7601); s.src = "laser" }
+            LcBtn("laser", tr("qc.measure"), s.line != null && bt, true, Modifier.weight(1.3f)) {
+                if (app.laser.isReal) app.laser.await { mm -> if (s.line != null) { s.v = mm; s.src = "laser" } else app.settings.addReading(mm, "laser") }
+                else { s.v = 600 + Random.nextInt(7601); s.src = "laser" }
+            }
             LcBtn("save", tr("common.save"), s.v != null && on && !saving, false, Modifier.weight(1f)) {
                 if (saving) return@LcBtn
                 val pv = view ?: return@LcBtn; val ln = s.line ?: return@LcBtn; val v = s.v ?: return@LcBtn; val src = s.src

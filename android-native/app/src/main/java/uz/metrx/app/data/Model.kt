@@ -128,7 +128,7 @@ data class Item(
     val hh get() = if (H > 0) H else if (kind == "photo") 750 else 1300
 }
 
-/** A reading waiting for the builder's confirmation (prototype dims[k].pending): from the laser ("sim") or typed. */
+/** A reading waiting for the builder's confirmation (prototype dims[k].pending): from the real laser ("laser"), the simulator ("sim") or typed. */
 @Serializable
 data class Pending(val mm: Int, val src: String = "sim", val from: String? = null)
 
@@ -277,7 +277,7 @@ data class Snap(
 @Serializable
 data class SnapLine(val key: String, val amount: String)
 
-/** A reading on the Measure page: [src] "sim" (laser) or "manual"; [used] says where it went (a wall or the height). */
+/** A reading on the Measure page: [src] "laser" (the real ZB-08), "sim" (the simulator) or "manual"; [used] says where it went (a wall or the height). */
 @Serializable
 data class Reading(val id: String, val n: Int, val mm: Int, val ts: Long, val src: String, val used: String? = null)
 

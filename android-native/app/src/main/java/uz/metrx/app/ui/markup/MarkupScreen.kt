@@ -616,6 +616,8 @@ private fun DimSheet(s: Sheet.MkDim) {
     val focus = remember { FocusRequester() }
     val on = app.settings.laser == Laser.CONNECTED
     LaunchedEffect(Unit) { if (!on) { kotlinx.coroutines.delay(300); runCatching { focus.requestFocus() } } }
+    // a real laser's measurement while this sheet is open is this line's: it waits here to be used, as a simulated one
+    uz.metrx.app.laser.LaserSink { mm -> app.mk.recv = mm; true }
     fun save() {
         val ok = parsed as? Parsed.Ok
         if (v.isBlank() || ok == null) { tried = true; return }
@@ -641,6 +643,7 @@ private fun DimSheet(s: Sheet.MkDim) {
                 GBtn(tr("mk.use"), { val t = fmtLen(recv, app.settings.unit, en, full = true); v = t; app.mk.laserText = t; app.mk.recv = null }, fill = false, height = 44.dp, fontSize = 14f)
             }
             else -> GBtn(tr("mk.laser"), {
+                if (app.laser.isReal) { app.laser.await { mm -> app.mk.recv = mm }; return@GBtn }
                 val base = e.v ?: (800 + Random.nextInt(3401))
                 app.mk.recv = maxOf(50, base + ((Random.nextFloat() - .5f) * (if (e.v != null) 6 else 40)).roundToInt())
             }, Btn.SECONDARY, icon = "laser")

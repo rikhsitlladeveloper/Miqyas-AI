@@ -338,10 +338,27 @@ fun FStepsScreen(rt: Route.FSteps) {
     }
     BackHandler { prev() }
 
-    // the laser's newest reading not used yet (its readings' inbox) first; with none, a made-up one near the usual size
-    // (until the real meter is here, as the editor's laser button)
+    // a real laser's measurement goes into the size being asked, then on to the next step when it fits
+    fun gotReal(mm: Int): Boolean {
+        if (at >= n || steps[at].choice) return false
+        val i = at
+        val tv = fmtField(mm, unit, en)
+        setTxt(i, tv)
+        laser = app.t("fx.got", "v" to fmtLen(mm, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m"))
+        scope.launch { delay(900); nextAfter(i, tv) }
+        return true
+    }
+    uz.metrx.app.laser.LaserSink { mm -> gotReal(mm) }
+
+    // with the real laser, its next measurement; else the laser's newest reading not used yet (its readings' inbox)
+    // first, and with none a made-up one near the usual size (the simulator, as the editor's laser button)
     fun reading() {
         if (laser == "busy" || at >= n || steps[at].choice) return
+        if (app.laser.isReal) {
+            app.laser.await(onCancel = { if (laser == "busy") laser = null }) { mm -> laser = null; if (!gotReal(mm)) app.settings.addReading(mm, "laser") }
+            laser = "busy"
+            return
+        }
         val s = steps[at]; val i = at
         val r = app.settings.readings.lastOrNull { it.used == null && it.src != "manual" }
         if (r != null) {

@@ -46,7 +46,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import uz.metrx.app.core.Lang
-import uz.metrx.app.core.Laser
 import uz.metrx.app.core.Phone
 import uz.metrx.app.ui.components.GlassButton
 import uz.metrx.app.ui.components.GlassHeader
@@ -259,52 +258,3 @@ fun LanguageSheet(cur: Lang, onPick: (Lang) -> Unit, onClose: () -> Unit) {
     }
 }
 
-/**
- * The measuring device (prototype SHEETS.device). There is no real laser yet: searching finds the simulator,
- * which the sheet says plainly. Typing values always works.
- */
-@Composable
-fun DeviceSheet(onClose: () -> Unit, onSearch: () -> Unit, onConnect: () -> Unit, onDisconnect: () -> Unit, onTest: () -> Unit = {}) {
-    val settings = LocalSettings.current
-    val st = settings.laser
-    GlassSheet(tr("dv.title"), onClose, footer = {
-        when (st) {
-            Laser.CONNECTED -> GlassButton(tr("dv.disconnect"), onDisconnect, primary = false)
-            Laser.FOUND -> GlassButton(tr("dv.connect"), onConnect)
-            Laser.SEARCHING -> {}
-            Laser.DISCONNECTED -> GlassButton(tr("dv.search"), onSearch, icon = "search")
-        }
-    }) {
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).border(1.dp, G.rim, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 12.dp)) {
-            Text(tr("dv.status"), style = ui(14f, 500, G.ink2), modifier = Modifier.weight(1f))
-            Text(tr(when (st) { Laser.SEARCHING -> "dev.scan"; Laser.CONNECTED -> "dev.conn"; else -> "dev.disc" }), style = ui(14f, 700, if (st == Laser.CONNECTED) G.green else G.ink))
-        }
-        if (st == Laser.FOUND || st == Laser.CONNECTED) {
-            if (st == Laser.FOUND) Text(tr("dv.found"), style = ui(13f, 700, G.ink3))
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(vertical = 4.dp)) {
-                MIcon("laser", G.cobalt, 24.dp, 2f)
-                Column {
-                    Text(tr("dv.simDev"), style = ui(15.5f, 700))
-                    Text(tr("nt.simLaser"), style = ui(13f, 500, G.amberInk))
-                }
-            }
-        }
-        if (st == Laser.SEARCHING) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.padding(vertical = 8.dp)) {
-            MIcon("search", G.cobalt, 26.dp, 2f); Text(tr("dev.scan"), style = ui(15.5f, 700))
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            MIcon("kbd", G.ink2, 18.dp, 2f); Text(tr("dv.always"), style = ui(13f, 400, G.ink2, 1.4f))
-        }
-        // a real laser's own signal, read only (main/LaserTest.kt); the simulated laser above stays as it is
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).border(1.dp, G.rim, RoundedCornerShape(16.dp))
-            .pressable(onTest, .98f, label = tr("lt.row")).padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            MIcon("bt", G.cobalt, 22.dp, 2f)
-            Column(Modifier.weight(1f)) {
-                Text(tr("lt.row"), style = ui(15f, 700))
-                Text(tr("lt.rowSub"), style = ui(13f, 400, G.ink2, 1.35f))
-            }
-            MIcon("chev", G.ink2, 18.dp, 2f)
-        }
-    }
-}

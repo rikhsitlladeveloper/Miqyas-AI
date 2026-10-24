@@ -103,6 +103,8 @@ fun EditorScreen(r0: Route.Editor) {
     val sel = (app.sheet as? Sheet.Measure)?.k ?: f.k
     val selOp = (app.sheet as? Sheet.OpeningForm)?.oid
     androidx.compose.runtime.DisposableEffect(r0.pid, r0.rid) { onDispose { ops.leave() } }
+    // a real laser's measurement goes to the size the step card shows (or the typing sheet's); else to the readings' inbox
+    uz.metrx.app.laser.LaserSink { mm -> ops.realReading(r0.pid, r0.rid, mm) }
     Box(Modifier.fillMaxSize().roomGrid()) {
         Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
             Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -271,7 +273,7 @@ private fun StepCard(pid: String, r: Room, f: RoomOps.Focus) {
                         val small = when (f.kind) {
                             "recv" -> tr(if (d.pending?.from == "quick") "ed2.fromQuick" else "ed2.fromLaser", "w" to name)
                             "again" -> tr("ed2.re", "w" to name)
-                            "conf" -> name + ", " + tr("src.${d.src ?: "manual"}")
+                            "conf" -> name + ", " + tr(srcKey(d.src))
                             else -> tr("ed2.next", "w" to name)
                         }
                         Text(small, style = ui(13f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -392,7 +394,7 @@ private fun FullList(pid: String, r: Room, f: RoomOps.Focus) {
                     }
                     Column(Modifier.weight(1f)) {
                         Text(ops.dimLabel(k), style = ui(14.5f, 600))
-                        Text(when (st) { "recv" -> tr("ed2.st.recv"); "unset" -> tr("ed2.notMeasured"); else -> tr("ed2.confirmed") + ", " + tr("src.${d.src ?: "manual"}") }, style = ui(12.5f, 400, G.ink2))
+                        Text(when (st) { "recv" -> tr("ed2.st.recv"); "unset" -> tr("ed2.notMeasured"); else -> tr("ed2.confirmed") + ", " + tr(srcKey(d.src)) }, style = ui(12.5f, 400, G.ink2))
                     }
                     Text(when (st) { "recv" -> fmtLen(d.pending!!.mm, unit, en, true); "conf" -> fmtLen(d.v, unit, en); else -> "?" },
                         style = num(15.5f, 600, when (st) { "recv" -> AMBER; "conf" -> G.ink; else -> G.ink3 }))

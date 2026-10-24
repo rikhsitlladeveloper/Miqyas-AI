@@ -36,8 +36,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import dev.chrisbanes.haze.rememberHazeState
-import kotlinx.coroutines.delay
-import uz.metrx.app.core.Laser
 import uz.metrx.app.core.Settings
 import uz.metrx.app.core.Strings
 import uz.metrx.app.ui.auth.AuthNav
@@ -109,10 +107,18 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
     val focusManager = androidx.compose.ui.platform.LocalFocusManager.current
     LaunchedEffect(app.sheet) { if (app.sheet != null) focusManager.clearFocus() }
 
-    // the simulated laser: searching takes a moment, then finds the simulator
-    LaunchedEffect(settings.laser) {
-        if (settings.laser == Laser.SEARCHING) { delay(1400); settings.laser = Laser.FOUND }
+    // the real laser (one for the whole app): its measurements and news come here; every screen reads settings.laser
+    androidx.compose.runtime.DisposableEffect(app) {
+        val real = app.laser.real
+        real.attach(settings)
+        real.onReading = { app.laser.dispatch(it) }
+        real.onEvent = { k, n, u -> app.laser.event(k, n, u) }
+        onDispose { real.onReading = null; real.onEvent = null }
     }
+    LaunchedEffect(app) { androidx.compose.runtime.snapshotFlow { app.laser.state() }.collect { settings.laser = it } }
+    // a button waiting for the laser stops waiting when its page is left or the laser goes away
+    LaunchedEffect(app.top) { val w = app.laser.waiter; if (w != null && w.owner != app.top) app.laser.cancel() }
+    LaunchedEffect(app.laser.isReal) { if (!app.laser.isReal) app.laser.cancel() }
 
     val authNav = object : AuthNav {
         override fun signUp() { authStack.add(AuthStep.SIGNUP) }
@@ -260,17 +266,12 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                 if (navOn) Box(Modifier.align(Alignment.BottomCenter)) { GlassNav(app.tab, { app.selectTab(it) }) }
                 when (val sh = app.sheet) {
                     Sheet.Language -> LanguageSheet(lang, { settings.setLanguage(it); app.sheet = null }) { app.sheet = null }
-                    Sheet.Device -> DeviceSheet(
-                        onClose = { app.sheet = null },
-                        onSearch = { settings.laser = Laser.SEARCHING },
-                        onConnect = { settings.laser = Laser.CONNECTED; app.sheet = null; say("dv.connected", kind = ToastKind.OK) },
-                        onDisconnect = { settings.laser = Laser.DISCONNECTED; app.sheet = null },
-                        onTest = { app.sheet = null; app.push(Route.LaserTest) }
-                    )
+                    Sheet.Device -> DeviceSheet(onClose = { app.sheet = null }, onTest = { app.sheet = null; app.push(Route.LaserTest) })
                     null -> {}
                     else -> if (!uz.metrx.app.ui.win.WinSheet(sh) && !uz.metrx.app.ui.plumb.PlumbSheet(sh) && !uz.metrx.app.ui.elec.ElecSheet(sh) && !uz.metrx.app.ui.tiles.TileSheet(sh) && !uz.metrx.app.ui.furniture.OrderFlowSheet(sh) && !uz.metrx.app.ui.furniture.BazisSheet(sh) && !uz.metrx.app.ui.furniture.FreeSheet(sh) && !uz.metrx.app.ui.projects.TradeSheet(sh) && !uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
                 }
                 if (soon) SoonSheet(onLocal = { soon = false; authNav.local() }, onClose = { soon = false })
+                uz.metrx.app.laser.LaserWaitBar(app)
                 ToastHost(app.toast) { app.toast = null }
                 uz.metrx.app.ui.markup.PhotoIntake(app)
             }

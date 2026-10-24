@@ -235,7 +235,7 @@ private fun MeasureSheet(s: Sheet.Measure) {
         NumField(title, v, { v = it }, app.unitName(), err, v.isNotEmpty() || touched, onBlur = { touched = true }, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
         if (s.k == "H" && ((parsed as? Parsed.Ok)?.value ?: 0) > uz.metrx.app.geo.H_TALL) Text(tr("ms.tall"), style = ui(13f, 500, G.amberInk, 1.35f))
         Text(tr("ms.hint", "ex" to fmtLen(4255, unit, en)), style = ui(13f, 400, G.ink2))
-        Text(tr("ms.current", "v" to if (d.v != null) fmtLen(d.v, unit, en, true) + " " + app.unitName() + " (" + tr("src.${d.src ?: "manual"}") + ")" else tr("ms.none")), style = ui(13f, 400, G.ink2))
+        Text(tr("ms.current", "v" to if (d.v != null) fmtLen(d.v, unit, en, true) + " " + app.unitName() + " (" + tr(srcKey(d.src)) + ")" else tr("ms.none")), style = ui(13f, 400, G.ink2))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MIcon("info", G.ink2, 17.dp, 2f); Text(tr("ms.manualNote"), style = ui(13f, 400, G.ink2, 1.4f)) }
         if (ops.laserOn) Row(Modifier.heightIn(min = 44.dp).clickable(role = Role.Button) { app.close(); ops.laser(s.pid, s.rid, s.k) }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             MIcon("laser", G.cobalt, 18.dp, 2f); Text(tr("ms.useLaser"), style = ui(14f, 600, G.cobalt))
