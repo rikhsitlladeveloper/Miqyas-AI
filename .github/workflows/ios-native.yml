@@ -28,7 +28,7 @@ concurrency:
 jobs:
   build:
     runs-on: macos-latest
-    timeout-minutes: 45
+    timeout-minutes: 60   # the screen tests alone now take about 40 minutes
     defaults:
       run:
         working-directory: ios-native
@@ -71,6 +71,14 @@ jobs:
           mkdir -p out/pkg/Payload && cp -R out/ipa/Release-iphoneos/METRX.app out/pkg/Payload/
           (cd out/pkg && zip -qry ../METRX-unsigned.ipa Payload)
           ls -la out/METRX-unsigned.ipa
+
+      # the IPA goes up as soon as it exists, so a run cut short by the screen tests still leaves a build to install
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: METRX-ipa
+          path: ios-native/out/METRX-unsigned.ipa
+          if-no-files-found: ignore
 
       - name: 3. Unit tests
         id: unit
@@ -127,9 +135,3 @@ jobs:
             ios-native/out/test.log
           if-no-files-found: ignore
 
-      - uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: METRX-ipa
-          path: ios-native/out/METRX-unsigned.ipa
-          if-no-files-found: ignore
