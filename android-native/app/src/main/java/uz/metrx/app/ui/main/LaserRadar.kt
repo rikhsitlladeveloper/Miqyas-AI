@@ -45,15 +45,20 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.InlineTextContent
 import androidx.compose.foundation.text.appendInlineContent
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.State
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
@@ -177,11 +182,13 @@ private object RI {
     const val PIN = "M12 21s-6.5-5.6-6.5-11a6.5 6.5 0 0 1 13 0c0 5.4-6.5 11-6.5 11zM12 12.5a2.5 2.5 0 1 0 0-5a2.5 2.5 0 1 0 0 5z"
 }
 
-/** A laser on the radar. */
-private class Bub(val addr: String, val name: String, val rssi: Int, val avg: Float, val saved: Boolean = false, val tone: Tone = Tone.COBALT,
-                  val badge: String? = null, val dim: Boolean = false, val sig: Boolean = false, val sigText: String? = null)
+/** A laser on the radar (immutable: a bubble whose laser did not change is not drawn again). */
+@Immutable
+private data class Bub(val addr: String, val name: String, val rssi: Int, val avg: Float, val saved: Boolean = false, val tone: Tone = Tone.COBALT,
+                       val badge: String? = null, val dim: Boolean = false, val sig: Boolean = false, val sigText: String? = null)
 
-private fun reducedMotion(ctx: Context) = try {
+/** The phone's "remove animations" switch (animator duration scale 0): glides and loops are left out. */
+internal fun reducedMotion(ctx: Context) = try {
     android.provider.Settings.Global.getFloat(ctx.contentResolver, android.provider.Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f
 } catch (_: Exception) { false }
 
@@ -229,11 +236,16 @@ fun LaserRadarScreen() {
     val hasBt = real.adapter != null
     var missing by remember { mutableStateOf(LaserPerms.missing(ctx)) }
     var btOn by remember { mutableStateOf(LaserPerms.btOn(ctx)) }
-    var locOn by remember { mutableStateOf(LaserPerms.locOn(ctx)) }
+    var locOn by remember { mutableStateOf(LaserPerms.locOk(ctx)) }
+    var canConnect by remember { mutableStateOf(LaserPerms.canConnect(ctx)) }
     var denied by remember { mutableStateOf(false) }
-    fun refresh() { missing = LaserPerms.missing(ctx); btOn = LaserPerms.btOn(ctx); locOn = LaserPerms.locOn(ctx) }
+    // (equal values change nothing: this redraws the page only when a switch really moved)
+    fun refresh() { missing = LaserPerms.missing(ctx); btOn = LaserPerms.btOn(ctx); locOn = LaserPerms.locOk(ctx); canConnect = LaserPerms.canConnect(ctx) }
+    LaunchedEffect(Unit) { while (true) { refresh(); delay(1000) } }
+    // the clock for "nothing found after 8 s", lasers leaving after 20 s and the scan's wait: once a second, and only while searching
     var now by remember { mutableLongStateOf(SystemClock.uptimeMillis()) }
-    LaunchedEffect(Unit) { var n = 0; while (true) { now = SystemClock.uptimeMillis(); if (n++ % 4 == 0) refresh(); delay(200) } }
+    var ticking by remember { mutableStateOf(true) }
+    LaunchedEffect(ticking) { while (ticking) { now = SystemClock.uptimeMillis(); delay(1000) } }
 
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
         LaserLog.add("radar permissions: " + res.entries.joinToString { (k, v) -> k.substringAfterLast('.') + "=" + (if (v) "granted" else "denied") })
@@ -250,44 +262,55 @@ fun LaserRadarScreen() {
         catch (e: Exception) { LaserLog.add("BT enable request failed: $e"); LaserPerms.open(ctx, Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)) }
     }
     fun openAppSettings() = LaserPerms.open(ctx, Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null)))
-    // opening the page is asking to search: the permissions are asked once at once (when Bluetooth is on)
-    var askedAuto by remember { mutableStateOf(false) }
-    LaunchedEffect(btOn, missing.isEmpty()) { if (hasBt && btOn && missing.isNotEmpty() && !askedAuto) { askedAuto = true; askPerms() } }
-
     // ---- the page's state ----
     // a lost link this page has not answered yet ("Uzish" / "Qidiruvga" answer it)
     var lostAck by remember { mutableIntStateOf(real.lostSeq) }
     val lostActive = real.lostSeq != lostAck
     // when the searching began (null while not searching, so a new search never starts as "nothing found")
     var searchFrom by remember { mutableStateOf<Long?>(null) }
-    val lasers = real.found.values.filter { it.laser && !RadarMath.stale(it.seen, now) }.sortedByDescending { it.avg }
-    val others = real.found.values.filter { !it.laser }.sortedByDescending { it.rssi }
     val fail = real.failure
     val saved = real.savedAddr
+    // the remembered laser is being tried in the background (planned or going on): the dashed bubble, no beam
+    val savedTrying = saved != null && !real.stopped && !real.paused && (real.retryAt != null || (real.link == Link.CONNECTING && !real.userConnect))
+    // the remembered laser is the dashed bubble; every other laser the scan hears shows beside it
+    val lasers = real.found.values.filter { it.laser && !RadarMath.stale(it.seen, now) && !(savedTrying && it.address == saved) }.sortedByDescending { it.avg }
+    val others = real.found.values.filter { !it.laser }.sortedByDescending { it.rssi }
+    // a link that is up or coming up is shown first (a reading is not lost behind a permission card); the scan's
+    // permissions and location are needed only for searching
     val mode = when {
         !hasBt -> RMode.NO_BT
         fail == LaserFail.BT_OFF -> RMode.FAILED
         !btOn -> RMode.OFF
-        missing.isNotEmpty() -> if (denied) RMode.DENIED else RMode.PERM
         real.connected -> RMode.CONNECTED
-        real.link == Link.CONNECTING -> RMode.CONNECTING
+        real.link == Link.CONNECTING && (real.userConnect || lostActive) -> RMode.CONNECTING
         fail != null -> RMode.FAILED
         lostActive -> RMode.LOST
-        saved != null && !real.stopped && !real.paused -> RMode.SAVED
+        savedTrying -> RMode.SAVED
+        missing.isNotEmpty() -> if (denied) RMode.DENIED else RMode.PERM
         !locOn -> RMode.LOC_OFF
         lasers.isNotEmpty() -> RMode.FOUND
         searchFrom.let { it != null && now - it >= 8000 } -> RMode.NONE
         else -> RMode.SEARCH
     }
     val searchish = mode == RMode.SEARCH || mode == RMode.NONE || mode == RMode.FOUND
+    // a scan that failed: said on the card while the next start waits (30 s)
+    val scanFail = searchish && real.problem == "lz.scanFail"
+    SideEffect { ticking = searchish || mode == RMode.SAVED }
     LaunchedEffect(searchish) { searchFrom = if (searchish) SystemClock.uptimeMillis() else null }
-    // scan after scan while searching (15 s each, the list kept); a scan that would not start is tried again
-    LaunchedEffect(searchish, real.scanning) {
-        if (!searchish) { if (real.scanning) real.stopScan(); return@LaunchedEffect }
-        if (real.scanning) return@LaunchedEffect
+    // scan after scan while searching, and beside the remembered laser's tries (15 s each, the list kept); a scan that
+    // would not start is tried again (RealLaser keeps it to 4 starts in 30 s, and waits 30 s after a failure)
+    val scanMode = (searchish || mode == RMode.SAVED) && missing.isEmpty() && locOn
+    LaunchedEffect(scanMode, real.scanning, real.link) {
+        if (!scanMode) { if (real.scanning) real.stopScan(); return@LaunchedEffect }
+        if (real.scanning || real.link != Link.IDLE) return@LaunchedEffect
         delay(300)
         while (true) { real.startScan(keep = true); delay(3000) }
     }
+    // opening the page is asking to search: the permissions are asked once at once (when Bluetooth is on)
+    var askedAuto by remember { mutableStateOf(false) }
+    LaunchedEffect(mode == RMode.PERM) { if (mode == RMode.PERM && !askedAuto) { askedAuto = true; askPerms() } }
+    // "Ruxsat kerak" after a refused connect goes by itself once the permission was given in the settings
+    LaunchedEffect(fail, canConnect) { if (fail == LaserFail.PERMISSION && canConnect) { real.clearFailure(); real.kick() } }
     LaunchedEffect(mode) { LaserLog.add("radar: $mode${if (fail != null) " ($fail, try ${real.failStreak})" else ""}") }
 
     // ---- motion ----
@@ -301,6 +324,8 @@ fun LaserRadarScreen() {
     LaunchedEffect(mode) {
         when (mode) {
             RMode.CONNECTING -> { seenConnecting = true; checkOn = false; glide.snapTo(0f); gone.snapTo(0f); reading = null }
+            // the remembered laser coming up by itself gets the same glide, check and buzz as a tapped one
+            RMode.SAVED -> { seenConnecting = true; checkOn = false; glide.snapTo(0f); gone.snapTo(0f) }
             RMode.CONNECTED -> {
                 if (seenConnecting) {
                     seenConnecting = false
@@ -366,11 +391,14 @@ fun LaserRadarScreen() {
     }
     val linkOrSaved = real.linkAddr ?: saved
     val reconnectingWord = tr("lr.reconnecting") + "…"
+    // (read as a yes/no: the page is not composed again for every frame of the fade)
+    val goneDone by remember { derivedStateOf { gone.value >= 1f } }
     val bubbles: List<Bub> = when (mode) {
         RMode.SEARCH, RMode.NONE, RMode.FOUND -> lasers.map { Bub(it.address, it.name ?: "ZB", it.rssi, it.avg, sig = true) }
-        RMode.SAVED -> listOfNotNull(bubOf(saved, real.savedName) { a, n, r, v -> Bub(a, n, r, v, saved = true, sigText = reconnectingWord) })
+        RMode.SAVED -> listOfNotNull(bubOf(saved, real.savedName) { a, n, r, v -> Bub(a, n, r, v, saved = true, sigText = reconnectingWord) }) +
+            lasers.map { Bub(it.address, it.name ?: "ZB", it.rssi, it.avg, sig = true) }
         RMode.CONNECTING -> listOfNotNull(bubOf(real.linkAddr, real.linkName) { a, n, r, v -> Bub(a, n, r, v, sig = real.found[a] != null) })
-        RMode.CONNECTED -> if (gone.value < 1f) listOfNotNull(bubOf(real.linkAddr, real.linkName) { a, n, r, v -> Bub(a, n, r, v) }) else emptyList()
+        RMode.CONNECTED -> if (!goneDone) listOfNotNull(bubOf(real.linkAddr, real.linkName) { a, n, r, v -> Bub(a, n, r, v) }) else emptyList()
         RMode.FAILED -> if (fail == LaserFail.PERMISSION) emptyList() else listOfNotNull(bubOf(real.failAddr, real.failName) { a, n, r, v ->
             when (fail) {
                 LaserFail.NOT_LASER -> Bub(a, n, r, v, tone = Tone.BAD, badge = RI.X, dim = true)
@@ -395,7 +423,7 @@ fun LaserRadarScreen() {
     fun tapLaser(b: Bub) {
         when (mode) {
             RMode.SEARCH, RMode.NONE, RMode.FOUND -> real.connect(b.addr, b.name)
-            RMode.SAVED -> real.connect(b.addr, real.savedName ?: b.name)
+            RMode.SAVED -> real.connect(b.addr, if (b.addr == saved) real.savedName ?: b.name else b.name)
             else -> {}
         }
     }
@@ -416,38 +444,46 @@ fun LaserRadarScreen() {
             Spacer(Modifier.height(10.dp))
             RadarView(
                 Modifier.size(radarSize), reduced, grey, active, beamOn, snapOn, coreTone, coreIcon, bubbles, focus,
-                glide.value, gone.value, snap, shake.value, jolt.value, ::tapLaser
+                glide, gone, snap, shake, jolt, ::tapLaser
             )
             StatusText(mode, fail, many, checkOn, lostActive, reduced, real.linkName ?: real.failName ?: real.savedName ?: "ZB-08", lasers.size,
-                lasers.firstOrNull()?.name ?: "ZB-08", real.savedName ?: "ZB-08", ((now - (searchFrom ?: now)) / 1000).toInt(), real.failStreak, real.userConnect)
+                lasers.firstOrNull()?.name ?: "ZB-08", real.savedName ?: "ZB-08", ((now - (searchFrom ?: now)) / 1000).toInt().coerceAtLeast(0), real.failStreak, real.userConnect)
         }
 
         // the card at the bottom, one per state (slides up a little when it changes)
-        val cardKey = when (mode) {
-            RMode.FAILED -> if (many) "many" else "fail:$fail"
-            RMode.FOUND -> "found:" + (lasers.firstOrNull()?.address ?: "")
-            RMode.CONNECTED -> if (checkOn) "connected" else "connecting"
+        val cardKey = when {
+            scanFail -> "scanFail"
+            mode == RMode.FAILED -> if (many) "many" else "fail:$fail"
+            mode == RMode.FOUND -> "found:" + (lasers.firstOrNull()?.address ?: "")
+            mode == RMode.CONNECTED -> if (checkOn) "connected" else "connecting"
             else -> mode.name
         }
+        // the card never grows over the words under the radar (Russian, large fonts, the help list): it scrolls instead
+        val cardMax = maxHeight * .46f
         Box(Modifier.align(Alignment.BottomCenter).fillMaxWidth().navigationBarsPadding().padding(14.dp)) {
             key(cardKey) {
                 val rise = remember { Animatable(if (reduced) 1f else 0f) }
                 LaunchedEffect(Unit) { rise.animateTo(1f, tween(if (reduced) 1 else 350)) }
-                val warnCard = (mode == RMode.FAILED && fail != LaserFail.NOT_LASER) || mode == RMode.LOST || grey
+                val warnCard = (mode == RMode.FAILED && fail != LaserFail.NOT_LASER) || mode == RMode.LOST || grey || scanFail
                 val dens = LocalDensity.current
-                Column(Modifier.fillMaxWidth().graphicsLayer { alpha = rise.value; translationY = (1f - rise.value) * with(dens) { 20.dp.toPx() } }
+                Column(Modifier.fillMaxWidth().heightIn(max = cardMax).graphicsLayer { alpha = rise.value; translationY = (1f - rise.value) * with(dens) { 20.dp.toPx() } }
                     .glassCard(RoundedCornerShape(24.dp), fill = if (warnCard) RC.warnBg else G.sheet(.78f), shadowRadius = 30.dp, shadowY = 14.dp)
+                    .verticalScroll(rememberScrollState())
                     .padding(16.dp)) {
                     val name = real.linkName ?: real.failName ?: real.savedName ?: "ZB-08"
                     val othersLink: @Composable () -> Unit = { CardLink(tr("lr.others", "n" to others.size)) { othersOpen = true } }
-                    when (mode) {
+                    if (scanFail) {
+                        val w = real.scanGate.waitMs(now)
+                        CardHead(RI.BANG, Tone.WARN, tr("lr.scanFailTitle"), tr("lz.scanFail") + if (w > 0) "\n" + tr("lr.scanFailWait", "s" to (w + 999) / 1000) else "")
+                        othersLink()
+                    } else when (mode) {
                         RMode.NO_BT -> CardHead(RI.BTOFF, Tone.WARN, tr("lt.noBt"))
                         RMode.OFF -> {
                             CardHead(RI.BTOFF, Tone.WARN, tr("lr.btOnTitle"), tr("lr.btOnBody"))
                             One(tr("lr.btOn"), ::turnBtOn, icon = "bt")
                         }
                         RMode.PERM -> {
-                            CardHead(RI.SHIELD, Tone.WARN, tr("lr.permTitle"), tr("lt.perm"))
+                            CardHead(RI.SHIELD, Tone.WARN, tr("lr.permTitle"), tr(LaserPerms.permKey()))
                             One(tr("lt.permAsk"), { askPerms() })
                         }
                         RMode.DENIED -> {
@@ -484,12 +520,7 @@ fun LaserRadarScreen() {
                             One(tr("lr.done"), { app.pop() })
                         }
                         RMode.LOST -> {
-                            val at = real.retryAt
-                            val (s, p) = if (at != null) LinkRules.countdown(now, at, real.retryTotal) else 0 to 0f
-                            CardHead(RI.SYNC, Tone.WARN, tr("lr.lostTitle"), if (at != null) tr("lr.lostBody", "s" to s) else tr("lr.lostBodyIdle"))
-                            if (at != null) Box(Modifier.padding(top = 10.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(RC.hair)) {
-                                Box(Modifier.fillMaxWidth(p).fillMaxHeight().background(RC.warn))
-                            }
+                            LostCountdown(real.retryAt, real.retryTotal)
                             Two(tr("dv.disconnect"), { lostAck = real.lostSeq; real.disconnect() }, tr("lr.now"), { linkOrSaved?.let { real.connect(it, name) } })
                         }
                         RMode.FAILED -> {
@@ -549,17 +580,25 @@ fun LaserRadarScreen() {
 
 // ---------- the radar ----------
 
+private typealias Anim = Animatable<Float, androidx.compose.animation.core.AnimationVector1D>
+
+/**
+ * The radar. The moving values (the glide, the fade, the shake, the buzz, the loops) are read only where they are drawn
+ * or placed, so a frame of motion redraws, it does not compose the page again; the loops stop when nothing moves.
+ */
 @Composable
 private fun RadarView(
     modifier: Modifier, reduced: Boolean, grey: Boolean, active: Boolean, beamOn: Boolean, snapOn: Boolean, coreTone: Tone, coreIcon: String,
-    bubbles: List<Bub>, focus: Bub?, glide: Float, gone: Float, snap: Animatable<Float, androidx.compose.animation.core.AnimationVector1D>, shake: Float, jolt: Float, onTap: (Bub) -> Unit
+    bubbles: List<Bub>, focus: Bub?, glide: Anim, gone: Anim, snap: Anim, shake: Anim, jolt: Anim, onTap: (Bub) -> Unit
 ) {
     val radarA = animateFloatAsState(if (active) 1f else 0f, tween(if (reduced) 1 else 400), label = "radar")
     val ringsA = animateFloatAsState(if (active || grey) 1f else 0f, tween(if (reduced) 1 else 400), label = "rings")
     val beamA = animateFloatAsState(if (beamOn) 1f else 0f, tween(if (reduced) 1 else 300), label = "beam")
-    // the turning sweep (3 s), the pulses (2.4 s, three staggered), the beam's dashes (.6 s) and dots (1.2 s)
+    // the turning sweep (3 s), the pulses (2.4 s, three staggered), the beam's dashes (.6 s) and dots (1.2 s): only while
+    // the radar turns or the beam shows (and while they fade out)
+    val moving by remember { derivedStateOf { radarA.value > 0f || beamA.value > 0f } }
     val spin: State<Float>; val pulse: State<Float>; val dash: State<Float>; val dots: State<Float>
-    if (!reduced) {
+    if (!reduced && (moving || active || beamOn)) {
         val inf = rememberInfiniteTransition(label = "radar")
         spin = inf.animateFloat(0f, 360f, infiniteRepeatable(tween(3000, easing = LinearEasing)), label = "spin")
         pulse = inf.animateFloat(0f, 1f, infiniteRepeatable(tween(2400, easing = LinearEasing)), label = "pulse")
@@ -569,7 +608,7 @@ private fun RadarView(
         val z = remember { mutableStateOf(0f) }
         spin = z; pulse = z; dash = z; dots = z
     }
-    val focusRf = animateFloatAsState(focus?.let { RadarMath.radius(it.avg) } ?: RadarMath.R_MIN, tween(700), label = "focusR")
+    val focusRf = animateFloatAsState(focus?.let { RadarMath.radius(it.avg) } ?: RadarMath.R_MIN, if (reduced) androidx.compose.animation.core.snap() else tween(700), label = "focusR")
     val coreColor by animateColorAsState(RC.of(coreTone), tween(if (reduced) 1 else 350), label = "core")
     val density = LocalDensity.current
     val beamTone = RC.of(if (focus?.tone == Tone.BAD) Tone.BAD else Tone.WARN)
@@ -603,7 +642,7 @@ private fun RadarView(
             }
             val f = focus
             if (f != null) {
-                val p = spot(f, focusRf.value, glide)
+                val p = spot(f, focusRf.value, glide.value)
                 val ba = beamA.value
                 if (ba > 0f) drawBeam(p, c, cobalt, ba, if (reduced) 0f else dash.value, if (reduced) -1f else dots.value)
                 if (snapOn && snap.value < 1f) drawSnap(p, c, beamTone, snap.value, radius)
@@ -612,15 +651,15 @@ private fun RadarView(
         // the lasers
         for (b in bubbles) key(b.addr) {
             val isFocus = b.addr == focus?.addr
-            val rfAnim by animateFloatAsState(RadarMath.radius(b.avg), tween(700), label = "r")
-            val rf = if (isFocus) focusRf.value else rfAnim
-            val p = spot(b, rf, if (isFocus) glide else 0f)
-            val shakeDp = if (isFocus && shake < 1f) shakeAt(shake) else 0f
-            BubbleView(b, p, density, reduced, if (isFocus) gone else 0f, shakeDp) { onTap(b) }
+            val rfAnim = animateFloatAsState(RadarMath.radius(b.avg), if (reduced) androidx.compose.animation.core.snap() else tween(700), label = "r")
+            BubbleView(b, density, reduced,
+                pos = { spot(b, if (isFocus) focusRf.value else rfAnim.value, if (isFocus) glide.value else 0f) },
+                gone = { if (isFocus) gone.value else 0f },
+                shakeDp = { if (isFocus && shake.value < 1f) shakeAt(shake.value) else 0f }) { onTap(b) }
         }
         // the phone in the middle
-        val joltPx = if (jolt < 1f) with(density) { (sin(jolt * 6f * Math.PI).toFloat() * 3f).dp.toPx() } else 0f
-        Box(Modifier.align(Alignment.Center).size(coreD).graphicsLayer { translationX = joltPx }
+        Box(Modifier.align(Alignment.Center).size(coreD)
+            .graphicsLayer { val j = jolt.value; translationX = if (j < 1f) (sin(j * 6f * Math.PI).toFloat() * 3f).dp.toPx() else 0f }
             .dropShadow(CircleShape, Shadow(22.dp, if (coreTone == Tone.OFF) Color.Transparent else coreColor.copy(alpha = .4f), offset = DpOffset(0.dp, 10.dp)))
             .clip(CircleShape).background(coreColor), contentAlignment = Alignment.Center) {
             Crossfade(coreIcon, animationSpec = tween(if (reduced) 1 else 250), label = "coreIcon") { ic ->
@@ -680,18 +719,19 @@ private fun lerpO(a: Offset, b: Offset, t: Float) = Offset(a.x + (b.x - a.x) * t
 
 /** A laser bubble: glass circle with the laser drawing, its name, its signal; dashed when remembered, grey when dimmed. */
 @Composable
-private fun BubbleView(b: Bub, p: Offset, density: androidx.compose.ui.unit.Density, reduced: Boolean, gone: Float, shakeDp: Float, onTap: () -> Unit) {
+private fun BubbleView(b: Bub, density: androidx.compose.ui.unit.Density, reduced: Boolean, pos: () -> Offset, gone: () -> Float, shakeDp: () -> Float, onTap: () -> Unit) {
     val pop = remember { Animatable(if (reduced) 1f else .3f) }
     LaunchedEffect(Unit) { if (!reduced) pop.animateTo(1f, spring(dampingRatio = .45f, stiffness = 420f)) }
     val col = if (b.dim) RC.off else RC.of(b.tone)
     val halfW = with(density) { 48.dp.toPx() }; val halfB = with(density) { 26.dp.toPx() }
     val label = tr("lr.bubble", "n" to b.name)
     Column(
-        Modifier.offset { IntOffset((p.x - halfW + shakeDp * density.density).roundToInt(), (p.y - halfB).roundToInt()) }.width(96.dp)
+        Modifier.offset { val p = pos(); IntOffset((p.x - halfW + shakeDp() * density.density).roundToInt(), (p.y - halfB).roundToInt()) }.width(96.dp)
             .graphicsLayer {
-                val s = pop.value * (1f - .6f * gone)
+                val g = gone()
+                val s = pop.value * (1f - .6f * g)
                 scaleX = s; scaleY = s; transformOrigin = androidx.compose.ui.graphics.TransformOrigin(.5f, 26f / 80f)
-                alpha = (pop.value.coerceIn(0f, 1f)) * (1f - gone) * (if (b.dim) .6f else 1f)
+                alpha = (pop.value.coerceIn(0f, 1f)) * (1f - g) * (if (b.dim) .6f else 1f)
             }
             .semantics { contentDescription = label },
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)
@@ -739,7 +779,9 @@ private fun SignalBars(n: Int) {
 private fun StatusText(mode: RMode, fail: LaserFail?, many: Boolean, checkOn: Boolean, lost: Boolean, reduced: Boolean, name: String, nLasers: Int,
                        best: String, savedName: String, secs: Int, streak: Int, user: Boolean) {
     var n by remember { mutableIntStateOf(0) }
-    LaunchedEffect(reduced) { if (!reduced) while (true) { delay(300); n = (n + 1) % 4 } }
+    // the moving dots only while a title has them
+    val dotted = mode == RMode.SEARCH || mode == RMode.NONE || mode == RMode.SAVED || mode == RMode.CONNECTING || (mode == RMode.CONNECTED && !checkOn)
+    LaunchedEffect(reduced, dotted) { if (!reduced && dotted) while (true) { delay(300); n = (n + 1) % 4 } }
     fun dots(s: String) = if (reduced) "$s…" else s + ".".repeat(n)
     val connectingTitle = dots(tr(if (lost || !user) "lr.reconnecting" else "lr.connecting")) + if (streak >= 1 && user) " " + tr("lr.try", "k" to streak + 1) else ""
     val (title, sub) = when (mode) {
@@ -809,6 +851,18 @@ private fun Two(secLabel: String, sec: () -> Unit, label: String, onClick: () ->
 private fun CardLink(text: String, onClick: () -> Unit) {
     Text(text, style = ui(13f, 700, G.cobalt).copy(textAlign = TextAlign.Center),
         modifier = Modifier.fillMaxWidth().padding(top = 10.dp).clip(RoundedCornerShape(10.dp)).clickable(onClick = onClick).padding(vertical = 8.dp))
+}
+
+/** The lost link's card head with its countdown and bar: its own clock (10 a second), so only this part is redrawn. */
+@Composable
+private fun LostCountdown(at: Long?, total: Long) {
+    var t by remember { mutableLongStateOf(SystemClock.uptimeMillis()) }
+    LaunchedEffect(at) { while (at != null) { t = SystemClock.uptimeMillis(); if (t >= at) break; delay(100) } }
+    val (s, p) = if (at != null) LinkRules.countdown(t, at, total) else 0 to 0f
+    CardHead(RI.SYNC, Tone.WARN, tr("lr.lostTitle"), if (at != null) tr("lr.lostBody", "s" to s) else tr("lr.lostBodyIdle"))
+    if (at != null) Box(Modifier.padding(top = 10.dp).fillMaxWidth().height(4.dp).clip(RoundedCornerShape(2.dp)).background(RC.hair)) {
+        Box(Modifier.fillMaxWidth(p).fillMaxHeight().background(RC.warn))
+    }
 }
 
 /** The "Sinab ko‘ring" box: the next real measurement, with a green "aniq" tag when it came. */

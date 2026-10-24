@@ -121,7 +121,7 @@ fun ProjectsList() {
     val seg = if (seg0 == "other" && others.isEmpty()) (if (staged) "active" else "all") else if (!staged && seg0 != "other") "all" else seg0
     var q by rememberSaveable { mutableStateOf("") }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        GlassHeader({ app.sheet = Sheet.Device })
+        GlassHeader({ app.openLaser() })
         PageTitle(tr(if (furniture || tiler || elec || plumb || win) "fo.tab" else "tab.projects"), Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp))
         if (all.isEmpty()) { ProjectsEmpty { app.push(Route.NewProject()) }; return@Column }
         val n = mapOf("active" to ps.count { stageOf(it) != "done" }, "done" to ps.count { stageOf(it) == "done" }, "all" to ps.size)

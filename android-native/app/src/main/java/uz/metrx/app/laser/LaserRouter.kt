@@ -1,6 +1,8 @@
 package uz.metrx.app.laser
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -24,6 +26,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -37,6 +40,7 @@ import uz.metrx.app.geo.fmtLen
 import uz.metrx.app.ui.App
 import uz.metrx.app.ui.LocalApp
 import uz.metrx.app.ui.Route
+import uz.metrx.app.ui.Sheet
 import uz.metrx.app.ui.components.ToastKind
 import uz.metrx.app.ui.icons.MIcon
 import uz.metrx.app.ui.theme.tr
@@ -67,8 +71,11 @@ class LaserRouter(private val app: App) {
         else -> Laser.DISCONNECTED
     }
 
-    /** A button waiting for the next measurement, made on page [owner] (leaving the page cancels it). */
-    class Waiter(val owner: Route, val onCancel: (() -> Unit)?, val take: (Int) -> Unit)
+    /**
+     * A button waiting for the next measurement, made on page [owner], in [sheet] when it was pressed inside one: leaving
+     * the page, or closing that sheet, cancels it (WaitRules.keeps).
+     */
+    class Waiter(val owner: Route, val sheet: Sheet?, val onCancel: (() -> Unit)?, val take: (Int) -> Unit)
     var waiter by mutableStateOf<Waiter?>(null); private set
 
     /** The app's "Lazer" button with the real laser: the next measurement goes to [take]. */
@@ -76,8 +83,11 @@ class LaserRouter(private val app: App) {
         val old = waiter
         waiter = null
         old?.onCancel?.invoke()
-        waiter = Waiter(app.top, onCancel, take)
+        waiter = Waiter(app.top, app.sheet, onCancel, take)
     }
+
+    /** The page or the sheet changed: a button waiting from somewhere no longer on screen stops waiting. */
+    fun check(top: Route, sheet: Sheet?) { val w = waiter ?: return; if (!WaitRules.keeps(w.owner, w.sheet, top, sheet)) { LaserLog.add("the waiting laser button left the screen: cancelled"); cancel() } }
 
     fun cancel() { val w = waiter ?: return; waiter = null; w.onCancel?.invoke() }
 
@@ -91,7 +101,7 @@ class LaserRouter(private val app: App) {
 
     /** A measurement from the real laser (main thread). */
     fun dispatch(r: LaserReading) {
-        if (r.mm <= 0) return
+        if (!JrtParser.plausible(r.mm)) return
         radarTake?.let { t -> LaserLog.add("reading ${r.mm} mm → the radar page"); t(r); return }
         waiter?.let { w -> waiter = null; LaserLog.add("reading ${r.mm} mm → the waiting button"); w.take(r.mm); return }
         for (s in sinks.asReversed().toList()) if (s.take(r.mm)) { LaserLog.add("reading ${r.mm} mm → the size in focus"); return }
@@ -116,6 +126,22 @@ class LaserRouter(private val app: App) {
     }
 }
 
+/** Whether a waiting laser button is still on screen (pure; unit-tested in WaitRulesTest). */
+object WaitRules {
+    /** The page a button belongs to: the same page shown another way (the editor's plan ↔ 3D, a project's view) is still it. */
+    fun pageKey(r: Route): Route = when (r) {
+        is Route.Editor -> r.copy(mode = "plan")
+        is Route.Project -> r.copy(tab = "rooms", view = "list", floor = null)
+        is Route.Kitchen -> r.copy(wall = null, d3 = false)
+        is Route.Wardrobe -> r.copy(d3 = false)
+        else -> r
+    }
+
+    /** A button pressed on [ownerPage] (in [ownerSheet], if any) still waits while [top] is that page and that sheet is open. */
+    fun keeps(ownerPage: Route, ownerSheet: Sheet?, top: Route, sheet: Sheet?): Boolean =
+        pageKey(ownerPage) == pageKey(top) && (ownerSheet == null || ownerSheet == sheet)
+}
+
 /**
  * While this is on screen, a real-laser measurement goes to [take] (the size in focus); [take] returns false to pass
  * it on (to a sink below, or the readings' inbox). The newest sink on screen (a sheet over its page) comes first.
@@ -134,8 +160,11 @@ fun LaserSink(take: (Int) -> Boolean) {
 @Composable
 fun LaserWaitBar(app: App) {
     val w = app.laser.waiter
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val reduced = remember { uz.metrx.app.ui.main.reducedMotion(ctx) }
     Box(Modifier.fillMaxSize().statusBarsPadding().padding(start = 10.dp, end = 10.dp, top = 8.dp), contentAlignment = Alignment.TopCenter) {
-        AnimatedVisibility(w != null, enter = slideInVertically { -it } + fadeIn(), exit = slideOutVertically { -it - 40 } + fadeOut()) {
+        AnimatedVisibility(w != null, enter = if (reduced) EnterTransition.None else slideInVertically { -it } + fadeIn(),
+            exit = if (reduced) ExitTransition.None else slideOutVertically { -it - 40 } + fadeOut()) {
             val shape = RoundedCornerShape(18.dp)
             Row(Modifier.fillMaxWidth().heightIn(min = 58.dp).clip(shape).background(Color(0xFF0F1626)).padding(start = 12.dp, end = 8.dp, top = 8.dp, bottom = 8.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {

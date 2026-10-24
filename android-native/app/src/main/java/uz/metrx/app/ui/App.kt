@@ -275,6 +275,9 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     /** Changes what the top page shows without moving to another page (project view, editor mode). */
     fun setTop(r: Route) { stack[stack.lastIndex] = r }
 
+    /** The Bluetooth button: with a laser connected (or the simulator) the small Device sheet shows its status, else the radar finds one. */
+    fun openLaser() { if (laser.isReal || laser.simOn) sheet = Sheet.Device else push(Route.LaserRadar) }
+
     fun say(key: String, vararg v: Pair<String, Any?>, kind: ToastKind = ToastKind.OK, action: String? = null, onAction: (() -> Unit)? = null) {
         toast = ToastMsg(Strings.t(key, settings.lang, if (v.isEmpty()) null else v.toMap()), kind, action?.let { Strings.t(it, settings.lang) }, onAction)
     }

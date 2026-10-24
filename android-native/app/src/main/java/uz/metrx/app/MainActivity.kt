@@ -30,9 +30,17 @@ class MainActivity : ComponentActivity() {
         setContent { MetrxApp(settings, playIntro) }
     }
 
+    override fun onStart() {
+        super.onStart()
+        // the real laser: the remembered one is tried again at once (laser/RealLaser.kt)
+        uz.metrx.app.laser.RealLaser.get(this).foreground()
+    }
+
     override fun onStop() {
         super.onStop()
         // nothing typed is lost if the phone kills the app while it is in the background
         uz.metrx.app.data.Store.get(this).flush()
+        // the real laser: no scans or reconnecting in the background, the link let go soon (other phones may take it)
+        uz.metrx.app.laser.RealLaser.get(this).background()
     }
 }

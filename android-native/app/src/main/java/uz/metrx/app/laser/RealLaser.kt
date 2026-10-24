@@ -37,8 +37,10 @@ import java.util.UUID
  * GATT: the Dialog SPS service; the laser's measurements come as notifications on its TX characteristic (…cb8) as JRT
  * frames (Jrt.kt). The ONLY thing ever written to the laser is the standard CCCD (0x2902) that turns notifications on
  * (on TX, and on flow control …cb9, as the working test did). No commands: the builder measures with the laser's own
- * button. The last laser's address is kept in Settings; it is connected again by itself when the app starts, after the
- * link drops and when Bluetooth comes back on, with a growing pause between tries.
+ * button. The last laser's address is kept in Settings; it is connected again by itself when the app starts or comes
+ * back to the front, after the link drops and when Bluetooth comes back on, with a growing pause between tries. After
+ * [LinkRules.BG_TRIES] tries without an answer it stops and scans once for the laser (at a new address too). In the
+ * background nothing is scanned or tried, and the link is let go after [BG_GRACE_MS].
  *
  * All Compose state here is changed on the main thread.
  */
@@ -103,6 +105,16 @@ class RealLaser private constructor(private val ctx: Context) {
     var retryTotal by mutableStateOf(0L); private set
     /** Devices that connected but had no SPS service this session: never drawn as lasers again. */
     val incompatible = mutableStateMapOf<String, Boolean>()
+    /** When a scan may start (Android's 5-in-30-s limit, a pause after a failed scan). */
+    val scanGate = ScanGate()
+
+    /** The app is in the background (MainActivity onStop): no scans, no tries; the link goes after [BG_GRACE_MS]. */
+    private var bg = false
+    /** Background tries in a row at the remembered laser that failed ([LinkRules.bgCapped] stops them). */
+    private var bgFails = 0
+    /** The capped tries made way for one scan for the remembered laser ([looking] while it runs). */
+    private var looked = false
+    private var looking = false
 
     /** Each measurement; set by the app (LaserRouter). */
     var onReading: ((LaserReading) -> Unit)? = null
@@ -143,11 +155,15 @@ class RealLaser private constructor(private val ctx: Context) {
                     drop(lost = link == Link.CONNECTED); cancelPlan()
                 }
                 BluetoothAdapter.STATE_ON -> {
-                    log("Bluetooth on"); attempt = 0
-                    // the try Bluetooth broke off goes on by itself ("Yoqilishi bilan ilova … ga o‘zi ulanadi")
+                    log("Bluetooth on"); attempt = 0; bgFails = 0; looked = false; scanGate.clearFail()
+                    // the try Bluetooth broke off goes on by itself while the radar page that said so is open ("Yoqilishi
+                    // bilan ilova … ga o‘zi ulanadi"); a failure left from earlier (the Device sheet) goes, and the plan as usual
                     val a = failAddr
-                    if (failure == LaserFail.BT_OFF && a != null) { val n = failName; main.postDelayed({ if (link == Link.IDLE && failure == LaserFail.BT_OFF) connect(a, n) }, 800) }
-                    else plan(800)
+                    if (radar && failure == LaserFail.BT_OFF && a != null) { val n = failName; main.postDelayed({ if (radar && link == Link.IDLE && failure == LaserFail.BT_OFF) connect(a, n) }, 800) }
+                    else {
+                        if (failure == LaserFail.BT_OFF) { failure = null; if (problem == "lt.btOff") problem = null }
+                        plan(800)
+                    }
                 }
             }
         }
@@ -164,9 +180,15 @@ class RealLaser private constructor(private val ctx: Context) {
     private fun plan(first: Long? = null) {
         cancelPlan()
         val addr = savedAddr
-        if (addr == null || stopped || paused || link != Link.IDLE || adapter == null || !LaserPerms.btOn(ctx) || !LaserPerms.canConnect(ctx)) return
+        if (addr == null || stopped || paused || bg || link != Link.IDLE || adapter == null || !LaserPerms.btOn(ctx) || !LaserPerms.canConnect(ctx)) return
         // the radar page shows a failure card: nothing starts behind it until the builder picks what to do
         if (radar && failure != null) return
+        // the remembered laser did not answer N times: no more tries by themselves (until the app, the radar or the
+        // Device sheet opens again, or Bluetooth comes back); away from the radar one scan looks for it, a new address too
+        if (LinkRules.bgCapped(bgFails, radar)) {
+            if (!radar && !looked) { looked = true; log("remembered laser: $bgFails tries without an answer; scanning for it instead"); main.post { lookFor() } }
+            return
+        }
         val d = first ?: LinkRules.backoffMs(attempt, radar)
         attempt++
         retryAt = SystemClock.uptimeMillis() + d
@@ -176,54 +198,103 @@ class RealLaser private constructor(private val ctx: Context) {
 
     private fun reconnectNow() {
         val addr = savedAddr ?: return
-        if (link != Link.IDLE || stopped || paused) return
-        if (scanning) { plan(); return }
+        if (link != Link.IDLE || stopped || paused || bg) return
+        // the Device sheet's scan is not broken off; the radar page's (scan after scan) is
+        if (scanning && !radar) { plan(); return }
         connect(addr, savedName, user = false)
+    }
+
+    /** The capped tries are over: one scan for the remembered laser; heard (at its address, or by its name), it is connected. */
+    private fun lookFor() {
+        if (link != Link.IDLE || scanning || bg || paused || stopped || savedAddr == null) return
+        if (!LaserPerms.canScan(ctx)) { log("remembered laser: no scan permission, it waits for the next start"); return }
+        startScan(look = true)
     }
 
     /** The Device sheet was opened: an old scan's list and problem go; the remembered laser is tried at once. */
     fun opened() {
-        if (!scanning) { found.clear(); scanned = false }
+        if (!scanning) { clearFound(); scanned = false }
         if (link == Link.IDLE) problem = null
         kick()
     }
 
-    /** The remembered laser is tried at once (unless "Uzish" was pressed). */
+    /** The remembered laser is tried at once (unless "Uzish" was pressed); the count of tries without an answer starts again. */
     fun kick() {
-        if (savedAddr == null || stopped || paused || link != Link.IDLE) return
-        attempt = 0; plan(0)
+        if (savedAddr == null || stopped || paused || bg || link != Link.IDLE) return
+        attempt = 0; bgFails = 0; looked = false; plan(0)
+    }
+
+    // ---------- the app in the background ----------
+
+    private val letGo = Runnable {
+        if (bg && link != Link.IDLE) { log("=== still in the background: the link is let go ==="); close(); link = Link.IDLE; userConnect = false }
+    }
+
+    /** The app went to the background (MainActivity onStop): scans and tries stop at once, a ready link after [BG_GRACE_MS]. */
+    fun background() {
+        if (bg) return
+        bg = true
+        log("=== app in the background: no scans or tries ===")
+        stopScan(); cancelPlan()
+        if (link == Link.CONNECTING) { close(); link = Link.IDLE; userConnect = false }
+        main.postDelayed(letGo, BG_GRACE_MS)
+    }
+
+    /** The app is in front again (onStart): the remembered laser is tried at once. */
+    fun foreground() {
+        if (!bg) return
+        bg = false
+        main.removeCallbacks(letGo)
+        log("=== app in the foreground ===")
+        kick()
     }
 
     // ---------- scanning ----------
 
     private var leOn = false
+    /** Every device's newest smoothed advert; [found] (what the pages draw) gets it at most every [RadarMath.PUBLISH_MS]. */
+    private val raw = HashMap<String, FoundDev>()
+    private var gateLogged = 0L
+
+    private fun clearFound() { found.clear(); raw.clear() }
     private val tick = object : Runnable {
         override fun run() { scanLeft -= 1; if (scanLeft <= 0) { stopScan(); scanned = true } else main.postDelayed(this, 1000) }
     }
 
     /**
      * A 15 s BLE scan; lasers ("ZB…" or the SPS service) and other named devices are listed. [keep]: the list is kept
-     * (the radar page starts scan after scan; a device not heard for a while leaves the radar by itself).
+     * (the radar page starts scan after scan; a device not heard for a while leaves the radar by itself). [look]: the scan
+     * for the remembered laser after its capped tries. Not more than 4 starts in 30 s, and none for 30 s after a failure.
      */
-    fun startScan(keep: Boolean = false) {
+    fun startScan(keep: Boolean = false, look: Boolean = false) {
         val a = adapter ?: return
-        if (scanning || paused) return
+        if (scanning || paused || bg) return
         if (!LaserPerms.btOn(ctx)) { log("scan: Bluetooth is off"); return }
-        val sc = safe { a.bluetoothLeScanner } ?: run { log("scan: no BLE scanner"); problem = "lz.scanFail"; return }
-        if (!keep) found.clear()
+        if (!LaserPerms.canScan(ctx)) { log("scan: permission missing"); return }
+        val now = SystemClock.uptimeMillis()
+        val wait = scanGate.waitMs(now)
+        if (wait > 0) {
+            if (now >= gateLogged) { gateLogged = now + wait; log("scan: waits ${(wait + 999) / 1000} s (${if (problem == "lz.scanFail") "the last one failed" else "Android allows 5 starts in 30 s"})") }
+            return
+        }
+        val sc = safe { a.bluetoothLeScanner } ?: run { log("scan: no BLE scanner"); problem = "lz.scanFail"; scanGate.failed(now); return }
+        if (!keep) clearFound()
         scanned = false; problem = null
-        cancelPlan()
+        // the Device sheet's scan has Bluetooth to itself; the radar page's goes on beside the planned tries
+        if (!radar) cancelPlan()
         try {
             sc.startScan(null, ScanSettings.Builder().setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY).build(), scanCb)
-            leOn = true; scanning = true; scanLeft = SCAN_S
-            log("=== laser scan: $SCAN_S s ===")
+            scanGate.started(now)
+            leOn = true; scanning = true; scanLeft = SCAN_S; looking = look
+            log("=== laser scan: $SCAN_S s${if (look) " (looking for the remembered laser)" else ""} ===")
             main.postDelayed(tick, 1000)
-        } catch (e: Exception) { log("scan failed to start: $e"); problem = "lz.scanFail" }
+        } catch (e: Exception) { log("scan failed to start: $e"); problem = "lz.scanFail"; scanGate.failed(now) }
     }
 
     fun stopScan() {
         main.removeCallbacks(tick)
         if (leOn) { safe { adapter?.bluetoothLeScanner?.stopScan(scanCb) }; leOn = false }
+        looking = false
         if (!scanning) return
         scanning = false; scanLeft = 0
         log("=== laser scan stop: ${found.values.count { it.laser }} laser(s), ${found.size} device(s) ===")
@@ -234,7 +305,8 @@ class RealLaser private constructor(private val ctx: Context) {
     private val scanCb = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) { onMain { seen(result) } }
         override fun onBatchScanResults(results: MutableList<ScanResult>) { onMain { results.forEach { seen(it) } } }
-        override fun onScanFailed(errorCode: Int) { onMain { log("scan failed: code $errorCode"); problem = "lz.scanFail"; leOn = false; stopScan() } }
+        // the next start waits 30 s (a failing scan is not started again every moment); the pages say why meanwhile
+        override fun onScanFailed(errorCode: Int) { onMain { log("scan failed: code $errorCode"); problem = "lz.scanFail"; scanGate.failed(SystemClock.uptimeMillis()); leOn = false; stopScan() } }
     }
 
     private fun seen(r: ScanResult) {
@@ -244,10 +316,19 @@ class RealLaser private constructor(private val ctx: Context) {
         val sps = r.scanRecord?.serviceUuids?.any { it.uuid == Sps.SERVICE } == true
         val laser = (sps || name?.trim()?.startsWith("ZB", ignoreCase = true) == true) && incompatible[d.address] != true
         if (name.isNullOrBlank() && !laser) return
-        val old = found[d.address]
-        found[d.address] = FoundDev(d.address, name ?: old?.name, r.rssi, laser || (old?.laser == true && incompatible[d.address] != true),
-            RadarMath.smooth(old?.avg, r.rssi), SystemClock.uptimeMillis())
+        val now = SystemClock.uptimeMillis()
+        val old = raw[d.address]
+        val dev = FoundDev(d.address, name ?: old?.name, r.rssi, laser || (old?.laser == true && incompatible[d.address] != true),
+            RadarMath.smooth(old?.avg, r.rssi), now)
+        raw[d.address] = dev
+        // the pages are redrawn at most twice a second per device (or when its signal really moved)
+        if (RadarMath.publish(found[d.address], dev, now)) found[d.address] = dev
         if (old == null) log("found: ${name ?: "—"} ${d.address} rssi=${r.rssi}${if (laser) " (laser)" else ""}")
+        if (looking && dev.laser && link == Link.IDLE && LinkRules.sameLaser(savedAddr, savedName, d.address, dev.name)) {
+            looking = false
+            log("remembered laser heard${if (!d.address.equals(savedAddr, true)) " at a new address" else ""}: connecting")
+            connect(d.address, dev.name ?: savedName, user = false)
+        }
     }
 
     // ---------- connecting ----------
@@ -266,6 +347,8 @@ class RealLaser private constructor(private val ctx: Context) {
     private var gattUpAt = 0L
     /** Quick drops in this try (two → "busy"). */
     private var quickDrops = 0
+    /** Quiet retries in this try after a refusal before "connected" or a failed service discovery. */
+    private var softFails = 0
     private val quickRetry = Runnable { val a = linkAddr; if (a != null && link == Link.CONNECTING) connect(a, linkName, user = userConnect, again = true) }
 
     /**
@@ -275,16 +358,27 @@ class RealLaser private constructor(private val ctx: Context) {
     fun connect(addr: String, name: String?, user: Boolean = true, again: Boolean = false) {
         val a = adapter ?: return
         if (paused) return
-        if (user) { stopped = false; attempt = 0 }
+        // a second tap on the laser being connected (the bubble and "Ulash"): the try goes on; a background one becomes the builder's
+        if (!again && link == Link.CONNECTING && linkAddr == addr) {
+            if (user && !userConnect) {
+                log("connect: the builder picked the laser being tried")
+                if (addr != failAddr) failStreak = 0
+                userConnect = true; stopped = false; attempt = 0; bgFails = 0; failure = null; problem = null
+            }
+            return
+        }
+        if (user) { stopped = false; attempt = 0; bgFails = 0; looked = false }
         if (user && !again) {
             if (addr != failAddr) failStreak = 0
             failure = null
         }
-        if (!again) quickDrops = 0
+        if (!again) { quickDrops = 0; softFails = 0 }
         stopScan(); cancelPlan(); close()
         val d = try { a.getRemoteDevice(addr) } catch (e: Exception) { log("connect: bad address $addr: $e"); return }
         problem = null; userConnect = user
-        link = Link.CONNECTING; linkAddr = addr; linkName = name ?: found[addr]?.name ?: linkName
+        // a laser at another address does not keep the last one's name
+        val sameAddr = addr == linkAddr
+        link = Link.CONNECTING; linkAddr = addr; linkName = name ?: found[addr]?.name ?: if (sameAddr) linkName else null
         discovered = false; parser.reset(); gattUpAt = 0L
         log("=== connect ${linkName ?: "—"} $addr (${if (again) "again after a quick drop" else if (user) "picked" else "reconnect"}) ===")
         if (!LaserPerms.canConnect(ctx)) { log("connect: BLUETOOTH_CONNECT not granted"); fail("lt.perm", LaserFail.PERMISSION); return }
@@ -317,11 +411,26 @@ class RealLaser private constructor(private val ctx: Context) {
         main.postDelayed(quickRetry, LinkRules.QUICK_RETRY_MS)
     }
 
+    /**
+     * Refused before "connected" (Android 8 often says 133 at once) or a service discovery that failed: the builder's try
+     * goes on once more by itself, then it is "no answer". Never "busy", never "not a laser".
+     */
+    private fun soft(why: String) {
+        softFails++
+        val again = LinkRules.softRetry(softFails, userConnect)
+        log("$why: ${if (again) "trying once more" else "no answer"}")
+        if (!again) { fail("lz.failed", LaserFail.TIMEOUT); return }
+        close()
+        main.postDelayed(quickRetry, LinkRules.QUICK_RETRY_MS)
+    }
+
     private fun discover(g: BluetoothGatt) {
         main.removeCallbacks(mtuTimeout)
         if (discovered || g != gatt) return
         discovered = true
-        log("discovering services: ${safe { g.discoverServices() }}")
+        val ok = safe { g.discoverServices() } == true
+        log("discovering services: $ok")
+        if (!ok) soft("service discovery did not start")
     }
 
     private val gattCb = object : BluetoothGattCallback() {
@@ -332,12 +441,14 @@ class RealLaser private constructor(private val ctx: Context) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     main.removeCallbacks(answerTimeout); gattUpAt = SystemClock.uptimeMillis()
                     val asked = safe { g.requestMtu(247) } == true
-                    if (asked) main.postDelayed(mtuTimeout, 4000) else discover(g)
+                    // Android 14+ sets the MTU itself and may not answer this one: discovery waits 1 s there, not 4
+                    if (asked) main.postDelayed(mtuTimeout, if (Build.VERSION.SDK_INT >= 34) 1000L else 4000L) else discover(g)
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     val up = gattUpAt > 0
                     when (LinkRules.drop(status, link == Link.CONNECTED, up, if (up) SystemClock.uptimeMillis() - gattUpAt else -1)) {
                         DropKind.LOST -> drop(lost = true)
                         DropKind.QUICK -> quick(status)
+                        DropKind.REFUSED -> soft("refused before connecting (status $status)")
                         DropKind.NO_ANSWER -> fail("lz.failed", LaserFail.TIMEOUT)
                     }
                 }
@@ -364,9 +475,17 @@ class RealLaser private constructor(private val ctx: Context) {
     }
 
     private fun servicesFound(g: BluetoothGatt, status: Int) {
-        val svc = g.getService(Sps.SERVICE)
-        log("services (status $status): ${g.services.size}; SPS ${if (svc != null) "found" else "MISSING"}")
-        if (svc == null) { fail("lz.notLaser", LaserFail.NOT_LASER); return }
+        val n = safe { g.services.size } ?: 0
+        val svc = if (status == BluetoothGatt.GATT_SUCCESS) safe { g.getService(Sps.SERVICE) } else null
+        val txOk = svc?.getCharacteristic(Sps.TX)?.let { it.properties and (BluetoothGattCharacteristic.PROPERTY_NOTIFY or BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0 } == true
+        log("services (status $status): $n; SPS ${if (svc != null) "found" else "MISSING"}")
+        // a discovery that failed says nothing about the device: the link is tried again (the builder's own laser is never "not a laser")
+        when (LinkRules.discovery(status, n, svc != null && txOk)) {
+            Discovery.RETRY -> { soft("service discovery failed"); return }
+            Discovery.NOT_LASER -> { if (svc != null) log("SPS TX cannot notify"); fail("lz.notLaser", LaserFail.NOT_LASER); return }
+            Discovery.OK -> {}
+        }
+        if (svc == null) return
         cccdQueue.clear()
         listOf(Sps.TX, Sps.FLOW).mapNotNull { svc.getCharacteristic(it) }
             .filter { it.properties and (BluetoothGattCharacteristic.PROPERTY_NOTIFY or BluetoothGattCharacteristic.PROPERTY_INDICATE) != 0 }
@@ -411,10 +530,10 @@ class RealLaser private constructor(private val ctx: Context) {
     private fun ready() {
         main.removeCallbacks(connectTimeout)
         val addr = linkAddr ?: return
-        val name = linkName ?: savedName ?: "ZB-08"
+        val name = linkName ?: (if (addr == savedAddr) savedName else null) ?: "ZB-08"
         val user = userConnect
         link = Link.CONNECTED; linkName = name; attempt = 0; stopped = false; problem = null; userConnect = false
-        failure = null; failStreak = 0; quickDrops = 0; incompatible.remove(addr)
+        failure = null; failStreak = 0; quickDrops = 0; softFails = 0; bgFails = 0; looked = false; incompatible.remove(addr)
         settings?.setLaserDevice(addr, name)
         log("=== ready: $name $addr; measure with the laser's own button ===")
         onEvent?.invoke("connected", name, user)
@@ -425,7 +544,7 @@ class RealLaser private constructor(private val ctx: Context) {
         val now = SystemClock.uptimeMillis()
         for (e in parser.feed(b, now)) when (e) {
             is JrtEvent.Reading -> {
-                if (e.mm <= 0) { log("JRT ${e.hex} → 0 mm (q ${e.quality}): ignored"); continue }
+                if (!JrtParser.plausible(e.mm)) { log("JRT ${e.hex} → ${e.mm} mm (q ${e.quality}): not a distance, ignored"); continue }
                 log("JRT ${e.hex} → ${e.mm} mm (q ${e.quality})")
                 onReading?.invoke(LaserReading(e.mm, e.quality, System.currentTimeMillis()))
             }
@@ -447,19 +566,28 @@ class RealLaser private constructor(private val ctx: Context) {
 
     /**
      * A try did not reach "ready": said only when the builder picked the laser ([failure] for the radar page, [problem]
-     * for the Device sheet); the remembered one is tried again later.
+     * for the Device sheet); the remembered one is tried again later. Background tries are counted: with the radar page
+     * open, the third without an answer shows its card; elsewhere the fifth ends them (LinkRules.bgCapped).
      */
     private fun fail(key: String, why: LaserFail) {
         val user = userConnect
-        log("connect failed ($key, $why)")
+        val addr = linkAddr
+        log("connect failed ($key, $why${if (user) "" else ", background"})")
         close()
         link = Link.IDLE; userConnect = false
-        if (why == LaserFail.NOT_LASER) linkAddr?.let { incompatible[it] = true; found[it]?.let { d -> found[it] = d.copy(laser = false) } }
-        if (user || why == LaserFail.NOT_LASER) problem = key
-        if (user || why == LaserFail.NOT_LASER) {
-            failAddr = linkAddr; failName = linkName; failStreak++; failure = why; failSeq++
+        if (why == LaserFail.NOT_LASER) addr?.let { incompatible[it] = true; found[it]?.let { d -> found[it] = d.copy(laser = false) }; raw.remove(it) }
+        if (user) {
+            problem = key
+            failAddr = addr; failName = linkName; failStreak++; failure = why; failSeq++
+        } else if (addr != null && addr == savedAddr && why != LaserFail.NOT_LASER) {
+            bgFails++
+            if (radar && why == LaserFail.TIMEOUT && LinkRules.bgCapped(bgFails, radarOpen = true)) {
+                log("remembered laser: $bgFails background tries without an answer; the radar page says so")
+                if (addr != failAddr) failStreak = 0
+                failAddr = addr; failName = linkName; failStreak++; failure = why; failSeq++
+            }
         }
-        if (why != LaserFail.NOT_LASER && linkAddr == savedAddr) plan()
+        if (why != LaserFail.NOT_LASER && addr == savedAddr) plan()
     }
 
     /** The link went away: [lost] when it was up (said to the builder), then the remembered laser is tried again. */
@@ -488,7 +616,7 @@ class RealLaser private constructor(private val ctx: Context) {
         log("=== forget ${savedName ?: "—"} ${savedAddr ?: ""} ===")
         cancelPlan(); close()
         link = Link.IDLE; userConnect = false; linkAddr = null; linkName = null; stopped = false; problem = null
-        failure = null; failStreak = 0
+        failure = null; failStreak = 0; bgFails = 0; looked = false
         settings?.setLaserDevice(null, null)
     }
 
@@ -509,6 +637,8 @@ class RealLaser private constructor(private val ctx: Context) {
 
     companion object {
         const val SCAN_S = 15
+        /** In the background a ready link is kept this long (a photo with the camera app, a quick look elsewhere). */
+        const val BG_GRACE_MS = 15_000L
         private const val CONNECT_S = 20
         @Volatile private var one: RealLaser? = null
         fun get(ctx: Context): RealLaser = one ?: synchronized(this) { one ?: RealLaser(ctx.applicationContext).also { one = it } }

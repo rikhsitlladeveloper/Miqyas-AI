@@ -61,9 +61,9 @@ fun DeviceSheet(onClose: () -> Unit, onTest: () -> Unit = {}, onRadar: () -> Uni
     var missing by remember { mutableStateOf(LaserPerms.missing(ctx)) }
     var asked by remember { mutableStateOf(false) }
     var btOn by remember { mutableStateOf(LaserPerms.btOn(ctx)) }
-    var locOn by remember { mutableStateOf(LaserPerms.locOn(ctx)) }
+    var locOn by remember { mutableStateOf(LaserPerms.locOk(ctx)) }
     var scanAfterAsk by remember { mutableStateOf(false) }
-    fun refresh() { missing = LaserPerms.missing(ctx); btOn = LaserPerms.btOn(ctx); locOn = LaserPerms.locOn(ctx) }
+    fun refresh() { missing = LaserPerms.missing(ctx); btOn = LaserPerms.btOn(ctx); locOn = LaserPerms.locOk(ctx) }
     // the switches are turned in the phone's settings: checked again every second while the sheet is open
     LaunchedEffect(Unit) { while (true) { refresh(); delay(1000) } }
     val ask = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
@@ -110,11 +110,11 @@ fun DeviceSheet(onClose: () -> Unit, onTest: () -> Unit = {}, onRadar: () -> Uni
             when {
                 !hasBt -> LaserNotice(tr("lt.noBt"))
                 !btOn -> LaserNotice(tr("lt.btOff")) { GlassButton(tr("lt.btOpen"), { LaserPerms.open(ctx, Intent(android.provider.Settings.ACTION_BLUETOOTH_SETTINGS)) }, primary = false, icon = "bt") }
-                missing.isNotEmpty() -> LaserNotice(tr("lt.perm")) {
+                missing.isNotEmpty() -> LaserNotice(tr(LaserPerms.permKey())) {
                     GlassButton(tr("lt.permAsk"), { ask.launch(LaserPerms.needed().toTypedArray()) })
                     if (asked) GlassButton(tr("lt.permApp"), { LaserPerms.open(ctx, Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))) }, primary = false)
                 }
-                // finding devices needs location services up to Android 11 (and the location permission after that)
+                // finding devices needs location services up to Android 11 (from Android 12 the Bluetooth permissions only)
                 !locOn -> LaserNotice(tr("lt.locOff")) { GlassButton(tr("lt.locOpen"), { LaserPerms.open(ctx, Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }, primary = false) }
             }
         }

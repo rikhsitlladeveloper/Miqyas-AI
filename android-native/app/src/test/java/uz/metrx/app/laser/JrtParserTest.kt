@@ -1,6 +1,7 @@
 package uz.metrx.app.laser
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -87,6 +88,20 @@ class JrtParserTest {
         // 12 345 mm = 0x3039; checksum 22+03+30+39+00+40 = 0xCE
         val p = JrtParser()
         assertEquals(listOf(12345), readings(p.feed(bytes("AA 00 00 22 00 03 00 00 30 39 00 40 CE"))).map { it.mm })
+    }
+
+    @Test fun allOnesIsParsedButIsNoDistance() {
+        // FF FF FF FF passes the checksum (25 + 4 × FF = 0x421 → 0x21) but is not a measurement: RealLaser and the router drop it
+        val p = JrtParser()
+        val r = readings(p.feed(bytes("AA 00 00 22 00 03 FF FF FF FF 00 00 21")))
+        assertEquals(listOf(Int.MAX_VALUE), r.map { it.mm })
+        assertFalse(JrtParser.plausible(r[0].mm))
+    }
+
+    @Test fun theDistanceLimits() {
+        assertFalse(JrtParser.plausible(0)); assertFalse(JrtParser.plausible(-5))
+        assertTrue(JrtParser.plausible(1)); assertTrue(JrtParser.plausible(128)); assertTrue(JrtParser.plausible(JrtParser.MAX_MM))
+        assertFalse(JrtParser.plausible(JrtParser.MAX_MM + 1)); assertFalse(JrtParser.plausible(2_147_483_647))
     }
 
     @Test fun aStaleHalfFrameIsForgotten() {

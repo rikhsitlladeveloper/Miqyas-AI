@@ -77,6 +77,9 @@ class JrtParser {
         private const val MAX_COUNT = 16
         private const val MAX_BUF = 256
         const val STALE_MS = 1500L
+        /** The longest distance taken as a measurement (200 m; the ZB-08 reaches far less): FF FF FF FF or noise that passes the checksum is not one. */
+        const val MAX_MM = 200_000
+        fun plausible(mm: Int) = mm in 1..MAX_MM
         private fun u(b: Byte) = b.toInt() and 0xFF
         fun hex(b: ByteArray): String = b.joinToString(" ") { "%02X".format(it.toInt() and 0xFF) }
     }

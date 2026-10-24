@@ -5,7 +5,7 @@ import kotlin.math.min
 /*
  * The pure rules behind the laser's radar page (ui/main/LaserRadar.kt) and RealLaser: where a laser sits on the radar,
  * what a GATT disconnect means, when a run of failures becomes "busy" or "3 tries", how long to wait before the next
- * try. No Android here (unit-tested in LinkRulesTest).
+ * try, when a scan may start. No Android here (unit-tested in LinkRulesTest).
  */
 
 /** Why a connection the builder asked for did not come up (or went away): each has its own card on the radar page. */
@@ -26,10 +26,22 @@ enum class LaserFail {
 enum class DropKind {
     /** The link was up and ready: it went away (laser off or out of range). */
     LOST,
-    /** Dropped at once (right after connecting, or a 133/8/257 refusal): counted towards [LaserFail.BUSY]. */
+    /** Dropped right after "connected": counted towards [LaserFail.BUSY]. */
     QUICK,
+    /** Refused before any connection (a 133/8/257 status): tried once more quietly, then "no answer", never "busy". */
+    REFUSED,
     /** Anything else before the link was ready: treated like no answer. */
     NO_ANSWER
+}
+
+/** What one service discovery means. */
+enum class Discovery {
+    /** The SPS service with a TX characteristic that can notify: the laser. */
+    OK,
+    /** The discovery itself failed (a GATT error, or no services at all): the link is tried again, the device is not judged. */
+    RETRY,
+    /** A discovery that worked, without the SPS service: not a laser METRX can read. */
+    NOT_LASER
 }
 
 object LinkRules {
@@ -53,9 +65,33 @@ object LinkRules {
     fun drop(status: Int, ready: Boolean, gattUp: Boolean, msSinceUp: Long): DropKind = when {
         ready -> DropKind.LOST
         gattUp && msSinceUp in 0..QUICK_MS -> DropKind.QUICK
-        !gattUp && status in QUICK_STATUSES -> DropKind.QUICK
+        !gattUp && status in QUICK_STATUSES -> DropKind.REFUSED
         else -> DropKind.NO_ANSWER
     }
+
+    /** Quiet retries in one try after a refusal before "connected" or a failed service discovery (then "no answer"). */
+    const val SOFT_RETRIES = 1
+
+    /** Whether soft failure number [n] (1 first) of a try is retried quietly; a background try is not (its plan tries again). */
+    fun softRetry(n: Int, user: Boolean) = user && n <= SOFT_RETRIES
+
+    /** A service discovery's [status] (0 = GATT_SUCCESS), how many [services] came, whether [sps] (with TX that notifies) is there. */
+    fun discovery(status: Int, services: Int, sps: Boolean): Discovery = when {
+        status != 0 || services <= 0 -> Discovery.RETRY
+        sps -> Discovery.OK
+        else -> Discovery.NOT_LASER
+    }
+
+    /** Background tries in a row at the remembered laser without an answer before the app stops and scans for it instead. */
+    const val BG_TRIES = 5
+    /** With the radar page open: after this many, its "didn't answer" card shows (and the tries stop). */
+    const val RADAR_BG_TRIES = 3
+
+    fun bgCapped(fails: Int, radarOpen: Boolean) = fails >= if (radarOpen) RADAR_BG_TRIES else BG_TRIES
+
+    /** While scanning for the remembered laser: this one is it (the same address, or the same name at a new address). */
+    fun sameLaser(savedAddr: String?, savedName: String?, addr: String, name: String?): Boolean =
+        addr.equals(savedAddr, ignoreCase = true) || (!savedName.isNullOrBlank() && name != null && name.trim().equals(savedName.trim(), ignoreCase = true))
 
     fun isBusy(quickDrops: Int) = quickDrops >= BUSY_AFTER
 
@@ -74,6 +110,34 @@ object LinkRules {
         val s = ((left + 999) / 1000).toInt()
         val p = if (total <= 0) 1f else (1f - left.toFloat() / total).coerceIn(0f, 1f)
         return s to p
+    }
+}
+
+/**
+ * When a BLE scan may start: at most [MAX] starts in [WINDOW_MS] (Android refuses the 5th in 30 s with error 6), and not
+ * for [FAIL_WAIT_MS] after a scan failed (the problem is shown meanwhile). Times are uptime ms.
+ */
+class ScanGate {
+    private val starts = ArrayDeque<Long>()
+    var failedAt: Long? = null; private set
+
+    /** How long until a scan may start (0: now). */
+    fun waitMs(now: Long): Long {
+        while (starts.isNotEmpty() && now - starts.first() >= WINDOW_MS) starts.removeFirst()
+        val f = failedAt?.let { (it + FAIL_WAIT_MS - now).coerceAtLeast(0) } ?: 0L
+        val t = if (starts.size >= MAX) (starts.first() + WINDOW_MS - now).coerceAtLeast(0) else 0L
+        return maxOf(f, t)
+    }
+
+    fun started(now: Long) { starts.addLast(now) }
+    fun failed(now: Long) { failedAt = now }
+    /** Bluetooth was turned off and on: a failed scan may be tried again at once. */
+    fun clearFail() { failedAt = null }
+
+    companion object {
+        const val MAX = 4
+        const val WINDOW_MS = 30_000L
+        const val FAIL_WAIT_MS = 30_000L
     }
 }
 
@@ -110,4 +174,14 @@ object RadarMath {
     fun smooth(prev: Float?, next: Int, k: Float = .35f): Float = if (prev == null) next.toFloat() else prev + (next - prev) * k
 
     fun stale(seenAt: Long, now: Long) = seenAt > 0 && now - seenAt > STALE_MS
+
+    /** A device's list entry is redrawn at most this often… */
+    const val PUBLISH_MS = 500L
+    /** …unless its smoothed signal moved this much (dB), or it is new, renamed or turned out (not) a laser. */
+    const val PUBLISH_DB = 1.5f
+
+    /** Whether the newest advert [next] should replace the entry the radar shows ([shown]) now. */
+    fun publish(shown: FoundDev?, next: FoundDev, now: Long): Boolean =
+        shown == null || shown.name != next.name || shown.laser != next.laser || now - shown.seen >= PUBLISH_MS ||
+            kotlin.math.abs(next.avg - shown.avg) >= PUBLISH_DB
 }

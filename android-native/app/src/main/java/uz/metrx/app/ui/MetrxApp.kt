@@ -116,8 +116,9 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
         onDispose { real.onReading = null; real.onEvent = null }
     }
     LaunchedEffect(app) { androidx.compose.runtime.snapshotFlow { app.laser.state() }.collect { settings.laser = it } }
-    // a button waiting for the laser stops waiting when its page is left or the laser goes away
-    LaunchedEffect(app.top) { val w = app.laser.waiter; if (w != null && w.owner != app.top) app.laser.cancel() }
+    // a button waiting for the laser stops waiting when its page is left (not when it only shows another view, plan ↔ 3D),
+    // when the sheet it was pressed in closes, or when the laser goes away
+    LaunchedEffect(app.top, app.sheet) { app.laser.check(app.top, app.sheet) }
     LaunchedEffect(app.laser.isReal) { if (!app.laser.isReal) app.laser.cancel() }
 
     val authNav = object : AuthNav {
@@ -143,7 +144,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
     }
     val mainNav = object : MainNav {
         // with a laser connected (or the simulator) the small Device sheet shows its status; else the radar finds one
-        override fun laser() { if (app.laser.isReal || app.laser.simOn) app.sheet = Sheet.Device else app.push(Route.LaserRadar) }
+        override fun laser() { app.openLaser() }
         override fun newProject() { app.push(Route.NewProject()) }
         override fun measure() { app.push(Route.Measure(false)) }
         override fun calculator() { app.push(Route.Measure(true)) }

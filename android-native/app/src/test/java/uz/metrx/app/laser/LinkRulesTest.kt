@@ -70,10 +70,97 @@ class LinkRulesTest {
         assertEquals(DropKind.NO_ANSWER, LinkRules.drop(0, ready = false, gattUp = true, msSinceUp = LinkRules.QUICK_MS + 1))
     }
 
-    @Test fun refusalStatusesBeforeConnectingAreQuickOthersAreNoAnswer() {
-        for (s in listOf(133, 8, 257)) assertEquals(DropKind.QUICK, LinkRules.drop(s, ready = false, gattUp = false, msSinceUp = -1))
+    @Test fun refusalStatusesBeforeConnectingAreRefusalsOthersAreNoAnswer() {
+        for (s in listOf(133, 8, 257)) assertEquals(DropKind.REFUSED, LinkRules.drop(s, ready = false, gattUp = false, msSinceUp = -1))
         assertEquals(DropKind.NO_ANSWER, LinkRules.drop(62, ready = false, gattUp = false, msSinceUp = -1))
         assertEquals(DropKind.NO_ANSWER, LinkRules.drop(0, ready = false, gattUp = false, msSinceUp = -1))
+    }
+
+    @Test fun busyOnlyAfterALinkWasEstablished() {
+        // two quick 133s before any "connected" (Android 8 Xiaomi/Samsung): never QUICK, so never counted towards busy
+        repeat(2) { assertEquals(DropKind.REFUSED, LinkRules.drop(133, ready = false, gattUp = false, msSinceUp = -1)) }
+        // two drops right after "connected": QUICK, and the second is busy
+        val quick = (1..2).map { LinkRules.drop(133, ready = false, gattUp = true, msSinceUp = 200) }
+        assertTrue(quick.all { it == DropKind.QUICK })
+        assertTrue(LinkRules.isBusy(quick.size))
+    }
+
+    @Test fun refusalsAndFailedDiscoveriesAreRetriedOnceForTheBuilder() {
+        assertTrue(LinkRules.softRetry(1, user = true))
+        assertFalse(LinkRules.softRetry(2, user = true))
+        // a background try is not retried at once: its plan tries again later
+        assertFalse(LinkRules.softRetry(1, user = false))
+    }
+
+    // ---- service discovery ----
+
+    @Test fun aFailedDiscoveryIsRetriedNeverNotALaser() {
+        assertEquals(Discovery.RETRY, LinkRules.discovery(133, 0, sps = false))
+        assertEquals(Discovery.RETRY, LinkRules.discovery(129, 5, sps = false))
+        assertEquals(Discovery.RETRY, LinkRules.discovery(133, 5, sps = true))
+        // "success" with nothing in it (a stale GATT cache) says nothing about the device either
+        assertEquals(Discovery.RETRY, LinkRules.discovery(0, 0, sps = false))
+    }
+
+    @Test fun notALaserOnlyAfterADiscoveryThatWorked() {
+        assertEquals(Discovery.NOT_LASER, LinkRules.discovery(0, 4, sps = false))
+        assertEquals(Discovery.OK, LinkRules.discovery(0, 4, sps = true))
+    }
+
+    // ---- background tries ----
+
+    @Test fun backgroundTriesStopAfterFiveOrThreeWithTheRadarOpen() {
+        assertFalse(LinkRules.bgCapped(LinkRules.BG_TRIES - 1, radarOpen = false))
+        assertTrue(LinkRules.bgCapped(LinkRules.BG_TRIES, radarOpen = false))
+        assertFalse(LinkRules.bgCapped(2, radarOpen = true))
+        assertTrue(LinkRules.bgCapped(LinkRules.RADAR_BG_TRIES, radarOpen = true))
+        assertTrue(LinkRules.RADAR_BG_TRIES < LinkRules.BG_TRIES)
+    }
+
+    @Test fun theFallbackScanKnowsTheRememberedLaserByAddressOrName() {
+        val addr = "38:1F:C5:55:2E:C8"
+        assertTrue(LinkRules.sameLaser(addr, "ZB-08", addr, null))
+        assertTrue(LinkRules.sameLaser(addr, "ZB-08", addr.lowercase(), "ZB-08"))
+        // a new address with the same name: re-learned
+        assertTrue(LinkRules.sameLaser(addr, "ZB-08", "11:22:33:44:55:66", " zb-08 "))
+        // another laser, or no name to go by
+        assertFalse(LinkRules.sameLaser(addr, "ZB-08", "11:22:33:44:55:66", "ZB-10"))
+        assertFalse(LinkRules.sameLaser(addr, "ZB-08", "11:22:33:44:55:66", null))
+        assertFalse(LinkRules.sameLaser(addr, null, "11:22:33:44:55:66", "ZB-08"))
+    }
+
+    // ---- scan starts ----
+
+    @Test fun atMostFourScanStartsIn30Seconds() {
+        val g = ScanGate()
+        var t = 1_000L
+        repeat(ScanGate.MAX) { assertEquals(0L, g.waitMs(t)); g.started(t); t += 1_000 }
+        // the 5th within 30 s waits until the first start is 30 s old
+        assertEquals(1_000L + ScanGate.WINDOW_MS - t, g.waitMs(t))
+        assertEquals(0L, g.waitMs(1_000L + ScanGate.WINDOW_MS))
+    }
+
+    @Test fun aFailedScanWaits30Seconds() {
+        val g = ScanGate()
+        g.started(0); g.failed(300)
+        assertEquals(ScanGate.FAIL_WAIT_MS, g.waitMs(300))
+        assertEquals(ScanGate.FAIL_WAIT_MS - 10_000, g.waitMs(10_300))
+        assertEquals(0L, g.waitMs(300 + ScanGate.FAIL_WAIT_MS))
+        // Bluetooth turned off and on: at once
+        g.failed(50_000); g.clearFail()
+        assertEquals(0L, g.waitMs(50_001))
+    }
+
+    // ---- redrawing the radar ----
+
+    @Test fun aDeviceIsRedrawnAtMostTwiceASecondUnlessItReallyChanged() {
+        val a = FoundDev("A", "ZB-08", -60, true, -60f, 1_000)
+        assertTrue(RadarMath.publish(null, a, 1_000))
+        assertFalse(RadarMath.publish(a, a.copy(rssi = -61, avg = -60.4f, seen = 1_200), 1_200))
+        assertTrue(RadarMath.publish(a, a.copy(avg = -60.4f, seen = 1_500), 1_500))
+        assertTrue(RadarMath.publish(a, a.copy(avg = -62f, seen = 1_100), 1_100))
+        assertTrue(RadarMath.publish(a, a.copy(laser = false, seen = 1_100), 1_100))
+        assertTrue(RadarMath.publish(a, a.copy(name = "ZB-09", seen = 1_100), 1_100))
     }
 
     @Test fun oneQuickDropIsRetriedTheSecondIsBusy() {

@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
 
     <!-- the project location (GPS works without internet); asked only when the builder taps "Joylashuvni aniqlash" -->
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
@@ -9,11 +10,12 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <!-- Profile → device → "Lazer sinovi": finds a real Bluetooth laser (BLE or classic SPP) and only reads what it sends.
-         Up to Android 11 scanning needs the location permission above; from Android 12 BLUETOOTH_SCAN/CONNECT (scan
-         results may be used with location, so no neverForLocation) -->
+         Up to Android 11 scanning needs the location permission above; from Android 12 only BLUETOOTH_SCAN/CONNECT:
+         scan results are never used for location (neverForLocation; the ZB-08's adverts are not beacons, so none are
+         filtered out) -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30" />
     <uses-permission android:name="android.permission.BLUETOOTH_ADMIN" android:maxSdkVersion="30" />
-    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" />
+    <uses-permission android:name="android.permission.BLUETOOTH_SCAN" android:usesPermissionFlags="neverForLocation" tools:targetApi="s" />
     <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
     <uses-feature android:name="android.hardware.bluetooth_le" android:required="false" />
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />

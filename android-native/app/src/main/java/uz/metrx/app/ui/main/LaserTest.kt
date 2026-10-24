@@ -26,7 +26,6 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
-import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Handler
@@ -68,7 +67,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.content.IntentCompat
-import androidx.core.location.LocationManagerCompat
 import kotlinx.coroutines.delay
 import uz.metrx.app.laser.JrtEvent
 import uz.metrx.app.laser.JrtParser
@@ -635,7 +633,7 @@ fun LaserTestScreen() {
     fun refresh() {
         missing = ltMissing(ctx)
         btOn = try { probe.adapter?.isEnabled == true } catch (_: Exception) { false }
-        locOn = ctx.getSystemService(LocationManager::class.java)?.let { LocationManagerCompat.isLocationEnabled(it) } ?: false
+        locOn = LaserPerms.locOk(ctx)   // location services matter for scanning up to Android 11 only
     }
     // the switches are turned in the system settings: their state is checked again every second
     LaunchedEffect(Unit) { while (true) { refresh(); delay(1000) } }
@@ -660,7 +658,7 @@ fun LaserTestScreen() {
             if (probe.adapter != null && !locOn) Notice(tr("lt.locOff")) {
                 GlassButton(tr("lt.locOpen"), { open(ctx, Intent(android.provider.Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }, primary = false)
             }
-            if (probe.adapter != null && missing.isNotEmpty()) Notice(tr("lt.perm") + "\n" + missing.joinToString { it.substringAfterLast('.') }) {
+            if (probe.adapter != null && missing.isNotEmpty()) Notice(tr(LaserPerms.permKey()) +"\n" + missing.joinToString { it.substringAfterLast('.') }) {
                 GlassButton(tr("lt.permAsk"), { ask.launch(ltNeeded().toTypedArray()) })
                 if (asked) GlassButton(tr("lt.permApp"), {
                     open(ctx, Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null)))

@@ -44,16 +44,28 @@ object LaserLog {
 }
 
 /**
- * What Bluetooth needs on this phone, shared by the Device sheet and the test page. Scanning: location up to Android 11
- * (and location services on); from Android 12 BLUETOOTH_SCAN and BLUETOOTH_CONNECT, plus location, since the manifest
- * does not say neverForLocation. Connecting to a known laser needs only BLUETOOTH_CONNECT (nothing up to Android 11).
+ * What Bluetooth needs on this phone, shared by the Device sheet, the radar and the test page. Scanning: up to Android 11
+ * the location permission (fine and coarse together) and location services on; from Android 12 only BLUETOOTH_SCAN
+ * (the manifest says neverForLocation) and BLUETOOTH_CONNECT. Connecting to a known laser needs only BLUETOOTH_CONNECT
+ * (nothing up to Android 11).
  */
 object LaserPerms {
-    fun needed(): List<String> =
-        if (Build.VERSION.SDK_INT >= 31) listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT, Manifest.permission.ACCESS_FINE_LOCATION)
+    fun needed(): List<String> = needed(Build.VERSION.SDK_INT)
+
+    /** The list for Android API level [sdk] (unit-tested). */
+    fun needed(sdk: Int): List<String> =
+        if (sdk >= 31) listOf(Manifest.permission.BLUETOOTH_SCAN, Manifest.permission.BLUETOOTH_CONNECT)
         else listOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
 
+    /** Location services must be on for a scan to find anything (up to Android 11 only). */
+    fun locNeeded(sdk: Int = Build.VERSION.SDK_INT) = sdk < 31
+
+    /** The words for missing permissions: Bluetooth only from Android 12, Bluetooth and location before. */
+    fun permKey(sdk: Int = Build.VERSION.SDK_INT) = if (sdk >= 31) "lz.permBt" else "lt.perm"
+
     fun missing(ctx: Context) = needed().filter { ContextCompat.checkSelfPermission(ctx, it) != PackageManager.PERMISSION_GRANTED }
+
+    fun canScan(ctx: Context) = missing(ctx).isEmpty()
 
     fun canConnect(ctx: Context) = Build.VERSION.SDK_INT < 31 || ContextCompat.checkSelfPermission(ctx, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
 
@@ -62,6 +74,9 @@ object LaserPerms {
     fun btOn(ctx: Context) = try { ctx.getSystemService(BluetoothManager::class.java)?.adapter?.isEnabled == true } catch (_: Exception) { false }
 
     fun locOn(ctx: Context) = ctx.getSystemService(LocationManager::class.java)?.let { LocationManagerCompat.isLocationEnabled(it) } ?: false
+
+    /** Location services are on, or this Android does not need them for scanning. */
+    fun locOk(ctx: Context) = !locNeeded() || locOn(ctx)
 
     fun open(ctx: Context, intent: Intent) {
         try { ctx.startActivity(intent) } catch (e: Exception) { LaserLog.add("could not open settings: $e") }

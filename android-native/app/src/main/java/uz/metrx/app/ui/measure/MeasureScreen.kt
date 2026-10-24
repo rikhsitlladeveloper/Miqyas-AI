@@ -201,7 +201,7 @@ fun MeasureScreen(calcTitle: Boolean) {
                 }
                 when {
                     // two lines rather than "Lazerni …" when the phone's font is set large
-                    !on -> GBtn(tr("qc.connect"), { app.sheet = Sheet.Device }, icon = "bt", modifier = Modifier.weight(1f), maxLines = 2)
+                    !on -> GBtn(tr("qc.connect"), { app.openLaser() }, icon = "bt", modifier = Modifier.weight(1f), maxLines = 2)
                     c.cont -> GBtn(tr("qc.saveLive"), { c.liveVal?.let { add(it, "sim"); app.say("qm.saved") } }, icon = "save", enabled = c.liveVal != null, modifier = Modifier.weight(1f), maxLines = 2)
                     else -> GBtn(tr("qc.measure"), { if (real) app.laser.await { add(it, "laser") } else add(Random.nextInt(600, 8200), "sim") }, icon = "laser", modifier = Modifier.weight(1f), maxLines = 2)
                 }
