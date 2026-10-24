@@ -245,6 +245,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.Measure -> uz.metrx.app.ui.measure.MeasureScreen(route.calc)
                                     is Route.Markup -> uz.metrx.app.ui.markup.MarkupScreen(route)
                                     Route.LiveCam -> uz.metrx.app.ui.markup.LiveCamScreen()
+                                    Route.LaserTest -> uz.metrx.app.ui.main.LaserTestScreen()
                                 }
                                 // the page sliding away takes no taps, so a second tap cannot create or go back twice
                                 if (t != app.tab || pageKey(route) != pageKey(app.top)) Box(Modifier.matchParentSize().pointerInput(Unit) {
@@ -263,7 +264,8 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                         onClose = { app.sheet = null },
                         onSearch = { settings.laser = Laser.SEARCHING },
                         onConnect = { settings.laser = Laser.CONNECTED; app.sheet = null; say("dv.connected", kind = ToastKind.OK) },
-                        onDisconnect = { settings.laser = Laser.DISCONNECTED; app.sheet = null }
+                        onDisconnect = { settings.laser = Laser.DISCONNECTED; app.sheet = null },
+                        onTest = { app.sheet = null; app.push(Route.LaserTest) }
                     )
                     null -> {}
                     else -> if (!uz.metrx.app.ui.win.WinSheet(sh) && !uz.metrx.app.ui.plumb.PlumbSheet(sh) && !uz.metrx.app.ui.elec.ElecSheet(sh) && !uz.metrx.app.ui.tiles.TileSheet(sh) && !uz.metrx.app.ui.furniture.OrderFlowSheet(sh) && !uz.metrx.app.ui.furniture.BazisSheet(sh) && !uz.metrx.app.ui.furniture.FreeSheet(sh) && !uz.metrx.app.ui.projects.TradeSheet(sh) && !uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)

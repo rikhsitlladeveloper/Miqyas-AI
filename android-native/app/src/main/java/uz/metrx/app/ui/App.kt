@@ -100,6 +100,8 @@ sealed interface Route {
     data class Markup(val pid: String?, val iid: String) : Route
     /** The Measure page's live camera (prototype PAGES.liveCam). */
     data object LiveCam : Route
+    /** Device sheet → "Lazer sinovi": finding a real Bluetooth laser and logging what it sends (main/LaserTest.kt). */
+    data object LaserTest : Route
 }
 
 /** Bottom sheets. One at a time, like the prototype's U.sheet. */
@@ -328,7 +330,7 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.FCut -> store.get(r.pid) != null
                     is Route.FPack -> store.get(r.pid) != null
                     is Route.FCheck -> store.get(r.pid) != null
-                    Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, Route.Remnants, is Route.Measure, Route.LiveCam -> true
+                    Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, Route.Remnants, is Route.Measure, Route.LiveCam, Route.LaserTest -> true
                 }
             }
             if (keep.size != st.size) { st.clear(); st.addAll(keep) }

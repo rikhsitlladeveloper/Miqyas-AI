@@ -264,7 +264,7 @@ fun LanguageSheet(cur: Lang, onPick: (Lang) -> Unit, onClose: () -> Unit) {
  * which the sheet says plainly. Typing values always works.
  */
 @Composable
-fun DeviceSheet(onClose: () -> Unit, onSearch: () -> Unit, onConnect: () -> Unit, onDisconnect: () -> Unit) {
+fun DeviceSheet(onClose: () -> Unit, onSearch: () -> Unit, onConnect: () -> Unit, onDisconnect: () -> Unit, onTest: () -> Unit = {}) {
     val settings = LocalSettings.current
     val st = settings.laser
     GlassSheet(tr("dv.title"), onClose, footer = {
@@ -294,6 +294,17 @@ fun DeviceSheet(onClose: () -> Unit, onSearch: () -> Unit, onConnect: () -> Unit
         }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MIcon("kbd", G.ink2, 18.dp, 2f); Text(tr("dv.always"), style = ui(13f, 400, G.ink2, 1.4f))
+        }
+        // a real laser's own signal, read only (main/LaserTest.kt); the simulated laser above stays as it is
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).border(1.dp, G.rim, RoundedCornerShape(16.dp))
+            .pressable(onTest, .98f, label = tr("lt.row")).padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            MIcon("bt", G.cobalt, 22.dp, 2f)
+            Column(Modifier.weight(1f)) {
+                Text(tr("lt.row"), style = ui(15f, 700))
+                Text(tr("lt.rowSub"), style = ui(13f, 400, G.ink2, 1.35f))
+            }
+            MIcon("chev", G.ink2, 18.dp, 2f)
         }
     }
 }
