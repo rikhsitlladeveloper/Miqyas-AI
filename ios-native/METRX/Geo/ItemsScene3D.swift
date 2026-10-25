@@ -341,9 +341,12 @@ extension FBuilder {
         let pillows = bs.filter { $0.role == "white" }
         for b in bs {
             let bf = b.lift ? lf : f
+            // what rises with a lift-up base is its own front (split: built down, turned as it rises)
             switch b.role {
-            case "lamel": slats(bf, b, bed)
-            case "mattress": bedding(bf, b, pillows.filter { $0.y0 == b.y1 }, bed, back)
+            case "lamel": rising(b.lift) { slats(bf, b, bed) }
+            case "mattress":
+                let pil = pillows.filter { $0.y0 == b.y1 }
+                rising(b.lift) { bedding(bf, b, pil, bed, back) }
             case "white": break
             case "metal": if foot == "legs" { bedLeg(f, b) }
             default:

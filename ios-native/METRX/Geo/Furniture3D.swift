@@ -36,6 +36,9 @@ struct Pick { let key: String; let box: Obb }
 
 struct Furn3D {
     let parts: [Part3], edges: [Edges3], picks: [Pick], keys: [String]
+    /// Built with split: each door, drawer, sliding door, rack and lift-up base on its own, shut, with how it moves
+    /// (Geo/FrontMotion3D.swift; parts, edges and picks are then the rest, which stays put); else empty.
+    var fronts: [Front3D] = []
 
     /// The door or drawer a ray meets first.
     func pick(_ e: V3, _ d: V3) -> String? {
@@ -101,11 +104,15 @@ private let PART_TAGGED: Set<String> = ["fp.side", "fp.top", "fp.bottom", "fp.di
 /// wall and fewer sides to round parts, .flat boxes only (the 2D drawings: six faces a box). ceilH the room's height,
 /// mm (a kitchen's row of units to the ceiling). decor: the small decor (a gorka's dishes and books, the big table's
 /// bowl, vase and pendant; Geo/GorkaScene3D.swift); nil: on the high tier only (left out on a weak phone and in the 2D
-/// drawings, like Android's light tier).
+/// drawings, like Android's light tier). split: the 3D screens' build (Geo/FrontMotion3D.swift): every door, drawer,
+/// sliding door, rack and lift-up base built shut on its own (Furn3D.fronts) with how it moves, so opening one only moves
+/// it; open and amt are not read then.
 func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop, _ rgb: (String) -> Int, _ open: Set<String>,
                  amt: ((String) -> Double)? = nil, bare: Bool = false, hi: PartHi? = nil, tex: ((String) -> String?)? = nil,
-                 mats: [Mat]? = nil, detail: Quality3 = .high, ceilH: Int = 2700, decor: Bool? = nil) -> Furn3D {
-    let how: (String) -> Double = amt ?? { k in open.contains(k) ? 1 : 0 }
+                 mats: [Mat]? = nil, detail: Quality3 = .high, ceilH: Int = 2700, decor: Bool? = nil, split: Bool = false) -> Furn3D {
+    // how far each door or drawer is open, 0 to 1; split: all shut (they are moved by their transforms)
+    let shut: (String) -> Double = { _ in 0 }
+    let how: (String) -> Double = split ? shut : (amt ?? { k in open.contains(k) ? 1 : 0 })
     let withDecor = decor ?? (detail == .high)
     let list = mats ?? MAT_PRESETS
     let texOf: (String) -> String? = tex ?? { id in list.first { $0.id == id }?.tex }
@@ -114,6 +121,7 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
         let looks = pieceLooks(f, rgb, texOf, list)
         let fws = wsOf(f, ws)
         let B = FBuilder(fws, looks, st, how)
+        B.split = split
         B.bare = bare; B.hi = hi; B.piece = f.id
         B.detail = detail; B.ceilH = ceilH
         B.style = f.look?.style ?? "flat"; B.htype = handleType(f); B.hid = f.handle
@@ -258,7 +266,11 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
             }
         }
     }
-    return Furn3D(parts: st.order.map { st.parts[$0]! }, edges: st.edgeOrder.map { st.edges[$0]! }, picks: st.picks, keys: st.keys)
+    var out = Furn3D(parts: st.order.map { st.parts[$0]! }, edges: st.edgeOrder.map { st.edges[$0]! }, picks: st.picks, keys: st.keys)
+    var fronts: [Front3D] = []
+    for fc in st.fronts { fronts.append(fc.done()) }
+    out.fronts = fronts
+    return out
 }
 
 /// What the builders of all pieces share: parts one per wall and look (so opening a door does not change how many
@@ -268,14 +280,22 @@ final class FStore {
     var parts: [K: Part3] = [:], order: [K] = []
     var edges: [String: Edges3] = [:], edgeOrder: [String] = []
     var picks: [Pick] = [], keys: [String] = []
+    /// Built with split: each moving front's own capture, in the order they were drawn, and where each key is.
+    var fronts: [FrontCap] = [], frontAt: [String: Int] = [:]
 }
 
 private func d(_ v: Int) -> Double { Double(v) }
 
 /// Builds the boards of one piece of furniture on a wall frame; lengths in mm.
 final class FBuilder {
-    /// Each material key's look (Look.swift furnLooks); a part's plain colour is its look's flatRgb.
-    let ws: Workshop, looks: [String: Look], st: FStore, how: (String) -> Double
+    /// Each material key's look (Look.swift furnLooks); a part's plain colour is its look's flatRgb. st is what is
+    /// being drawn into now: the pieces' store (home), or a moving front's own while it is drawn (split).
+    let ws: Workshop, looks: [String: Look], home: FStore, how: (String) -> Double
+    var st: FStore
+    /// Building each door, drawer, sliding door, rack and lift-up base on its own, shut (Geo/FrontMotion3D.swift).
+    var split = false
+    /// The lift-up base of the item being built: its key and how it rises (split; nil none).
+    var liftMove: (key: String, motion: FrontMotion)? = nil
     /// The wall being furnished: the furniture's parts are kept per wall (it stays solid when its wall goes see-through).
     var wall: String? = nil
     /// The piece being built has nothing past its left / right end (no wall, no neighbour): a door hinged there opens wide.
@@ -310,8 +330,39 @@ final class FBuilder {
     var topT = Double(K_TOP), wtTop = 0.0
     let t: Int, g: Double, edge: Double
     init(_ ws: Workshop, _ looks: [String: Look], _ st: FStore, _ how: @escaping (String) -> Double) {
-        self.ws = ws; self.looks = looks; self.st = st; self.how = how
+        self.ws = ws; self.looks = looks; self.home = st; self.st = st; self.how = how
         t = ws.t; g = Double(ws.gap10) / 10; edge = Double(ws.edge10) / 10
+    }
+
+    /// What body draws is front key, moving as motion says (split only; else, or inside another front, it is drawn with
+    /// the rest). Its key goes in the list before (st.keys of the pieces' store).
+    func moving(_ key: String, _ motion: () -> FrontMotion, _ body: () -> Void) {
+        if !split || st !== home { body(); return }
+        let fc: FrontCap
+        if let i = home.frontAt[key] { fc = home.fronts[i] }
+        else {
+            fc = FrontCap(key, motion())
+            home.frontAt[key] = home.fronts.count
+            home.fronts.append(fc)
+        }
+        st = fc.main
+        body()
+        st = home
+    }
+
+    /// While drawing front key: what body draws shows only while it is open at all, a drawer's box (split; else as is).
+    func innerOf(_ key: String, _ body: () -> Void) {
+        guard split, let i = home.frontAt[key], st === home.fronts[i].main else { body(); return }
+        let fc = home.fronts[i]
+        st = fc.inner
+        body()
+        st = fc.main
+    }
+
+    /// What body draws rises with the item's lift-up base when lift (split: it is the base's front; else as is).
+    func rising(_ lift: Bool, _ body: () -> Void) {
+        guard lift, let lm = liftMove else { body(); return }
+        moving(lm.key, { lm.motion }) { body() }
     }
 
     func p(_ k0: String) -> Part3 {
@@ -377,6 +428,16 @@ final class FBuilder {
         // seeing inside: no doors at all
         if bare { return }
         st.keys.append(key)
+        // split: built shut, turning about its hinge edge (the line up through ha) by deg, its free edge into the room
+        let pivot = w.at(ha / 1000, y0 / 1000, n / 1000), axis = w.dir(1, 0).cross(w.dir(0, s))
+        moving(key, { FrontMotion.turn(pivot, axis, deg * .pi / 180) }) {
+            doorAt(w, key, ha, n, y0, h, fw, s, handles, hv, part, deg, face)
+        }
+    }
+
+    /// The door itself, as far open as how says (door's body).
+    private func doorAt(_ w: WallBasis, _ key: String, _ ha: Double, _ n: Double, _ y0: Double, _ h: Double, _ fw: Double, _ s: Double, _ handles: Bool,
+                        _ hv: HPlace, _ part: Part3?, _ deg: Double, _ face: String) {
         let th = deg * .pi / 180 * how(key)
         let e = w.dir(s * cos(th), sin(th)), tn = w.dir(-s * sin(th), cos(th))
         let o = w.at(ha / 1000, y0 / 1000, n / 1000)
@@ -406,6 +467,15 @@ final class FBuilder {
                 look: String? = nil) {
         // seeing inside: the drawer's box stays (shut), its front goes
         if !bare { st.keys.append(key) }
+        // split: built shut, pulled out three quarters of its depth; its box shows only while it is out
+        if bare { drawerAt(w, key, a0, fw, y0, fh, n, dd, handles, pr, look); return }
+        let pull = w.dir(0, dd * 0.75 / 1000)
+        moving(key, { FrontMotion.move(pull) }) { drawerAt(w, key, a0, fw, y0, fh, n, dd, handles, pr, look) }
+    }
+
+    /// The drawer itself, as far out as how says (drawer's body).
+    private func drawerAt(_ w: WallBasis, _ key: String, _ a0: Double, _ fw: Double, _ y0: Double, _ fh: Double, _ n: Double, _ dd: Double, _ handles: Bool,
+                          _ pr: String, _ look: String?) {
         let out: Double = bare ? 0 : dd * 0.75 * how(key)
         let nn = n + out
         let o = w.at(a0 / 1000, y0 / 1000, nn / 1000)
@@ -418,14 +488,20 @@ final class FBuilder {
             if pr == "front" { zf = frontBody(role(pr, "fp.dFace"), fr, fw / 1000, fh / 1000, Double(t) / 1000) } else { obb(role(pr, "fp.dFace", look: look), x, true) }
             if !bare { st.picks.append(Pick(key: key, box: x)) }
         }
-        if out > 0 || bare {
-            let bh = max(60, min(fh - 40, 150)), bx0 = a0 + 26, bx1 = a0 + fw - 26, by = y0 + 20
-            let c = role("carcass", "fp.dBox")
-            box(w, c, bx0, bx1, by, by + 12, nn - dd + 40, nn)
-            box(w, c, bx0, bx0 + 12, by, by + bh, nn - dd + 40, nn); box(w, c, bx1 - 12, bx1, by, by + bh, nn - dd + 40, nn)
-            box(w, c, bx0, bx1, by, by + bh, nn - dd + 40, nn - dd + 52)
+        // split: the box always, in the drawer's own inner part (shown only while it is out)
+        if out > 0 || bare || split {
+            innerOf(key) { drawerBox(w, a0, fw, y0, fh, nn, dd) }
         }
         if handles && !bare { handle(fr, fw / 1000, fh / 1000, zf, "drawer", .top) }
+    }
+
+    /// A drawer's box behind its front a0…a0+fw along, from y0 up fh, the front's back at nn, dd deep (mm).
+    private func drawerBox(_ w: WallBasis, _ a0: Double, _ fw: Double, _ y0: Double, _ fh: Double, _ nn: Double, _ dd: Double) {
+        let bh = max(60, min(fh - 40, 150)), bx0 = a0 + 26, bx1 = a0 + fw - 26, by = y0 + 20
+        let c = role("carcass", "fp.dBox")
+        box(w, c, bx0, bx1, by, by + 12, nn - dd + 40, nn)
+        box(w, c, bx0, bx0 + 12, by, by + bh, nn - dd + 40, nn); box(w, c, bx1 - 12, bx1, by, by + bh, nn - dd + 40, nn)
+        box(w, c, bx0, bx1, by, by + bh, nn - dd + 40, nn - dd + 52)
     }
 
     /// A kitchen unit: base, wall or tall carcass with its fronts; appliance spaces and fillers.
@@ -635,18 +711,9 @@ final class FBuilder {
                     // trouser and shoe racks: a frame that pulls out
                     let key = "\(m.id):s\(i):r\(x.pos)"
                     st.keys.append(key)
-                    // within the inside's depth: in a sliding wardrobe the doors run in front of it
-                    let out = di * 0.7 * how(key)
-                    let h = d(blockH(x))
-                    let o = w.at((il + 13) / 1000, y / 1000, (20 + out) / 1000)
-                    let bx = Obb(o: o, a: w.dir((iw - 26) / 1000, 0), b: V3(0, h / 1000, 0), c: w.dir(0, (di - 60) / 1000))
-                    obbEdges(edges, bx); st.picks.append(Pick(key: key, box: bx))
-                    box(w, metal, il + 13, il + iw - 13, y, y + 10, 20 + out, di - 40 + out)
-                    for k in 1...4 {
-                        let yy = x.kind == "shoe" ? y + h * Double(k) / 5 : y + h - 12
-                        let nn = 20 + out + (di - 60) * Double(k) / 5
-                        box(w, metal, il + 13, il + iw - 13, yy, yy + 8, nn - 6, nn)
-                    }
+                    // split: built shut, pulled out along the inside's depth
+                    let pull = w.dir(0, di * 0.7 / 1000)
+                    moving(key, { FrontMotion.move(pull) }) { rack(w, key, x, il, iw, y, di) }
                 }
             }
             // the LED (PieceLook.led): under the hat shelf or the top, its light down the back (a vitrina has its own)
@@ -677,6 +744,23 @@ final class FBuilder {
         if let sd = m.slide { slidingDoors(w, m, sd, x0 + sl, yb + T, dd) }
         // on top: the cornice, or a row of units up to the ceiling (Wardrobe3D.swift wardCrown)
         if abs(Int(yt.rounded()) - crownTop) <= 2 && wardCrown(crown, Int(yt.rounded()), ceilH) > 0 { crownOver(w, m, x0, x1, yt, dd) }
+    }
+
+    /// A trouser or shoe rack x (key) in a section il…il+iw at y, the inside di deep (mm): a frame that pulls out, as far
+    /// as how says; within the inside's depth (in a sliding wardrobe the doors run in front of it).
+    private func rack(_ w: WallBasis, _ key: String, _ x: Insert, _ il: Double, _ iw: Double, _ y: Double, _ di: Double) {
+        let metal = p("metal")
+        let out = di * 0.7 * how(key)
+        let h = d(blockH(x))
+        let o = w.at((il + 13) / 1000, y / 1000, (20 + out) / 1000)
+        let bx = Obb(o: o, a: w.dir((iw - 26) / 1000, 0), b: V3(0, h / 1000, 0), c: w.dir(0, (di - 60) / 1000))
+        obbEdges(edges, bx); st.picks.append(Pick(key: key, box: bx))
+        box(w, metal, il + 13, il + iw - 13, y, y + 10, 20 + out, di - 40 + out)
+        for k in 1...4 {
+            let yy = x.kind == "shoe" ? y + h * Double(k) / 5 : y + h - 12
+            let nn = 20 + out + (di - 60) * Double(k) / 5
+            box(w, metal, il + 13, il + iw - 13, yy, yy + 8, nn - 6, nn)
+        }
     }
 
     /// A box b of an item, tilted th about a line across it at pivotY up and pivotN out (a lift-up bed's base rising).
@@ -721,6 +805,15 @@ final class FBuilder {
         }
     }
 
+    /// Board b of an item in the 2D drawings' boxes (a lift-up base's tilted th).
+    private func itemFlatBoard(_ w: WallBasis, _ x0: Int, _ b: Board, _ th: Double, _ pivotY: Double, _ pivotN: Double) {
+        let part = itemPart(b.role, b.key)
+        let line = !b.key.isEmpty || b.role == "mirror"
+        if b.lift && th > 1e-6 { tilted(w, part, x0, b, pivotY, pivotN, th, line) }
+        else if b.round > 0 { roundTop(w, part, x0, b) }
+        else { box(w, part, x0 + b.a0, x0 + b.a1, b.y0, b.y1, b.n0, b.n1, line) }
+    }
+
     /// A bed, a table, a bar counter, a mirror panel or a mirror: its boards (Items.swift); a bed's drawers pull out of
     /// its long sides and a lift-up base rises on a tap.
     func item(_ w: WallBasis, _ m: Module) {
@@ -731,6 +824,10 @@ final class FBuilder {
         if lifts { st.keys.append(liftKey) }
         let th = 38.0 * .pi / 180 * (lifts ? how(liftKey) : 0)
         let pivotY = Double(m.h - BED_SINK - 30), pivotN = Double(t) + 4
+        // split: what rises is built down and turned with the lift-up base, 38° about the line along the wall at pivotY
+        // up and pivotN out, its far side going up (as tilted and itFrame tilt it)
+        let liftPivot = w.at(0, pivotY / 1000, pivotN / 1000), liftAxis = w.dir(0, 1).cross(V3(0, 1, 0))
+        if lifts && split { liftMove = (key: liftKey, motion: FrontMotion.turn(liftPivot, liftAxis, 38.0 * .pi / 180)) } else { liftMove = nil }
         // the lit 3D draws them in the modern style (Geo/ItemsScene3D.swift); the 2D drawings keep their boxes, a bed's
         // hidden base and soft wall panel among them
         if fancy { itemLit(w, m, bs, th, pivotY, pivotN) }
@@ -738,14 +835,11 @@ final class FBuilder {
             let foot = bedFoot(m, design)
             for b in bs {
                 if b.role == "metal" && foot == "base" { continue }
-                let part = itemPart(b.role, b.key)
-                let line = !b.key.isEmpty || b.role == "mirror"
-                if b.lift && th > 1e-6 { tilted(w, part, x0, b, pivotY, pivotN, th, line) }
-                else if b.round > 0 { roundTop(w, part, x0, b) }
-                else { box(w, part, x0 + b.a0, x0 + b.a1, b.y0, b.y1, b.n0, b.n1, line) }
+                rising(b.lift) { itemFlatBoard(w, x0, b, th, pivotY, pivotN) }
             }
             itemFlatExtras(w, m)
         }
+        liftMove = nil
         if lifts, let b = bs.first(where: { $0.role == "mattress" }) {
             let o = w.at(Double(x0 + b.a0) / 1000, Double(b.y0) / 1000, Double(b.n0) / 1000)
             let bx = Obb(o: o, a: w.dir(Double(b.a1 - b.a0) / 1000, 0), b: V3(0, Double(b.y1 - b.y0) / 1000, 0), c: w.dir(0, Double(b.n1 - b.n0) / 1000))
@@ -780,14 +874,21 @@ final class FBuilder {
         for j in 0..<n {
             let key = "\(m.id):slide\(j)"
             st.keys.append(key)
-            // a door slides one step towards the middle: the last one left, the others right
-            let shift = (j == n - 1 ? -step : step) * how(key)
-            let a = ax + Double(j) * step + shift
-            let n0 = dd - 95 + Double(j % 2) * 45
-            let y = y0 + d(SLIDE_CLEAR) / 2
-            kupeDoor(w, a, y, n0, dw, dh, sl.panel(j), sp)
-            let o = w.at(a / 1000, y / 1000, n0 / 1000)
-            st.picks.append(Pick(key: key, box: Obb(o: o, a: w.dir(dw / 1000, 0), b: V3(0, dh / 1000, 0), c: w.dir(0, KUPE_PD / 1000))))
+            // a door slides one step towards the middle: the last one left, the others right (split: built shut, moved along)
+            let full = j == n - 1 ? -step : step
+            let along = w.dir(full / 1000, 0)
+            moving(key, { FrontMotion.move(along) }) { slideDoorAt(w, key, j, ax + Double(j) * step, full, dd, y0, dw, dh, sl.panel(j), sp) }
         }
+    }
+
+    /// Sliding door j (key) whose shut place is a0 along, moving full mm along when open, as far as how says (mm).
+    private func slideDoorAt(_ w: WallBasis, _ key: String, _ j: Int, _ a0: Double, _ full: Double, _ dd: Double, _ y0: Double, _ dw: Double, _ dh: Double,
+                             _ panel: String, _ sp: Double?) {
+        let a = a0 + full * how(key)
+        let n0 = dd - 95 + Double(j % 2) * 45
+        let y = y0 + d(SLIDE_CLEAR) / 2
+        kupeDoor(w, a, y, n0, dw, dh, panel, sp)
+        let o = w.at(a / 1000, y / 1000, n0 / 1000)
+        st.picks.append(Pick(key: key, box: Obb(o: o, a: w.dir(dw / 1000, 0), b: V3(0, dh / 1000, 0), c: w.dir(0, KUPE_PD / 1000))))
     }
 }

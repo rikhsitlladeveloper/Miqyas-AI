@@ -24,6 +24,8 @@ import Observation
         run()
     }
     @MainActor func openAll(_ keys: [String]) { target = Set(keys); run() }
+    /// How far front k is open now, 0 to 1 (the 3D moves the fronts by it, a tap picks with it).
+    func amt(_ k: String) -> Double { prog[k] ?? 0 }
     @MainActor func closeAll() { target = []; run() }
 
     /// The page goes away: the run stops, everything where it was going.
@@ -71,8 +73,8 @@ import Observation
             for k in keys { let a = from[k] ?? 0; next[k] = a + (to - a) * s }
             prog = next
             if e >= 1 { break }
-            // each step rebuilds the furniture in the scene: about 25 a second is smooth enough and keeps it light
-            try? await Task.sleep(nanoseconds: 40_000_000)
+            // a step only moves the fronts (Scene3D sets their transforms, nothing is rebuilt): about every frame
+            try? await Task.sleep(nanoseconds: 16_000_000)
         }
         var done = prog
         for k in keys { if to == 0 { done.removeValue(forKey: k) } else { done[k] = 1 } }
@@ -93,25 +95,29 @@ private func doorInner(_ door: String, _ keys: Set<String>) -> Set<String> {
     return keys.filter { $0.hasPrefix(pre) && !isDoorKey($0) }
 }
 
-/// The room's scene with this order's furniture in it, each door and drawer as far open as amt says (0 to 1), what can
-/// be opened, and the key the scene is rebuilt by (the camera stays where it is when only doors move: the furniture has
-/// as many parts open as closed). With cache (whose base gave base) the key is short and stable, not a dump of the furniture.
-func furnShell(_ p: Project, _ room: Room, _ base: Shell3D, _ amt: [String: Double], _ snap: Bool, cache: Furn3DCache? = nil, inside: Bool = false) -> (Shell3D, Furn3D, String) {
+/// The room's scene with this order's furniture in it, what can be opened, and the key the scene is rebuilt by. Every
+/// door and drawer is built shut on its own (split, Geo/FrontMotion3D.swift): the 3D moves them as the scene's motion
+/// says, so opening one changes neither the key nor the furniture. With cache (whose base gave base) the key is short
+/// and stable, not a dump of the furniture, and the furniture is built once while it stays the same.
+func furnShell(_ p: Project, _ room: Room, _ base: Shell3D, _ snap: Bool, cache: Furn3DCache? = nil, inside: Bool = false) -> (Shell3D, Furn3D, String) {
     let s = AppSettings.shared, ws = s.workshop, mats = s.mats
     let fs = p.furniture.filter { $0.roomId == room.id || ($0.roomId == nil && FREE_ROOM + $0.id == room.id) }
     let tier = Quality3.current(), ceilH = room.dim("H").v ?? 2700
-    let fur = furniture3D(fs, base.bases, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [], amt: { k in amt[k] ?? 0 }, bare: inside,
-                          tex: { id in mats.first { $0.id == id }?.tex }, mats: mats, detail: tier, ceilH: ceilH)
-    var moving: [String] = []
-    for k in amt.keys.sorted() { moving.append(k + "=" + String(Int(((amt[k] ?? 0) * 1000).rounded()))) }
-    let key: String
-    if let cache {
-        key = cache.key + "|f" + String(cache.revision(fs, ws, mats)) + "|" + moving.joined(separator: ",")
-    } else {
-        key = shellKey([room], snap) + "|\(fs)|\(ws)|\(mats.map { $0.rgb + ($0.tex ?? "") })|" + moving.joined(separator: ",")
+    let bases = base.bases
+    let make = { () -> Furn3D in
+        furniture3D(fs, bases, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [], bare: inside,
+                    tex: { id in mats.first { $0.id == id }?.tex }, mats: mats, detail: tier, ceilH: ceilH, split: true)
     }
     // seeing inside is another scene (fewer parts), the camera stays
-    return (base.plus(fur.parts, fur.edges), fur, key + (inside ? "|inside" : "") + "|" + tier.rawValue)
+    let tail = (inside ? "|inside" : "") + "|" + tier.rawValue + "|" + String(ceilH)
+    if let cache {
+        let key = cache.key + "|f" + String(cache.revision(fs, ws, mats)) + tail
+        let fur = cache.furniture(key, make)
+        return (base.plus(fur.parts, fur.edges, fronts: fur.fronts), fur, key)
+    }
+    let fur = make()
+    let key = shellKey([room], snap) + "|\(fs)|\(ws)|\(mats.map { $0.rgb + ($0.tex ?? "") })" + tail
+    return (base.plus(fur.parts, fur.edges, fronts: fur.fronts), fur, key)
 }
 
 /// The "See inside" pill over a 3D picture: hides every door and drawer front, a second tap brings them back.
@@ -140,6 +146,9 @@ final class Furn3DCache {
     private var ws: Workshop? = nil
     private var mats: [Mat] = []
     private var rev = 0
+    /// The furniture last built (split) and the key it was built for.
+    private var furKey = ""
+    private var fur: Furn3D? = nil
 
     /// The room's shell; bare: only its floor (furniture without a room), the camera starting at theta (nil: as usual).
     func base(_ r: Room, _ snap: Bool, bare: Bool = false, theta: Double? = nil) -> Shell3D {
@@ -155,6 +164,14 @@ final class Furn3DCache {
     func revision(_ fs: [Furniture], _ ws: Workshop, _ mats: [Mat]) -> Int {
         if fs != self.fs || ws != self.ws || mats != self.mats { self.fs = fs; self.ws = ws; self.mats = mats; rev += 1 }
         return rev
+    }
+
+    /// The furniture for key: the one built last when the key is the same, else made again.
+    func furniture(_ key: String, _ make: () -> Furn3D) -> Furn3D {
+        if let fur, furKey == key { return fur }
+        let f = make()
+        fur = f; furKey = key
+        return f
     }
 }
 
@@ -210,9 +227,9 @@ struct Furniture3DPane: View {
             // a room-less corner piece with its corner on the left (made-up walls D, A) is seen from the right
             let left = free && p.furniture.contains { FREE_ROOM + $0.id == room.id && $0.walls.first == "D" && $0.layout != "U" }
             let base = cache.base(room, snap, bare: free, theta: left ? Double.pi / 2 - 0.75 : nil)
-            let (shell, fur, key) = furnShell(p, room, base, mo.prog, snap, cache: cache, inside: mo.bare)
+            let (shell, fur, key) = furnShell(p, room, base, snap, cache: cache, inside: mo.bare)
             Scene3D(shell: shell, key: key, baseKey: cache.key, cam: cam, shot: shot, points: shell.labels.map(\.p), label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
-                    onTap: { pt in toggle(fur, pt) }) {
+                    onTap: { pt in toggle(fur, pt) }, motion: mo) {
                 InsidePill(on: mo.bare) { mo.bare.toggle() }
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
                     .padding(.top, 10).padding(.leading, 10)
@@ -249,7 +266,8 @@ struct Furniture3DPane: View {
 
     private func toggle(_ fur: Furn3D, _ pt: CGPoint) {
         let (e, d) = cam.ray(pt.x, pt.y)
-        if let k = fur.pick(e, d) { mo.toggle(k) }
+        // the fronts where they are drawn now
+        if let k = fur.pick(e, d, amt: mo.amt) { mo.toggle(k) }
     }
 
     /// "Add to report" on the 3D picture: at most 4 views a room, counted in the store (not as this page last drew it);
