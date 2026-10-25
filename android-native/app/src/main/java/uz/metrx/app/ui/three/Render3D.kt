@@ -229,9 +229,13 @@ object Lit3D {
         val key = "$id@${tier.texSize}#${tint ?: -1}"
         if (key in texs) return texs[key]
         val t = runCatching {
-            val bmp = ctx.assets.open("tex/${tier.texSize}/$id.webp").use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }) }
+            // a decor's id names a bundled picture, recoloured for its shade (geo/Look.kt TEXTURES)
+            val info = uz.metrx.app.geo.TEXTURES[id]
+            val file = info?.file?.takeIf { it.isNotEmpty() } ?: id
+            val bmp = ctx.assets.open("tex/${tier.texSize}/$file.webp").use { BitmapFactory.decodeStream(it, null, BitmapFactory.Options().apply { inPreferredConfig = Bitmap.Config.ARGB_8888 }) }
                 ?: error("no picture $id")
-            val src = if (tint != null) tinted(bmp, tint) else bmp
+            val recol = info?.tint?.let { to -> uz.metrx.app.geo.TEXTURES[file]?.avg?.let { from -> recoloured(bmp, from, to) } } ?: bmp
+            val src = if (tint != null) tinted(recol, tint) else recol
             val levels = 1 + (31 - Integer.numberOfLeadingZeros(max(src.width, src.height)))
             Texture.Builder().width(src.width).height(src.height).levels(levels).sampler(Texture.Sampler.SAMPLER_2D)
                 .format(Texture.InternalFormat.SRGB8_A8).usage(Texture.Usage.DEFAULT or Texture.Usage.GEN_MIPMAPPABLE).build(engine).also { tx ->
@@ -241,6 +245,18 @@ object Lit3D {
         }.onFailure { Log.w(TAG, "texture $id", it) }.getOrNull()
         texs[key] = t
         return t
+    }
+
+    /** A coloured picture whose average is [from] moved to average [to] (each channel scaled in linear light). */
+    private fun recoloured(bmp: Bitmap, from: Int, to: Int): Bitmap {
+        val w = bmp.width; val h = bmp.height; val px = IntArray(w * h); bmp.getPixels(px, 0, w, 0, 0, w, h)
+        val lin = FloatArray(256) { srgbToLinear(it / 255f) }
+        val enc = IntArray(4096) { i -> val v = i / 4095f; ((if (v <= .0031308f) v * 12.92f else 1.055f * v.pow(1 / 2.4f) - .055f) * 255f + .5f).toInt().coerceIn(0, 255) }
+        fun k(sh: Int) = lin[(to shr sh) and 255] / max(1e-4f, lin[(from shr sh) and 255])
+        val kr = k(16); val kg = k(8); val kb = k(0)
+        fun ch(c: Int, f: Float) = enc[(lin[c] * f * 4095f).toInt().coerceIn(0, 4095)]
+        for (i in px.indices) { val c = px[i]; px[i] = (0xFF shl 24) or (ch((c shr 16) and 255, kr) shl 16) or (ch((c shr 8) and 255, kg) shl 8) or ch(c and 255, kb) }
+        return Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
     }
 
     /** A grey picture times colour [tint], in linear light. */
@@ -271,12 +287,14 @@ object Lit3D {
  * warm floor, a large bright window behind the viewer and two smaller ones at the sides. Linear light, 1 = white paper.
  */
 internal object Studio {
-    const val INTENSITY = .62f
+    // a touch brighter in part 3 (was .62), the fronts nearer the mockup's
+    const val INTENSITY = .72f
 
     private fun lin(rgb: Int) = floatArrayOf(srgbToLinear(((rgb shr 16) and 255) / 255f), srgbToLinear(((rgb shr 8) and 255) / 255f), srgbToLinear((rgb and 255) / 255f))
-    // the floor a light warm wood (mockup #4A382A, but its gloss reflected the real plank floor): gloss, mirrors and
-    // steel seen from above mostly show it
-    private val SIDE = lin(0xB3ADA4); private val END = lin(0xBDB8B0); private val CEIL = lin(0xF4F1EC); private val FLOOR = lin(0xA38568)
+    // the floor a light warm grey (mockup #4A382A, but its gloss reflected the real plank floor; part 3: no longer the
+    // orange of wood, which turned graphite and white gloss fronts brown): gloss, mirrors and steel seen from above
+    // mostly show it
+    private val SIDE = lin(0xB3ADA4); private val END = lin(0xBDB8B0); private val CEIL = lin(0xF4F1EC); private val FLOOR = lin(0x9A948C)
 
     /** The light coming from direction ([x], [y], [z]) (unit), seen from the studio's middle. */
     fun radiance(x: Float, y: Float, z: Float): FloatArray {

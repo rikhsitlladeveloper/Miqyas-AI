@@ -78,13 +78,15 @@ class LookTest {
 
     @Test fun everyTextureIsBundledInBothSizes() {
         val dir = listOf(File("src/main/assets/tex"), File("app/src/main/assets/tex")).first { it.exists() }
-        TEXTURES.keys.forEach { id ->
-            assertTrue(id, File(dir, "512/$id.webp").exists())
-            assertTrue(id, File(dir, "256/$id.webp").exists())
+        TEXTURES.forEach { (id, t) ->
+            assertTrue(id, File(dir, "512/${t.file}.webp").exists())
+            assertTrue(id, File(dir, "256/${t.file}.webp").exists())
         }
-        assertTrue(File(dir, "SOURCES.md").readText().contains("CC0"))
-        // no picture that nothing names
-        File(dir, "512").listFiles()!!.forEach { assertTrue(it.name, it.nameWithoutExtension in TEXTURES) }
+        val src = File(dir, "SOURCES.md").readText()
+        assertTrue(src.contains("CC0"))
+        // no picture that nothing names, and each one listed
+        File(dir, "512").listFiles()!!.forEach { assertTrue(it.name, it.nameWithoutExtension in TEX_FILES); assertTrue(it.name, src.contains("`${it.name}`")) }
+        File(dir, "256").listFiles()!!.forEach { assertTrue(it.name, it.nameWithoutExtension in TEX_FILES) }
         assertFalse(TEXTURES.isEmpty())
     }
 }

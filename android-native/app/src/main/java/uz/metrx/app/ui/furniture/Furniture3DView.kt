@@ -125,9 +125,15 @@ fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion): Pa
     val fs = p.furniture.filter { it.roomId == room.id || (it.roomId == null && uz.metrx.app.furniture.FREE_ROOM + it.id == room.id) }
     val amt = mo.prog.toMap()
     val bare = mo.bare
-    val fur = remember(base, fs, amt, ws, mats, bare) {
-        furniture3D(fs, base.bases, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare,
-            look = { id -> mats.firstOrNull { it.id == id }.let { m -> uz.metrx.app.geo.Looks.of(m?.kind ?: "board", rgbOf(m?.rgb ?: "#F5F5F2"), m?.tex) } })
+    // the light tier draws no glow and fewer small details (modern 3D part 3)
+    val ctx = LocalContext.current
+    val light = remember(app.settings.quality) { uz.metrx.app.ui.three.Quality3D.tier(ctx, app.settings.quality) == uz.metrx.app.ui.three.Tier.LOW }
+    val ceil = room.dim("H").v
+    val fur = remember(base, fs, amt, ws, mats, bare, light, ceil) {
+        fun matOf(id: String) = mats.firstOrNull { it.id == id } ?: uz.metrx.app.furniture.MAT_PRESETS.firstOrNull { it.id == id }
+        furniture3D(fs, base.bases, ws, { id -> rgbOf(matOf(id)?.rgb ?: "#F5F5F2") }, emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare,
+            look = { id -> matOf(id).let { m -> uz.metrx.app.geo.Looks.of(m?.kind ?: "board", rgbOf(m?.rgb ?: "#F5F5F2"), m?.tex, m?.finish?.takeIf { it == "gloss" || it == "satin" } ?: "matte") } },
+            mats = mats, light = light, ceil = ceil)
     }
     val shell = remember(base, fur) { base.plus(fur.parts, fur.edges) }
     return shell to fur

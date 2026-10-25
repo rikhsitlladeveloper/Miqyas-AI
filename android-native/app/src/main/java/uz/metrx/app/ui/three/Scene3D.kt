@@ -107,7 +107,7 @@ import kotlin.math.tan
 const val BG3D = 0xF3F6FA
 
 /** The lit 3D's sun, lux (with the camera's exposure 1: a white board square to it shows about white). */
-private const val SUN_LUX = 2.4f
+private const val SUN_LUX = 2.6f
 
 /** SceneView's Geometry constructor that takes ready buffers (internal to its module, public to the JVM). */
 private val GEO_NEW: java.lang.reflect.Constructor<*>? = runCatching {
@@ -239,7 +239,7 @@ private class Lens(engine: Engine) : CameraNode(engine) {
 private class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: android.content.Context) {
     private class Prim(val node: GeometryNode, val index: Int, val rgb: Int, val op: Float, val role: Role, val group: Int, val wall: String?, val look: Look? = null) { var alpha = -1f }
     private class Line(val node: GeometryNode, val group: Int, val wall: String, val rgb: Int, val a0: Float = 1f) { var alpha = -1f }
-    private val mats = HashMap<Long, MaterialInstance>()
+    private val mats = HashMap<Any, MaterialInstance>()
     private val prims = ArrayList<Prim>(); private val lines = ArrayList<Line>()
     private val nodes = ArrayList<Node>()
     private var shell: Shell3D? = null
@@ -252,7 +252,7 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: an
      * the picture is tone-mapped: the colour goes in linear, and [exact] ones (the background) so that they come out as given.
      */
     fun mat(rgb: Int, alpha: Float, exact: Boolean = false, glow: Float = 0f): MaterialInstance = mats.getOrPut(
-        ((rgb.toLong() shl 8) or (alpha * 255).toLong()) * 8 + (if (lit) 1 else 0) + (if (exact) 2 else 0) + (if (glow > 0f) 4 else 0)) {
+        listOf(rgb, (alpha * 255).toInt(), lit, exact, (glow * 100).toInt())) {
         var r = ((rgb shr 16) and 255) / 255f; var g = ((rgb shr 8) and 255) / 255f; var b = (rgb and 255) / 255f
         if (lit) {
             val v = if (exact) untonemapped(rgb) else floatArrayOf(srgbToLinear(r), srgbToLinear(g), srgbToLinear(b))
@@ -268,7 +268,8 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: an
 
     /** The lit material of [look] at opacity [alpha]; a glowing look (LED) is a bright flat colour. */
     fun litMat(look: Look, alpha: Float): MaterialInstance =
-        if (look.emissive > 1f) mat(look.rgb, 1f, glow = look.emissive)
+        // a LED strip lit, or its soft glow on the wall below it (see-through)
+        if (look.emissive > 1f) mat(look.rgb, alpha, glow = look.emissive)
         else Lit3D.instance(engine, ctx, look, tier, alpha) ?: mat(look.rgb, alpha)
 
     /** How a part of the room looks lit (the furniture brings its own). */
