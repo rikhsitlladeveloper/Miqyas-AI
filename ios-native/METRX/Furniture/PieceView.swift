@@ -77,7 +77,8 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat], bare: Bool = fals
     let room = freeRoom(f)
     let shell = buildShell([room], single: true, snap: true)
     let b = shell.bases
-    let fur = furniture3D([f], b, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [], bare: bare, hi: hi)
+    let fur = furniture3D([f], b, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [], bare: bare, hi: hi, mats: mats, detail: .flat,
+                          ceilH: room.dim("H").v ?? 2700)
     // every box of furniture3D adds its six faces to its part one after another
     let furn: [SBox] = fur.parts.flatMap { p in
         stride(from: 0, to: p.faces.count - 5, by: 6).map { k in SBox(p.faces[k..<k + 6].map { SFace(pts: $0.pts, n: $0.n, rgb: p.rgb, op: p.op, tag: p.wall, slab: p.slab) }) }

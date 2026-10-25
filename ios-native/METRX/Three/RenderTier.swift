@@ -53,14 +53,51 @@ func deviceModel() -> String {
     }
 }
 
-/// The files a decor picture may be in, under tex/, best first: the size asked for (oak_light_512.jpg and the like), the
-/// other size, then one without a size.
+/// The files a decor picture may be in, under tex/, best first: the shared folder's own (512/oak_halifax.webp), the other
+/// size, then older spellings (oak_halifax_512.jpg and the like), then one without a size.
 func texFiles(_ id: String, _ px: Int) -> [String] {
     let other = px == 512 ? 256 : 512
-    var names: [String] = []
-    for s in [px, other] { names += ["\(id)_\(s)", "\(id)-\(s)", "\(id)@\(s)", "\(s)/\(id)", "\(id)_\(s)px"] }
+    var out: [String] = [], names: [String] = []
+    for s in [px, other] { out.append("\(s)/\(id).webp") }
+    for s in [px, other] { names += ["\(s)/\(id)", "\(id)_\(s)", "\(id)-\(s)", "\(id)@\(s)", "\(id)_\(s)px"] }
     names.append(id)
-    var out: [String] = []
-    for n in names { for e in ["jpg", "jpeg", "png", "webp"] { out.append(n + "." + e) } }
+    for n in names { for e in ["webp", "jpg", "jpeg", "png"] where !out.contains(n + "." + e) { out.append(n + "." + e) } }
     return out
+}
+
+/// The pictures in the shared tex/ folder (android-native/app/src/main/assets/tex, 512/ and 256/; SOURCES.md there).
+let TEX_FILES: Set<String> = ["oak_halifax", "oak_craft", "walnut", "wenge", "marble_white", "travertine", "stone_dark", "fabric_boucle",
+                              "fabric_weave", "floor_planks", "tile_subway", "skinali_print"]
+
+/// A decor's picture: its file under tex/ and the colour its average is recoloured to (nil: as drawn), so one picture
+/// serves several decors (Android geo/Look.kt TexInfo.tint).
+struct TexSrc: Equatable {
+    let file: String
+    let avg: Int?
+    init(_ file: String, _ avg: Int? = nil) { self.file = file; self.avg = avg }
+    var tinted: Bool { avg != nil }
+}
+
+/// The picture of a decor id of the data (Mat.tex, PieceLook.swift TEX_IDS), the same table as Android's: Halifax tobacco
+/// is the Halifax picture darker and warmer, dark oak the wenge picture lighter, onyx the travertine one a little warmer,
+/// velvet and plain fabric the woven one (the look's own colour tints it). A file's own name is itself. nil: no picture
+/// (fluted and fluted_glass are drawn as geometry), or an id nothing is known of.
+func texSource(_ id: String) -> TexSrc? {
+    switch id {
+    case "oak_light": return TexSrc("oak_halifax")
+    case "oak_tobacco": return TexSrc("oak_halifax", 0x7A5A40)
+    case "oak_golden": return TexSrc("oak_craft")
+    case "oak_dark": return TexSrc("wenge", 0x5A3F2E)
+    case "walnut": return TexSrc("walnut")
+    case "wenge": return TexSrc("wenge")
+    case "marble_white": return TexSrc("marble_white")
+    case "onyx_beige": return TexSrc("travertine", 0xE8DBC2)
+    case "stone_dark": return TexSrc("stone_dark")
+    case "skinali_print": return TexSrc("skinali_print")
+    case "tile_white": return TexSrc("tile_subway")
+    case "boucle": return TexSrc("fabric_boucle")
+    case "velvet", "fabric": return TexSrc("fabric_weave")
+    case "fluted", "fluted_glass": return nil
+    default: return TEX_FILES.contains(id) ? TexSrc(id) : nil
+    }
 }

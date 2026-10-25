@@ -99,8 +99,9 @@ private func doorInner(_ door: String, _ keys: Set<String>) -> Set<String> {
 func furnShell(_ p: Project, _ room: Room, _ base: Shell3D, _ amt: [String: Double], _ snap: Bool, cache: Furn3DCache? = nil, inside: Bool = false) -> (Shell3D, Furn3D, String) {
     let s = AppSettings.shared, ws = s.workshop, mats = s.mats
     let fs = p.furniture.filter { $0.roomId == room.id || ($0.roomId == nil && FREE_ROOM + $0.id == room.id) }
+    let tier = Quality3.current(), ceilH = room.dim("H").v ?? 2700
     let fur = furniture3D(fs, base.bases, ws, { id in rgbOf(mats.first { $0.id == id }?.rgb ?? "#F5F5F2") }, [], amt: { k in amt[k] ?? 0 }, bare: inside,
-                          tex: { id in mats.first { $0.id == id }?.tex })
+                          tex: { id in mats.first { $0.id == id }?.tex }, mats: mats, detail: tier, ceilH: ceilH)
     var moving: [String] = []
     for k in amt.keys.sorted() { moving.append(k + "=" + String(Int(((amt[k] ?? 0) * 1000).rounded()))) }
     let key: String
@@ -110,7 +111,7 @@ func furnShell(_ p: Project, _ room: Room, _ base: Shell3D, _ amt: [String: Doub
         key = shellKey([room], snap) + "|\(fs)|\(ws)|\(mats.map { $0.rgb + ($0.tex ?? "") })|" + moving.joined(separator: ",")
     }
     // seeing inside is another scene (fewer parts), the camera stays
-    return (base.plus(fur.parts, fur.edges), fur, key + (inside ? "|inside" : ""))
+    return (base.plus(fur.parts, fur.edges), fur, key + (inside ? "|inside" : "") + "|" + tier.rawValue)
 }
 
 /// The "See inside" pill over a 3D picture: hides every door and drawer front, a second tap brings them back.

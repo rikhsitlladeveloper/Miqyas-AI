@@ -27,6 +27,9 @@ targets:
         buildPhase: resources
       # the 3D's decor pictures (CC0 wood, stone, fabric and more), shared with the Android app: a folder "tex" in the app, read
       # by Three/Lit3D.swift; a missing picture leaves the plain colour
+      - path: ../android-native/app/src/main/assets/tex
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: uz.metrx.app

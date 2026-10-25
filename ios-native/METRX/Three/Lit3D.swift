@@ -52,18 +52,20 @@ extension Scene3DCoordinator {
         return x
     }
 
-    /// Decor picture id at px (512 or 256; the other size, or one without a size, when that is all there is); nil when
-    /// tex/ has no file for it.
+    /// Decor picture id at px (512 or 256; the other size, or one without a size, when that is all there is): the data's
+    /// decor id goes to its file and colour (RenderTier.swift texSource, Android's table); nil when tex/ has no file for
+    /// it. UIImage reads the folder's WebP pictures (iOS 14 and later).
     static func texture(_ id: String, _ px: Int) -> TextureResource? {
         let k = "\(id)@\(px)"
         if let t = texLoaded[k] { return t }
         if texMissing.contains(k) { return nil }
         let root = Bundle.main.bundleURL.appendingPathComponent("tex", isDirectory: true)
         let fm = FileManager.default
-        if fm.fileExists(atPath: root.path) {
-            for name in texFiles(id, px) {
+        if let src = texSource(id), fm.fileExists(atPath: root.path) {
+            for name in texFiles(src.file, px) {
                 let u = root.appendingPathComponent(name)
-                guard fm.fileExists(atPath: u.path), let img = UIImage(contentsOfFile: u.path)?.cgImage else { continue }
+                guard fm.fileExists(atPath: u.path), let img0 = UIImage(contentsOfFile: u.path)?.cgImage else { continue }
+                let img = src.tinted ? (tinted(img0, src.avg) ?? img0) : img0
                 if let t = try? TextureResource.generate(from: img, options: .init(semantic: .color)) {
                     texLoaded[k] = t
                     return t
@@ -72,6 +74,29 @@ extension Scene3DCoordinator {
         }
         texMissing.insert(k)
         return nil
+    }
+
+    /// img recoloured so its average colour becomes avg (sRGB; each channel scaled, kept within white): Halifax tobacco
+    /// from the Halifax picture, dark oak from the wenge one, as Android does it.
+    private static func tinted(_ img: CGImage, _ avg: Int?) -> CGImage? {
+        let w = img.width, h = img.height
+        guard let avg, w > 0, h > 0, let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let c = CGContext(data: nil, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4, space: space,
+                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        c.draw(img, in: CGRect(x: 0, y: 0, width: w, height: h))
+        guard let data = c.data else { return nil }
+        let px = data.bindMemory(to: UInt8.self, capacity: w * h * 4)
+        var sum = [0.0, 0.0, 0.0]
+        for i in 0..<(w * h) { for k in 0..<3 { sum[k] += Double(px[i * 4 + k]) } }
+        let want = [Double(avg >> 16 & 0xFF), Double(avg >> 8 & 0xFF), Double(avg & 0xFF)]
+        let mul = (0..<3).map { k in want[k] / max(1, sum[k] / Double(w * h)) }
+        for i in 0..<(w * h) {
+            for k in 0..<3 {
+                let v = Double(px[i * 4 + k]) * mul[k]
+                px[i * 4 + k] = UInt8(min(255, max(0, v.rounded())))
+            }
+        }
+        return c.makeImage()
     }
 
     /// The studio the reflections and the soft light come from (mockup makeEnv): light walls, a bright ceiling with light

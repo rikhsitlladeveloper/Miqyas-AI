@@ -33,6 +33,8 @@ struct Look: Hashable {
     var alpha: Double = 1
     /// The colour of the plain picture (unlit fallback, 2D drawings); nil the base colour.
     var flat: Int? = nil
+    /// The picture is laid upright from each face's corner (a printed skinali; fitUVs), not along a board's grain.
+    var fit: Bool = false
 
     var flatRgb: Int { flat ?? rgb }
     var glows: Bool { emissive > 0 }
@@ -130,6 +132,88 @@ func furnLooks(_ m: FMats, _ rgb: (String) -> Int, _ tex: (String) -> String?) -
     ]
 }
 
+/// A board's look by the finish its design gives it (PieceLook.swift Surface.finish): gloss acrylic, satin, or matte
+/// (r its roughness); a decor picture (wood, stone) decides by itself.
+func boardLook(_ rgb: Int, _ tex: String?, _ finish: String, r: Double = 0.8) -> Look {
+    Look.board(rgb, tex, finish: finish == "gloss" || finish == "satin" ? finish : "matte", r: r)
+}
+
+/// The handles' (and coloured frames', legs', a tap's) look in handle colour c ("" the grey of before; the mockup's
+/// hm()): black painted metal, brass, polished gold, chrome.
+func handleLook(_ c: String) -> Look? {
+    switch c {
+    case "black": return lookFlat(Look(rgb: 0x1E1F22, roughness: 0.42, metallic: 0.55), 0x1E1F22)
+    case "brass": return lookFlat(.metal(0xB9975B, 0.33), 0xB9975B)
+    case "gold": return lookFlat(.metal(0xDDB466, 0.17), 0xDDB466)
+    case "chrome": return lookFlat(.metal(0xE3E6EA, 0.05), 0xE3E6EA)
+    default: return nil
+    }
+}
+
+/// Board id of piece f as its part (frontLow, frontUp, accent) is drawn: in the finish lookOf gives it.
+private func plBoard(_ f: Furniture, _ id: String, _ part: String, _ rgb: (String) -> Int, _ tex: (String) -> String?, _ mats: [Mat]) -> Look {
+    lookFlat(boardLook(rgb(id), tex(id), lookOf(f, nil, part, mats).finish), rgb(id))
+}
+
+/// furnLooks for piece f as its design shows it (PieceLook.swift lookOf; the mockup's mats()), mats the workshop's list
+/// for the boards' finishes. On top of furnLooks' keys: front (the lower fronts, two-tone) and frontUp in their boards'
+/// finish, plinth, the worktop and backsplash f uses (stone, wood; glass, a print, tile), accent (wood), handle, frame,
+/// legs and gola in the handle colour, the mirror's tint, fglass (fluted glass), the sink's inside and its tap, steel,
+/// bglass, ovenWin, display, zone (a hob's rings) and glow (a LED's light on the wall).
+func pieceLooks(_ f: Furniture, _ rgb: (String) -> Int, _ tex: (String) -> String?, _ mats: [Mat]) -> [String: Look] {
+    var l = furnLooks(f.mats, rgb, tex)
+    let front = plBoard(f, f.mats.front, "frontLow", rgb, tex, mats), upId = f.mats.frontUp ?? f.mats.front
+    l["front"] = front
+    l["frontUp"] = plBoard(f, upId, "frontUp", rgb, tex, mats)
+    l["plinth"] = front
+    // the worktop of its decor: stone polished, wood oiled; a plain one as before
+    let wt = worktopOf(f), wc = rgb(wt)
+    if let t = tex(wt) {
+        l["top"] = lookFlat(texIsStone(t) ? Look.stone(wc, t, dark: lum(wc) < 0.3) : Look.wood(wc, t, 0.45), wc)
+    } else if wt != "wt38" {
+        l["top"] = lookFlat(Look(rgb: wc, roughness: 0.28, clearcoat: 0.5, clearcoatRoughness: 0.12), wc)
+    }
+    // the backsplash: glass (dark under dark wall units), the printed skinali once over each panel, tile
+    if let sp = splashOf(f, mats) {
+        let sc = rgb(sp.id)
+        switch splashKind(sp.id) {
+        case "glass":
+            let dark = (rgb(upId) >> 16 & 0xFF) < 0x80
+            l["splash"] = lookFlat(Look(rgb: dark ? 0x3B3531 : sc, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02), dark ? 0x4A4440 : sc)
+        case "print":
+            l["splash"] = lookFlat(Look(rgb: sc, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02, tex: tex(sp.id) ?? "skinali_print", uvScale: 2.4, uvScaleV: 0.6, fit: true), sc)
+        case "tile":
+            l["splash"] = lookFlat(Look(rgb: sc, roughness: 0.22, clearcoat: 0.7, clearcoatRoughness: 0.1, tex: tex(sp.id) ?? "tile_white", uvScale: 0.6), sc)
+        default:
+            let t = tex(sp.id)
+            l["splash"] = lookFlat(t == nil ? Look.satin(sc) : Look.board(sc, t), sc)
+        }
+    }
+    let pl = f.look
+    if let a = pl?.accent, !a.isEmpty { l["accent"] = plBoard(f, a, "accent", rgb, tex, mats) } else { l["accent"] = l["carcass"] }
+    let hc = pl?.hcol ?? ""
+    let metal = l["metal"]!
+    let handle = handleLook(hc) ?? l["handle"]!
+    l["handle"] = handle
+    l["frame"] = hc.isEmpty ? metal : handle
+    l["legs"] = hc.isEmpty ? metal : handle
+    l["gola"] = hc == "black" || hc.isEmpty ? lookFlat(Look(rgb: 0x232427, roughness: 0.45, metallic: 0.5), 0x232427) : lookFlat(.metal(0xBFC3C8, 0.3), 0xBFC3C8)
+    let mt = pl?.mirror ?? ""
+    if !mt.isEmpty, let m = MIRROR_RGB[mt] { l["mirror"] = lookFlat(.mirror(rgbOf(m)), rgbOf(m)) }
+    l["fglass"] = lookFlat(.glass(0xEAF2F0, 0.55, 0.3), 0xBFD8E8)
+    // a chrome (or the usual) tap over a steel sink; with coloured handles a granite sink and a tap to match
+    let steelish = hc.isEmpty || hc == "chrome"
+    l["sinkIn"] = steelish ? lookFlat(.metal(0xBFC3C7, 0.32), 0xC5CBD4) : lookFlat(Look(rgb: 0x2A2B2E, roughness: 0.55), 0x475569)
+    l["faucet"] = steelish ? metal : handle
+    l["steel"] = metal
+    l["bglass"] = l["dark"]
+    l["ovenWin"] = lookFlat(Look(rgb: 0x1B1E24, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02), 0x334155)
+    l["display"] = lookFlat(Look(rgb: 0x2A1405, roughness: 0.5, emissive: 1.4, emissiveRgb: 0xFF8A2A), 0x94A3B8)
+    l["zone"] = lookFlat(Look(rgb: 0x3A3D42, roughness: 0.25, clearcoat: 0.6, clearcoatRoughness: 0.1), 0x475569)
+    l["glow"] = Look(rgb: 0xFFB068, roughness: 1, emissive: 0.9, emissiveRgb: 0xFFB068, alpha: 0.12)
+    return l
+}
+
 /// look drawn in the plain picture (and the 2D drawings) in colour flat.
 func lookFlat(_ look: Look, _ flat: Int) -> Look { var l = look; l.flat = flat; return l }
 
@@ -168,12 +252,25 @@ func uvAxes(_ n: V3, _ grain: V3?) -> (V3, V3) {
 /// repeat (the picture's grain along u unless texRot). Measured from the scene's origin, so boards side by side carry on
 /// the same grain.
 func faceUVs(_ f: Face3, _ look: Look) -> [SIMD2<Double>] {
+    if look.fit { return fitUVs(f, look) }
     let (u, v) = uvAxes(f.n, f.grain)
     let su = max(1e-6, look.uvScale), sv = max(1e-6, look.uvScaleV ?? look.uvScale)
     return f.pts.map { p in
         let a = p.dot(u), b = p.dot(v)
         return look.texRot ? SIMD2(b / sv, a / su) : SIMD2(a / su, b / sv)
     }
+}
+
+/// The picture laid upright from face f's bottom left corner (a printed skinali, as Android lays it): u along its grain
+/// to the right seen from outside, v up (RealityKit's v runs up the picture), one repeat every look.uvScale ×
+/// look.uvScaleV metres, so a 600 high panel shows the picture once up it and its tiles run on along a long one.
+func fitUVs(_ f: Face3, _ look: Look) -> [SIMD2<Double>] {
+    var (u, v) = uvAxes(f.n, f.grain)
+    if v.y < -0.5 { u = u * -1; v = v * -1 }
+    let a = f.pts.map { $0.dot(u) }, b = f.pts.map { $0.dot(v) }
+    let a0 = a.min() ?? 0, b0 = b.min() ?? 0
+    let su = max(1e-6, look.uvScale), sv = max(1e-6, look.uvScaleV ?? look.uvScale)
+    return zip(a, b).map { SIMD2(($0 - a0) / su, ($1 - b0) / sv) }
 }
 
 /// The grain of each face of a box with edges a, b, c, as the faces are made (a×b twice, c×b twice, a×c twice): the box's
