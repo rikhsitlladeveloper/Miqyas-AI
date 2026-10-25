@@ -186,7 +186,8 @@ final class GalleryCardsTests: XCTestCase {
         XCTAssertNotNil(img)
         XCTAssertEqual(Double(img?.size.width ?? 0), Double(cardSpec(.high).pt.width), accuracy: 1)
         guard let k = pics.key("nightstand") else { return XCTFail("no key") }
-        for _ in 0..<100 where !store.onDisk(k) { try? await Task.sleep(nanoseconds: 50_000_000) }
+        // the file is written in the background (HEIC encoding is slow on a busy CI simulator): give it up to 15 s
+        for _ in 0..<300 where !store.onDisk(k) { try? await Task.sleep(nanoseconds: 50_000_000) }
         XCTAssertTrue(store.onDisk(k))
         var asked = 0
         let later = CardPics(render: { _, _, _, done in asked += 1; done(nil) }, store: CardStore(dir: dir), timeout: 2, ids: ["nightstand"])
