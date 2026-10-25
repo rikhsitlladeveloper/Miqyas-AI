@@ -170,7 +170,7 @@ final class Modern3DShots: ScreenTestCase {
     private func m3ToOrder(_ app: XCUIApplication) -> Bool {
         for _ in 0..<7 {
             if app.buttons["ptab.rooms"].exists { return true }
-            if app.buttons["sheet.close"].exists && app.buttons["sheet.close"].isHittable { app.buttons["sheet.close"].tap(); usleep(800_000); continue }
+            if app.buttons["sheet.close"].exists && app.buttons["sheet.close"].m3Seen { app.buttons["sheet.close"].tap(); usleep(800_000); continue }
             noToast(app, 4)
             backVisible(app)
         }
@@ -181,9 +181,9 @@ final class Modern3DShots: ScreenTestCase {
     private func m3ToHome(_ app: XCUIApplication) -> Bool {
         for _ in 0..<7 {
             let nb = app.buttons["home.new"]
-            if nb.exists && nb.isHittable { return true }
+            if nb.exists && nb.m3Seen { return true }
             let home = app.buttons["tab.home"]
-            if home.exists && home.isHittable { home.tap(); usleep(1_000_000) } else { noToast(app, 4); backVisible(app) }
+            if home.exists && home.m3Seen { home.tap(); usleep(1_000_000) } else { noToast(app, 4); backVisible(app) }
         }
         return app.buttons["home.new"].waitForExistence(timeout: 3)
     }
@@ -238,9 +238,9 @@ final class Modern3DShots: ScreenTestCase {
     /// sideways in its row when it is past the edge.
     private func m3Bring(_ app: XCUIApplication, _ el: XCUIElement, vertical: Bool = true) -> Bool {
         guard el.exists else { return false }
-        if el.isHittable { return true }
+        if el.m3Seen { return true }
         let win = app.windows.firstMatch.frame
-        guard win.height > 0 else { return el.isHittable }
+        guard win.height > 0 else { return el.m3Seen }
         for _ in 0..<(vertical ? 18 : 0) {
             guard el.exists else { return false }
             let f = el.frame
@@ -248,18 +248,18 @@ final class Modern3DShots: ScreenTestCase {
             if f.midY > win.minY + win.height * 0.82 { m3Drag(app, down: false); continue }
             break
         }
-        if el.isHittable { return true }
+        if el.m3Seen { return true }
         // a chip or card past the side of its row
         let f = el.frame
         let y = (f.midY - win.minY) / win.height
-        guard y > 0.05 && y < 0.95 else { return el.isHittable }
-        for _ in 0..<4 where !el.isHittable {
+        guard y > 0.05 && y < 0.95 else { return el.m3Seen }
+        for _ in 0..<4 where !el.m3Seen {
             let left = f.midX > win.maxX
             let a = app.coordinate(withNormalizedOffset: CGVector(dx: left ? 0.8 : 0.2, dy: y))
             let b = app.coordinate(withNormalizedOffset: CGVector(dx: left ? 0.25 : 0.75, dy: y))
             a.press(forDuration: 0.05, thenDragTo: b); usleep(700_000)
         }
-        return el.isHittable
+        return el.m3Seen
     }
 
     /// A slow drag (no fling) of about a third of the screen: down true shows what is above, false what is below. It
@@ -268,5 +268,17 @@ final class Modern3DShots: ScreenTestCase {
         let a = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: down ? 0.4 : 0.76))
         let b = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: down ? 0.76 : 0.4))
         a.press(forDuration: 0.05, thenDragTo: b); usleep(700_000)
+    }
+}
+
+extension XCUIElement {
+    /// On screen and its middle inside the window: unlike isHittable, never fails the test for an element past the
+    /// side of a scrolling row ("Activation point invalid").
+    var m3Seen: Bool {
+        guard exists else { return false }
+        let f = frame
+        guard !f.isEmpty, f.width > 1, f.height > 1 else { return false }
+        let w = XCUIApplication().windows.firstMatch.frame
+        return w.isEmpty || w.contains(CGPoint(x: f.midX, y: f.midY))
     }
 }
