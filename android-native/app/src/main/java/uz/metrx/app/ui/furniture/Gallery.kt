@@ -217,6 +217,8 @@ fun FGalleryScreen(rt: Route.FGallery) {
             }
         }
         Column(Modifier.weight(1f).verticalScroll(scroll).navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            // the order's design style: new pieces start with it (Look.kt)
+            StyleRow(p)
             if (room != null) {
                 val f = { mm: Int? -> fmtLen(mm, LenUnit.M, en) }
                 Text(tr("fg.forRoom", "r" to (p.floors.firstOrNull { it.id == room.floorId }?.let { floorName(it, lang) } ?: dn(room.name, lang)),

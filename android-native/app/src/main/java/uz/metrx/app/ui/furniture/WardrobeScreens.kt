@@ -466,6 +466,8 @@ fun WardrobeScreen(rt: Route.Wardrobe) {
                         else -> MatStep(p, f, mats)
                     }
                 }
+                // the last step, the materials: the design too (Look.kt)
+                if (rt.step >= 5) DesignCard(p, f)
                 // with the Check list's drawer rule (its sheet and shelf rules are the designer's own)
                 ChecksCard(f, cx.found + remember(f, ws, mats) { uz.metrx.app.furniture.boardIssues(f, ws, mats).filter { it.key == "bz.ck.drawer" }
                     .map { uz.metrx.app.furniture.FCheck(it.level, it.key, it.vars, it.mid) } }) { }

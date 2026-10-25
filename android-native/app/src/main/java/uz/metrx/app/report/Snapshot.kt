@@ -61,9 +61,16 @@ fun winSnap(sn: Snap, p: Project, prices: uz.metrx.app.win.WinPrices?): Snap {
 }
 
 /** The handles the order's pieces have: the usual one, or those picked for a whole piece ("Change for all"). */
-private fun handleNames(fs: List<uz.metrx.app.furniture.Furniture>, hws: List<uz.metrx.app.furniture.Hw>): String {
+private fun handleNames(fs: List<uz.metrx.app.furniture.Furniture>, hws: List<uz.metrx.app.furniture.Hw>, ws: uz.metrx.app.furniture.Workshop): String {
     val usual = uz.metrx.app.furniture.usualHw(hws, "handle")
-    val names = fs.filter { uz.metrx.app.furniture.hasHandles(it) }.mapNotNull { f -> (hws.firstOrNull { it.id == f.handle && it.kind == "handle" } ?: usual)?.name }.distinct()
+    val names = fs.filter { uz.metrx.app.furniture.hasHandles(it) }.flatMap { f ->
+        when (f.handle) {
+            // a kitchen's Gola profile, long verticals by their lengths (Look.kt)
+            uz.metrx.app.furniture.GOLA -> listOfNotNull((hws.firstOrNull { it.kind == "gola" } ?: usual)?.name)
+            uz.metrx.app.furniture.LONG_V -> uz.metrx.app.furniture.longHandleIds(f, ws).distinct().mapNotNull { id -> hws.firstOrNull { it.id == id }?.name }
+            else -> listOfNotNull((hws.firstOrNull { it.id == f.handle && it.kind == "handle" } ?: usual)?.name)
+        }
+    }.distinct()
     return names.ifEmpty { listOfNotNull(usual?.name) }.joinToString(", ")
 }
 
@@ -71,11 +78,13 @@ private fun handleNames(fs: List<uz.metrx.app.furniture.Furniture>, hws: List<uz
 fun furnSnap(sn: Snap, p: Project, ws: uz.metrx.app.furniture.Workshop, mats: List<uz.metrx.app.furniture.Mat>, hws: List<uz.metrx.app.furniture.Hw>): Snap {
     val fs = p.furniture.filter { it.modules.isNotEmpty() }
     val pr = uz.metrx.app.furniture.priceOf(fs, p.fprice, ws, mats, hws)
-    val used = fs.flatMap { listOf(it.mats.carcass, it.mats.front, it.mats.back) }.toSet() + (if (fs.any { it.kind == "kitchen" }) setOf("wt38") else emptySet()) +
-        (if (fs.any { (it.kx?.splash ?: 0) > 0 }) setOf("splash6") else emptySet())
+    // the upper fronts, worktops and backsplashes each piece chose (Look.kt; "wt38" and "splash6" before 25 Oct 2026)
+    val used = fs.flatMap { listOfNotNull(it.mats.carcass, it.mats.front, it.mats.back, it.mats.frontUp) }.toSet() +
+        fs.filter { it.kind == "kitchen" }.map { uz.metrx.app.furniture.worktopOf(it) } +
+        fs.filter { (it.kx?.splash ?: 0) > 0 }.map { f -> f.mats.splash ?: "splash6" }
     return sn.copy(furniture = fs, fmats = mats.filter { it.id in used }, flines = pr.lines.map { uz.metrx.app.data.SnapLine(it.key, it.amount.toString()) },
         ftotal = pr.price.toString(), fprepay = ws.prepay, fdays = p.fprice.days, finst = p.fprice.inst,
-        fhandles = handleNames(fs, hws), fws = ws)
+        fhandles = handleNames(fs, hws, ws), fws = ws)
 }
 
 fun snapshotOf(p: Project, unit: LenUnit, builderName: String, builderPhone: String, pdf: PdfParts, snap: Boolean = true): Snap {

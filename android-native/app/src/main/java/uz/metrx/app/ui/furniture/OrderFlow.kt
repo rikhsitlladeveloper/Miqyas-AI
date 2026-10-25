@@ -191,8 +191,8 @@ fun NewOrderScreen(industry: String = "furniture") {
         val p = newProject(name, name, Phone.digits(phone), address.trim(), null, app.settings.currency, app.settings.reportLang.code).copy(industry = industry, autoName = industry == "furniture")
         app.store.add(p)
         app.replaceTop(Route.Project(p.id))
-        // a tiler picks the layout first (tiles/Tiles.kt), a furniture maker the furniture
-        app.push(if (industry == "tiler") Route.TGallery(p.id, fromNew = true) else if (industry == "elec") Route.EGallery(p.id, fromNew = true) else if (industry == "plumb") Route.PGallery(p.id, fromNew = true) else if (industry == "win") Route.WGallery(p.id, fromNew = true) else Route.FGallery(p.id, fromNew = true))
+        // a tiler picks the layout first (tiles/Tiles.kt), a furniture maker the design style and then the furniture (Look.kt)
+        app.push(if (industry == "tiler") Route.TGallery(p.id, fromNew = true) else if (industry == "elec") Route.EGallery(p.id, fromNew = true) else if (industry == "plumb") Route.PGallery(p.id, fromNew = true) else if (industry == "win") Route.WGallery(p.id, fromNew = true) else Route.FStyle(p.id, fromNew = true))
         app.say("np.created", "n" to name)
     }
 

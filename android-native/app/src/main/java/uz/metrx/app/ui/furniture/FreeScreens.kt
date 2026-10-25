@@ -331,7 +331,10 @@ internal fun App.pieceName(p: uz.metrx.app.data.Project, m: FModelDef): String {
 }
 
 /** Adds a new piece to the order: the stage moves on from measuring, what they want grows, the name follows. */
-internal fun App.addPiece(pid: String, f: Furniture) {
+internal fun App.addPiece(pid: String, f0: Furniture) {
+    // a new piece starts in the order's design style (Look.kt)
+    val st = store.get(pid)?.fstyle.orEmpty()
+    val f = if (f0.look == null && st.isNotEmpty()) uz.metrx.app.furniture.withPreset(f0, st, fresh = true) else f0
     store.update(pid) { pr -> pr.copy(furniture = pr.furniture + f, stage = if (pr.stage == "measure") "design" else pr.stage,
         want = ((pr.want ?: emptyList()) + uz.metrx.app.furniture.kindKey(f)).distinct()) }
     renameOrder(pid)

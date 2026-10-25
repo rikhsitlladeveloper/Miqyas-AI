@@ -24,6 +24,13 @@ private fun money(s: String?): BigInteger? = s?.trim()?.takeIf { it.isNotEmpty()
 /** Whole metres for [mm] millimetres, rounded up. */
 private fun metres(mm: Double) = Math.ceil(mm - 1e-9)
 
+/** Square metres for [mm2] mm², rounded up to 0,01 m². */
+private fun areaM2(mm2: Long) = Math.ceil(mm2 / 10000.0 - 1e-9) / 100.0
+
+/** [p] × [q], rounded half up. */
+private fun byQty(p: BigInteger?, q: Double): BigInteger =
+    java.math.BigDecimal(p ?: BigInteger.ZERO).multiply(java.math.BigDecimal.valueOf(q)).setScale(0, RoundingMode.HALF_UP).toBigInteger()
+
 /**
  * The cost of [fs] with this workshop's settings and lists. [order] adds installation and delivery once (an order with
  * furniture in it). The store's remnants [rems] are cut first: only the new sheets are bought.
@@ -34,29 +41,50 @@ fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, or
     val lines = ArrayList<CostLine>()
     fun mat(id: String) = mats.firstOrNull { it.id == id }
     lays.forEach { l ->
-        val p = money(mat(l.mat)?.price)
+        val mt = mat(l.mat)
+        val p = money(mt?.price)
+        // a board bought by the m² (a decor's fronts, Decors.kt): the area of its parts, finished sizes, to 0,01 m²
+        if (mt?.byArea == true) {
+            val mm2 = rows.filter { it.mat == l.mat }.sumOf { it.p.L.toLong() * it.p.W * it.p.qty }
+            if (mm2 <= 0) return@forEach
+            val q = areaM2(mm2)
+            lines += CostLine("mat", l.mat, q, "m2", p ?: BigInteger.ZERO, byQty(p, q), p == null)
+            return@forEach
+        }
         // a part longer than the sheet is not left out of the price: a sheet of its own each (bought longer or joined)
         val n = l.sheets.size + l.unplaced.size
         // every part of this board on remnants: no sheet bought, no line (and no "price missing" for it)
         if (n == 0) return@forEach
         lines += CostLine("mat", l.mat, n.toDouble(), "sheet", p ?: BigInteger.ZERO, (p ?: BigInteger.ZERO) * BigInteger.valueOf(n.toLong()), p == null)
     }
-    // kitchens: the worktop as one simple item by the running metre (plan section 7; joints and cut-outs in Stage 1b)
-    val wtMm = fs.filter { it.kind == "kitchen" }.sumOf { f -> worktopRuns(f).values.sum() } +
-        // a table's or bar counter's top of worktop board
-        fs.sumOf { f -> f.modules.sumOf { itemWorktopMm(it) } }
-    if (wtMm > 0) {
-        val p = money(mat("wt38")?.price)
-        lines += CostLine("mat", "wt38", wtMm / 1000.0, "m", p ?: BigInteger.ZERO,
+    // kitchens: the worktop as one simple item by the running metre (plan section 7; joints and cut-outs in Stage 1b);
+    // each piece its own worktop (Look.kt; "wt38" before 25 Oct 2026)
+    val wt = LinkedHashMap<String, Int>()
+    fs.forEach { f ->
+        val mm = (if (f.kind == "kitchen") worktopRuns(f).values.sum() else 0) +
+            // a table's or bar counter's top of worktop board
+            f.modules.sumOf { itemWorktopMm(it) }
+        if (mm > 0) wt[worktopOf(f)] = (wt[worktopOf(f)] ?: 0) + mm
+    }
+    wt.forEach { (id, wtMm) ->
+        val p = money(mat(id)?.price)
+        lines += CostLine("mat", id, wtMm / 1000.0, "m", p ?: BigInteger.ZERO,
             java.math.BigDecimal(p ?: BigInteger.ZERO).multiply(java.math.BigDecimal(wtMm)).divide(java.math.BigDecimal(1000), 0, RoundingMode.HALF_UP).toBigInteger(), p == null)
     }
-    // the backsplash panel, by the running metre like the worktop
-    val spMm = fs.filter { it.kind == "kitchen" && (it.kx?.splash ?: 0) > 0 }.sumOf { splashMm(it) }
-    if (spMm > 0) {
-        val sp = mats.firstOrNull { it.kind == "splash" }
-        val p = money(sp?.price)
-        lines += CostLine("mat", sp?.id ?: "splash6", spMm / 1000.0, "m", p ?: BigInteger.ZERO,
-            java.math.BigDecimal(p ?: BigInteger.ZERO).multiply(java.math.BigDecimal(spMm)).divide(java.math.BigDecimal(1000), 0, RoundingMode.HALF_UP).toBigInteger(), p == null)
+    // the backsplash, by the running metre like the worktop, or by its area (skinali, tile); each kitchen its own
+    val sp = LinkedHashMap<String, Pair<Mat?, LongArray>>()   // id → the board, (mm, mm²)
+    fs.filter { it.kind == "kitchen" && (it.kx?.splash ?: 0) > 0 }.forEach { f ->
+        val m = splashOf(f, mats); val mm = splashMm(f)
+        if (mm <= 0) return@forEach
+        val e = sp.getOrPut(m?.id ?: "splash6") { m to LongArray(2) }
+        e.second[0] += mm.toLong(); e.second[1] += mm.toLong() * (f.kx?.splash ?: 0)
+    }
+    sp.forEach { (id, e) ->
+        val (m, v) = e
+        val p = money(m?.price)
+        if (m?.byArea == true) { val q = areaM2(v[1]); lines += CostLine("mat", id, q, "m2", p ?: BigInteger.ZERO, byQty(p, q), p == null) }
+        else lines += CostLine("mat", id, v[0] / 1000.0, "m", p ?: BigInteger.ZERO,
+            java.math.BigDecimal(p ?: BigInteger.ZERO).multiply(java.math.BigDecimal(v[0])).divide(java.math.BigDecimal(1000), 0, RoundingMode.HALF_UP).toBigInteger(), p == null)
     }
     val (thick, thin) = bandMetres(rows)
     listOf("band2" to thick, "band04" to thin).filter { it.second > 0 }.forEach { (id, m) ->
@@ -67,8 +95,17 @@ fun costOf(fs: List<Furniture>, ws: Workshop, mats: List<Mat>, hws: List<Hw>, or
     val counts = LinkedHashMap<Pair<String, Hw?>, Int>()
     hardware(fs, ws).forEach { (k, v) -> counts[k to usualHw(hws, k)] = v }
     fs.forEach { f ->
-        val own = hws.firstOrNull { it.id == f.handle && it.kind == "handle" } ?: return@forEach
         val usual = "handle" to usualHw(hws, "handle")
+        // long verticals (Look.kt): each handle by its front's height
+        if (f.handle == LONG_V) {
+            val n = minOf(hardware(listOf(f), ws)["handle"] ?: 0, counts[usual] ?: 0)
+            if (n <= 0) return@forEach
+            val ids = longHandleIds(f, ws).let { it.take(n) + List(maxOf(0, n - it.size)) { "handleLong" } }
+            counts[usual] = (counts[usual] ?: 0) - n
+            ids.forEach { id -> val k = "handle" to (hws.firstOrNull { it.id == id && it.kind == "handle" } ?: usual.second); counts[k] = (counts[k] ?: 0) + 1 }
+            return@forEach
+        }
+        val own = hws.firstOrNull { it.id == f.handle && it.kind == "handle" } ?: return@forEach
         val n = minOf(hardware(listOf(f), ws)["handle"] ?: 0, counts[usual] ?: 0)
         if (n <= 0 || own == usual.second) return@forEach
         counts[usual] = (counts[usual] ?: 0) - n

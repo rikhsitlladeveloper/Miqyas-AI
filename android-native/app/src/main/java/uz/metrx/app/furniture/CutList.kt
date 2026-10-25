@@ -8,15 +8,16 @@ package uz.metrx.app.furniture
 /** One cut list line: [p] the part (finished size), [cutL] × [cutW] what the saw cuts, [mat] the material id. */
 data class CutRow(val p: FPart, val mat: String, val cutL: Int, val cutW: Int)
 
-/** Which material a role uses in a piece of furniture. */
-fun matFor(role: String, m: FMats) = when (role) { "front" -> m.front; "back" -> m.back; else -> m.carcass }
+/** Which material a role uses in a piece of furniture; [upper] fronts take a two-tone kitchen's upper board ([FMats.frontUp]). */
+fun matFor(role: String, m: FMats, upper: Boolean = false) = when (role) { "front" -> if (upper) m.frontUp ?: m.front else m.front; "back" -> m.back; else -> m.carcass }
 
 /** Every part of an order's furniture, equal ones (same part, size, banding and material) on one line. */
 fun cutList(fs: List<Furniture>, ws: Workshop): List<CutRow> {
     val rows = LinkedHashMap<Pair<String, FPart>, Int>()
     fs.forEach { f ->
-        (f.modules.flatMap { m -> partsOf(m, wsOf(f, ws)) } + extrasParts(f, ws)).forEach { p ->
-            val k = matFor(p.role, f.mats) to p.copy(mod = "", qty = 0)
+        // the upper end panels go with the upper fronts
+        (f.modules.flatMap { m -> partsOf(m, wsOf(f, ws)).map { it to isUpperFront(f, m) } } + extrasParts(f, ws).map { it to (it.key == "fp.endUp") }).forEach { (p, up) ->
+            val k = matFor(p.role, f.mats, up) to p.copy(mod = "", qty = 0)
             rows[k] = (rows[k] ?: 0) + p.qty
         }
     }
