@@ -141,6 +141,8 @@ struct Module: Codable, Equatable, Identifiable {
         app = c.v(.app, ""); sideL = c.v(.sideL, true); sideR = c.v(.sideR, true); slide = c.v(.slide, nil)
         base = c.v(.base, nil); led = c.v(.led, false); opt = c.v(.opt, nil); noHandle = c.v(.noHandle, [])
     }
+    // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
+    enum CodingKeys: String, CodingKey { case id, type, w, h, d, x, wall, elev, fronts, inserts, sections, legs, soft, handles, label, app, sideL, sideR, slide, base, led, opt, noHandle }
     /// The synthesized form, with noHandle written only when set.
     func encode(to e: Encoder) throws {
         var c = e.container(keyedBy: CodingKeys.self)
@@ -218,6 +220,8 @@ struct Insert: Codable, Equatable, Hashable {
         let c = try d.container(keyedBy: CodingKeys.self)
         kind = c.v(.kind, "shelf"); pos = c.v(.pos, 0); qty = c.v(.qty, 1); h = c.v(.h, 0); push = c.v(.push, false)
     }
+    // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
+    enum CodingKeys: String, CodingKey { case kind, pos, qty, h, push }
     /// The synthesized form, with push written only when set.
     func encode(to e: Encoder) throws {
         var c = e.container(keyedBy: CodingKeys.self)
@@ -255,6 +259,8 @@ struct Section: Codable, Equatable, Hashable {
         hinge = c.v(.hinge, ""); blind = c.v(.blind, 0); face = c.v(.face, "")
         noHandle = c.v(.noHandle, []); soft = c.v(.soft, nil)
     }
+    // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
+    enum CodingKeys: String, CodingKey { case w, fronts, inserts, lock, knee, hinge, blind, face, noHandle, soft }
     /// The synthesized form, with noHandle and soft written only when set.
     func encode(to e: Encoder) throws {
         var c = e.container(keyedBy: CodingKeys.self)
