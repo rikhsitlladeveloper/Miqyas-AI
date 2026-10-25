@@ -127,9 +127,12 @@ final class CrownBedPriceTests: XCTestCase {
         XCTAssertEqual(lookHardware(atWall, ws)["softPanel"], 2500 * 1300)
         var out = on; out.pose = Pose("A", 1000, 600)
         XCTAssertNil(lookHardware(out, ws)["softPanel"])
-        // its LED along the panel's top
+        // its LED along the panel's top, only when switched on, and never without the panel
+        XCTAssertNil(lookHardware(on, ws)["led"]); XCTAssertNil(lookHardware(on, ws)["ledPsu"])
         let lit = look(on) { $0.led = true }
         XCTAssertEqual(lookHardware(lit, ws)["led"], 2500); XCTAssertEqual(lookHardware(lit, ws)["ledPsu"], 1)
+        let bare = look(bed()) { $0.led = true }
+        XCTAssertNil(lookHardware(bare, ws)["led"]); XCTAssertNil(lookHardware(bare, ws)["ledPsu"])
         XCTAssertNil(lookHardware(bed(), ws)["softPanel"])
         // one rule for the 3D and the price
         XCTAssertEqual(bedPanelSpan(on.modules[0], -1000, 1e9), p)

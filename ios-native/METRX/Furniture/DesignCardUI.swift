@@ -401,7 +401,7 @@ private struct DzHandles: View {
     }
 }
 
-/// A bed: the fabric, the headboard, the soft wall panel.
+/// A bed: the fabric, the headboard, the soft wall panel and, with it, its LED.
 private struct DzBed: View {
     let p: Project
     let f: Furniture
@@ -419,6 +419,10 @@ private struct DzBed: View {
                 dzLook(pid, fid) { x in var n = x; n.head = v; return n }
             }
             FToggle(label: tr("lk.panel"), on: l.panel, id: "lk.panel") { dzLook(pid, fid) { x in var n = x; n.panel.toggle(); return n } }
+            // the LED strip over the wall panel (Geo/ItemsScene3D.swift wallPanel; priced in Core/PieceLook.swift lookHardware)
+            if l.panel {
+                FToggle(label: tr("kx.led"), on: l.led, id: "lk.bedLed") { dzLook(pid, fid) { x in var n = x; n.led.toggle(); return n } }
+            }
             if f.modules.contains(where: { $0.type == "bed" && $0.opt?.bed == "legs" }) { DzBedFoot(p: p, f: f) }
         }
     }

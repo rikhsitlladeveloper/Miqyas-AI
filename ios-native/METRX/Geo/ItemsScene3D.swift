@@ -459,7 +459,8 @@ extension FBuilder {
     }
 
     /// The soft wall panel behind bed m (its frame f on wall w): pads of the lighter fabric (panelPads), the wood
-    /// accent's cap over them and the LED on it; on a strong phone its glow up the wall. Boxes in the 2D drawings.
+    /// accent's cap over them and, when PieceLook.led is on, the LED on it and on a strong phone its glow up the wall.
+    /// Boxes in the 2D drawings.
     private func wallPanel(_ w: WallBasis, _ m: Module, _ f: FFrame) {
         let o = m.opt ?? ItemOpt()
         let W = Double(m.w), hb = Double(max(o.hb, m.h + 100))
@@ -471,6 +472,7 @@ extension FBuilder {
         }
         let a0 = span.a0 - (span.a0 < -1 ? 20 : 0), a1 = span.a1 + (span.a1 > W + 1 ? 20 : 0), y = span.y1
         fbox(p("accent"), f, a0 / 1000, y / 1000, 0, (a1 - a0) / 1000, 0.03, 0.07, true)
+        guard design?.led == true else { return }
         fbox(p("led"), f, (a0 + 10) / 1000, (y + 30) / 1000, 0.05, (a1 - a0 - 20) / 1000, 0.006, 0.012)
         guard fancy && detail == .high else { return }
         // its light up the wall: three faint planes, the brightest at the bottom (mockup glow, upwards)

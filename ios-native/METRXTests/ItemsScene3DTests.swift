@@ -69,10 +69,17 @@ final class ItemsScene3DTests: XCTestCase {
         XCTAssertTrue(faces(build(off, .low), l["fabric2"]).isEmpty)
         XCTAssertFalse(faces(build(on, .low), l["fabric2"]).isEmpty)
         XCTAssertTrue(faces(build(off), l["led"]).isEmpty)
-        XCTAssertFalse(faces(build(on), l["led"]).isEmpty)
+        // its LED and glow only with the LED switched on
+        XCTAssertTrue(faces(build(on), l["led"]).isEmpty)
+        XCTAssertTrue(faces(build(on), l["glow"]).isEmpty)
+        let lit = look(on) { $0.led = true }
+        XCTAssertFalse(faces(build(lit), l["led"]).isEmpty)
+        XCTAssertFalse(faces(build(lit, .low), l["led"]).isEmpty)
+        // no LED without the panel, even switched on
+        XCTAssertTrue(faces(build(look(off) { $0.led = true }), l["led"]).isEmpty)
         // its glow up the wall on a strong phone only
-        XCTAssertFalse(faces(build(on), l["glow"]).isEmpty)
-        XCTAssertTrue(faces(build(on, .low), l["glow"]).isEmpty)
+        XCTAssertFalse(faces(build(lit), l["glow"]).isEmpty)
+        XCTAssertTrue(faces(build(lit, .low), l["glow"]).isEmpty)
         // the 2D drawings show it as boxes (a gallery card fits round it)
         let flat = build(on, .flat)
         XCTAssertFalse(faces(flat, l["fabric2"]).isEmpty)
