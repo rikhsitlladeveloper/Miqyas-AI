@@ -24,7 +24,9 @@ class SlideTest {
         assertTrue(ps.none { it.key == "fp.door" })
         val fill = ps.single { it.key == "fp.slidePanel" }
         assertEquals(2, fill.qty)                                         // the mirror door is not a board
-        assertEquals(slidePanel(m, 16).second, fill.L)
+        // below the split rail; over it every door's own panel (KupeBoardDoorsTest)
+        assertEquals(kupeFillH(m, 16).first, fill.L)
+        assertEquals(3, ps.single { it.key == "fp.slideUp" }.qty)
         // the inside is shallower by the tracks
         assertTrue(ps.filter { it.key == "fp.shelf" }.all { it.W == 600 - SLIDE_D - 20 })
     }

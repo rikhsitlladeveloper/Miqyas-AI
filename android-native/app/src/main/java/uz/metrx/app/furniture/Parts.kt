@@ -144,13 +144,15 @@ fun partsOf(m: Module, ws: Workshop): List<FPart> {
             }
             // the board fillings of the sliding doors (mirror and glass are bought by the m², in the hardware list)
             m.slide?.let { sl ->
-                val (pw, ph) = slidePanel(m, t)
-                val boards = (0 until sl.n.coerceIn(2, 4)).count { sl.panel(it) == "ldsp" }
-                if (boards > 0) out += part("fp.slidePanel", id, "front", ph, pw, boards, grain = true)
-                // a mirror or lacobel door's filling over its split rail: the upper fronts' board (CutList.kt partMat)
-                val up = kupeFillH(m, t).second
-                val glazed = sl.n.coerceIn(2, 4) - boards
-                if (up > 0 && glazed > 0) out += part("fp.slideUp", id, "front", up, pw, glazed, grain = true)
+                val (pw, _) = slidePanel(m, t)
+                val n2 = sl.n.coerceIn(2, 4)
+                val boards = (0 until n2).count { sl.panel(it) == "ldsp" }
+                // as the 3D draws them: a board door's own board below its split rail (the whole filling without one)
+                val (low, up) = kupeFillH(m, t)
+                if (boards > 0) out += part("fp.slidePanel", id, "front", low, pw, boards, grain = true)
+                // every door's filling over its split rail, of the upper fronts' board (CutList.kt partMat): a mirror's
+                // or lacobel's, and a board door's too, its own panel even of the same board (the rail holds two)
+                if (up > 0) out += part("fp.slideUp", id, "front", up, pw, n2, grain = true)
             }
         }
         "base" -> {

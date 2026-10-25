@@ -1250,7 +1250,7 @@ internal class Builder3(
                 }
             }
             if (split == null) fill(rb, dh - rt, sl.panel(j), fr)
-            else { fill(rb, split - 7, sl.panel(j), fr); fill(split + 7, dh - rt, "ldsp", "frontUp", if (sl.panel(j) == "ldsp") "fp.slidePanel" else "fp.slideUp") }
+            else { fill(rb, split - 7, sl.panel(j), fr); fill(split + 7, dh - rt, "ldsp", "frontUp", "fp.slideUp") }
             picks += Pick(key, ff.obb(0.0, dw, 0.0, dh, 0.0, pd))
         }
     }

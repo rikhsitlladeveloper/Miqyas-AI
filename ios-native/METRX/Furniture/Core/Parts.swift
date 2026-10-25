@@ -161,13 +161,15 @@ func partsOf(_ m: Module, _ ws: Workshop) -> [FPart] {
         }
         // the board fillings of the sliding doors (mirror and glass are bought by the m², in the hardware list)
         if let sl = m.slide {
-            let (pw, ph) = slidePanel(m, t)
-            let boards = (0..<min(4, max(2, sl.n))).filter { sl.panel($0) == "ldsp" }.count
-            if boards > 0 { out.append(part("fp.slidePanel", id, "front", ph, pw, boards, grain: true)) }
-            // a mirror or lacobel door's filling over its split rail: the upper fronts' board (CutList.swift partMat)
-            let up = kupeFillH(m, t).up
-            let glazed = min(4, max(2, sl.n)) - boards
-            if up > 0 && glazed > 0 { out.append(part("fp.slideUp", id, "front", up, pw, glazed, grain: true)) }
+            let pw = slidePanel(m, t).0
+            let n2 = min(4, max(2, sl.n))
+            let boards = (0..<n2).filter { sl.panel($0) == "ldsp" }.count
+            // as the 3D draws them: a board door's own board below its split rail (the whole filling without one)
+            let fill = kupeFillH(m, t)
+            if boards > 0 { out.append(part("fp.slidePanel", id, "front", fill.low, pw, boards, grain: true)) }
+            // every door's filling over its split rail, of the upper fronts' board (CutList.swift partMat): a mirror's or
+            // lacobel's, and a board door's too, its own panel even of the same board (the rail holds two)
+            if fill.up > 0 { out.append(part("fp.slideUp", id, "front", fill.up, pw, n2, grain: true)) }
         }
     case "base":
         out.append(part("fp.bottom", id, "carcass", m.w, m.d, 1, THICK))

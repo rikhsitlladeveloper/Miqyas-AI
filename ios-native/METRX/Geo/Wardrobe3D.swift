@@ -75,7 +75,7 @@ extension FBuilder {
             let s = sp / 1000, sr = KUPE_SR / 1000
             fbox(pm, f, pw, s - sr / 2, 0.006, fw, sr, pd - 0.012, true)
             kupeFill(f, fills.low, pw, rb, fw, s - sr / 2 - rb, fz)
-            kupeFill(f, fills.up ?? fills.low, pw, s + sr / 2, fw, H - rt - s - sr / 2, fz, panel == "ldsp" ? "fp.slidePanel" : "fp.slideUp")
+            kupeFill(f, fills.up ?? fills.low, pw, s + sr / 2, fw, H - rt - s - sr / 2, fz, "fp.slideUp")
         } else {
             kupeFill(f, fills.low, pw, rb, fw, H - rt - rb, fz)
         }

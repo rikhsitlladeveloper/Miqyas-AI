@@ -63,7 +63,8 @@ final class KupeBunkBoardsTests: XCTestCase {
         XCTAssertEqual(hardware([k], ws)["mirror"], 769 * 1881)
         XCTAssertEqual(line(k, "mirror")!.qty, 1.45, accuracy: 1e-9); XCTAssertEqual(line(k, "mirror")?.amount, 362500)
         let up = part(m, "fp.slideUp")!
-        XCTAssertEqual([up.L, up.W, up.qty], [393, 769, 1])
+        // every door's (the board doors' too: KupeBoardDoorsTests)
+        XCTAssertEqual([up.L, up.W, up.qty], [393, 769, 3])
         XCTAssertEqual(mats(k, "fp.slideUp"), ["ldsp18a"])
         XCTAssertEqual(part(m, "fp.slidePanel")?.qty, 2)
         // lacobel the same
@@ -78,8 +79,8 @@ final class KupeBunkBoardsTests: XCTestCase {
         XCTAssertNil(kupeSplit(low.modules[0], ws.t))
         XCTAssertEqual(kupeFillH(low.modules[0], ws.t).low, slidePanel(low.modules[0], ws.t).1); XCTAssertEqual(kupeFillH(low.modules[0], ws.t).up, 0)
         XCTAssertNil(part(low.modules[0], "fp.slideUp"))
-        // all board doors: no upper part of their own
-        XCTAssertNil(part(withMiddleFill(k, "ldsp").modules[0], "fp.slideUp"))
+        // all board doors: an upper part each too, as the 3D draws them (KupeBoardDoorsTests)
+        XCTAssertEqual(part(withMiddleFill(k, "ldsp").modules[0], "fp.slideUp")?.qty, 3)
     }
 
     func testABunksLadderAndGuardsInTheWoodAccent() {
