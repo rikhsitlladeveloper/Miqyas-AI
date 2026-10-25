@@ -232,6 +232,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.FGallery -> uz.metrx.app.ui.furniture.FGalleryScreen(route)
                                     is Route.FSteps -> uz.metrx.app.ui.furniture.FStepsScreen(route)
                                     is Route.FWhere -> uz.metrx.app.ui.furniture.FWhereScreen(route)
+                                    is Route.FStyle -> uz.metrx.app.ui.furniture.FStyleScreen(route)
                                     is Route.FPlace -> uz.metrx.app.ui.furniture.FPlaceScreen(route)
                                     is Route.TGallery -> uz.metrx.app.ui.tiles.TGalleryScreen(route)
                                     is Route.TSteps -> uz.metrx.app.ui.tiles.TStepsScreen(route)

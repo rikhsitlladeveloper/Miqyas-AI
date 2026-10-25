@@ -51,6 +51,8 @@ sealed interface Route {
     data class FSteps(val pid: String, val model: String, val fid: String? = null, val vals: String? = null) : Route
     data class FWhere(val pid: String, val model: String, val vals: String) : Route
     data class FPlace(val pid: String, val fid: String?, val rid: String, val model: String? = null, val vals: String? = null) : Route
+    /** A furniture order's design style, the preset new pieces start with (furniture/Look.kt); [fromNew]: a new order's first step, the gallery next. */
+    data class FStyle(val pid: String, val fromNew: Boolean = false) : Route
     /**
      * A tiler's order: the gallery of layouts ([rid] the room it is for, [fromNew] right after a new order); a layout's
      * steps (a new one from gallery card [model], or layout [lid]); a room's tiles in 3D ([rid]), or a layout without
@@ -322,6 +324,7 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.FGallery -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
                     is Route.FSteps -> store.get(r.pid)?.let { p -> r.fid == null || p.furniture.any { it.id == r.fid } } == true
                     is Route.FWhere -> store.get(r.pid) != null
+                    is Route.FStyle -> store.get(r.pid) != null
                     is Route.FPlace -> store.get(r.pid)?.let { p -> (r.fid == null || p.furniture.any { it.id == r.fid }) && p.rooms.any { it.id == r.rid } } == true
                     is Route.TGallery -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
                     is Route.TSteps -> store.get(r.pid)?.let { p -> r.lid == null || p.tiles.any { it.id == r.lid } } == true

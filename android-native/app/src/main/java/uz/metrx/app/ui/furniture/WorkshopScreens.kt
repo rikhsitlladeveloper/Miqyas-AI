@@ -250,7 +250,7 @@ private fun matSub(m: Mat): String = when (m.kind) {
 }
 
 @Composable
-private fun unitOf(m: Mat) = tr(if (m.kind == "band" || m.kind == "worktop" || m.kind == "splash") "mt.perM" else "mt.perSheet")
+private fun unitOf(m: Mat) = tr(if (m.byArea) "mt.perM2" else if (m.kind == "band" || m.kind == "worktop" || m.kind == "splash") "mt.perM" else "mt.perSheet")
 
 @Composable
 private fun priceOf(p: String, en: Boolean) = p.toBigIntegerOrNull()?.let { moneyStr(it, 0, en) } ?: tr("mt.noPrice")
@@ -336,13 +336,18 @@ private fun MatSheet(id: String?) {
     var price by rememberSaveable { mutableStateOf(edit?.price ?: "") }
     var grain by rememberSaveable { mutableStateOf(edit?.grain ?: false) }
     var rgb by rememberSaveable { mutableStateOf(edit?.rgb ?: "#F5F5F2") }
+    // a board or a backsplash priced by the m² (the design decors, Decors.kt) or by the sheet / metre
+    var per by rememberSaveable { mutableStateOf(edit?.per ?: "") }
     val band = kind == "band"
+    val areaOk = kind == "board" || kind == "splash"
     val ti = t.toIntOrNull(); val li = l.toIntOrNull(); val wi = w.toIntOrNull()
     val ok = name.isNotBlank() && ti != null && ti > 0 && (band || (li != null && li in 300..6000 && wi != null && wi in 300..3000)) &&
         (price.isEmpty() || price.replace(" ", "").all(Char::isDigit))
     fun save() {
         if (!ok) return
-        val m = Mat(edit?.id ?: uid(), kind, name.trim(), ti!!, if (band) 0 else li!!, if (band) 0 else wi!!, price.replace(" ", ""), grain && kind == "board", rgb, edit?.preset ?: false)
+        // the fields this form does not show (the decor's finish and texture) stay as they were
+        val m = (edit ?: Mat(uid(), kind, "", 16)).copy(kind = kind, name = name.trim(), t = ti!!, l = if (band) 0 else li!!, w = if (band) 0 else wi!!,
+            price = price.replace(" ", ""), grain = grain && kind == "board", rgb = rgb, per = if (areaOk) per else "")
         s.setMatList(if (edit != null) s.mats.map { if (it.id == m.id) m else it } else s.mats + m)
         app.sheet = null; app.say("wk.saved")
     }
@@ -360,8 +365,9 @@ private fun MatSheet(id: String?) {
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GField(tr("mt.t"), t, { t = it.filter(Char::isDigit) }, "16", number = true, labelRight = if (band) "0,1 " + tr("u.mm") else tr("u.mm"), modifier = Modifier.weight(1f))
             GField(tr("mt.price"), price, { price = it.filter { c -> c.isDigit() } }, "0", number = true, money = true,
-                labelRight = tr(if (band || kind == "worktop" || kind == "splash") "mt.perM" else "mt.perSheet"), modifier = Modifier.weight(1f))
+                labelRight = tr(if (areaOk && per == "m2") "mt.perM2" else if (band || kind == "worktop" || kind == "splash") "mt.perM" else "mt.perSheet"), modifier = Modifier.weight(1f))
         }
+        if (areaOk) Seg(listOf("" to tr(if (kind == "splash") "mt.perM" else "mt.perSheet"), "m2" to tr("mt.perM2")), per) { per = it }
         if (!band) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GField(tr("mt.l"), l, { l = it.filter(Char::isDigit) }, "2800", number = true, labelRight = tr("u.mm"), modifier = Modifier.weight(1f))
             GField(tr("mt.w"), w, { w = it.filter(Char::isDigit) }, "2070", number = true, labelRight = tr("u.mm"), modifier = Modifier.weight(1f))
@@ -385,7 +391,10 @@ private fun MatSheet(id: String?) {
 
 private val HW_KINDS = listOf("hingeSoft", "hinge", "runner", "handle", "push", "leg", "pin", "rail", "railEnd", "confirmat", "hanger", "lift",
     "slideTrack", "slideV", "slideH", "slideRoller", "mirror", "glass",
-    "wtJoint", "wtMitre", "wtCut", "wtEnd", "plinthK", "plinthCorner", "cornice", "led", "ledPsu")
+    "wtJoint", "wtMitre", "wtCut", "wtEnd", "plinthK", "plinthCorner", "cornice", "led", "ledPsu",
+    // the design options (Look.kt)
+    "gola", "frontShaker", "frontFluted", "legMetal", "ceilUnit", "fglass", "waterfall", "mirrorBronze", "mirrorGraphite", "ledSensor",
+    "headSoft", "headTufted", "softPanel")
 
 /** "so‘m / m", "so‘m / m²" or "so‘m / dona" for a hardware kind. */
 private fun perKey(kind: String) = when (uz.metrx.app.furniture.hwUnit(kind)) { "m" -> "mt.perM"; "m2" -> "mt.perM2"; else -> "mt.perPc" }

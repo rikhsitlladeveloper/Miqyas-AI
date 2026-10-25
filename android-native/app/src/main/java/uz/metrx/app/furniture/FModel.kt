@@ -45,8 +45,14 @@ data class Furniture(
     val baseH: Int? = null,
     /** Corner pieces without a room: "L" the corner at the left end of the main wall (made-up walls D, A), "" at the right. */
     val hand: String = "",
-    /** The handles' hardware id for the whole piece ("Change for all"); "" the workshop's usual handle. */
-    val handle: String = ""
+    /**
+     * The handles' hardware id for the whole piece ("Change for all"); "" the workshop's usual handle; [GOLA] a kitchen's
+     * Gola profile instead of handles; [LONG_V] long verticals (Look.kt longHandleIds).
+     */
+    val handle: String = "",
+    /** The design: front style, handle colour, crown, legs, mirror tint, bed fabric… (Look.kt); null: as before 25 Oct 2026. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val look: Look? = null
 )
 
 /** The workshop's rules as [f] is built: a kitchen with its own legs' height. */
@@ -59,9 +65,16 @@ fun wsOf(f: Furniture, ws: Workshop): Workshop = f.baseH?.takeIf { f.kind == "ki
 @Serializable
 data class Pose(val ref: String, val a: Int, val n: Int, val deg: Int = 0)
 
-/** Material ids (from the workshop's list) for the carcass, the fronts and the back panel. */
+/**
+ * Material ids (from the workshop's list) for the carcass, the fronts and the back panel; a kitchen's upper fronts
+ * [frontUp] (two-tone; null: as [front]), its worktop [top] (null: "wt38") and backsplash [splash] (null: the list's
+ * first backsplash, as before 25 Oct 2026).
+ */
 @Serializable
-data class FMats(val carcass: String = "ldsp16w", val front: String = "ldsp16k", val back: String = "hdf3")
+data class FMats(val carcass: String = "ldsp16w", val front: String = "ldsp16k", val back: String = "hdf3",
+                 @EncodeDefault(EncodeDefault.Mode.NEVER) val frontUp: String? = null,
+                 @EncodeDefault(EncodeDefault.Mode.NEVER) val top: String? = null,
+                 @EncodeDefault(EncodeDefault.Mode.NEVER) val splash: String? = null)
 
 /**
  * One box. [type]: base (on legs, two rails on top), wall (hung), tall (on legs, full height), wardrobe (one carcass

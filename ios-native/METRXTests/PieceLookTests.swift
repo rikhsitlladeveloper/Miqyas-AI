@@ -40,7 +40,11 @@ final class PieceLookTests: XCTestCase {
 
     /* ---------------- JSON ---------------- */
 
-    private func encode<T: Encodable>(_ v: T) -> String { String(decoding: try! JSONEncoder().encode(v), as: UTF8.self) }
+    /// Keys sorted: JSONEncoder's own key order is not fixed from one call to the next (the app's fingerprint sorts too).
+    private func encode<T: Encodable>(_ v: T) -> String {
+        let e = JSONEncoder(); e.outputFormatting = [.sortedKeys]
+        return String(decoding: try! e.encode(v), as: UTF8.self)
+    }
     private func object(_ s: String) -> Any { try! JSONSerialization.jsonObject(with: Data(s.utf8)) }
     /// Android writes nulls (encodeDefaults); the iPhone leaves them out.
     private func noNulls(_ x: Any) -> Any {

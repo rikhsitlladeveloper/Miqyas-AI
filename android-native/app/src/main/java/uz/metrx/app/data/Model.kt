@@ -1,3 +1,5 @@
+@file:OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+
 package uz.metrx.app.data
 
 import kotlinx.serialization.Serializable
@@ -62,7 +64,10 @@ data class Project(
     /** Windows-and-doors orders: the windows and doors filling the rooms' openings, and those without a room (win/Win.kt). */
     val win: uz.metrx.app.win.WinOrder = uz.metrx.app.win.WinOrder(),
     /** Furniture orders (Advanced): when the parts were cut and the offcuts kept as remnants (0: not yet). */
-    val cutAt: Long = 0
+    val cutAt: Long = 0,
+    /** Furniture orders: the design style preset new pieces start with (furniture/Look.kt DESIGN_PRESETS; "" none). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val fstyle: String = ""
 ) {
     val isFurniture get() = industry == "furniture"
     /** A tiler's order (its own app: layouts in 3D, like the furniture maker's). */

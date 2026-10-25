@@ -296,11 +296,13 @@ internal fun DrawScope.drawRun(
         drawRect(GREY_LINE, Offset(x0, t), Size(run.upStart * lay.s, K_WALL_H * lay.s), style = Stroke(.8f, pathEffect = dash))
     }
     val front = hex(mats.firstOrNull { it.id == f.mats.front }?.rgb ?: "#CDBFAE")
+    // a two-tone kitchen's upper fronts, its own worktop and backsplash (Look.kt)
+    val frontUp = f.mats.frontUp?.let { id -> mats.firstOrNull { it.id == id }?.rgb }?.let { hex(it) } ?: front
     val carcass = hex(mats.firstOrNull { it.id == f.mats.carcass }?.rgb ?: "#F5F5F2")
-    val wtCol = hex(mats.firstOrNull { it.id == "wt38" }?.rgb ?: "#4B4F58", Color(0xFF4B4F58))
+    val wtCol = hex(mats.firstOrNull { it.id == uz.metrx.app.furniture.worktopOf(f) }?.rgb ?: "#4B4F58", Color(0xFF4B4F58))
     val mods = f.modules.filter { it.wall == run.wall }.sortedBy { if (isUpper(it)) 1 else 0 }
     val g = max(.8f, ws.gap10 / 10f * lay.s)
-    mods.forEach { m -> drawUnit(lay, m, ws, front, carcass, g) }
+    mods.forEach { m -> drawUnit(lay, m, ws, if (isUpper(m)) frontUp else front, carcass, g) }
     // the worktop over the lower row, and over the corner zone it turns into
     val wt = worktopTop(ws)
     val tops = mods.filter { !isUpper(it) && (it.type == "base" || it.type == "filler" || it.app == "dishwasher") }.map { it.x to it.x + it.w }.toMutableList()
@@ -309,13 +311,13 @@ internal fun DrawScope.drawRun(
     // extras (plan 1b-1): the backsplash over the worktop, the cornice on the wall units, the LED strip under them
     val kx = f.kx
     if (kx != null && !island) {
-        val spCol = hex(mats.firstOrNull { it.kind == "splash" }?.rgb ?: "#E8E2D8")
+        val spCol = hex(uz.metrx.app.furniture.splashOf(f, mats)?.rgb ?: "#E8E2D8")
         if (kx.splash > 0) tops.forEach { (a, b) ->
             drawRect(spCol, Offset(lay.x(a), lay.y(wt + kx.splash)), Size((b - a) * lay.s, kx.splash * lay.s))
             drawRect(GREY_LINE, Offset(lay.x(a), lay.y(wt + kx.splash)), Size((b - a) * lay.s, kx.splash * lay.s), style = Stroke(.6f))
         }
         mods.filter { it.type == "wall" }.forEach { m ->
-            if (kx.cornice) drawRect(front, Offset(lay.x(m.x), lay.y(m.elev + m.h + 60)), Size(m.w * lay.s, 60 * lay.s))
+            if (kx.cornice) drawRect(frontUp, Offset(lay.x(m.x), lay.y(m.elev + m.h + 60)), Size(m.w * lay.s, 60 * lay.s))
             if (kx.led) drawLine(Color(0xFFF2C94C), Offset(lay.x(m.x) + 1f, lay.y(m.elev) + 1f), Offset(lay.x(m.x + m.w) - 1f, lay.y(m.elev) + 1f), 1.6f)
         }
     }
@@ -564,6 +566,7 @@ fun KitchenScreen(rt: Route.Kitchen) {
                 }
                 if (sel != null) SelCard(p, f, sel, run)
                 ChecksCard(f, found) { id -> f.modules.firstOrNull { it.id == id }?.let { m -> if (m.wall != run.wall) app.setTop(rt.copy(wall = m.wall)); kit.sel = m.id } }
+                DesignCard(p, f)
                 ExtrasCard(p, f)
                 CostCard(p, f, ws, mats)
             }
@@ -1099,7 +1102,7 @@ private fun UnitFronts(m: Module, ws: Workshop, f: Furniture, onTap: (uz.metrx.a
     val mats = LocalApp.current.settings.mats
     val one = m.copy(x = 0, elev = 0, legs = false)
     val lay = KLay(one.w, one.h, 220f, false)
-    val front = hex(mats.firstOrNull { it.id == f.mats.front }?.rgb ?: "#CDBFAE")
+    val front = hex(mats.firstOrNull { it.id == uz.metrx.app.furniture.frontOf(f, m) }?.rgb ?: "#CDBFAE")
     val carcass = hex(mats.firstOrNull { it.id == f.mats.carcass }?.rgb ?: "#F5F5F2")
     Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
         Box(Modifier.fillMaxWidth(.62f).clip(RoundedCornerShape(16.dp)).background(PLAN_W).border(1.dp, G.rim, RoundedCornerShape(16.dp))) {

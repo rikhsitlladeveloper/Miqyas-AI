@@ -67,7 +67,8 @@ fun extrasHardware(f: Furniture): Map<String, Int> {
     // each worktop piece has two ends; a corner joins two of them
     val pieces = worktopRuns(f).values.count { it > 0 }
     add("wtEnd", 2 * pieces - 2 * joints)
-    if (x.plinth) { add("plinthK", plinthMm(f)); add("plinthCorner", joints) }
+    // on visible metal legs (Look.kt) there is no plinth
+    if (x.plinth && !metalLegs(f)) { add("plinthK", plinthMm(f)); add("plinthCorner", joints) }
     if (x.cornice) add("cornice", wallUnitsMm(f))
     if (x.led) { val mm = wallUnitsMm(f); add("led", mm); add("ledPsu", if (mm > 0) (mm + 4999) / 5000 else 0) }
     return n

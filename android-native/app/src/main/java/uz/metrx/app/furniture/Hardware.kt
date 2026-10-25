@@ -6,9 +6,10 @@ package uz.metrx.app.furniture
  */
 
 /** Kinds counted in millimetres and bought by the metre. */
-val METRE_KINDS = setOf("rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail")
+val METRE_KINDS = setOf("rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail", "gola", "ceilUnit")
 /** Kinds counted in square millimetres and bought by the m². */
-val AREA_KINDS = setOf("mirror", "glass", "glassShelf", "glassDoor")
+val AREA_KINDS = setOf("mirror", "glass", "glassShelf", "glassDoor", "frontShaker", "frontFluted", "fglass", "mirrorBronze", "mirrorGraphite",
+    "headSoft", "headTufted", "softPanel")
 
 /** How a kind is bought: "m", "m2" or "pcs" (the strings key fu.*). */
 fun hwUnit(kind: String) = when (kind) { in METRE_KINDS -> "m"; in AREA_KINDS -> "m2"; else -> "pcs" }
@@ -92,12 +93,17 @@ fun hardwareOf(m: Module, ws: Workshop, edge: Boolean = false): Map<String, Int>
     return n
 }
 
-/** An order's hardware, all modules added up. */
+/** An order's hardware, all modules added up; a piece's design changes and adds to it (Look.kt). */
 fun hardware(fs: List<Furniture>, ws: Workshop): Map<String, Int> {
     val n = LinkedHashMap<String, Int>()
     fs.forEach { f ->
-        f.modules.forEach { m -> hardwareOf(m, wsOf(f, ws), opensByEdge(f)).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v } }
+        f.modules.forEach { m ->
+            val h = LinkedHashMap(hardwareOf(m, wsOf(f, ws), opensByEdge(f)))
+            lookSwap(f, m, h, opensByEdge(f))
+            h.forEach { (k, v) -> n[k] = (n[k] ?: 0) + v }
+        }
         extrasHardware(f).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v }
+        lookHardware(f, ws).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v }
     }
     return n
 }

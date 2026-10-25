@@ -138,8 +138,16 @@ private fun Doc.materials(sn: Snap) {
             entries += Triple(t("wd.$role") + who, mat(id)?.let { presetName(it.id, it.name) } ?: id, mat(id)?.rgb)
         }
     }
-    if (sn.furniture.any { it.kind == "kitchen" }) mat("wt38")?.let { entries += Triple(t("mt.wtK"), presetName(it.id, it.name), it.rgb) }
-    if (sn.furniture.any { (it.kx?.splash ?: 0) > 0 }) mat("splash6")?.let { entries += Triple(t("mt.splashK"), presetName(it.id, it.name), it.rgb) }
+    // a two-tone kitchen's upper fronts; each kitchen's worktop and backsplash (Look.kt)
+    sn.furniture.filter { uz.metrx.app.furniture.isTwoTone(it) }.mapNotNull { it.mats.frontUp }.distinct().forEach { id ->
+        entries += Triple(t("lk.upFront"), mat(id)?.let { presetName(it.id, it.name) } ?: id, mat(id)?.rgb)
+    }
+    sn.furniture.filter { it.kind == "kitchen" }.map { uz.metrx.app.furniture.worktopOf(it) }.distinct().forEach { id ->
+        mat(id)?.let { entries += Triple(t("mt.wtK"), presetName(it.id, it.name), it.rgb) }
+    }
+    sn.furniture.filter { (it.kx?.splash ?: 0) > 0 }.map { it.mats.splash ?: "splash6" }.distinct().forEach { id ->
+        mat(id)?.let { entries += Triple(t("mt.splashK"), presetName(it.id, it.name), it.rgb) }
+    }
     if (sn.fhandles.isNotBlank() && sn.furniture.any { uz.metrx.app.furniture.hasHandles(it) }) entries += Triple(t("hk.handle"), presetName(null, sn.fhandles), null)
     if (entries.isEmpty()) return
     h2(t("fd.mats"))

@@ -1,5 +1,9 @@
+@file:OptIn(ExperimentalSerializationApi::class)
+
 package uz.metrx.app.furniture
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /*
@@ -42,12 +46,21 @@ data class Workshop(
 /**
  * A board or banding in the workshop's list. [kind] board (carcass/fronts), back, worktop (priced by the running metre), band; [t] thickness, mm (banding:
  * tenths, 20 = 2 mm); a sheet's [l] × [w]; [price] per sheet, or per metre for banding and worktops, smallest unit; [grain] keeps parts
- * along the sheet's length; [rgb] for drawings and 3D; [tex] its decor picture in the lit 3D (geo/Look.kt TEXTURES), null plain.
+ * along the sheet's length; [rgb] for drawings and 3D (geo/Look.kt draws [tex] with it).
+ * Added 25 Oct 2026, and written only when set (a list saved before, and an issued quote's materials, stay as they were):
+ * [finish] how the 3D shows it, "gloss", "matte", "wood", "stone" or "glass" ("" a plain board, matte); [tex] the
+ * texture id the 3D draws it with (Look.kt TEX_IDS; null: its colour only); [per] "m2" when [price] is per m² of its
+ * parts (fronts bought by the m²; a backsplash by its area) instead of per sheet or per metre.
  */
 @Serializable
 data class Mat(val id: String, val kind: String, val name: String, val t: Int, val l: Int = 2800, val w: Int = 2070,
                val price: String = "", val grain: Boolean = false, val rgb: String = "#F5F5F2", val preset: Boolean = false,
-               val tex: String? = null)
+               @EncodeDefault(EncodeDefault.Mode.NEVER) val finish: String = "",
+               @EncodeDefault(EncodeDefault.Mode.NEVER) val tex: String? = null,
+               @EncodeDefault(EncodeDefault.Mode.NEVER) val per: String = "") {
+    /** Priced by the m² of its parts (a backsplash: of its area). */
+    val byArea: Boolean get() = per == "m2"
+}
 
 /** A hardware item: [kind] says what the core counts it as; [price] per piece (per metre for rails, per pair for runners). */
 @Serializable
@@ -66,10 +79,10 @@ val MAT_PRESETS = listOf(
     Mat("splash6", "splash", "Stenovaya panel 6 mm (fartuk)", 6, 4100, 600, price = "190000", rgb = "#E8E2D8", preset = true),
     Mat("band2", "band", "Kromka PVX 2 mm", 20, 0, 0, price = "4500", preset = true),
     Mat("band04", "band", "Kromka PVX 0,4 mm", 4, 0, 0, price = "1500", preset = true)
-)
+) + DECOR_PRESETS
 
 /** The handle presets beyond the usual skoba: offered for a whole order, never the usual price. */
-val HANDLE_MORE = setOf("handleLong", "handleKnob")
+val HANDLE_MORE = setOf("handleLong", "handleKnob", "handle640", "handle1024")
 
 val HW_PRESETS = listOf(
     Hw("hingeSoft", "hingeSoft", "Petlya, yumshoq yopilish", "18000", true),
@@ -114,5 +127,21 @@ val HW_PRESETS = listOf(
     Hw("hook", "hook", "Kiyim ilgagi", "15000", true),
     Hw("clip", "clip", "Oyna ushlagichi", "5000", true),
     Hw("glassShelf", "glassShelf", "Shisha tokcha 6 mm (m²)", "300000", true),
-    Hw("glassDoor", "glassDoor", "Shisha eshik, alyumin ramka (m²)", "900000", true)
+    Hw("glassDoor", "glassDoor", "Shisha eshik, alyumin ramka (m²)", "900000", true),
+    // the design options (modern 3D part 2, 25 Oct 2026; Look.kt): samples, sources in design/furniture/uz-market-research.md
+    Hw("handle640", "handle", "Tutqich uzun 640 (vertikal)", "85000", true),
+    Hw("handle1024", "handle", "Tutqich uzun 1024 (vertikal)", "130000", true),
+    Hw("gola", "gola", "Gola profili (metr)", "150000", true),
+    Hw("frontShaker", "frontShaker", "Frezerli fasad, neoklassika (m²)", "100000", true),
+    Hw("frontFluted", "frontFluted", "Reykali (rifli) fasad (m²)", "250000", true),
+    Hw("legMetal", "legMetal", "Metall oyoq, ko‘rinadigan", "45000", true),
+    Hw("ceilUnit", "ceilUnit", "Shiftgacha modullar qatori (metr)", "800000", true),
+    Hw("fglass", "fglass", "Rifli shisha, vitrina (m²)", "450000", true),
+    Hw("waterfall", "waterfall", "Orol stoleshnitsasining sharshara uchi", "1200000", true),
+    Hw("mirrorBronze", "mirrorBronze", "Oyna bronza 4 mm (m²)", "350000", true),
+    Hw("mirrorGraphite", "mirrorGraphite", "Oyna grafit 4 mm (m²)", "350000", true),
+    Hw("ledSensor", "ledSensor", "LED eshik datchigi", "60000", true),
+    Hw("headSoft", "headSoft", "Yumshoq bosh qism (m²)", "900000", true),
+    Hw("headTufted", "headTufted", "Karetka tikuvli bosh qism (m²)", "1300000", true),
+    Hw("softPanel", "softPanel", "Yumshoq devor paneli (m²)", "750000", true)
 )

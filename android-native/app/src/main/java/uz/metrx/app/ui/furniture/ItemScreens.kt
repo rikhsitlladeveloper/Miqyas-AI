@@ -147,6 +147,7 @@ fun ItemScreen(rt: Route.Wardrobe, p: Project, f: Furniture) {
                 Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     MatStep(p, f, mats)
                 }
+                DesignCard(p, f)
                 CostCard(p, f, ws, mats)
             }
             LivePrice(p, f)
