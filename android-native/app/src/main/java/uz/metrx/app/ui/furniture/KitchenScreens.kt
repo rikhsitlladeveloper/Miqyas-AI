@@ -361,7 +361,8 @@ private fun DrawScope.drawUnit(lay: KLay, m: Module, ws: Workshop, front: Color,
             "dishwasher" -> {
                 drawRect(front, Offset(l + g / 2, t + g / 2), Size(w - g, h - g))
                 drawRect(onF, Offset(l + g / 2, t + g / 2), Size(w - g, h - g), style = Stroke(.8f))
-                drawLine(onF, Offset(l + w * .3f, t + h * .1f), Offset(r - w * .3f, t + h * .1f), 1.4f, StrokeCap.Round)
+                if (uz.metrx.app.furniture.hasHandle(m, "f0")) drawLine(onF, Offset(l + w * .3f, t + h * .1f), Offset(r - w * .3f, t + h * .1f), 1.4f, StrokeCap.Round)
+                else pushMark(Offset((l + r) / 2, t + h * .1f), onF, min(2.4f, w * .08f))
             }
             else -> drawRect(GREY_LINE, Offset(l + 1f, t + 1f), Size(w - 2f, h - 2f), style = Stroke(1f, pathEffect = dash))
         }
@@ -380,13 +381,12 @@ private fun DrawScope.drawUnit(lay: KLay, m: Module, ws: Workshop, front: Color,
                 for (i in 0 until n) {
                     val fl = l + g + i * (fw + g)
                     drawRect(front, Offset(fl, t + g), Size(fw, h - 2 * g)); drawRect(onF, Offset(fl, t + g), Size(fw, h - 2 * g), style = Stroke(.8f))
-                    if (m.handles) {
-                        // the handle on the opening edge: right of a single door, the middle of a pair
-                        val hx = if (n == 1 || i == 0) fl + fw - max(2.5f, fw * .1f) else fl + max(2.5f, fw * .1f)
-                        val hy = if (m.type == "wall") t + h * .82f else t + h * .14f
-                        val len = min(10f, h * .18f)
-                        drawLine(onF, Offset(hx, hy - len / 2), Offset(hx, hy + len / 2), 1.4f, StrokeCap.Round)
-                    }
+                    // the handle on the opening edge: right of a single door, the middle of a pair; without one the push mark
+                    val hx = if (n == 1 || i == 0) fl + fw - max(2.5f, fw * .1f) else fl + max(2.5f, fw * .1f)
+                    val hy = if (m.type == "wall") t + h * .82f else t + h * .14f
+                    val len = min(10f, h * .18f)
+                    if (uz.metrx.app.furniture.hasHandle(m, "f$i")) drawLine(onF, Offset(hx, hy - len / 2), Offset(hx, hy + len / 2), 1.4f, StrokeCap.Round)
+                    else pushMark(Offset(hx, hy), onF, min(2.4f, fw * .12f))
                 }
             } else {
                 // drawers and appliance panels, one above the other
@@ -394,9 +394,10 @@ private fun DrawScope.drawUnit(lay: KLay, m: Module, ws: Workshop, front: Color,
                 for (i in 0 until n) {
                     val ft = t + g + i * (fh + g)
                     drawRect(front, Offset(l + g, ft), Size(w - 2 * g, fh)); drawRect(onF, Offset(l + g, ft), Size(w - 2 * g, fh), style = Stroke(.8f))
-                    if (m.handles && m.fronts.kind == "drawer") {
+                    if (m.fronts.kind == "drawer") {
                         val len = min(14f, w * .3f)
-                        drawLine(onF, Offset(l + w / 2 - len / 2, ft + min(5f, fh * .22f)), Offset(l + w / 2 + len / 2, ft + min(5f, fh * .22f)), 1.4f, StrokeCap.Round)
+                        if (uz.metrx.app.furniture.hasHandle(m, "f$i")) drawLine(onF, Offset(l + w / 2 - len / 2, ft + min(5f, fh * .22f)), Offset(l + w / 2 + len / 2, ft + min(5f, fh * .22f)), 1.4f, StrokeCap.Round)
+                        else pushMark(Offset(l + w / 2, ft + min(5f, fh * .22f) + .5f), onF, min(2.4f, fh * .2f))
                     }
                 }
             }
@@ -993,6 +994,8 @@ private fun ModuleSheet(s: Sheet.FModule) {
     var shelves by rememberSaveable { mutableIntStateOf(m.inserts.filter { it.kind == "shelf" }.sumOf { it.qty }) }
     var soft by rememberSaveable { mutableStateOf(m.soft) }
     var handles by rememberSaveable { mutableStateOf(m.handles) }
+    // the fronts left without a handle (Handles.kt), kept as text so the sheet keeps them when turned
+    var noH by rememberSaveable { mutableStateOf(m.noHandle.joinToString(",")) }
     val wMin = if (m.type == "filler" || m.type == "gap") 10 else 150
     val (hMin, hMax) = when (m.type) { "wall" -> 200 to 1200; "tall" -> 1200 to 2500; "filler" -> 100 to 2500; "gap" -> 300 to 2200; else -> 300 to 900 }
     val wi = w.toIntOrNull()?.takeIf { it in wMin..1200 }
@@ -1000,7 +1003,9 @@ private fun ModuleSheet(s: Sheet.FModule) {
     val di = d.toIntOrNull()?.takeIf { it in 16..800 }
     val fronts = when (fr) { "d" -> Fronts("drawer", drawers); "o" -> Fronts("open", 0); "2" -> Fronts("door", 2); "1" -> Fronts("door", 1); else -> m.fronts }
     val inserts = m.inserts.filter { it.kind != "shelf" } + if (fr != "d" && shelves > 0 && boxed) listOf(Insert("shelf", qty = shelves)) else emptyList()
-    val next = m.copy(w = wi ?: m.w, h = hi ?: m.h, d = di ?: m.d, fronts = fronts, inserts = inserts, soft = soft, handles = handles)
+    val next = uz.metrx.app.furniture.frontsChanged(m, m.copy(w = wi ?: m.w, h = hi ?: m.h, d = di ?: m.d, fronts = fronts, inserts = inserts, soft = soft, handles = handles,
+        noHandle = noH.split(',').filter { it.isNotEmpty() }))
+    fun setHandles(x: Module) { handles = x.handles; noH = x.noHandle.joinToString(",") }
     val ok = wi != null && hi != null && di != null
     GlassSheet(modName(m), { app.sheet = null }, footer = {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1049,8 +1054,18 @@ private fun ModuleSheet(s: Sheet.FModule) {
             if (fr == "d") Stepper(tr("km.drawers"), drawers, 2, 5) { drawers = it }
             else Stepper(tr("km.shelves"), shelves, 0, 8) { shelves = it }
             if (fr != "o") {
-                Toggle(tr("km.handles"), handles) { handles = !handles }
-                if (fr != "d") Toggle(tr("km.soft"), soft) { soft = !soft }
+                // the unit's fronts: each one tapped to give it a handle or take it away (25 Oct 2026)
+                UnitFronts(next, ws, f) { k -> setHandles(uz.metrx.app.furniture.toggleHandle(next, k.key)) }
+                Text(tr("hd.tap"), style = ui(12.5f, 400, G.ink2, 1.4f))
+                HandleButtons(listOf(next), { setHandles(uz.metrx.app.furniture.allHandles(next, true)) }, { setHandles(uz.metrx.app.furniture.allHandles(next, false)) })
+                if (fr != "d") Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Box(Modifier.weight(1f)) { Toggle(tr("km.soft"), soft) { soft = !soft } }
+                    // every unit with doors closes the same
+                    GBtn(tr("hd.all"), {
+                        app.kit.change(app, p.id, f.id) { x -> x.copy(modules = x.modules.map { if (it.fronts.kind == "door" || it.id == m.id) it.copy(soft = soft) else it }) }
+                        app.say("hd.softAllK", "v" to app.t(if (soft) "hd.yes" else "hd.no"))
+                    }, Btn.SECONDARY, height = 40.dp, corner = 14.dp, fontSize = 14f, fill = false)
+                }
             }
         }
         // what the workshop will cut and fit for it: the advanced app only
@@ -1068,6 +1083,25 @@ private fun ModuleSheet(s: Sheet.FModule) {
         val hw = hardwareOf(next, ws)
         if (hw.isNotEmpty()) Text(tr("km.hw", "v" to hw.entries.joinToString(", ") { (k, v) -> app.t("hk.$k") + " × " + uz.metrx.app.furniture.hwAmount(k, v, app.settings.lang == Lang.EN) }),
             style = ui(12.5f, 400, G.ink2, 1.4f))
+    }
+}
+
+/** A kitchen unit's fronts as a small drawing, each door or drawer a tap target for its handle. */
+@Composable
+private fun UnitFronts(m: Module, ws: Workshop, f: Furniture, onTap: (uz.metrx.app.furniture.HFront) -> Unit) {
+    val mats = LocalApp.current.settings.mats
+    val one = m.copy(x = 0, elev = 0, legs = false)
+    val lay = KLay(one.w, one.h, 220f, false)
+    val front = hex(mats.firstOrNull { it.id == f.mats.front }?.rgb ?: "#CDBFAE")
+    val carcass = hex(mats.firstOrNull { it.id == f.mats.carcass }?.rgb ?: "#F5F5F2")
+    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Box(Modifier.fillMaxWidth(.62f).clip(RoundedCornerShape(16.dp)).background(PLAN_W).border(1.dp, G.rim, RoundedCornerShape(16.dp))) {
+            Canvas(Modifier.fillMaxWidth().aspectRatio(lay.vw / lay.vh)) {
+                val k = size.width / lay.vw
+                withTransform({ scale(k, k, pivot = Offset.Zero) }) { drawUnit(lay, one, ws, front, carcass, max(.8f, ws.gap10 / 10f * lay.s)) }
+            }
+            FrontTargets(lay, 0, one, unitFrontBoxes(one, ws), onTap)
+        }
     }
 }
 

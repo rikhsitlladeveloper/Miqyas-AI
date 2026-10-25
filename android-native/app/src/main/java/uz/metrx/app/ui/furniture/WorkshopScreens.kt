@@ -383,7 +383,7 @@ private fun MatSheet(id: String?) {
     }
 }
 
-private val HW_KINDS = listOf("hingeSoft", "hinge", "runner", "handle", "leg", "pin", "rail", "railEnd", "confirmat", "hanger", "lift",
+private val HW_KINDS = listOf("hingeSoft", "hinge", "runner", "handle", "push", "leg", "pin", "rail", "railEnd", "confirmat", "hanger", "lift",
     "slideTrack", "slideV", "slideH", "slideRoller", "mirror", "glass",
     "wtJoint", "wtMitre", "wtCut", "wtEnd", "plinthK", "plinthCorner", "cornice", "led", "ledPsu")
 

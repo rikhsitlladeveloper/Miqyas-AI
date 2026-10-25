@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
@@ -169,7 +170,16 @@ private fun ItemOptions(p: Project, f: Furniture, m: Module) {
             Seg(BED_KINDS.map { it to tr("fb.bt.$it") }, o.bed) { k -> opt { it.copy(bed = k) } }
             Text(tr("fb.bt.${o.bed}.s"), style = ui(12.5f, 400, G.ink2, 1.4f))
             size("mw"); size("ml"); size("h"); size("hb")
-            if (o.bed == "drawers") Toggle(tr("km.handles"), m.handles) { app.item(p, f, m.id) { it.copy(handles = !it.handles) } }
+            // the drawers' handles one by one (25 Oct 2026), or all at once
+            if (o.bed == "drawers") {
+                HandleButtons(listOf(m), { app.item(p, f, m.id) { uz.metrx.app.furniture.allHandles(it, true) } }, { app.item(p, f, m.id) { uz.metrx.app.furniture.allHandles(it, false) } })
+                androidx.compose.foundation.layout.Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    uz.metrx.app.furniture.handleFronts(m).forEach { fr ->
+                        val on = uz.metrx.app.furniture.hasHandle(m, fr.key)
+                        Chip(frontName(m, fr) + " · " + tr(if (on) "hd.yes" else "hd.no"), on) { app.item(p, f, m.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) } }
+                    }
+                }
+            }
         }
         "bunk", "loft" -> {
             size("mw"); size("ml"); size("h")

@@ -152,7 +152,8 @@ private fun App.ward(pid: String, fid: String, fn: (Module) -> Module) =
     }
 
 internal fun App.changeSec(pid: String, fid: String, i: Int, fn: (Section) -> Section) =
-    ward(pid, fid) { m -> m.copy(sections = m.sections.mapIndexed { k, s -> if (k == i) fn(s) else s }) }
+    // new doors: the doors chosen without a handle before are other doors now (Handles.kt)
+    ward(pid, fid) { m -> m.copy(sections = m.sections.mapIndexed { k, s -> if (k == i) uz.metrx.app.furniture.frontsChanged(s, fn(s)) else s }) }
 
 /** A new insert of [kind] in section [i], where it fits best. */
 private fun App.addInsert(pid: String, fid: String, m: Module, i: Int, kind: String) {
@@ -232,7 +233,10 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
                     drawRoundRect(if (x.kind == "drawer") front else GAP_FILL, Offset(il + 1.5f, bt), Size(ir - il - 3f, bh), CornerRadius(1.5f))
                     drawRoundRect(onC, Offset(il + 1.5f, bt), Size(ir - il - 3f, bh), CornerRadius(1.5f), style = Stroke(.9f))
                     when (x.kind) {
-                        "drawer" -> { val c = (il + ir) / 2; drawLine(onF, Offset(c - 6f, bt + min(4f, bh / 3)), Offset(c + 6f, bt + min(4f, bh / 3)), 1.4f, StrokeCap.Round) }
+                        // an open section's drawer without a handle: the push mark where it would be
+                        "drawer" -> { val c = (il + ir) / 2; val hy = bt + min(4f, bh / 3)
+                            if (open && !uz.metrx.app.furniture.drawerHandle(m, x)) pushMark(Offset(c, hy + 1f), onF, min(2.6f, bh / 3))
+                            else drawLine(onF, Offset(c - 6f, hy), Offset(c + 6f, hy), 1.4f, StrokeCap.Round) }
                         "trouser" -> for (k in 1..4) { val xx = il + (ir - il) * k / 5; drawLine(INK3, Offset(xx, bt + 2f), Offset(xx, bt + bh - 2f), .8f) }
                         "shoe" -> drawLine(INK3, Offset(il + 4f, bt + bh - 2f), Offset(ir - 4f, bt + 2f), .9f)
                     }
@@ -251,12 +255,12 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
                     val fx = sl + g + j * (fw + g)
                     drawRect(fill, Offset(fx, ft), Size(fw, fb - ft)); drawRect(onF, Offset(fx, ft), Size(fw, fb - ft), style = Stroke(.8f))
                     if (s.face == "glass") drawRect(PROFILE_C, Offset(fx, ft), Size(fw, fb - ft), style = Stroke(max(1.2f, 20 * lay.s)))
-                    if (m.handles && s.face != "glass") {
-                        val hx = if (n == 2) (if (j == 0) fx + fw - 3f else fx + 3f) else (if (!uz.metrx.app.furniture.hingeRight(m, i)) fx + fw - 3f else fx + 3f)
-                        // about 1 m up, but on the door of a low or hung cabinet
-                        val hy = lay.y((z0 + 1000).coerceAtMost(z0 + m.h - 90).coerceAtLeast(z0 + base + 90))
-                        drawLine(onF, Offset(hx, hy - 9f), Offset(hx, hy + 9f), 1.6f, StrokeCap.Round)
-                    }
+                    val hx = if (n == 2) (if (j == 0) fx + fw - 3f else fx + 3f) else (if (!uz.metrx.app.furniture.hingeRight(m, i)) fx + fw - 3f else fx + 3f)
+                    // about 1 m up, but on the door of a low or hung cabinet
+                    val hy = lay.y((z0 + 1000).coerceAtMost(z0 + m.h - 90).coerceAtLeast(z0 + base + 90))
+                    if (uz.metrx.app.furniture.doorHandle(m, i, j)) drawLine(onF, Offset(hx, hy - 9f), Offset(hx, hy + 9f), 1.6f, StrokeCap.Round)
+                    // no handle (a glass door never has one): the push latch's mark, a little in from the edge
+                    else pushMark(Offset(if (hx > fx + fw / 2) hx - 2f else hx + 2f, hy), if (s.face == "glass") INK else onF, 2.8f)
                 }
             }
         }
@@ -286,6 +290,12 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
     drawLine(INK, Offset(l, top), Offset(r, top), 1.4f)
     drawLine(INK, Offset(l, top), Offset(l, bot), if (m.sideL) 1.8f else 1f, pathEffect = if (m.sideL) null else dash)
     drawLine(INK, Offset(r, top), Offset(r, bot), if (m.sideR) 1.8f else 1f, pathEffect = if (m.sideR) null else dash)
+}
+
+/** Where a front without a handle is pushed open (a push latch): a small ring with a dot, in the drawings and the PDF. */
+internal fun DrawScope.pushMark(c: Offset, color: Color, r: Float = 2.8f) {
+    drawCircle(color, r, c, style = Stroke(.9f))
+    drawCircle(color, r * .32f, c)
 }
 
 /** Mirror and lacobel glass in drawings (the 3D uses the same colours). */
@@ -343,7 +353,8 @@ internal fun DrawScope.wardDims(lay: KLay, cuts: List<Int>, total: Int, h: Int, 
 }
 
 @Composable
-private fun WardDrawing(m: Module, f: Furniture, cx: WardCtx, ws: Workshop, mats: List<Mat>, step: Int, sel: Int, onSec: (Int) -> Unit) {
+private fun WardDrawing(m: Module, f: Furniture, cx: WardCtx, ws: Workshop, mats: List<Mat>, step: Int, sel: Int, onSec: (Int) -> Unit,
+                        onFront: ((uz.metrx.app.furniture.HFront) -> Unit)? = null) {
     val tm = rememberTextMeasurer()
     val onWall = step == 1
     val doors = step == 1 || step == 3 || step == 5
@@ -377,6 +388,8 @@ private fun WardDrawing(m: Module, f: Furniture, cx: WardCtx, ws: Workshop, mats
                 }
             }
         }
+        // the doors step: each door and open drawer is tapped to give it a handle or take it away
+        if (onFront != null && !onWall && m.slide == null) m.copy(elev = 0).let { b -> FrontTargets(lay, ox, b, wardFrontBoxes(b, ws), onFront) }
     }
 }
 
@@ -438,7 +451,10 @@ fun WardrobeScreen(rt: Route.Wardrobe) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Steps(rt.step) { app.setTop(rt.copy(step = it)) }
                 if (f.modules.count { it.type == "wardrobe" } > 1 || f.type == "stenka") BoxPicker(p, f, m) { app.setTop(rt.copy(sec = 0)) }
-                WardDrawing(m, f, cx, ws, mats, rt.step, sel, ::pickSec)
+                WardDrawing(m, f, cx, ws, mats, rt.step, sel, ::pickSec, if (rt.step != 3) null else { fr ->
+                    if (fr.sec >= 0 && fr.sec != sel) pickSec(fr.sec)
+                    app.ward(p.id, f.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) }
+                })
                 Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     when (rt.step) {
                         1 -> PlaceStep(p, f, m, cx, ws)
@@ -699,11 +715,23 @@ private fun DoorStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Spacer(Modifier.weight(1f))
-        GBtn(tr("wd.all"), { app.ward(p.id, f.id) { mm -> mm.copy(sections = mm.sections.map { it.copy(fronts = if (cur == "0") fr("0") else Fronts("door", if (cur == "2" && it.w >= 400) 2 else 1)) }) } },
+        GBtn(tr("wd.all"), { app.ward(p.id, f.id) { mm -> mm.copy(sections = mm.sections.map { uz.metrx.app.furniture.frontsChanged(it, it.copy(fronts = if (cur == "0") fr("0") else Fronts("door", if (cur == "2" && it.w >= 400) 2 else 1))) }) } },
             Btn.SECONDARY, height = 40.dp, corner = 14.dp, fontSize = 14f, fill = false)
     }
-    Toggle(tr("km.handles") + if (!m.handles) " · " + tr("wd.push") else "", m.handles) { app.ward(p.id, f.id) { it.copy(handles = !it.handles) } }
-    Toggle(tr("km.soft"), m.soft) { app.ward(p.id, f.id) { it.copy(soft = !it.soft) } }
+    // handles: each door and drawer on its own (tapped on the drawing), or all of the box at once (25 Oct 2026)
+    HandleButtons(listOf(m), { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, true) } }, { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, false) } })
+    if (uz.metrx.app.furniture.handleFronts(m).isNotEmpty()) Text(tr("hd.tap"), style = ui(12.5f, 400, G.ink2, 1.4f))
+    // soft close: this section's doors; "Hammasiga" gives every section of the piece the same
+    if (cur != "0") {
+        val soft = uz.metrx.app.furniture.softOf(m, sel)
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Box(Modifier.weight(1f)) { Toggle(tr("km.soft") + " · " + tr("hd.secN", "s" to sel + 1), soft) { app.ward(p.id, f.id) { uz.metrx.app.furniture.withSoft(it, sel, !soft) } } }
+            GBtn(tr("hd.all"), {
+                app.kit.change(app, p.id, f.id) { x -> x.copy(modules = x.modules.map { if (it.type == "wardrobe") uz.metrx.app.furniture.softAll(it, soft) else it }) }
+                app.say("hd.softAll", "v" to app.t(if (soft) "hd.yes" else "hd.no"))
+            }, Btn.SECONDARY, height = 40.dp, corner = 14.dp, fontSize = 14f, fill = false)
+        }
+    }
     val dh = frontSizes(Fronts("door", 1), s.w, m.h - wardBase(m), ws).firstOrNull()?.first
     // how many hinges: workshop detail, the advanced app only
     if (dh != null) Text((if (app.settings.advanced) tr("wd.hinges", "v" to dh, "n" to hingesFor(dh)) + " " else "") + tr("wd.tapSec"), style = ui(12.5f, 400, G.ink2, 1.4f))
@@ -757,7 +785,8 @@ private fun InsideStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Worksh
     if (s.inserts.count { it.kind == "shelf" } > 1) GBtn(tr("wd.spread"), {
         app.changeSec(p.id, f.id, sel) { spreadShelves(it, wardInnerH(m, ws.t), ws.t) }
     }, Btn.SECONDARY, height = 42.dp, corner = 14.dp, fontSize = 14f)
-    Toggle(tr("wd.led"), m.led) { app.ward(p.id, f.id) { it.copy(led = !it.led) } }
+    // the strip runs along the whole box's top, not the section picked above: it says so (25 Oct 2026)
+    Toggle(tr("wd.ledAll"), m.led) { app.ward(p.id, f.id) { it.copy(led = !it.led) } }
 }
 
 @Composable

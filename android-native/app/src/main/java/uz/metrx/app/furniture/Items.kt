@@ -248,7 +248,7 @@ fun itemHardware(m: Module, ws: Workshop, add: (String, Int) -> Unit) {
                 else -> add("bedBase", 1)
             }
             if (o.bed == "legs") add("leg", 4 + if (o.mw >= 1400) 1 else 0)
-            bedDrawers(m, ws).let { ds -> add("runner", ds.size); if (m.handles) add("handle", ds.size) }
+            bedDrawers(m, ws).let { ds -> add("runner", ds.size); ds.indices.forEach { add(if (hasHandle(m, "bd$it")) "handle" else "push", 1) } }
         }
         "bunk" -> { add("bedBase", 2); add("confirmat", 36) }
         "loft" -> { add("bedBase", 1); add("confirmat", 28) }

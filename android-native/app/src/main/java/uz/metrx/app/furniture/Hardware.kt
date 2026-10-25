@@ -23,17 +23,21 @@ fun hwAmount(kind: String, v: Int, en: Boolean): String = when (kind) {
 fun hardwareOf(m: Module, ws: Workshop): Map<String, Int> {
     val n = HashMap<String, Int>()
     fun add(k: String, v: Int) { if (v > 0) n[k] = (n[k] ?: 0) + v }
-    val hinge = if (m.soft) "hingeSoft" else "hinge"
-    fun fronts(f: Fronts, w: Int, h: Int, face: String = "") {
+    // soft close is a section's own choice (a kitchen unit's is the unit's)
+    fun hinge(sec: Int) = if (if (sec < 0) m.soft else softOf(m, sec)) "hingeSoft" else "hinge"
+    // a front without a handle opens by a push latch (Handles.kt)
+    fun pull(key: String) = add(if (hasHandle(m, key)) "handle" else "push", 1)
+    fun fronts(f: Fronts, w: Int, h: Int, face: String = "", sec: Int = -1) {
         val fs = frontSizes(f, w, h, ws)
+        fun key(j: Int) = if (sec < 0) "f$j" else "s$sec:f$j"
         when (f.kind) {
-            "door" -> fs.forEach { (fh, fw) ->
-                // a glass door in its frame opens by push (no handle, as the 3D shows it)
-                add(hinge, hingesFor(fh)); if (m.handles && face != "glass") add("handle", 1)
+            "door" -> fs.forEachIndexed { j, (fh, fw) ->
+                // a glass door in its frame has no handle: a push latch, as the 3D shows it
+                add(hinge(sec), hingesFor(fh)); pull(key(j))
                 // a vitrina's glass door in its frame, a mirror glued on a board door
                 when (face) { "glass" -> add("glassDoor", fh * fw); "mirror" -> add("mirror", (fh - 10) * (fw - 10)) }
             }
-            "drawer" -> { add("runner", fs.size); if (m.handles) add("handle", fs.size) }
+            "drawer" -> { add("runner", fs.size); fs.indices.forEach { pull(key(it)) } }
         }
     }
     fun inside(ins: List<Insert>, iw: Int) {
@@ -54,9 +58,9 @@ fun hardwareOf(m: Module, ws: Workshop): Map<String, Int> {
         "wardrobe" -> {
             val secs = m.sections.ifEmpty { listOf(Section(m.w)) }
             secs.forEachIndexed { i, s ->
-                if (m.slide == null) fronts(s.fronts, frontW(s), m.h - wardBase(m), s.face); inside(s.inserts, wardInner(m, secs, i, t))
-                // drawers in an open section are pulled by a handle of their own
-                if (s.fronts.kind == "open" && m.handles) add("handle", s.inserts.count { it.kind == "drawer" })
+                if (m.slide == null) fronts(s.fronts, frontW(s), m.h - wardBase(m), s.face, i); inside(s.inserts, wardInner(m, secs, i, t))
+                // drawers in an open section are pulled by a handle of their own, or pushed open
+                if (s.fronts.kind == "open") s.inserts.filter { it.kind == "drawer" }.forEach { add(if (drawerHandle(m, it)) "handle" else "push", 1) }
             }
             m.slide?.let { sl ->
                 val n2 = sl.n.coerceIn(2, 4)

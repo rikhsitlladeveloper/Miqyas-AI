@@ -344,7 +344,7 @@ private class Builder3(
                         box(w, metal, x0 + 3, x1 - 3, y0, y1 - 10, 0, d - 20)
                         if (!bare) frontSizes(m.fronts, m.w, m.h, ws).firstOrNull()?.let { (fh, fw) ->
                             box(w, role("front", if (m.fronts.kind == "panel") "fp.panel" else "fp.door"), x0 + edge, x0 + edge + fw, y0 + edge, y0 + edge + fh, d, d + t, true)
-                            if (m.handles) box(w, handle, x0 + m.w / 2.0 - hLen / 2, x0 + m.w / 2.0 + hLen / 2, y0 + edge + fh - 46, y0 + edge + fh - 34, d + t, d + t + 25)
+                            if (uz.metrx.app.furniture.hasHandle(m, "f0")) box(w, handle, x0 + m.w / 2.0 - hLen / 2, x0 + m.w / 2.0 + hLen / 2, y0 + edge + fh - 46, y0 + edge + fh - 34, d + t, d + t + 25)
                         }
                     }
                 }
@@ -371,8 +371,10 @@ private class Builder3(
         when (m.fronts.kind) {
             "door" -> if (ovenNiche) {
                 val fw = fs[0].second.toDouble(); val lo = 800 - g / 2 - (y0 + edge); val y2 = 1395 + g / 2
-                door(w, "${m.id}:f0", x0 + edge, d, y0 + edge, lo, fw, 1, m.handles, lo - 90)
-                door(w, "${m.id}:f1", x0 + edge, d, y2, y1 - edge - y2, fw, 1, m.handles, 90.0)
+                // the housing's one door in the lists: both halves follow its handle
+                val hd = uz.metrx.app.furniture.hasHandle(m, "f0")
+                door(w, "${m.id}:f0", x0 + edge, d, y0 + edge, lo, fw, 1, hd, lo - 90)
+                door(w, "${m.id}:f1", x0 + edge, d, y2, y1 - edge - y2, fw, 1, hd, 90.0)
             } else fs.forEachIndexed { j, (fh, fw) ->
                 val n = fs.size
                 val a = x0 + edge + j * (fw + g)
@@ -380,13 +382,13 @@ private class Builder3(
                 val right = n == 2 && j == 1
                 // handles near the top of a low door, near the bottom of a wall unit's, at 1 m on a tall one
                 val hy = when { m.type == "wall" -> 90.0; fh > 1200 -> (1000 - y0).coerceIn(minOf(150.0, fh / 2.0), maxOf(fh / 2.0, fh - 150.0)); else -> fh - 90.0 }
-                door(w, "${m.id}:f$j", if (right) a + fw else a, d, y0 + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, m.handles, hy)
+                door(w, "${m.id}:f$j", if (right) a + fw else a, d, y0 + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, uz.metrx.app.furniture.hasHandle(m, "f$j"), hy)
             }
             "drawer", "panel" -> {
                 var y = y1 - edge
                 fs.forEachIndexed { j, (fh, fw) ->
                     y -= fh
-                    if (m.fronts.kind == "drawer") drawer(w, "${m.id}:f$j", x0 + edge, fw.toDouble(), y, fh.toDouble(), d, d, m.handles)
+                    if (m.fronts.kind == "drawer") drawer(w, "${m.id}:f$j", x0 + edge, fw.toDouble(), y, fh.toDouble(), d, d, uz.metrx.app.furniture.hasHandle(m, "f$j"))
                     else if (!bare) box(w, role("front", "fp.panel"), x0 + edge, x0 + edge + fw, y, y + fh, d, d + t, true)
                     y -= g
                 }
@@ -472,7 +474,7 @@ private class Builder3(
                     "rail" -> box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, di / 2 - 12, di / 2 + 12)
                     "lift" -> { box(w, metal, il + 20, il + iw - 20, y + 30, y + 54, di / 2 - 12, di / 2 + 12); box(w, metal, il + 5, il + 25, y + 54, y + blockH(x), di / 2 - 15, di / 2 + 15) }
                     // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
-                    "drawer" -> if (s.fronts.kind == "open") drawer(w, "${m.id}:s$i:d${x.pos}", il + 2, iw - 4.0, y, blockH(x).toDouble(), di - t, di - 60, m.handles, "front")
+                    "drawer" -> if (s.fronts.kind == "open") drawer(w, "${m.id}:s$i:d${x.pos}", il + 2, iw - 4.0, y, blockH(x).toDouble(), di - t, di - 60, uz.metrx.app.furniture.drawerHandle(m, x), "front")
                         else drawer(w, "${m.id}:s$i:d${x.pos}", il + 4, iw - 8.0, y, blockH(x).toDouble(), di - 40 - t, di - 60, m.handles, "carcass")
                     else -> {
                         // trouser and shoe racks: a frame that pulls out
@@ -497,7 +499,7 @@ private class Builder3(
                 val right = if (fs.size == 2) j == 1 else uz.metrx.app.furniture.hingeRight(m, i)
                 // only a hinge at the piece's free end opens wide; beside a divider, a wall or a neighbour it stops at 90°
                 val wide = if (right) i == secs.lastIndex && j == fs.lastIndex && freeR else i == 0 && j == 0 && freeL
-                door(w, "${m.id}:s$i:f$j", if (right) a + fw else a, d, yb + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, m.handles && s.face != "glass",
+                door(w, "${m.id}:s$i:f$j", if (right) a + fw else a, d, yb + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, uz.metrx.app.furniture.doorHandle(m, i, j),
                     (1000 - yb).coerceIn(minOf(150.0, fh / 2.0), maxOf(fh / 2.0, fh - 150.0)), deg = if (wide) OPEN_DEG else SHUT_DEG, face = s.face)
             }
             acc = a1
@@ -563,7 +565,7 @@ private class Builder3(
             val o = w.at((x0 + if (right) m.w else 0) / 1000.0, 0.0, (if (right) m.d else 0) / 1000.0)
             val sb = if (right) WallBasis(o.x, o.z, -w.nx, -w.nz, w.ux, w.uz, m.d / 1000.0) else WallBasis(o.x, o.z, w.nx, w.nz, -w.ux, -w.uz, m.d / 1000.0)
             val a = if (right) m.d - dr.n1 else dr.n0
-            drawer(sb, "${m.id}:bd$i", a.toDouble(), (dr.n1 - dr.n0).toDouble(), dr.y0.toDouble(), (dr.y1 - dr.y0).toDouble(), -t.toDouble(), dr.depth.toDouble(), m.handles)
+            drawer(sb, "${m.id}:bd$i", a.toDouble(), (dr.n1 - dr.n0).toDouble(), dr.y0.toDouble(), (dr.y1 - dr.y0).toDouble(), -t.toDouble(), dr.depth.toDouble(), uz.metrx.app.furniture.hasHandle(m, "bd$i"))
         }
     }
 

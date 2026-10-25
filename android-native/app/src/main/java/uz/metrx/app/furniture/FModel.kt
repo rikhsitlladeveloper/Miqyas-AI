@@ -1,11 +1,17 @@
+@file:OptIn(ExperimentalSerializationApi::class)
+
 package uz.metrx.app.furniture
 
+import kotlinx.serialization.EncodeDefault
+import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
 
 /*
  * The shared furniture core's data (design/furniture/FURNITURE_PLAN.md, section 6). Every designer (kitchen, wardrobe,
  * later living room and bedroom) produces [Furniture] with [Module]s; the core turns them into parts, a cut list, a
  * sheet layout, hardware and a cost. Lengths are millimetres. Every field has a default so older orders still load.
+ * Fields added later that are written only when set ([EncodeDefault.Mode.NEVER]) keep an older order's saved form,
+ * and so an issued quote's fingerprint, as it was.
  */
 
 /** A piece of furniture in an order: [kind] kitchen or wardrobe; its [modules]; which material plays which role. */
@@ -77,7 +83,9 @@ data class Module(
     val inserts: List<Insert> = emptyList(),
     val sections: List<Section> = emptyList(),
     val legs: Boolean = true,
+    /** Soft-close hinges; a wardrobe's section can differ ([Section.soft]). */
     val soft: Boolean = true,
+    /** The piece's handles at all ("Tutqichsiz" in Change for all turns it off); the fronts left without one are in [noHandle] (Handles.kt). */
     val handles: Boolean = true,
     val label: String = "",
     /** What it is for: sink, hob, oven, dishwasher, fridge (free-standing), fridgeB (built-in), hood, micro; "" for storage. */
@@ -92,7 +100,10 @@ data class Module(
     /** An LED strip along the top inside (a vitrina's). */
     val led: Boolean = false,
     /** A board-built piece that is not a cabinet (bed, table, bar counter, mirror panel, mirror): its options (Items.kt). */
-    val opt: Opt? = null
+    val opt: Opt? = null,
+    /** The box's own fronts without a handle (a push latch opens them): "f0".. a kitchen unit's doors or drawers, "bd0".. a bed's drawers (Handles.kt). */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val noHandle: List<String> = emptyList()
 )
 
 /**
@@ -135,7 +146,10 @@ data class Fronts(val kind: String = "door", val n: Int = 1)
  * pull-down rail); [pos] mm above the section's floor (its bottom edge, for blocks); [qty] for shelves; [h] for blocks.
  */
 @Serializable
-data class Insert(val kind: String, val pos: Int = 0, val qty: Int = 1, val h: Int = 0)
+data class Insert(val kind: String, val pos: Int = 0, val qty: Int = 1, val h: Int = 0,
+                  /** A drawer of an open section without a handle: a push latch opens it (Handles.kt). */
+                  @EncodeDefault(EncodeDefault.Mode.NEVER)
+                  val push: Boolean = false)
 
 /** A wardrobe section: its width (centre to centre of the dividers, the outer ones to the sides' outer faces). */
 @Serializable
@@ -147,7 +161,13 @@ data class Section(val w: Int, val fronts: Fronts = Fronts("door", 2), val inser
                    /** A corner unit's blind part: this many mm at the right end of the front have no door (the other arm closes them). */
                    val blind: Int = 0,
                    /** The doors' face: "" the front board, "mirror" a mirror on the board, "glass" glass in an aluminium frame (a vitrina's). */
-                   val face: String = "")
+                   val face: String = "",
+                   /** The doors (0 the left one) without a handle: a push latch opens them (Handles.kt). */
+                   @EncodeDefault(EncodeDefault.Mode.NEVER)
+                   val noHandle: List<Int> = emptyList(),
+                   /** Soft-close hinges on this section's doors; null: as the box ([Module.soft]). */
+                   @EncodeDefault(EncodeDefault.Mode.NEVER)
+                   val soft: Boolean? = null)
 
 /** The width the section's doors (or drawers) cover: all of it but a corner unit's blind part. */
 fun frontW(s: Section) = (s.w - s.blind).coerceAtLeast(0)

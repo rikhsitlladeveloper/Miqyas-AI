@@ -78,6 +78,8 @@ val HW_PRESETS = listOf(
     // more handles to pick for a whole order ("Change for all", 23 Oct 2026); the price stays the skoba's otherwise
     Hw("handleLong", "handle", "Tutqich uzun 320", "45000", true),
     Hw("handleKnob", "handle", "Tutqich knopka", "15000", true),
+    // a door or drawer without a handle opens by a push latch (tip-on), 25 Oct 2026
+    Hw("push", "push", "Bosib ochish mexanizmi (tip-on)", "30000", true),
     Hw("leg", "leg", "Oyoq 100 mm", "6000", true),
     Hw("pin", "pin", "Polka ushlagich", "300", true),
     Hw("rail", "rail", "Shtanga (metr)", "35000", true),
