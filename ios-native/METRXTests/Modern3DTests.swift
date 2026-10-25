@@ -144,7 +144,7 @@ final class Modern3DTests: XCTestCase {
         let back = try JSONDecoder().decode(Mat.self, from: JSONEncoder().encode(m))
         XCTAssertEqual(back.tex, "oak_golden")
         // a board saved before decor pictures has none
-        let old = try JSONDecoder().decode(Mat.self, from: Data(#"{"id":"x","rgb":"#FFFFFF"}"#.utf8))
+        let old = try JSONDecoder().decode(Mat.self, from: Data(##"{"id":"x","rgb":"#FFFFFF"}"##.utf8))
         XCTAssertNil(old.tex)
     }
 

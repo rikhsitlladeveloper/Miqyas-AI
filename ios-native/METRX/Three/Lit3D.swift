@@ -82,7 +82,8 @@ extension Scene3DCoordinator {
         studioWait.append(done)
         if studioMade { return }
         studioMade = true
-        guard let cg = studioImage(512, 256) else { return }
+        // iOS 17: the old generate() is gone from the SDK and the new init is iOS 18+; RealityKit's own light is used there
+        guard #available(iOS 18.0, *), let cg = studioImage(512, 256) else { return }
         Task { @MainActor in
             guard let e = try? await EnvironmentResource(equirectangular: cg) else { return }
             studioEnv = e
