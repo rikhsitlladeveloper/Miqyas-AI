@@ -319,6 +319,8 @@ fun lookHardware(f: Furniture, ws0: Workshop): Map<String, Int> {
         val hb = maxOf((m.opt ?: Opt()).hb, m.h + 100)
         if (l.head.isNotEmpty()) add(if (l.head == "tufted") "headTufted" else "headSoft", m.w * (hb - m.h))
         if (l.panel) add("softPanel", (m.w + 800) * 1300)
+        // the LED strip along the wall panel's top, washing the wall over it (geo/Items3D.kt)
+        if (l.panel && l.led) { add("led", m.w + 800); add("ledPsu", 1) }
     }
     return n
 }
