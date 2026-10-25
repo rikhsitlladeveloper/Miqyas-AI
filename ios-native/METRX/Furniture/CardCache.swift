@@ -11,7 +11,8 @@ import ImageIO
 /// Bumped whenever the cards' picture changes (camera, light, background, size): every card on disk is made again.
 /// 2: modern wardrobes and the brighter studio with its grey floor (modern 3D part 5).
 /// 3: beds, tables, the bar, hall panels and the vanity's basin in the modern style (part 6b, Geo/ItemsScene3D.swift).
-let CARD_RENDER_VERSION = 4
+/// 5: every piece framed with the same room round it (cardAim, 26 Oct 2026).
+let CARD_RENDER_VERSION = 5
 
 /// The cards' background (the approved mockup's makeCards clear colour).
 let CARD_BG = 0xE4E8F0
@@ -84,29 +85,109 @@ func cardPiece(_ id: String, _ ws: Workshop, _ style: String) -> Furniture? {
     return styledNew(pieceOf(m, [:], ws, ""), style)
 }
 
-/// Where the card's camera looks from and how far: from direction az round the piece (Furniture/PieceView.swift's az0),
-/// el above level, every corner of ext in a picture of aspect (width / height) with margin to spare, the bounds'
-/// picture centred. half: half the vertical field of view. back: from the target towards the eye.
-func cardAim(_ ext: [V3], az: Double, el: Double, aspect: Double, half: Double = FOV_HALF, margin: Double = 1.12) -> (tgt: V3, r: Double, back: V3) {
-    let back = V3(sin(az) * cos(el), sin(el), cos(az) * cos(el))
-    guard !ext.isEmpty else { return (V3(0, 0.5, 0), 3, back) }
-    let fw = back * -1, rt = fw.cross(V3(0, 1, 0)).unit, up = rt.cross(fw)
-    let tv = tan(half), th = tv * max(0.2, aspect)
-    var m = ext.reduce(V3(0, 0, 0)) { $0 + $1 } * (1 / Double(ext.count))
-    func fitAt(_ c: V3) -> Double {
-        ext.map { q in let v = q - c; return margin * max(abs(v.dot(rt)) / th, abs(v.dot(up)) / tv) - v.dot(fw) }.max() ?? 1
+/*
+ * The cards' framing (26 Oct 2026, as the approved mockup's "Galereya kartalari"), the same rule in both apps (Android:
+ * ui/three/CardCache.kt cardFrame): the camera keeps its 3/4 angle and height, and stands as far off as makes what the
+ * card shows of the piece (its boards with the floor patch under them and the walls behind them, PieceScene.cardExt)
+ * take CARD_FILL of the card's width or height, whichever is tighter, that picture centred. Two clamps: never so far
+ * that the boards alone take less than CARD_PIECE_MIN, never so near that the card shows less than CARD_MIN_VIEW m top
+ * to bottom at the aim (so the smallest pieces are not blown up past a nightstand).
+ */
+
+/// The share of the card's tighter side the framed piece takes.
+let CARD_FILL = 0.78
+
+/// The least share of the card's tighter side the boards alone take (a small piece, its wall high above it).
+let CARD_PIECE_MIN = 0.58
+
+/// The least height the card shows at the aim, metres.
+let CARD_MIN_VIEW = 0.75
+
+/// The camera's way to the eye from az round and el above level.
+func cardBack(_ az: Double, _ el: Double) -> V3 { V3(sin(az) * cos(el), sin(el), cos(az) * cos(el)) }
+
+/// Where pts fall in a picture of aspect (width / height) seen from at + back × dist, half the vertical field of view's
+/// half: the lowest and highest x and y, each from -1 to 1 across the picture; nil when one is behind the eye.
+func cardSpan(_ pts: [V3], at: V3, dist: Double, back: V3, aspect: Double, half: Double) -> [Double]? {
+    let fw = back * -1
+    let rt = fw.cross(V3(0, 1, 0)).unit
+    let up = rt.cross(fw)
+    let tv = tan(half)
+    let th = tv * aspect
+    var o = [Double.greatestFiniteMagnitude, -Double.greatestFiniteMagnitude, Double.greatestFiniteMagnitude, -Double.greatestFiniteMagnitude]
+    for q in pts {
+        let v = q - at
+        let z = dist + v.dot(fw)
+        if z < 0.05 { return nil }
+        let x = v.dot(rt) / z / th
+        let y = v.dot(up) / z / tv
+        o[0] = min(o[0], x); o[1] = max(o[1], x); o[2] = min(o[2], y); o[3] = max(o[3], y)
     }
-    for _ in 0..<4 {
-        let dist = fitAt(m)
-        var lx = Double.greatestFiniteMagnitude, hx = -Double.greatestFiniteMagnitude
-        var ly = Double.greatestFiniteMagnitude, hy = -Double.greatestFiniteMagnitude
-        for q in ext {
-            let v = q - m, z = max(0.05, dist + v.dot(fw))
-            lx = min(lx, v.dot(rt) / z); hx = max(hx, v.dot(rt) / z); ly = min(ly, v.dot(up) / z); hy = max(hy, v.dot(up) / z)
-        }
-        m = m + rt * ((lx + hx) / 2 * dist) + up * ((ly + hy) / 2 * dist)
+    return o
+}
+
+/// The share of the picture's tighter side pts take (cardSpan); 99 when one is behind the eye.
+func cardShare(_ pts: [V3], at: V3, dist: Double, back: V3, aspect: Double, half: Double) -> Double {
+    guard let s = cardSpan(pts, at: at, dist: dist, back: back, aspect: aspect, half: half) else { return 99 }
+    return max((s[1] - s[0]) / 2, (s[3] - s[2]) / 2)
+}
+
+/// How far off the camera stands for pts to take share of the picture (cardShare falls as it goes back).
+private func cardDistFor(_ pts: [V3], _ at: V3, _ back: V3, _ aspect: Double, _ half: Double, _ share: Double) -> Double {
+    var lo = 0.05, hi = 200.0
+    for _ in 0..<60 {
+        let m = (lo + hi) / 2
+        if cardShare(pts, at: at, dist: m, back: back, aspect: aspect, half: half) > share { lo = m } else { hi = m }
     }
-    return (m, max(0.5, fitAt(m)), back)
+    return hi
+}
+
+/// The aim moved across until pts' picture is centred, at share of the picture each time.
+private func cardCentred(_ pts: [V3], _ start: V3, _ back: V3, _ aspect: Double, _ half: Double, _ share: Double) -> V3 {
+    let fw = back * -1
+    let rt = fw.cross(V3(0, 1, 0)).unit
+    let up = rt.cross(fw)
+    let tv = tan(half)
+    let th = tv * aspect
+    var m = start
+    for _ in 0..<6 {
+        let d = cardDistFor(pts, m, back, aspect, half, share)
+        guard let s = cardSpan(pts, at: m, dist: d, back: back, aspect: aspect, half: half) else { break }
+        m = m + rt * ((s[0] + s[1]) / 2 * th * d) + up * ((s[2] + s[3]) / 2 * tv * d)
+    }
+    return m
+}
+
+/// The middle of pts' bounds.
+private func cardMid(_ pts: [V3]) -> V3 {
+    var lo = V3(Double.greatestFiniteMagnitude, Double.greatestFiniteMagnitude, Double.greatestFiniteMagnitude)
+    var hi = V3(-Double.greatestFiniteMagnitude, -Double.greatestFiniteMagnitude, -Double.greatestFiniteMagnitude)
+    for q in pts {
+        lo = V3(min(lo.x, q.x), min(lo.y, q.y), min(lo.z, q.z))
+        hi = V3(max(hi.x, q.x), max(hi.y, q.y), max(hi.z, q.z))
+    }
+    return (lo + hi) * 0.5
+}
+
+/// Where the card's camera looks (tgt) and how far from it it stands (r), by the rule above: fit what the card frames
+/// (PieceScene.cardExt), piece the boards' bounds (PieceScene.ext), seen from az round the piece (PieceView.swift's az0)
+/// and el above level, in a picture of aspect (width / height); half: half the vertical field of view. back: from the
+/// target towards the eye.
+func cardAim(_ fit: [V3], piece: [V3], az: Double, el: Double, aspect: Double, half: Double = FOV_HALF) -> (tgt: V3, r: Double, back: V3) {
+    let back = cardBack(az, el)
+    let pts = fit.isEmpty ? piece : fit
+    guard !pts.isEmpty else { return (V3(0, 0.5, 0), 3, back) }
+    let a = max(0.2, aspect)
+    var at = cardCentred(pts, cardMid(pts), back, a, half, CARD_FILL)
+    var d = cardDistFor(pts, at, back, a, half, CARD_FILL)
+    // the boards alone too small (a small piece, its wall high above it): nearer, the boards centred
+    if !piece.isEmpty && cardShare(piece, at: at, dist: d, back: back, aspect: a, half: half) < CARD_PIECE_MIN {
+        at = cardCentred(piece, cardMid(piece), back, a, half, CARD_PIECE_MIN)
+        d = cardDistFor(piece, at, back, a, half, CARD_PIECE_MIN)
+    }
+    // a very small piece: not nearer than shows CARD_MIN_VIEW top to bottom
+    d = max(d, CARD_MIN_VIEW / (2 * tan(half)))
+    return (at, d, back)
 }
 
 /// The card drawn the old way (the 2D painter, Furniture/PieceView.swift): what shows when the 3D cannot make one.
@@ -116,7 +197,7 @@ func cardPainted(_ f: Furniture, _ ws: Workshop, _ mats: [Mat], _ spec: CardSpec
     fmt.scale = spec.scale
     fmt.opaque = true
     let s = pieceScene(f, ws, mats)
-    return UIGraphicsImageRenderer(size: spec.pt, format: fmt).image { c in drawPiece(c.cgContext, spec.pt, s, hi: nil, az: 0, label: nil) }
+    return UIGraphicsImageRenderer(size: spec.pt, format: fmt).image { c in drawPiece(c.cgContext, spec.pt, s, hi: nil, az: 0, label: nil, card: true) }
 }
 
 /// img (a 3D snapshot, at the screen's scale) as a card of spec: exactly its size and scale, opaque.

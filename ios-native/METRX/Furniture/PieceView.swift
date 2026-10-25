@@ -42,6 +42,9 @@ final class PieceScene {
     let dimCenter: V3, dimRadius: Double
     /// The corners of the boards' bounds, and of the bounds with the dimension lines in: what the camera fits in.
     let ext: [V3], dimExt: [V3]
+    /// What a gallery card frames (Furniture/CardCache.swift cardAim): ext, the walls behind it up to their top and, for
+    /// a piece on the floor, the floor under it.
+    let cardExt: [V3]
     /// The boards' draw order for the last 3° step of turning it (and picture size): worked out again only past the step.
     private var orderKey: [Int] = []
     private var orderBoxes: [SBox] = []
@@ -54,10 +57,10 @@ final class PieceScene {
         return o
     }
     init(_ env: [SFace], _ furn: [SBox], _ center: V3, _ radius: Double, _ dims: [String: DimLine], _ tint: [String: String], _ az0: Double,
-         dimCenter: V3? = nil, dimRadius: Double? = nil, ext: [V3] = [], dimExt: [V3]? = nil) {
+         dimCenter: V3? = nil, dimRadius: Double? = nil, ext: [V3] = [], dimExt: [V3]? = nil, cardExt: [V3]? = nil) {
         self.env = env; self.furn = furn; self.center = center; self.radius = radius; self.dims = dims; self.tint = tint; self.az0 = az0
         self.dimCenter = dimCenter ?? center; self.dimRadius = dimRadius ?? radius
-        self.ext = ext; self.dimExt = dimExt ?? ext
+        self.ext = ext; self.dimExt = dimExt ?? ext; self.cardExt = cardExt ?? ext
     }
 }
 
@@ -128,6 +131,7 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat], bare: Bool = fals
     let center = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     let radius = max(0.45, V3(x1 - x0, y1 - y0, z1 - z0).len / 2)
     let ext = pvCorners(x0, y0, z0, x1, y1, z1)
+    let cardExt = cardBounds(ext, onWalls.compactMap { b[$0] }, wallTop: H, onFloor: y0 < 0.15)
     // a step's camera takes in the dimension lines too, so a size in front of the piece stays in the picture
     for d in dims.values { take(d.a); take(d.b) }
     let dimCenter = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
@@ -138,7 +142,30 @@ func pieceScene(_ f: Furniture, _ ws: Workshop, _ mats: [Mat], bare: Bool = fals
     let az0: Double
     if f.kind != "kitchen" { az0 = CORNER_TYPES.contains(f.type) ? (left ? 0.6 : -0.6) : 0.55 }
     else { az0 = f.layout == "L" ? (left ? 0.6 : -0.6) : f.layout == "U" ? 0.15 : f.layout == "P" ? -0.6 : 0.6 }
-    return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter: dimCenter, dimRadius: dimRadius, ext: ext, dimExt: pvCorners(x0, y0, z0, x1, y1, z1))
+    return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter: dimCenter, dimRadius: dimRadius, ext: ext, dimExt: pvCorners(x0, y0, z0, x1, y1, z1),
+                      cardExt: cardExt)
+}
+
+/// What a gallery card frames of a piece whose boards' bounds are ext: those corners; the strip of each wall it stands on
+/// (walls) behind it, as wide as the piece and from its bottom up to the wall's top (wallTop, m), as the card shows it;
+/// and, when it stands on the floor (onFloor), the floor patch under the piece back to the wall.
+func cardBounds(_ ext: [V3], _ walls: [WallBasis], wallTop: Double, onFloor: Bool) -> [V3] {
+    var out = ext
+    for w in walls {
+        for q in ext {
+            let n = (q.x - w.ox) * w.nx + (q.z - w.oz) * w.nz
+            if n < -0.01 { continue }
+            let x = q.x - w.nx * n
+            let z = q.z - w.nz * n
+            out.append(V3(x, q.y, z))
+            out.append(V3(x, max(q.y, wallTop), z))
+        }
+    }
+    if onFloor {
+        let all = out
+        for q in all where q.y > 0 { out.append(V3(q.x, 0, q.z)) }
+    }
+    return out
 }
 
 /// A cabinet-like piece's dimension lines on its first wall bas (walls b): the run there (a stenka's pieces, a corner
@@ -191,14 +218,19 @@ private func pieceDims(_ f: Furniture, _ m: Module, _ ws: Workshop, _ b: [String
     }
 }
 
-/// A camera round the piece: az turns it from the scene's own angle, the piece filling the picture.
+/// The 2D painter's half vertical field of view (32° in all) and how high it looks down, radians: Android's too.
+let PV_CARD_HALF = 16.0 * Double.pi / 180
+let PV_CARD_EL = 0.5
+
+/// A camera round the piece: az turns it from the scene's own angle, the piece filling the picture; a card (a still
+/// picture for a card) framed as the 3D cards are (Furniture/CardCache.swift cardAim).
 private struct PCam {
     let e: V3, r: V3, u: V3, f: V3, foc: Double, cx: Double, cy: Double
-    init(_ s: PieceScene, _ w: Double, _ h: Double, _ az: Double, _ withDims: Bool) {
-        let half = 16.0 * Double.pi / 180
+    init(_ s: PieceScene, _ w: Double, _ h: Double, _ az: Double, _ withDims: Bool, card: Bool = false) {
+        let half = PV_CARD_HALF
         let fit = min(half, atan(tan(half) * w / h))
         let c = withDims ? s.dimCenter : s.center
-        let a = s.az0 + az, el = 0.5
+        let a = s.az0 + az, el = PV_CARD_EL
         let back = V3(sin(a) * cos(el), sin(el), cos(a) * cos(el))
         let fw = back * -1, rt = fw.cross(PV_UP).unit, up = rt.cross(fw)
         // near enough that every corner of the bounds is in the picture with a little room round it (a tall piece's
@@ -220,7 +252,13 @@ private struct PCam {
             }
         }
         let dist = ext.isEmpty ? (withDims ? s.dimRadius : s.radius) / sin(fit) : fitAt(m)
-        e = m + back * dist; f = fw; r = rt; u = up
+        if card {
+            let aim = cardAim(s.cardExt, piece: s.ext, az: a, el: el, aspect: w / h, half: half)
+            e = aim.tgt + aim.back * aim.r
+        } else {
+            e = m + back * dist
+        }
+        f = fw; r = rt; u = up
         foc = (h / 2) / tan(half); cx = w / 2; cy = h / 2
     }
     func p(_ q: V3) -> CGPoint? {
@@ -325,11 +363,11 @@ private func pvDrawOrder(_ bs: [SBox], _ cam: PCam) -> [SBox] {
 
 /// Draws the piece into a context of size points: walls facing the camera and the floor first, then the boards back to
 /// front; hi a step key to show, az an extra turn in radians, label the value on the line ("?" none yet; nil no pill).
-func drawPiece(_ cg: CGContext, _ size: CGSize, _ s: PieceScene, hi: String?, az: Double, label: String?) {
+func drawPiece(_ cg: CGContext, _ size: CGSize, _ s: PieceScene, hi: String?, az: Double, label: String?, card: Bool = false) {
     cg.saveGState(); defer { cg.restoreGState() }
     pvColor(cg, fill: true, PV_BG); cg.fill(CGRect(origin: .zero, size: size))
     guard size.width > 1, size.height > 1 else { return }
-    let cam = PCam(s, Double(size.width), Double(size.height), az, hi.map { s.dims[$0] != nil } ?? false)
+    let cam = PCam(s, Double(size.width), Double(size.height), az, hi.map { s.dims[$0] != nil } ?? false, card: card)
     let tintTag = hi.flatMap { s.tint[$0] }
     // the boards' outline is one device pixel, as on Android
     let px = min(1, max(0.25, abs(cg.convertToUserSpace(CGSize(width: 1, height: 1)).width)))
@@ -402,11 +440,12 @@ func drawPiece(_ cg: CGContext, _ size: CGSize, _ s: PieceScene, hi: String?, az
 }
 
 /// The piece as a still picture of size points at the screen's scale (a piece's card on the order; the gallery's cards
-/// are the real 3D's now, GalleryCards.swift, and drawn this way only when the 3D cannot make one).
+/// are the real 3D's now, GalleryCards.swift, and drawn this way only when the 3D cannot make one), framed as the 3D
+/// cards are.
 func piecePicture(_ s: PieceScene, _ size: CGSize) -> UIImage {
     let fmt = UIGraphicsImageRendererFormat.preferred()
     fmt.opaque = true
-    return UIGraphicsImageRenderer(size: size, format: fmt).image { c in drawPiece(c.cgContext, size, s, hi: nil, az: 0, label: nil) }
+    return UIGraphicsImageRenderer(size: size, format: fmt).image { c in drawPiece(c.cgContext, size, s, hi: nil, az: 0, label: nil, card: true) }
 }
 
 /// The piece live: a horizontal drag turns it (±1.1 rad); hi the step being asked and label its value (or "?").

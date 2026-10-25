@@ -76,7 +76,9 @@ class PieceScene(val env: List<SFace>, val furn: List<SBox>, val center: V3, val
     /** The middle and size with the dimension lines in, for a step that shows one. */
     val dimCenter: V3 = center, val dimRadius: Double = radius,
     /** The corners of the boards' bounds, and of the bounds with the dimension lines in: what the camera fits in. */
-    val ext: List<V3> = emptyList(), val dimExt: List<V3> = ext)
+    val ext: List<V3> = emptyList(), val dimExt: List<V3> = ext,
+    /** What a gallery card frames (ui/three/CardCache.kt cardFrame): [ext], the walls behind it up to their top and, for a piece on the floor, the floor under it. */
+    val cardExt: List<V3> = ext)
 
 private fun corners(x0: Double, y0: Double, z0: Double, x1: Double, y1: Double, z1: Double) =
     listOf(x0, x1).flatMap { x -> listOf(y0, y1).flatMap { y -> listOf(V3(x, y, z0), V3(x, y, z1)) } }
@@ -169,6 +171,7 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>, bare: Boolean = fals
     val center = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
     val radius = max(.45, V3(x1 - x0, y1 - y0, z1 - z0).len() / 2)
     val ext = corners(x0, y0, z0, x1, y1, z1)
+    val cardExt = cardBounds(ext, onWalls.mapNotNull { b[it] }, H, y0 < .15)
     // a step's camera takes in the dimension lines too, so a size in front of the piece stays in the picture
     dims.values.forEach { d -> listOf(d.a, d.b).forEach { q -> x0 = min(x0, q.x); y0 = min(y0, q.y); z0 = min(z0, q.z); x1 = max(x1, q.x); y1 = max(y1, q.y); z1 = max(z1, q.z) } }
     val dimCenter = V3((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2)
@@ -177,7 +180,24 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>, bare: Boolean = fals
     // one with its corner on the left (made-up walls D, A) is seen from the right
     val left = f.walls.firstOrNull() == "D" && f.layout != "U"
     val az0 = when (f.layout.takeIf { f.kind == "kitchen" } ?: "L".takeIf { f.type in uz.metrx.app.furniture.CORNER_TYPES }) { "L" -> if (left) .6 else -.6; "U" -> .15; "P" -> -.6; null -> .55; else -> .6 }
-    return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter, dimRadius, ext, corners(x0, y0, z0, x1, y1, z1))
+    return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter, dimRadius, ext, corners(x0, y0, z0, x1, y1, z1), cardExt)
+}
+
+/**
+ * What a gallery card frames of a piece whose boards' bounds are [ext]: those corners; the strip of each wall it stands
+ * on ([walls]) behind it, as wide as the piece and from its bottom up to the wall's top ([wallTop], m), as the card
+ * shows it; and, when it stands on the floor ([onFloor]), the floor patch under the piece back to the wall.
+ */
+internal fun cardBounds(ext: List<V3>, walls: List<uz.metrx.app.geo.WallBasis>, wallTop: Double, onFloor: Boolean): List<V3> {
+    val out = ArrayList(ext)
+    for (w in walls) for (q in ext) {
+        val n = (q.x - w.ox) * w.nx + (q.z - w.oz) * w.nz
+        if (n < -.01) continue
+        val x = q.x - w.nx * n; val z = q.z - w.nz * n
+        out += V3(x, q.y, z); out += V3(x, max(q.y, wallTop), z)
+    }
+    if (onFloor) for (q in out.toList()) if (q.y > 0) out += V3(q.x, 0.0, q.z)
+    return out
 }
 
 /** The colour a part is painted in: its look's in the lit 3D (a decor picture's average colour), else its own. */
@@ -190,22 +210,36 @@ private fun cross(a: V3, b: V3) = V3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.
  * of the piece, fitted the same way, as a point to look from and one to look at.
  */
 fun cardCamOf(s: PieceScene, w: Int, h: Int): uz.metrx.app.ui.three.CardCam {
-    val c = PCam(s, w.toFloat(), h.toFloat(), 0.0, false)
-    return uz.metrx.app.ui.three.CardCam(c.e, c.e + c.fwd, 32.0)
+    val c = cardFrameOf(s, w, h)
+    return uz.metrx.app.ui.three.CardCam(c.eye, c.at, 2 * CARD_HALF * 180 / Math.PI)
 }
 
-/** A camera round the piece: [az] turns it from the scene's own angle, the piece filling the picture. */
-private class PCam(s: PieceScene, w: Float, h: Float, az: Double, withDims: Boolean) {
-    private val half = 16.0 * Math.PI / 180
+/** The cards' half vertical field of view (32° in all), radians. */
+const val CARD_HALF = 16.0 * Math.PI / 180
+
+/** How high the pieces' camera looks down, radians above level. */
+const val CARD_EL = .5
+
+/** A gallery card's framing of [s] for a [w] × [h] picture (ui/three/CardCache.kt cardFrame). */
+fun cardFrameOf(s: PieceScene, w: Int, h: Int): uz.metrx.app.ui.three.CardFrame =
+    uz.metrx.app.ui.three.cardFrame(s.cardExt, s.ext, s.az0, CARD_EL, w.toDouble() / h, CARD_HALF)
+
+/**
+ * A camera round the piece: [az] turns it from the scene's own angle, the piece filling the picture; a [card] (a still
+ * picture for a card) framed as the 3D cards are ([cardFrameOf]).
+ */
+private class PCam(s: PieceScene, w: Float, h: Float, az: Double, withDims: Boolean, card: Boolean = false) {
+    private val half = CARD_HALF
     val e: V3; private val r: V3; private val u: V3; private val f: V3; private val foc: Double
     /** The way the camera looks (unit). */
     val fwd: V3 get() = f; private val cx = w / 2f; private val cy = h / 2f
     init {
         val fit = min(half, atan(tan(half) * w / h))
         val c = if (withDims) s.dimCenter else s.center
-        val a = s.az0 + az; val el = .5
+        val a = s.az0 + az; val el = CARD_EL
         val back = V3(sin(a) * cos(el), sin(el), cos(a) * cos(el))
         f = back * -1.0; r = cross(f, UP).unit(); u = cross(r, f)
+        val cf = if (card) uz.metrx.app.ui.three.cardFrame(s.cardExt, s.ext, a, el, w.toDouble() / h, half) else null
         // near enough that every corner of the bounds is in the picture with a little room round it (a tall piece's
         // top and bottom too), else round its bounding sphere
         val tv = tan(half); val th = tv * w / h
@@ -220,7 +254,7 @@ private class PCam(s: PieceScene, w: Float, h: Float, az: Double, withDims: Bool
             m = m + r * ((lx + hx) / 2 * dist) + u * ((ly + hy) / 2 * dist)
         }
         val dist = if (ext.isEmpty()) (if (withDims) s.dimRadius else s.radius) / sin(fit) else fitAt(m)
-        e = m + back * dist
+        e = cf?.eye ?: (m + back * dist)
         foc = (h / 2) / tan(half)
     }
     fun p(q: V3): Offset? {
@@ -305,9 +339,9 @@ private fun drawOrder(bs: List<SBox>, cam: PCam): List<SBox> {
 private val orderCache = java.util.WeakHashMap<PieceScene, Pair<Int, List<SBox>>>()
 
 /** Draws the piece: walls facing the camera and the floor first, then the boards back to front; [hi] a step key to show. */
-fun DrawScope.drawPiece(s: PieceScene, hi: String?, az: Float, label: String? = null, tm: TextMeasurer? = null) {
+fun DrawScope.drawPiece(s: PieceScene, hi: String?, az: Float, label: String? = null, tm: TextMeasurer? = null, card: Boolean = false) {
     drawRect(Color(0xFFF6F8FC))
-    val cam = PCam(s, size.width, size.height, az.toDouble(), hi != null && s.dims.containsKey(hi))
+    val cam = PCam(s, size.width, size.height, az.toDouble(), hi != null && s.dims.containsKey(hi), card)
     val tintTag = hi?.let { s.tint[it] }
     val edge = Color(0x401E293B); val slabLine = Color(0xB0000000.toInt() or uz.metrx.app.geo.SLAB_LINE)
     fun face(fc: SFace, faceOut: Boolean) {
@@ -356,10 +390,10 @@ fun DrawScope.drawPiece(s: PieceScene, hi: String?, az: Float, label: String? = 
     }
 }
 
-/** The piece as a still picture [w] × [h] pixels (the gallery's cards). */
+/** The piece as a still picture [w] × [h] pixels (the gallery's cards, a piece's card), framed as the 3D cards are. */
 fun piecePicture(s: PieceScene, w: Int, h: Int, density: Float): ImageBitmap {
     val img = ImageBitmap(w, h)
-    CanvasDrawScope().draw(Density(density), LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(img), Size(w.toFloat(), h.toFloat())) { drawPiece(s, null, 0f) }
+    CanvasDrawScope().draw(Density(density), LayoutDirection.Ltr, androidx.compose.ui.graphics.Canvas(img), Size(w.toFloat(), h.toFloat())) { drawPiece(s, null, 0f, card = true) }
     return img
 }
 
