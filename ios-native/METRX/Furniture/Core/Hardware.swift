@@ -102,7 +102,8 @@ func hardwareOf(_ m: Module, _ ws: Workshop, edge: Bool = false) -> Counts {
         else if m.elev > 0 { n.add("hanger", 2) }
         if m.led { n.add("led", m.w - 2 * t); n.add("ledPsu", 1) }
     } else {
-        fronts(m.fronts, m.w, m.h); inside(m.inserts, m.w - 2 * t)
+        // a kitchen vitrina's glass doors in their frames, by the m² (their hinges and handles as any door's)
+        fronts(m.fronts, m.w, m.h, glassDoors(m) ? "glass" : ""); inside(m.inserts, m.w - 2 * t)
         n.add("confirmat", m.type == "base" ? 24 : 16)
         if m.type == "wall" { n.add("hanger", 2) }
         if m.type != "wall" && m.legs { n.add("leg", m.w > 900 ? 6 : 4) }

@@ -168,6 +168,41 @@ private fun dishes(out: MutableList<XBox>, m: Module, a0: Double, a1: Double, y0
     }
 }
 
+/**
+ * A kitchen vitrina's glass shelves (Kitchen.kt glassDoors), mm above the floor of the shelf's underside: spaced
+ * evenly in the box as its board shelves would be (the 3D's kitchen unit).
+ */
+fun vitrinaShelves(m: Module, t: Int): List<Double> {
+    val n = m.inserts.filter { it.kind == "glass" }.sumOf { it.qty }
+    return (1..n).map { k -> m.elev + (m.h - t) * k / (n + 1.0) }
+}
+
+/**
+ * The dishes in a kitchen vitrina (mockup buildKitchen): plates standing at the back of its floor (up to three, 170 mm
+ * apart) and cups on its first glass shelf (up to four, 130 mm apart), each where there is room. The light tier has none.
+ */
+fun vitrinaDishes(m: Module, t: Int): List<XBox> {
+    val out = ArrayList<XBox>()
+    val il = m.x + t.toDouble(); val iw = m.w - 2.0 * t
+    if (iw < 250) return out
+    val cx = il + iw / 2
+    val floor = m.elev + t.toDouble(); val top = m.elev + m.h - t.toDouble()
+    val ys = vitrinaShelves(m, t)
+    val room = (ys.firstOrNull() ?: top) - floor
+    if (room >= 160) {
+        val dd = min(200.0, room - 40); val np = ((iw - 40) / 170).toInt().coerceIn(1, 3)
+        for (i in 0 until np) disc(out, cx + (i - (np - 1) / 2.0) * 170, floor + dd / 2 + 2, 50.0, dd, 8.0, true, PORCELAIN)
+    }
+    ys.firstOrNull()?.let { y ->
+        val ys0 = y + 6; val up = (ys.getOrNull(1) ?: top) - ys0
+        if (up >= 110) {
+            val nc = ((iw - 40) / 130).toInt().coerceIn(1, 4)
+            for (i in 0 until nc) { val c = cx + (i - (nc - 1) / 2.0) * 130; out += XBox(c - 35, c + 35, ys0, ys0 + 75, 115.0, 185.0, PORCELAIN) }
+        }
+    }
+    return out
+}
+
 /** The TV panel: its board, the facing over it (stone, slats or mouldings), the TV. */
 fun tvPanel(f: Furniture, m: Module, ws: Workshop): List<XBox> {
     val out = ArrayList<XBox>()

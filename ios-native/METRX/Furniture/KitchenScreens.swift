@@ -782,6 +782,9 @@ private struct ModuleSheet: View {
     @State private var fr: String
     @State private var drawers: Int
     @State private var shelves: Int
+    /// A wall unit's glass doors in frames (a vitrina) and its inside in the wood accent.
+    @State private var glass: Bool
+    @State private var accIn: Bool
     @State private var soft: Bool
     @State private var handles: Bool
     /// The fronts left without a handle (HandleRules.swift).
@@ -794,7 +797,8 @@ private struct ModuleSheet: View {
         let fk = m?.fronts.kind ?? "door"
         _fr = State(initialValue: fk == "drawer" ? "d" : fk == "open" ? "o" : fk == "panel" ? "p" : (m?.fronts.n ?? 1) >= 2 ? "2" : "1")
         _drawers = State(initialValue: fk == "drawer" ? (m?.fronts.n ?? 3) : 3)
-        _shelves = State(initialValue: m?.inserts.filter { $0.kind == "shelf" }.reduce(0) { $0 + $1.qty } ?? 0)
+        _shelves = State(initialValue: m?.inserts.filter { $0.kind == "shelf" || $0.kind == "glass" }.reduce(0) { $0 + $1.qty } ?? 0)
+        _glass = State(initialValue: m.map { glassDoors($0) } ?? false); _accIn = State(initialValue: m?.accentIn ?? false)
         _soft = State(initialValue: m?.soft ?? true); _handles = State(initialValue: m?.handles ?? true)
         _noH = State(initialValue: m?.noHandle ?? [])
     }
@@ -812,10 +816,11 @@ private struct ModuleSheet: View {
             let hi = Int(h).flatMap { (hMin...hMax).contains($0) ? $0 : nil }
             let di = Int(d).flatMap { (16...800).contains($0) ? $0 : nil }
             let fronts: Fronts = fr == "d" ? Fronts("drawer", drawers) : fr == "o" ? Fronts("open", 0) : fr == "2" ? Fronts("door", 2) : fr == "1" ? Fronts("door", 1) : m.fronts
-            let inserts = m.inserts.filter { $0.kind != "shelf" } + (fr != "d" && shelves > 0 && boxed ? [Insert("shelf", qty: shelves)] : [])
-            let typed: Module = { var n = m; n.w = wi ?? m.w; n.h = hi ?? m.h; n.d = di ?? m.d; n.fronts = fronts; n.inserts = inserts; n.soft = soft; n.handles = handles; n.noHandle = noH; return n }()
-            // new fronts: the ones chosen without a handle before are other fronts now
-            let next: Module = frontsChanged(m, typed)
+            let inserts = m.inserts.filter { $0.kind != "shelf" && $0.kind != "glass" } + (fr != "d" && shelves > 0 && boxed ? [Insert("shelf", qty: shelves)] : [])
+            let typed: Module = { var n = m; n.w = wi ?? m.w; n.h = hi ?? m.h; n.d = di ?? m.d; n.fronts = fronts; n.inserts = inserts; n.soft = soft; n.handles = handles; n.noHandle = noH; n.accentIn = accIn; return n }()
+            // new fronts: the ones chosen without a handle before are other fronts now; glass only on a wall unit's
+            // doors, its shelves turning glass with them (Kitchen.swift withGlassDoors)
+            let next: Module = withGlassDoors(frontsChanged(m, typed), glass)
             let ok = wi != nil && hi != nil && di != nil
             let type = tr(m.type == "gap" ? "km.tGap" : m.type == "filler" ? "km.tFiller" : m.type == "tall" ? "km.tTall" : isUpper(m) ? "km.tUp" : "km.tLow")
             GlassSheet(modName(m), onClose: { app.sheet = nil }) {
@@ -844,6 +849,7 @@ private struct ModuleSheet: View {
                     Seg(items: [("1", tr("km.f1")), ("2", tr("km.f2")), ("d", tr("km.fd")), ("o", tr("km.fo"))], cur: fr) { fr = $0 }
                     if fr == "d" { FStepper(label: tr("km.drawers"), v: drawers, lo: 2, hi: 5, id: "km.drawers") { drawers = $0 } }
                     else { FStepper(label: tr("km.shelves"), v: shelves, lo: 0, hi: 8, id: "km.shelves") { shelves = $0 } }
+                    if m.type == "wall" && (fr == "1" || fr == "2") { VitrinaToggles(glass: $glass, accIn: $accIn) }
                     if fr != "o" {
                         // the unit's fronts: each one tapped to give it a handle or take it away (25 Oct 2026)
                         UnitHandles(app: app, pid: p.id, fid: f.id, mid: m.id, next: next, ws: ws, f: f, showSoft: fr != "d", soft: $soft) { x in
@@ -894,6 +900,21 @@ private struct ModuleSheet: View {
             .onChange(of: w) { _, v in let t = String(v.filter(\.isNumber).prefix(4)); if t != v { w = t } }
             .onChange(of: h) { _, v in let t = String(v.filter(\.isNumber).prefix(4)); if t != v { h = t } }
             .onChange(of: d) { _, v in let t = String(v.filter(\.isNumber).prefix(3)); if t != v { d = t } }
+        }
+    }
+}
+
+/// A wall unit's "Vitrina (shisha eshik)" switch, and with it the wood accent inside and what the glass costs.
+private struct VitrinaToggles: View {
+    @Binding var glass: Bool
+    @Binding var accIn: Bool
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            FToggle(label: tr("km.glass"), on: glass, id: "km.glass") { self.glass.toggle() }
+            if glass {
+                FToggle(label: tr("km.accIn"), on: accIn, id: "km.accIn") { self.accIn.toggle() }
+                T(tr("km.glassNote"), ui(12.5, 400, G.ink2, lh: 1.4))
+            }
         }
     }
 }

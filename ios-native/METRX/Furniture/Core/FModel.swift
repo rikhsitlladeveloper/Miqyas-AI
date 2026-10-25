@@ -147,12 +147,18 @@ struct Module: Codable, Equatable, Identifiable {
     /// The box's own fronts without a handle (a push latch opens them): "f0".. a kitchen unit's doors or drawers, "bd0"..
     /// a bed's drawers (HandleRules.swift).
     var noHandle: [String] = []
+    /// A kitchen wall unit's doors are glass in frames, a vitrina (Kitchen.swift glassDoors): bought by the m², not cut;
+    /// its shelves glass. Written only when set (Android @EncodeDefault NEVER).
+    var glass = false
+    /// A glass-door wall unit's inside (its back) in the look's wood accent, as the mockup's vitrina. Written only when set.
+    var accentIn = false
     init(id: String, type: String, w: Int, h: Int, d: Int, x: Int = 0, wall: String? = nil, elev: Int = 0, fronts: Fronts = Fronts(), inserts: [Insert] = [],
          sections: [Section] = [], legs: Bool = true, soft: Bool = true, handles: Bool = true, label: String = "", app: String = "", sideL: Bool = true, sideR: Bool = true,
-         slide: Slide? = nil, base: Int? = nil, led: Bool = false, opt: ItemOpt? = nil, noHandle: [String] = []) {
+         slide: Slide? = nil, base: Int? = nil, led: Bool = false, opt: ItemOpt? = nil, noHandle: [String] = [], glass: Bool = false, accentIn: Bool = false) {
         self.id = id; self.type = type; self.w = w; self.h = h; self.d = d; self.x = x; self.wall = wall; self.elev = elev; self.fronts = fronts
         self.inserts = inserts; self.sections = sections; self.legs = legs; self.soft = soft; self.handles = handles; self.label = label; self.app = app
         self.sideL = sideL; self.sideR = sideR; self.slide = slide; self.base = base; self.led = led; self.opt = opt; self.noHandle = noHandle
+        self.glass = glass; self.accentIn = accentIn
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -161,10 +167,14 @@ struct Module: Codable, Equatable, Identifiable {
         sections = c.v(.sections, []); legs = c.v(.legs, true); soft = c.v(.soft, true); handles = c.v(.handles, true); label = c.v(.label, "")
         app = c.v(.app, ""); sideL = c.v(.sideL, true); sideR = c.v(.sideR, true); slide = c.v(.slide, nil)
         base = c.v(.base, nil); led = c.v(.led, false); opt = c.v(.opt, nil); noHandle = c.v(.noHandle, [])
+        glass = c.v(.glass, false); accentIn = c.v(.accentIn, false)
     }
     // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
-    enum CodingKeys: String, CodingKey { case id, type, w, h, d, x, wall, elev, fronts, inserts, sections, legs, soft, handles, label, app, sideL, sideR, slide, base, led, opt, noHandle }
-    /// The synthesized form, with noHandle written only when set.
+    enum CodingKeys: String, CodingKey {
+        case id, type, w, h, d, x, wall, elev, fronts, inserts, sections, legs, soft, handles, label, app, sideL, sideR, slide, base, led, opt, noHandle
+        case glass, accentIn
+    }
+    /// The synthesized form, with noHandle, glass and accentIn written only when set.
     func encode(to e: Encoder) throws {
         var c = e.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id); try c.encode(type, forKey: .type); try c.encode(w, forKey: .w); try c.encode(h, forKey: .h); try c.encode(d, forKey: .d)
@@ -174,6 +184,8 @@ struct Module: Codable, Equatable, Identifiable {
         try c.encode(sideL, forKey: .sideL); try c.encode(sideR, forKey: .sideR); try c.encodeIfPresent(slide, forKey: .slide)
         try c.encodeIfPresent(base, forKey: .base); try c.encode(led, forKey: .led); try c.encodeIfPresent(opt, forKey: .opt)
         if !noHandle.isEmpty { try c.encode(noHandle, forKey: .noHandle) }
+        if glass { try c.encode(glass, forKey: .glass) }
+        if accentIn { try c.encode(accentIn, forKey: .accentIn) }
     }
 }
 

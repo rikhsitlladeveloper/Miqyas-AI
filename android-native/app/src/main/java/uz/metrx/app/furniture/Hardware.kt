@@ -86,7 +86,8 @@ fun hardwareOf(m: Module, ws: Workshop, edge: Boolean = false): Map<String, Int>
             if (m.led) { add("led", m.w - 2 * t); add("ledPsu", 1) }
         }
         else -> {
-            fronts(m.fronts, m.w, m.h); inside(m.inserts, m.w - 2 * t)
+            // a kitchen vitrina's glass doors in their frames, by the m² (their hinges and handles as any door's)
+            fronts(m.fronts, m.w, m.h, if (glassDoors(m)) "glass" else ""); inside(m.inserts, m.w - 2 * t)
             add("confirmat", if (m.type == "base") 24 else 16)
             if (m.type == "wall") add("hanger", 2)
             if (m.type != "wall" && m.legs) add("leg", if (m.w > 900) 6 else 4)

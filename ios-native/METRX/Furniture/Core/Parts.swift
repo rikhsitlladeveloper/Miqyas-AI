@@ -184,7 +184,8 @@ func partsOf(_ m: Module, _ ws: Workshop) -> [FPart] {
         out.append(part("fp.top", id, "carcass", m.w - 2 * t, m.d, 2, THICK))
         shelves(m.w - 2 * t, m.d, m.inserts)
         out.append(backPanel(id, m.w, m.h, ws))
-        out += fronts(id, m.fronts, m.w, m.h, ws)
+        // a vitrina's glass doors are bought, not cut (its glass shelves too: Hardware.swift)
+        out += fronts(id, m.fronts, m.w, m.h, ws, glassDoors(m) ? "glass" : "")
         if m.fronts.kind == "drawer" { for (fh, _) in frontSizes(m.fronts, m.w, m.h, ws) { out += drawerBox(id, m.w - 2 * t, m.d, fh, t) } }
     }
     return mergeParts(out)

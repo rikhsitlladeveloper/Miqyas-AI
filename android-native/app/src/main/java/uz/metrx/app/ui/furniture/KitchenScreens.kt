@@ -218,7 +218,7 @@ private fun modSub(m: Module): String {
         "door" -> out += tr(if (m.fronts.n >= 2) "km.f2" else "km.f1")
         "drawer" -> out += tr("km.fd") + " " + m.fronts.n
     }
-    m.inserts.filter { it.kind == "shelf" }.sumOf { it.qty }.let { if (it > 0) out += tr("km.shelves") + " " + it }
+    m.inserts.filter { it.kind == "shelf" || it.kind == "glass" }.sumOf { it.qty }.let { if (it > 0) out += tr("km.shelves") + " " + it }
     return out.joinToString(" · ")
 }
 
@@ -240,6 +240,8 @@ internal val CORNER_FILL get() = pc(0xFFE7E5E4, 0xFF2A3042)
 internal val GAP_FILL get() = pc(0xFFF1F5F9, 0xFF2B3346)
 private val GLASS_DARK get() = pc(0xFF1E293B, 0xFF0B1220)
 private val OPEN_FILL get() = pc(0xFFE2E6EC, 0xFF283044)
+/** A vitrina's glass in the wall drawing, inside its door's frame. */
+private val GLASS_2D get() = pc(0xFFD6E6EC, 0xFF3A4A5C)
 
 /** Where a run sits in a viewBox [vw] wide: [L] × [H] mm, with room for sizes under it when [dims]. */
 internal class KLay(val L: Int, val H: Int, val vw: Float, val dims: Boolean, ext: Int = L) {
@@ -382,7 +384,13 @@ private fun DrawScope.drawUnit(lay: KLay, m: Module, ws: Workshop, front: Color,
                 val fw = (w - g * (n + 1)) / n
                 for (i in 0 until n) {
                     val fl = l + g + i * (fw + g)
-                    drawRect(front, Offset(fl, t + g), Size(fw, h - 2 * g)); drawRect(onF, Offset(fl, t + g), Size(fw, h - 2 * g), style = Stroke(.8f))
+                    drawRect(front, Offset(fl, t + g), Size(fw, h - 2 * g))
+                    // a vitrina's door: glass inside a narrow frame
+                    if (uz.metrx.app.furniture.glassDoors(m)) {
+                        val fi = max(1.5f, min(fw, h) * .07f)
+                        drawRect(GLASS_2D, Offset(fl + fi, t + g + fi), Size(fw - 2 * fi, h - 2 * g - 2 * fi))
+                    }
+                    drawRect(onF, Offset(fl, t + g), Size(fw, h - 2 * g), style = Stroke(.8f))
                     // the handle on the opening edge: right of a single door, the middle of a pair; without one the push mark
                     val hx = if (n == 1 || i == 0) fl + fw - max(2.5f, fw * .1f) else fl + max(2.5f, fw * .1f)
                     val hy = if (m.type == "wall") t + h * .82f else t + h * .14f
@@ -994,7 +1002,10 @@ private fun ModuleSheet(s: Sheet.FModule) {
     var d by rememberSaveable { mutableStateOf(m.d.toString()) }
     var fr by rememberSaveable { mutableStateOf(when { m.fronts.kind == "drawer" -> "d"; m.fronts.kind == "open" -> "o"; m.fronts.kind == "panel" -> "p"; m.fronts.n >= 2 -> "2"; else -> "1" }) }
     var drawers by rememberSaveable { mutableIntStateOf(if (m.fronts.kind == "drawer") m.fronts.n else 3) }
-    var shelves by rememberSaveable { mutableIntStateOf(m.inserts.filter { it.kind == "shelf" }.sumOf { it.qty }) }
+    var shelves by rememberSaveable { mutableIntStateOf(m.inserts.filter { it.kind == "shelf" || it.kind == "glass" }.sumOf { it.qty }) }
+    // a wall unit's glass doors in frames (a vitrina) and its inside in the wood accent
+    var glass by rememberSaveable { mutableStateOf(uz.metrx.app.furniture.glassDoors(m)) }
+    var accIn by rememberSaveable { mutableStateOf(m.accentIn) }
     var soft by rememberSaveable { mutableStateOf(m.soft) }
     var handles by rememberSaveable { mutableStateOf(m.handles) }
     // the fronts left without a handle (Handles.kt), kept as text so the sheet keeps them when turned
@@ -1005,9 +1016,10 @@ private fun ModuleSheet(s: Sheet.FModule) {
     val hi = h.toIntOrNull()?.takeIf { it in hMin..hMax }
     val di = d.toIntOrNull()?.takeIf { it in 16..800 }
     val fronts = when (fr) { "d" -> Fronts("drawer", drawers); "o" -> Fronts("open", 0); "2" -> Fronts("door", 2); "1" -> Fronts("door", 1); else -> m.fronts }
-    val inserts = m.inserts.filter { it.kind != "shelf" } + if (fr != "d" && shelves > 0 && boxed) listOf(Insert("shelf", qty = shelves)) else emptyList()
-    val next = uz.metrx.app.furniture.frontsChanged(m, m.copy(w = wi ?: m.w, h = hi ?: m.h, d = di ?: m.d, fronts = fronts, inserts = inserts, soft = soft, handles = handles,
-        noHandle = noH.split(',').filter { it.isNotEmpty() }))
+    val inserts = m.inserts.filter { it.kind != "shelf" && it.kind != "glass" } + if (fr != "d" && shelves > 0 && boxed) listOf(Insert("shelf", qty = shelves)) else emptyList()
+    // glass only on a wall unit's doors: its shelves turn glass with them (Kitchen.kt withGlassDoors)
+    val next = uz.metrx.app.furniture.withGlassDoors(uz.metrx.app.furniture.frontsChanged(m, m.copy(w = wi ?: m.w, h = hi ?: m.h, d = di ?: m.d, fronts = fronts, inserts = inserts, soft = soft, handles = handles,
+        noHandle = noH.split(',').filter { it.isNotEmpty() }, accentIn = accIn)), glass)
     fun setHandles(x: Module) { handles = x.handles; noH = x.noHandle.joinToString(",") }
     val ok = wi != null && hi != null && di != null
     GlassSheet(modName(m), { app.sheet = null }, footer = {
@@ -1056,6 +1068,7 @@ private fun ModuleSheet(s: Sheet.FModule) {
             Seg(listOf("1" to tr("km.f1"), "2" to tr("km.f2"), "d" to tr("km.fd"), "o" to tr("km.fo")), fr) { fr = it }
             if (fr == "d") Stepper(tr("km.drawers"), drawers, 2, 5) { drawers = it }
             else Stepper(tr("km.shelves"), shelves, 0, 8) { shelves = it }
+            if (m.type == "wall" && (fr == "1" || fr == "2")) VitrinaToggles(glass, accIn, { glass = !glass }, { accIn = !accIn })
             if (fr != "o") {
                 // the unit's fronts: each one tapped to give it a handle or take it away (25 Oct 2026)
                 UnitFronts(next, ws, f) { k -> setHandles(uz.metrx.app.furniture.toggleHandle(next, k.key)) }
@@ -1094,6 +1107,15 @@ private fun ModuleSheet(s: Sheet.FModule) {
         if (hw.isNotEmpty()) Text(tr("km.hw", "v" to hw.entries.joinToString(", ") { (k, v) -> app.t("hk.$k") + " × " + uz.metrx.app.furniture.hwAmount(k, v, app.settings.lang == Lang.EN) }),
             style = ui(12.5f, 400, G.ink2, 1.4f))
     }
+}
+
+/** A wall unit's "Vitrina (shisha eshik)" switch, and with it the wood accent inside and what the glass costs. */
+@Composable
+private fun VitrinaToggles(glass: Boolean, accIn: Boolean, onGlass: () -> Unit, onAcc: () -> Unit) {
+    Toggle(tr("km.glass"), glass, onGlass)
+    if (!glass) return
+    Toggle(tr("km.accIn"), accIn, onAcc)
+    Text(tr("km.glassNote"), style = ui(12.5f, 400, G.ink2, 1.4f))
 }
 
 /** A kitchen unit's fronts as a small drawing, each door or drawer a tap target for its handle. */

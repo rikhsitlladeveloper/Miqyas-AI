@@ -119,6 +119,8 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
         B.style = f.look?.style ?? "flat"; B.htype = handleType(f); B.hid = f.handle
         B.fglass = f.look?.fglass == true; B.legsMetal = metalLegs(f); B.ledOn = f.kx?.led == true
         B.accentOn = !(f.look?.accent ?? "").isEmpty
+        // a kitchen vitrina's dishes are small decor (the high tier's)
+        B.decor = withDecor
         B.design = f.look; B.piecePose = f.pose
         // a wardrobe's LED in each section (with a door sensor) and its cornice or row up to the ceiling (a kitchen's are its own)
         // (a gorka's LED strips and neoclassic cornice are its own: Geo/GorkaScene3D.swift)
@@ -291,6 +293,8 @@ final class FBuilder {
     /// hardware id, fluted glass, metal legs, a kitchen's LED on, a wood accent chosen.
     var style = "flat", htype = "bar", hid = ""
     var fglass = false, legsMetal = false, ledOn = false, accentOn = false
+    /// The small decor drawn (a kitchen vitrina's dishes; furniture3D's decor).
+    var decor = false
     /// A wardrobe's LED in its sections (PieceLook.led) and what is on top of it ("", "cornice", "ceiling"; crownOf).
     var wardLed = false, crown = ""
     /// The piece's highest box top, mm: only the boxes that reach it take the crown (a stenka's talls, not its hung shelf).
@@ -464,13 +468,17 @@ final class FBuilder {
             box(w, rail, x0 + T, x1 - T, y1 - T, y1, dd - 100, dd, true); box(w, rail, x0 + T, x1 - T, y1 - T, y1, 0, 100, true)
         }
         else { box(w, role("carcass", "fp.top", look: ck), x0 + T, x1 - T, y1 - T, y1, 0, dd, true) }
-        // the back sits in grooves between the sides, the bottom and the top (Parts backPanel)
-        box(w, role("back", "fp.back", look: ck), x0 + T, x1 - T, y0 + T, y1 - T, 0, 3)
+        // the back sits in grooves between the sides, the bottom and the top (Parts backPanel); a vitrina's in the wood
+        // accent when its inside is
+        let vit = glassDoors(m)
+        box(w, role("back", "fp.back", look: ck ?? (vit && m.accentIn && accentOn ? "accent" : nil)), x0 + T, x1 - T, y0 + T, y1 - T, 0, 3)
         let shelves = m.inserts.filter { $0.kind == "shelf" }.reduce(0) { $0 + $1.qty }
         if m.fronts.kind != "drawer" && shelves > 0 {
             let shelf = role("carcass", "fp.shelf", look: ck)
             for k in 1...shelves { let y = y0 + (d(m.h) - T) * Double(k) / Double(shelves + 1); box(w, shelf, x0 + T, x1 - T, y, y + T, 20, dd - 20, true) }
         }
+        // a vitrina: glass shelves where the board ones would be, its LED inside with the kitchen's, the dishes
+        if vit { vitrinaInside(w, m) }
         // under base and tall units on legs: the hidden plinth, or the visible metal legs
         if m.legs && m.type != "wall" && y0 > 0 { feet(w, x0, x1, y0, dd) }
         // fronts
@@ -498,7 +506,7 @@ final class FBuilder {
                 // handles near the top of a low door, near the bottom of a wall unit's, at 1 m on a tall one
                 let hv: HPlace = m.type == "wall" ? .bottom : fh > 1200 ? .at(1000 - y0 - edge) : .top
                 let h = d(fh) - (gola ? GOLA_DROP : 0)
-                door(w, "\(m.id):f\(j)", right ? a + d(fw) : a, dd, y0 + edge, h, d(fw), right ? -1 : 1, hasHandle(m, "f\(j)"), hv)
+                door(w, "\(m.id):f\(j)", right ? a + d(fw) : a, dd, y0 + edge, h, d(fw), right ? -1 : 1, hasHandle(m, "f\(j)"), hv, face: vit ? "glass" : "")
             }
             if gola { golaRail(w, x0, x1, y1, dd) }
         case "drawer", "panel":

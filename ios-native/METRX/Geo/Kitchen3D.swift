@@ -121,6 +121,20 @@ struct FFrame {
 extension FBuilder {
     /// Round parts, fluted reeds, a worktop's soft edge: not in the 2D drawings.
     var fancy: Bool { detail != .flat }
+
+    /// A kitchen vitrina's inside (mockup buildKitchen's glass wall unit): its glass shelves, evenly spaced as the board
+    /// ones are; with the kitchen's LED a strip along the inside of its top and its light down the back; with the
+    /// decor (the high tier) the dishes (vitrinaDishes). Its glass doors are drawn by door (glassDoor) with their handles.
+    func vitrinaInside(_ w: WallBasis, _ m: Module) {
+        let x0 = Double(m.x), x1 = x0 + Double(m.w), y0 = Double(m.elev), y1 = y0 + Double(m.h), dd = Double(m.d), T = Double(t)
+        let sg = p(fancy ? "shelfGlass" : "clear")
+        for y in vitrinaShelves(m, t) { box(w, sg, x0 + T, x1 - T, y, y + 6, 3, dd - 17, true) }
+        if ledOn {
+            box(w, p("led"), x0 + T + 20, x1 - T - 20, y1 - T - 8, y1 - T, dd - 70, dd - 52)
+            glowDown(w, x0 + T + 10, x1 - T - 10, y1 - T - 8, 3, min(520, y1 - T - 8 - (y0 + T)))
+        }
+        if decor && fancy { guestBoxes(w, vitrinaDishes(m, t)) }
+    }
     /// Sides of a round part.
     var sides: Int { detail == .high ? 12 : 8 }
 

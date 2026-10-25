@@ -359,7 +359,7 @@ fun DesignCard(p: Project, f: Furniture) {
             }
         }
         // the extras
-        val glass = f.modules.any { m -> m.sections.any { it.face == "glass" } }
+        val glass = uz.metrx.app.furniture.hasGlassDoors(f)
         if (kitchen || glass) Toggle(tr("lk.fglass") + " · " + tr("lk.extra"), l.fglass) { look { it.copy(fglass = !it.fglass) } }
         if (kitchen && (f.layout == "O" || f.layout == "P")) Toggle(tr("lk.waterfall") + " · " + tr("lk.extra"), l.waterfall) { look { it.copy(waterfall = !it.waterfall) } }
         if (kitchen && !glass) Text(tr("lk.fglassNote"), style = ui(12f, 400, G.ink2, 1.4f))

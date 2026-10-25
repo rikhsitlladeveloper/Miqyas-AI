@@ -22,6 +22,7 @@ import uz.metrx.app.furniture.Workshop
 import uz.metrx.app.furniture.blockH
 import uz.metrx.app.furniture.fillOf
 import uz.metrx.app.furniture.frontSizes
+import uz.metrx.app.furniture.glassDoors
 import uz.metrx.app.furniture.isUpper
 import uz.metrx.app.furniture.runsOf
 import uz.metrx.app.furniture.wardBase
@@ -311,12 +312,12 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             mapOf("carcass" to sf("carcass"), "front" to sf("frontLow"), "frontUp" to sf("frontUp"), "back" to sf("back").copy(rough = .85f),
                 "top" to sf("worktop", "worktop"), "splash" to splash, "plinth" to sf("plinth"),
                 "handle" to hw, "frame" to sf("frame", "hardware"), "gola" to sf("gola", "hardware"), "legs" to sf("legs", "hardware"),
-                "mirror" to sf("mirror"), "clear" to sf("glass", "glass"), "faucet" to (if (chrome) Looks.steel else hw))
+                "mirror" to sf("mirror"), "clear" to sf("glass", "glass"), "faucet" to (if (chrome) Looks.steel else hw), "accent" to sf("accent"))
         } else {
             mapOf("carcass" to matLook(f.mats.carcass), "front" to matLook(f.mats.front), "frontUp" to matLook(upId), "back" to matLook(f.mats.back).copy(rough = .85f),
                 "top" to (look?.invoke(topId) ?: Looks.worktop(rgb(topId))), "splash" to (look?.invoke(splId) ?: Looks.plain(rgb(splId)).copy(rough = .3f)),
                 "plinth" to matLook(f.mats.front), "handle" to Looks.handle, "frame" to Looks.steel, "gola" to Looks.metalOf(0x232427), "legs" to Looks.steel,
-                "mirror" to Looks.mirror, "clear" to Looks.clearGlass, "faucet" to Looks.steel)
+                "mirror" to Looks.mirror, "clear" to Looks.clearGlass, "faucet" to Looks.steel, "accent" to matLook(f.mats.carcass))
         }
         // lacobel (a sliding door's painted glass) in the lower fronts' colour, white under a wood decor (modern 3D part 5)
         val lacobel = if (mats != null) lookOf(f, null, "frontLow", ms).let { s -> if (s.tex == null) Looks.lacobel.copy(rgb = rgbOf(s.rgb)) else Looks.lacobel.copy(rgb = 0xEDEAE4) } else Looks.lacobel
@@ -334,6 +335,8 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
         B.rich = rich; B.light = light
         B.hType = handleType(f); B.hId = f.handle; B.style = l?.style ?: "flat"; B.fglass = l?.fglass == true
         B.metalLegs = metalLegs(f); B.plinth = f.kx?.plinth == true
+        // a kitchen vitrina's LED inside goes with the kitchen's LED; its dishes are small decor (the high tier's)
+        B.kLed = f.kind == "kitchen" && f.kx?.led == true; B.decor = decor
         // a wardrobe's LED with door sensors, its cornice or panel up to the ceiling (the room's height, a room-less piece's own)
         // a gorka draws its own LED strips and cornice (Gorka3D.kt): not the wardrobe engine's as well
         B.ledLook = f.kind == "wardrobe" && f.type != "gorka" && l?.led == true
@@ -491,6 +494,8 @@ internal class Builder3(
     var hType = "bar"; var hId = ""; var style = "flat"; var fglass = false; var metalLegs = false; var plinth = false
     /** A wardrobe's LED inside with door sensors (Look.led); on top of it: "", "cornice" or "ceiling"; the ceiling's height, mm. */
     var ledLook = false; var crown = ""; var ceilH = 2700.0
+    /** A kitchen's LED on ([KExtras.led]): lit inside its vitrinas too; the small decor (a vitrina's dishes) drawn. */
+    var kLed = false; var decor = true
     /** The front board of the box being built: "front" (the lower fronts) or "frontUp" (a two-tone piece's upper ones). */
     var fr = "front"
     /** The worktop's top above the floor and its thickness, mm. */
@@ -668,7 +673,8 @@ internal class Builder3(
         if (rich) {
             val ff = Frame(o, e, up, tn)
             when (face) {
-                "glass" -> glassDoor(ff, fw, h)
+                // a kitchen vitrina's glass door takes its handle on the frame (mockup b.glassDoor); a wardrobe's has none
+                "glass" -> { glassDoor(ff, fw, h); if (handles) handleOn(ff, key, fw, h, 20.0, "door", pos, hy) }
                 "mirror" -> { obb(p, x, true, up); obb(p("mirror"), Obb(o + e * .005 + up * .005 + tn * (t / 1000.0), e * (fw / 1000 - .01), up * (h / 1000 - .01), tn * .004), false)
                     sheen(ff, 5.0, fw - 5, 5.0, h - 5, t + 4.5)
                     if (handles) handleOn(ff, key, fw, h, t + 4.0, "door", pos, hy) }
@@ -787,10 +793,15 @@ internal class Builder3(
         box(w, role("carcass", if (m.type == "base") "fp.bottom" else "fp.top"), x0 + t, x1 - t, y0, y0 + t, 0, d, true)
         if (m.type == "base") { val r = role("carcass", "fp.rail"); box(w, r, x0 + t, x1 - t, y1 - t, y1, d - 100, d, true); box(w, r, x0 + t, x1 - t, y1 - t, y1, 0, 100, true) }
         else box(w, role("carcass", "fp.top"), x0 + t, x1 - t, y1 - t, y1, 0, d, true)
-        // the back sits in grooves between the sides, the bottom and the top (Parts.kt backPanel)
-        box(w, role("back", "fp.back"), x0 + t, x1 - t, y0 + t, y1 - t, 0, 3)
+        // the back sits in grooves between the sides, the bottom and the top (Parts.kt backPanel); a vitrina's in the
+        // wood accent when its inside is
+        val vit = glassDoors(m)
+        box(w, role("back", "fp.back", show = if (vit && m.accentIn) "accent" else "back"), x0 + t, x1 - t, y0 + t, y1 - t, 0, 3)
         val shelves = m.inserts.filter { it.kind == "shelf" }.sumOf { it.qty }
         if (m.fronts.kind != "drawer") for (k in 1..shelves) { val y = y0 + (m.h - t) * k / (shelves + 1.0); box(w, role("carcass", "fp.shelf"), x0 + t, x1 - t, y, y + t, 20, d - 20, true) }
+        // a vitrina: glass shelves (6 mm) where the board ones would be, its LED along the inside of its top with the
+        // kitchen's LED, plates and cups on the high tier
+        if (vit) vitrinaInside(w, m)
         // under base and tall units on legs: the visible metal legs of the design, the hidden plinth in the lower
         // fronts' board 50 mm back from the fronts, else the plinth strip as before
         if (m.legs && m.type != "wall" && y0 > 0) when {
@@ -824,7 +835,8 @@ internal class Builder3(
                     // handles near the top of a low door, near the bottom of a wall unit's, at 1 m on a tall one
                     val hy = when { m.type == "wall" -> 90.0; fh > 1200 -> (1000 - y0).coerceIn(minOf(150.0, fh / 2.0), maxOf(fh / 2.0, fh - 150.0)); else -> fh - 90.0 }
                     val pos = when { m.type == "wall" -> "bottom"; fh > 1200 -> "mid"; else -> "top" }
-                    door(w, "${m.id}:f$j", if (right) a + fw else a, d, y0 + edge, fh, fw.toDouble(), if (right) -1 else 1, uz.metrx.app.furniture.hasHandle(m, "f$j"), hy, pos = pos)
+                    door(w, "${m.id}:f$j", if (right) a + fw else a, d, y0 + edge, fh, fw.toDouble(), if (right) -1 else 1, uz.metrx.app.furniture.hasHandle(m, "f$j"), hy, pos = pos,
+                        face = if (vit) "glass" else "")
                 }
             }
             "drawer", "panel" -> if (gl && m.fronts.kind == "drawer" && m.type == "base") {
@@ -874,6 +886,22 @@ internal class Builder3(
             "micro" -> box(w, dark, x0 + t + 10, x0 + m.w * .72, y0 + t, y0 + t + 290, 40, d - 10, true)
             "hood" -> box(w, metal, x0 + 10, x1 - 10, y0 - 60, y0, 30, d + 40, true)
         }
+    }
+
+    /**
+     * A kitchen vitrina's inside (mockup buildKitchen's glass wall unit): its glass shelves, evenly spaced as the board
+     * ones are; with the kitchen's LED a strip along the inside of its top and its light down the back; on the high
+     * tier the dishes ([vitrinaDishes]).
+     */
+    private fun vitrinaInside(w: WallBasis, m: Module) {
+        val x0 = m.x.toDouble(); val x1 = x0 + m.w; val y0 = m.elev.toDouble(); val y1 = y0 + m.h; val d = m.d.toDouble()
+        val ys = vitrinaShelves(m, t)
+        ys.forEach { y -> box(w, p(if (rich) "shelfGlass" else "clear"), x0 + t, x1 - t, y, y + 6, 3, d - 17, true) }
+        if (kLed) {
+            if (rich) ledIn(w, x0 + t, m.w - 2.0 * t, y1 - t, d, y0 + t, true, ys.map { it + 6 })
+            else box(w, led, x0 + t + 20, x1 - t - 20, y1 - t - 8, y1 - t, d - 70, d - 52)
+        }
+        if (rich && !light && decor) vitrinaDishes(m, t).forEach { xbox(w, it) }
     }
 
     /* ---------------- appliances (the lit 3D) ---------------- */

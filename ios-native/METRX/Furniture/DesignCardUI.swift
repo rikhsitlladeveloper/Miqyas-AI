@@ -586,7 +586,7 @@ private struct DzOptions: View {
         let l = f.look ?? PieceLook()
         let pid = p.id, fid = f.id
         let kitchen = kind == "kitchen"
-        let glass = f.modules.contains { m in m.sections.contains { $0.face == "glass" } }
+        let glass = hasGlassDoors(f)
         VStack(alignment: .leading, spacing: 10) {
             if kitchen || glass {
                 FToggle(label: tr("lk.fglass") + " · " + tr("lk.extra"), on: l.fglass, id: "lk.fglass") {
