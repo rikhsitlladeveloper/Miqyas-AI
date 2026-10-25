@@ -120,10 +120,16 @@ func partsOf(_ m: Module, _ ws: Workshop) -> [FPart] {
         let base = wardBase(m)
         let sides = (m.sideL ? 1 : 0) + (m.sideR ? 1 : 0)
         let inW = m.w - sides * t
-        if sides > 0 { out.append(part("fp.side", id, "carcass", m.h, m.d, sides, THICK)) }
+        // a kupe's outer sides, top and plinth of the fronts' board (wardRole); its bottom stays carcass
+        if sides > 0 { out.append(part("fp.side", id, wardRole(m, "fp.side"), m.h, m.d, sides, THICK)) }
         let dIn = innerD(m)
         if !secs.contains(where: \.knee) {
-            out.append(part("fp.top", id, "carcass", inW, m.d, 2, THICK))
+            if wardRole(m, "fp.top") != "carcass" {
+                out.append(part("fp.top", id, wardRole(m, "fp.top"), inW, m.d, 1, THICK))
+                out.append(part("fp.bottom", id, "carcass", inW, m.d, 1, THICK))
+            } else {
+                out.append(part("fp.top", id, "carcass", inW, m.d, 2, THICK))
+            }
             if secs.count > 1 { out.append(part("fp.divider", id, "carcass", m.h - base - 2 * t, dIn, secs.count - 1, THICK)) }
         } else {
             // a desk: the top over everything, a bottom under each section but the knee space; a divider beside the knee
@@ -135,7 +141,7 @@ func partsOf(_ m: Module, _ ws: Workshop) -> [FPart] {
                 out.append(part("fp.divider", id, "carcass", toFloor ? m.h - t : m.h - base - 2 * t, toFloor ? m.d : dIn, 1, THICK))
             }
         }
-        if !m.legs && wardBase(m) > 0 { out.append(part("fp.plinth", id, "carcass", inW, wardBase(m), 1, THICK)) }
+        if !m.legs && wardBase(m) > 0 { out.append(part("fp.plinth", id, wardRole(m, "fp.plinth"), inW, wardBase(m), 1, THICK)) }
         for (i, s) in secs.enumerated() {
             let iw = wardInner(m, secs, i, t)
             let sid = "\(id)/\(i + 1)"
@@ -158,6 +164,10 @@ func partsOf(_ m: Module, _ ws: Workshop) -> [FPart] {
             let (pw, ph) = slidePanel(m, t)
             let boards = (0..<min(4, max(2, sl.n))).filter { sl.panel($0) == "ldsp" }.count
             if boards > 0 { out.append(part("fp.slidePanel", id, "front", ph, pw, boards, grain: true)) }
+            // a mirror or lacobel door's filling over its split rail: the upper fronts' board (CutList.swift partMat)
+            let up = kupeFillH(m, t).up
+            let glazed = min(4, max(2, sl.n)) - boards
+            if up > 0 && glazed > 0 { out.append(part("fp.slideUp", id, "front", up, pw, glazed, grain: true)) }
         }
     case "base":
         out.append(part("fp.bottom", id, "carcass", m.w, m.d, 1, THICK))

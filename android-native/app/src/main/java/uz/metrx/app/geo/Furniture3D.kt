@@ -253,7 +253,7 @@ class PartHi(val key: String, val role: String, val mods: Set<String>)
 
 /** The part names the 3D knows its boards by; the others light up every board of their role in their module. */
 private val TAGGED = setOf("fp.side", "fp.top", "fp.bottom", "fp.divider", "fp.shelf", "fp.back", "fp.door", "fp.dFace", "fp.rail", "fp.plinth",
-    "fp.panel", "fp.filler", "fp.slidePanel", "fp.dSide", "fp.dFront", "fp.dBottom", "fp.endLow", "fp.endUp")
+    "fp.panel", "fp.filler", "fp.slidePanel", "fp.slideUp", "fp.dSide", "fp.dFront", "fp.dBottom", "fp.endLow", "fp.endUp")
 private const val HI = 0xF59E0B
 
 /** A handle's length along its door or drawer, mm: the piece's handle type (a knob, a long bar, the usual 128 skoba). */
@@ -1059,13 +1059,17 @@ internal class Builder3(
         val base = wardBase(m).toDouble()
         val yb = z0 + base; val yt = z0 + m.h
         val sl = if (m.sideL) t else 0; val sr = if (m.sideR) t else 0
-        if (m.sideL) box(w, role("carcass", "fp.side"), x0, x0 + t, z0, yt, 0, d, true)
-        if (m.sideR) box(w, role("carcass", "fp.side"), x1 - t, x1, z0, yt, 0, d, true)
-        // the bottom under every section but a desk's knee space (a wardrobe's top and bottom are one part, a desk's bottoms their own)
-        if (m.sections.none { it.knee }) box(w, role("carcass", "fp.top"), x0 + sl, x1 - sr, yb, yb + t, 0, d, true)
+        // a kupe's outer sides, top and plinth in the fronts' board, as the parts list cuts them (Wardrobe.kt wardRole)
+        val sideP = role(uz.metrx.app.furniture.wardRole(m, "fp.side"), "fp.side")
+        if (m.sideL) box(w, sideP, x0, x0 + t, z0, yt, 0, d, true)
+        if (m.sideR) box(w, sideP, x1 - t, x1, z0, yt, 0, d, true)
+        // the bottom under every section but a desk's knee space (a wardrobe's top and bottom are one part, a desk's
+        // bottoms their own, a kupe's bottom its own: its top is of the fronts' board)
+        val ownTop = uz.metrx.app.furniture.wardRole(m, "fp.top") != "carcass"
+        if (m.sections.none { it.knee }) box(w, role("carcass", if (ownTop) "fp.bottom" else "fp.top"), x0 + sl, x1 - sr, yb, yb + t, 0, d, true)
         else { var a = x0; m.sections.forEach { s -> if (!s.knee) box(w, role("carcass", "fp.bottom"), maxOf(a, x0 + sl), minOf(a + s.w, x1 - sr), yb, yb + t, 0, d, true); a += s.w } }
-        box(w, role("carcass", "fp.top"), x0 + sl, x1 - sr, yt - t, yt, 0, d, true)
-        if (!m.legs) box(w, role("carcass", "fp.plinth"), x0 + sl, x1 - sr, z0, z0 + wardBase(m), d - 60, d - 44, true)
+        box(w, role(uz.metrx.app.furniture.wardRole(m, "fp.top"), "fp.top"), x0 + sl, x1 - sr, yt - t, yt, 0, d, true)
+        if (!m.legs) box(w, role(uz.metrx.app.furniture.wardRole(m, "fp.plinth"), "fp.plinth"), x0 + sl, x1 - sr, z0, z0 + wardBase(m), d - 60, d - 44, true)
         // on legs: a pair under each side and each divider, as the hardware list counts them
         // (none at an end without a side: a corner desk's second arm rests on the first there)
         else ((if (m.sideL) listOf(x0 + 20) else emptyList()) + m.sections.runningFold(x0) { a, s -> a + s.w }.drop(1).dropLast(1).map { it - 18 } +
@@ -1223,7 +1227,8 @@ internal class Builder3(
         val yTop = y0 + oh
         box(w, pf, ax, ax + ow, yTop - 30, yTop, d - 98, d - 2, true); box(w, pf, ax, ax + ow, y0, y0 + 12, d - 98, d - 2, true)
         val y = y0 + uz.metrx.app.furniture.SLIDE_CLEAR / 2.0
-        val split = kupeSplit(m, dh, y - y0)
+        // the price's rule too (Wardrobe.kt kupeSplit, kupeFillH)
+        val split = uz.metrx.app.furniture.kupeSplit(m, t, dh, y - y0)
         val pw = min(42.0, dw / 6); val rt = 30.0; val rb = 50.0; val pd = 34.0
         for (j in 0 until n) {
             val key = "${m.id}:slide$j"
@@ -1236,28 +1241,18 @@ internal class Builder3(
             fbox(ff, pf, 0.0, pw, 0.0, dh, 0.0, pd, true); fbox(ff, pf, dw - pw, dw, 0.0, dh, 0.0, pd, true)
             fbox(ff, pf, pw, dw - pw, dh - rt, dh, 4.0, pd - 4, true, ff.e); fbox(ff, pf, pw, dw - pw, 0.0, rb, 4.0, pd - 4, true, ff.e)
             if (split != null) fbox(ff, pf, pw, dw - pw, split - 7, split + 7, 6.0, pd - 6, true, ff.e)
-            fun fill(v0: Double, v1: Double, kind: String, board: String) {
+            fun fill(v0: Double, v1: Double, kind: String, board: String, k: String = "fp.slidePanel") {
                 if (v1 - v0 < 1) return
                 when (kind) {
                     "mirror" -> { fbox(ff, p("mirror"), pw, dw - pw, v0, v1, 13.0, 19.0, false); sheen(ff, pw, dw - pw, v0, v1, 19.5) }
                     "glass" -> fbox(ff, p("lacobel"), pw, dw - pw, v0, v1, 13.0, 19.0, false)
-                    else -> frontBody(Frame(ff.at(pw, v0, 12.0), ff.e, ff.up, ff.tn), role(board, "fp.slidePanel"), dw - 2 * pw, v1 - v0, 10.0, ff.up)
+                    else -> frontBody(Frame(ff.at(pw, v0, 12.0), ff.e, ff.up, ff.tn), role(board, k), dw - 2 * pw, v1 - v0, 10.0, ff.up)
                 }
             }
             if (split == null) fill(rb, dh - rt, sl.panel(j), fr)
-            else { fill(rb, split - 7, sl.panel(j), fr); fill(split + 7, dh - rt, "ldsp", "frontUp") }
+            else { fill(rb, split - 7, sl.panel(j), fr); fill(split + 7, dh - rt, "ldsp", "frontUp", if (sl.panel(j) == "ldsp") "fp.slidePanel" else "fp.slideUp") }
             picks += Pick(key, ff.obb(0.0, dw, 0.0, dh, 0.0, pd))
         }
-    }
-
-    /**
-     * Where a sliding door [dh] mm high (its bottom [lift] mm over the inside's floor) has its split rail, mm up the
-     * door: at the shelf the wardrobe's top storage rests on (its highest shelf between 60 % of the door and 250 mm
-     * under its top, the mockup's antresol), else 420 mm under its top; a door under 1500 mm has none.
-     */
-    private fun kupeSplit(m: Module, dh: Double, lift: Double): Double? {
-        val v = m.sections.flatMap { s -> s.inserts.filter { it.kind == "shelf" } }.map { it.pos + t / 2.0 - lift }.filter { it >= dh * .6 && it <= dh - 250 }.maxOrNull()
-        return v ?: if (dh >= 1500) dh - 420 else null
     }
 
     /** A box of Gorka3D.kt: in its own look (one part for each wall and look) or the piece's board of its role; turned round its middle. */

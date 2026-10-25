@@ -90,7 +90,7 @@ struct PartHi: Equatable {
 
 /// The part names the 3D knows its boards by; the others light up every board of their role in their module.
 private let PART_TAGGED: Set<String> = ["fp.side", "fp.top", "fp.bottom", "fp.divider", "fp.shelf", "fp.back", "fp.door", "fp.dFace", "fp.rail", "fp.plinth",
-                                        "fp.panel", "fp.filler", "fp.slidePanel", "fp.dSide", "fp.dFront", "fp.dBottom",
+                                        "fp.panel", "fp.filler", "fp.slidePanel", "fp.slideUp", "fp.dSide", "fp.dFront", "fp.dBottom",
                                         "fp.endLow", "fp.endUp"]
 
 /// The furniture fs of a room whose walls are bases. rgb gives a material's colour; open holds the keys of open doors
@@ -119,7 +119,7 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
         B.style = f.look?.style ?? "flat"; B.htype = handleType(f); B.hid = f.handle
         B.fglass = f.look?.fglass == true; B.legsMetal = metalLegs(f); B.ledOn = f.kx?.led == true
         B.accentOn = !(f.look?.accent ?? "").isEmpty
-        B.design = f.look
+        B.design = f.look; B.piecePose = f.pose
         // a wardrobe's LED in each section (with a door sensor) and its cornice or row up to the ceiling (a kitchen's are its own)
         // (a gorka's LED strips and neoclassic cornice are its own: Geo/GorkaScene3D.swift)
         let gorka = f.type == "gorka"
@@ -300,6 +300,8 @@ final class FBuilder {
     /// The piece's design as it is (PieceLook.swift; nil a piece made before it): a bed's headboard, soft wall panel and
     /// legs (Geo/ItemsScene3D.swift).
     var design: PieceLook? = nil
+    /// The piece standing free in the room (its pose; nil in its usual place): a bed keeps its wall panel only at a wall.
+    var piecePose: Pose? = nil
     /// A kitchen's worktop: its thickness and its top above the floor, mm.
     var topT = Double(K_TOP), wtTop = 0.0
     let t: Int, g: Double, edge: Double
@@ -564,18 +566,21 @@ final class FBuilder {
         let yb = z0 + base, yt = z0 + d(m.h)
         let sl = m.sideL ? T : 0, sr = m.sideR ? T : 0
         let metal = p("metal")
-        if m.sideL { box(w, role("carcass", "fp.side"), x0, x0 + T, z0, yt, 0, dd, true) }
-        if m.sideR { box(w, role("carcass", "fp.side"), x1 - T, x1, z0, yt, 0, dd, true) }
+        // a kupe's outer sides, top and plinth in the fronts' board, as the parts list cuts them (Core/Wardrobe.swift wardRole)
+        let sideP = role(wardRole(m, "fp.side"), "fp.side")
+        if m.sideL { box(w, sideP, x0, x0 + T, z0, yt, 0, dd, true) }
+        if m.sideR { box(w, sideP, x1 - T, x1, z0, yt, 0, dd, true) }
         // the bottom under every section but a desk's knee space (a wardrobe's top and bottom are one part, a desk's
-        // bottoms their own)
-        if !m.sections.contains(where: \.knee) { box(w, role("carcass", "fp.top"), x0 + sl, x1 - sr, yb, yb + T, 0, dd, true) }
+        // bottoms their own, a kupe's bottom its own: its top is of the fronts' board)
+        let ownTop = wardRole(m, "fp.top") != "carcass"
+        if !m.sections.contains(where: \.knee) { box(w, role("carcass", ownTop ? "fp.bottom" : "fp.top"), x0 + sl, x1 - sr, yb, yb + T, 0, dd, true) }
         else {
             var a = x0
             let bottom = role("carcass", "fp.bottom")
             for s in m.sections { if !s.knee { box(w, bottom, max(a, x0 + sl), min(a + d(s.w), x1 - sr), yb, yb + T, 0, dd, true) }; a += d(s.w) }
         }
-        box(w, role("carcass", "fp.top"), x0 + sl, x1 - sr, yt - T, yt, 0, dd, true)
-        if !m.legs { box(w, role("carcass", "fp.plinth"), x0 + sl, x1 - sr, z0, z0 + base, dd - 60, dd - 44, true) }
+        box(w, role(wardRole(m, "fp.top"), "fp.top"), x0 + sl, x1 - sr, yt - T, yt, 0, dd, true)
+        if !m.legs { box(w, role(wardRole(m, "fp.plinth"), "fp.plinth"), x0 + sl, x1 - sr, z0, z0 + base, dd - 60, dd - 44, true) }
         else {
             // on legs: a pair under each side and each divider, as the hardware list counts them
             // (none at an end without a side: a corner desk's second arm rests on the first there)
@@ -761,6 +766,8 @@ final class FBuilder {
         let (dwi, dhi) = slideDoor(m, t)
         let dw = d(dwi), dh = d(dhi)
         let step = d(dwi - SLIDE_OV)
+        // where the split rail goes: the price's rule too (Core/Wardrobe.swift kupeSplit, kupeFillH)
+        let sp = kupeSplit(m, t, dh, d(SLIDE_CLEAR) / 2)
         for j in 0..<n {
             let key = "\(m.id):slide\(j)"
             st.keys.append(key)
@@ -769,7 +776,7 @@ final class FBuilder {
             let a = ax + Double(j) * step + shift
             let n0 = dd - 95 + Double(j % 2) * 45
             let y = y0 + d(SLIDE_CLEAR) / 2
-            kupeDoor(w, a, y, n0, dw, dh, sl.panel(j))
+            kupeDoor(w, a, y, n0, dw, dh, sl.panel(j), sp)
             let o = w.at(a / 1000, y / 1000, n0 / 1000)
             st.picks.append(Pick(key: key, box: Obb(o: o, a: w.dir(dw / 1000, 0), b: V3(0, dh / 1000, 0), c: w.dir(0, KUPE_PD / 1000))))
         }

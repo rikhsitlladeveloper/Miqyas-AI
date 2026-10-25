@@ -70,9 +70,12 @@ final class Wardrobe3DTests: XCTestCase {
         let step = Double(slideDoor(k.modules[0], ws.t).0 - SLIDE_OV) / 1000
         XCTAssertTrue(near((pick(d, 2).o - pick(moved, 2).o).dot(u), step))
         XCTAssertEqual(d.parts.count, moved.parts.count)
-        // the split rail: on a door from 1400 tall, 380 under its top
-        XCTAssertNil(kupeSplit(1399))
-        XCTAssertEqual(kupeSplit(2300), 2300 - KUPE_SPLIT_TOP)
+        // the split rail (the price's rule too, Core/Wardrobe.swift): on a door from 1500 tall, 420 under its top without
+        // a hat shelf (KupeBunkBoardsTests)
+        var bare = k.modules[0]
+        bare.sections = bare.sections.map { s in var x = s; x.inserts = []; return x }
+        XCTAssertNil(kupeSplit(bare, ws.t, 1499))
+        XCTAssertEqual(kupeSplit(bare, ws.t, 2300), 2300 - KUPE_SPLIT_TOP)
     }
 
     func testTheMiddleDoorsFill() {
@@ -94,7 +97,7 @@ final class Wardrobe3DTests: XCTestCase {
             let t = (q - door.o).dot(door.a) / door.a.dot(door.a)
             XCTAssertTrue(t > -1e-6 && t < 1 + 1e-6)
         }
-        XCTAssertTrue((pts.map(\.y).max() ?? 9) < door.o.y + door.b.len - KUPE_SPLIT_TOP / 1000 + 1e-6)
+        XCTAssertTrue((pts.map(\.y).max() ?? 9) < door.o.y + kupeSplit(mir.modules[0], ws.t)! / 1000 + 1e-6)
         XCTAssertTrue(faces(d, mir, "lacobel").isEmpty)
         // lacobel: painted glass, mirror-smooth, no mirror
         let lac = withMiddleFill(k, "glass")

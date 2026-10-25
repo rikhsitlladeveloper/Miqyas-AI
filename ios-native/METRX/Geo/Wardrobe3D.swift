@@ -20,18 +20,12 @@ let KUPE_PD = 35.0
 let KUPE_RT = 30.0
 let KUPE_RB = 50.0
 let KUPE_SR = 14.0
-/// The split rail's middle this far under a door's top (the mockup's, level with the hat shelf), mm.
-let KUPE_SPLIT_TOP = 380.0
-/// A door this tall or more has the split rail, mm.
-let KUPE_SPLIT_MIN = 1400.0
+/// (Where the split rail goes, the price's rule too: Core/Wardrobe.swift kupeSplit, KUPE_SPLIT_TOP, KUPE_SPLIT_MIN.)
 /// The tracks along the opening: the top one's and the bottom one's height, mm.
 let KUPE_TRACK_TOP = 20.0
 let KUPE_TRACK_LOW = 12.0
 /// A box takes a cornice or a row up to the ceiling only from this tall (its top above the floor), mm.
 let WARD_CROWN_MIN = 1800
-
-/// The middle of a sliding door's split rail above the door's bottom, the door dh mm tall; nil: too low for one.
-func kupeSplit(_ dh: Double) -> Double? { dh >= KUPE_SPLIT_MIN ? dh - KUPE_SPLIT_TOP : nil }
 
 /// The looks a sliding door is filled with, its panel (Slide.panel; middleFill decides the middle door's: "mirror",
 /// "glass" lacobel, "ldsp" the front board): below the split (or all of it), and above the split, always the upper
@@ -66,22 +60,22 @@ func wardCrown(_ crown: String, _ top: Int, _ ceil: Int) -> Int {
 
 extension FBuilder {
     /// A sliding door a mm along the wall, its bottom y up, its back n0 out, dw × dh (mm): the profiles in the frame's
-    /// look (the handle colour, aluminium without one), the split rail on a tall door, its fillings (kupeFills).
-    func kupeDoor(_ w: WallBasis, _ a: Double, _ y: Double, _ n0: Double, _ dw: Double, _ dh: Double, _ panel: String) {
+    /// look (the handle colour, aluminium without one), the split rail sp mm up the door (Core/Wardrobe.swift kupeSplit;
+    /// nil none), its fillings (kupeFills).
+    func kupeDoor(_ w: WallBasis, _ a: Double, _ y: Double, _ n0: Double, _ dw: Double, _ dh: Double, _ panel: String, _ sp: Double?) {
         let f = FFrame(o: w.at(a / 1000, y / 1000, n0 / 1000), e: w.dir(1, 0), u: V3(0, 1, 0), n: w.dir(0, 1))
         let pm = p("frame"), W = dw / 1000, H = dh / 1000
         let pw = KUPE_PW / 1000, pd = KUPE_PD / 1000, rt = KUPE_RT / 1000, rb = KUPE_RB / 1000
         guard W > 2 * pw + 0.01, H > rt + rb + 0.01 else { fbox(pm, f, 0, 0, 0, W, H, pd, true); return }
         fbox(pm, f, 0, 0, 0, pw, H, pd, true); fbox(pm, f, W - pw, 0, 0, pw, H, pd, true)
         fbox(pm, f, pw, H - rt, 0.004, W - 2 * pw, rt, pd - 0.008, true); fbox(pm, f, pw, 0, 0.004, W - 2 * pw, rb, pd - 0.008, true)
-        let sp = kupeSplit(dh)
         let fills = kupeFills(panel, split: sp != nil)
         let fw = W - 2 * pw, fz = 0.008
         if let sp {
             let s = sp / 1000, sr = KUPE_SR / 1000
             fbox(pm, f, pw, s - sr / 2, 0.006, fw, sr, pd - 0.012, true)
             kupeFill(f, fills.low, pw, rb, fw, s - sr / 2 - rb, fz)
-            kupeFill(f, fills.up ?? fills.low, pw, s + sr / 2, fw, H - rt - s - sr / 2, fz)
+            kupeFill(f, fills.up ?? fills.low, pw, s + sr / 2, fw, H - rt - s - sr / 2, fz, panel == "ldsp" ? "fp.slidePanel" : "fp.slideUp")
         } else {
             kupeFill(f, fills.low, pw, rb, fw, H - rt - rb, fz)
         }
@@ -89,11 +83,11 @@ extension FBuilder {
 
     /// One filling of a sliding door in its frame f, from (a, y) W × H metres, its back z out: a mirror or lacobel pane,
     /// else the board (front or frontUp) in the piece's front style.
-    private func kupeFill(_ f: FFrame, _ key: String, _ a: Double, _ y: Double, _ W: Double, _ H: Double, _ z: Double) {
+    private func kupeFill(_ f: FFrame, _ key: String, _ a: Double, _ y: Double, _ W: Double, _ H: Double, _ z: Double, _ part: String = "fp.slidePanel") {
         guard W > 0.01, H > 0.01 else { return }
         let ff = FFrame(o: f.at(a, y, z), e: f.e, u: f.u, n: f.n)
         if key == "mirror" || key == "lacobel" { fbox(p(key), ff, 0, 0, 0, W, H, 0.006, true); return }
-        frontBody(role("front", "fp.slidePanel", look: key), ff, W, H, Double(t) / 1000)
+        frontBody(role("front", part, look: key), ff, W, H, Double(t) / 1000)
     }
 
     /// The tracks of sliding doors along an opening a0…a1, from y0 (its bottom) to y1 (its top), in front of the inside

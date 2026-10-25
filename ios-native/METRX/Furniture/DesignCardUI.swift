@@ -524,6 +524,7 @@ private struct DzExtras: View {
                 FToggle(label: tr("lk.ledW"), on: l.led, id: "lk.ledW") { dzLook(pid, fid) { x in var n = x; n.led.toggle(); return n } }
             }
             if kitchen { DzKitchenTop(p: p, f: f) }
+            if dzTakesCrown(f, kind) { DzWardCrown(p: p, f: f) }
             DzOptions(p: p, f: f, kind: kind)
         }
     }
@@ -541,6 +542,28 @@ private struct DzKitchenTop: View {
             DzChips(items: [DzChip(v: "plinth", label: tr("lk.l.plinth")), DzChip(v: "metal", label: tr("lk.l.metal"), extra: true)], cur: l.legs ? "metal" : "plinth") { v in
                 dzLook(pid, fid) { x in var n = x; n.legs = v == "metal"; return n }
             }
+            DzTitle(label: tr("lk.crown"))
+            DzChips(items: [DzChip(v: "", label: tr("lk.c0")), DzChip(v: "cornice", label: tr("lk.cCornice")), DzChip(v: "ceiling", label: tr("lk.cCeiling"))],
+                    cur: crownOf(f)) { v in
+                dzChange(pid, fid) { dzOwn(withCrown($0, v)) }
+            }
+        }
+    }
+}
+
+/// A tall wardrobe takes the crown chooser (Android DesignViews.kt, modern 3D part 5): a kupe or another cabinet with a
+/// wardrobe box standing on the floor 1700 high or more; not a gorka (its own cornice: GorkaViews.swift).
+private func dzTakesCrown(_ f: Furniture, _ kind: String) -> Bool {
+    (kind == "kupe" || kind == "case") && f.type != "gorka" && f.modules.contains { $0.type == "wardrobe" && !hung($0) && $0.elev + $0.h >= 1700 }
+}
+
+/// A tall wardrobe's crown: plain, a cornice, or a panel up to the ceiling, as the 3D draws them (priced in Advanced).
+private struct DzWardCrown: View {
+    let p: Project
+    let f: Furniture
+    var body: some View {
+        let pid = p.id, fid = f.id
+        VStack(alignment: .leading, spacing: 10) {
             DzTitle(label: tr("lk.crown"))
             DzChips(items: [DzChip(v: "", label: tr("lk.c0")), DzChip(v: "cornice", label: tr("lk.cCornice")), DzChip(v: "ceiling", label: tr("lk.cCeiling"))],
                     cur: crownOf(f)) { v in

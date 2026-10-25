@@ -13,15 +13,31 @@ func matFor(_ role: String, _ m: FMats, _ upper: Bool = false) -> String {
     role == "front" ? (upper ? m.frontUp ?? m.front : m.front) : role == "back" ? m.back : m.carcass
 }
 
-/// A piece's parts, each with whether it goes with the upper fronts (isUpperFront; the upper end panels too).
-func partsWithUpper(_ f: Furniture, _ ws: Workshop) -> [(FPart, Bool)] {
-    let fws = wsOf(f, ws)
-    var out: [(FPart, Bool)] = []
-    for m in f.modules {
-        let up = isUpperFront(f, m)
-        for p in partsOf(m, fws) { out.append((p, up)) }
+/// A bunk's or loft bed's ladder and guards (founder, 25 Oct 2026): cut from the look's wood accent, else the fronts' board.
+let ACCENT_KEYS: Set<String> = ["fp.ladder", "fp.rung", "fp.guard"]
+
+func accentPart(_ m: Module, _ key: String) -> Bool { (m.type == "bunk" || m.type == "loft") && ACCENT_KEYS.contains(key) }
+
+/// The board part p of f's box m is cut from (the 3D draws it so too): its role's, the upper fronts' for an upper box and
+/// for a sliding door's filling over its split rail; a bunk's or loft bed's ladder and guards the look's wood accent (a
+/// wd_ board), else the fronts'.
+func partMat(_ f: Furniture, _ m: Module, _ p: FPart) -> String {
+    if accentPart(m, p.key) {
+        let a = f.look?.accent ?? ""
+        return a.isEmpty ? f.mats.front : a
     }
-    for p in extrasParts(f, ws) { out.append((p, p.key == "fp.endUp")) }
+    return matFor(p.role, f.mats, isUpperFront(f, m) || p.key == "fp.slideUp")
+}
+
+/// Every part of f with the board it is cut from: its boxes' (partMat), then a kitchen's extras (the upper end panels with
+/// the upper fronts).
+func partsWithMat(_ f: Furniture, _ ws: Workshop) -> [(FPart, String)] {
+    let fws = wsOf(f, ws)
+    var out: [(FPart, String)] = []
+    for m in f.modules {
+        for p in partsOf(m, fws) { out.append((p, partMat(f, m, p))) }
+    }
+    for p in extrasParts(f, ws) { out.append((p, matFor(p.role, f.mats, p.key == "fp.endUp"))) }
     return out
 }
 
@@ -33,9 +49,9 @@ func cutList(_ fs: [Furniture], _ ws: Workshop) -> [CutRow] {
     var order: [RowKey] = []; var count: [RowKey: Int] = [:]
     for f in fs {
         // the upper end panels go with the upper fronts
-        for (p, up) in partsWithUpper(f, ws) {
+        for (p, mat) in partsWithMat(f, ws) {
             var q = p; q.mod = ""; q.qty = 0
-            let k = RowKey(mat: matFor(p.role, f.mats, up), p: q)
+            let k = RowKey(mat: mat, p: q)
             if count[k] == nil { order.append(k) }
             count[k, default: 0] += p.qty
         }

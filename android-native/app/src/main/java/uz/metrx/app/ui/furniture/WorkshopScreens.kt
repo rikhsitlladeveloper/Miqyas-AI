@@ -394,7 +394,7 @@ private val HW_KINDS = listOf("hingeSoft", "hinge", "runner", "handle", "push", 
     "wtJoint", "wtMitre", "wtCut", "wtEnd", "plinthK", "plinthCorner", "cornice", "led", "ledPsu",
     // the design options (Look.kt)
     "gola", "frontShaker", "frontFluted", "legMetal", "ceilUnit", "fglass", "waterfall", "mirrorBronze", "mirrorGraphite", "ledSensor",
-    "headSoft", "headTufted", "softPanel")
+    "headSoft", "headTufted", "softPanel", "wdCeil")
 
 /** "so‘m / m", "so‘m / m²" or "so‘m / dona" for a hardware kind. */
 private fun perKey(kind: String) = when (uz.metrx.app.furniture.hwUnit(kind)) { "m" -> "mt.perM"; "m2" -> "mt.perM2"; else -> "mt.perPc" }

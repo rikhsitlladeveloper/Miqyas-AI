@@ -109,7 +109,7 @@ final class PieceLookTests: XCTestCase {
         XCTAssertEqual(sp[0].unit, "m")
         XCTAssertTrue(c.lines.filter { $0.group == "mat" && ["ldsp16w", "ldsp16k", "hdf3"].contains($0.key) }.allSatisfy { $0.unit == "sheet" })
         let design: Set<String> = ["gola", "frontShaker", "frontFluted", "legMetal", "ceilUnit", "fglass", "waterfall", "mirrorBronze", "mirrorGraphite",
-                                   "ledSensor", "headSoft", "headTufted", "softPanel", "handle640", "handle1024"]
+                                   "ledSensor", "headSoft", "headTufted", "softPanel", "handle640", "handle1024", "wdCeil"]
         XCTAssertTrue(c.lines.allSatisfy { !design.contains($0.key) })
         XCTAssertTrue(lookHardware(k, ws).pairs.isEmpty)
         // the 3D gets the colours it had: flat, matte, no texture, grey handles
@@ -368,7 +368,8 @@ final class PieceLookTests: XCTestCase {
         XCTAssertEqual(line(look(bed()) { $0.head = "tufted" }, "headTufted")?.price, 1300000)
         XCTAssertNil(line(look(bed()) { $0.head = "tufted" }, "headSoft"))
         let pan = line(look(bed()) { $0.panel = true }, "softPanel")!
-        XCTAssertEqual(pan.qty, (Double((1700 + 800) * 1300) / 10000).rounded(.up) / 100, accuracy: 1e-9)
+        // by its drawn area: the bed's left end at its wall's corner, so 400 past its right side only (CrownBedPriceTests)
+        XCTAssertEqual(pan.qty, (Double((1700 + 400) * 1300) / 10000).rounded(.up) / 100, accuracy: 1e-9)
         XCTAssertNil(line(bed(), "headSoft")); XCTAssertNil(line(bed(), "softPanel"))
     }
 

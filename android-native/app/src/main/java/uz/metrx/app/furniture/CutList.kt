@@ -11,13 +11,31 @@ data class CutRow(val p: FPart, val mat: String, val cutL: Int, val cutW: Int)
 /** Which material a role uses in a piece of furniture; [upper] fronts take a two-tone kitchen's upper board ([FMats.frontUp]). */
 fun matFor(role: String, m: FMats, upper: Boolean = false) = when (role) { "front" -> if (upper) m.frontUp ?: m.front else m.front; "back" -> m.back; else -> m.carcass }
 
+/** A bunk's or loft bed's ladder and guards (founder, 25 Oct 2026): cut from the look's wood accent, else the fronts' board. */
+val ACCENT_KEYS = setOf("fp.ladder", "fp.rung", "fp.guard")
+
+fun accentPart(m: Module, key: String) = (m.type == "bunk" || m.type == "loft") && key in ACCENT_KEYS
+
+/**
+ * The board part [p] of [f]'s box [m] is cut from (the 3D draws it so too): its role's, the upper fronts' for an upper
+ * box and for a sliding door's filling over its split rail; a bunk's or loft bed's ladder and guards the look's wood
+ * accent (a wd_ board), else the fronts'.
+ */
+fun partMat(f: Furniture, m: Module, p: FPart): String =
+    if (accentPart(m, p.key)) f.look?.accent?.takeIf { it.isNotEmpty() } ?: f.mats.front
+    else matFor(p.role, f.mats, isUpperFront(f, m) || p.key == "fp.slideUp")
+
+/** Every part of [f] with the board it is cut from: its boxes' (partMat), then a kitchen's extras (the upper end panels with the upper fronts). */
+fun partsWithMat(f: Furniture, ws: Workshop): List<Pair<FPart, String>> =
+    f.modules.flatMap { m -> partsOf(m, wsOf(f, ws)).map { it to partMat(f, m, it) } } +
+        extrasParts(f, ws).map { it to matFor(it.role, f.mats, it.key == "fp.endUp") }
+
 /** Every part of an order's furniture, equal ones (same part, size, banding and material) on one line. */
 fun cutList(fs: List<Furniture>, ws: Workshop): List<CutRow> {
     val rows = LinkedHashMap<Pair<String, FPart>, Int>()
     fs.forEach { f ->
-        // the upper end panels go with the upper fronts
-        (f.modules.flatMap { m -> partsOf(m, wsOf(f, ws)).map { it to isUpperFront(f, m) } } + extrasParts(f, ws).map { it to (it.key == "fp.endUp") }).forEach { (p, up) ->
-            val k = matFor(p.role, f.mats, up) to p.copy(mod = "", qty = 0)
+        partsWithMat(f, ws).forEach { (p, mat) ->
+            val k = mat to p.copy(mod = "", qty = 0)
             rows[k] = (rows[k] ?: 0) + p.qty
         }
     }

@@ -7,6 +7,8 @@ import uz.metrx.app.furniture.Mat
 import uz.metrx.app.furniture.Module
 import uz.metrx.app.furniture.Opt
 import uz.metrx.app.furniture.bedDrawers
+import uz.metrx.app.furniture.bedPanelReach
+import uz.metrx.app.furniture.bedPanelSpan
 import uz.metrx.app.furniture.hasHandle
 import uz.metrx.app.furniture.itemBoards
 import uz.metrx.app.furniture.legsOf
@@ -96,16 +98,14 @@ fun tuftDip(u: Double, v: Double, w: Double, h: Double): Double {
 }
 
 /**
- * A bed's soft wall panel ([Look.panel], priced as (W + 800) × 1300 in Look.kt lookHardware): centred on the bed, 400
- * past each side, from 80 mm off the floor and at least 150 over the headboard; cut to the wall's [lo]..[hi] (mm along
- * it from the bed's corner). Null without one.
+ * A bed's soft wall panel ([Look.panel]) by the rule the price uses too (Look.kt bedPanelSpan, priced by this area in
+ * lookHardware): centred on the bed, 400 past each side, from 80 mm off the floor to 1380 or 150 over the headboard;
+ * cut to the wall's [lo]..[hi] (mm along it from the bed's corner). Null without one.
  */
 fun bedPanel(m: Module, on: Boolean, lo: Double = -1e9, hi: Double = 1e9): Cell? {
-    if (!on || m.type != "bed") return null
-    val hb = max((m.opt ?: Opt()).hb, m.h + 100).toDouble()
-    val a0 = max(-400.0, lo); val a1 = min(m.w + 400.0, hi)
-    if (a1 - a0 < 200) return null
-    return Cell(a0, a1, 80.0, max(80.0 + 1300, hb + 150))
+    if (!on) return null
+    val s = bedPanelSpan(m, lo, hi) ?: return null
+    return Cell(s.a0, s.a1, s.y0, s.y1)
 }
 
 /** The surface of a design part of [f] ([lookOf]) as the lit 3D draws it. */
@@ -370,10 +370,8 @@ private fun bed3D(B: Builder3, P: Pen, m: Module) {
         }
     }
     // the soft wall panel behind the bed (where the bed's back is at a wall), cut to the wall
-    val pose = f?.pose
-    val atWall = pose == null || (abs(pose.n) < 60 && ((pose.deg % 360) + 360) % 360 == 0)
-    val wl = P.w.len * 1000
-    val panel = if (atWall) bedPanel(m, l?.panel == true, if (pose == null) -P.x0 else -1e9, if (pose == null) wl - P.x0 else 1e9) else null
+    // (the same reach the price takes: Look.kt bedPanelReach, bedPanelOf)
+    val panel = bedPanelReach(f?.pose, P.x0, P.w.len * 1000)?.let { (lo, hi) -> bedPanel(m, l?.panel == true, lo, hi) }
     if (panel != null) {
         val kind = wallPanelKind(head); val pd = t - 2
         val pp = B.lookPart(fab.copy(rgb = lighter(fab.rgb, .28)))

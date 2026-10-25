@@ -21,7 +21,7 @@ struct Counts: Equatable {
 }
 
 /// Kinds counted in millimetres and bought by the metre.
-let METRE_KINDS: Set<String> = ["rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail", "gola", "ceilUnit"]
+let METRE_KINDS: Set<String> = ["rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail", "gola", "ceilUnit", "wdCeil"]
 /// Kinds counted in square millimetres and bought by the m².
 let AREA_KINDS: Set<String> = ["mirror", "glass", "glassShelf", "glassDoor", "frontShaker", "frontFluted", "fglass", "mirrorBronze", "mirrorGraphite",
                                 "headSoft", "headTufted", "softPanel", "tvStone", "tvSlats", "tvMould"]
@@ -87,7 +87,9 @@ func hardwareOf(_ m: Module, _ ws: Workshop, edge: Bool = false) -> Counts {
         }
         if let sl = m.slide {
             let n2 = min(4, max(2, sl.n))
-            let (ow, _) = slideOpening(m, t), (dw, dh) = slideDoor(m, t), (pw, ph) = slidePanel(m, t)
+            // a mirror or lacobel filling as the 3D draws it: below the split rail only (the board above it: Parts.swift)
+            let (ow, _) = slideOpening(m, t), (dw, dh) = slideDoor(m, t), (pw, _) = slidePanel(m, t)
+            let ph = kupeFillH(m, t).low
             n.add("slideTrack", 2 * ow)            // the top and the bottom track
             n.add("slideV", 2 * dh * n2)           // two upright profiles a door
             n.add("slideH", 2 * dw * n2)           // the frame's top and bottom

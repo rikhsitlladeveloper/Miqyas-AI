@@ -77,12 +77,17 @@ final class ItemsScene3DTests: XCTestCase {
         let flat = build(on, .flat)
         XCTAssertFalse(faces(flat, l["fabric2"]).isEmpty)
         XCTAssertTrue(flat.parts.allSatisfy { $0.faces.count % 6 == 0 })
-        // reaching 400 past each side where the wall allows, the same both sides; over a tall headboard
-        XCTAssertEqual(softPanelSpan(10, 1700, 1000, 1720), SoftPad(a0: -10, a1: 1710, y0: PANEL_Y0, y1: PANEL_Y1))
-        XCTAssertEqual(softPanelSpan(1000, 1700, 1000, 4000), SoftPad(a0: -400, a1: 2100, y0: PANEL_Y0, y1: PANEL_Y1))
-        XCTAssertEqual(softPanelSpan(1000, 1700, 1600, 4000).y1, 1750)
+        // reaching 400 past each side where the wall allows (the price's rule, Core/PieceLook.swift); over a tall headboard
+        let bm = Module(id: "bm", type: "bed", w: 1700, h: 450, d: 2100, opt: ItemOpt(bed: "legs", hb: 1000))
+        var tallHb = bm; tallHb.opt = ItemOpt(bed: "legs", hb: 1600)
+        XCTAssertEqual(softPanelSpan(bm, nil, 10, 1720), SoftPad(a0: -10, a1: 1710, y0: PANEL_Y0, y1: PANEL_Y1))
+        XCTAssertEqual(softPanelSpan(bm, nil, 1000, 4000), SoftPad(a0: -400, a1: 2100, y0: PANEL_Y0, y1: PANEL_Y1))
+        XCTAssertEqual(softPanelSpan(tallHb, nil, 1000, 4000)?.y1, 1750)
+        // moved into the room: kept whole at a wall, none out in the room
+        XCTAssertEqual(softPanelSpan(bm, Pose("A", 1000, 0), 0, 1700), SoftPad(a0: -400, a1: 2100, y0: PANEL_Y0, y1: PANEL_Y1))
+        XCTAssertNil(softPanelSpan(bm, Pose("A", 1000, 600), 0, 1700))
         // nothing behind the headboard: a pad over it starts above it
-        let span = softPanelSpan(1000, 1700, 1000, 4000)
+        let span = softPanelSpan(bm, nil, 1000, 4000)!
         for head in ["", "vertical", "tufted", "panels"] {
             let pads = panelPads(head, span, 1700, 1000)
             XCTAssertFalse(pads.isEmpty, head)

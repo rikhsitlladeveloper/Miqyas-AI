@@ -107,10 +107,14 @@ fun partsOf(m: Module, ws: Workshop): List<FPart> {
             val base = wardBase(m)
             val sides = (if (m.sideL) 1 else 0) + (if (m.sideR) 1 else 0)
             val inW = m.w - sides * t
-            if (sides > 0) out += part("fp.side", id, "carcass", m.h, m.d, sides, THICK)
+            // a kupe's outer sides, top and plinth of the fronts' board (wardRole); its bottom stays carcass
+            if (sides > 0) out += part("fp.side", id, wardRole(m, "fp.side"), m.h, m.d, sides, THICK)
             val dIn = innerD(m)
             if (secs.none { it.knee }) {
-                out += part("fp.top", id, "carcass", inW, m.d, 2, THICK)
+                if (wardRole(m, "fp.top") != "carcass") {
+                    out += part("fp.top", id, wardRole(m, "fp.top"), inW, m.d, 1, THICK)
+                    out += part("fp.bottom", id, "carcass", inW, m.d, 1, THICK)
+                } else out += part("fp.top", id, "carcass", inW, m.d, 2, THICK)
                 if (secs.size > 1) out += part("fp.divider", id, "carcass", m.h - base - 2 * t, dIn, secs.size - 1, THICK)
             } else {
                 // a desk: the top over everything, a bottom under each section but the knee space; a divider beside the knee
@@ -122,7 +126,7 @@ fun partsOf(m: Module, ws: Workshop): List<FPart> {
                     out += part("fp.divider", id, "carcass", if (toFloor) m.h - t else m.h - base - 2 * t, if (toFloor) m.d else dIn, 1, THICK)
                 }
             }
-            if (!m.legs && wardBase(m) > 0) out += part("fp.plinth", id, "carcass", inW, wardBase(m), 1, THICK)
+            if (!m.legs && wardBase(m) > 0) out += part("fp.plinth", id, wardRole(m, "fp.plinth"), inW, wardBase(m), 1, THICK)
             secs.forEachIndexed { i, s ->
                 val iw = wardInner(m, secs, i, t)
                 val sid = "$id/${i + 1}"
@@ -143,6 +147,10 @@ fun partsOf(m: Module, ws: Workshop): List<FPart> {
                 val (pw, ph) = slidePanel(m, t)
                 val boards = (0 until sl.n.coerceIn(2, 4)).count { sl.panel(it) == "ldsp" }
                 if (boards > 0) out += part("fp.slidePanel", id, "front", ph, pw, boards, grain = true)
+                // a mirror or lacobel door's filling over its split rail: the upper fronts' board (CutList.kt partMat)
+                val up = kupeFillH(m, t).second
+                val glazed = sl.n.coerceIn(2, 4) - boards
+                if (up > 0 && glazed > 0) out += part("fp.slideUp", id, "front", up, pw, glazed, grain = true)
             }
         }
         "base" -> {

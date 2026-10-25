@@ -263,6 +263,103 @@ func waterfallEnds(_ f: Furniture) -> Int {
     return f.layout == "P" ? 1 : 2
 }
 
+/* ---------------- a wardrobe's crown, a bed's metal legs and wall panel (priced in lookHardware) ---------------- */
+
+/// How far the cornice's top layer stands out at the front and past a free end, mm (CORNICE_LAYERS: 10, 26, 38).
+let CORNICE_OUT = 38
+
+/// The boxes of f that take its crown (a cornice, or a row up to the ceiling): a wardrobe's boxes standing on the floor
+/// (not hung) whose top is WARD_CROWN_MIN up or more. None on a kitchen (its crown is its own) or a gorka (its
+/// neoclassic cornice: Gorka.swift).
+func crownBoxes(_ f: Furniture, _ ws0: Workshop) -> [Module] {
+    if f.kind != "wardrobe" || f.type == "gorka" { return [] }
+    let ws = wsOf(f, ws0)
+    return f.modules.filter { $0.type == "wardrobe" && !hung($0) && legsOf($0, ws) + $0.elev + $0.h >= WARD_CROWN_MIN }
+}
+
+/// The free ends of f's crowned box m (0, 1 or 2), where the cornice turns back along its side: an end with its own
+/// side panel, no other standing box of the piece within 60 mm of it, and off the wall's corner (more than W_GAP_SIDE
+/// + 40 from it; the far corner only when wallLen, its wall's length, is known). A piece standing free has both.
+func crownFreeEnds(_ f: Furniture, _ m: Module, _ wallLen: Int?) -> Int {
+    if f.pose != nil { return 2 }
+    func near(_ at: Int) -> Bool {
+        f.modules.contains { o in o.id != m.id && o.wall == m.wall && !hung(o) && (abs(o.x + o.w - at) < 60 || abs(o.x - at) < 60) }
+    }
+    let l = m.sideL && m.x > W_GAP_SIDE + 40 && !near(m.x)
+    let r = m.sideR && (wallLen.map { m.x + m.w < $0 - W_GAP_SIDE - 40 } ?? true) && !near(m.x + m.w)
+    return (l ? 1 : 0) + (r ? 1 : 0)
+}
+
+/// A wardrobe's cornice, mm of profile: along the top of each crowned box, and at each free end back along its side and
+/// round the corner (the box's depth + 2 × CORNICE_OUT). wallLen a wall's length (nil: not known); nil: pieceWallLen.
+func wardCorniceMm(_ f: Furniture, _ ws: Workshop, _ wallLen: ((String?) -> Int?)? = nil) -> Int {
+    let len: (String?) -> Int? = wallLen ?? { pieceWallLen(f, $0) }
+    var mm = 0
+    for m in crownBoxes(f, ws) { mm += m.w + crownFreeEnds(f, m, len(m.wall)) * (m.d + 2 * CORNICE_OUT) }
+    return mm
+}
+
+/// A wardrobe's row up to the ceiling (extra fronts and carcass over its boxes), mm: the crowned boxes' width.
+func wardCeilMm(_ f: Furniture, _ ws: Workshop) -> Int { crownBoxes(f, ws).reduce(0) { $0 + $1.w } }
+
+/// The length of wall `wall` of f as the price sees it: a room-less piece's made-up room (Free.swift freeRoom, as its 3D
+/// draws it); nil in a measured room (the price does not see the room) or without a wall.
+func pieceWallLen(_ f: Furniture, _ wall: String?) -> Int? {
+    guard f.roomId == nil, let wall, f.kind != "kitchen" else { return nil }
+    return Geo.wallLen(freeRoom(f), wall)
+}
+
+/// The metal legs bed m of f stands on when its look shows them (PieceLook.legs): 4, or 6 under a bed wider than 1600
+/// (its mattress); none on a bed with drawers or a lift-up base, or on its hidden base.
+func bedMetalLegs(_ f: Furniture, _ m: Module) -> Int {
+    let o = m.opt ?? ItemOpt()
+    if f.look?.legs != true || m.type != "bed" || o.bed != "legs" { return 0 }
+    return o.mw > 1600 ? 6 : 4
+}
+
+/// The soft wall panel's reach past each side of the bed, its bottom off the floor and its usual top, mm.
+let PANEL_OUT = 400.0
+let PANEL_Y0 = 80.0
+let PANEL_Y1 = 1380.0
+
+/// A bed's soft wall panel, mm: a0…a1 along the wall from the bed's left end, y0…y1 up.
+struct PanelSpan: Equatable {
+    let a0: Double, a1: Double, y0: Double, y1: Double
+    /// Its area, mm² (as the price counts it).
+    var area: Int { Int(((a1 - a0) * (y1 - y0)).rounded()) }
+}
+
+/// A bed's soft wall panel as the 3D draws it and the price counts it (one rule for both, Geo/ItemsScene3D.swift):
+/// centred on bed m, PANEL_OUT past each side, from PANEL_Y0 up to PANEL_Y1 or 150 over a taller headboard; cut to the
+/// wall's lo…hi (mm along it from the bed's left end). Nil on another box, or with less than 200 mm left.
+func bedPanelSpan(_ m: Module, _ lo: Double = -1e9, _ hi: Double = 1e9) -> PanelSpan? {
+    guard m.type == "bed" else { return nil }
+    let hb = Double(max((m.opt ?? ItemOpt()).hb, m.h + 100))
+    let a0 = max(-PANEL_OUT, lo), a1 = min(Double(m.w) + PANEL_OUT, hi)
+    guard a1 - a0 >= 200 else { return nil }
+    return PanelSpan(a0: a0, a1: a1, y0: PANEL_Y0, y1: max(PANEL_Y1, hb + 150))
+}
+
+/// Where a bed's wall panel may reach along its wall (lo to hi, mm from the bed's left end x; its wall wallLen long, nil:
+/// not known): to the wall's ends. A bed moved into the room (pose) has one, not cut, only while its back is still at a
+/// wall (within 60 mm, square to it); none out in the room (nil).
+func bedPanelReach(_ pose: Pose?, _ x: Double, _ wallLen: Double?) -> (lo: Double, hi: Double)? {
+    if let p = pose {
+        if abs(p.n) < 60 && ((p.deg % 360) + 360) % 360 == 0 { return (lo: -1e9, hi: 1e9) }
+        return nil
+    }
+    let hi: Double = wallLen.map { $0 - x } ?? 1e9
+    return (lo: -x, hi: hi)
+}
+
+/// Bed m's soft wall panel on f (its look's panel) as the price counts it; wallLen its wall's length (nil: pieceWallLen).
+func bedPanelOf(_ f: Furniture, _ m: Module, _ wallLen: Int? = nil) -> PanelSpan? {
+    guard f.look?.panel == true else { return nil }
+    let len = wallLen ?? pieceWallLen(f, m.wall)
+    guard let r = bedPanelReach(f.pose, Double(m.x), len.map { Double($0) }) else { return nil }
+    return bedPanelSpan(m, r.lo, r.hi)
+}
+
 /* ---------------- a preset ---------------- */
 
 /// f set to preset id: the fronts' boards (the upper ones for a two-tone kitchen or hung boxes), the handles, the look;
@@ -454,10 +551,21 @@ func lookHardware(_ f: Furniture, _ ws0: Workshop) -> Counts {
             n.add("ledSensor", m.slide.map { min(4, max(2, $0.n)) } ?? max(1, doors))
         }
     }
+    // a wardrobe's crown: the cornice by the metre along its top and round its free ends (the kitchen's cornice item),
+    // or the row up to the ceiling, its extra fronts and carcass, by the metre of its width
+    switch l.crown {
+    case "cornice": n.add("cornice", wardCorniceMm(f, ws))
+    case "ceiling": n.add("wdCeil", wardCeilMm(f, ws))
+    default: break
+    }
     for m in f.modules where m.type == "bed" {
         let hb = max((m.opt ?? ItemOpt()).hb, m.h + 100)
         if !l.head.isEmpty { n.add(l.head == "tufted" ? "headTufted" : "headSoft", m.w * (hb - m.h)) }
-        if l.panel { n.add("softPanel", (m.w + 800) * 1300) }
+        // the soft wall panel by its area as the 3D draws it (bedPanelSpan), and the LED strip along its top
+        if let p = bedPanelOf(f, m) {
+            n.add("softPanel", p.area)
+            if l.led { n.add("led", Int((p.a1 - p.a0).rounded())); n.add("ledPsu", 1) }
+        }
     }
     return n
 }
@@ -478,6 +586,9 @@ func lookSwap(_ f: Furniture, _ m: Module, _ h: inout Counts, _ edge: Bool) {
     }
     guard let l = f.look else { return }
     if metalLegs(f), let v = h.remove("leg") { h.add("legMetal", v) }
+    // a bed on its metal legs: those instead of the plain ones (4, 6 under a wide bed)
+    let bl = bedMetalLegs(f, m)
+    if bl > 0 { h.remove("leg"); h.add("legMetal", bl) }
     if l.mirror == "bronze" || l.mirror == "graphite", let v = h.remove("mirror") { h.add(l.mirror == "bronze" ? "mirrorBronze" : "mirrorGraphite", v) }
     if l.fglass { h.add("fglass", h["glassDoor"] ?? 0) }
 }

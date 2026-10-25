@@ -24,11 +24,8 @@ struct SoftPad: Equatable {
 
 /// How far a headboard's upholstery stands out of its board, mm.
 let HEAD_PAD = 60.0
-/// The soft wall panel (mockup): its bottom over the skirting, its usual top, how far it reaches past the bed's sides
-/// where the wall allows, its thickness, mm.
-let PANEL_Y0 = 75.0
-let PANEL_Y1 = 1395.0
-let PANEL_OUT = 400.0
+/// The soft wall panel's thickness, mm (its size by the rule the price uses too: Core/PieceLook.swift bedPanelSpan,
+/// PANEL_Y0, PANEL_Y1, PANEL_OUT).
 let PANEL_D = 40.0
 
 /// The bedding's cloth (mockup FAB_ALL): white linen, an off-white duvet.
@@ -121,12 +118,12 @@ func tuftPuffs(_ a0: Double, _ a1: Double, _ y0: Double, _ y1: Double) -> [SoftP
     return out
 }
 
-/// The soft wall panel behind a bed W wide whose left end is x0 along a wall wallLen long, its headboard top hb (mm):
-/// PANEL_OUT past each side, as far as the wall allows on both (the same each side), from PANEL_Y0 to PANEL_Y1 or 150
-/// over a taller headboard; in the bed's own frame (its left end at 0).
-func softPanelSpan(_ x0: Double, _ W: Double, _ hb: Double, _ wallLen: Double) -> SoftPad {
-    let ext = max(0, min(PANEL_OUT, x0, wallLen - x0 - W))
-    return SoftPad(a0: -ext, a1: W + ext, y0: PANEL_Y0, y1: max(PANEL_Y1, hb + 150))
+/// The soft wall panel behind bed m whose left end is x0 along a wall wallLen long, moved into the room by pose (mm):
+/// the price's own rule (Core/PieceLook.swift bedPanelReach, bedPanelSpan; Android Look.kt), in the bed's own frame
+/// (its left end at 0); nil where none is drawn.
+func softPanelSpan(_ m: Module, _ pose: Pose?, _ x0: Double, _ wallLen: Double) -> SoftPad? {
+    guard let r = bedPanelReach(pose, x0, wallLen), let s = bedPanelSpan(m, r.lo, r.hi) else { return nil }
+    return SoftPad(a0: s.a0, a1: s.a1, y0: s.y0, y1: s.y1)
 }
 
 /// The wall panel's pads behind a headboard of style head (mockup: square panels behind channels, tufting or a plain
@@ -290,9 +287,18 @@ extension FBuilder {
         }
     }
 
-    /// A board of an item as it is, in frame f (its outline when it is a part or a mirror).
-    func itBoard(_ f: FFrame, _ b: Board) {
-        fbox(itPart(b.role, b.key), f, Double(b.a0) / 1000, Double(b.y0) / 1000, Double(b.n0) / 1000,
+    /// The part board b of item m is drawn in: a bunk's or loft bed's ladder and guards in the wood accent (else the
+    /// fronts', as the parts list cuts them: Core/CutList.swift partMat); a board the parts list lights up stays lit.
+    func itPartOf(_ m: Module, _ b: Board) -> Part3 {
+        let base = itPart(b.role, b.key)
+        guard accentPart(m, b.key), accentOn else { return base }
+        if hi != nil && base === p("hi") { return base }
+        return p("accent")
+    }
+
+    /// A board of an item as it is, in frame f (its outline when it is a part or a mirror); in part when given.
+    func itBoard(_ f: FFrame, _ b: Board, _ part: Part3? = nil) {
+        fbox(part ?? itPart(b.role, b.key), f, Double(b.a0) / 1000, Double(b.y0) / 1000, Double(b.n0) / 1000,
              Double(b.a1 - b.a0) / 1000, Double(b.y1 - b.y0) / 1000, Double(b.n1 - b.n0) / 1000, !b.key.isEmpty || b.role == "mirror")
     }
 
@@ -338,9 +344,10 @@ extension FBuilder {
             case "white": break
             case "metal": if foot == "legs" { bedLeg(f, b) }
             default:
-                // the rungs of a ladder soft-edged; the rest as they are
-                if b.key == "fp.rung" { softIn(itPart(b.role, b.key), f, Double(b.a0), Double(b.a1), Double(b.y0), Double(b.y1), Double(b.n0), Double(b.n1), 6) }
-                else { itBoard(f, b) }
+                // the rungs of a ladder soft-edged; the rest as they are (a bunk's ladder and guards in the wood accent)
+                let part = itPartOf(m, b)
+                if b.key == "fp.rung" { softIn(part, f, Double(b.a0), Double(b.a1), Double(b.y0), Double(b.y1), Double(b.n0), Double(b.n1), 6) }
+                else { itBoard(f, b, part) }
                 if b.key == "fp.headboard" && !head.isEmpty { headboard(f, b, Double(m.h), head) }
             }
         }
@@ -456,7 +463,7 @@ extension FBuilder {
     private func wallPanel(_ w: WallBasis, _ m: Module, _ f: FFrame) {
         let o = m.opt ?? ItemOpt()
         let W = Double(m.w), hb = Double(max(o.hb, m.h + 100))
-        let span = softPanelSpan(Double(m.x), W, hb, w.len * 1000)
+        guard let span = softPanelSpan(m, piecePose, Double(m.x), w.len * 1000) else { return }
         let fab = p("fabric2")
         for q in panelPads(design?.head ?? "", span, W, hb) {
             if fancy { softIn(fab, f, q.a0, q.a1, q.y0, q.y1, 0, PANEL_D, min(PANEL_D * 0.48, 30)) }
