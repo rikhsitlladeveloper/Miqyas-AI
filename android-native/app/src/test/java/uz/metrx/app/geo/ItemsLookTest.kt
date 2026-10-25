@@ -91,7 +91,12 @@ class ItemsLookTest {
         bedPanel(m, true, -10.0, m.w + 10.0)!!.let { assertEquals(-10.0, it.u0, 1e-9); assertEquals(m.w + 10.0, it.u1, 1e-9) }
         val out = on.copy(pose = Pose("A", 500, 600))
         assertEquals(hb, top(lit(out)), 1e-6)
-        assertEquals(m.w + 800, lookHardware(on, ws)["led"])
+        // the price takes the panel the 3D draws (one rule, Look.kt bedPanelSpan): its LED strip as long as the drawn one
+        val span = uz.metrx.app.furniture.bedPanelOf(on, m)!!
+        assertEquals(Math.round(span.a1 - span.a0).toInt(), lookHardware(on, ws)["led"])
+        val ledX = panel.parts.filter { it.look == Looks.led }.flatMap { p -> p.faces.flatMap { it.pts } }.map { it.x }
+        assertEquals((span.a1 - span.a0) / 1000, ledX.max() - ledX.min(), 1e-6)
+        assertEquals(span.area, lookHardware(on, ws)["softPanel"])
         assertNull(lookHardware(withLook(on) { it.copy(led = false) }, ws)["led"])
         // the panel follows the headboard: squares behind channels or tufting, channels behind squares
         assertEquals("panels", wallPanelKind("vertical")); assertEquals("panels", wallPanelKind("tufted")); assertEquals("vertical", wallPanelKind("panels"))

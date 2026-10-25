@@ -95,6 +95,51 @@ const val SLIDE_FRAME_H = 70
 /** Room for the rollers and the top track: a door is this much lower than the opening, mm. */
 const val SLIDE_CLEAR = 40
 
+/**
+ * A sliding door's frame as the 3D draws it (mockup kupeDoor): the top rail's, the bottom rail's and the split rail's
+ * height, mm; a filling goes [KUPE_GROOVE] into each rail's groove (so the whole filling is [SLIDE_FRAME_H] less).
+ */
+const val KUPE_RAIL_T = 30
+const val KUPE_RAIL_B = 50
+const val KUPE_RAIL_S = 14
+const val KUPE_GROOVE = 5
+/** The split rail's middle this far under a door's top when no hat shelf sets it, mm; a door lower than [KUPE_SPLIT_MIN] has none. */
+const val KUPE_SPLIT_TOP = 420
+const val KUPE_SPLIT_MIN = 1500
+
+/**
+ * Where a sliding door of box [m] ([dh] mm high, its bottom [lift] mm over the inside's floor) has its split rail's
+ * middle, mm up the door; one rule for the 3D and the price: at the shelf the wardrobe's top storage rests on (its
+ * highest shelf between 60 % of the door and 250 mm under its top, the mockup's antresol), else [KUPE_SPLIT_TOP] under
+ * its top; a door under [KUPE_SPLIT_MIN] has none (null).
+ */
+fun kupeSplit(m: Module, t: Int, dh: Double = slideDoor(m, t).second.toDouble(), lift: Double = SLIDE_CLEAR / 2.0): Double? {
+    val v = m.sections.flatMap { s -> s.inserts.filter { it.kind == "shelf" } }.map { it.pos + t / 2.0 - lift }.filter { it >= dh * .6 && it <= dh - 250 }.maxOrNull()
+    return v ?: if (dh >= KUPE_SPLIT_MIN) dh - KUPE_SPLIT_TOP else null
+}
+
+/**
+ * The cut heights of a sliding door's fillings of box [m], mm: below its split rail and above it (0 without a split,
+ * the whole filling [slidePanel] below): each as drawn between its rails, [KUPE_GROOVE] into each groove. A mirror or
+ * lacobel door is mirror or lacobel below only; above it is the upper fronts' board (founder, 25 Oct 2026).
+ */
+fun kupeFillH(m: Module, t: Int): Pair<Int, Int> {
+    val (_, dh) = slideDoor(m, t); val (_, ph) = slidePanel(m, t)
+    val s = kupeSplit(m, t, dh.toDouble()) ?: return ph to 0
+    val low = (s - KUPE_RAIL_S / 2.0 - KUPE_RAIL_B + 2 * KUPE_GROOVE).roundToInt()
+    val up = (dh - KUPE_RAIL_T - s - KUPE_RAIL_S / 2.0 + 2 * KUPE_GROOVE).roundToInt()
+    return max(0, low) to max(0, up)
+}
+
+/** A sliding wardrobe's (kupe's) outer boards that show: its sides, its top and its plinth (founder, 25 Oct 2026). */
+val KUPE_FACES = setOf("fp.side", "fp.top", "fp.plinth")
+
+/**
+ * The role board [key] of wardrobe box [m] is cut from and drawn in: a kupe's outer sides, top and plinth are of the
+ * fronts' board ("front": the lower one of two colours), its bottom and its inside the carcass's.
+ */
+fun wardRole(m: Module, key: String): String = if (m.type == "wardrobe" && m.slide != null && key in KUPE_FACES) "front" else "carcass"
+
 /** Doors for a front [w] wide: 2 up to 1600, 3 up to 2600, then 4. */
 fun slideDoorsFor(w: Int) = when { w <= 1600 -> 2; w <= 2600 -> 3; else -> 4 }
 

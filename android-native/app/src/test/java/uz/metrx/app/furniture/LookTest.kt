@@ -61,7 +61,7 @@ class LookTest {
         assertEquals("m", c.lines.single { it.key == "splash6" }.unit)
         assertTrue(c.lines.filter { it.group == "mat" && it.key in setOf("ldsp16w", "ldsp16k", "hdf3") }.all { it.unit == "sheet" })
         val design = setOf("gola", "frontShaker", "frontFluted", "legMetal", "ceilUnit", "fglass", "waterfall", "mirrorBronze", "mirrorGraphite",
-            "ledSensor", "headSoft", "headTufted", "softPanel", "handle640", "handle1024")
+            "ledSensor", "headSoft", "headTufted", "softPanel", "handle640", "handle1024", "wdCeil")
         assertTrue(c.lines.none { it.key in design })
         assertTrue(lookHardware(k, ws).isEmpty())
         // the 3D gets the colours it had: flat, matte, no texture, grey handles
@@ -303,7 +303,8 @@ class LookTest {
         assertEquals(BigInteger("1300000"), line(withLook(bed) { it.copy(head = "tufted") }, "headTufted")!!.price)
         assertNull(line(withLook(bed) { it.copy(head = "tufted") }, "headSoft"))
         val pan = line(withLook(bed) { it.copy(panel = true) }, "softPanel")!!
-        assertEquals(Math.ceil((1700 + 800) * 1300 / 10000.0) / 100.0, pan.qty, 1e-9)
+        // by its drawn area: the bed's left end at its wall's corner, so 400 past its right side only (CrownBedPriceTest)
+        assertEquals(Math.ceil((1700 + 400) * 1300 / 10000.0) / 100.0, pan.qty, 1e-9)
         assertNull(line(bed, "headSoft")); assertNull(line(bed, "softPanel"))
     }
 

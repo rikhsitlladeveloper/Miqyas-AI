@@ -5,6 +5,7 @@ package uz.metrx.app.furniture
 import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.Serializable
+import kotlin.math.abs
 
 /*
  * The design of a piece (modern 3D part 2, founder's decisions of 25 Oct 2026, the approved mockup
@@ -179,6 +180,107 @@ fun metalLegs(f: Furniture) = f.kind == "kitchen" && f.look?.legs == true
 fun waterfallEnds(f: Furniture): Int =
     if (f.kind != "kitchen" || f.look?.waterfall != true || islandLen(f) <= 0) 0 else if (f.layout == "P") 1 else 2
 
+/* ---------------- a wardrobe's crown, a bed's metal legs and wall panel (priced in lookHardware) ---------------- */
+
+/** A wardrobe's box takes the crown when its top is this high (mm above the floor) or higher, as the 3D draws it. */
+const val WARD_CROWN_MIN = 1800
+
+/** How far the cornice's top layer stands out at the front and past a free end, mm (the 3D's three layers: 10, 26, 38). */
+const val CORNICE_OUT = 38
+
+/**
+ * The boxes of [f] that take its crown (a cornice, or a row up to the ceiling): a wardrobe's boxes standing on the
+ * floor (not hung) whose top is [WARD_CROWN_MIN] up or more. None on a kitchen (its crown is its own) or a gorka (its
+ * neoclassic cornice: Gorka.kt).
+ */
+fun crownBoxes(f: Furniture, ws0: Workshop): List<Module> {
+    if (f.kind != "wardrobe" || f.type == "gorka") return emptyList()
+    val ws = wsOf(f, ws0)
+    return f.modules.filter { it.type == "wardrobe" && !hung(it) && legsOf(it, ws) + it.elev + it.h >= WARD_CROWN_MIN }
+}
+
+/**
+ * The free ends of [f]'s crowned box [m] (0, 1 or 2), where the cornice turns back along its side: an end with its own
+ * side panel, no other standing box of the piece within 60 mm of it, and off the wall's corner (more than
+ * [W_GAP_SIDE] + 40 from it; the far corner only when [wallLen], its wall's length, is known). A piece standing free
+ * in the room has both.
+ */
+fun crownFreeEnds(f: Furniture, m: Module, wallLen: Int?): Int {
+    if (f.pose != null) return 2
+    fun near(at: Int) = f.modules.any { it.id != m.id && it.wall == m.wall && !hung(it) && (abs(it.x + it.w - at) < 60 || abs(it.x - at) < 60) }
+    val l = m.sideL && m.x > W_GAP_SIDE + 40 && !near(m.x)
+    val r = m.sideR && (wallLen == null || m.x + m.w < wallLen - W_GAP_SIDE - 40) && !near(m.x + m.w)
+    return (if (l) 1 else 0) + (if (r) 1 else 0)
+}
+
+/**
+ * A wardrobe's cornice, mm of profile: along the top of each crowned box, and at each free end back along its side
+ * and round the corner (the box's depth + 2 × [CORNICE_OUT]). [wallLen] a wall's length (null: not known).
+ */
+fun wardCorniceMm(f: Furniture, ws: Workshop, wallLen: (String?) -> Int? = { pieceWallLen(f, it) }): Int =
+    crownBoxes(f, ws).sumOf { m -> m.w + crownFreeEnds(f, m, wallLen(m.wall)) * (m.d + 2 * CORNICE_OUT) }
+
+/** A wardrobe's row up to the ceiling (extra fronts and carcass over its boxes), mm: the crowned boxes' width. */
+fun wardCeilMm(f: Furniture, ws: Workshop): Int = crownBoxes(f, ws).sumOf { it.w }
+
+/**
+ * The length of wall [wall] of [f] as the price sees it: a room-less piece's made-up room (Free.kt freeRoom, as its
+ * 3D draws it); null in a measured room (the price does not see the room) or without a wall.
+ */
+fun pieceWallLen(f: Furniture, wall: String?): Int? =
+    if (f.roomId != null || wall == null || f.kind == "kitchen") null else uz.metrx.app.geo.wallLen(freeRoom(f), wall)
+
+/**
+ * The metal legs bed [m] of [f] stands on when its look shows them ([Look.legs]): 4, or 6 under a bed wider than
+ * 1600 (its mattress); none on a bed with drawers or a lift-up base, or on its hidden base.
+ */
+fun bedMetalLegs(f: Furniture, m: Module): Int {
+    val o = m.opt ?: Opt()
+    if (f.look?.legs != true || m.type != "bed" || o.bed != "legs") return 0
+    return if (o.mw > 1600) 6 else 4
+}
+
+/** The soft wall panel's reach past each side of the bed, its bottom off the floor and its usual top, mm. */
+const val PANEL_OUT = 400.0
+const val PANEL_Y0 = 80.0
+const val PANEL_Y1 = 1380.0
+
+/** A bed's soft wall panel, mm: [a0]..[a1] along the wall from the bed's left end, [y0]..[y1] up. */
+data class PanelSpan(val a0: Double, val a1: Double, val y0: Double, val y1: Double) {
+    /** Its area, mm² (as the price counts it). */
+    val area: Int get() = Math.round((a1 - a0) * (y1 - y0)).toInt()
+}
+
+/**
+ * A bed's soft wall panel as the 3D draws it and the price counts it (one rule for both, geo/Items3D.kt): centred on
+ * bed [m], [PANEL_OUT] past each side, from [PANEL_Y0] up to [PANEL_Y1] or 150 over a taller headboard; cut to the
+ * wall's [lo]..[hi] (mm along it from the bed's left end). Null on another box, or with less than 200 mm left.
+ */
+fun bedPanelSpan(m: Module, lo: Double = -1e9, hi: Double = 1e9): PanelSpan? {
+    if (m.type != "bed") return null
+    val hb = maxOf((m.opt ?: Opt()).hb, m.h + 100).toDouble()
+    val a0 = maxOf(-PANEL_OUT, lo); val a1 = minOf(m.w + PANEL_OUT, hi)
+    if (a1 - a0 < 200) return null
+    return PanelSpan(a0, a1, PANEL_Y0, maxOf(PANEL_Y1, hb + 150))
+}
+
+/**
+ * Where a bed's wall panel may reach along its wall (lo to hi, mm from the bed's left end [x]; its wall [wallLen] long,
+ * null: not known): to the wall's ends. A bed moved into the room ([pose]) has one, not cut, only while its back is
+ * still at a wall (within 60 mm, square to it); none out in the room (null).
+ */
+fun bedPanelReach(pose: Pose?, x: Double, wallLen: Double?): Pair<Double, Double>? {
+    if (pose != null) return if (abs(pose.n) < 60 && ((pose.deg % 360) + 360) % 360 == 0) -1e9 to 1e9 else null
+    return -x to (wallLen?.let { it - x } ?: 1e9)
+}
+
+/** Bed [m]'s soft wall panel on [f] (its look's [Look.panel]) as the price counts it; [wallLen] its wall's length. */
+fun bedPanelOf(f: Furniture, m: Module, wallLen: Int? = pieceWallLen(f, m.wall)): PanelSpan? {
+    if (f.look?.panel != true) return null
+    val (lo, hi) = bedPanelReach(f.pose, m.x.toDouble(), wallLen?.toDouble()) ?: return null
+    return bedPanelSpan(m, lo, hi)
+}
+
 /* ---------------- a preset ---------------- */
 
 /**
@@ -299,8 +401,9 @@ private val STYLED = setOf("fp.door", "fp.dFace", "fp.panel")
 /**
  * The look's own hardware of [f] (kinds counted like the modules', metre kinds in mm, area kinds in mm²): a milled or
  * fluted front style by the m² of its fronts, a kitchen's row of units to the ceiling by the metre of its wall units,
- * the waterfall ends, a wardrobe's LED with door sensors, a bed's upholstered headboard and soft wall panel. The swaps
- * (a Gola profile for the handles, metal legs, tinted mirror, fluted glass) are in [lookSwap].
+ * the waterfall ends, a wardrobe's LED with door sensors and its crown (the cornice by the metre with its free ends,
+ * the row up to the ceiling "wdCeil" by the metre of its width), a bed's upholstered headboard and soft wall panel (its
+ * drawn area). The swaps (a Gola profile for the handles, metal legs, tinted mirror, fluted glass) are in [lookSwap].
  */
 fun lookHardware(f: Furniture, ws0: Workshop): Map<String, Int> {
     val l = f.look ?: return emptyMap()
@@ -318,12 +421,20 @@ fun lookHardware(f: Furniture, ws0: Workshop): Map<String, Int> {
         add("led", m.w - 2 * ws.t); add("ledPsu", 1)
         add("ledSensor", m.slide?.n?.coerceIn(2, 4) ?: m.sections.count { it.fronts.kind == "door" }.coerceAtLeast(1))
     }
+    // a wardrobe's crown: the cornice by the metre along its top and round its free ends (the kitchen's cornice item),
+    // or the row up to the ceiling, its extra fronts and carcass, by the metre of its width
+    when (l.crown) {
+        "cornice" -> add("cornice", wardCorniceMm(f, ws))
+        "ceiling" -> add("wdCeil", wardCeilMm(f, ws))
+    }
     f.modules.filter { it.type == "bed" }.forEach { m ->
         val hb = maxOf((m.opt ?: Opt()).hb, m.h + 100)
         if (l.head.isNotEmpty()) add(if (l.head == "tufted") "headTufted" else "headSoft", m.w * (hb - m.h))
-        if (l.panel) add("softPanel", (m.w + 800) * 1300)
-        // the LED strip along the wall panel's top, washing the wall over it (geo/Items3D.kt)
-        if (l.panel && l.led) { add("led", m.w + 800); add("ledPsu", 1) }
+        // the soft wall panel by its area as the 3D draws it (bedPanelSpan), and the LED strip along its top
+        bedPanelOf(f, m)?.let { p ->
+            add("softPanel", p.area)
+            if (l.led) { add("led", Math.round(p.a1 - p.a0).toInt()); add("ledPsu", 1) }
+        }
     }
     return n
 }
@@ -331,7 +442,7 @@ fun lookHardware(f: Furniture, ws0: Workshop): Map<String, Int> {
 /**
  * Box [m]'s hardware [h] as [f]'s look changes it: a kitchen's Gola profile instead of handles (a channel along each
  * base unit, one a drawer, two on a tall unit; the wall units open by a push latch), metal legs instead of the hidden
- * ones, the mirror in its tint, the fluted glass over the glass doors.
+ * ones (a kitchen's, a bed's on legs: [bedMetalLegs]), the mirror in its tint, the fluted glass over the glass doors.
  */
 fun lookSwap(f: Furniture, m: Module, h: MutableMap<String, Int>, edge: Boolean) {
     fun add(k: String, v: Int) { if (v > 0) h[k] = (h[k] ?: 0) + v }
@@ -344,6 +455,8 @@ fun lookSwap(f: Furniture, m: Module, h: MutableMap<String, Int>, edge: Boolean)
     }
     val l = f.look ?: return
     if (metalLegs(f)) h.remove("leg")?.let { add("legMetal", it) }
+    // a bed on its metal legs: those instead of the plain ones (4, 6 under a wide bed)
+    bedMetalLegs(f, m).takeIf { it > 0 }?.let { h.remove("leg"); add("legMetal", it) }
     if (l.mirror == "bronze" || l.mirror == "graphite") h.remove("mirror")?.let { add(if (l.mirror == "bronze") "mirrorBronze" else "mirrorGraphite", it) }
     if (l.fglass) add("fglass", h["glassDoor"] ?: 0)
 }

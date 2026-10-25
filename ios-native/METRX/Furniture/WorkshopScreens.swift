@@ -436,7 +436,7 @@ private struct MatSheet: View {
 private let HW_KINDS = ["hingeSoft", "hinge", "runner", "handle", "push", "leg", "pin", "rail", "railEnd", "confirmat", "hanger", "lift",
                         // the design options (Core/PieceLook.swift)
                         "gola", "frontShaker", "frontFluted", "legMetal", "ceilUnit", "fglass", "waterfall", "mirrorBronze", "mirrorGraphite", "ledSensor",
-                        "headSoft", "headTufted", "softPanel"]
+                        "headSoft", "headTufted", "softPanel", "wdCeil"]
 
 private struct HwSheet: View {
     let app: AppModel

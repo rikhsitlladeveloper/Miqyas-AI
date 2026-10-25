@@ -21,9 +21,8 @@ data class PartLabel(val n: Int, val key: String, val mod: String, val piece: St
 fun labelsOf(fs: List<Furniture>, ws: Workshop): List<PartLabel> {
     val out = ArrayList<PartLabel>()
     fs.forEach { f ->
-        val fws = wsOf(f, ws)
-        (f.modules.flatMap { m -> partsOf(m, fws).map { it to isUpperFront(f, m) } } + extrasParts(f, ws).map { it to (it.key == "fp.endUp") }).forEach { (p, up) ->
-            repeat(p.qty) { out += PartLabel(out.size + 1, p.key, p.mod, f.name, p.L, p.W, p.bands, matFor(p.role, f.mats, up), p.grain) }
+        partsWithMat(f, ws).forEach { (p, mat) ->
+            repeat(p.qty) { out += PartLabel(out.size + 1, p.key, p.mod, f.name, p.L, p.W, p.bands, mat, p.grain) }
         }
     }
     return out

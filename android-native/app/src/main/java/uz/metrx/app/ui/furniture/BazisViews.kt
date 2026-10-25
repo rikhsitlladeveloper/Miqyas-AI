@@ -535,9 +535,8 @@ internal fun partHomes(fs: List<Furniture>, r: uz.metrx.app.furniture.CutRow, ws
     val key = r.p.copy(mod = "", qty = 0)
     return fs.associate { f ->
         // a kitchen's end panels too (parts of no module)
-        f.id to (f.modules.flatMap { m -> uz.metrx.app.furniture.partsOf(m, wsOf(f, ws)).map { it to uz.metrx.app.furniture.isUpperFront(f, m) } } +
-            uz.metrx.app.furniture.extrasParts(f, ws).map { it to (it.key == "fp.endUp") })
-            .filter { (p, up) -> p.copy(mod = "", qty = 0) == key && uz.metrx.app.furniture.matFor(p.role, f.mats, up) == r.mat }.map { (p, _) -> f.id + "|" + p.mod }.toSet()
+        f.id to uz.metrx.app.furniture.partsWithMat(f, ws)
+            .filter { (p, mat) -> p.copy(mod = "", qty = 0) == key && mat == r.mat }.map { (p, _) -> f.id + "|" + p.mod }.toSet()
     }.filterValues { it.isNotEmpty() }
 }
 

@@ -6,7 +6,7 @@ package uz.metrx.app.furniture
  */
 
 /** Kinds counted in millimetres and bought by the metre. */
-val METRE_KINDS = setOf("rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail", "gola", "ceilUnit")
+val METRE_KINDS = setOf("rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail", "gola", "ceilUnit", "wdCeil")
 /** Kinds counted in square millimetres and bought by the m². */
 val AREA_KINDS = setOf("mirror", "glass", "glassShelf", "glassDoor", "frontShaker", "frontFluted", "fglass", "mirrorBronze", "mirrorGraphite",
     "headSoft", "headTufted", "softPanel", "tvStone", "tvSlats", "tvMould")
@@ -70,7 +70,9 @@ fun hardwareOf(m: Module, ws: Workshop, edge: Boolean = false): Map<String, Int>
                 val n2 = sl.n.coerceIn(2, 4)
                 val (ow, _) = slideOpening(m, t)
                 val (dw, dh) = slideDoor(m, t)
-                val (pw, ph) = slidePanel(m, t)
+                // a mirror or lacobel filling as the 3D draws it: below the split rail only (the board above it: Parts.kt)
+                val (pw, _) = slidePanel(m, t)
+                val ph = kupeFillH(m, t).first
                 add("slideTrack", 2 * ow)            // the top and the bottom track
                 add("slideV", 2 * dh * n2)           // two upright profiles a door
                 add("slideH", 2 * dw * n2)           // the frame's top and bottom

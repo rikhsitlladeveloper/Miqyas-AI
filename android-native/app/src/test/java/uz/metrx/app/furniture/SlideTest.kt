@@ -31,7 +31,9 @@ class SlideTest {
 
     @Test fun hardwareCountsTracksProfilesRollersAndMirror() {
         val hw = hardwareOf(m, ws)
-        val (dw, dh) = slideDoor(m, 16); val (pw, ph) = slidePanel(m, 16)
+        val (dw, dh) = slideDoor(m, 16); val (pw, _) = slidePanel(m, 16)
+        // the mirror below the split rail only, as the 3D draws it (the board above it: KupeBunkBoardsTest)
+        val ph = kupeFillH(m, 16).first; assertTrue(ph < slidePanel(m, 16).second)
         assertEquals(2 * 2400, hw["slideTrack"]); assertEquals(2 * dh * 3, hw["slideV"]); assertEquals(2 * dw * 3, hw["slideH"])
         assertEquals(3, hw["slideRoller"]); assertEquals(pw * ph, hw["mirror"])
         assertEquals(null, hw["hinge"]); assertEquals(null, hw["hingeSoft"]); assertEquals(null, hw["handle"])
