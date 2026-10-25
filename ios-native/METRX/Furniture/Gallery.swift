@@ -101,6 +101,8 @@ struct FGalleryScreen: View {
                     }
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
+                            // the order's design style: new pieces start with it (Core/PieceLook.swift)
+                            StyleRow(app: app, p: p)
                             if let room {
                                 let f = { (mm: Int?) in Geo.fmtLen(mm, .m, en) }
                                 let name = p.floors.first { $0.id == room.floorId }.map { floorName($0) } ?? dn(room.name)

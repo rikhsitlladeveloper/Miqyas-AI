@@ -171,11 +171,13 @@ func drawRun(_ c: GraphicsContext, _ lay: KLay, _ f: Furniture, _ run: Run, _ ro
         let t = lay.y(wallElev(ws) + K_WALL_H), r = rect(x0, t, CGFloat(run.upStart) * lay.s, CGFloat(K_WALL_H) * lay.s)
         c.fill(r, with: .color(CORNER_FILL)); c.stroke(r, with: .color(PC.greyLine), style: StrokeStyle(lineWidth: 0.8, dash: DASH))
     }
-    let front = matRgb(mats, f.mats.front, "#CDBFAE"), carcass = matRgb(mats, f.mats.carcass, "#F5F5F2"), wt = matRgb(mats, "wt38", "#4B4F58")
+    let front = matRgb(mats, f.mats.front, "#CDBFAE"), carcass = matRgb(mats, f.mats.carcass, "#F5F5F2"), wt = matRgb(mats, worktopOf(f), "#4B4F58")
+    // a two-tone kitchen's upper fronts, its own worktop and backsplash (Core/PieceLook.swift)
+    let frontUp = f.mats.frontUp.flatMap { id in mats.first { $0.id == id }?.rgb }.map(rgbOf) ?? front
     let mods = f.modules.enumerated().filter { $0.element.wall == run.wall }
         .sorted { (isUpper($0.element) ? 1 : 0, $0.offset) < (isUpper($1.element) ? 1 : 0, $1.offset) }.map(\.element)
     let g = max(0.8, CGFloat(ws.gap10) / 10 * lay.s)
-    for m in mods { drawUnit(c, lay, m, ws, front, carcass, g) }
+    for m in mods { drawUnit(c, lay, m, ws, isUpper(m) ? frontUp : front, carcass, g) }
     // the worktop over the lower row, and over the corner zone it turns into
     var tops = mods.filter { !isUpper($0) && ($0.type == "base" || $0.type == "filler" || $0.app == "dishwasher") }.map { ($0.x, $0.x + $0.w) }
     if run.lowStart > 0 && !tops.isEmpty { tops.append((0, run.lowStart)) }
@@ -183,7 +185,7 @@ func drawRun(_ c: GraphicsContext, _ lay: KLay, _ f: Furniture, _ run: Run, _ ro
     for (a, b) in tops { c.fill(rect(lay.x(a), wtY, CGFloat(b - a) * lay.s, max(1.5, CGFloat(K_TOP) * lay.s)), with: .color(Color(argb: 0xFF00_0000 | UInt32(wt)))) }
     // extras (plan 1b-1): the backsplash over the worktop, the cornice on the wall units, the LED strip under them
     if let kx = f.kx, !island {
-        let sp = Color(argb: 0xFF00_0000 | UInt32(rgbOf(mats.first { $0.kind == "splash" }?.rgb ?? "#E8E2D8")))
+        let sp = Color(argb: 0xFF00_0000 | UInt32(rgbOf(splashOf(f, mats)?.rgb ?? "#E8E2D8")))
         if kx.splash > 0 {
             for (a, b) in tops {
                 let r = rect(lay.x(a), lay.y(worktopTop(ws) + kx.splash), CGFloat(b - a) * lay.s, CGFloat(kx.splash) * lay.s)
@@ -191,7 +193,7 @@ func drawRun(_ c: GraphicsContext, _ lay: KLay, _ f: Furniture, _ run: Run, _ ro
             }
         }
         for m in mods where m.type == "wall" {
-            if kx.cornice { c.fill(rect(lay.x(m.x), lay.y(m.elev + m.h + 60), CGFloat(m.w) * lay.s, 60 * lay.s), with: .color(Color(argb: 0xFF00_0000 | UInt32(front)))) }
+            if kx.cornice { c.fill(rect(lay.x(m.x), lay.y(m.elev + m.h + 60), CGFloat(m.w) * lay.s, 60 * lay.s), with: .color(Color(argb: 0xFF00_0000 | UInt32(frontUp)))) }
             if kx.led { c.line(Color(argb: 0xFFF2C94C), CGPoint(x: lay.x(m.x) + 1, y: lay.y(m.elev) + 1), CGPoint(x: lay.x(m.x + m.w) - 1, y: lay.y(m.elev) + 1), 1.6) }
         }
     }

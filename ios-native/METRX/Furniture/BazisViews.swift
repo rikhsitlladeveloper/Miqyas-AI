@@ -773,13 +773,11 @@ func partHomes(_ fs: [Furniture], _ r: CutRow, _ ws: Workshop) -> [(String, Set<
     var key = r.p; key.mod = ""; key.qty = 0
     var out: [(String, Set<String>)] = []
     for f in fs {
-        let fws = wsOf(f, ws)
         var mods = Set<String>()
-        // a kitchen's end panels too (parts of no module)
-        let parts = f.modules.flatMap { partsOf($0, fws) } + extrasParts(f, ws)
-        for pt in parts {
+        // a kitchen's end panels too (parts of no module); a two-tone piece's upper fronts are of its upper board
+        for (pt, up) in partsWithUpper(f, ws) {
             var k = pt; k.mod = ""; k.qty = 0
-            if k == key && matFor(pt.role, f.mats) == r.mat { mods.insert(f.id + "|" + pt.mod) }
+            if k == key && matFor(pt.role, f.mats, up) == r.mat { mods.insert(f.id + "|" + pt.mod) }
         }
         if !mods.isEmpty { out.append((f.id, mods)) }
     }

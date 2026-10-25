@@ -11,13 +11,20 @@ struct Counts: Equatable {
     private(set) var n: [String: Int] = [:]
     subscript(_ k: String) -> Int? { n[k] }
     mutating func add(_ k: String, _ v: Int) { if v <= 0 { return }; if n[k] == nil { keys.append(k) }; n[k, default: 0] += v }
+    /// Takes key k out (Kotlin's remove): its count, nil when it had none.
+    @discardableResult mutating func remove(_ k: String) -> Int? {
+        guard let v = n.removeValue(forKey: k) else { return nil }
+        keys.removeAll { $0 == k }
+        return v
+    }
     var pairs: [(String, Int)] { keys.map { ($0, n[$0]!) } }
 }
 
 /// Kinds counted in millimetres and bought by the metre.
-let METRE_KINDS: Set<String> = ["rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail"]
+let METRE_KINDS: Set<String> = ["rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail", "gola", "ceilUnit"]
 /// Kinds counted in square millimetres and bought by the m².
-let AREA_KINDS: Set<String> = ["mirror", "glass", "glassShelf", "glassDoor"]
+let AREA_KINDS: Set<String> = ["mirror", "glass", "glassShelf", "glassDoor", "frontShaker", "frontFluted", "fglass", "mirrorBronze", "mirrorGraphite",
+                                "headSoft", "headTufted", "softPanel"]
 
 /// How a kind is bought: "m", "m2" or "pcs" (the strings key fu.*).
 func hwUnit(_ kind: String) -> String { METRE_KINDS.contains(kind) ? "m" : AREA_KINDS.contains(kind) ? "m2" : "pcs" }
@@ -101,14 +108,19 @@ func hardwareOf(_ m: Module, _ ws: Workshop, edge: Bool = false) -> Counts {
     return n
 }
 
-/// An order's hardware, all modules added up.
+/// An order's hardware, all modules added up; a piece's design changes and adds to it (PieceLook.swift).
 func hardware(_ fs: [Furniture], _ ws: Workshop) -> Counts {
     var n = Counts()
     for f in fs {
         let fws = wsOf(f, ws)
         let edge = opensByEdge(f)
-        for m in f.modules { for (k, v) in hardwareOf(m, fws, edge: edge).pairs { n.add(k, v) } }
+        for m in f.modules {
+            var h = hardwareOf(m, fws, edge: edge)
+            lookSwap(f, m, &h, edge)
+            for (k, v) in h.pairs { n.add(k, v) }
+        }
         for (k, v) in extrasHardware(f).pairs { n.add(k, v) }
+        for (k, v) in lookHardware(f, ws).pairs { n.add(k, v) }
     }
     return n
 }

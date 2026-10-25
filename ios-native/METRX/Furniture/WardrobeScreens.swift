@@ -421,6 +421,8 @@ struct WardrobeScreen: View {
                                 .padding(14)
                                 .frame(maxWidth: .infinity, alignment: .leading)
                                 .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.6))
+                                // the last step, the materials: the design too (Core/PieceLook.swift)
+                                if step >= 5 { DesignCard(app: app, p: p, f: f) }
                                 // with the Check list's drawer rule (its sheet and shelf rules are the designer's own)
                                 ChecksCard(f: f, found: cx.found + drawerRule(f, ws, mats)) { _ in }
                                 CostCard(p: p, f: f)

@@ -108,7 +108,16 @@ private extension Doc {
                 entries.append((t("wd." + role) + who, shown, mat(id)?.rgb))
             }
         }
-        if sn.furniture.contains(where: { $0.kind == "kitchen" }), let w = mat("wt38") { entries.append((t("mt.wtK"), presetName(w.id, w.name), w.rgb)) }
+        // a two-tone kitchen's upper fronts; each kitchen's worktop and backsplash (PieceLook.swift)
+        var ups: [String] = [], tops: [String] = [], splashes: [String] = []
+        for f in sn.furniture {
+            if isTwoTone(f), let up = f.mats.frontUp, !ups.contains(up) { ups.append(up) }
+            if f.kind == "kitchen", !tops.contains(worktopOf(f)) { tops.append(worktopOf(f)) }
+            if (f.kx?.splash ?? 0) > 0, let sp = f.mats.splash, !splashes.contains(sp) { splashes.append(sp) }
+        }
+        for id in ups { entries.append((t("lk.upFront"), mat(id).map { presetName($0.id, $0.name) } ?? id, mat(id)?.rgb)) }
+        for id in tops { if let w = mat(id) { entries.append((t("mt.wtK"), presetName(w.id, w.name), w.rgb)) } }
+        for id in splashes { if let w = mat(id) { entries.append((t("mt.splashK"), presetName(w.id, w.name), w.rgb)) } }
         if !sn.fhandles.trimmingCharacters(in: .whitespaces).isEmpty && sn.furniture.contains(where: { hasHandles($0) }) {
             entries.append((t("hk.handle"), presetName(nil, sn.fhandles), nil))
         }

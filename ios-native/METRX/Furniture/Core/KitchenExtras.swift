@@ -77,7 +77,8 @@ func extrasHardware(_ f: Furniture) -> Counts {
     // each worktop piece has two ends; a corner joins two of them
     let pieces = worktopRuns(f).values.filter { $0 > 0 }.count
     n.add("wtEnd", 2 * pieces - 2 * joints)
-    if x.plinth { n.add("plinthK", plinthMm(f)); n.add("plinthCorner", joints) }
+    // on visible metal legs (PieceLook.swift) there is no plinth
+    if x.plinth && !metalLegs(f) { n.add("plinthK", plinthMm(f)); n.add("plinthCorner", joints) }
     if x.cornice { n.add("cornice", wallUnitsMm(f)) }
     if x.led { let mm = wallUnitsMm(f); n.add("led", mm); n.add("ledPsu", mm > 0 ? (mm + 4999) / 5000 : 0) }
     return n

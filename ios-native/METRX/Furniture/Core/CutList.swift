@@ -8,8 +8,22 @@ import Foundation
 /// One cut list line: p the part (finished size), cutL × cutW what the saw cuts, mat the material id.
 struct CutRow: Equatable { let p: FPart, mat: String, cutL: Int, cutW: Int }
 
-/// Which material a role uses in a piece of furniture.
-func matFor(_ role: String, _ m: FMats) -> String { role == "front" ? m.front : role == "back" ? m.back : m.carcass }
+/// Which material a role uses in a piece of furniture; upper fronts take a two-tone kitchen's upper board (FMats.frontUp).
+func matFor(_ role: String, _ m: FMats, _ upper: Bool = false) -> String {
+    role == "front" ? (upper ? m.frontUp ?? m.front : m.front) : role == "back" ? m.back : m.carcass
+}
+
+/// A piece's parts, each with whether it goes with the upper fronts (isUpperFront; the upper end panels too).
+func partsWithUpper(_ f: Furniture, _ ws: Workshop) -> [(FPart, Bool)] {
+    let fws = wsOf(f, ws)
+    var out: [(FPart, Bool)] = []
+    for m in f.modules {
+        let up = isUpperFront(f, m)
+        for p in partsOf(m, fws) { out.append((p, up)) }
+    }
+    for p in extrasParts(f, ws) { out.append((p, p.key == "fp.endUp")) }
+    return out
+}
 
 private struct RowKey: Hashable { let mat: String; let p: FPart }
 
@@ -18,11 +32,10 @@ func cutList(_ fs: [Furniture], _ ws: Workshop) -> [CutRow] {
     // in the order they first come, as Kotlin's LinkedHashMap keeps them
     var order: [RowKey] = []; var count: [RowKey: Int] = [:]
     for f in fs {
-        let fws = wsOf(f, ws)
-        let ps = f.modules.flatMap { partsOf($0, fws) } + extrasParts(f, ws)
-        for p in ps {
+        // the upper end panels go with the upper fronts
+        for (p, up) in partsWithUpper(f, ws) {
             var q = p; q.mod = ""; q.qty = 0
-            let k = RowKey(mat: matFor(p.role, f.mats), p: q)
+            let k = RowKey(mat: matFor(p.role, f.mats, up), p: q)
             if count[k] == nil { order.append(k) }
             count[k, default: 0] += p.qty
         }

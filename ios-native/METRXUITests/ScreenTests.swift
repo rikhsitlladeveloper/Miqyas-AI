@@ -84,6 +84,8 @@ class ScreenTestCase: XCTestCase {
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText(who)
         app.buttons["no.create"].tap(); usleep(1_200_000)
+        // the design style step comes first (modern 3D part 2): chosen later
+        if app.buttons["lk.later"].waitForExistence(timeout: 4) { if !app.buttons["lk.later"].isHittable { app.swipeUp(); usleep(600_000) }; app.buttons["lk.later"].tap(); usleep(900_000) }
         XCTAssertTrue(app.buttons["fg.measure"].waitForExistence(timeout: 4))
         app.buttons["fg.measure"].tap(); usleep(900_000)
         let roomType = ["wardrobe": "Yotoqxona"][need]
@@ -671,7 +673,10 @@ final class Furniture1Tests: ScreenTestCase {
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText("Dilnoza Karimova")
         shot("f1-04-new-order")
-        app.buttons["no.create"].tap(); sleep(1); shot("f1-04b-gallery")
+        app.buttons["no.create"].tap(); sleep(1); shot("f1-04a-style")
+        // the design style step comes first (modern 3D part 2): chosen later
+        if app.buttons["lk.later"].waitForExistence(timeout: 4) { if !app.buttons["lk.later"].isHittable { app.swipeUp(); usleep(600_000) }; app.buttons["lk.later"].tap(); usleep(900_000) }
+        shot("f1-04b-gallery")
         // the gallery's "Keyin hal qilaman" link goes to the order page
         XCTAssertTrue(app.buttons["fg.later"].waitForExistence(timeout: 4))
         if !app.buttons["fg.later"].isHittable { app.swipeUp(); usleep(600_000) }
@@ -979,6 +984,8 @@ final class Furniture8Tests: ScreenTestCase {
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText("Dilnoza Karimova")
         app.buttons["no.create"].tap(); usleep(1_200_000)
+        // the design style step comes first (modern 3D part 2): chosen later
+        if app.buttons["lk.later"].waitForExistence(timeout: 4) { if !app.buttons["lk.later"].isHittable { app.swipeUp(); usleep(600_000) }; app.buttons["lk.later"].tap(); usleep(900_000) }
         XCTAssertTrue(app.buttons["model.L"].waitForExistence(timeout: 4)); shot("f8-01-gallery")
         tapModel(app, "L"); shot("f8-02-step1")
         // an L-kitchen is a corner piece: its shape and which sides were measured come first, as pictures; the usual

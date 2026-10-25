@@ -54,6 +54,9 @@ enum Route: Hashable {
     case fSteps(pid: String, model: String, fid: String? = nil, vals: String? = nil)
     case fWhere(pid: String, model: String, vals: String)
     case fPlace(pid: String, fid: String?, rid: String, model: String? = nil, vals: String? = nil)
+    /// A furniture order's design style, the preset new pieces start with (Furniture/Core/PieceLook.swift); fromNew: a new
+    /// order's first step, the gallery next.
+    case fStyle(pid: String, fromNew: Bool = false)
     /// A tiler's order (Android TilerScreens / TGallery / TView): the gallery of layouts (rid the room it is for, fromNew
     /// right after a new order); a layout's steps (a new one from gallery card model, or layout lid); a room's tiles in 3D
     /// (rid), or a layout without a room (rid nil, layout lid).
@@ -247,7 +250,7 @@ final class AppModel {
                     return pid.map { store.get($0)?.floors.contains { w in w.items.contains { $0.id == iid } } == true } ?? AppSettings.shared.shots.contains { $0.id == iid }
                 case .report(let pid, let no): return store.get(pid).map { p in no == nil || p.quotes.contains { $0.no == no } } == true
                 case .kitchen(let pid, let fid, _, _), .wardrobe(let pid, let fid, _, _, _, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
-                case .fCut(let pid), .fPack(let pid), .fWhere(let pid, _, _): return store.get(pid) != nil
+                case .fCut(let pid), .fPack(let pid), .fWhere(let pid, _, _), .fStyle(let pid, _): return store.get(pid) != nil
                 case .fLabels(let pid), .fCheck(let pid): return store.get(pid) != nil
                 case .fGallery(let pid, let rid, _): return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
                 case .fSteps(let pid, _, let fid, _): return store.get(pid).map { p in fid == nil || p.furniture.contains { $0.id == fid } } == true

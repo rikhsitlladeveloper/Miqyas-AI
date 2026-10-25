@@ -182,7 +182,8 @@ struct UnitFronts: View {
         let mats = AppSettings.shared.mats
         let one = unitAlone(m)
         let lay = KLay(one.w, one.h, 220, false)
-        let front = rgbOf(mats.first { $0.id == f.mats.front }?.rgb ?? "#CDBFAE")
+        let fid = frontOf(f, m)
+        let front = rgbOf(mats.first { $0.id == fid }?.rgb ?? "#CDBFAE")
         let carcass = rgbOf(mats.first { $0.id == f.mats.carcass }?.rgb ?? "#F5F5F2")
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         let ws = self.ws

@@ -71,6 +71,9 @@ struct Project: Codable, Equatable, Identifiable {
     var win = WinOrder()
     /// Furniture orders (Advanced): when the parts were cut and the offcuts kept as remnants (0: not yet).
     var cutAt: Ms = 0
+    /// Furniture orders: the design style preset new pieces start with (Furniture/Core/PieceLook.swift DESIGN_PRESETS;
+    /// "" none, and then not written, as Android leaves it out).
+    var fstyle = ""
 
     var isFurniture: Bool { industry == "furniture" }
     /// A tiler's order (its own app: layouts in 3D, like the furniture maker's).
@@ -101,7 +104,30 @@ struct Project: Codable, Equatable, Identifiable {
         approvedAt = c.v(.approvedAt, 0); install = c.v(.install, 0); want = c.v(.want, nil); autoName = c.v(.autoName, false)
         tiles = c.v(.tiles, []); troom = c.v(.troom, []); elec = c.v(.elec, ElecOrder())
         plumb = c.v(.plumb, PlumbOrder()); win = c.v(.win, WinOrder())
-        cutAt = c.v(.cutAt, 0)
+        cutAt = c.v(.cutAt, 0); fstyle = c.v(.fstyle, "")
+    }
+
+    // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
+    enum CodingKeys: String, CodingKey {
+        case id, name, customer, phone, address, location, currency, precision, reportLang, stage, floors, rooms, estimate, quotes
+        case reportRooms, reportViews, reportNotes, created, edited, industry, agreed, payments, furniture, fprice, approvedAt, install
+        case want, autoName, tiles, troom, elec, plumb, win, cutAt, fstyle
+    }
+    /// The synthesized form, with fstyle written only when set (an order without a style saves as before).
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id); try c.encode(name, forKey: .name); try c.encode(customer, forKey: .customer)
+        try c.encode(phone, forKey: .phone); try c.encode(address, forKey: .address); try c.encodeIfPresent(location, forKey: .location)
+        try c.encode(currency, forKey: .currency); try c.encode(precision, forKey: .precision); try c.encode(reportLang, forKey: .reportLang)
+        try c.encode(stage, forKey: .stage); try c.encode(floors, forKey: .floors); try c.encode(rooms, forKey: .rooms)
+        try c.encode(estimate, forKey: .estimate); try c.encode(quotes, forKey: .quotes); try c.encode(reportRooms, forKey: .reportRooms)
+        try c.encode(reportViews, forKey: .reportViews); try c.encode(reportNotes, forKey: .reportNotes); try c.encode(created, forKey: .created)
+        try c.encode(edited, forKey: .edited); try c.encode(industry, forKey: .industry); try c.encode(agreed, forKey: .agreed)
+        try c.encode(payments, forKey: .payments); try c.encode(furniture, forKey: .furniture); try c.encode(fprice, forKey: .fprice)
+        try c.encode(approvedAt, forKey: .approvedAt); try c.encode(install, forKey: .install); try c.encodeIfPresent(want, forKey: .want)
+        try c.encode(autoName, forKey: .autoName); try c.encode(tiles, forKey: .tiles); try c.encode(troom, forKey: .troom)
+        try c.encode(elec, forKey: .elec); try c.encode(plumb, forKey: .plumb); try c.encode(win, forKey: .win); try c.encode(cutAt, forKey: .cutAt)
+        if !fstyle.isEmpty { try c.encode(fstyle, forKey: .fstyle) }
     }
 }
 

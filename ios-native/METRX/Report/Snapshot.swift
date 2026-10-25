@@ -95,12 +95,20 @@ func elecSnap(_ sn: Snap, _ p: Project, _ snap: Bool) -> Snap {
 }
 
 /// The handles the order's pieces have: the usual one, or those picked for a whole piece ("Change for all").
-private func handleNames(_ fs: [Furniture], _ hws: [Hw]) -> String {
+private func handleNames(_ fs: [Furniture], _ hws: [Hw], _ ws: Workshop) -> String {
     let usual = usualHw(hws, "handle")
     var names: [String] = []
+    func put(_ n: String?) { if let n, !names.contains(n) { names.append(n) } }
     for f in fs where hasHandles(f) {
-        let own = hws.first { $0.id == f.handle && $0.kind == "handle" }
-        if let n = (own ?? usual)?.name, !names.contains(n) { names.append(n) }
+        switch f.handle {
+        // a kitchen's Gola profile, long verticals by their lengths (PieceLook.swift)
+        case GOLA: put((hws.first { $0.kind == "gola" } ?? usual)?.name)
+        case LONG_V:
+            var ids: [String] = []
+            for id in longHandleIds(f, ws) where !ids.contains(id) { ids.append(id) }
+            for id in ids { put(hws.first { $0.id == id }?.name) }
+        default: put((hws.first { $0.id == f.handle && $0.kind == "handle" } ?? usual)?.name)
+        }
     }
     if names.isEmpty, let u = usual { names = [u.name] }
     return names.joined(separator: ", ")
@@ -111,12 +119,18 @@ func furnSnap(_ sn: Snap, _ p: Project, _ ws: Workshop, _ mats: [Mat], _ hws: [H
     let fs = p.furniture.filter { !$0.modules.isEmpty }
     let pr = priceOf(fs, p.fprice, ws, mats, hws)
     var used = Set(fs.flatMap { [$0.mats.carcass, $0.mats.front, $0.mats.back] })
-    if fs.contains(where: { $0.kind == "kitchen" }) { used.insert("wt38") }
+    // the upper fronts, worktops and backsplashes each piece chose (PieceLook.swift; "wt38" before 25 Oct 2026, and no
+    // backsplash board for a piece that chose none, as the iPhone's older quotes have it)
+    for f in fs {
+        if let up = f.mats.frontUp { used.insert(up) }
+        if f.kind == "kitchen" { used.insert(worktopOf(f)) }
+        if (f.kx?.splash ?? 0) > 0, let sp = f.mats.splash { used.insert(sp) }
+    }
     var out = sn
     out.furniture = fs; out.fmats = mats.filter { used.contains($0.id) }
     out.flines = pr.lines.map { SnapLine(key: $0.key, amount: Money.digits($0.amount)) }
     out.ftotal = Money.digits(pr.price); out.fprepay = ws.prepay; out.fdays = p.fprice.days; out.finst = p.fprice.inst
-    out.fhandles = handleNames(fs, hws); out.fws = ws
+    out.fhandles = handleNames(fs, hws, ws); out.fws = ws
     return out
 }
 

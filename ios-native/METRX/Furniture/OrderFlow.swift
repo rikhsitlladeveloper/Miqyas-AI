@@ -173,8 +173,9 @@ struct NewOrderScreen: View {
         p.industry = industry; p.autoName = industry == "furniture"
         Store.shared.add(p)
         app.replaceTop(.project(id: p.id, tab: "rooms"))
-        // a tiler picks the layout first (Tiles/Tiles.swift), a furniture maker the furniture
-        var next: Route = .fGallery(pid: p.id, fromNew: true)
+        // a tiler picks the layout first (Tiles/Tiles.swift), a furniture maker the design style and then the furniture
+        // (Furniture/Core/PieceLook.swift)
+        var next: Route = .fStyle(pid: p.id, fromNew: true)
         if industry == "tiler" { next = .tGallery(pid: p.id, fromNew: true) }
         else if industry == "elec" { next = .eGallery(pid: p.id, fromNew: true) }
         else if industry == "plumb" { next = .pGallery(pid: p.id, fromNew: true) }

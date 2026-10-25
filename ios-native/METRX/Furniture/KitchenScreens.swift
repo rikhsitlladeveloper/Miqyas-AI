@@ -115,6 +115,7 @@ struct KitchenScreen: View {
                                         kit.sel = m.id
                                     }
                                 }
+                                DesignCard(app: app, p: p, f: f)
                                 ExtrasCard(app: app, p: p, f: f)
                                 CostCard(p: p, f: f)
                             }

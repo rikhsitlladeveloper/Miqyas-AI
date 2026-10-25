@@ -22,14 +22,10 @@ struct PartLabel: Equatable {
 func labelsOf(_ fs: [Furniture], _ ws: Workshop) -> [PartLabel] {
     var out: [PartLabel] = []
     for f in fs {
-        let fws = wsOf(f, ws)
-        var parts: [FPart] = []
-        for m in f.modules { parts += partsOf(m, fws) }
-        parts += extrasParts(f, ws)
-        for p in parts {
+        for (p, up) in partsWithUpper(f, ws) {
             for _ in 0..<max(0, p.qty) {
                 out.append(PartLabel(n: out.count + 1, key: p.key, mod: p.mod, piece: f.name, L: p.L, W: p.W, bands: p.bands,
-                                     mat: matFor(p.role, f.mats), grain: p.grain))
+                                     mat: matFor(p.role, f.mats, up), grain: p.grain))
             }
         }
     }

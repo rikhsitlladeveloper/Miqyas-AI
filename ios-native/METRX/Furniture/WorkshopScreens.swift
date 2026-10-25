@@ -220,7 +220,7 @@ private func matSub(_ m: Mat, _ en: Bool) -> String {
     }
 }
 
-private func unitOf(_ m: Mat) -> String { tr(m.kind == "band" || m.kind == "worktop" || m.kind == "splash" ? "mt.perM" : "mt.perSheet") }
+private func unitOf(_ m: Mat) -> String { tr(m.byArea ? "mt.perM2" : m.kind == "band" || m.kind == "worktop" || m.kind == "splash" ? "mt.perM" : "mt.perSheet") }
 
 /// A hardware kind's price unit: by the metre (slide tracks, profiles, cornice, LED, plinth, bar rail), by the m² (mirror,
 /// glass, glass shelf, glass door), else a piece (Hardware.swift hwUnit).
@@ -345,6 +345,8 @@ private struct MatSheet: View {
     @State private var price: String
     @State private var grain: Bool
     @State private var rgb: String
+    /// A board or a backsplash priced by the m² ("m2": the design decors, Core/DecorPresets.swift) or by the sheet / metre ("").
+    @State private var per: String
     @FocusState private var focus: WF?
     init(app: AppModel, id: String?) {
         self.app = app; self.id = id
@@ -352,18 +354,22 @@ private struct MatSheet: View {
         _name = State(initialValue: e?.name ?? ""); _kind = State(initialValue: e?.kind ?? "board"); _t = State(initialValue: String(e?.t ?? 16))
         _l = State(initialValue: String(e?.l ?? 2800)); _w = State(initialValue: String(e?.w ?? 2070)); _price = State(initialValue: e?.price ?? "")
         _grain = State(initialValue: e?.grain ?? false); _rgb = State(initialValue: e?.rgb ?? "#F5F5F2")
+        _per = State(initialValue: e?.per ?? "")
     }
     var body: some View {
         let s = AppSettings.shared
         let edit = id.flatMap { x in s.mats.first { $0.id == x } }
         let band = kind == "band"
+        let areaOk = kind == "board" || kind == "splash"
         let ti = Int(t), li = Int(l), wi = Int(w)
         let ok = !name.trimmingCharacters(in: .whitespaces).isEmpty && (ti ?? 0) > 0 &&
             (band || ((300...6000).contains(li ?? 0) && (300...3000).contains(wi ?? 0))) && (price.isEmpty || price.allSatisfy(\.isASCIIDigitChar))
         func save() {
             guard ok, let ti else { return }
-            let m = Mat(edit?.id ?? uid(), kind, name.trimmingCharacters(in: .whitespaces), ti, l: band ? 0 : li!, w: band ? 0 : wi!, price: price,
-                        grain: grain && kind == "board", rgb: rgb, preset: edit?.preset ?? false)
+            // the fields this form does not show (the decor's finish and texture) stay as they were
+            var m = edit ?? Mat(uid(), kind, "", 16)
+            m.kind = kind; m.name = name.trimmingCharacters(in: .whitespaces); m.t = ti; m.l = band ? 0 : li!; m.w = band ? 0 : wi!
+            m.price = price; m.grain = grain && kind == "board"; m.rgb = rgb; m.per = areaOk ? per : ""
             s.setMatList(edit != nil ? s.mats.map { $0.id == m.id ? m : $0 } : s.mats + [m])
             app.sheet = nil; app.say("wk.saved")
         }
@@ -378,7 +384,11 @@ private struct MatSheet: View {
             HStack(alignment: .top, spacing: 10) {
                 GField(label: tr("mt.t"), value: $t, placeholder: "16", focus: $focus, me: .b, labelRight: band ? "0,1" + U_MM : tr("u.mm"), number: true)
                 GField(label: tr("mt.price"), value: $price, placeholder: "0", focus: $focus, me: .c,
-                       labelRight: tr(band || kind == "worktop" || kind == "splash" ? "mt.perM" : "mt.perSheet"), number: true, id: "mt.price")
+                       labelRight: tr(areaOk && per == "m2" ? "mt.perM2" : band || kind == "worktop" || kind == "splash" ? "mt.perM" : "mt.perSheet"),
+                       number: true, id: "mt.price")
+            }
+            if areaOk {
+                Seg(items: [("", tr(kind == "splash" ? "mt.perM" : "mt.perSheet")), ("m2", tr("mt.perM2"))], cur: per) { per = $0 }
             }
             if !band {
                 HStack(alignment: .top, spacing: 10) {
@@ -423,7 +433,10 @@ private struct MatSheet: View {
     }
 }
 
-private let HW_KINDS = ["hingeSoft", "hinge", "runner", "handle", "push", "leg", "pin", "rail", "railEnd", "confirmat", "hanger", "lift"]
+private let HW_KINDS = ["hingeSoft", "hinge", "runner", "handle", "push", "leg", "pin", "rail", "railEnd", "confirmat", "hanger", "lift",
+                        // the design options (Core/PieceLook.swift)
+                        "gola", "frontShaker", "frontFluted", "legMetal", "ceilUnit", "fglass", "waterfall", "mirrorBronze", "mirrorGraphite", "ledSensor",
+                        "headSoft", "headTufted", "softPanel"]
 
 private struct HwSheet: View {
     let app: AppModel

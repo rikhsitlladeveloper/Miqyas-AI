@@ -39,14 +39,18 @@ struct Furniture: Codable, Equatable, Identifiable {
     var baseH: Int? = nil
     /// Corner pieces without a room: "L" the corner at the left end of the main wall (made-up walls D, A), "" at the right.
     var hand = ""
-    /// The handles' hardware id for the whole piece ("Change for all"); "" the workshop's usual handle.
+    /// The handles' hardware id for the whole piece ("Change for all"); "" the workshop's usual handle; GOLA a kitchen's
+    /// Gola profile instead of handles; LONG_V long verticals (PieceLook.swift longHandleIds).
     var handle = ""
+    /// The design: front style, handle colour, crown, legs, mirror tint, bed fabric… (PieceLook.swift); nil: as before
+    /// 25 Oct 2026, and then not written (Android @EncodeDefault NEVER).
+    var look: PieceLook? = nil
     init(id: String, kind: String, name: String = "", roomId: String? = nil, walls: [String] = [], modules: [Module] = [], mats: FMats = FMats(),
          created: Ms = 0, layout: String = "I", ws: String = "", free: FreeSize? = nil, model: String = "", keep: Bool = false, kx: KExtras? = nil, type: String = "",
-         pose: Pose? = nil, baseH: Int? = nil, hand: String = "", handle: String = "") {
+         pose: Pose? = nil, baseH: Int? = nil, hand: String = "", handle: String = "", look: PieceLook? = nil) {
         self.id = id; self.kind = kind; self.name = name; self.roomId = roomId; self.walls = walls; self.modules = modules; self.mats = mats
         self.created = created; self.layout = layout; self.ws = ws; self.free = free; self.model = model; self.keep = keep; self.kx = kx; self.type = type
-        self.pose = pose; self.baseH = baseH; self.hand = hand; self.handle = handle
+        self.pose = pose; self.baseH = baseH; self.hand = hand; self.handle = handle; self.look = look
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -55,6 +59,7 @@ struct Furniture: Codable, Equatable, Identifiable {
         layout = c.v(.layout, "I"); ws = c.v(.ws, "")
         free = c.v(.free, nil); model = c.v(.model, ""); keep = c.v(.keep, false); kx = c.v(.kx, nil); type = c.v(.type, "")
         pose = c.v(.pose, nil); baseH = c.v(.baseH, nil); hand = c.v(.hand, ""); handle = c.v(.handle, "")
+        look = c.v(.look, nil)
     }
 }
 
@@ -79,13 +84,29 @@ struct Pose: Codable, Equatable, Hashable {
     }
 }
 
-/// Material ids (from the workshop's list) for the carcass, the fronts and the back panel.
+/// Material ids (from the workshop's list) for the carcass, the fronts and the back panel; a kitchen's upper fronts
+/// frontUp (two-tone; nil: as front), its worktop top (nil: "wt38") and backsplash splash (nil: the list's first
+/// backsplash, as before 25 Oct 2026). The three new ones are written only when set (nil is left out, as Android leaves
+/// them out).
 struct FMats: Codable, Equatable {
     var carcass = "ldsp16w", front = "ldsp16k", back = "hdf3"
-    init(carcass: String = "ldsp16w", front: String = "ldsp16k", back: String = "hdf3") { self.carcass = carcass; self.front = front; self.back = back }
+    var frontUp: String? = nil
+    var top: String? = nil
+    var splash: String? = nil
+    init(carcass: String = "ldsp16w", front: String = "ldsp16k", back: String = "hdf3", frontUp: String? = nil, top: String? = nil, splash: String? = nil) {
+        self.carcass = carcass; self.front = front; self.back = back; self.frontUp = frontUp; self.top = top; self.splash = splash
+    }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         carcass = c.v(.carcass, "ldsp16w"); front = c.v(.front, "ldsp16k"); back = c.v(.back, "hdf3")
+        frontUp = c.v(.frontUp, nil); top = c.v(.top, nil); splash = c.v(.splash, nil)
+    }
+    // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
+    enum CodingKeys: String, CodingKey { case carcass, front, back, frontUp, top, splash }
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(carcass, forKey: .carcass); try c.encode(front, forKey: .front); try c.encode(back, forKey: .back)
+        try c.encodeIfPresent(frontUp, forKey: .frontUp); try c.encodeIfPresent(top, forKey: .top); try c.encodeIfPresent(splash, forKey: .splash)
     }
 }
 

@@ -77,6 +77,7 @@ struct ItemScreen: View {
                     if let m = wardOfF(f) { card { ItemOptions(app: app, p: p, f: f, m: m) } }
                     card { ItemWhere(app: app, p: p, f: f, room: room) }
                     card { MatStep(app: app, p: p, f: f) }
+                    DesignCard(app: app, p: p, f: f)
                     CostCard(p: p, f: f)
                 }
                 .padding(.horizontal, 16).padding(.bottom, 28)
