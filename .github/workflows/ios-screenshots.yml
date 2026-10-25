@@ -3,7 +3,9 @@
 # It builds for the simulator, boots the biggest current iPhone (the 6.9-inch class: iPhone 17 Pro Max or 16 Pro Max,
 # picked by name), sets a clean status bar (9:41, full battery, full signal), and runs the one UI test class
 # METRXUITests/AppStoreShots.swift, which makes its sample projects through the app's own screens and saves six
-# pictures a language (uz-01-home.png … en-06-estimate-pdf.png).
+# pictures a language (uz-01-home, 02-kitchen-3d, 03-gallery, 04-wardrobe-3d, 05-gorka-3d, 06-estimate … en-…, plus a
+# few "b"/"c" alternatives). A step that cannot be reached saves <lang>-skip-<shot>-<where>.png instead.
+# Start it with a tag: git tag shots-<n> && git push origin shots-<n>.
 # Artifacts: appstore-screens (the PNGs) and appstore-screens-logs.
 name: iOS App Store screenshots
 
@@ -102,13 +104,15 @@ jobs:
           R=0
           TEST_RUNNER_APPSTORE_SHOTS="$PWD/out/appstore" xcodebuild test-without-building -project METRX.xcodeproj -scheme METRX \
             -destination "id=$U" -derivedDataPath out/dd -only-testing:METRXUITests/AppStoreShots \
-            -parallel-testing-enabled NO -retry-tests-on-failure -test-iterations 2 \
+            -parallel-testing-enabled NO \
             > out/shots.log 2>&1 || R=$?
           echo "== results"; grep -E "Test [Cc]ase .*(passed|failed|skipped)" out/shots.log | sed 's/^.*Test [Cc]ase //' | sort | uniq | tail -n 40
           echo "== failures"; { grep -E "error: -\[|error: .*Test" out/shots.log || true; } | sed 's|.*/ios-native/||' | sort -u | head -n 40
           echo "== pictures"; ls -la out/appstore
           N=$(ls out/appstore/*.png 2>/dev/null | wc -l | tr -d ' ')
-          echo "### $N App Store screenshots on ${{ steps.sim.outputs.name }}" >> "$GITHUB_STEP_SUMMARY"
+          S=$(ls out/appstore/*-skip-*.png 2>/dev/null | wc -l | tr -d ' ')
+          echo "### $N App Store screenshots on ${{ steps.sim.outputs.name }} ($S of them skip pictures)" >> "$GITHUB_STEP_SUMMARY"
+          if [ "$S" != "0" ]; then echo "== skipped steps"; ls out/appstore/*-skip-*.png; fi
           if [ "$N" = "0" ]; then echo "::error::no screenshots were made"; exit 1; fi
           exit $R
 
