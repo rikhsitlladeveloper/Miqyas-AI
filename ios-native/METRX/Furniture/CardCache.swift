@@ -11,7 +11,7 @@ import ImageIO
 /// Bumped whenever the cards' picture changes (camera, light, background, size): every card on disk is made again.
 /// 2: modern wardrobes and the brighter studio with its grey floor (modern 3D part 5).
 /// 3: beds, tables, the bar, hall panels and the vanity's basin in the modern style (part 6b, Geo/ItemsScene3D.swift).
-let CARD_RENDER_VERSION = 3
+let CARD_RENDER_VERSION = 4
 
 /// The cards' background (the approved mockup's makeCards clear colour).
 let CARD_BG = 0xE4E8F0
