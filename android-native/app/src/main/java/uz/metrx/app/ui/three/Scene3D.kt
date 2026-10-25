@@ -107,7 +107,7 @@ import kotlin.math.tan
 const val BG3D = 0xF3F6FA
 
 /** The lit 3D's sun, lux (with the camera's exposure 1: a white board square to it shows about white). */
-private const val SUN_LUX = 2.6f
+internal const val SUN_LUX = 2.6f
 
 /** SceneView's Geometry constructor that takes ready buffers (internal to its module, public to the JVM). */
 private val GEO_NEW: java.lang.reflect.Constructor<*>? = runCatching {
@@ -236,7 +236,7 @@ private class Lens(engine: Engine) : CameraNode(engine) {
 }
 
 /** The SceneView nodes of a shell and the cut-away of the walls that face the camera (prototype draw3D). */
-private class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: android.content.Context) {
+internal class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: android.content.Context) {
     private class Prim(val node: GeometryNode, val index: Int, val rgb: Int, val op: Float, val role: Role, val group: Int, val wall: String?, val look: Look? = null) { var alpha = -1f }
     private class Line(val node: GeometryNode, val group: Int, val wall: String, val rgb: Int, val a0: Float = 1f) { var alpha = -1f }
     private val mats = HashMap<Any, MaterialInstance>()
@@ -246,6 +246,8 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: an
     /** Drawn lit (furniture): real materials, a sun and the studio light, tone-mapped. Else flat baked colours. */
     var lit = false
     var tier = Tier.HIGH
+    /** The faint floor grid of the lit scene (a gallery card's picture has none, Card3D.kt). */
+    var grid = true
 
     /**
      * A flat colour; see-through ones are handed over divided by their opacity, which Filament applies twice. Lit,
@@ -374,8 +376,8 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: an
             node.isShadowCaster = false; node.isShadowReceiver = false
             lines += Line(node, e.group, e.wall, rgb, a0); root.addChildNode(node); nodes += node
         }
-        // the floor grid, faint
-        run {
+        // the floor grid, faint (not on a gallery card)
+        if (grid) run {
             val half = s.gridSize / 2; val step = s.gridSize / s.gridDiv
             val v = ArrayList<Geometry.Vertex>(); val ix = ArrayList<Int>()
             for (i in 0..s.gridDiv) {

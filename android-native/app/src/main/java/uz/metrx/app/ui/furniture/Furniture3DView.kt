@@ -130,14 +130,22 @@ fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion): Pa
     val light = remember(app.settings.quality) { uz.metrx.app.ui.three.Quality3D.tier(ctx, app.settings.quality) == uz.metrx.app.ui.three.Tier.LOW }
     val ceil = room.dim("H").v
     val fur = remember(base, fs, amt, ws, mats, bare, light, ceil) {
-        fun matOf(id: String) = mats.firstOrNull { it.id == id } ?: uz.metrx.app.furniture.MAT_PRESETS.firstOrNull { it.id == id }
-        furniture3D(fs, base.bases, ws, { id -> rgbOf(matOf(id)?.rgb ?: "#F5F5F2") }, emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare,
-            look = { id -> matOf(id).let { m -> uz.metrx.app.geo.Looks.of(m?.kind ?: "board", rgbOf(m?.rgb ?: "#F5F5F2"), m?.tex, m?.finish?.takeIf { it == "gloss" || it == "satin" } ?: "matte") } },
+        furniture3D(fs, base.bases, ws, matRgb(mats), emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare, look = matLook(mats),
             mats = mats, light = light, ceil = ceil)
     }
     val shell = remember(base, fur) { base.plus(fur.parts, fur.edges) }
     return shell to fur
 }
+
+/** A material id's colour for the 3D (the workshop's list; an id not in it a light board). */
+private fun matOf(mats: List<uz.metrx.app.furniture.Mat>, id: String) =
+    mats.firstOrNull { it.id == id } ?: uz.metrx.app.furniture.MAT_PRESETS.firstOrNull { it.id == id }
+
+fun matRgb(mats: List<uz.metrx.app.furniture.Mat>): (String) -> Int = { id -> rgbOf(matOf(mats, id)?.rgb ?: "#F5F5F2") }
+
+/** How a material id looks in the lit 3D: the 3D screens, the gallery cards (Cards.kt) and the size steps' colours. */
+fun matLook(mats: List<uz.metrx.app.furniture.Mat>): (String) -> uz.metrx.app.geo.Look =
+    { id -> matOf(mats, id).let { m -> uz.metrx.app.geo.Looks.of(m?.kind ?: "board", rgbOf(m?.rgb ?: "#F5F5F2"), m?.tex, m?.finish?.takeIf { it == "gloss" || it == "satin" } ?: "matte") } }
 
 /** The door or drawer under pixel [x], [y], nearest the eye. */
 fun Furn3D.pick(cam: Cam3D, x: Float, y: Float): String? {
