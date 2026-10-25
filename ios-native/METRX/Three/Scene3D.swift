@@ -2,6 +2,7 @@ import SwiftUI
 import RealityKit
 import UIKit
 import Observation
+import simd
 
 /*
  * The 3D picture (prototype mount3D / draw3D and the ux module's camera limits), drawn with RealityKit in an ARView
@@ -174,6 +175,9 @@ struct Scene3DView: UIViewRepresentable {
     var shot: Shot3D? = nil
     /// A short tap with one finger (it opens a door), in points.
     var onTap: ((CGPoint) -> Void)? = nil
+    /// How far each of the shell's doors and drawers (Shell3D.fronts) is open: as it changes they move by their
+    /// transforms, nothing is rebuilt (nil: all shut).
+    var motion: DoorMotion? = nil
 
     func makeCoordinator() -> Scene3DCoordinator { Scene3DCoordinator() }
 
@@ -184,7 +188,10 @@ struct Scene3DView: UIViewRepresentable {
         return v
     }
 
-    func updateUIView(_ v: Scene3DARView, context: Context) { context.coordinator.onTap = onTap; context.coordinator.update(shell, key, baseKey, cam, shot) }
+    func updateUIView(_ v: Scene3DARView, context: Context) {
+        context.coordinator.onTap = onTap
+        context.coordinator.update(shell, key, baseKey, cam, shot, motion: motion)
+    }
 
     static func dismantleUIView(_ v: Scene3DARView, coordinator: Scene3DCoordinator) { coordinator.detach() }
 }
@@ -211,6 +218,13 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
     private var lines: [LineP] = []
     private var shell: Shell3D?
     var onTap: ((CGPoint) -> Void)? = nil
+    /// A door or drawer's own entities (Geo/FrontMotion3D.swift), built shut: main always drawn, inner (a drawer's box)
+    /// only while it is open at all; k how far open they were last put (-1 not yet).
+    private struct Mover { let front: Front3D; let main: [ModelEntity]; let inner: [ModelEntity]; var k: Double = -1 }
+    private var movers: [Mover] = []
+    /// Where the doors' openness comes from; watched while it is the same one (gen drops an old watch).
+    private weak var motion: DoorMotion? = nil
+    private var watchGen = 0
 
     func attach(_ v: Scene3DARView, _ q: Quality3) {
         view = v
@@ -232,7 +246,7 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         v.addGestureRecognizer(pan); v.addGestureRecognizer(pinch); v.addGestureRecognizer(tap)
     }
 
-    func detach() { cam?.onMove = nil; cam?.projector = nil; cam?.stop() }
+    func detach() { cam?.onMove = nil; cam?.projector = nil; cam?.stop(); watchGen += 1 }
 
     /// The view's light for the tier. high: HDR with tone mapping, the studio's reflections, grounding shadows; low: the
     /// same studio a little brighter, no HDR and no shadows; flat: none (unlit colours), as before.
@@ -292,7 +306,13 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         return m
     }
 
-    func update(_ s: Shell3D, _ k: String, _ bk: String?, _ c: Cam3D, _ shot: Shot3D?) {
+    func update(_ s: Shell3D, _ k: String, _ bk: String?, _ c: Cam3D, _ shot: Shot3D?, motion mo: DoorMotion? = nil) {
+        if mo !== motion {
+            motion = mo
+            watchGen += 1
+            watch(watchGen)
+            pose()
+        }
         if cam !== c {
             cam = c
             c.projector = { [weak self] p in
@@ -305,6 +325,8 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
             let onlyFurn = bk != nil && bk == baseKey && shell != nil
             key = k; baseKey = bk
             if onlyFurn { rebuildFurn(s) } else { build(s) }
+            // the doors and drawers where they are now
+            pose()
             camera.camera.far = Float(s.far)
             c.onMove = { [weak self] in self?.push() }
             c.load(s)
@@ -314,6 +336,60 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         shot?.grab = { [weak self] done in
             guard let v = self?.view else { done(nil); return }
             v.snapshot(saveToHDR: false) { done($0) }
+        }
+    }
+
+    /* ---------------- doors and drawers that move ---------------- */
+
+    /// Watches how far the doors are open: each change (a step of their animation) poses them again (only their
+    /// transforms and the drawers' boxes' visibility change), then watches again. gen: an old motion's watch stops.
+    private func watch(_ gen: Int) {
+        guard let mo = motion else { return }
+        withObservationTracking {
+            _ = mo.prog
+        } onChange: { [weak self] in
+            DispatchQueue.main.async { self?.stepped(gen) }
+        }
+    }
+
+    /// A step of the doors' animation (main thread): they are posed again and watched again, unless it is an old watch.
+    private func stepped(_ gen: Int) {
+        guard gen == watchGen else { return }
+        pose()
+        watch(gen)
+    }
+
+    /// The moving front of motion m k (0 shut … 1 open) of the way open, as RealityKit takes it: its mesh is the shut
+    /// one in the scene's frame, turned about the hinge line (right-handed, as FrontMotion.at) and moved.
+    static func frontTransform(_ m: FrontMotion, _ k: Double) -> Transform {
+        let r = m.at(k)
+        let a = Float(m.angle * k)
+        let rot = a == 0 ? simd_quatf(ix: 0, iy: 0, iz: 0, r: 1) : simd_quatf(angle: a, axis: simd_normalize(f3(m.axis)))
+        return Transform(scale: SIMD3<Float>(repeating: 1), rotation: rot, translation: f3(r.t))
+    }
+
+    /// Every door and drawer put as far open as the motion says (all shut without one); only what changed is touched.
+    private func pose() {
+        let mo = motion
+        for i in movers.indices {
+            let mv = movers[i]
+            let k = min(1, max(0, mo?.amt(mv.front.key) ?? 0))
+            if k == mv.k { continue }
+            movers[i].k = k
+            let tf = Scene3DCoordinator.frontTransform(mv.front.motion, k)
+            for e in mv.main { e.transform = tf }
+            // a drawer's box only while it is out (the full rebuild leaves it out when shut)
+            for e in mv.inner { e.transform = tf; e.isEnabled = k > 0 }
+        }
+    }
+
+    /// The shell's doors and drawers, each its own entities (per look, and its outline), built shut.
+    private func addFronts(_ s: Shell3D) {
+        movers = []
+        for f in s.fronts {
+            let main = addParts(f.parts, s.light) + addEdges(f.edges)
+            let inner = addParts(f.inner, s.light) + addEdges(f.innerEdges)
+            movers.append(Mover(front: f, main: main, inner: inner))
         }
     }
 
@@ -349,19 +425,28 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         prims = []; lines = []; shell = s
         addParts(s.parts, s.light)
         addEdges(s.edges)
+        addFronts(s)
         addGrid(s)
         placeSun(s)
     }
 
-    /// The furniture taken out and built again from s; the walls, the floor and the grid stay as they are.
+    /// The furniture taken out and built again from s (its doors and drawers too); the walls, the floor and the grid stay
+    /// as they are.
     private func rebuildFurn(_ s: Shell3D) {
         for p in prims where p.role == .furn { p.e.removeFromParent() }
         prims.removeAll { $0.role == .furn }
         for l in lines where l.wall.hasPrefix("furn ") { l.e.removeFromParent() }
         lines.removeAll { $0.wall.hasPrefix("furn ") }
+        // a front's entities are furniture (and its outline a furniture one): gone above; whatever else it had, too
+        for mv in movers {
+            for e in mv.main { e.removeFromParent() }
+            for e in mv.inner { e.removeFromParent() }
+        }
+        movers = []
         shell = s
         addParts(s.parts.filter { $0.role == .furn }, s.light)
         addEdges(s.edges.filter { $0.wall.hasPrefix("furn ") })
+        addFronts(s)
     }
 
     /// A face's triangles, counter-clockwise seen from its outside, its corners numbered from base.
@@ -376,17 +461,22 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         }
     }
 
-    /// Faces: lit, one entity per part (a wall's furniture in one look); flat, one per part and lit colour.
-    private func addParts(_ parts: [Part3], _ light: V3) {
+    /// Faces: lit, one entity per part (a wall's furniture in one look); flat, one per part and lit colour. The entities
+    /// made (a moving front's are posed by pose).
+    @discardableResult
+    private func addParts(_ parts: [Part3], _ light: V3) -> [ModelEntity] {
+        var out: [ModelEntity] = []
         for p in parts where !p.faces.isEmpty {
-            if !lit { addFlat(p, light); continue }
+            if !lit { out += addFlat(p, light); continue }
             let look = p.look ?? roleLook(p.role, p.rgb, p.op, tile: p.tile)
             guard let m = litMesh(p.faces, look) else { continue }
             let e = ModelEntity(mesh: m, materials: [material(look, look.alpha)])
             shadowRules(e, p.role, look)
             content.addChild(e)
             prims.append(Prim(e: e, look: look, role: p.role, group: p.group, wall: p.wall))
+            out.append(e)
         }
+        return out
     }
 
     /// The faces with their normals and texture coordinates (metres along the grain over the look's repeat).
@@ -408,8 +498,10 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         return try? MeshResource.generate(from: [d])
     }
 
-    /// The flat picture's part: one entity per lit colour.
-    private func addFlat(_ p: Part3, _ light: V3) {
+    /// The flat picture's part: one entity per lit colour. A door turning keeps the shades it has shut (its colours are
+    /// baked by its faces' directions).
+    private func addFlat(_ p: Part3, _ light: V3) -> [ModelEntity] {
+        var out: [ModelEntity] = []
         var byColor: [Int: [Face3]] = [:]
         var order: [Int] = []
         for f in p.faces {
@@ -428,12 +520,16 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
             let e = ModelEntity(mesh: m, materials: [mat(c, p.op)])
             content.addChild(e)
             prims.append(Prim(e: e, look: Look(rgb: c, alpha: p.op), role: p.role, group: p.group, wall: p.wall))
+            out.append(e)
         }
+        return out
     }
 
     /// The outlines: thin bars. The walls' stay dark; the furniture's, in the lit picture, are thin and faint (mockup
-    /// finalize: #1B2230 at 12–16 %), the worktops' light.
-    private func addEdges(_ edges: [Edges3]) {
+    /// finalize: #1B2230 at 12–16 %), the worktops' light. The entities made.
+    @discardableResult
+    private func addEdges(_ edges: [Edges3]) -> [ModelEntity] {
+        var out: [ModelEntity] = []
         for ed in edges where !ed.segs.isEmpty {
             let soft = lit && ed.wall.hasPrefix("furn ")
             let slab = ed.rgb == SLAB_LINE
@@ -450,7 +546,9 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
             if lit { if #available(iOS 18.0, *) { e.components.set(DynamicLightShadowComponent(castsShadow: false)) } }
             content.addChild(e)
             lines.append(LineP(e: e, group: ed.group, wall: ed.wall, rgb: rgb, op: op))
+            out.append(e)
         }
+        return out
     }
 
     private func addGrid(_ s: Shell3D) {
@@ -549,11 +647,13 @@ struct Scene3D<Overlay: View>: View {
     var points: [V3] = []
     var label: (Int) -> AnyView = { _ in AnyView(EmptyView()) }
     var onTap: ((CGPoint) -> Void)? = nil
+    /// How far each of the shell's doors and drawers is open (see Scene3DView).
+    var motion: DoorMotion? = nil
     @ViewBuilder var overlay: Overlay
 
     var body: some View {
         ZStack {
-            Scene3DView(shell: shell, key: key, baseKey: baseKey, cam: cam, shot: shot, onTap: onTap)
+            Scene3DView(shell: shell, key: key, baseKey: baseKey, cam: cam, shot: shot, onTap: onTap, motion: motion)
             let _ = cam.tick
             // kept inside the picture, under the buttons along its top (a wall letter must not sit on the tabs above or under a button)
             GeometryReader { geo in

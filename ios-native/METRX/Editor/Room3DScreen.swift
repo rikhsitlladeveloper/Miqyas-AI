@@ -67,7 +67,8 @@ struct Room3DScreen: View {
             } else {
                 let base = f3.base(r, snap)
                 // a furniture order's furniture stands in its room; a tap opens a door or a drawer
-                let fur: (Shell3D, Furn3D, String)? = p.isFurniture ? furnShell(p, r, base, mo.prog, snap, cache: f3, inside: mo.bare) : nil
+                // (its doors and drawers built shut on their own: the 3D moves them as mo says, nothing is rebuilt)
+                let fur: (Shell3D, Furn3D, String)? = p.isFurniture ? furnShell(p, r, base, snap, cache: f3, inside: mo.bare) : nil
                 // a tiler's order: every tile of the room's layouts at its place; an electrician's: its devices and routes
                 let tiled: (Shell3D, String)? = tradeShell(p, r, base, snap)
                 let shell = fur?.0 ?? tiled?.0 ?? base
@@ -75,8 +76,8 @@ struct Room3DScreen: View {
                         label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
                         onTap: fur.map { f in { pt in
                             let (e, d) = cam.ray(pt.x, pt.y)
-                            if let k = f.1.pick(e, d) { mo.toggle(k) }
-                        } }) {
+                            if let k = f.1.pick(e, d, amt: mo.amt) { mo.toggle(k) }
+                        } }, motion: fur == nil ? nil : mo) {
                     // a furniture order's room: hide every door to see inside
                     if fur != nil {
                         InsidePill(on: mo.bare) { mo.bare.toggle() }

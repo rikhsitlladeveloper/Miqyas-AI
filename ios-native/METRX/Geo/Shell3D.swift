@@ -89,13 +89,17 @@ struct Shell3D {
     let far: Double
     /// One room only: each wall's frame, for the furniture of a furniture order.
     var bases: [String: WallBasis] = [:]
+    /// The furniture's doors and drawers, each on its own, shut, and how it moves (Geo/FrontMotion3D.swift): the 3D moves
+    /// them by their transforms, nothing is rebuilt.
+    var fronts: [Front3D] = []
 
-    /// The same scene with more parts and outlines (the furniture).
-    func plus(_ more: [Part3], _ moreEdges: [Edges3]) -> Shell3D {
+    /// The same scene with more parts and outlines (the furniture), and its doors and drawers that move.
+    func plus(_ more: [Part3], _ moreEdges: [Edges3], fronts moreFronts: [Front3D] = []) -> Shell3D {
         var s = Shell3D(parts: parts + more, edges: edges + moreEdges, groups: groups, labels: labels, rooms3: rooms3, L: L, W: W, H: H, tgt: tgt, r: r,
                         theta: theta, phi: phi, bounds: bounds, rMin: rMin, fit: fit, gridSize: gridSize, gridDiv: gridDiv, gridCx: gridCx, gridCz: gridCz,
                         light: light, far: far)
         s.bases = bases
+        s.fronts = fronts + moreFronts
         return s
     }
 
