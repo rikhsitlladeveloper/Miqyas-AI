@@ -174,6 +174,7 @@ let HW_PRESETS: [Hw] = [
     Hw("legMetal", "legMetal", "Metall oyoq, ko‘rinadigan", "45000", true),
     Hw("ceilUnit", "ceilUnit", "Shiftgacha modullar qatori (metr)", "800000", true),
     Hw("wdCeil", "wdCeil", "Shkaf ustida shiftgacha qism (metr)", "800000", true),
+    Hw("ladderMetal", "ladderMetal", "Metall narvon", "650000", true),
     Hw("fglass", "fglass", "Rifli shisha, vitrina (m²)", "450000", true),
     Hw("waterfall", "waterfall", "Orol stoleshnitsasining sharshara uchi", "1200000", true),
     Hw("mirrorBronze", "mirrorBronze", "Oyna bronza 4 mm (m²)", "350000", true),

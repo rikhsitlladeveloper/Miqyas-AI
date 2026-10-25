@@ -317,6 +317,14 @@ func bedMetalLegs(_ f: Furniture, _ m: Module) -> Int {
     return o.mw > 1600 ? 6 : 4
 }
 
+/// A bunk's or loft bed's ladder: its two stringers and its rungs.
+let LADDER_KEYS: Set<String> = ["fp.ladder", "fp.rung"]
+
+/// Bunk or loft bed m of f has a metal ladder when its look shows metal (PieceLook.legs): the 3D draws it as round tubes
+/// in the handles' metal (Geo/ItemsScene3D.swift bedLit), so its board stringers and rungs are off the cut list
+/// (CutList.swift partsWithMat) and it is bought as one ("ladderMetal", lookSwap). Its guards stay boards in the wood accent.
+func metalLadder(_ f: Furniture, _ m: Module) -> Bool { f.look?.legs == true && (m.type == "bunk" || m.type == "loft") }
+
 /// The soft wall panel's reach past each side of the bed, its bottom off the floor and its usual top, mm.
 let PANEL_OUT = 400.0
 let PANEL_Y0 = 80.0
@@ -572,7 +580,7 @@ func lookHardware(_ f: Furniture, _ ws0: Workshop) -> Counts {
 
 /// Box m's hardware h as f's look changes it: a kitchen's Gola profile instead of handles (a channel along each base
 /// unit, one a drawer, two on a tall unit; the wall units open by a push latch), metal legs instead of the hidden ones,
-/// the mirror in its tint, the fluted glass over the glass doors.
+/// a bunk's or loft bed's metal ladder (metalLadder), the mirror in its tint, the fluted glass over the glass doors.
 func lookSwap(_ f: Furniture, _ m: Module, _ h: inout Counts, _ edge: Bool) {
     if f.kind == "kitchen" && f.handle == GOLA {
         let k = h.remove("handle") ?? 0
@@ -589,6 +597,8 @@ func lookSwap(_ f: Furniture, _ m: Module, _ h: inout Counts, _ edge: Bool) {
     // a bed on its metal legs: those instead of the plain ones (4, 6 under a wide bed)
     let bl = bedMetalLegs(f, m)
     if bl > 0 { h.remove("leg"); h.add("legMetal", bl) }
+    // a bunk's or loft bed's metal ladder: one bought, instead of its board stringers and rungs
+    if metalLadder(f, m) { h.add("ladderMetal", 1) }
     if l.mirror == "bronze" || l.mirror == "graphite", let v = h.remove("mirror") { h.add(l.mirror == "bronze" ? "mirrorBronze" : "mirrorGraphite", v) }
     if l.fglass { h.add("fglass", h["glassDoor"] ?? 0) }
 }
