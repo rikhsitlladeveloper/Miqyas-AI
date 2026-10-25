@@ -1,12 +1,14 @@
 package uz.metrx.app.ui.furniture
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -50,7 +52,8 @@ internal fun wardFrontBoxes(m: Module, ws: Workshop): List<FrontBox> {
     val base = wardBase(m)
     val g = ws.gap10 / 10
     val starts = m.sections.runningFold(m.x) { a, s -> a + s.w }
-    return handleFronts(m).mapNotNull { f ->
+    // a drawer behind the doors is not on the doors' picture: it has its row ([InnerDrawers])
+    return handleFronts(m).filter { !it.inner }.mapNotNull { f ->
         val s = m.sections.getOrNull(f.sec) ?: return@mapNotNull null
         val a = starts[f.sec]
         if (f.key.contains(":d")) {
@@ -96,10 +99,10 @@ internal fun frontName(m: Module, f: HFront): String {
 
 /**
  * The fronts of a drawing [lay] wide ([ox] mm at its left) as tap targets over it, in the drawing's box: each toggles
- * its handle; a glass door has none to toggle.
+ * its handle; a glass door has none to toggle. [edge]: the piece opens by its edge, not by a push latch.
  */
 @Composable
-internal fun FrontTargets(lay: KLay, ox: Int, m: Module, boxes: List<FrontBox>, onTap: (HFront) -> Unit) {
+internal fun FrontTargets(lay: KLay, ox: Int, m: Module, boxes: List<FrontBox>, onTap: (HFront) -> Unit, edge: Boolean = false) {
     val d = LocalDensity.current
     BoxWithConstraints {
         val k = constraints.maxWidth / lay.vw
@@ -109,7 +112,7 @@ internal fun FrontTargets(lay: KLay, ox: Int, m: Module, boxes: List<FrontBox>, 
             if (r - l < 2f || bt - t < 2f) return@forEach
             val name = frontName(m, b.f)
             val on = hasHandle(m, b.f.key)
-            val state = tr(when { b.f.glass -> "hd.glass"; on -> "hd.on"; else -> "hd.off" })
+            val state = tr(when { b.f.glass -> "hd.glass"; on -> "hd.on"; edge -> "hd.edge"; else -> "hd.off" })
             Box(Modifier.offset { IntOffset(l.roundToInt(), t.roundToInt()) }.size(with(d) { (r - l).toDp() }, with(d) { (bt - t).toDp() })
                 .testTag("front:${b.f.key}")
                 .semantics { contentDescription = name; stateDescription = state; if (!b.f.glass) role = Role.Switch }
@@ -118,15 +121,32 @@ internal fun FrontTargets(lay: KLay, ox: Int, m: Module, boxes: List<FrontBox>, 
     }
 }
 
-/** "Hammasiga" / "Hech biriga" for the handles, and how many fronts have one. */
+/** "Hammasiga" / "Hech biriga" for the handles, and how many fronts have one; [edge]: the rest open by the edge, not a push. */
 @Composable
-internal fun HandleButtons(ms: List<Module>, onAll: () -> Unit, onNone: () -> Unit) {
+internal fun HandleButtons(ms: List<Module>, onAll: () -> Unit, onNone: () -> Unit, edge: Boolean = false) {
     val (a, b) = ms.fold(0 to 0) { acc, m -> handleSplit(m).let { acc.first + it.first to acc.second + it.second } }
     if (a + b == 0) return
     Text(tr("hd.title"), style = ui(14.5f, 700))
-    Text(tr("hd.count", "a" to a, "b" to b), style = ui(12.5f, 500, G.ink2, 1.4f))
+    Text(tr(if (edge) "hd.countE" else "hd.count", "a" to a, "b" to b), style = ui(12.5f, 500, G.ink2, 1.4f))
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         GBtn(tr("hd.all"), onAll, Btn.SECONDARY, enabled = b > 0, height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
         GBtn(tr("hd.none"), onNone, Btn.SECONDARY, enabled = a > 0, height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1f))
+    }
+}
+
+/**
+ * The drawers behind the doors (hinged or sliding), hidden by them on the doors' picture: a row of chips, one a drawer,
+ * each tapped to give it a handle or take it away (founder's decision, 25 Oct 2026). Nothing when the box has none.
+ */
+@Composable
+internal fun InnerDrawers(m: Module, onTap: (HFront) -> Unit) {
+    val inner = handleFronts(m).filter { it.inner }
+    if (inner.isEmpty()) return
+    Text(tr("hd.inner"), style = ui(13.5f, 700))
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        inner.forEach { fr ->
+            val on = hasHandle(m, fr.key)
+            Box(Modifier.testTag("front:${fr.key}")) { Chip(frontName(m, fr) + " · " + tr(if (on) "hd.yes" else "hd.no"), on) { onTap(fr) } }
+        }
     }
 }

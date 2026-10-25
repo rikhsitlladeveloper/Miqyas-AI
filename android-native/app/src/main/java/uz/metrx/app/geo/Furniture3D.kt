@@ -475,7 +475,8 @@ private class Builder3(
                     "lift" -> { box(w, metal, il + 20, il + iw - 20, y + 30, y + 54, di / 2 - 12, di / 2 + 12); box(w, metal, il + 5, il + 25, y + 54, y + blockH(x), di / 2 - 15, di / 2 + 15) }
                     // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
                     "drawer" -> if (s.fronts.kind == "open") drawer(w, "${m.id}:s$i:d${x.pos}", il + 2, iw - 4.0, y, blockH(x).toDouble(), di - t, di - 60, uz.metrx.app.furniture.drawerHandle(m, x), "front")
-                        else drawer(w, "${m.id}:s$i:d${x.pos}", il + 4, iw - 8.0, y, blockH(x).toDouble(), di - 40 - t, di - 60, m.handles, "carcass")
+                        // behind the doors: its own handle, or a push latch (Handles.kt)
+                        else drawer(w, "${m.id}:s$i:d${x.pos}", il + 4, iw - 8.0, y, blockH(x).toDouble(), di - 40 - t, di - 60, uz.metrx.app.furniture.drawerHandle(m, x), "carcass")
                     else -> {
                         // trouser and shoe racks: a frame that pulls out
                         keys += "${m.id}:s$i:r${x.pos}"

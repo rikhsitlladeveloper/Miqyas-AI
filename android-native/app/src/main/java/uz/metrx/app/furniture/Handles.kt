@@ -4,17 +4,28 @@ package uz.metrx.app.furniture
  * Handles per door and per drawer, soft close per section (founder's decisions, 25 Oct 2026). [Module.handles] is the
  * piece's master switch ("Tutqichsiz" in Change for all turns it off); with it on, the fronts left without a handle are
  * kept where they stay put when the box changes: a kitchen unit's or a bed's in [Module.noHandle], a section's doors
- * in [Section.noHandle], an open section's drawers on the drawer itself ([Insert.push]). A front without a handle opens
- * by a push latch, counted in the hardware; a glass door in its aluminium frame never has a handle. An older order
- * (none of these set) looks as it did: its box-wide switch is every front's value. Pure Kotlin, unit-tested (HandlesTest).
+ * in [Section.noHandle], a section's drawers on the drawer itself ([Insert.push]): an open section's, and the ones behind
+ * its doors (hinged or sliding). A front without a handle opens by a push latch, counted in the hardware; a glass door in
+ * its aluminium frame never has a handle. A piece that opens by its edge ([opensByEdge]: the mirror cabinet over a
+ * basin) needs no latch for a front without one. An older order (none of these set) looks as it did: its box-wide
+ * switch is every front's value. Pure Kotlin, unit-tested (HandlesTest).
  *
  * Front keys, as the 3D names them within the box: "f0".. the box's own doors or drawers (a kitchen unit, top down for
- * drawers; a dishwasher's front), "bd0".. a bed's drawers, "s0:f0".. a section's doors, "s0:d120" an open section's
- * drawer at 120 mm.
+ * drawers; a dishwasher's front), "bd0".. a bed's drawers, "s0:f0".. a section's doors, "s0:d120" a section's drawer at
+ * 120 mm (an open section's, or one behind the doors).
  */
 
-/** A front that takes a handle or a push latch: its [key]; its section (-1: the box's own); a drawer; a glass door. */
-data class HFront(val key: String, val sec: Int, val drawer: Boolean, val glass: Boolean = false)
+/**
+ * A front that takes a handle or a push latch: its [key]; its section (-1: the box's own); a drawer; a glass door;
+ * [inner] a drawer behind the doors (hinged or sliding), hidden on the doors' picture (picked from a row of its own).
+ */
+data class HFront(val key: String, val sec: Int, val drawer: Boolean, val glass: Boolean = false, val inner: Boolean = false)
+
+/** The pieces that open by their edge, without a handle and without a push latch (Cabinets.kt builds them without handles). */
+val EDGE_TYPES = setOf("mirrorC")
+
+/** Whether [f] opens by its edge: a front of it without a handle needs no push latch and shows no push mark. */
+fun opensByEdge(f: Furniture) = f.type in EDGE_TYPES
 
 /** The fronts of [m] that take a handle or a push latch, as the pictures draw them (left to right, drawers top down). */
 fun handleFronts(m: Module): List<HFront> = when {
@@ -23,12 +34,14 @@ fun handleFronts(m: Module): List<HFront> = when {
     m.type == "bed" -> bedDrawers(m, Workshop()).indices.map { HFront("bd$it", -1, true) }
     m.type in ITEM_MODS -> emptyList()
     m.type == "wardrobe" -> m.sections.flatMapIndexed { i, s ->
+        // the section's drawers top down: an open section's faces, or behind its doors (hinged, or the sliding ones)
+        fun drawers(inner: Boolean) = s.inserts.filter { it.kind == "drawer" }.sortedByDescending { it.pos }.map { HFront("s$i:d${it.pos}", i, true, inner = inner) }
         when {
             s.knee -> emptyList()
-            s.fronts.kind == "open" -> s.inserts.filter { it.kind == "drawer" }.sortedByDescending { it.pos }.map { HFront("s$i:d${it.pos}", i, true) }
-            m.slide != null -> emptyList()
-            s.fronts.kind == "door" || s.fronts.kind == "drawer" ->
-                List(s.fronts.n.coerceAtLeast(0)) { j -> HFront("s$i:f$j", i, s.fronts.kind == "drawer", s.fronts.kind == "door" && s.face == "glass") }
+            s.fronts.kind == "open" -> drawers(m.slide != null)
+            m.slide != null -> drawers(true)
+            s.fronts.kind == "door" -> List(s.fronts.n.coerceAtLeast(0)) { j -> HFront("s$i:f$j", i, false, s.face == "glass") } + drawers(true)
+            s.fronts.kind == "drawer" -> List(s.fronts.n.coerceAtLeast(0)) { j -> HFront("s$i:f$j", i, true) }
             else -> emptyList()
         }
     }
@@ -57,7 +70,7 @@ fun hasHandle(m: Module, key: String): Boolean {
 /** Whether door [j] of section [i] has a handle. */
 fun doorHandle(m: Module, i: Int, j: Int) = hasHandle(m, "s$i:f$j")
 
-/** Whether drawer [x] of an open section has a handle. */
+/** Whether drawer [x] of a section (an open one's, or behind the doors) has a handle. */
 fun drawerHandle(m: Module, x: Insert) = m.handles && !x.push
 
 /** [m] with no exception left: every front with a handle ([on]) or none (the master off). */
@@ -67,12 +80,15 @@ fun allHandles(m: Module, on: Boolean): Module = m.copy(handles = on, noHandle =
 /** The master on with every front listed as without a handle: as [m] with the master off looks. */
 private fun masterOn(m: Module): Module {
     if (m.handles) return m
-    return m.copy(handles = true, noHandle = handleFronts(m).filter { it.sec < 0 }.map { it.key },
-        sections = m.sections.map { s ->
+    val fr = handleFronts(m)
+    // the drawers that take a handle (an open section's, the ones behind the doors), each pushed
+    val drawers = fr.filter { it.key.contains(":d") }.map { it.key }.toSet()
+    return m.copy(handles = true, noHandle = fr.filter { it.sec < 0 }.map { it.key },
+        sections = m.sections.mapIndexed { i, s ->
+            val x = if (drawers.none { it.startsWith("s$i:") }) s else s.copy(inserts = s.inserts.map { if (it.kind == "drawer" && "s$i:d${it.pos}" in drawers) it.copy(push = true) else it })
             when (s.fronts.kind) {
-                "open" -> s.copy(inserts = s.inserts.map { if (it.kind == "drawer") it.copy(push = true) else it })
-                "door", "drawer" -> s.copy(noHandle = (0 until s.fronts.n.coerceAtLeast(0)).toList())
-                else -> s
+                "door", "drawer" -> x.copy(noHandle = (0 until s.fronts.n.coerceAtLeast(0)).toList())
+                else -> x
             }
         })
 }

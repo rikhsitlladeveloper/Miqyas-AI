@@ -20,13 +20,14 @@ fun hwAmount(kind: String, v: Int, en: Boolean): String = when (kind) {
     else -> "$v"
 }.let { if (en) it else it.replace('.', ',') }
 
-fun hardwareOf(m: Module, ws: Workshop): Map<String, Int> {
+/** [m]'s hardware; [edge]: its piece opens by its edge ([opensByEdge]), a front without a handle takes no push latch. */
+fun hardwareOf(m: Module, ws: Workshop, edge: Boolean = false): Map<String, Int> {
     val n = HashMap<String, Int>()
     fun add(k: String, v: Int) { if (v > 0) n[k] = (n[k] ?: 0) + v }
     // soft close is a section's own choice (a kitchen unit's is the unit's)
     fun hinge(sec: Int) = if (if (sec < 0) m.soft else softOf(m, sec)) "hingeSoft" else "hinge"
-    // a front without a handle opens by a push latch (Handles.kt)
-    fun pull(key: String) = add(if (hasHandle(m, key)) "handle" else "push", 1)
+    // a front without a handle opens by a push latch (Handles.kt), unless the piece opens by its edge
+    fun pull(key: String) { if (hasHandle(m, key)) add("handle", 1) else if (!edge) add("push", 1) }
     fun fronts(f: Fronts, w: Int, h: Int, face: String = "", sec: Int = -1) {
         val fs = frontSizes(f, w, h, ws)
         fun key(j: Int) = if (sec < 0) "f$j" else "s$sec:f$j"
@@ -52,15 +53,17 @@ fun hardwareOf(m: Module, ws: Workshop): Map<String, Int> {
         }
     }
     val t = ws.t
-    if (m.type == "gap" || m.type == "filler") return n
+    if (m.type == "filler") return n
+    // a kitchen's space for a machine: a dishwasher's front (on the machine's own door) takes a handle or a push latch
+    if (m.type == "gap") { handleFronts(m).forEach { pull(it.key) }; return n }
     if (m.type in ITEM_MODS) { itemHardware(m, ws, ::add); return n }
     when (m.type) {
         "wardrobe" -> {
             val secs = m.sections.ifEmpty { listOf(Section(m.w)) }
             secs.forEachIndexed { i, s ->
                 if (m.slide == null) fronts(s.fronts, frontW(s), m.h - wardBase(m), s.face, i); inside(s.inserts, wardInner(m, secs, i, t))
-                // drawers in an open section are pulled by a handle of their own, or pushed open
-                if (s.fronts.kind == "open") s.inserts.filter { it.kind == "drawer" }.forEach { add(if (drawerHandle(m, it)) "handle" else "push", 1) }
+                // a section's drawers (an open one's, or behind the doors) are pulled by a handle of their own, or pushed open
+                handleFronts(m).filter { it.sec == i && it.key.contains(":d") }.forEach { pull(it.key) }
             }
             m.slide?.let { sl ->
                 val n2 = sl.n.coerceIn(2, 4)
@@ -93,7 +96,7 @@ fun hardwareOf(m: Module, ws: Workshop): Map<String, Int> {
 fun hardware(fs: List<Furniture>, ws: Workshop): Map<String, Int> {
     val n = LinkedHashMap<String, Int>()
     fs.forEach { f ->
-        f.modules.forEach { m -> hardwareOf(m, wsOf(f, ws)).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v } }
+        f.modules.forEach { m -> hardwareOf(m, wsOf(f, ws), opensByEdge(f)).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v } }
         extrasHardware(f).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v }
     }
     return n

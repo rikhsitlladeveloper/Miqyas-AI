@@ -188,10 +188,11 @@ private class WardCtx(p: Project, f: Furniture, m: Module, ws: Workshop, snap: B
 
 /**
  * The wardrobe's front, its left edge at [ox] mm (0: drawn on its wall): the carcass, plinth or legs, sections,
- * inserts (unless the doors are shown), doors, problem outlines and the selected section.
+ * inserts (unless the doors are shown), doors, problem outlines and the selected section. [edge]: the piece opens by its
+ * edge (Handles.kt opensByEdge), so a front without a handle shows no push mark.
  */
 internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, carcass: Color, front: Color, sel: Int, doors: Boolean,
-                               bad: Map<Int, String>, tm: TextMeasurer?) {
+                               bad: Map<Int, String>, tm: TextMeasurer?, edge: Boolean = false) {
     val t = ws.t
     val z0 = uz.metrx.app.furniture.legsOf(m, ws) + m.elev
     val base = wardBase(m)
@@ -233,10 +234,10 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
                     drawRoundRect(if (x.kind == "drawer") front else GAP_FILL, Offset(il + 1.5f, bt), Size(ir - il - 3f, bh), CornerRadius(1.5f))
                     drawRoundRect(onC, Offset(il + 1.5f, bt), Size(ir - il - 3f, bh), CornerRadius(1.5f), style = Stroke(.9f))
                     when (x.kind) {
-                        // an open section's drawer without a handle: the push mark where it would be
+                        // a drawer (an open section's, or behind the doors) without a handle: the push mark where it would be
                         "drawer" -> { val c = (il + ir) / 2; val hy = bt + min(4f, bh / 3)
-                            if (open && !uz.metrx.app.furniture.drawerHandle(m, x)) pushMark(Offset(c, hy + 1f), onF, min(2.6f, bh / 3))
-                            else drawLine(onF, Offset(c - 6f, hy), Offset(c + 6f, hy), 1.4f, StrokeCap.Round) }
+                            if (uz.metrx.app.furniture.drawerHandle(m, x)) drawLine(onF, Offset(c - 6f, hy), Offset(c + 6f, hy), 1.4f, StrokeCap.Round)
+                            else if (!edge) pushMark(Offset(c, hy + 1f), onF, min(2.6f, bh / 3)) }
                         "trouser" -> for (k in 1..4) { val xx = il + (ir - il) * k / 5; drawLine(INK3, Offset(xx, bt + 2f), Offset(xx, bt + bh - 2f), .8f) }
                         "shoe" -> drawLine(INK3, Offset(il + 4f, bt + bh - 2f), Offset(ir - 4f, bt + 2f), .9f)
                     }
@@ -259,8 +260,8 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
                     // about 1 m up, but on the door of a low or hung cabinet
                     val hy = lay.y((z0 + 1000).coerceAtMost(z0 + m.h - 90).coerceAtLeast(z0 + base + 90))
                     if (uz.metrx.app.furniture.doorHandle(m, i, j)) drawLine(onF, Offset(hx, hy - 9f), Offset(hx, hy + 9f), 1.6f, StrokeCap.Round)
-                    // no handle (a glass door never has one): the push latch's mark, a little in from the edge
-                    else pushMark(Offset(if (hx > fx + fw / 2) hx - 2f else hx + 2f, hy), if (s.face == "glass") INK else onF, 2.8f)
+                    // no handle (a glass door never has one): the push latch's mark, a little in from the edge; none on a piece opened by its edge
+                    else if (!edge) pushMark(Offset(if (hx > fx + fw / 2) hx - 2f else hx + 2f, hy), if (s.face == "glass") INK else onF, 2.8f)
                 }
             }
         }
@@ -364,6 +365,7 @@ private fun WardDrawing(m: Module, f: Furniture, cx: WardCtx, ws: Workshop, mats
     val lay = KLay(L, H, 360f, true)
     val front = hex(mats.firstOrNull { it.id == f.mats.front }?.rgb ?: "#CDBFAE")
     val carcass = hex(mats.firstOrNull { it.id == f.mats.carcass }?.rgb ?: "#F5F5F2")
+    val edge = uz.metrx.app.furniture.opensByEdge(f)
     Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(G.glass(.55f)).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {
         Canvas(Modifier.fillMaxWidth().aspectRatio(lay.vw / lay.vh).pointerInput(m, step) {
             detectTapGestures { pos ->
@@ -378,8 +380,8 @@ private fun WardDrawing(m: Module, f: Furniture, cx: WardCtx, ws: Workshop, mats
                 if (onWall) drawWallFace(lay, cx.room, m.wall ?: "")
                 drawLine(INK, Offset(lay.x0 - 10f, lay.yF), Offset(lay.x(L) + 10f, lay.yF), 2f)
                 // on its wall the piece's other boxes stand beside it; alone, a hung box is drawn from its own bottom
-                if (onWall) f.modules.filter { it.type == "wardrobe" && it.id != m.id && it.wall == m.wall }.forEach { o -> drawWard(lay, o, ox, ws, carcass, front, -1, true, emptyMap(), null) }
-                drawWard(lay, if (onWall) m else m.copy(elev = 0), ox, ws, carcass, front, if ((step == 3 && m.slide == null) || step == 4) sel else -1, doors, cx.bad, tm)
+                if (onWall) f.modules.filter { it.type == "wardrobe" && it.id != m.id && it.wall == m.wall }.forEach { o -> drawWard(lay, o, ox, ws, carcass, front, -1, true, emptyMap(), null, edge) }
+                drawWard(lay, if (onWall) m else m.copy(elev = 0), ox, ws, carcass, front, if ((step == 3 && m.slide == null) || step == 4) sel else -1, doors, cx.bad, tm, edge)
                 if (onWall) cx.room?.points?.filter { it.wall == m.wall }?.forEach { p -> drawSitePoint(p, Offset(lay.x(p.off), lay.y(p.h)), lay.s, 6f) }
                 if (onWall) wardDims(lay, listOf(0, m.x, m.x + m.w, L).distinct().sorted(), L, outerH(m, ws), m.x, tm)
                 else {
@@ -388,8 +390,8 @@ private fun WardDrawing(m: Module, f: Furniture, cx: WardCtx, ws: Workshop, mats
                 }
             }
         }
-        // the doors step: each door and open drawer is tapped to give it a handle or take it away
-        if (onFront != null && !onWall && m.slide == null) m.copy(elev = 0).let { b -> FrontTargets(lay, ox, b, wardFrontBoxes(b, ws), onFront) }
+        // the doors step: each door and open drawer is tapped to give it a handle or take it away (the ones behind the doors: InnerDrawers)
+        if (onFront != null && !onWall && m.slide == null) m.copy(elev = 0).let { b -> FrontTargets(lay, ox, b, wardFrontBoxes(b, ws), onFront, edge) }
     }
 }
 
@@ -407,7 +409,7 @@ fun WardThumb(p: Project, f: Furniture, modifier: Modifier) {
         val k = min(size.width / lay.vw, size.height / lay.vh)
         withTransform({ translate((size.width - lay.vw * k) / 2f, (size.height - lay.vh * k) / 2f); scale(k, k, pivot = Offset.Zero) }) {
             drawLine(INK, Offset(lay.x0 - 6f, lay.yF), Offset(lay.x(m.w) + 6f, lay.yF), 2f)
-            drawWard(lay, m, m.x, ws, carcass, front, -1, true, emptyMap(), null)
+            drawWard(lay, m, m.x, ws, carcass, front, -1, true, emptyMap(), null, uz.metrx.app.furniture.opensByEdge(f))
         }
     }
 }
@@ -700,7 +702,13 @@ private fun DoorStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop
             mm.copy(slide = if (k == "slide") uz.metrx.app.furniture.Slide(uz.metrx.app.furniture.slideDoorsFor(uz.metrx.app.furniture.slideOpening(mm, ws.t).first)) else null)
         }
     }
-    m.slide?.let { sl -> SlideDoors(p, f, m, sl, ws); return }
+    m.slide?.let { sl ->
+        SlideDoors(p, f, m, sl, ws)
+        // the drawers behind the sliding doors: their handles one by one, or all of the box at once
+        HandleButtons(listOf(m), { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, true) } }, { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, false) } })
+        InnerDrawers(m) { fr -> app.ward(p.id, f.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) } }
+        return
+    }
     Text(tr("wd.doors", "s" to sel + 1), style = ui(15.5f, 800))
     SecChips(m, sel, onSec)
     val cur = when { s.fronts.kind == "open" -> "0"; s.fronts.n >= 2 -> "2"; else -> "1" }
@@ -719,8 +727,11 @@ private fun DoorStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop
             Btn.SECONDARY, height = 40.dp, corner = 14.dp, fontSize = 14f, fill = false)
     }
     // handles: each door and drawer on its own (tapped on the drawing), or all of the box at once (25 Oct 2026)
-    HandleButtons(listOf(m), { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, true) } }, { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, false) } })
-    if (uz.metrx.app.furniture.handleFronts(m).isNotEmpty()) Text(tr("hd.tap"), style = ui(12.5f, 400, G.ink2, 1.4f))
+    val edge = uz.metrx.app.furniture.opensByEdge(f)
+    HandleButtons(listOf(m), { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, true) } }, { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, false) } }, edge)
+    if (uz.metrx.app.furniture.handleFronts(m).any { !it.inner }) Text(tr(if (edge) "hd.tapE" else "hd.tap"), style = ui(12.5f, 400, G.ink2, 1.4f))
+    // the drawers behind the doors are hidden on the picture: a chip each (25 Oct 2026)
+    InnerDrawers(m) { fr -> app.ward(p.id, f.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) } }
     // soft close: this section's doors; "Hammasiga" gives every section of the piece the same
     if (cur != "0") {
         val soft = uz.metrx.app.furniture.softOf(m, sel)

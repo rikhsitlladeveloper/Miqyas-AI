@@ -1068,6 +1068,13 @@ private fun ModuleSheet(s: Sheet.FModule) {
                 }
             }
         }
+        // a dishwasher's front (on the machine's door): its handle tapped on or off as any front's, a push latch without one
+        if (m.type == "gap" && uz.metrx.app.furniture.handleFronts(m).isNotEmpty()) {
+            Text(tr("km.fronts"), style = ui(15f, 700))
+            UnitFronts(next, ws, f) { k -> setHandles(uz.metrx.app.furniture.toggleHandle(next, k.key)) }
+            Text(tr("hd.tap"), style = ui(12.5f, 400, G.ink2, 1.4f))
+            HandleButtons(listOf(next), { setHandles(uz.metrx.app.furniture.allHandles(next, true)) }, { setHandles(uz.metrx.app.furniture.allHandles(next, false)) })
+        }
         // what the workshop will cut and fit for it: the advanced app only
         if (!app.settings.advanced) return@GlassSheet
         val parts = partsOf(next, ws)

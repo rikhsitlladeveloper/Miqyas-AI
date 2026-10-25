@@ -27,7 +27,7 @@ fun frontFigures(f: Furniture, room: Room?, ws0: Workshop, mats: List<Mat>): Lis
                 val front = hex(mats.firstOrNull { it.id == f.mats.front }?.rgb ?: "#CDBFAE")
                 val carcass = hex(mats.firstOrNull { it.id == f.mats.carcass }?.rgb ?: "#F5F5F2")
                 drawLine(INK, Offset(lay.x0 - 10f, lay.yF), Offset(lay.x(m.w) + 10f, lay.yF), 2f)
-                drawWard(lay, m, m.x, ws, carcass, front, -1, true, emptyMap(), tm)
+                drawWard(lay, m, m.x, ws, carcass, front, -1, true, emptyMap(), tm, uz.metrx.app.furniture.opensByEdge(f))
                 var acc = 0
                 wardDims(lay, listOf(0) + m.sections.map { s -> acc += s.w; acc }, m.w, outerH(m, ws), 0, tm)
             }

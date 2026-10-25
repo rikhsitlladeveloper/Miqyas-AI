@@ -143,4 +143,82 @@ class HandlesTest {
         assertFalse(hasHandle(big.modules.filter { takesHandles(it) }[i], key))
         assertTrue(hasHandles(big))
     }
+
+    /* ---- the founder's answers (25 Oct 2026): drawers behind doors, the mirror cabinet, the dishwasher's front ---- */
+
+    /** A pair of doors with two drawers behind them, and an open section with one drawer. */
+    private fun behind() = Module("w", "wardrobe", 1300, 2000, 600, legs = false, sections = listOf(
+        Section(900, Fronts("door", 2), listOf(Insert("drawer", 0, h = 200), Insert("drawer", 210, h = 200), Insert("shelf", 900))),
+        Section(400, Fronts("open", 0), listOf(Insert("drawer", 0, h = 200)))))
+
+    @Test fun drawersBehindDoorsTakeAHandleOrAPushLatch() {
+        val m = behind()
+        val fr = handleFronts(m)
+        assertEquals(listOf("s0:f0", "s0:f1", "s0:d210", "s0:d0", "s1:d0"), fr.map { it.key })
+        // the ones behind the doors are marked: they are not on the doors' picture
+        assertEquals(listOf("s0:d210", "s0:d0"), fr.filter { it.inner }.map { it.key })
+        assertTrue(fr.filter { it.inner }.all { it.drawer && it.sec == 0 })
+        assertEquals(listOf("s0:f0", "s0:f1", "s1:d0"), uz.metrx.app.ui.furniture.wardFrontBoxes(m, ws).map { it.f.key })
+        // as built: every door and drawer has a handle
+        hardwareOf(m, ws).let { assertEquals(5, it["handle"]); assertNull(it["push"]); assertEquals(3, it["runner"]) }
+        // one behind the doors pushed: the same Insert.push flag as an open section's drawer
+        val one = toggleHandle(m, "s0:d0")
+        assertTrue(one.sections[0].inserts.single { it.kind == "drawer" && it.pos == 0 }.push)
+        assertFalse(hasHandle(one, "s0:d0")); assertTrue(hasHandle(one, "s0:d210")); assertFalse(drawerHandle(one, one.sections[0].inserts.first { it.pos == 0 }))
+        hardwareOf(one, ws).let { assertEquals(4, it["handle"]); assertEquals(1, it["push"]) }
+        assertEquals(4 to 1, handleSplit(one))
+        // none, then all: per box
+        assertEquals(0 to 5, handleSplit(allHandles(one, false)))
+        hardwareOf(allHandles(one, false), ws).let { assertNull(it["handle"]); assertEquals(5, it["push"]) }
+        assertEquals(5 to 0, handleSplit(allHandles(one, true)))
+        // a box without handles: tapping one door leaves the drawers behind it pushed
+        val tap = toggleHandle(m.copy(handles = false), "s0:f0")
+        assertEquals(listOf(true, false, false, false, false), handleFronts(tap).map { hasHandle(tap, it.key) })
+        // an older order without handles: the drawers behind its doors are pushed open too
+        assertEquals(5, hardwareOf(m.copy(handles = false), ws)["push"])
+    }
+
+    @Test fun drawersBehindSlidingDoorsAreListedToo() {
+        val m = behind().copy(slide = Slide(2))
+        val fr = handleFronts(m)
+        // the sliding doors take none; every drawer behind them does
+        assertEquals(listOf("s0:d210", "s0:d0", "s1:d0"), fr.map { it.key })
+        assertTrue(fr.all { it.inner })
+        hardwareOf(toggleHandle(m, "s1:d0"), ws).let { assertEquals(2, it["handle"]); assertEquals(1, it["push"]) }
+    }
+
+    @Test fun theMirrorCabinetOpensByItsEdgeWithoutALatch() {
+        val f = pieceOf(fModel("mirrorC")!!, emptyMap(), ws, "mirrorC")
+        assertEquals("mirrorC", f.type); assertTrue(opensByEdge(f))
+        val m = f.modules.single { it.type == "wardrobe" }
+        assertFalse(m.handles)
+        assertTrue(handleFronts(m).isNotEmpty())
+        // the order's hardware: no handle and no push latch for its doors
+        hardware(listOf(f), ws).let { assertNull(it["handle"]); assertNull(it["push"]); assertTrue((it["hingeSoft"] ?: 0) > 0) }
+        assertTrue(costOf(listOf(f), ws, MAT_PRESETS, HW_PRESETS).lines.none { it.group == "hw" && (it.key == "push" || it.key == "handle") })
+        // a door given a handle counts it; the other still needs no latch
+        val k = handleFronts(m).first().key
+        val g = f.copy(modules = f.modules.map { if (it.id == m.id) toggleHandle(it, k) else it })
+        hardware(listOf(g), ws).let { assertEquals(1, it["handle"]); assertNull(it["push"]) }
+        // the same box in another piece is pushed open as before
+        assertEquals(handleFronts(m).size, hardware(listOf(f.copy(type = "")), ws)["push"])
+        assertFalse(opensByEdge(f.copy(type = "")))
+    }
+
+    @Test fun theDishwashersFrontCountsItsHandleOrALatch() {
+        // as the kitchen's library makes it: a gap with a panel front
+        val dw = template("dishwasher", ws, "A")
+        assertEquals("gap", dw.type); assertEquals("dishwasher", dw.app)
+        assertEquals(listOf("f0"), handleFronts(dw).map { it.key })
+        assertEquals(mapOf("handle" to 1), hardwareOf(dw, ws))
+        val off = toggleHandle(dw, "f0")
+        assertEquals(listOf("f0"), off.noHandle)
+        assertEquals(mapOf("push" to 1), hardwareOf(off, ws))
+        assertEquals(mapOf("push" to 1), hardwareOf(allHandles(dw, false), ws))
+        // a fridge's space has none
+        assertTrue(hardwareOf(template("fridge", ws, "A"), ws).isEmpty())
+        // in the order's cost
+        val k = Furniture("k", "kitchen", modules = listOf(off))
+        assertEquals(1.0, costOf(listOf(k), ws, MAT_PRESETS, HW_PRESETS).lines.single { it.group == "hw" && it.key == "push" }.qty, 0.0)
+    }
 }
