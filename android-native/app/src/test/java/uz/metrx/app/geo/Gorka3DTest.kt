@@ -53,6 +53,11 @@ class Gorka3DTest {
         assertEquals(4, leds.size)
         assertTrue(gorkaBox(f, r.base!!, ws, true).any { it.look == Looks.led }); assertTrue(gorkaBox(f, r.bridge!!, ws, true).any { it.look == Looks.led })
         assertTrue(Looks.led in looks(f))
+        // the LED's soft glow: up each glass box, on the wall under the floating base, down the TV panel; none on the light tier
+        fun glows(m: uz.metrx.app.furniture.Module, decor: Boolean) = gorkaBox(f, m, ws, decor).count { it.look?.let { l -> l.emissive > 1f && l.alpha < 1f } == true }
+        assertEquals(8, glows(r.ups[0], true)); assertEquals(8, glows(r.bridge!!, true)); assertEquals(8, glows(r.base!!, true))
+        assertEquals(0, glows(r.ups[0], false)); assertEquals(0, glows(r.bridge!!, false))
+        assertTrue(looks(f).any { it.emissive > 1f && it.alpha < 1f })
         // the cornice: three mouldings over each tower and the bridge, in the fronts' board
         assertEquals(3, gorkaBox(f, r.ups[0], ws, false).count { it.look == null && it.role == "front" })
         assertTrue(gorkaBox(f, r.lows[0], ws, false).isEmpty())

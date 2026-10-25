@@ -117,11 +117,15 @@ fun gorkaBox(f: Furniture, m: Module, ws: Workshop, decor: Boolean): List<XBox> 
             if (led) {
                 out += XBox(x0 + sl + 4, x0 + sl + 12, yb + t, yt - t, di - 40, di - 32, Looks.led)
                 out += XBox(x1 - sr - 12, x1 - sr - 4, yb + t, yt - t, di - 40, di - 32, Looks.led)
+                // their warm light on the glass box's back, brightest at the top (mockup's lights in the towers; none on the light tier)
+                if (decor) glow(out, x0 + sl, x1 - sr, yt - t, (yt - yb - 2 * t) / GK_GLOW.size, 8.0)
             }
             if (decor && m.sections.size == 1) dishes(out, m, x0 + sl, x1 - sr, yb + t, yt - t, t)
         }
         m.id == r.base?.id -> {
             if (led) out += XBox(x0 + 40, x1 - 40, m.elev - 6.0, m.elev.toDouble(), m.d - 60.0, m.d - 48.0, Looks.led)
+            // and its glow on the wall under the floating base (mockup)
+            if (led && decor && m.elev > 40) glow(out, x0 + 20, x1 - 20, m.elev.toDouble(), m.elev / GK_GLOW.size.toDouble(), 3.0)
             // a vase and a few books on the base
             if (decor && m.w >= 900) {
                 val top = yt
@@ -129,7 +133,11 @@ fun gorkaBox(f: Furniture, m: Module, ws: Workshop, decor: Boolean): List<XBox> 
                 BOOKS.forEachIndexed { i, b -> out += XBox(x1 - 420 + i * 30.0, x1 - 394 + i * 30.0, top, top + 200 + i * 15, m.d / 2.0 - 80, m.d / 2.0 + 80, b) }
             }
         }
-        m.id == r.bridge?.id -> if (led) out += XBox(x0 + 30, x1 - 30, m.elev - 7.0, m.elev.toDouble(), m.d - 60.0, m.d - 48.0, Looks.led)
+        m.id == r.bridge?.id -> if (led) {
+            out += XBox(x0 + 30, x1 - 30, m.elev - 7.0, m.elev.toDouble(), m.d - 60.0, m.d - 48.0, Looks.led)
+            // its glow down the TV panel under it, 500 mm (mockup), just in front of the panel's face
+            if (decor) glow(out, x0 + 80, x1 - 80, m.elev.toDouble(), 500.0 / GK_GLOW.size, t + GK_FACING + 1)
+        }
     }
     // the neoclassic cornice: three stepped mouldings over each tower and the bridge, in the fronts' board
     if (f.look?.crown == "cornice" && (tower || m.id == r.bridge?.id)) {
@@ -139,6 +147,15 @@ fun gorkaBox(f: Furniture, m: Module, ws: Workshop, decor: Boolean): List<XBox> 
         out += XBox(x0 - 25, x1 + 25, yt + 58, yt + 76, 0.0, d + 38, role = "front", line = true)
     }
     return out
+}
+
+/** The see-through of a LED's glow bands, from the strip outwards (as the kitchen's GLOW in Furniture3D.kt). */
+private val GK_GLOW = listOf(.22f, .17f, .13f, .10f, .07f, .05f, .03f, .015f)
+
+/** A LED's soft glow over [a0]..[a1] from [top] down, [GK_GLOW] bands [band] mm each, a millimetre thin at [n] out from the wall. */
+private fun glow(out: MutableList<XBox>, a0: Double, a1: Double, top: Double, band: Double, n: Double) {
+    if (a1 - a0 < 1 || band < 1) return
+    GK_GLOW.forEachIndexed { i, a -> out += XBox(a0, a1, top - (i + 1) * band, top - i * band, n, n + 1, Looks.glow(a)) }
 }
 
 /** Dishes on a tower's floor and shelves ([a0]..[a1] inside, [y0]..[y1] its floor to its top): plates and cups, bowls and a teapot, a vase on top. */

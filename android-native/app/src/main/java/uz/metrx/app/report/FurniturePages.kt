@@ -158,13 +158,15 @@ private fun Doc.materials(sn: Snap) {
     table(rows, fixed = floatArrayOf(28f, (CW - 28f) * .42f, (CW - 28f) * .58f), breakable = false, top = 0f)
     var yy = top
     val rowH = measure(AnnotatedString(" "), ui(10f)).size.height + 6f
-    entries.forEach { (_, _, rgb) ->
+    // each row as tall as the table made it (a long list of pieces wraps), the swatch by its first line
+    val wRole = (CW - 28f) * .42f; val wName = (CW - 28f) * .58f
+    entries.forEach { (role, name, rgb) ->
         val at = yy
         if (rgb != null) draw {
             drawRect(hexColor(rgb), Offset(PX + 6f, at + (rowH - 11f) / 2f), Size(16f, 11f))
             drawRect(F_RULE, Offset(PX + 6f, at + (rowH - 11f) / 2f), Size(16f, 11f), style = Stroke(.75f))
         }
-        yy += rowH
+        yy += max(rowH, max(measure(AnnotatedString(role), ui(10f, 600), wRole - 10f).size.height, measure(AnnotatedString(dn(name, l)), ui(10f), wName - 10f).size.height) + 6f)
     }
 }
 
