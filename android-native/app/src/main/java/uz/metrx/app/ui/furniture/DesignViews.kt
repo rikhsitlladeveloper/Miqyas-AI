@@ -281,6 +281,31 @@ fun DesignCard(p: Project, f: Furniture) {
             RowTitle(tr("lk.head"))
             Chips(listOf("", "vertical", "tufted", "panels").map { Triple(it, tr("lk.hb.${it.ifEmpty { "board" }}"), false) }, l.head) { v -> look { it.copy(head = v) } }
             Toggle(tr("lk.panel"), l.panel) { look { it.copy(panel = !it.panel) } }
+            // the LED strip over the wall panel; a plain bed on legs: a hidden base or its metal legs (geo/Items3D.kt)
+            if (l.panel) Toggle(tr("kx.led"), l.led) { look { it.copy(led = !it.led) } }
+            if (f.modules.any { it.type == "bed" && (it.opt?.bed ?: "legs") == "legs" }) {
+                RowTitle(tr("lk.legs"))
+                Chips(listOf(Triple("plinth", tr("lk.l.plinth"), false), Triple("metal", tr("lk.l.metal"), false)), if (l.legs) "metal" else "plinth") { v -> look { it.copy(legs = v == "metal") } }
+            }
+        }
+        // a table's or bar counter's top of worktop board: its stone or wood decor, as a kitchen's (priced the same, Costing.kt)
+        if (!kitchen && f.modules.any { (it.type == "table" || it.type == "bar") && it.opt?.top == "wt" }) {
+            val tk = worktopKind(f.mats.top).let { if (it == "slim") "stone" else it }
+            RowTitle(tr("lk.top"))
+            Chips(listOf(Triple("plain", tr("lk.t.plain"), false), Triple("stone", tr("lk.t.stone"), false), Triple("wood", tr("lk.t.wood"), false)), tk) { v ->
+                change { g -> withLook(g) { it }.let { x ->
+                    val d = worktopDecor(x.mats.top).let { d -> if (v == "wood") d.takeIf { it == "craft" || it == "halifax" } ?: "craft" else d.takeIf { it in setOf("marble", "onyx", "dark") } ?: "marble" }
+                    x.copy(mats = x.mats.copy(top = if (v == "plain") null else worktopFor(v, d)))
+                } }
+            }
+            if (tk != "plain") {
+                val decors = if (tk == "wood") LOOK_WOODS.filter { it.key == "craft" || it.key == "halifax" }.map { Triple(it.key, it.rgb, "wood") }
+                    else LOOK_STONES.map { Triple(it.key, it.rgb, "stone") }
+                fun decorName(k: String) = if (tk == "wood") app.t("lk.w.$k") else app.t("lk.st.$k")
+                val cur = worktopDecor(f.mats.top)
+                RowTitle(tr("lk.topDecor"), decorName(cur))
+                Swatches(decors, cur, ::decorName) { v -> change { g -> withLook(g) { it }.let { x -> x.copy(mats = x.mats.copy(top = worktopFor(tk, v))) } } }
+            }
         }
         if (kitchen) {
             // the worktop: its kind, then its decor

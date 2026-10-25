@@ -339,6 +339,7 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
         B.ledLook = f.kind == "wardrobe" && f.type != "gorka" && l?.led == true
         B.crown = if (f.kind == "kitchen" || f.type == "gorka") "" else crownOf(f)
         B.ceilH = (ceil ?: f.free?.h ?: 2700).toDouble()
+        B.itemPiece = f; B.itemMats = ms
         // the worktop's thickness: a slim 20 mm stone sits on the same carcasses, its top lower
         val wtT = if (rich) (ms.firstOrNull { it.id == topId }?.t ?: K_TOP).coerceIn(10, 60) else K_TOP
         B.wtT = wtT.toDouble(); B.wt = (worktopTop(fws) - K_TOP + wtT).toDouble()
@@ -471,7 +472,7 @@ private class Frame(val o: V3, val e: V3, val up: V3, val tn: V3) {
 }
 
 /** Builds the boards of one piece of furniture on a wall frame; lengths in mm. */
-private class Builder3(
+internal class Builder3(
     val ws: Workshop, val colors: Map<String, Int>, val looks: Map<String, Look>, val parts: LinkedHashMap<Pair<String?, Any>, Part>, val edgeMap: LinkedHashMap<String?, Edges>,
     val picks: ArrayList<Pick>, val keys: ArrayList<String>, val how: (String) -> Double, val spots: MutableMap<String, HandleSpot>
 ) {
@@ -1031,6 +1032,7 @@ private class Builder3(
 
     /** A vanity's basin on its top, the tap behind it. */
     fun basin(w: WallBasis, m: Module) {
+        if (rich && basinLit(this, w, m)) return
         // a wall-hung vanity's top is its height above the floor up
         val top = m.elev + uz.metrx.app.furniture.legsOf(m, ws) + m.h
         val mid = m.x + m.w / 2.0; val bw = minOf(500.0, m.w - 120.0); val bd = minOf(380.0, m.d - 80.0)
@@ -1295,11 +1297,26 @@ private class Builder3(
         }
     }
 
+    /* ---------------- the lit items' port (Items3D.kt draws beds, tables, mirror panels and the basin with it) ---------------- */
+
+    /** The piece being built and the workshop's materials: Items3D.kt reads the piece's design from them. */
+    var itemPiece: Furniture? = null; var itemMats: List<Mat> = MAT_PRESETS
+    /** A part in a look of its own (fabrics, bedding, ceramic): one for each wall and look. */
+    fun lookPart(lk: Look): Part {
+        val wl = if (wall == ISLAND) null else wall
+        return parts.getOrPut(wl to lk) { Part(0, wl, Role.FURN, lk.rgb, if (lk.alpha < 1f) .38f else 1f, look = lk) }
+    }
+    fun tube(p: Part, a: V3, b: V3, r0: Double, r1: Double, n: Int) = tubeFaces(p, a, b, r0, r1, n)
+    fun flat(p: Part, q: List<V3>, n: V3) = flatFace(p, q, n)
+    /** A front [fw] × [fh] in the piece's style, its corner at [o], across [e], out of it [tn]: how far its face stands out, mm. */
+    fun styledFront(o: V3, e: V3, tn: V3, p: Part, fw: Double, fh: Double, grain: V3?): Double = frontBody(Frame(o, e, UP, tn), p, fw, fh, t.toDouble(), grain)
+
     /**
      * A bed, a table, a bar counter, a mirror panel or a mirror: its boards (Items.kt); a bed's drawers pull out of its
      * long sides and a lift-up base rises on a tap.
      */
     fun item(w: WallBasis, m: Module) {
+        if (rich && itemLit(this, w, m)) return
         val x0 = m.x
         val bs = uz.metrx.app.furniture.itemBoards(m, ws)
         val liftKey = "${m.id}:lift"
