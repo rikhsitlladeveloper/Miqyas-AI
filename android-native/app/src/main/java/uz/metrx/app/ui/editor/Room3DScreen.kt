@@ -125,8 +125,8 @@ fun Room3DScreen(r0: Route.Editor) {
         val shot = remember { Shot3D() }
         var taking by remember { mutableStateOf(false) }   // a second tap while a picture is being taken does nothing
         Box(Modifier.weight(1f).fillMaxWidth()) {
-            Scene3D(shell, cam, Modifier.fillMaxSize(), shot, onTap = fur?.let { fr -> { pos: Offset ->
-                uz.metrx.app.ui.furniture.pickOf(fr, cam, pos)?.let { k -> mo.toggle(k) }
+            Scene3D(shell, cam, Modifier.fillMaxSize(), shot, open = if (fur != null) mo.amt else null, onTap = fur?.let { fr -> { pos: Offset ->
+                uz.metrx.app.ui.furniture.pickOf(fr, cam, pos, mo)?.let { k -> mo.toggle(k) }
             } }) {
                 Labels3D(cam, shell.labels.map { it.p }) { i -> Lbl3D(shell.labels[i].text) }
                 // a furniture order's room: hide every door to see inside
