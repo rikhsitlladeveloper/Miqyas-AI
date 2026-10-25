@@ -41,7 +41,6 @@ import uz.metrx.app.geo.Role
 import uz.metrx.app.geo.V3
 import uz.metrx.app.geo.buildShell
 import uz.metrx.app.geo.furniture3D
-import uz.metrx.app.geo.rgbOf
 import kotlin.math.atan
 import kotlin.math.cos
 import kotlin.math.max
@@ -93,9 +92,9 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>, bare: Boolean = fals
     val room = freeRoom(f)
     val shell = buildShell(listOf(room), true, true)
     val b = shell.bases
-    val fur = furniture3D(listOf(f), b, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet(), bare = bare, hi = hi)
-    // every box of furniture3D adds its six faces to its part one after another
-    val furn = fur.parts.flatMap { p -> p.faces.chunked(6).filter { it.size == 6 }.map { b -> SBox(b.map { SFace(it.pts, it.n, p.rgb, p.op, p.wall, p.slab) }) } }
+    val fur = furniture3D(listOf(f), b, ws, matRgb(mats), emptySet(), bare = bare, hi = hi, look = matLook(mats))
+    // every box of furniture3D adds its six faces to its part one after another, painted in the lit 3D's colours
+    val furn = fur.parts.flatMap { p -> val c = paintRgb(p); p.faces.chunked(6).filter { it.size == 6 }.map { b -> SBox(b.map { SFace(it.pts, it.n, c, p.op, p.wall, p.slab) }) } }
     val env = ArrayList<SFace>()
     shell.parts.filter { it.role == Role.FLOOR }.forEach { p -> p.faces.forEach { env += SFace(it.pts, it.n, FLOOR_RGB, 1f, "floor") } }
     val H = (room.dim("H").v ?: 2700) / 1000.0
@@ -181,12 +180,26 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>, bare: Boolean = fals
     return PieceScene(env, furn, center, radius, dims, tint, az0, dimCenter, dimRadius, ext, corners(x0, y0, z0, x1, y1, z1))
 }
 
+/** The colour a part is painted in: its look's in the lit 3D (a decor picture's average colour), else its own. */
+private fun paintRgb(p: uz.metrx.app.geo.Part): Int = p.look?.let { l -> l.tex?.takeIf { !l.tint }?.let { uz.metrx.app.geo.TEXTURES[it]?.avg } ?: l.rgb } ?: p.rgb
+
 private fun cross(a: V3, b: V3) = V3(a.y * b.z - a.z * b.y, a.z * b.x - a.x * b.z, a.x * b.y - a.y * b.x)
+
+/**
+ * The camera of a gallery card drawn by the real 3D (Card3D.kt) for a [w] × [h] picture: the painter's own 3/4 view
+ * of the piece, fitted the same way, as a point to look from and one to look at.
+ */
+fun cardCamOf(s: PieceScene, w: Int, h: Int): uz.metrx.app.ui.three.CardCam {
+    val c = PCam(s, w.toFloat(), h.toFloat(), 0.0, false)
+    return uz.metrx.app.ui.three.CardCam(c.e, c.e + c.fwd, 32.0)
+}
 
 /** A camera round the piece: [az] turns it from the scene's own angle, the piece filling the picture. */
 private class PCam(s: PieceScene, w: Float, h: Float, az: Double, withDims: Boolean) {
     private val half = 16.0 * Math.PI / 180
-    val e: V3; private val r: V3; private val u: V3; private val f: V3; private val foc: Double; private val cx = w / 2f; private val cy = h / 2f
+    val e: V3; private val r: V3; private val u: V3; private val f: V3; private val foc: Double
+    /** The way the camera looks (unit). */
+    val fwd: V3 get() = f; private val cx = w / 2f; private val cy = h / 2f
     init {
         val fit = min(half, atan(tan(half) * w / h))
         val c = if (withDims) s.dimCenter else s.center

@@ -126,12 +126,18 @@ fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion): Pa
     val amt = mo.prog.toMap()
     val bare = mo.bare
     val fur = remember(base, fs, amt, ws, mats, bare) {
-        furniture3D(fs, base.bases, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare,
-            look = { id -> mats.firstOrNull { it.id == id }.let { m -> uz.metrx.app.geo.Looks.of(m?.kind ?: "board", rgbOf(m?.rgb ?: "#F5F5F2"), m?.tex) } })
+        furniture3D(fs, base.bases, ws, matRgb(mats), emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare, look = matLook(mats))
     }
     val shell = remember(base, fur) { base.plus(fur.parts, fur.edges) }
     return shell to fur
 }
+
+/** A material id's colour for the 3D (the workshop's list; an id not in it a light board). */
+fun matRgb(mats: List<uz.metrx.app.furniture.Mat>): (String) -> Int = { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }
+
+/** How a material id looks in the lit 3D: the 3D screens, the gallery cards (Cards.kt) and the size steps' colours. */
+fun matLook(mats: List<uz.metrx.app.furniture.Mat>): (String) -> uz.metrx.app.geo.Look =
+    { id -> mats.firstOrNull { it.id == id }.let { m -> uz.metrx.app.geo.Looks.of(m?.kind ?: "board", rgbOf(m?.rgb ?: "#F5F5F2"), m?.tex) } }
 
 /** The door or drawer under pixel [x], [y], nearest the eye. */
 fun Furn3D.pick(cam: Cam3D, x: Float, y: Float): String? {

@@ -2,7 +2,6 @@ package uz.metrx.app.ui.furniture
 
 import kotlin.random.Random
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -51,12 +50,9 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.layout.positionInParent
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
@@ -65,10 +61,8 @@ import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import uz.metrx.app.core.Lang
 import uz.metrx.app.core.Laser
 import uz.metrx.app.data.Project
@@ -76,8 +70,6 @@ import uz.metrx.app.data.dn
 import uz.metrx.app.data.floorName
 import uz.metrx.app.furniture.FModelDef
 import uz.metrx.app.furniture.GALLERY
-import uz.metrx.app.furniture.Mat
-import uz.metrx.app.furniture.Workshop
 import uz.metrx.app.furniture.bestFirst
 import uz.metrx.app.furniture.fModel
 import uz.metrx.app.furniture.pieceOf
@@ -157,25 +149,6 @@ private fun App.groupOf(p: Project, rid: String?): String? {
 @Composable
 private fun groupName(g: String) = tr(when (g) { "hall" -> "fg.hall"; "office" -> "fg.office"; else -> "fr.$g" })
 
-/* ---------------- the cards' pictures ---------------- */
-
-/** The gallery's pictures, made once from the app's own 3D of each model at its usual size (again when the boards change). */
-object PiecePics {
-    val pics = mutableStateMapOf<String, ImageBitmap>()
-    private var key = 0
-
-    suspend fun make(ws: Workshop, mats: List<Mat>, w: Int, h: Int, density: Float) {
-        val k = 31 * ws.hashCode() + mats.hashCode()
-        if (k != key) { pics.clear(); key = k }
-        for ((_, ids) in GALLERY) for (id in ids) {
-            if (pics[id] != null) continue
-            val m = fModel(id) ?: continue
-            val img = withContext(Dispatchers.Default) { runCatching { piecePicture(pieceScene(pieceOf(m, emptyMap(), ws, ""), ws, mats), w, h, density) }.getOrNull() }
-            if (img != null) pics[id] = img
-        }
-    }
-}
-
 /* ---------------- the gallery ---------------- */
 
 @Composable
@@ -190,9 +163,6 @@ fun FGalleryScreen(rt: Route.FGallery) {
     val scroll = rememberScrollState()
     val scope = rememberCoroutineScope()
     val tops = remember { mutableStateMapOf<String, Int>() }
-    val dens = LocalDensity.current.density
-    val ws = app.settings.workshop; val mats = app.settings.mats
-    LaunchedEffect(ws, mats) { PiecePics.make(ws, mats, (200 * dens).toInt(), (170 * dens).toInt(), dens) }
     // the chip of the group at the top of the page
     val cur = if (scroll.maxValue > 0 && scroll.value >= scroll.maxValue - 4) groups.last().first
         else groups.lastOrNull { (tops[it.first] ?: Int.MAX_VALUE) <= scroll.value + 60 }?.first ?: groups.first().first
@@ -239,7 +209,7 @@ fun FGalleryScreen(rt: Route.FGallery) {
                 }
                 ids.mapNotNull { fModel(it) }.chunked(2).forEach { row ->
                     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        row.forEach { m -> ModelCard(m, Modifier.weight(1f).fillMaxHeight(), wide = row.size == 1) { pick(m) } }
+                        row.forEach { m -> ModelCard(m, p.fstyle, Modifier.weight(1f).fillMaxHeight(), wide = row.size == 1) { pick(m) } }
                     }
                 }
             }
@@ -250,14 +220,12 @@ fun FGalleryScreen(rt: Route.FGallery) {
 }
 
 @Composable
-private fun ModelCard(m: FModelDef, modifier: Modifier, wide: Boolean, onClick: () -> Unit) {
+private fun ModelCard(m: FModelDef, style: String, modifier: Modifier, wide: Boolean, onClick: () -> Unit) {
     val shape = RoundedCornerShape(20.dp)
     val name = tr("fz.m.${m.id}")
     val pic: @Composable (Modifier) -> Unit = { pm ->
-        Box(pm.aspectRatio(200f / 170f).clip(RoundedCornerShape(14.dp)).background(Color(0xFFF6F8FC)), contentAlignment = Alignment.Center) {
-            val img = PiecePics.pics[m.id]
-            if (img != null) Image(img, null, Modifier.fillMaxSize(), contentScale = ContentScale.Crop) else Text("3D…", style = ui(11f, 600, G.ink3))
-        }
+        // the real 3D's picture of the model in the order's style (Cards.kt), 4:3 as the mockup's cards
+        ModelPic(m, style, pm.aspectRatio(4f / 3f).clip(RoundedCornerShape(14.dp)).background(Color(0xFF000000.toInt() or uz.metrx.app.ui.three.CARD_BG)))
     }
     val words: @Composable () -> Unit = {
         Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -304,7 +272,10 @@ fun FStepsScreen(rt: Route.FSteps) {
     // only sizes within their range reach the piece: a typed 99999 would otherwise build a 100 m kitchen on every key
     fun typed(i: Int): Int? = if (steps[i].choice) txt(i).toIntOrNull() else parseMm(txt(i), unit)
     val vals = steps.indices.mapNotNull { i -> typed(i)?.takeIf { stepIssue(steps[i], it) == null }?.let { steps[i].key to it } }.toMap()
-    val piece = remember(vals, ws) { if (edit != null) resized(edit, vals, ws) else pieceOf(m, vals, ws, "") }
+    // a new piece in the order's design style, as it will be made (App.addPiece): the preview shows its colours
+    val piece = remember(vals, ws, p.fstyle) {
+        if (edit != null) resized(edit, vals, ws) else pieceOf(m, vals, ws, "").let { if (p.fstyle.isNotEmpty()) uz.metrx.app.furniture.withPreset(it, p.fstyle, fresh = true) else it }
+    }
     val scene = remember(piece, mats) { pieceScene(piece, ws, mats) }
     val uw = unitWord(unit)
     fun issueOf(i: Int): String? {
