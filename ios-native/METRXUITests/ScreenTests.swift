@@ -34,11 +34,24 @@ class ScreenTestCase: XCTestCase {
 
     /// The question after sign-in (furniture plan section 3): which trade; builders unless the test says otherwise.
     func pickIndustry(_ app: XCUIApplication, _ id: String = "ind.build") {
+        // a tap on "Boshlash" while the keyboard is still settling is sometimes lost (the name page stays): once more
+        if !app.buttons["ind.go"].waitForExistence(timeout: 6) && app.buttons["local.start"].exists {
+            app.buttons["local.start"].tap(); usleep(800_000)
+        }
         XCTAssertTrue(app.buttons["ind.go"].waitForExistence(timeout: 8))
         app.buttons[id].tap(); usleep(400_000); app.buttons["ind.go"].tap(); usleep(600_000)
     }
 
     func tapOutside(_ app: XCUIApplication) { app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.95)).tap() }
+
+    /// Waits until the toast has gone: one with Undo stays 6.5 s over the top bar, where it takes a tap meant for the
+    /// back button.
+    func noToast(_ app: XCUIApplication, _ timeout: TimeInterval = 9) {
+        let t = app.descendants(matching: .any).matching(identifier: "toast").firstMatch
+        let end = Date().addingTimeInterval(timeout)
+        while t.exists && Date() < end { usleep(300_000) }
+        usleep(400_000)    // its exit animation
+    }
 
     /// First start without an account, straight to Home.
     func firstRun(_ app: XCUIApplication, _ industry: String = "ind.build") {
@@ -75,7 +88,10 @@ class ScreenTestCase: XCTestCase {
         app.buttons["fg.measure"].tap(); usleep(900_000)
         let roomType = ["wardrobe": "Yotoqxona"][need]
         if let roomType {
-            let chip = btn(app, roomType)
+            // the sheet's room type chip, not the gallery's group chip of the same name behind the sheet (a tap on that
+            // one lands on the sheet's backdrop and closes the sheet)
+            let p = NSPredicate(format: "label == %@ AND NOT (identifier BEGINSWITH %@)", roomType, "fg.")
+            let chip = app.buttons.matching(p).firstMatch
             if chip.waitForExistence(timeout: 3) { chip.tap(); usleep(400_000) }
         }
         XCTAssertTrue(app.buttons["fr.create"].waitForExistence(timeout: 4))
@@ -231,8 +247,9 @@ final class Part2Tests: ScreenTestCase {
         btn(app, "☐").tap(); usleep(400_000)
         shot("47-note")
         app.buttons["Orqaga"].firstMatch.tap(); usleep(900_000); shot("48-workspace-with-note")
-        // the note card's own menu (the page's menu comes first)
-        let menus = app.buttons.matching(NSPredicate(format: "label == %@", "menu"))
+        // the note card's own menu, labelled "Menyu" like the page's (space.menu), which comes first
+        let menus = app.buttons.matching(NSPredicate(format: "(label == %@ OR label == %@) AND NOT (identifier IN %@)",
+                                                      "Menyu", "menu", ["space.menu", "project.menu"]))
         menus.element(boundBy: max(0, menus.count - 1)).tap(); usleep(700_000); shot("49-item-menu")
         app.buttons["sheet.close"].tap(); usleep(500_000)
         app.buttons["Orqaga"].firstMatch.tap(); usleep(900_000); shot("50-project-with-workspace")
@@ -708,7 +725,8 @@ final class Furniture2Tests: ScreenTestCase {
         app.buttons["wv.add"].tap(); usleep(800_000); shot("f2-06-wall-add")
         app.buttons["wa.point"].tap(); usleep(900_000)
         app.buttons["pt.gas"].tap(); usleep(400_000)
-        retype(app, "pt.off", "0,9"); app.buttons["pt.save"].tap(); sleep(5); shot("f2-07-wall-B-gas")
+        retype(app, "pt.off", "0,9"); app.buttons["pt.save"].tap(); sleep(1); shot("f2-07-wall-B-gas")
+        noToast(app)    // the "added" toast with Undo covers the back button
         app.buttons["back"].tap(); usleep(900_000); shot("f2-08-plan")
         app.buttons["ed.3d"].tap(); sleep(3); shot("f2-09-3d")
     }
@@ -763,8 +781,10 @@ final class Furniture4Tests: ScreenTestCase {
         app.buttons["ed.walls"].tap(); usleep(900_000)
         app.buttons["pt.add"].tap(); usleep(900_000)
         app.buttons["pt.cold"].tap(); usleep(400_000)
-        retype(app, "pt.off", "1,3"); app.buttons["pt.save"].tap(); sleep(5)
-        shot("f4-00a-wall"); app.buttons["back"].tap(); sleep(2); shot("f4-00b-after-back")
+        retype(app, "pt.off", "1,3"); app.buttons["pt.save"].tap(); sleep(1)
+        shot("f4-00a-wall")
+        noToast(app)    // the "added" toast with Undo covers the back button
+        app.buttons["back"].tap(); sleep(2); shot("f4-00b-after-back")
         // the measured room opens the gallery for its own group; the L-kitchen takes the walls whole
         XCTAssertTrue(app.buttons["ed.addFurn"].waitForExistence(timeout: 4))
         app.buttons["ed.addFurn"].tap(); usleep(900_000); shot("f4-03-gallery")
@@ -958,6 +978,12 @@ final class Furniture8Tests: ScreenTestCase {
         app.buttons["no.create"].tap(); usleep(1_200_000)
         XCTAssertTrue(app.buttons["model.L"].waitForExistence(timeout: 4)); shot("f8-01-gallery")
         tapModel(app, "L"); shot("f8-02-step1")
+        // an L-kitchen is a corner piece: its shape and which sides were measured come first, as pictures; the usual
+        // ones (corner on the right, measured along the walls) are kept
+        for _ in 0..<3 where !app.textFields["fx.value"].exists && app.buttons["fx.next"].exists {
+            app.buttons["fx.next"].tap(); usleep(800_000)
+        }
+        shot("f8-02b-first-size")
         retype(app, "fx.value", "3,4"); app.buttons["fx.next"].tap(); usleep(800_000); shot("f8-03-step2")
         retype(app, "fx.value", "2,6"); app.buttons["fx.next"].tap(); usleep(800_000)
         retype(app, "fx.value", "2,7"); app.buttons["fx.next"].tap(); usleep(800_000); shot("f8-04-summary")
