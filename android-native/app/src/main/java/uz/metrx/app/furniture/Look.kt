@@ -240,6 +240,16 @@ fun bedMetalLegs(f: Furniture, m: Module): Int {
     return if (o.mw > 1600) 6 else 4
 }
 
+/** A bunk's or loft bed's ladder: its two stringers and its rungs. */
+val LADDER_KEYS = setOf("fp.ladder", "fp.rung")
+
+/**
+ * Bunk or loft bed [m] of [f] has a metal ladder when its look shows metal ([Look.legs]): the 3D draws it as round tubes
+ * in the handles' metal (geo/Items3D.kt bunk3D), so its board stringers and rungs are off the cut list (CutList.kt
+ * partsWithMat) and it is bought as one ("ladderMetal", lookSwap). Its guards stay boards in the wood accent.
+ */
+fun metalLadder(f: Furniture, m: Module) = f.look?.legs == true && (m.type == "bunk" || m.type == "loft")
+
 /** The soft wall panel's reach past each side of the bed, its bottom off the floor and its usual top, mm. */
 const val PANEL_OUT = 400.0
 const val PANEL_Y0 = 80.0
@@ -442,7 +452,8 @@ fun lookHardware(f: Furniture, ws0: Workshop): Map<String, Int> {
 /**
  * Box [m]'s hardware [h] as [f]'s look changes it: a kitchen's Gola profile instead of handles (a channel along each
  * base unit, one a drawer, two on a tall unit; the wall units open by a push latch), metal legs instead of the hidden
- * ones (a kitchen's, a bed's on legs: [bedMetalLegs]), the mirror in its tint, the fluted glass over the glass doors.
+ * ones (a kitchen's, a bed's on legs: [bedMetalLegs]), a bunk's or loft bed's metal ladder ([metalLadder]), the mirror
+ * in its tint, the fluted glass over the glass doors.
  */
 fun lookSwap(f: Furniture, m: Module, h: MutableMap<String, Int>, edge: Boolean) {
     fun add(k: String, v: Int) { if (v > 0) h[k] = (h[k] ?: 0) + v }
@@ -457,6 +468,8 @@ fun lookSwap(f: Furniture, m: Module, h: MutableMap<String, Int>, edge: Boolean)
     if (metalLegs(f)) h.remove("leg")?.let { add("legMetal", it) }
     // a bed on its metal legs: those instead of the plain ones (4, 6 under a wide bed)
     bedMetalLegs(f, m).takeIf { it > 0 }?.let { h.remove("leg"); add("legMetal", it) }
+    // a bunk's or loft bed's metal ladder: one bought, instead of its board stringers and rungs
+    if (metalLadder(f, m)) add("ladderMetal", 1)
     if (l.mirror == "bronze" || l.mirror == "graphite") h.remove("mirror")?.let { add(if (l.mirror == "bronze") "mirrorBronze" else "mirrorGraphite", it) }
     if (l.fglass) add("fglass", h["glassDoor"] ?: 0)
 }

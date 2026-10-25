@@ -29,13 +29,14 @@ func partMat(_ f: Furniture, _ m: Module, _ p: FPart) -> String {
     return matFor(p.role, f.mats, isUpperFront(f, m) || p.key == "fp.slideUp")
 }
 
-/// Every part of f with the board it is cut from: its boxes' (partMat), then a kitchen's extras (the upper end panels with
-/// the upper fronts).
+/// Every part of f with the board it is cut from: its boxes' (partMat; a metal ladder's stringers and rungs are bought, not
+/// cut: PieceLook.swift metalLadder), then a kitchen's extras (the upper end panels with the upper fronts).
 func partsWithMat(_ f: Furniture, _ ws: Workshop) -> [(FPart, String)] {
     let fws = wsOf(f, ws)
     var out: [(FPart, String)] = []
     for m in f.modules {
-        for p in partsOf(m, fws) { out.append((p, partMat(f, m, p))) }
+        let metal = metalLadder(f, m)
+        for p in partsOf(m, fws) where !(metal && LADDER_KEYS.contains(p.key)) { out.append((p, partMat(f, m, p))) }
     }
     for p in extrasParts(f, ws) { out.append((p, matFor(p.role, f.mats, p.key == "fp.endUp"))) }
     return out

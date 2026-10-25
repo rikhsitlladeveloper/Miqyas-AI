@@ -25,9 +25,12 @@ fun partMat(f: Furniture, m: Module, p: FPart): String =
     if (accentPart(m, p.key)) f.look?.accent?.takeIf { it.isNotEmpty() } ?: f.mats.front
     else matFor(p.role, f.mats, isUpperFront(f, m) || p.key == "fp.slideUp")
 
-/** Every part of [f] with the board it is cut from: its boxes' (partMat), then a kitchen's extras (the upper end panels with the upper fronts). */
+/**
+ * Every part of [f] with the board it is cut from: its boxes' (partMat; a metal ladder's stringers and rungs are bought,
+ * not cut: Look.kt metalLadder), then a kitchen's extras (the upper end panels with the upper fronts).
+ */
 fun partsWithMat(f: Furniture, ws: Workshop): List<Pair<FPart, String>> =
-    f.modules.flatMap { m -> partsOf(m, wsOf(f, ws)).map { it to partMat(f, m, it) } } +
+    f.modules.flatMap { m -> partsOf(m, wsOf(f, ws)).filterNot { metalLadder(f, m) && it.key in LADDER_KEYS }.map { it to partMat(f, m, it) } } +
         extrasParts(f, ws).map { it to matFor(it.role, f.mats, it.key == "fp.endUp") }
 
 /** Every part of an order's furniture, equal ones (same part, size, banding and material) on one line. */

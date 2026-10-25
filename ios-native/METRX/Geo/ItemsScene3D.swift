@@ -6,7 +6,8 @@ import Foundation
  * upholstered headboard in the look's fabric (vertical channels, carriage tufting with buttons, square panels), the soft
  * wall panel behind it with its wood cap and LED, real slats (rising with a lift-up base), the mattress, linen, duvet,
  * a runner and pillows as soft rounded boxes, round legs in the handle colour or a hidden black base; a bunk or loft
- * bed's soft rungs; a table's or bar counter's top with a soft edge (round corners when set), its metal legs or frame in
+ * bed's soft rungs, or with the look's metal (PieceLook.legs) a ladder of round tubes in the handle colour; a table's or
+ * bar counter's top with a soft edge (round corners when set), its metal legs or frame in
  * the handle colour; a bar's front in the piece's front style and its round foot rail; a hall panel in the front style
  * with its tinted mirror and metal coat hooks; a vanity's white ceramic bowl and its tap in the handle colour. The
  * boards stay where Items.swift puts them, so the cut list and the picture agree. A weak phone (detail .low) skips the
@@ -327,9 +328,11 @@ extension FBuilder {
     /* ---------------- beds ---------------- */
 
     /// A bed, a bunk or a loft bed: its boards, the headboard's upholstery, the slats, the mattress and its bedding (in lf,
-    /// the frame that rises with a lift-up base), its legs or hidden base, the soft wall panel.
+    /// the frame that rises with a lift-up base), its legs or hidden base, the soft wall panel; a bunk's or loft bed's
+    /// ladder of round metal tubes when its look shows metal (Core/PieceLook.swift metalLadder; Android Items3D.kt bunk3D).
     private func bedLit(_ w: WallBasis, _ m: Module, _ bs: [Board], _ f: FFrame, _ lf: FFrame) {
         let bed = m.type == "bed"
+        let metal = design?.legs == true && (m.type == "bunk" || m.type == "loft")
         let foot = bedFoot(m, design)
         let head = bed ? (design?.head ?? "") : ""
         let T = Double(t)
@@ -344,6 +347,12 @@ extension FBuilder {
             case "white": break
             case "metal": if foot == "legs" { bedLeg(f, b) }
             default:
+                // a metal ladder's stringers and rungs as tubes (a board the parts list lights up stays lit)
+                if metal && LADDER_KEYS.contains(b.key) {
+                    let base = itPart(b.role, b.key)
+                    ladderTube(f, b, hi != nil && base === p("hi") ? base : p("legs"))
+                    continue
+                }
                 // the rungs of a ladder soft-edged; the rest as they are (a bunk's ladder and guards in the wood accent)
                 let part = itPartOf(m, b)
                 if b.key == "fp.rung" { softIn(part, f, Double(b.a0), Double(b.a1), Double(b.y0), Double(b.y1), Double(b.n0), Double(b.n1), 6) }
@@ -353,6 +362,14 @@ extension FBuilder {
         }
         if foot == "base" { bedBase(f, m) }
         if bed && design?.panel == true { wallPanel(w, m, f) }
+    }
+
+    /// A metal ladder's board b as a round tube in part (Android Items3D.kt bunk3D): a stringer upright on its centre line,
+    /// 16 mm round; a rung across at its middle, 12 mm round, 4 mm into each stringer.
+    private func ladderTube(_ f: FFrame, _ b: Board, _ part: Part3) {
+        let ca = Double(b.a0 + b.a1) / 2000, cn = Double(b.n0 + b.n1) / 2000, cy = Double(b.y0 + b.y1) / 2000
+        if b.key == "fp.ladder" { tube(part, f.at(ca, Double(b.y0) / 1000, cn), f.at(ca, Double(b.y1) / 1000, cn), 0.016) }
+        else { tube(part, f.at(Double(b.a0 - 4) / 1000, cy, cn), f.at(Double(b.a1 + 4) / 1000, cy, cn), 0.012) }
     }
 
     /// A bed's round leg (its board b: a metal square from the floor up to the frame), tapering down, in the legs' look.
