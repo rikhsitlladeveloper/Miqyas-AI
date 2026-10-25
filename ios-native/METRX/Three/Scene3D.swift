@@ -246,10 +246,12 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         case .low: v.renderOptions = [.disableMotionBlur, .disableDepthOfField, .disableCameraGrain, .disableHDR, .disableGroundingShadows]
         }
         Scene3DCoordinator.studio { [weak v] env in v?.environment.lighting.resource = env }
-        v.environment.lighting.intensityExponent = tier == .high ? 0.25 : 0.5
+        // modern 3D part 5: the founder's look a touch brighter, as Android's kitchen (b765d7a: studio .62 → .72, +16 %,
+        // here +0.215 EV; sun 2.4 → 2.6 lux, +8 %)
+        v.environment.lighting.intensityExponent = tier == .high ? 0.465 : 0.715
         var c = DirectionalLightComponent()
         c.color = uiColor(0xFFF0DE)
-        c.intensity = tier == .high ? 1500 : 1900
+        c.intensity = tier == .high ? 1625 : 2060
         sun.light = c
     }
 

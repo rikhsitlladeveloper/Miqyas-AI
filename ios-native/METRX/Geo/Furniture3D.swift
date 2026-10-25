@@ -5,7 +5,8 @@ import Foundation
  * material's colour, on its wall's frame (WallBasis). Doors swing open about 100°, drawers pull out; Furn3D.picks are
  * what a tap can open. Each part has its look (Geo/Look.swift pieceLooks: the piece's design, PieceLook.swift); the
  * modern kitchen's fronts, handles, worktop, sink, LED, crown and appliances are drawn in Geo/Kitchen3D.swift (modern
- * 3D part 3). Sizes come in millimetres and go out in metres.
+ * 3D part 3); a wardrobe's sliding doors, tracks, LED, rails, legs and crown in Geo/Wardrobe3D.swift (part 5). Sizes
+ * come in millimetres and go out in metres.
  */
 
 /// A box with corner o and edges a, b, c (perpendicular, not necessarily unit length).
@@ -114,6 +115,10 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
         B.style = f.look?.style ?? "flat"; B.htype = handleType(f); B.hid = f.handle
         B.fglass = f.look?.fglass == true; B.legsMetal = metalLegs(f); B.ledOn = f.kx?.led == true
         B.accentOn = !(f.look?.accent ?? "").isEmpty
+        // a wardrobe's LED in each section (with a door sensor) and its cornice or row up to the ceiling (a kitchen's are its own)
+        B.wardLed = f.kind == "wardrobe" && f.look?.led == true
+        B.crown = f.kind == "kitchen" ? "" : crownOf(f)
+        B.crownTop = f.modules.filter { $0.type == "wardrobe" }.map { legsOf($0, fws) + $0.elev + $0.h }.max() ?? 0
         // the worktop's own thickness (a slim stone one 20): its top that much lower, the units as they are
         let topT = Double(min(60, max(12, list.first { $0.id == worktopOf(f) }?.t ?? K_TOP)))
         B.topT = topT; B.wtTop = Double(worktopTop(fws) - K_TOP) + topT
@@ -274,6 +279,10 @@ final class FBuilder {
     /// hardware id, fluted glass, metal legs, a kitchen's LED on, a wood accent chosen.
     var style = "flat", htype = "bar", hid = ""
     var fglass = false, legsMetal = false, ledOn = false, accentOn = false
+    /// A wardrobe's LED in its sections (PieceLook.led) and what is on top of it ("", "cornice", "ceiling"; crownOf).
+    var wardLed = false, crown = ""
+    /// The piece's highest box top, mm: only the boxes that reach it take the crown (a stenka's talls, not its hung shelf).
+    var crownTop = 0
     /// The box being built takes the upper fronts' board (frontUp; isUpperFront).
     var up = false
     /// A kitchen's worktop: its thickness and its top above the floor, mm.
@@ -297,7 +306,7 @@ final class FBuilder {
         let key = FStore.K(wall: w, look: l)
         if let x = st.parts[key] { return x }
         // clear glass is seen through, fluted glass a little less, a LED's glow on the wall faintly
-        let op = k == "clear" ? 0.38 : k == "fglass" ? 0.6 : k == "glow" ? 0.15 : 1
+        let op = k == "clear" ? 0.38 : k == "fglass" ? 0.6 : k == "glow" ? 0.15 : k == "shelfGlass" ? 0.5 : 1
         let x = Part3(0, w, .furn, c, op, look: l); st.parts[key] = x; st.order.append(key); return x
     }
     /// Board k of role r (carcass, front, back) being drawn: in the highlight's colour when it is the part asked for;
@@ -370,8 +379,10 @@ final class FBuilder {
         if handles { handle(fr, W, H, zf, "door", hv) }
     }
 
-    /// A drawer front (and its box, out when open): a0 along, y0 up, the front's back face at n; pr the front's role.
-    func drawer(_ w: WallBasis, _ key: String, _ a0: Double, _ fw: Double, _ y0: Double, _ fh: Double, _ n: Double, _ dd: Double, _ handles: Bool, _ pr: String = "front") {
+    /// A drawer front (and its box, out when open): a0 along, y0 up, the front's back face at n; pr the front's role, look
+    /// the look of a face that is not a styled front (an inner drawer's; nil its role's own).
+    func drawer(_ w: WallBasis, _ key: String, _ a0: Double, _ fw: Double, _ y0: Double, _ fh: Double, _ n: Double, _ dd: Double, _ handles: Bool, _ pr: String = "front",
+                look: String? = nil) {
         // seeing inside: the drawer's box stays (shut), its front goes
         if !bare { st.keys.append(key) }
         let out: Double = bare ? 0 : dd * 0.75 * how(key)
@@ -383,7 +394,7 @@ final class FBuilder {
         // seeing inside, an inner drawer's face (behind a door, of the carcass board) stays: only fronts go
         if !bare || pr != "front" {
             // a front in the piece's style; an inner drawer's plain board
-            if pr == "front" { zf = frontBody(role(pr, "fp.dFace"), fr, fw / 1000, fh / 1000, Double(t) / 1000) } else { obb(role(pr, "fp.dFace"), x, true) }
+            if pr == "front" { zf = frontBody(role(pr, "fp.dFace"), fr, fw / 1000, fh / 1000, Double(t) / 1000) } else { obb(role(pr, "fp.dFace", look: look), x, true) }
             if !bare { st.picks.append(Pick(key: key, box: x)) }
         }
         if out > 0 || bare {
@@ -555,7 +566,7 @@ final class FBuilder {
             var a = x0
             for s in m.sections.dropLast() { a += d(s.w); xs.append(a - 18) }
             if m.sideR { xs.append(x1 - 56) }
-            for q in xs { box(w, metal, q, q + 36, 0, z0, 40, 76); box(w, metal, q, q + 36, 0, z0, dd - 76, dd - 40) }
+            wardLegs(w, xs, z0, dd)
         }
         var acc = x0
         let secs = m.sections
@@ -578,8 +589,8 @@ final class FBuilder {
                 let y = floor + d(x.pos)
                 switch x.kind {
                 case "shelf": box(w, role("carcass", "fp.shelf"), il, il + iw, y, y + T, 3, di - 17, true)
-                case "glass": box(w, p("clear"), il, il + iw, y, y + 6, 3, di - 17, true)
-                case "rail": box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, di / 2 - 12, di / 2 + 12)
+                case "glass": box(w, p("shelfGlass"), il, il + iw, y, y + 6, 3, di - 17, true)
+                case "rail": hangRail(w, il, iw, y, di)
                 case "lift":
                     box(w, metal, il + 20, il + iw - 20, y + 30, y + 54, di / 2 - 12, di / 2 + 12)
                     box(w, metal, il + 5, il + 25, y + 54, y + d(blockH(x)), di / 2 - 15, di / 2 + 15)
@@ -587,7 +598,8 @@ final class FBuilder {
                     // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
                     if s.fronts.kind == "open" { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 2, iw - 4, y, d(blockH(x)), di - T, di - 60, drawerHandle(m, x), "front") }
                     // behind the doors: its own handle, or a push latch (HandleRules.swift)
-                    else { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), di - 40 - T, di - 60, drawerHandle(m, x), "carcass") }
+                    // (its face in the fronts' board, plain; still a carcass part in the lists)
+                    else { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), di - 40 - T, di - 60, drawerHandle(m, x), "carcass", look: "front") }
                 default:
                     // trouser and shoe racks: a frame that pulls out
                     let key = "\(m.id):s\(i):r\(x.pos)"
@@ -606,6 +618,8 @@ final class FBuilder {
                     }
                 }
             }
+            // the LED (PieceLook.led): under the hat shelf or the top, its light down the back (a vitrina has its own)
+            if wardLed && !m.led { secLed(w, il, il + iw, floor + d(secLedY(s, wardInnerH(m, t))), di, floor) }
             // the section's doors over its width, from the bottom panel up
             let fs = frontSizes(s.fronts, frontW(s), m.h - wardBase(m), ws)
             if s.fronts.kind == "door" && m.slide == nil {
@@ -624,9 +638,14 @@ final class FBuilder {
             acc = a1
         }
         sec = ""
-        // a vitrina's light along the inside of its top
-        if m.led { box(w, p("led"), x0 + sl + 10, x1 - sr - 10, yt - T - 8, yt - T, di - 70, di - 50) }
+        // a vitrina's light along the inside of its top, its glow down the back (a strong phone)
+        if m.led {
+            box(w, p("led"), x0 + sl + 10, x1 - sr - 10, yt - T - 8, yt - T, di - 70, di - 50)
+            glowDown(w, x0 + sl + 10, x1 - sr - 10, yt - T - 8, 3, min(520, yt - T - 8 - (yb + T)))
+        }
         if let sd = m.slide { slidingDoors(w, m, sd, x0 + sl, yb + T, dd) }
+        // on top: the cornice, or a row of units up to the ceiling (Wardrobe3D.swift wardCrown)
+        if abs(Int(yt.rounded()) - crownTop) <= 2 && wardCrown(crown, Int(yt.rounded()), ceilH) > 0 { crownOver(w, m, x0, x1, yt, dd) }
     }
 
     /// A box b of an item, tilted th about a line across it at pivotY up and pivotN out (a lift-up bed's base rising).
@@ -705,32 +724,29 @@ final class FBuilder {
         }
     }
 
-    /// Sliding doors: n in two tracks at the front, each overlapping the next; a frame of profiles round its filling
-    /// (board, mirror or glass). A tapped door slides over its neighbour.
+    /// Sliding doors: n in two tracks at the front, each overlapping the next, in their aluminium profiles (the handle
+    /// colour) with a split rail on a tall door; each filled with the front board (its style; the upper fronts' above the
+    /// split), a mirror in its tint or lacobel (Slide.panel; Wardrobe3D.swift kupeDoor). The tracks along the opening's top
+    /// and bottom. A tapped door slides over its neighbour. Seeing inside: the tracks only.
     func slidingDoors(_ w: WallBasis, _ m: Module, _ sl: Slide, _ ax: Double, _ y0: Double, _ dd: Double) {
+        let (owi, ohi) = slideOpening(m, t)
+        kupeTracks(w, ax, ax + d(owi), y0, y0 + d(ohi), dd)
         if bare { return }
         let n = min(4, max(2, sl.n))
         let (dwi, dhi) = slideDoor(m, t)
         let dw = d(dwi), dh = d(dhi)
         let step = d(dwi - SLIDE_OV)
-        let metal = p("metal")
         for j in 0..<n {
             let key = "\(m.id):slide\(j)"
             st.keys.append(key)
             // a door slides one step towards the middle: the last one left, the others right
             let shift = (j == n - 1 ? -step : step) * how(key)
             let a = ax + Double(j) * step + shift
-            let n0 = dd - 95 + Double(j % 2) * 45, n1 = n0 + 22
+            let n0 = dd - 95 + Double(j % 2) * 45
             let y = y0 + d(SLIDE_CLEAR) / 2
-            let fill: Part3
-            switch sl.panel(j) { case "mirror": fill = p("mirror"); case "glass": fill = p("glass"); default: fill = role("front", "fp.slidePanel") }
-            let fw = d(SLIDE_FRAME_W), fh = d(SLIDE_FRAME_H) / 2
-            box(w, fill, a + fw, a + dw - fw, y + fh, y + dh - fh, n0 + 6, n1 - 6, true)
-            // the frame: two uprights, the top and the bottom
-            box(w, metal, a, a + fw, y, y + dh, n0, n1, true); box(w, metal, a + dw - fw, a + dw, y, y + dh, n0, n1, true)
-            box(w, metal, a + fw, a + dw - fw, y, y + fh, n0, n1, true); box(w, metal, a + fw, a + dw - fw, y + dh - fh, y + dh, n0, n1, true)
+            kupeDoor(w, a, y, n0, dw, dh, sl.panel(j))
             let o = w.at(a / 1000, y / 1000, n0 / 1000)
-            st.picks.append(Pick(key: key, box: Obb(o: o, a: w.dir(dw / 1000, 0), b: V3(0, dh / 1000, 0), c: w.dir(0, (n1 - n0) / 1000))))
+            st.picks.append(Pick(key: key, box: Obb(o: o, a: w.dir(dw / 1000, 0), b: V3(0, dh / 1000, 0), c: w.dir(0, KUPE_PD / 1000))))
         }
     }
 }

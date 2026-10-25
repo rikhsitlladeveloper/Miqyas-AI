@@ -9,7 +9,8 @@ import ImageIO
  */
 
 /// Bumped whenever the cards' picture changes (camera, light, background, size): every card on disk is made again.
-let CARD_RENDER_VERSION = 1
+/// 2: modern wardrobes and the brighter studio with its grey floor (modern 3D part 5).
+let CARD_RENDER_VERSION = 2
 
 /// The cards' background (the approved mockup's makeCards clear colour).
 let CARD_BG = 0xE4E8F0

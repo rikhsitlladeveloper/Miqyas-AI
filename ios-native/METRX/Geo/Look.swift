@@ -159,7 +159,8 @@ private func plBoard(_ f: Furniture, _ id: String, _ part: String, _ rgb: (Strin
 /// for the boards' finishes. On top of furnLooks' keys: front (the lower fronts, two-tone) and frontUp in their boards'
 /// finish, plinth, the worktop and backsplash f uses (stone, wood; glass, a print, tile), accent (wood), handle, frame,
 /// legs and gola in the handle colour, the mirror's tint, fglass (fluted glass), the sink's inside and its tap, steel,
-/// bglass, ovenWin, display, zone (a hob's rings) and glow (a LED's light on the wall).
+/// bglass, ovenWin, display, zone (a hob's rings) and glow (a LED's light on the wall); a wardrobe's chrome (rails),
+/// shelfGlass and lacobel (a sliding door's painted glass).
 func pieceLooks(_ f: Furniture, _ rgb: (String) -> Int, _ tex: (String) -> String?, _ mats: [Mat]) -> [String: Look] {
     var l = furnLooks(f.mats, rgb, tex)
     let front = plBoard(f, f.mats.front, "frontLow", rgb, tex, mats), upId = f.mats.frontUp ?? f.mats.front
@@ -201,6 +202,12 @@ func pieceLooks(_ f: Furniture, _ rgb: (String) -> Int, _ tex: (String) -> Strin
     let mt = pl?.mirror ?? ""
     if !mt.isEmpty, let m = MIRROR_RGB[mt] { l["mirror"] = lookFlat(.mirror(rgbOf(m)), rgbOf(m)) }
     l["fglass"] = lookFlat(.glass(0xEAF2F0, 0.55, 0.3), 0xBFD8E8)
+    // a wardrobe's insides (modern 3D part 5, Geo/Wardrobe3D.swift): chrome rails, glass shelves (mockup shelfG), and a
+    // sliding door's lacobel (back-painted glass: the upper fronts' colour under a mirror-smooth coat, white on a wood decor)
+    l["chrome"] = lookFlat(.metal(0xE3E6EA, 0.05), 0xE3E6EA)
+    l["shelfGlass"] = lookFlat(.glass(0xD6EAE3, 0.4, 0.04), 0xBFD8E8)
+    let lc = tex(upId) == nil ? rgb(upId) : 0xF1EFEA
+    l["lacobel"] = lookFlat(Look(rgb: lc, roughness: 0.04, clearcoat: 1, clearcoatRoughness: 0.02), lc)
     // a chrome (or the usual) tap over a steel sink; with coloured handles a granite sink and a tap to match
     let steelish = hc.isEmpty || hc == "chrome"
     l["sinkIn"] = steelish ? lookFlat(.metal(0xBFC3C7, 0.32), 0xC5CBD4) : lookFlat(Look(rgb: 0x2A2B2E, roughness: 0.55), 0x475569)

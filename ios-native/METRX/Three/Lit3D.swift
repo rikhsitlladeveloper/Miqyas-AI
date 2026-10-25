@@ -100,7 +100,7 @@ extension Scene3DCoordinator {
     }
 
     /// The studio the reflections and the soft light come from (mockup makeEnv): light walls, a bright ceiling with light
-    /// strips, two bright windows, a darker warm floor, a few dark pieces for the gloss to mirror.
+    /// strips, two bright windows, a darker neutral grey floor, a few dark pieces for the gloss to mirror.
     /// Made once, off the first call (the SDK's equirectangular init may be async); [done] gets it as soon as it is ready.
     static func studio(_ done: @escaping (EnvironmentResource) -> Void) {
         if let e = studioEnv { done(e); return }
@@ -137,8 +137,10 @@ extension Scene3DCoordinator {
             // ceiling, walls, floor
             band(0, 0.24, 0xF6F3EE, 0xEAE6DF)
             band(0.24, 0.5, 0xC9C3BA, 0xB7B1A8)
-            band(0.5, 0.56, 0xB7B1A8, 0x8A7A69)
-            band(0.56, 1, 0x7A6A5A, 0x4A3B2E)
+            // the floor a neutral warm grey (as Android's studio since b765d7a, #9A948C): the orange-brown of wood it had
+            // turned white and graphite gloss fronts brown, which mostly mirror it seen from above
+            band(0.5, 0.56, 0xB7B1A8, 0x9F9992)
+            band(0.56, 1, 0x9A948C, 0x6F6B65)
             // light strips across the ceiling
             for y in [0.05, 0.11, 0.17] as [CGFloat] { rect(0, y, 1, y + 0.018, 0xFFFFFF) }
             // windows, a little warm
