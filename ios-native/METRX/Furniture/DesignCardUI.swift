@@ -271,7 +271,7 @@ struct DesignCard: View {
             T(tr("lk.title"), ui(16, 800))
             T(tr("lk.presets"), ui(12.5, 400, G.ink2, lh: 1.4))
             PresetStrip(cur: presetOf(f)) { id in
-                dzChange(pid, fid) { withPreset($0, id) }
+                dzChange(pid, fid) { withPreset($0, id, ws: AppSettings.shared.workshop) }
                 a.say("lk.applied", ["n": tr("lk.p." + id)])
             }
             Hairline()

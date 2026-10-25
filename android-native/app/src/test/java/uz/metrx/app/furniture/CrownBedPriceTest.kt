@@ -16,7 +16,7 @@ class CrownBedPriceTest {
     private fun cost(f: Furniture) = costOf(listOf(f), ws, MAT_PRESETS, HW_PRESETS, order = false)
     private fun line(f: Furniture, key: String) = cost(f).lines.singleOrNull { it.key == key }
 
-    /** A built-in sliding wardrobe 2400 × 2500 × 600 without a room (no side panels: it stands wall to wall). */
+    /** A built-in sliding wardrobe 2400 × 2500 × 600 without a room (a side panel at each end since 26 Oct 2026; its made-up room wall to wall, so no free end for the cornice). */
     private fun kupe() = newFreeWardrobe("Kupe", "s3", 2400, 2500, 600, true, "slide", ws).copy(id = "s")
 
     /** A hinged wardrobe 1800 × 2200 × 600 with its side panels, in a measured room, 500 from the wall's corner. */

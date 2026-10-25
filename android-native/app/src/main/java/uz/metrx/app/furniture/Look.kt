@@ -297,9 +297,12 @@ fun bedPanelOf(f: Furniture, m: Module, wallLen: Int? = pieceWallLen(f, m.wall))
  * [f] set to preset [id]: the fronts' boards (the upper ones for a two-tone kitchen or hung boxes), the handles, the
  * look; a kitchen's worktop, backsplash (600 high when it had none) and crown. [fresh] (a new piece): a sliding
  * wardrobe's middle door gets the mirror too, as the mockup shows it. The extras (fluted glass, waterfall, metal legs,
- * the slim worktop) are never a preset's; LED and a bed's wall panel stay as they were.
+ * the slim worktop) are never a preset's; LED and a bed's wall panel stay as they were. A preset with the cornice
+ * (neoclassic) puts it on a tall wardrobe or kupe too ([crownBoxes]: a standing box whose top is [WARD_CROWN_MIN] up or
+ * more, with [ws]'s legs; founder, 26 Oct 2026), priced as its cornice ([wardCorniceMm]); the other presets leave a
+ * wardrobe's crown as it is.
  */
-fun withPreset(f: Furniture, id: String, fresh: Boolean = false): Furniture {
+fun withPreset(f: Furniture, id: String, fresh: Boolean = false, ws: Workshop = Workshop()): Furniture {
     val p = designPreset(id) ?: return f
     val low = boardFor(if (p.two) p.low else p.up, p.finish, p.style)
     val up = if (p.two) boardFor(p.up, p.finish, p.style) else null
@@ -317,6 +320,8 @@ fun withPreset(f: Furniture, id: String, fresh: Boolean = false): Furniture {
     if (kitchen) g = withCrown(g, if (p.crown == "none") "" else p.crown)
     // a gorka takes the neoclassic cornice on its towers and bridge (its height is its own size: no "to the ceiling")
     else if (f.type == "gorka") g = withCrown(g, if (p.crown == "cornice") "cornice" else "")
+    // a tall wardrobe or kupe takes the neoclassic cornice (crownBoxes: not a kitchen, not a gorka)
+    else if (p.crown == "cornice" && crownBoxes(g, ws).isNotEmpty()) g = withCrown(g, "cornice")
     if (kitchen && (g.kx?.splash ?: 0) == 0) g = g.copy(kx = (g.kx ?: KExtras()).copy(splash = K_SPLASH))
     if (fresh) g = g.copy(modules = g.modules.map { m ->
         val sl = m.slide ?: return@map m

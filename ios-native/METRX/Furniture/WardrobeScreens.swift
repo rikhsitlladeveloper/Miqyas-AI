@@ -40,8 +40,9 @@ private func ward(_ pid: String, _ fid: String, _ fn: @escaping (Module) -> Modu
         y.modules = x.modules.map { mod in
             guard mod.id == cur.id else { return mod }
             let m = fn(mod)
-            // without a room there are no walls to meet: its side panels stay as they are (a free-standing kupe keeps both)
-            guard !many, let room else { return m }
+            // without a room there are no walls to meet: a kupe has a side panel at each end, another wardrobe keeps its own
+            if many { return m }
+            guard let room else { return kupeSides(x, m, nil) }
             // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
             return withSides(m, wallLen(room, snap, m.wall ?? ""), free: free)
         }

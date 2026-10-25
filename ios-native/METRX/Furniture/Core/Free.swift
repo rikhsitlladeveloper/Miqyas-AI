@@ -189,7 +189,11 @@ private func usualPoints(_ runs: [Run]) -> [SitePoint] {
 /// A new room-less wardrobe w × h × d: doors as the model has them (hinged, sliding or none).
 func newFreeWardrobe(_ name: String, _ model: String, _ w: Int, _ h: Int, _ d: Int, _ built: Bool, _ doors: String, _ ws: Workshop, now: Ms = 0, n: Int = 0) -> Furniture {
     var m = wardrobeTemplate(ws, "A", W_GAP_SIDE, w, h, builtIn: built, d: d)
-    if doors == "slide" { m.slide = Slide((2...4).contains(n) ? n : slideDoorsFor(slideOpening(m, ws.t).0)) }
+    if doors == "slide" {
+        m.slide = Slide((2...4).contains(n) ? n : slideDoorsFor(slideOpening(m, ws.t).0))
+        // a kupe without a room has no walls at its ends: a side panel at each (founder, 26 Oct 2026; kupeSides)
+        m = withSides(m, nil)
+    }
     if doors == "open" {
         let ih = wardInnerH(m, ws.t)
         m.sections = m.sections.map { s in var x = s; x.fronts = Fronts("open", 0); x.inserts = Array(repeating: Insert("shelf"), count: 4); return spreadShelves(x, ih, ws.t) }

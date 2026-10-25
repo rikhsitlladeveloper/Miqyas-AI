@@ -197,6 +197,28 @@ fun withSides(m: Module, wallLen: Int?, free: Boolean = false): Module {
 }
 
 /**
+ * A kupe's ends where no wall closes them (founder, 26 Oct 2026). A kupe is built in: it uses the room's walls for its
+ * ends. Without a room, standing free ([Furniture.pose]), or at an end that is in the room (not at the wall's corner:
+ * [withSides]), it gets an outer side panel there: of the fronts' board ([wardRole]), the kupe's full height and
+ * depth, in the 3D, the cut list, the labels and the price like any side. [wallLen] its wall's length (null: none known).
+ * Not a kupe: as it is.
+ */
+fun kupeSides(f: Furniture, m: Module, wallLen: Int?): Module {
+    if (m.type != "wardrobe" || m.slide == null) return m
+    val free = f.roomId == null || f.pose != null
+    return withSides(m, if (free) null else wallLen, free)
+}
+
+/**
+ * [f] with its kupe's side panels where no wall closes its ends ([kupeSides]): a room-less one-box piece (an older
+ * order's kupe was saved without them); [f] itself when nothing changes. A piece in a room keeps what [withSides] gave it.
+ */
+fun withKupeEnds(f: Furniture): Furniture {
+    if (f.roomId != null || f.kind != "wardrobe" || boxes(f).size != 1 || f.modules.none { it.type == "wardrobe" && it.slide != null && !(it.sideL && it.sideR) }) return f
+    return f.copy(modules = f.modules.map { kupeSides(f, it, null) })
+}
+
+/**
  * The inserts in [order] (bottom first) spread over a section [ih] high: equal gaps, counting each block's height and
  * a shelf's board; a rail keeps 900 mm to hang under it, the ones above it share what is left.
  */

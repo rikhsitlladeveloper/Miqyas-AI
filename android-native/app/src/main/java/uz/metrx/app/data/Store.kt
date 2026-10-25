@@ -64,7 +64,8 @@ class Store private constructor(context: Context) {
         unreadableIds = badIds; unreadableFiles = badFiles
         // drawn rooms saved before each kept its own 90°/45° snap get the setting they were shown with, written back once
         val snap = context.getSharedPreferences("metrx", Context.MODE_PRIVATE).getBoolean("angleSnap", true)
-        val fixed = loaded.map { withSnap(it, snap) }
+        // a room-less kupe saved without its side panels gets them (founder, 26 Oct 2026: an end without a wall has one)
+        val fixed = loaded.map { kupeEnds(withSnap(it, snap)) }
         projects.addAll(fixed.sortedByDescending { it.edited })
         fixed.forEachIndexed { i, p -> if (p !== loaded[i]) save(p) }
     }
@@ -150,6 +151,12 @@ class Store private constructor(context: Context) {
         fun withSnap(p: Project, snap: Boolean): Project =
             if (p.rooms.none { it.poly != null && it.poly.snap == null }) p
             else p.copy(rooms = p.rooms.map { r -> if (r.poly != null && r.poly.snap == null) r.copy(poly = r.poly.copy(snap = snap)) else r })
+
+        /** [p] with each room-less kupe's side panels at its ends (Wardrobe.kt withKupeEnds); the same object when none changes. */
+        fun kupeEnds(p: Project): Project {
+            val fs = p.furniture.map { uz.metrx.app.furniture.withKupeEnds(it) }
+            return if (fs.indices.all { fs[it] === p.furniture[it] }) p else p.copy(furniture = fs)
+        }
 
         @Volatile private var inst: Store? = null
         fun get(context: Context) = inst ?: synchronized(this) { inst ?: Store(context).also { inst = it } }

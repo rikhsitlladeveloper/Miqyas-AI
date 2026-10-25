@@ -160,8 +160,9 @@ private fun App.ward(pid: String, fid: String, fn: (Module) -> Module) =
         val many = uz.metrx.app.furniture.boxes(x).size > 1
         val y = x.copy(modules = x.modules.map { if (it.id == cur.id) fn(it).let { m ->
             // the side panels follow where it stands: an end in the room has one, a sliding wardrobe uses the wall it meets
-            // without a room there are no walls to meet: its side panels stay as they are (a free-standing kupe keeps both)
-            if (many || room == null) m else uz.metrx.app.furniture.withSides(m, wallLen(room, settings.angleSnap, m.wall ?: ""), x.pose != null)
+            // without a room there are no walls to meet: a kupe has a side panel at each end, another wardrobe keeps its own
+            if (many) m else if (room == null) uz.metrx.app.furniture.kupeSides(x, m, null)
+            else uz.metrx.app.furniture.withSides(m, wallLen(room, settings.angleSnap, m.wall ?: ""), x.pose != null)
         } else it })
         // the other boxes make room: a stenka's pieces side by side, a corner's arms, a box on another
         uz.metrx.app.furniture.packPiece(y, room?.let { r -> wallLen(r, settings.angleSnap, x.walls.firstOrNull() ?: "") }, cur.id, settings.workshop)

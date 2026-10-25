@@ -257,7 +257,7 @@ func pieceName(_ p: Project, _ m: FModelDef) -> String {
 func addPiece(_ pid: String, _ f0: Furniture) {
     // a new piece starts in the order's design style (Core/PieceLook.swift)
     let st = Store.shared.get(pid)?.fstyle ?? ""
-    let f = f0.look == nil && !st.isEmpty ? withPreset(f0, st, fresh: true) : f0
+    let f = f0.look == nil && !st.isEmpty ? withPreset(f0, st, fresh: true, ws: AppSettings.shared.workshop) : f0
     Store.shared.update(pid) { pr in
         pr.furniture.append(f)
         if pr.stage == "measure" { pr.stage = "design" }

@@ -858,9 +858,10 @@ internal class Builder3(
         if (m.type == "base") { val r = role("carcass", "fp.rail"); box(w, r, x0 + t, x1 - t, y1 - t, y1, d - 100, d, true); box(w, r, x0 + t, x1 - t, y1 - t, y1, 0, 100, true) }
         else box(w, role("carcass", "fp.top"), x0 + t, x1 - t, y1 - t, y1, 0, d, true)
         // the back sits in grooves between the sides, the bottom and the top (Parts.kt backPanel); a vitrina's in the
-        // wood accent when its inside is
+        // wood accent when its inside is and the look has one, as it is cut (CutList.kt vitrinaAccentBack)
         val vit = glassDoors(m)
-        box(w, role("back", "fp.back", show = if (vit && m.accentIn) "accent" else "back"), x0 + t, x1 - t, y0 + t, y1 - t, 0, 3)
+        val accBack = itemPiece?.let { uz.metrx.app.furniture.vitrinaAccentBack(it, m) } == true
+        box(w, role("back", "fp.back", show = if (accBack) "accent" else "back"), x0 + t, x1 - t, y0 + t, y1 - t, 0, 3)
         val shelves = m.inserts.filter { it.kind == "shelf" }.sumOf { it.qty }
         if (m.fronts.kind != "drawer") for (k in 1..shelves) { val y = y0 + (m.h - t) * k / (shelves + 1.0); box(w, role("carcass", "fp.shelf"), x0 + t, x1 - t, y, y + t, 20, d - 20, true) }
         // a vitrina: glass shelves (6 mm) where the board ones would be, its LED along the inside of its top with the

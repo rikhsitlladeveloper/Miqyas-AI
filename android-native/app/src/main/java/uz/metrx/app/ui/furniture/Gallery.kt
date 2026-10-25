@@ -274,7 +274,7 @@ fun FStepsScreen(rt: Route.FSteps) {
     val vals = steps.indices.mapNotNull { i -> typed(i)?.takeIf { stepIssue(steps[i], it) == null }?.let { steps[i].key to it } }.toMap()
     // a new piece in the order's design style, as it will be made (App.addPiece): the preview shows its colours
     val piece = remember(vals, ws, p.fstyle) {
-        if (edit != null) resized(edit, vals, ws) else pieceOf(m, vals, ws, "").let { if (p.fstyle.isNotEmpty()) uz.metrx.app.furniture.withPreset(it, p.fstyle, fresh = true) else it }
+        if (edit != null) resized(edit, vals, ws) else pieceOf(m, vals, ws, "").let { if (p.fstyle.isNotEmpty()) uz.metrx.app.furniture.withPreset(it, p.fstyle, fresh = true, ws = ws) else it }
     }
     val scene = remember(piece, mats) { pieceScene(piece, ws, mats) }
     val uw = unitWord(unit)

@@ -19,11 +19,20 @@ fun accentPart(m: Module, key: String) = (m.type == "bunk" || m.type == "loft") 
 /**
  * The board part [p] of [f]'s box [m] is cut from (the 3D draws it so too): its role's, the upper fronts' for an upper
  * box and for a sliding door's filling over its split rail; a bunk's or loft bed's ladder and guards the look's wood
- * accent (a wd_ board), else the fronts'.
+ * accent (a wd_ board), else the fronts'; a kitchen vitrina's back with its accent inside ([vitrinaAccentBack]) the
+ * look's wood accent too.
  */
 fun partMat(f: Furniture, m: Module, p: FPart): String =
     if (accentPart(m, p.key)) f.look?.accent?.takeIf { it.isNotEmpty() } ?: f.mats.front
+    else if (p.key == "fp.back" && vitrinaAccentBack(f, m)) f.look!!.accent
     else matFor(p.role, f.mats, isUpperFront(f, m) || p.key == "fp.slideUp")
+
+/**
+ * Whether kitchen vitrina [m] of [f] ([glassDoors]) has its back of the look's wood accent board (founder, 26 Oct 2026):
+ * its inside in the accent ([Module.accentIn]) and the look has one. Cut, labelled and priced so, and drawn so in the 3D;
+ * without an accent the back is the usual back board.
+ */
+fun vitrinaAccentBack(f: Furniture, m: Module) = glassDoors(m) && m.accentIn && !f.look?.accent.isNullOrEmpty()
 
 /**
  * Every part of [f] with the board it is cut from: its boxes' (partMat; a metal ladder's stringers and rungs are bought,

@@ -46,7 +46,8 @@ final class Store {
         unreadableIds = badIds; unreadableFiles = badFiles
         // drawn rooms saved before each kept its own 90°/45° snap get the setting they were shown with, written back once
         let snap = UserDefaults.standard.object(forKey: "angleSnap") as? Bool ?? true
-        let fixed = loaded.map { Store.withSnap($0, snap) }
+        // a room-less kupe saved without its side panels gets them (founder, 26 Oct 2026: an end without a wall has one)
+        let fixed = loaded.map { Store.kupeEnds(Store.withSnap($0, snap)) }
         projects = fixed.sorted { $0.edited > $1.edited }
         for (i, p) in fixed.enumerated() where p != loaded[i] { save(p) }
     }
@@ -56,6 +57,13 @@ final class Store {
         if !p.rooms.contains(where: { $0.poly != nil && $0.poly?.snap == nil }) { return p }
         var q = p
         for i in q.rooms.indices where q.rooms[i].poly != nil && q.rooms[i].poly?.snap == nil { q.rooms[i].poly?.snap = snap }
+        return q
+    }
+
+    /// p with each room-less kupe's side panels at its ends (Core/Wardrobe.swift withKupeEnds).
+    static func kupeEnds(_ p: Project) -> Project {
+        var q = p
+        q.furniture = p.furniture.map { withKupeEnds($0) }
         return q
     }
 

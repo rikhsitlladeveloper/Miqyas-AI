@@ -374,7 +374,7 @@ func bedPanelOf(_ f: Furniture, _ m: Module, _ wallLen: Int? = nil) -> PanelSpan
 /// a kitchen's worktop, backsplash (600 high when it had none) and crown. fresh (a new piece): a sliding wardrobe's
 /// middle door gets the mirror too, as the mockup shows it. The extras (fluted glass, waterfall, metal legs, the slim
 /// worktop) are never a preset's; LED and a bed's wall panel stay as they were.
-func withPreset(_ f: Furniture, _ id: String, fresh: Bool = false) -> Furniture {
+func withPreset(_ f: Furniture, _ id: String, fresh: Bool = false, ws: Workshop = Workshop()) -> Furniture {
     guard let p = designPreset(id) else { return f }
     let low = boardFor(p.two ? p.low : p.up, p.finish, p.style)
     let up: String? = p.two ? boardFor(p.up, p.finish, p.style) : nil
@@ -394,6 +394,10 @@ func withPreset(_ f: Furniture, _ id: String, fresh: Bool = false) -> Furniture 
     // the crown is a kitchen's (a wardrobe's height is its own size); a gorka takes the neoclassic cornice on its
     // towers and bridge (its height is its own size: no "to the ceiling")
     if kitchen { g = withCrown(g, p.crown == "none" ? "" : p.crown) } else if f.type == "gorka" { g = withCrown(g, p.crown == "cornice" ? "cornice" : "") }
+    // a tall wardrobe or kupe takes the neoclassic cornice (crownBoxes: a standing box whose top is WARD_CROWN_MIN up
+    // or more, not a kitchen, not a gorka; founder, 26 Oct 2026), priced as its cornice (wardCorniceMm); the other
+    // presets leave a wardrobe's crown as it is
+    if !kitchen && f.type != "gorka" && p.crown == "cornice" && !crownBoxes(g, ws).isEmpty { g = withCrown(g, "cornice") }
     if kitchen && (g.kx?.splash ?? 0) == 0 { var k = g.kx ?? KExtras(); k.splash = K_SPLASH; g.kx = k }
     if fresh {
         g.modules = g.modules.map { m in

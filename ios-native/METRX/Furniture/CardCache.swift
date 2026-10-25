@@ -11,7 +11,7 @@ import ImageIO
 /// Bumped whenever the cards' picture changes (camera, light, background, size): every card on disk is made again.
 /// 2: modern wardrobes and the brighter studio with its grey floor (modern 3D part 5).
 /// 3: beds, tables, the bar, hall panels and the vanity's basin in the modern style (part 6b, Geo/ItemsScene3D.swift).
-let CARD_RENDER_VERSION = 4
+let CARD_RENDER_VERSION = 5
 
 /// The cards' background (the approved mockup's makeCards clear colour).
 let CARD_BG = 0xE4E8F0
@@ -81,7 +81,7 @@ func cardKey(_ model: String, _ spec: CardSpec, style: String, matsSig: String, 
 /// The piece a card shows: model id at its usual sizes, in the order's design style (as addPiece would make it).
 func cardPiece(_ id: String, _ ws: Workshop, _ style: String) -> Furniture? {
     guard let m = fModel(id) else { return nil }
-    return styledNew(pieceOf(m, [:], ws, ""), style)
+    return styledNew(pieceOf(m, [:], ws, ""), style, ws: ws)
 }
 
 /// Where the card's camera looks from and how far: from direction az round the piece (Furniture/PieceView.swift's az0),

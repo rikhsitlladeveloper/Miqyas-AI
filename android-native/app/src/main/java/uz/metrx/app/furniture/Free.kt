@@ -183,7 +183,8 @@ private fun usualPoints(runs: List<Run>): List<uz.metrx.app.data.SitePoint> {
 fun newFreeWardrobe(name: String, model: String, w: Int, h: Int, d: Int, built: Boolean, doors: String, ws: Workshop, now: Long = 0, n: Int = 0): Furniture {
     var m = wardrobeTemplate(ws, "A", W_GAP_SIDE, w, h, built, d)
     // sliding doors over the whole front: as many as the model has, or as suits the width
-    if (doors == "slide") m = m.copy(slide = Slide(if (n in 2..4) n else slideDoorsFor(slideOpening(m, ws.t).first)))
+    // a kupe without a room has no walls at its ends: a side panel at each (founder, 26 Oct 2026; Wardrobe.kt kupeSides)
+    if (doors == "slide") m = withSides(m.copy(slide = Slide(if (n in 2..4) n else slideDoorsFor(slideOpening(m, ws.t).first))), null)
     if (doors == "open") {
         val ih = wardInnerH(m, ws.t)
         m = m.copy(sections = m.sections.map { s -> spreadShelves(s.copy(fronts = Fronts("open", 0), inserts = List(4) { Insert("shelf") }), ih, ws.t) })

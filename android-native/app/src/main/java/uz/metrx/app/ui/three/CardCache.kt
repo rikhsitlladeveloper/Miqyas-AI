@@ -9,7 +9,7 @@ import kotlinx.coroutines.CancellationException
  */
 
 /** Bumped whenever the card renderer draws differently: every card on disk is made again (2: the right way up on every driver, wardrobes in the modern 3D; 3: beds, tables and the rest). */
-const val CARD_RENDER_VERSION = 4
+const val CARD_RENDER_VERSION = 5
 
 /** A card picture's size in pixels for a quality tier: 480 × 360 (4:3) on strong phones, 320 × 240 on weak ones. */
 fun cardSize(tier: Tier): Pair<Int, Int> = if (tier == Tier.HIGH) 480 to 360 else 320 to 240

@@ -26,8 +26,15 @@ func partMat(_ f: Furniture, _ m: Module, _ p: FPart) -> String {
         let a = f.look?.accent ?? ""
         return a.isEmpty ? f.mats.front : a
     }
+    // a kitchen vitrina's back with its accent inside: the look's wood accent too
+    if p.key == "fp.back" && vitrinaAccentBack(f, m) { return f.look?.accent ?? f.mats.back }
     return matFor(p.role, f.mats, isUpperFront(f, m) || p.key == "fp.slideUp")
 }
+
+/// Whether kitchen vitrina m of f (glassDoors) has its back of the look's wood accent board (founder, 26 Oct 2026): its
+/// inside in the accent (Module.accentIn) and the look has one. Cut, labelled and priced so, and drawn so in the 3D
+/// (Geo/Furniture3D.swift backLook); without an accent the back is the usual back board.
+func vitrinaAccentBack(_ f: Furniture, _ m: Module) -> Bool { glassDoors(m) && m.accentIn && !(f.look?.accent ?? "").isEmpty }
 
 /// Every part of f with the board it is cut from: its boxes' (partMat; a metal ladder's stringers and rungs are bought, not
 /// cut: PieceLook.swift metalLadder), then a kitchen's extras (the upper end panels with the upper fronts).

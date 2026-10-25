@@ -204,6 +204,27 @@ func withSides(_ m: Module, _ wallLen: Int?, free: Bool = false) -> Module {
     return n
 }
 
+/// A kupe's ends where no wall closes them (founder, 26 Oct 2026). A kupe is built in: it uses the room's walls for its
+/// ends. Without a room, standing free (Furniture.pose), or at an end that is in the room (not at the wall's corner:
+/// withSides), it gets an outer side panel there: of the fronts' board (wardRole), the kupe's full height and depth, in
+/// the 3D, the cut list, the labels and the price like any side. wallLen its wall's length (nil: none known). Not a
+/// kupe: as it is.
+func kupeSides(_ f: Furniture, _ m: Module, _ wallLen: Int?) -> Module {
+    if m.type != "wardrobe" || m.slide == nil { return m }
+    let free = f.roomId == nil || f.pose != nil
+    return withSides(m, free ? nil : wallLen, free: free)
+}
+
+/// f with its kupe's side panels where no wall closes its ends (kupeSides): a room-less one-box piece (an older order's
+/// kupe was saved without them); f as it is when nothing changes. A piece in a room keeps what withSides gave it.
+func withKupeEnds(_ f: Furniture) -> Furniture {
+    if f.roomId != nil || f.kind != "wardrobe" || boxes(f).count != 1 { return f }
+    if !f.modules.contains(where: { $0.type == "wardrobe" && $0.slide != nil && !($0.sideL && $0.sideR) }) { return f }
+    var g = f
+    g.modules = f.modules.map { kupeSides(f, $0, nil) }
+    return g
+}
+
 /// The inserts in order (bottom first) spread over a section ih high: equal gaps, counting each block's height and a
 /// shelf's board; a rail keeps 900 mm to hang under it, the ones above it share what is left.
 func respaced(_ order: [Insert], _ ih: Int, _ t: Int) -> [Insert] {

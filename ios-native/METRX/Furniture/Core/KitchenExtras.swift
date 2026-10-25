@@ -50,6 +50,14 @@ func plinthMm(_ f: Furniture) -> Int {
 /// The wall units' length (the cornice on top, the LED strip under them), mm.
 func wallUnitsMm(_ f: Furniture) -> Int { f.modules.filter { $0.type == "wall" }.reduce(0) { $0 + $1.w } }
 
+/// The LED inside a kitchen's vitrinas (glassDoors) with the kitchen's LED on, mm: each one's width (the 3D lights them so).
+func vitrinaLedMm(_ f: Furniture) -> Int {
+    if f.kind != "kitchen" || f.kx?.led != true { return 0 }
+    var mm = 0
+    for m in f.modules where glassDoors(m) { mm += m.w }
+    return mm
+}
+
 /// The backsplash's length: the worktop along walls (not on the island), mm.
 func splashMm(_ f: Furniture) -> Int { worktopRuns(f).filter { $0.key != ISLAND }.values.reduce(0, +) }
 
@@ -80,6 +88,8 @@ func extrasHardware(_ f: Furniture) -> Counts {
     // on visible metal legs (PieceLook.swift) there is no plinth
     if x.plinth && !metalLegs(f) { n.add("plinthK", plinthMm(f)); n.add("plinthCorner", joints) }
     if x.cornice { n.add("cornice", wallUnitsMm(f)) }
-    if x.led { let mm = wallUnitsMm(f); n.add("led", mm); n.add("ledPsu", mm > 0 ? (mm + 4999) / 5000 : 0) }
+    // the LED under the wall units, and inside each vitrina along its top (founder, 26 Oct 2026: as long as the unit is
+    // wide); the drivers, one each 5 m, for both together
+    if x.led { let mm = wallUnitsMm(f) + vitrinaLedMm(f); n.add("led", mm); n.add("ledPsu", mm > 0 ? (mm + 4999) / 5000 : 0) }
     return n
 }

@@ -84,7 +84,7 @@ internal fun cardShell(f: Furniture, ws: Workshop, mats: List<Mat>, light: Boole
 /** A gallery model's piece: its usual size, in the order's design [style] as a new piece gets it (App.addPiece). */
 internal fun galleryPiece(m: FModelDef, ws: Workshop, style: String): Furniture {
     val f = pieceOf(m, emptyMap(), ws, "")
-    return if (style.isNotEmpty()) withPreset(f, style, fresh = true) else f
+    return if (style.isNotEmpty()) withPreset(f, style, fresh = true, ws = ws) else f
 }
 
 /** The workshop's materials and settings as the cards see them (their colours, decors, finishes, thicknesses). */

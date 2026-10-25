@@ -24,7 +24,9 @@ func decodeVals(_ s: String?) -> [String: Int] {
 }
 
 /// A new piece in the order's design style st ("" none), as addPiece makes it: the size steps' picture shows its colours.
-func styledNew(_ f: Furniture, _ st: String) -> Furniture { st.isEmpty || designPreset(st) == nil || f.look != nil ? f : withPreset(f, st, fresh: true) }
+func styledNew(_ f: Furniture, _ st: String, ws: Workshop = Workshop()) -> Furniture {
+    st.isEmpty || designPreset(st) == nil || f.look != nil ? f : withPreset(f, st, fresh: true, ws: ws)
+}
 
 /// A typed length in mm (nil when empty, unreadable or zero).
 func parseLen(_ s: String, _ unit: LenUnit) -> Int? {
@@ -278,7 +280,7 @@ struct FStepsScreen: View {
             // only sizes within their range reach the piece: a typed 99999 would otherwise build a 100 m kitchen on every key
             let vals = typedVals(steps, unit)
             // a new piece is shown in the order's design style, as it will be made (addPiece)
-            let piece = edit.map { resized($0, vals, ws) } ?? styledNew(pieceOf(m, vals, ws, ""), p.fstyle)
+            let piece = edit.map { resized($0, vals, ws) } ?? styledNew(pieceOf(m, vals, ws, ""), p.fstyle, ws: ws)
             let scene = pieceScene(piece, ws, s.mats)
             let uw = unitWord(unit)
             let hi: String? = at < n && !steps[at].choice ? steps[at].key : nil

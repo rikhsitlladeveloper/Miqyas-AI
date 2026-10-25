@@ -41,6 +41,9 @@ fun plinthMm(f: Furniture): Int = f.modules.filter { !isUpper(it) && (it.type ==
 /** The wall units' length (the cornice on top, the LED strip under them), mm. */
 fun wallUnitsMm(f: Furniture): Int = f.modules.filter { it.type == "wall" }.sumOf { it.w }
 
+/** The LED inside a kitchen's vitrinas ([glassDoors]) with the kitchen's LED on, mm: each one's width (the 3D lights them so). */
+fun vitrinaLedMm(f: Furniture): Int = if (f.kind != "kitchen" || f.kx?.led != true) 0 else f.modules.filter { glassDoors(it) }.sumOf { it.w }
+
 /** The backsplash's length: the worktop along walls (not on the island), mm. */
 fun splashMm(f: Furniture): Int = worktopRuns(f).filterKeys { it != ISLAND }.values.sum()
 
@@ -70,6 +73,8 @@ fun extrasHardware(f: Furniture): Map<String, Int> {
     // on visible metal legs (Look.kt) there is no plinth
     if (x.plinth && !metalLegs(f)) { add("plinthK", plinthMm(f)); add("plinthCorner", joints) }
     if (x.cornice) add("cornice", wallUnitsMm(f))
-    if (x.led) { val mm = wallUnitsMm(f); add("led", mm); add("ledPsu", if (mm > 0) (mm + 4999) / 5000 else 0) }
+    // the LED under the wall units, and inside each vitrina along its top (founder, 26 Oct 2026: as long as the unit is
+    // wide); the drivers, one each 5 m, for both together
+    if (x.led) { val mm = wallUnitsMm(f) + vitrinaLedMm(f); add("led", mm); add("ledPsu", if (mm > 0) (mm + 4999) / 5000 else 0) }
     return n
 }

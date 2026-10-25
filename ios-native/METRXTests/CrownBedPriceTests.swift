@@ -13,7 +13,7 @@ final class CrownBedPriceTests: XCTestCase {
     }
     private func look(_ f: Furniture, _ fn: (inout PieceLook) -> Void) -> Furniture { withLook(f) { l in var n = l; fn(&n); return n } }
 
-    /// A built-in sliding wardrobe 2400 × 2500 × 600 without a room (no side panels: it stands wall to wall).
+    /// A built-in sliding wardrobe 2400 × 2500 × 600 without a room (a side panel at each end since 26 Oct 2026; its made-up room wall to wall, so no free end for the cornice).
     private func kupe() -> Furniture {
         var k = newFreeWardrobe("Kupe", "s3", 2400, 2500, 600, true, "slide", ws)
         k.id = "s"

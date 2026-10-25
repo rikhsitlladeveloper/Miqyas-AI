@@ -225,7 +225,7 @@ fun DesignCard(p: Project, f: Furniture) {
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(tr("lk.title"), style = ui(16f, 800))
         Text(tr("lk.presets"), style = ui(12.5f, 400, G.ink2, 1.4f))
-        PresetStrip(presetOf(f)) { id -> change { withPreset(it, id) }; app.say("lk.applied", "n" to app.t("lk.p.$id")) }
+        PresetStrip(presetOf(f)) { id -> change { withPreset(it, id, ws = app.settings.workshop) }; app.say("lk.applied", "n" to app.t("lk.p.$id")) }
         Hairline()
         // the fronts' colours: one, or the upper and the lower (a kitchen's rows, a kupe's doors above and below the split)
         val twoOn = f.mats.frontUp != null
