@@ -12,7 +12,7 @@ import kotlin.math.min
 val GALLERY: List<Pair<String, List<String>>> = listOf(
     "kitchen" to listOf("I", "L", "U", "O", "P", "dining", "bar", "pantry"),
     "bedroom" to listOf("h2", "h3", "s2", "s3", "cornerW", "bed", "dresser", "nightstand", "vanity", "shelfW", "tvBed"),
-    "living" to listOf("tv", "stenka", "vitrina", "sideboard", "shelving", "coffee", "shelvesW"),
+    "living" to listOf("tv", "stenka", "gorka", "vitrina", "sideboard", "shelving", "dining12", "coffee", "shelvesW"),
     "hall" to listOf("hallway", "shoe", "hallW", "mirrorP", "op"),
     "kids" to listOf("bunk", "loft", "kidsW", "toys"),
     "office" to listOf("desk", "cornerDesk", "bookcase", "officeC"),
@@ -52,6 +52,12 @@ private fun newSteps(m: FModelDef): List<SizeStep>? {
         "bunk" -> bunkMat + h(1650, 1400, 2000, "fb.hBunk") + ladder
         "loft" -> bunkMat + h(1800, 1500, 2200, "fb.hLoft") + ladder + choice("und", "fb.und", listOf("fb.und.desk", "fb.und.ward", "fb.und.open"))
         "dining" -> listOf(w(1400, 600, 3000), d(800, 500, 1200), h(750, 600, 900), legs, choice("tp", "fb.tp", listOf("fb.tp.ldsp", "fb.tp.wt")), round)
+        // the big table for guests (Gorka.kt): 2800 × 1100, laid for 10 or 12
+        "dining12" -> listOf(w(2800, 1800, 3600), d(1100, 900, 1300), h(760, 700, 800), choice("st", "dt.st", listOf("dt.st.10", "dt.st.12"), 1),
+            choice("lg", "fb.lg", listOf("fb.lg.board", "fb.lg.metal4")), choice("tk", "dt.tk", listOf("dt.tk.stone", "dt.tk.wood")))
+        // the gorka (Gorka.kt): 3000 × 2100, towers 500 wide, a 65″ TV; the rest in its designer
+        "gorka" -> listOf(w(3000, 1800, 3600, "fz.wAll"), h(2100, 1800, 2800), SizeStep("tw", "gk.tw", "gk.tw.h", 500, 300, 800),
+            choice("tv", "gk.tv", GK_TVS.map { "gk.tv.$it" }, 1))
         "coffee" -> listOf(w(1000, 400, 1600), d(600, 300, 1000), h(450, 300, 600), legs, round)
         "bar" -> listOf(w(1500, 600, 3000), h(1100, 900, 1250), d(600, 400, 900, "fb.barD"))
         "mirrorP" -> listOf(w(1000, 400, 2000), SizeStep("h", "fz.wH", "fb.hPanel", 1600, 600, 2200))
@@ -313,5 +319,6 @@ fun roomCabinet(m: FModelDef, wallLen: Int?, roomH: Int?, ws: Workshop, name: St
     if (m.type in CORNER_TYPES) return pieceOf(m, mapOf("w" to (wallLen?.let { min(st.getValue("w"), it - 2 * W_GAP_SIDE) } ?: st.getValue("w")).coerceAtLeast(900)), ws, name, now)
     val w = wallLen?.let { min(st.getValue("w"), it - 2 * W_GAP_SIDE) } ?: st.getValue("w")
     val h = if (m.type.isEmpty() && roomH != null) min(st.getValue("h"), roomH - W_GAP_TOP) else st.getValue("h")
-    return pieceOf(m, st + mapOf("w" to w.coerceAtLeast(300), "h" to h, "d" to st.getValue("d")), ws, name, now)
+    // (a gorka has no depth step: its boxes have their own)
+    return pieceOf(m, st + mapOf("w" to w.coerceAtLeast(300), "h" to h), ws, name, now)
 }

@@ -131,7 +131,7 @@ fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion): Pa
     val ceil = room.dim("H").v
     val fur = remember(base, fs, amt, ws, mats, bare, light, ceil) {
         furniture3D(fs, base.bases, ws, matRgb(mats), emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare, look = matLook(mats),
-            mats = mats, light = light, ceil = ceil)
+            mats = mats, light = light, ceil = ceil, decor = !light)
     }
     val shell = remember(base, fur) { base.plus(fur.parts, fur.edges) }
     return shell to fur

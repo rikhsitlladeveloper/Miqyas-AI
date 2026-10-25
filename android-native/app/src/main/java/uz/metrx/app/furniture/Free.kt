@@ -345,7 +345,7 @@ fun firstStart(f: Furniture, wallLen: Int?): Int {
 }
 
 /** Pieces that may stand away from the walls, turned any way (a kitchen's island always may): a desk, shelving as a divider. */
-val FREE_TYPES = setOf("desk", "shelving", "bed", "bunk", "loft", "dining", "coffee", "bar")
+val FREE_TYPES = setOf("desk", "shelving", "bed", "bunk", "loft", "dining", "coffee", "bar", "dining12")
 
 fun canStandFree(f: Furniture) = f.kind == "wardrobe" && f.type in FREE_TYPES
 

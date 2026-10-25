@@ -278,7 +278,10 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
                  * Every board one box of six faces even with [look] (the 2D painter, PieceView.kt, reads them six at a
                  * time): the looks' colours kept, none of the lit 3D's shaped details.
                  */
-                boxes: Boolean = false): Furn3D {
+                boxes: Boolean = false,
+
+                /** The small decor (a gorka's dishes, the big table's pendant…, Gorka3D.kt): left out on the light tier. */
+                decor: Boolean = true): Furn3D {
     // how far each door or drawer is open, 0 to 1 (moving between the two while it opens or shuts)
     val how = amt ?: { k: String -> if (k in open) 1.0 else 0.0 }
     val parts = LinkedHashMap<Pair<String?, Any>, Part>(); val edges = LinkedHashMap<String?, Edges>()
@@ -332,8 +335,9 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
         B.hType = handleType(f); B.hId = f.handle; B.style = l?.style ?: "flat"; B.fglass = l?.fglass == true
         B.metalLegs = metalLegs(f); B.plinth = f.kx?.plinth == true
         // a wardrobe's LED with door sensors, its cornice or panel up to the ceiling (the room's height, a room-less piece's own)
-        B.ledLook = f.kind == "wardrobe" && l?.led == true
-        B.crown = if (f.kind == "kitchen") "" else crownOf(f)
+        // a gorka draws its own LED strips and cornice (Gorka3D.kt): not the wardrobe engine's as well
+        B.ledLook = f.kind == "wardrobe" && f.type != "gorka" && l?.led == true
+        B.crown = if (f.kind == "kitchen" || f.type == "gorka") "" else crownOf(f)
         B.ceilH = (ceil ?: f.free?.h ?: 2700).toDouble()
         // the worktop's thickness: a slim 20 mm stone sits on the same carcasses, its top lower
         val wtT = if (rich) (ms.firstOrNull { it.id == topId }?.t ?: K_TOP).coerceIn(10, 60) else K_TOP
@@ -358,7 +362,10 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             B.mod = m.label.ifEmpty { m.id }; B.sec = ""
             // a two-tone piece's upper boxes take the upper fronts' board
             B.fr = if (isUpperFront(f, m)) "frontUp" else "front"
-            if (m.type == "wardrobe") {
+            // the gorka's and the big table's own (Gorka3D.kt): the TV panel and the table drawn there alone, a gorka's lights and dishes over its boxes
+            val gx = guest3D(f, mm, fws, decor)
+            if (gx != null && gx.own) gx.boxes.forEach { B.xbox(b, it) }
+            else if (m.type == "wardrobe") {
                 // what stands past each end along its wall: the wall's corner, or another box close by (of another piece or this one)
                 val L = bases[m.wall ?: ""]?.let { (it.len * 1000).toInt() }
                 fun near(at: Int) = fs.any { o -> o.pose == null && o.modules.any { it.id != m.id && it.wall == m.wall && (o.id != f.id || !uz.metrx.app.furniture.hung(it)) &&
@@ -370,6 +377,7 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             else B.kitchenUnit(b, m)
             // a bathroom vanity carries its basin and tap on top
             if (f.type == "sinkV" && m.type == "wardrobe") B.basin(b, mm)
+            if (gx != null && !gx.own) gx.boxes.forEach { B.xbox(b, it) }
         }
         B.fr = "front"
         // the worktop over the lower row of each wall (and over the corner it turns into)
@@ -1248,6 +1256,20 @@ private class Builder3(
     private fun kupeSplit(m: Module, dh: Double, lift: Double): Double? {
         val v = m.sections.flatMap { s -> s.inserts.filter { it.kind == "shelf" } }.map { it.pos + t / 2.0 - lift }.filter { it >= dh * .6 && it <= dh - 250 }.maxOrNull()
         return v ?: if (dh >= 1500) dh - 420 else null
+    }
+
+    /** A box of Gorka3D.kt: in its own look (one part for each wall and look) or the piece's board of its role; turned round its middle. */
+    fun xbox(w: WallBasis, x: XBox) {
+        val p = x.look?.let { lk -> val wl = if (wall == ISLAND) null else wall
+            parts.getOrPut(wl to lk) { Part(0, wl, Role.FURN, lk.rgb, if (lk.alpha < 1f) .38f else 1f, look = lk) } } ?: role(x.role, x.key)
+        if (x.rotN == 0.0 && x.rotY == 0.0) { box(w, p, x.a0, x.a1, x.y0, x.y1, x.n0, x.n1, x.line, x.up); return }
+        val ax = w.dir(1.0, 0.0); val nx = w.dir(0.0, 1.0)
+        var a = ax; var y = UP; var n = nx
+        if (x.rotN != 0.0) { val r = Math.toRadians(x.rotN); a = ax * cos(r) + UP * sin(r); y = UP * cos(r) - ax * sin(r) }
+        if (x.rotY != 0.0) { val r = Math.toRadians(x.rotY); val a2 = a * cos(r) + nx * sin(r); n = nx * cos(r) - a * sin(r); a = a2 }
+        val sa = (x.a1 - x.a0) / 1000; val sy = (x.y1 - x.y0) / 1000; val sn = (x.n1 - x.n0) / 1000
+        val c = w.at((x.a0 + x.a1) / 2000, (x.y0 + x.y1) / 2000, (x.n0 + x.n1) / 2000)
+        obb(p, Obb(c - a * (sa / 2) - y * (sy / 2) - n * (sn / 2), a * sa, y * sy, n * sn), x.line)
     }
 
     /** A box [b] of an item, tilted [th] about a line across it at [pivotY] up and [pivotN] out (a lift-up bed's base rising). */
