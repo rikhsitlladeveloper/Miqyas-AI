@@ -57,7 +57,8 @@ class KupeBunkBoardsTest {
         assertEquals(769 * 1881, hardware(listOf(k), ws)["mirror"])
         assertEquals(1.45, line(k, "mirror")!!.qty, 1e-9); assertEquals(BigInteger("362500"), line(k, "mirror")!!.amount)
         val up = partsOf(m, ws).single { it.key == "fp.slideUp" }
-        assertEquals(Triple(393, 769, 1), Triple(up.L, up.W, up.qty))
+        // every door's (the board doors' too: KupeBoardDoorsTest)
+        assertEquals(Triple(393, 769, 3), Triple(up.L, up.W, up.qty))
         assertEquals(setOf("ldsp18a"), mats(k, "fp.slideUp"))
         assertEquals(2, partsOf(m, ws).single { it.key == "fp.slidePanel" }.qty)
         // lacobel the same
@@ -72,8 +73,8 @@ class KupeBunkBoardsTest {
         assertNull(kupeSplit(low.modules[0], ws.t))
         assertEquals(slidePanel(low.modules[0], ws.t).second to 0, kupeFillH(low.modules[0], ws.t))
         assertTrue(partsOf(low.modules[0], ws).none { it.key == "fp.slideUp" })
-        // all board doors: no upper part of their own
-        assertTrue(partsOf(withMiddleFill(k, "ldsp").modules[0], ws).none { it.key == "fp.slideUp" })
+        // all board doors: an upper part each too, as the 3D draws them (KupeBoardDoorsTest)
+        assertEquals(3, partsOf(withMiddleFill(k, "ldsp").modules[0], ws).single { it.key == "fp.slideUp" }.qty)
     }
 
     @Test fun aBunksLadderAndGuardsInTheWoodAccent() {
