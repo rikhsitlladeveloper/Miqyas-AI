@@ -129,6 +129,8 @@ private extension Doc {
         let top = y
         table(rows, fixed: [28, (CW - 28) * 0.42, (CW - 28) * 0.58], top: 0, breakable: false)
         let rowH = measure(a(" ", ui(10))).height + 6
+        // each row as tall as the table made it (a long list of pieces wraps), the swatch by its first line
+        let wRole = (CW - 28) * 0.42, wName = (CW - 28) * 0.58
         var yy = top
         for e in entries {
             let at = yy
@@ -138,7 +140,9 @@ private extension Doc {
                     ctx.fill(Path(r), with: .color(matColor(rgb))); ctx.stroke(Path(r), with: .color(F_RULE), lineWidth: 0.75)
                 }
             }
-            yy += rowH
+            let roleH: CGFloat = measure(a(e.0, ui(10, 600)), wRole - 10).height
+            let nameH: CGFloat = measure(a(dn(e.1, l), ui(10)), wName - 10).height
+            yy += max(rowH, max(roleH, nameH) + 6)
         }
     }
 

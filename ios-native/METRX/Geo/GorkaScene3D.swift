@@ -108,10 +108,14 @@ func gorkaBox(_ f: Furniture, _ m: Module, _ ws: Workshop, _ decor: Bool) -> [Gu
         if led {
             out.append(GuestBox(x0 + sl + 4, x0 + sl + 12, yb + t, yt - t, di - 40, di - 32, key: "led"))
             out.append(GuestBox(x1 - sr - 12, x1 - sr - 4, yb + t, yt - t, di - 40, di - 32, key: "led"))
+            // their warm light on the glass box's back, brightest at the top (mockup's lights in the towers; none on a weak phone)
+            if decor { gkGlow(&out, x0 + sl, x1 - sr, yt - t, (yt - yb - 2 * t) / Double(GK_GLOW.count), 8) }
         }
         if decor && m.sections.count == 1 { gkDishes(&out, m, x0 + sl, x1 - sr, yb + t, yt - t, t) }
     } else if m.id == r.base?.id {
         if led { out.append(GuestBox(x0 + 40, x1 - 40, e - 6, e, dd - 60, dd - 48, key: "led")) }
+        // and its glow on the wall under the floating base (mockup)
+        if led && decor && m.elev > 40 { gkGlow(&out, x0 + 20, x1 - 20, e, e / Double(GK_GLOW.count), 3) }
         // a vase and a few books on the base
         if decor && m.w >= 900 {
             out.append(GuestBox(x0 + 250, x0 + 350, yt, yt + 220, dd / 2 - 50, dd / 2 + 50, look: GK_PORCELAIN))
@@ -121,7 +125,11 @@ func gorkaBox(_ f: Furniture, _ m: Module, _ ws: Workshop, _ decor: Bool) -> [Gu
             }
         }
     } else if m.id == r.bridge?.id {
-        if led { out.append(GuestBox(x0 + 30, x1 - 30, e - 7, e, dd - 60, dd - 48, key: "led")) }
+        if led {
+            out.append(GuestBox(x0 + 30, x1 - 30, e - 7, e, dd - 60, dd - 48, key: "led"))
+            // its glow down the TV panel under it, 500 mm (mockup), just in front of the panel's face
+            if decor { gkGlow(&out, x0 + 80, x1 - 80, e, 500 / Double(GK_GLOW.count), t + Double(GK_FACING) + 1) }
+        }
     }
     // the neoclassic cornice: three stepped mouldings over each tower and the bridge, in the upper fronts' board (as an
     // iPhone wardrobe's cornice, Geo/Wardrobe3D.swift crownOver)
@@ -131,6 +139,23 @@ func gorkaBox(_ f: Furniture, _ m: Module, _ ws: Workshop, _ decor: Bool) -> [Gu
         out.append(GuestBox(x0 - 25, x1 + 25, yt + 58, yt + 76, 0, dd + 38, key: "frontUp", line: true))
     }
     return out
+}
+
+/// The see-through of a LED's glow bands, from the strip outwards (Android geo/Gorka3D.kt GK_GLOW).
+let GK_GLOW: [Double] = [0.22, 0.17, 0.13, 0.10, 0.07, 0.05, 0.03, 0.015]
+
+/// A LED glow band's look: the piece's "glow" (Geo/Look.swift pieceLooks) at see-through a.
+func gkGlowLook(_ a: Double) -> Look {
+    Look(rgb: 0xFFB068, roughness: 1, emissive: 0.9, emissiveRgb: 0xFFB068, alpha: a)
+}
+
+/// A LED's soft glow over a0…a1 from top down: GK_GLOW's bands, band mm each, a millimetre thin at n out from the wall.
+private func gkGlow(_ out: inout [GuestBox], _ a0: Double, _ a1: Double, _ top: Double, _ band: Double, _ n: Double) {
+    if a1 - a0 < 1 || band < 1 { return }
+    for (i, a) in GK_GLOW.enumerated() {
+        let k = Double(i)
+        out.append(GuestBox(a0, a1, top - (k + 1) * band, top - k * band, n, n + 1, look: gkGlowLook(a)))
+    }
 }
 
 /// Dishes on a tower's floor and shelves (a0…a1 inside, y0…y1 its floor to its top): plates and cups, bowls and a teapot, a vase on top.
@@ -288,7 +313,9 @@ extension FBuilder {
         let w = wall == ISLAND ? nil : wall
         let key = FStore.K(wall: w, look: l)
         if let x = st.parts[key] { return x }
-        let x = Part3(0, w, .furn, l.flatRgb, l.alpha < 1 ? 0.38 : 1, look: l)
+        // see-through glass at 0.38; a LED's glow band as faint as its own look
+        let op = l.alpha >= 1 ? 1 : l.emissive > 0 ? l.alpha : 0.38
+        let x = Part3(0, w, .furn, l.flatRgb, op, look: l)
         st.parts[key] = x; st.order.append(key)
         return x
     }

@@ -9,6 +9,19 @@ import SwiftUI
 
 func wardOf(_ f: Furniture) -> Module? { f.modules.first { $0.type == "wardrobe" } }
 
+/// The designer's header line (Android WardrobeScreens.kt wardHeadSub): a gorka as a whole (its width, height, deepest
+/// box and towers), another piece of several boxes (a stenka, a corner piece, a box on another) by its whole size as on
+/// its card, any other cabinet the size and sections of box m.
+func wardHeadSub(_ f: Furniture, _ m: Module, _ ws: Workshop) -> String {
+    if let r = gorkaRoles(f) {
+        let v = gorkaVals(f, ws)
+        let w: Int = v["w"] ?? 0, h: Int = v["h"] ?? 0, d: Int = v["d"] ?? 0
+        return tr("gk.sub", ["w": w, "h": h, "d": d, "n": r.ups.count])
+    }
+    if PIECE_TYPES.contains(f.type) && boxes(f).count > 1 { return pieceLine(f, ws) }
+    return tr("wd.sub", ["w": m.w, "h": outerH(m, ws), "d": m.d, "n": m.sections.count])
+}
+
 /// The box the designer works on: the one picked (a stenka's piece, a corner wardrobe's arm), else the first.
 func curWard(_ f: Furniture) -> Module? {
     let sel = KitOps.shared.sel
@@ -392,7 +405,7 @@ struct WardrobeScreen: View {
                         GlassIconButton("back", tr("nt.back")) { app.pop() }.accessibilityIdentifier("back")
                         VStack(alignment: .leading, spacing: 0) {
                             T(dn(f.name), ui(19, 800, G.ink, lh: 1.2), lines: 1)
-                            T(tr("wd.sub", ["w": m.w, "h": outerH(m, ws), "d": m.d, "n": m.sections.count]), ui(12, 400, G.ink2), lines: 1)
+                            T(wardHeadSub(f, m, ws), ui(12, 400, G.ink2), lines: 1)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         GlassIconButton("undo", tr("common.undo"), tint: kit.canUndo(f.id) ? G.ink : PC.offIcon) { kit.undo(p.id, f.id) }.accessibilityIdentifier("kt.undo")

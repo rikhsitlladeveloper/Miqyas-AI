@@ -471,7 +471,8 @@ final class FBuilder {
         // the back sits in grooves between the sides, the bottom and the top (Parts backPanel); a vitrina's in the wood
         // accent when its inside is
         let vit = glassDoors(m)
-        box(w, role("back", "fp.back", look: ck ?? (vit && m.accentIn && accentOn ? "accent" : nil)), x0 + T, x1 - T, y0 + T, y1 - T, 0, 3)
+        let backLook: String? = ck ?? (vit && m.accentIn && accentOn ? "accent" : nil)
+        box(w, role("back", "fp.back", look: backLook), x0 + T, x1 - T, y0 + T, y1 - T, 0, 3)
         let shelves = m.inserts.filter { $0.kind == "shelf" }.reduce(0) { $0 + $1.qty }
         if m.fronts.kind != "drawer" && shelves > 0 {
             let shelf = role("carcass", "fp.shelf", look: ck)

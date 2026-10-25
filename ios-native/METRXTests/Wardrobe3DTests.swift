@@ -123,8 +123,11 @@ final class Wardrobe3DTests: XCTestCase {
         let up = d.parts.filter { $0.look == l["frontUp"] }.flatMap(\.faces).flatMap(\.pts).map(\.y)
         let low = d.parts.filter { $0.look == l["front"] }.flatMap(\.faces).flatMap(\.pts).map(\.y)
         XCTAssertFalse(up.isEmpty); XCTAssertFalse(low.isEmpty)
-        // the upper fronts' board over the split rail, the lower one under it
-        XCTAssertTrue((up.min() ?? 0) > (low.max() ?? 9) - 1e-6)
+        // the upper fronts' board over the split rail (above 60 % of the height), the lower one under it; the lower board
+        // also makes the kupe's outer sides, top and plinth since 25 Oct (founder), so only its lowest points are compared
+        let top = max(up.max() ?? 0, low.max() ?? 0)
+        XCTAssertTrue((up.min() ?? 0) > top * 0.6)
+        XCTAssertTrue((low.min() ?? 9) < top * 0.6)
     }
 
     func testTheMirrorTakesItsTint() {

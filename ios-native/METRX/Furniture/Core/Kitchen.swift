@@ -129,7 +129,7 @@ func withGlassDoors(_ m: Module, _ on: Bool) -> Module {
     let g = on && m.type == "wall" && m.fronts.kind == "door"
     var n = m
     n.glass = g; n.accentIn = g && m.accentIn
-    n.inserts = m.inserts.map { x in
+    n.inserts = m.inserts.map { (x: Insert) -> Insert in
         var y = x
         if g && x.kind == "shelf" { y.kind = "glass" } else if !g && x.kind == "glass" { y.kind = "shelf" }
         return y

@@ -44,6 +44,13 @@ final class GorkaScene3DTests: XCTestCase {
         XCTAssertEqual(leds.count, 4)
         XCTAssertTrue(gorkaBox(f, r.base!, ws, true).contains { $0.key == "led" }); XCTAssertTrue(gorkaBox(f, r.bridge!, ws, true).contains { $0.key == "led" })
         XCTAssertTrue(looks(f).contains(pieceLook(f, "led")!))
+        // the LED's soft glow: up each glass box, on the wall under the floating base, down the TV panel; none on a weak phone
+        func glows(_ m: Module, _ decor: Bool) -> Int {
+            gorkaBox(f, m, ws, decor).filter { b in (b.look?.emissive ?? 0) > 0.5 && (b.look?.alpha ?? 1) < 1 }.count
+        }
+        XCTAssertEqual(glows(r.ups[0], true), 8); XCTAssertEqual(glows(r.bridge!, true), 8); XCTAssertEqual(glows(r.base!, true), 8)
+        XCTAssertEqual(glows(r.ups[0], false), 0); XCTAssertEqual(glows(r.bridge!, false), 0)
+        XCTAssertTrue(looks(f).contains { l in l.emissive > 0.5 && l.alpha < 1 })
         // the cornice: three mouldings over each tower and the bridge (none over a drawer box)
         XCTAssertEqual(gorkaBox(f, r.ups[0], ws, false).filter { $0.key == "frontUp" }.count, 3)
         XCTAssertTrue(gorkaBox(f, r.lows[0], ws, false).isEmpty)

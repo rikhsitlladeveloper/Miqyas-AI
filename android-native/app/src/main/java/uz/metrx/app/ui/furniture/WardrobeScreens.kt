@@ -133,6 +133,22 @@ import kotlin.math.min
 
 internal fun wardOf(f: Furniture): Module? = f.modules.firstOrNull { it.type == "wardrobe" }
 
+/**
+ * The designer's header line: a gorka as a whole (its width, height, deepest box and towers), another piece of several
+ * boxes (a stenka, a corner piece, a box on another) by its whole size as on its card, any other cabinet the size and
+ * sections of box [m].
+ */
+@Composable
+internal fun wardHeadSub(f: Furniture, m: Module, ws: Workshop): String {
+    val r = uz.metrx.app.furniture.gorkaRoles(f)
+    if (r != null) {
+        val v = uz.metrx.app.furniture.gorkaVals(f, ws)
+        return tr("gk.sub", "w" to v["w"], "h" to v["h"], "d" to v["d"], "n" to r.ups.size)
+    }
+    if (f.type in uz.metrx.app.furniture.PIECE_TYPES && uz.metrx.app.furniture.boxes(f).size > 1) return pieceLine(f, ws)
+    return tr("wd.sub", "w" to m.w, "h" to outerH(m, ws), "d" to m.d, "n" to m.sections.size)
+}
+
 /** The box the designer works on: the one picked (a stenka's piece, a corner wardrobe's arm), else the first. */
 internal fun App.curWard(f: Furniture): Module? = f.modules.firstOrNull { it.id == kit.sel && it.type == "wardrobe" } ?: wardOf(f)
 
@@ -437,7 +453,7 @@ fun WardrobeScreen(rt: Route.Wardrobe) {
                 GlassIconButton("back", tr("nt.back"), { app.pop() })
                 Column(Modifier.weight(1f)) {
                     Text(dn(f.name, lang), style = ui(19f, 800, G.ink, 1.2f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(tr("wd.sub", "w" to m.w, "h" to outerH(m, ws), "d" to m.d, "n" to m.sections.size), style = ui(12f, 400, G.ink2), maxLines = 1)
+                    Text(wardHeadSub(f, m, ws), style = ui(12f, 400, G.ink2), maxLines = 1)
                 }
                 GlassIconButton("undo", tr("common.undo"), { kit.undo(app, p.id, f.id) }, tint = if (kit.canUndo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
                 GlassIconButton("redo", tr("common.redo"), { kit.redo(app, p.id, f.id) }, tint = if (kit.canRedo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
