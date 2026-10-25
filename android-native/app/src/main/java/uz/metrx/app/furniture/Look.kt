@@ -203,6 +203,8 @@ fun withPreset(f: Furniture, id: String, fresh: Boolean = false): Furniture {
     g = withHandleType(g, p.handle)
     // the crown is a kitchen's (a wardrobe's height is its own size)
     if (kitchen) g = withCrown(g, if (p.crown == "none") "" else p.crown)
+    // a gorka takes the neoclassic cornice on its towers and bridge (its height is its own size: no "to the ceiling")
+    else if (f.type == "gorka") g = withCrown(g, if (p.crown == "cornice") "cornice" else "")
     if (kitchen && (g.kx?.splash ?: 0) == 0) g = g.copy(kx = (g.kx ?: KExtras()).copy(splash = K_SPLASH))
     if (fresh) g = g.copy(modules = g.modules.map { m ->
         val sl = m.slide ?: return@map m
@@ -311,7 +313,8 @@ fun lookHardware(f: Furniture, ws0: Workshop): Map<String, Int> {
     }
     if (f.kind == "kitchen" && l.crown == "ceiling") add("ceilUnit", wallUnitsMm(f))
     add("waterfall", waterfallEnds(f))
-    if (f.kind == "wardrobe" && l.led) f.modules.filter { it.type == "wardrobe" && !it.led }.forEach { m ->
+    // (a gorka's LED is its strips round the towers, the base and the bridge: Gorka.kt gorkaHardware)
+    if (f.kind == "wardrobe" && l.led && f.type != "gorka") f.modules.filter { it.type == "wardrobe" && !it.led }.forEach { m ->
         add("led", m.w - 2 * ws.t); add("ledPsu", 1)
         add("ledSensor", m.slide?.n?.coerceIn(2, 4) ?: m.sections.count { it.fronts.kind == "door" }.coerceAtLeast(1))
     }

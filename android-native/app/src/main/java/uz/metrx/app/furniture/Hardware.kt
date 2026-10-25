@@ -9,7 +9,7 @@ package uz.metrx.app.furniture
 val METRE_KINDS = setOf("rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail", "gola", "ceilUnit")
 /** Kinds counted in square millimetres and bought by the m². */
 val AREA_KINDS = setOf("mirror", "glass", "glassShelf", "glassDoor", "frontShaker", "frontFluted", "fglass", "mirrorBronze", "mirrorGraphite",
-    "headSoft", "headTufted", "softPanel")
+    "headSoft", "headTufted", "softPanel", "tvStone", "tvSlats", "tvMould")
 
 /** How a kind is bought: "m", "m2" or "pcs" (the strings key fu.*). */
 fun hwUnit(kind: String) = when (kind) { in METRE_KINDS -> "m"; in AREA_KINDS -> "m2"; else -> "pcs" }
@@ -104,6 +104,8 @@ fun hardware(fs: List<Furniture>, ws: Workshop): Map<String, Int> {
         }
         extrasHardware(f).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v }
         lookHardware(f, ws).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v }
+        // a gorka's LED strips and cornice (Gorka.kt)
+        gorkaHardware(f, ws).forEach { (k, v) -> n[k] = (n[k] ?: 0) + v }
     }
     return n
 }

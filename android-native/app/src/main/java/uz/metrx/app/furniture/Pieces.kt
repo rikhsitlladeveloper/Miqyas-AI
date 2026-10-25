@@ -13,9 +13,9 @@ import kotlin.math.min
  */
 
 /** Pieces with their own short designer (Items.kt) instead of the wardrobe designer. */
-val ITEM_TYPES = setOf("bed", "bunk", "loft", "dining", "coffee", "bar", "mirrorP")
+val ITEM_TYPES = setOf("bed", "bunk", "loft", "dining", "coffee", "bar", "mirrorP", "dining12")
 /** Pieces of several boxes on the wardrobe's engine. */
-val PIECE_TYPES = setOf("stenka", "cornerW", "cornerDesk", "vitrina", "washer")
+val PIECE_TYPES = setOf("stenka", "cornerW", "cornerDesk", "vitrina", "washer", "gorka")
 /** Pieces on two walls round a corner: the first wall's run ends in the corner, the second starts past its depth. */
 val CORNER_TYPES = setOf("cornerW", "cornerDesk")
 /** One box standing on another. */
@@ -44,6 +44,8 @@ fun topOf(m: Module, ws: Workshop): Int = if (m.type in ITEM_MODS) itemTop(m, ws
 fun firstRun(f: Furniture): List<Module> {
     val w0 = f.walls.firstOrNull() ?: wardOfF(f)?.wall
     val on = boxes(f).filter { it.wall == w0 }
+    // a gorka's floating base and bridge are its run too (with one tower they reach past it)
+    if (f.type == "gorka") return on
     return on.filter { !hung(it) }.ifEmpty { on }
 }
 
@@ -74,6 +76,7 @@ fun packPiece(f: Furniture, lenA: Int? = null, changed: String? = null, ws: Work
     f.kind != "wardrobe" -> f
     f.type in CORNER_TYPES -> cornerFit(f, lenA)
     f.type == "stenka" -> stenkaPack(f)
+    f.type == "gorka" -> gorkaPack(f, changed, ws)
     f.type in STACK_TYPES -> stackPack(f, changed, ws)
     f.type == "loft" -> loftPack(f, ws, changed)
     f.modules.any { it.type == "mirror" } -> mirrorPack(f, ws)
@@ -314,6 +317,9 @@ fun newPiece(type: String, v: (String) -> Int, ws: Workshop, name: String, now: 
         }
         "dining", "coffee" -> listOf(itemModule("table", ws, "A", x, v("w"), v("h"), v("d"),
             Opt(legs = opt("lg", LEG_KINDS), top = if (v("tp") == 1) "wt" else "ldsp", round = v("rc") == 1)))
+        // the big dining table (Gorka.kt): a 38 mm top, laid for 10 or 12
+        "dining12" -> listOf(itemModule("table", ws, "A", x, v("w"), v("h"), v("d"), Opt(legs = opt("lg", DT_LEGS), top = "wt", seats = DT_SEATS.getOrElse(v("st")) { 12 })))
+        "gorka" -> gorkaBoxes(ws, gkOpts(v))
         "bar" -> listOf(itemModule("bar", ws, "A", x, v("w"), v("h"), v("d"), Opt(top = "wt")))
         "mirrorP" -> listOf(itemModule("hooks", ws, "A", x, v("w"), v("h"), 0, Opt(hooks = 4, shelf = true, mirW = 450, mirH = 1000), elev = 300))
         "stenka" -> stenka(ws, v("w"), v("h"), v("d"))
@@ -331,7 +337,14 @@ fun newPiece(type: String, v: (String) -> Int, ws: Workshop, name: String, now: 
             listOf(m) + mirror
         }
     }
-    val f = Furniture(uid(), "wardrobe", name, null, walls, mods, created = now, model = type, type = type, mats = if (type in BATH_TYPES) bathMats() else FMats())
+    val mats = when {
+        type in BATH_TYPES -> bathMats()
+        // the big table's top, the gorka's stone panel: a stone-look worktop board (wood for a wood top)
+        type == "dining12" -> FMats(top = dtTop(if (v("tk") == 1) "wood" else "stone", null))
+        type == "gorka" -> FMats(top = dtTop("stone", null))
+        else -> FMats()
+    }
+    val f = Furniture(uid(), "wardrobe", name, null, walls, mods, created = now, model = type, type = type, mats = mats)
     // a corner piece with its corner on the left: the same arms on the made-up room's left and back walls
     if (type in CORNER_TYPES && shapeLeft(type, v("sh"))) return packPiece(onWalls(f, cornerWalls("L")).copy(hand = "L"), null, ws = ws)
     return packPiece(f, null, ws = ws)
@@ -346,6 +359,9 @@ fun pieceVals(f: Furniture, ws: Workshop): Map<String, Int> {
         "bunk" -> mapOf("mw" to o.mw, "ml" to o.ml, "h" to main.h, "lad" to if (o.ladder == "L") 0 else 1)
         "loft" -> mapOf("mw" to o.mw, "ml" to o.ml, "h" to main.h, "lad" to if (o.ladder == "L") 0 else 1, "und" to UNDER_KINDS.indexOf(o.under).coerceAtLeast(0))
         "dining", "coffee" -> mapOf("w" to main.w, "d" to main.d, "h" to main.h, "lg" to LEG_KINDS.indexOf(o.legs).coerceAtLeast(0), "tp" to if (o.top == "wt") 1 else 0, "rc" to if (o.round) 1 else 0)
+        "dining12" -> mapOf("w" to main.w, "d" to main.d, "h" to main.h, "st" to DT_SEATS.indexOf(o.seats).let { if (it < 0) 1 else it },
+            "lg" to DT_LEGS.indexOf(o.legs).coerceAtLeast(0), "tk" to if (worktopKind(f.mats.top) == "wood") 1 else 0)
+        "gorka" -> gorkaVals(f, ws)
         "bar" -> mapOf("w" to main.w, "h" to main.h, "d" to main.d)
         "mirrorP" -> mapOf("w" to main.w, "h" to main.h)
         "stenka" -> {
@@ -386,7 +402,7 @@ fun pieceResized(f: Furniture, v: Map<String, Int>, ws: Workshop): Furniture {
         val n = newPiece(f.type, ::g, ws, f.name, f.created)
         // the handles chosen for the whole piece ("Change for all", or none at all) stay as they were, and so do the
         // doors and drawers chosen without one and each section's soft close (Handles.kt)
-        val r0 = onWalls(n, f.walls.ifEmpty { n.walls }).copy(id = f.id, roomId = f.roomId, ws = f.ws, mats = f.mats, keep = f.keep, pose = f.pose, model = f.model, handle = f.handle)
+        val r0 = onWalls(n, f.walls.ifEmpty { n.walls }).copy(id = f.id, roomId = f.roomId, ws = f.ws, mats = f.mats, keep = f.keep, pose = f.pose, model = f.model, handle = f.handle, look = f.look)
         val r = keepFrontChoices(f, r0)
         return if (f.type in CORNER_TYPES) r else shiftRun(r, runStart(f))
     }
@@ -399,8 +415,11 @@ fun pieceResized(f: Furniture, v: Map<String, Int>, ws: Workshop): Furniture {
             ladder = v["lad"]?.let { if (it == 0) "L" else "R" } ?: o.ladder,
             legs = v["lg"]?.let { LEG_KINDS.getOrElse(it) { o.legs } } ?: o.legs,
             top = v["tp"]?.let { if (it == 1) "wt" else "ldsp" } ?: o.top,
-            round = v["rc"]?.let { it == 1 } ?: o.round))
-        return f.copy(modules = f.modules.map { if (it.id == main.id) itemSized(m, ws) else it })
+            round = v["rc"]?.let { it == 1 } ?: o.round,
+            seats = v["st"]?.takeIf { o.seats > 0 }?.let { DT_SEATS.getOrElse(it) { o.seats } } ?: o.seats))
+        // the big table's top: stone or wood (its decor kept where it can be)
+        val mats = v["tk"]?.takeIf { f.type == "dining12" }?.let { f.mats.copy(top = dtTop(if (it == 1) "wood" else "stone", f.mats.top)) } ?: f.mats
+        return f.copy(mats = mats, modules = f.modules.map { if (it.id == main.id) itemSized(m, ws) else it })
     }
     // one cabinet: as the older types, with its height above the floor, how it stands and its mirror
     var m = main
@@ -424,7 +443,7 @@ fun pieceResized(f: Furniture, v: Map<String, Int>, ws: Workshop): Furniture {
 }
 
 /** What a box of a piece is called in the designer (strings key): a stenka's tall or low piece or shelf, a corner's arms, a stack's halves. */
-fun boxRole(f: Furniture, m: Module): String = when {
+fun boxRole(f: Furniture, m: Module): String = gorkaRole(f, m) ?: when {
     f.type in CORNER_TYPES -> when {
         m.wall == f.walls.getOrNull(1) -> "pc.armB"
         m.sections.any { it.blind > 0 } -> "pc.corner"

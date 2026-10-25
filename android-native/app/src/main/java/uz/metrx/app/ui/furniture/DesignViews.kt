@@ -316,7 +316,8 @@ fun DesignCard(p: Project, f: Furniture) {
         }
         // LED: a kitchen's under the wall units (its extras), a wardrobe's inside with a door sensor
         if (kitchen) Toggle(tr("lk.led"), f.kx?.led == true) { change { g -> withLook(g) { it }.let { x -> x.copy(kx = (x.kx ?: KExtras()).copy(led = x.kx?.led != true)) } } }
-        else if (kind == "kupe" || (kind == "case" && f.modules.any { it.type == "wardrobe" && it.sections.any { s -> s.fronts.kind == "door" } })) Toggle(tr("lk.ledW"), l.led) { look { it.copy(led = !it.led) } }
+        // (a gorka's LED is on its own card: GorkaViews.kt)
+        else if (kind == "kupe" || (kind == "case" && f.type != "gorka" && f.modules.any { it.type == "wardrobe" && it.sections.any { s -> s.fronts.kind == "door" } })) Toggle(tr("lk.ledW"), l.led) { look { it.copy(led = !it.led) } }
         if (kitchen) {
             RowTitle(tr("lk.legs"))
             Chips(listOf(Triple("plinth", tr("lk.l.plinth"), false), Triple("metal", tr("lk.l.metal"), true)), if (l.legs) "metal" else "plinth") { v -> look { it.copy(legs = v == "metal") } }

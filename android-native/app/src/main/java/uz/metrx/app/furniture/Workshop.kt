@@ -143,5 +143,9 @@ val HW_PRESETS = listOf(
     Hw("ledSensor", "ledSensor", "LED eshik datchigi", "60000", true),
     Hw("headSoft", "headSoft", "Yumshoq bosh qism (m²)", "900000", true),
     Hw("headTufted", "headTufted", "Karetka tikuvli bosh qism (m²)", "1300000", true),
-    Hw("softPanel", "softPanel", "Yumshoq devor paneli (m²)", "750000", true)
+    Hw("softPanel", "softPanel", "Yumshoq devor paneli (m²)", "750000", true),
+    // the gorka's TV panel facing (modern 3D part 6a): samples for the makers to replace
+    Hw("tvStone", "tvStone", "TV panel, tosh ko‘rinishli plita (m²)", "450000", true),
+    Hw("tvSlats", "tvSlats", "TV panel, yog‘och reykalar (m²)", "550000", true),
+    Hw("tvMould", "tvMould", "TV panel, frezerli MDF (m²)", "300000", true)
 )

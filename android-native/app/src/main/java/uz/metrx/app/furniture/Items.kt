@@ -13,7 +13,7 @@ import kotlin.math.min
  */
 
 /** The module types of these pieces (Module.type). */
-val ITEM_MODS = setOf("bed", "bunk", "loft", "table", "bar", "hooks", "mirror")
+val ITEM_MODS = setOf("bed", "bunk", "loft", "table", "bar", "hooks", "mirror", TV_PANEL)
 
 /** The ladder of a bunk or loft bed stands this far out from the frame's front. */
 const val LADDER_D = 60
@@ -160,7 +160,8 @@ fun itemBoards(m: Module, ws: Workshop): List<Board> {
                     out += Board("", "metal", a, a + 40, 0, 30, 30, D - 30)
                     out += Board("", "metal", a, a + 40, y1 - 30, y1, 50, D - 50)
                 }
-                else -> {
+                // the big table (Gorka.kt): two panel legs set in from its ends
+                else -> if (o.seats > 0) out += bigTableLegs(m, ws, y1) else {
                     out += Board("fp.tLeg", "front", 60, 60 + t, 0, y1, 50, D - 50)
                     out += Board("fp.tLeg", "front", W - 60 - t, W - 60, 0, y1, 50, D - 50)
                     // a dining table's legs are held by a board under the top; a coffee table's by a shelf low down
@@ -218,6 +219,7 @@ fun itemBoards(m: Module, ws: Workshop): List<Board> {
             }
         }
         "mirror" -> out += Board("", "mirror", 0, W, E, E + H, 0, 5)
+        TV_PANEL -> out += panelBoards(m, ws)
     }
     return out
 }
@@ -255,6 +257,11 @@ fun itemHardware(m: Module, ws: Workshop, add: (String, Int) -> Unit) {
         "table" -> {
             add("confirmat", 8)
             when (o.legs) { "metal4" -> add("tableLeg", 4); "frame" -> add("tableFrame", 1) }
+            // the big table: its doubled panel legs, and its top joined from worktop strips
+            if (o.seats > 0) {
+                if (o.legs == "board") add("confirmat", 8)
+                if (o.top == "wt") add("wtJoint", topStrips(m) - 1)
+            }
         }
         "bar" -> {
             add("confirmat", 20)
@@ -267,11 +274,12 @@ fun itemHardware(m: Module, ws: Workshop, add: (String, Int) -> Unit) {
             if (o.shelf) add("confirmat", 4)
         }
         "mirror" -> { add("mirror", m.w * m.h); add("clip", 4) }
+        TV_PANEL -> panelHardware(m, add)
     }
 }
 
 /** Worktop board a table or bar counter's top takes, running mm (bought by the metre like a kitchen's). */
-fun itemWorktopMm(m: Module): Int = if ((m.type == "table" || m.type == "bar") && m.opt?.top == "wt") m.w else 0
+fun itemWorktopMm(m: Module): Int = if ((m.type == "table" || m.type == "bar") && m.opt?.top == "wt") m.w * (if ((m.opt?.seats ?: 0) > 0) topStrips(m) else 1) else 0
 
 /** How high an item reaches: a bed's headboard, a mirror panel's hat shelf. */
 fun itemTop(m: Module, ws: Workshop): Int = m.elev + when (m.type) {
@@ -288,6 +296,7 @@ fun itemSized(m: Module, ws: Workshop): Module {
         "bed" -> m.copy(w = o.mw + 2 * t + 10, d = o.ml + 2 * t + 10)
         "bunk", "loft" -> m.copy(w = o.ml + 2 * t + 10, d = o.mw + 2 * t + 10 + LADDER_D)
         "hooks" -> m.copy(d = if (o.shelf) 250 else t + 60)
+        TV_PANEL -> m.copy(d = t + GK_FACING)
         else -> m
     }
 }
@@ -297,7 +306,7 @@ fun itemModule(type: String, ws: Workshop, wall: String, x: Int, w: Int, h: Int,
     itemSized(Module(uid(), type, w, h, d, x = x, wall = wall, elev = elev, fronts = Fronts("open", 0), legs = false, base = 0, opt = o), ws)
 
 /** The usual ranges of an item's sizes in its designer, mm. */
-fun itemRange(m: Module, key: String): IntRange = when (key) {
+fun itemRange(m: Module, key: String): IntRange = if (m.type == "table" && (m.opt?.seats ?: 0) > 0) bigTableRange(key) else when (key) {
     "mw" -> if (m.type == "bed") 700..2000 else 700..1000
     "ml" -> if (m.type == "bed") 1800..2200 else 1600..2100
     "hb" -> 600..1600

@@ -138,7 +138,12 @@ data class Opt(
     /** Mirror panels: coat hooks, a hat shelf on top, the mirror's size (0: none). */
     val hooks: Int = 5, val shelf: Boolean = true, val mirW: Int = 0, val mirH: Int = 0,
     /** Bar counters: open shelves on the kitchen side, the top's overhang on the seating side, a footrest. */
-    val shelves: Boolean = true, val over: Int = 300, val foot: Boolean = true
+    val shelves: Boolean = true, val over: Int = 300, val foot: Boolean = true,
+    /** The big dining table (Gorka.kt): the seats it is laid for, 10 or 12 (0: an ordinary table). */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val seats: Int = 0,
+    /** A gorka's TV panel (Gorka.kt): its facing ("stone", "slats", "mould") and the TV it holds, inches. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val panel: String = "",
+    @EncodeDefault(EncodeDefault.Mode.NEVER) val tv: Int = 0
 )
 
 /**

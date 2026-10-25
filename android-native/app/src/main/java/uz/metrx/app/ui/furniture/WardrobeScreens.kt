@@ -453,6 +453,8 @@ fun WardrobeScreen(rt: Route.Wardrobe) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Steps(rt.step) { app.setTop(rt.copy(step = it)) }
                 if (f.modules.count { it.type == "wardrobe" } > 1 || f.type == "stenka") BoxPicker(p, f, m) { app.setTop(rt.copy(sec = 0)) }
+                // the gorka's own options (GorkaViews.kt)
+                if (f.type == "gorka") GorkaCard(p, f)
                 WardDrawing(m, f, cx, ws, mats, rt.step, sel, ::pickSec, if (rt.step != 3) null else { fr ->
                     if (fr.sec >= 0 && fr.sec != sel) pickSec(fr.sec)
                     app.ward(p.id, f.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) }

@@ -125,9 +125,12 @@ fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion): Pa
     val fs = p.furniture.filter { it.roomId == room.id || (it.roomId == null && uz.metrx.app.furniture.FREE_ROOM + it.id == room.id) }
     val amt = mo.prog.toMap()
     val bare = mo.bare
-    val fur = remember(base, fs, amt, ws, mats, bare) {
+    // the small decor (a gorka's dishes, the big table's pendant) only on the full tier
+    val ctx = LocalContext.current
+    val decor = remember(app.settings.quality) { uz.metrx.app.ui.three.Quality3D.tier(ctx, app.settings.quality) != uz.metrx.app.ui.three.Tier.LOW }
+    val fur = remember(base, fs, amt, ws, mats, bare, decor) {
         furniture3D(fs, base.bases, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare,
-            look = { id -> mats.firstOrNull { it.id == id }.let { m -> uz.metrx.app.geo.Looks.of(m?.kind ?: "board", rgbOf(m?.rgb ?: "#F5F5F2"), m?.tex) } })
+            look = { id -> mats.firstOrNull { it.id == id }.let { m -> uz.metrx.app.geo.Looks.of(m?.kind ?: "board", rgbOf(m?.rgb ?: "#F5F5F2"), m?.tex) } }, decor = decor)
     }
     val shell = remember(base, fur) { base.plus(fur.parts, fur.edges) }
     return shell to fur

@@ -197,7 +197,8 @@ private fun ItemOptions(p: Project, f: Furniture, m: Module) {
                 }
             }
         }
-        "table" -> {
+        // the big dining table: its seats, legs, top and chairs (GorkaViews.kt)
+        "table" -> if (o.seats > 0) BigTableOptions(p, f, m) else {
             size("w"); size("d"); size("h")
             Text(tr("fb.lg"), style = ui(14.5f, 700))
             Seg(LEG_KINDS.map { it to tr("fb.lg.$it") }, o.legs, lines = 2) { k -> opt { it.copy(legs = k) } }
