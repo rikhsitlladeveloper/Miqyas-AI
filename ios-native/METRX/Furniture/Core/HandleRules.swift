@@ -4,24 +4,36 @@ import Foundation
  * Handles per door and per drawer, soft close per section (founder's decisions, 25 Oct 2026; Android
  * furniture/Handles.kt). Module.handles is the piece's master switch ("Tutqichsiz" in Change for all turns it off); with
  * it on, the fronts left without a handle are kept where they stay put when the box changes: a kitchen unit's or a
- * bed's in Module.noHandle, a section's doors in Section.noHandle, an open section's drawers on the drawer itself
- * (Insert.push). A front without a handle opens by a push latch, counted in the hardware; a glass door in its aluminium
- * frame never has a handle. An older order (none of these set) looks as it did: its box-wide switch is every front's
- * value. Unit-tested (HandlesTests).
+ * bed's in Module.noHandle, a section's doors in Section.noHandle, a section's drawers on the drawer itself
+ * (Insert.push): an open section's, and the ones behind its doors (hinged or sliding). A front without a handle opens by
+ * a push latch, counted in the hardware; a glass door in its aluminium frame never has a handle. A piece that opens by
+ * its edge (opensByEdge: the mirror cabinet over a basin) needs no latch for a front without one. An older order (none
+ * of these set) looks as it did: its box-wide switch is every front's value. Unit-tested (HandlesTests).
  *
  * Front keys, as the 3D names them within the box: "f0".. the box's own doors or drawers (a kitchen unit, top down for
- * drawers; a dishwasher's front), "bd0".. a bed's drawers, "s0:f0".. a section's doors, "s0:d120" an open section's
- * drawer at 120 mm.
+ * drawers; a dishwasher's front), "bd0".. a bed's drawers, "s0:f0".. a section's doors, "s0:d120" a section's drawer at
+ * 120 mm (an open section's, or one behind the doors).
  */
 
-/// A front that takes a handle or a push latch: its key; its section (-1: the box's own); a drawer; a glass door.
+/// A front that takes a handle or a push latch: its key; its section (-1: the box's own); a drawer; a glass door;
+/// inner a drawer behind the doors (hinged or sliding), hidden on the doors' picture (picked from a row of its own).
 struct HFront: Equatable, Hashable {
     let key: String
     let sec: Int
     let drawer: Bool
     let glass: Bool
-    init(_ key: String, _ sec: Int, _ drawer: Bool, _ glass: Bool = false) { self.key = key; self.sec = sec; self.drawer = drawer; self.glass = glass }
+    let inner: Bool
+    init(_ key: String, _ sec: Int, _ drawer: Bool, _ glass: Bool = false, inner: Bool = false) {
+        self.key = key; self.sec = sec; self.drawer = drawer; self.glass = glass; self.inner = inner
+    }
 }
+
+/// The pieces that open by their edge, without a handle and without a push latch (Cabinets.swift builds them without
+/// handles).
+let EDGE_TYPES: Set<String> = ["mirrorC"]
+
+/// Whether f opens by its edge: a front of it without a handle needs no push latch and shows no push mark.
+func opensByEdge(_ f: Furniture) -> Bool { EDGE_TYPES.contains(f.type) }
 
 /// The fronts of m that take a handle or a push latch, as the pictures draw them (left to right, drawers top down).
 func handleFronts(_ m: Module) -> [HFront] {
@@ -34,16 +46,14 @@ func handleFronts(_ m: Module) -> [HFront] {
         for (i, s) in m.sections.enumerated() {
             if s.knee { continue }
             if s.fronts.kind == "open" {
-                // top down; drawers at the same height in the section's order
-                let ds = s.inserts.enumerated().filter { $0.element.kind == "drawer" }
-                    .sorted { $0.element.pos != $1.element.pos ? $0.element.pos > $1.element.pos : $0.offset < $1.offset }
-                for d in ds { out.append(HFront("s\(i):d\(d.element.pos)", i, true)) }
+                out += hSecDrawers(s, i, m.slide != nil)
             } else if m.slide != nil {
-                continue
-            } else if s.fronts.kind == "door" || s.fronts.kind == "drawer" {
-                for j in 0..<max(0, s.fronts.n) {
-                    out.append(HFront("s\(i):f\(j)", i, s.fronts.kind == "drawer", s.fronts.kind == "door" && s.face == "glass"))
-                }
+                out += hSecDrawers(s, i, true)
+            } else if s.fronts.kind == "door" {
+                for j in 0..<max(0, s.fronts.n) { out.append(HFront("s\(i):f\(j)", i, false, s.face == "glass")) }
+                out += hSecDrawers(s, i, true)
+            } else if s.fronts.kind == "drawer" {
+                for j in 0..<max(0, s.fronts.n) { out.append(HFront("s\(i):f\(j)", i, true)) }
             }
         }
         return out
@@ -53,6 +63,14 @@ func handleFronts(_ m: Module) -> [HFront] {
         return (0..<max(0, m.fronts.n)).map { HFront("f\($0)", -1, drawer) }
     }
     return []
+}
+
+/// Section i's drawers top down (drawers at the same height in the section's order): an open section's faces, or
+/// behind its doors (inner: hinged, or the sliding ones).
+private func hSecDrawers(_ s: Section, _ i: Int, _ inner: Bool) -> [HFront] {
+    s.inserts.enumerated().filter { $0.element.kind == "drawer" }
+        .sorted { $0.element.pos != $1.element.pos ? $0.element.pos > $1.element.pos : $0.offset < $1.offset }
+        .map { HFront("s\(i):d\($0.element.pos)", i, true, inner: inner) }
 }
 
 /// A section's front key split: the section and the rest ("f1", "d120"); nil for the box's own fronts.
@@ -80,7 +98,7 @@ func hasHandle(_ m: Module, _ key: String) -> Bool {
 /// Whether door j of section i has a handle.
 func doorHandle(_ m: Module, _ i: Int, _ j: Int) -> Bool { hasHandle(m, "s\(i):f\(j)") }
 
-/// Whether drawer x of an open section has a handle.
+/// Whether drawer x of a section (an open one's, or behind the doors) has a handle.
 func drawerHandle(_ m: Module, _ x: Insert) -> Bool { m.handles && !x.push }
 
 /// m with no exception left: every front with a handle (on) or none (the master off).
@@ -101,17 +119,22 @@ func allHandles(_ m: Module, _ on: Bool) -> Module {
 /// The master on with every front listed as without a handle: as m with the master off looks.
 private func hMasterOn(_ m: Module) -> Module {
     if m.handles { return m }
+    let fr = handleFronts(m)
+    // the drawers that take a handle (an open section's, the ones behind the doors), each pushed
+    let drawers = Set(fr.filter { $0.key.contains(":d") }.map(\.key))
     var n = m
     n.handles = true
-    n.noHandle = handleFronts(m).filter { $0.sec < 0 }.map(\.key)
-    n.sections = m.sections.map { s in
+    n.noHandle = fr.filter { $0.sec < 0 }.map(\.key)
+    for i in m.sections.indices {
+        let s = m.sections[i]
         var t = s
-        switch s.fronts.kind {
-        case "open": t.inserts = s.inserts.map { x in var y = x; if x.kind == "drawer" { y.push = true }; return y }
-        case "door", "drawer": t.noHandle = Array(0..<max(0, s.fronts.n))
-        default: break
+        t.inserts = s.inserts.map { x in
+            var y = x
+            if x.kind == "drawer" && drawers.contains("s\(i):d\(x.pos)") { y.push = true }
+            return y
         }
-        return t
+        if s.fronts.kind == "door" || s.fronts.kind == "drawer" { t.noHandle = Array(0..<max(0, s.fronts.n)) }
+        n.sections[i] = t
     }
     return n
 }

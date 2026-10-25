@@ -3,8 +3,8 @@ import SwiftUI
 /*
  * Handles per door and per drawer (25 Oct 2026; Android ui/furniture/HandleViews.kt): the fronts of a drawing as tap
  * targets (each one's handle on or off, read out by VoiceOver, found by the tests as "front:<key>"), the "Hammasiga" /
- * "Hech biriga" buttons and the count line, a kitchen unit's fronts drawn small, and the push latch's mark in the
- * drawings and the PDF. The rules are in Furniture/Core/HandleRules.swift.
+ * "Hech biriga" buttons and the count line, a kitchen unit's fronts drawn small, the drawers behind the doors as a row of
+ * chips, and the push latch's mark in the drawings and the PDF. The rules are in Furniture/Core/HandleRules.swift.
  */
 
 /// Where a front without a handle is pushed open (a push latch): a small ring with a dot, in the drawings and the PDF.
@@ -24,7 +24,8 @@ func wardFrontBoxes(_ m: Module, _ ws: Workshop) -> [FrontBox] {
     let z0 = legsOf(m, ws) + m.elev, base = wardBase(m), g = ws.gap10 / 10
     var starts: [Int] = [m.x]
     for s in m.sections { starts.append((starts.last ?? m.x) + s.w) }
-    return handleFronts(m).compactMap { f -> FrontBox? in
+    // a drawer behind the doors is not on the doors' picture: it has its row (InnerDrawers)
+    return handleFronts(m).filter { !$0.inner }.compactMap { f -> FrontBox? in
         guard f.sec >= 0 && f.sec < m.sections.count else { return nil }
         let s = m.sections[f.sec], a = starts[f.sec]
         if f.key.contains(":d") {
@@ -69,13 +70,14 @@ func frontName(_ m: Module, _ f: HFront) -> String {
 }
 
 /// The fronts of a drawing lay wide (ox mm at its left) as tap targets over it, in the drawing's box: each toggles its
-/// handle; a glass door has none to toggle.
+/// handle; a glass door has none to toggle. edge: the piece opens by its edge, not by a push latch.
 struct FrontTargets: View {
     let lay: KLay
     let ox: Int
     let m: Module
     let boxes: [FrontBox]
     let onTap: (HFront) -> Void
+    var edge = false
     var body: some View {
         GeometryReader { geo in
             let k = geo.size.width / lay.vw
@@ -87,7 +89,7 @@ struct FrontTargets: View {
         let l = lay.x(b.x0 - ox) * k, r = lay.x(b.x1 - ox) * k
         let t = lay.y(b.y1) * k, bt = lay.y(b.y0) * k
         if r - l >= 2 && bt - t >= 2 {
-            FrontTarget(name: frontName(m, b.f), on: hasHandle(m, b.f.key), glass: b.f.glass, key: b.f.key) { self.onTap(b.f) }
+            FrontTarget(name: frontName(m, b.f), on: hasHandle(m, b.f.key), glass: b.f.glass, edge: edge, key: b.f.key) { self.onTap(b.f) }
                 .frame(width: r - l, height: bt - t)
                 .position(x: (l + r) / 2, y: (t + bt) / 2)
         }
@@ -99,10 +101,11 @@ private struct FrontTarget: View {
     let name: String
     let on: Bool
     let glass: Bool
+    let edge: Bool
     let key: String
     let action: () -> Void
     var body: some View {
-        let state = tr(glass ? "hd.glass" : on ? "hd.on" : "hd.off")
+        let state = tr(glass ? "hd.glass" : on ? "hd.on" : edge ? "hd.edge" : "hd.off")
         if glass {
             Rectangle().fill(Color.black.opacity(0.001))
                 .accessibilityElement()
@@ -118,18 +121,19 @@ private struct FrontTarget: View {
     }
 }
 
-/// "Hammasiga" / "Hech biriga" for the handles, and how many fronts have one.
+/// "Hammasiga" / "Hech biriga" for the handles, and how many fronts have one; edge: the rest open by the edge, not a push.
 struct HandleButtons: View {
     let ms: [Module]
     let onAll: () -> Void
     let onNone: () -> Void
+    var edge = false
     var body: some View {
         let sp = ms.map { handleSplit($0) }
         let a = sp.reduce(0) { $0 + $1.on }, b = sp.reduce(0) { $0 + $1.off }
         if a + b > 0 {
             VStack(alignment: .leading, spacing: 8) {
                 T(tr("hd.title"), ui(14.5, 700))
-                T(tr("hd.count", ["a": a, "b": b]), ui(12.5, 500, G.ink2, lh: 1.4))
+                T(tr(edge ? "hd.countE" : "hd.count", ["a": a, "b": b]), ui(12.5, 500, G.ink2, lh: 1.4))
                 HStack(spacing: 8) {
                     GBtn(tr("hd.all"), kind: .secondary, enabled: b > 0, height: 44, corner: 14, fontSize: 14, onAll)
                         .accessibilityIdentifier("hd.all")
@@ -138,6 +142,33 @@ struct HandleButtons: View {
                 }
             }
         }
+    }
+}
+
+/// The drawers behind the doors (hinged or sliding), hidden by them on the doors' picture: a row of chips, one a drawer,
+/// each tapped to give it a handle or take it away (founder's decision, 25 Oct 2026). Nothing when the box has none.
+struct InnerDrawers: View {
+    let m: Module
+    let onTap: (HFront) -> Void
+    var body: some View {
+        let inner = handleFronts(m).filter(\.inner)
+        if !inner.isEmpty {
+            VStack(alignment: .leading, spacing: 8) {
+                T(tr("hd.inner"), ui(13.5, 700))
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(inner, id: \.key) { fr in self.chip(fr) }
+                    }
+                }
+            }
+        }
+    }
+
+    private func chip(_ fr: HFront) -> some View {
+        let on = hasHandle(m, fr.key)
+        let onTap = self.onTap
+        return FChip(label: frontName(m, fr) + " · " + tr(on ? "hd.yes" : "hd.no"), on: on) { onTap(fr) }
+            .accessibilityIdentifier("front:" + fr.key)
     }
 }
 

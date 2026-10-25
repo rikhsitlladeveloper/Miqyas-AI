@@ -11,7 +11,8 @@ let NO_HANDLES = "none"
 /// Every piece of fs with front as its fronts' board (nil: as it was) and handle as its handles (a hardware id;
 /// NO_HANDLES none; nil: as they were). Room-less pieces and pieces in rooms alike; empty ones stay as they are.
 /// A handle's type keeps the doors and drawers chosen without one (HandleRules.swift); on a piece with no handle at
-/// all ("Tutqichsiz" before) it puts one back on every front.
+/// all ("Tutqichsiz" before) it puts one back on every front. A piece that opens by its edge (opensByEdge: the mirror
+/// cabinet) gets none put on: a handle it was given one by one takes the new type.
 func swapAll(_ fs: [Furniture], front: String? = nil, handle: String? = nil) -> [Furniture] {
     fs.map { f in
         var g = f
@@ -19,6 +20,8 @@ func swapAll(_ fs: [Furniture], front: String? = nil, handle: String? = nil) -> 
         if let handle {
             if handle == NO_HANDLES {
                 g.modules = g.modules.map { takesHandles($0) ? allHandles($0, false) : $0 }
+            } else if opensByEdge(g) {
+                if hasHandles(g) { g.handle = handle }
             } else {
                 let bare = handleBare(g)
                 g.handle = handle
@@ -43,9 +46,10 @@ func commonFront(_ fs: [Furniture]) -> String? {
     return all.count == 1 ? all.first : nil
 }
 
-/// The handles all of fs share: a hardware id, "" the usual one, NO_HANDLES; nil when they differ.
+/// The handles all of fs share: a hardware id, "" the usual one, NO_HANDLES; nil when they differ. A piece that opens
+/// by its edge (opensByEdge) is left out: it has none whatever the others have.
 func commonHandle(_ fs: [Furniture]) -> String? {
-    let built = fs.filter { f in f.modules.contains { takesHandles($0) && !handleFronts($0).isEmpty } }
+    let built = fs.filter { f in !opensByEdge(f) && f.modules.contains { takesHandles($0) && !handleFronts($0).isEmpty } }
     let all = Set(built.map { f in hasHandles(f) ? f.handle : NO_HANDLES })
     return all.count == 1 ? all.first : nil
 }

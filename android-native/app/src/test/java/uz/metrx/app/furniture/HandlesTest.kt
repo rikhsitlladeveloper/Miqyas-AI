@@ -221,4 +221,25 @@ class HandlesTest {
         val k = Furniture("k", "kitchen", modules = listOf(off))
         assertEquals(1.0, costOf(listOf(k), ws, MAT_PRESETS, HW_PRESETS).lines.single { it.group == "hw" && it.key == "push" }.qty, 0.0)
     }
+
+    @Test fun changeForAllPutsNoHandleOnTheMirrorCabinet() {
+        val mc = pieceOf(fModel("mirrorC")!!, emptyMap(), ws, "mirrorC")
+        val w = Furniture("f", "wardrobe", modules = listOf(behind()))
+        // it has none whatever the others have: the shared handle still reads as one
+        assertEquals("", commonHandle(listOf(w, mc)))
+        assertNull(commonHandle(listOf(mc)))
+        // a type for all: the mirror cabinet stays as it is, no handle put on it
+        val knobs = swapAll(listOf(w, mc), handle = "handleKnob")
+        assertEquals("handleKnob", commonHandle(knobs))
+        assertEquals(mc, knobs[1])
+        assertNull(hardware(listOf(knobs[1]), ws)["handle"])
+        // "Tutqichsiz", then a type: the wardrobe's come back, the mirror cabinet's do not
+        val back = swapAll(swapAll(knobs, handle = NO_HANDLES), handle = "handleLong")
+        assertTrue(hasHandles(back[0])); assertFalse(hasHandles(back[1]))
+        assertEquals("handleLong", commonHandle(back))
+        // a door given a handle on its own takes the new type
+        val k = handleFronts(mc.modules.single { it.type == "wardrobe" }).first().key
+        val one = mc.copy(modules = mc.modules.map { if (it.type == "wardrobe") toggleHandle(it, k) else it })
+        swapAll(listOf(one), handle = "handleKnob").single().let { assertEquals("handleKnob", it.handle); assertEquals(1, hardware(listOf(it), ws)["handle"]) }
+    }
 }

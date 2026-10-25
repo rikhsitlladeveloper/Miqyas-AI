@@ -850,6 +850,13 @@ private struct ModuleSheet: View {
                         }
                     }
                 }
+                // a dishwasher's front (on the machine's door): its handle tapped on or off as any front's, a push latch without one
+                if m.type == "gap" && !handleFronts(m).isEmpty {
+                    T(tr("km.fronts"), ui(15, 700))
+                    UnitHandles(app: app, pid: p.id, fid: f.id, mid: m.id, next: next, ws: ws, f: f, showSoft: false, soft: $soft) { x in
+                        self.handles = x.handles; self.noH = x.noHandle
+                    }
+                }
                 // what the workshop will cut and fit for it: the advanced app only
                 if s.advanced {
                     let parts = partsOf(next, ws)

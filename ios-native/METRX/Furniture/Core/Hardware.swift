@@ -31,12 +31,13 @@ func hwAmount(_ kind: String, _ v: Int, _ en: Bool) -> String {
     return en ? s : s.replacingOccurrences(of: ".", with: ",")
 }
 
-func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
+/// m's hardware; edge: its piece opens by its edge (opensByEdge), a front without a handle takes no push latch.
+func hardwareOf(_ m: Module, _ ws: Workshop, edge: Bool = false) -> Counts {
     var n = Counts()
     // soft close is a section's own choice (a kitchen unit's is the unit's)
     func hinge(_ sec: Int) -> String { (sec < 0 ? m.soft : softOf(m, sec)) ? "hingeSoft" : "hinge" }
-    // a front without a handle opens by a push latch (HandleRules.swift)
-    func pull(_ key: String) { n.add(hasHandle(m, key) ? "handle" : "push", 1) }
+    // a front without a handle opens by a push latch (HandleRules.swift), unless the piece opens by its edge
+    func pull(_ key: String) { if hasHandle(m, key) { n.add("handle", 1) } else if !edge { n.add("push", 1) } }
     func fronts(_ f: Fronts, _ w: Int, _ h: Int, _ face: String = "", sec: Int = -1) {
         let fs = frontSizes(f, w, h, ws)
         func key(_ j: Int) -> String { sec < 0 ? "f\(j)" : "s\(sec):f\(j)" }
@@ -65,17 +66,17 @@ func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
         }
     }
     let t = ws.t
-    if m.type == "gap" || m.type == "filler" { return n }
+    if m.type == "filler" { return n }
+    // a kitchen's space for a machine: a dishwasher's front (on the machine's own door) takes a handle or a push latch
+    if m.type == "gap" { for fr in handleFronts(m) { pull(fr.key) }; return n }
     if ITEM_MODS.contains(m.type) { itemHardware(m, ws) { n.add($0, $1) }; return n }
     if m.type == "wardrobe" {
         let secs = m.sections.isEmpty ? [Section(m.w)] : m.sections
         for (i, s) in secs.enumerated() {
             if m.slide == nil { fronts(s.fronts, frontW(s), m.h - wardBase(m), s.face, sec: i) }
             inside(s.inserts, wardInner(m, secs, i, t))
-            // drawers in an open section are pulled by a handle of their own, or pushed open
-            if s.fronts.kind == "open" {
-                for x in s.inserts where x.kind == "drawer" { n.add(drawerHandle(m, x) ? "handle" : "push", 1) }
-            }
+            // a section's drawers (an open one's, or behind the doors) are pulled by a handle of their own, or pushed open
+            for fr in handleFronts(m) where fr.sec == i && fr.key.contains(":d") { pull(fr.key) }
         }
         if let sl = m.slide {
             let n2 = min(4, max(2, sl.n))
@@ -105,7 +106,8 @@ func hardware(_ fs: [Furniture], _ ws: Workshop) -> Counts {
     var n = Counts()
     for f in fs {
         let fws = wsOf(f, ws)
-        for m in f.modules { for (k, v) in hardwareOf(m, fws).pairs { n.add(k, v) } }
+        let edge = opensByEdge(f)
+        for m in f.modules { for (k, v) in hardwareOf(m, fws, edge: edge).pairs { n.add(k, v) } }
         for (k, v) in extrasHardware(f).pairs { n.add(k, v) }
     }
     return n

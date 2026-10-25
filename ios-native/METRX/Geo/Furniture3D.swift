@@ -551,7 +551,8 @@ private final class FBuilder {
                 case "drawer":
                     // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
                     if s.fronts.kind == "open" { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 2, iw - 4, y, d(blockH(x)), di - T, di - 60, drawerHandle(m, x), "front") }
-                    else { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), di - 40 - T, di - 60, m.handles, "carcass") }
+                    // behind the doors: its own handle, or a push latch (HandleRules.swift)
+                    else { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), di - 40 - T, di - 60, drawerHandle(m, x), "carcass") }
                 default:
                     // trouser and shoe racks: a frame that pulls out
                     let key = "\(m.id):s\(i):r\(x.pos)"

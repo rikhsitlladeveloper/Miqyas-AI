@@ -173,4 +173,119 @@ final class HandlesTests: XCTestCase {
         XCTAssertEqual(u.count, 3)
         XCTAssertTrue(u[0].y0 > u[1].y0 && u[1].y0 > u[2].y0)
     }
+
+    /* ---- the founder's answers (25 Oct 2026): drawers behind doors, the mirror cabinet, the dishwasher's front ---- */
+
+    /// A pair of doors with two drawers behind them, and an open section with one drawer.
+    private func behind() -> Module {
+        Module(id: "w", type: "wardrobe", w: 1300, h: 2000, d: 600, sections: [
+            Section(900, fronts: Fronts("door", 2), inserts: [Insert("drawer", pos: 0, h: 200), Insert("drawer", pos: 210, h: 200), Insert("shelf", pos: 900)]),
+            Section(400, fronts: Fronts("open", 0), inserts: [Insert("drawer", pos: 0, h: 200)])], legs: false)
+    }
+
+    private func mirrorCabinet() -> Furniture { pieceOf(fModel("mirrorC")!, [:], ws, "mirrorC") }
+
+    func testDrawersBehindDoorsTakeAHandleOrAPushLatch() {
+        let m = behind()
+        let fr = handleFronts(m)
+        XCTAssertEqual(fr.map(\.key), ["s0:f0", "s0:f1", "s0:d210", "s0:d0", "s1:d0"])
+        // the ones behind the doors are marked: they are not on the doors' picture
+        XCTAssertEqual(fr.filter(\.inner).map(\.key), ["s0:d210", "s0:d0"])
+        XCTAssertTrue(fr.filter(\.inner).allSatisfy { $0.drawer && $0.sec == 0 })
+        XCTAssertEqual(wardFrontBoxes(m, ws).map(\.f.key), ["s0:f0", "s0:f1", "s1:d0"])
+        // as built: every door and drawer has a handle
+        let built = hardwareOf(m, ws)
+        XCTAssertEqual(built["handle"], 5); XCTAssertNil(built["push"]); XCTAssertEqual(built["runner"], 3)
+        // one behind the doors pushed: the same Insert.push flag as an open section's drawer
+        let one = toggleHandle(m, "s0:d0")
+        XCTAssertEqual(one.sections[0].inserts.first { $0.kind == "drawer" && $0.pos == 0 }?.push, true)
+        XCTAssertFalse(hasHandle(one, "s0:d0")); XCTAssertTrue(hasHandle(one, "s0:d210"))
+        if let x = one.sections[0].inserts.first(where: { $0.pos == 0 }) { XCTAssertFalse(drawerHandle(one, x)) } else { XCTFail("no drawer") }
+        let oh = hardwareOf(one, ws)
+        XCTAssertEqual(oh["handle"], 4); XCTAssertEqual(oh["push"], 1)
+        XCTAssertEqual(split(one), [4, 1])
+        // none, then all: per box
+        XCTAssertEqual(split(allHandles(one, false)), [0, 5])
+        let nh = hardwareOf(allHandles(one, false), ws)
+        XCTAssertNil(nh["handle"]); XCTAssertEqual(nh["push"], 5)
+        XCTAssertEqual(split(allHandles(one, true)), [5, 0])
+        // a box without handles: tapping one door leaves the drawers behind it pushed
+        var off = m; off.handles = false
+        let tap = toggleHandle(off, "s0:f0")
+        XCTAssertEqual(handleFronts(tap).map { hasHandle(tap, $0.key) }, [true, false, false, false, false])
+        // an older order without handles: the drawers behind its doors are pushed open too
+        XCTAssertEqual(hardwareOf(off, ws)["push"], 5)
+    }
+
+    func testDrawersBehindSlidingDoorsAreListedToo() {
+        var m = behind(); m.slide = Slide(2)
+        let fr = handleFronts(m)
+        // the sliding doors take none; every drawer behind them does
+        XCTAssertEqual(fr.map(\.key), ["s0:d210", "s0:d0", "s1:d0"])
+        XCTAssertTrue(fr.allSatisfy(\.inner))
+        let hw = hardwareOf(toggleHandle(m, "s1:d0"), ws)
+        XCTAssertEqual(hw["handle"], 2); XCTAssertEqual(hw["push"], 1)
+    }
+
+    func testTheMirrorCabinetOpensByItsEdgeWithoutALatch() {
+        let f = mirrorCabinet()
+        XCTAssertEqual(f.type, "mirrorC"); XCTAssertTrue(opensByEdge(f))
+        let boxes = f.modules.filter { $0.type == "wardrobe" }
+        XCTAssertEqual(boxes.count, 1)
+        guard let m = boxes.first, let k = handleFronts(m).first?.key else { return XCTFail("no fronts") }
+        XCTAssertFalse(m.handles)
+        // the order's hardware: no handle and no push latch for its doors
+        let hw = hardware([f], ws)
+        XCTAssertNil(hw["handle"]); XCTAssertNil(hw["push"]); XCTAssertTrue((hw["hingeSoft"] ?? 0) > 0)
+        XCTAssertFalse(costOf([f], ws, MAT_PRESETS, HW_PRESETS).lines.contains { $0.group == "hw" && ($0.key == "push" || $0.key == "handle") })
+        // a door given a handle counts it; the other still needs no latch
+        var g = f
+        g.modules = f.modules.map { $0.id == m.id ? toggleHandle($0, k) : $0 }
+        let gh = hardware([g], ws)
+        XCTAssertEqual(gh["handle"], 1); XCTAssertNil(gh["push"])
+        // the same box in another piece is pushed open as before
+        var plain = f; plain.type = ""
+        XCTAssertEqual(hardware([plain], ws)["push"], handleFronts(m).count)
+        XCTAssertFalse(opensByEdge(plain))
+    }
+
+    func testTheDishwashersFrontCountsItsHandleOrALatch() {
+        // as the kitchen's library makes it: a gap with a panel front
+        let dw = template("dishwasher", ws, "A")
+        XCTAssertEqual(dw.type, "gap"); XCTAssertEqual(dw.app, "dishwasher")
+        XCTAssertEqual(handleFronts(dw).map(\.key), ["f0"])
+        XCTAssertEqual(hardwareOf(dw, ws).n, ["handle": 1])
+        let off = toggleHandle(dw, "f0")
+        XCTAssertEqual(off.noHandle, ["f0"])
+        XCTAssertEqual(hardwareOf(off, ws).n, ["push": 1])
+        XCTAssertEqual(hardwareOf(allHandles(dw, false), ws).n, ["push": 1])
+        // a fridge's space has none
+        XCTAssertTrue(hardwareOf(template("fridge", ws, "A"), ws).keys.isEmpty)
+        // in the order's cost
+        let k = Furniture(id: "k", kind: "kitchen", modules: [off])
+        XCTAssertEqual(costOf([k], ws, MAT_PRESETS, HW_PRESETS).lines.filter { $0.group == "hw" && $0.key == "push" }.map(\.qty), [1.0])
+    }
+
+    func testChangeForAllPutsNoHandleOnTheMirrorCabinet() {
+        let mc = mirrorCabinet()
+        let w = piece(behind())
+        // it has none whatever the others have: the shared handle still reads as one
+        XCTAssertEqual(commonHandle([w, mc]), "")
+        XCTAssertNil(commonHandle([mc]))
+        // a type for all: the mirror cabinet stays as it is, no handle put on it
+        let knobs = swapAll([w, mc], handle: "handleKnob")
+        XCTAssertEqual(commonHandle(knobs), "handleKnob")
+        XCTAssertEqual(knobs[1], mc)
+        XCTAssertNil(hardware([knobs[1]], ws)["handle"])
+        // "Tutqichsiz", then a type: the wardrobe's come back, the mirror cabinet's do not
+        let back = swapAll(swapAll(knobs, handle: NO_HANDLES), handle: "handleLong")
+        XCTAssertTrue(hasHandles(back[0])); XCTAssertFalse(hasHandles(back[1]))
+        XCTAssertEqual(commonHandle(back), "handleLong")
+        // a door given a handle on its own takes the new type
+        guard let m = mc.modules.first(where: { $0.type == "wardrobe" }), let k = handleFronts(m).first?.key else { return XCTFail("no fronts") }
+        var one = mc
+        one.modules = mc.modules.map { $0.type == "wardrobe" ? toggleHandle($0, k) : $0 }
+        let swapped = swapAll([one], handle: "handleKnob")[0]
+        XCTAssertEqual(swapped.handle, "handleKnob"); XCTAssertEqual(hardware([swapped], ws)["handle"], 1)
+    }
 }

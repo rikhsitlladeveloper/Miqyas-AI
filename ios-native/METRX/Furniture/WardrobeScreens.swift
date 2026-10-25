@@ -89,9 +89,10 @@ private func rect(_ x: CGFloat, _ y: CGFloat, _ w: CGFloat, _ h: CGFloat) -> Pat
 private func opaque(_ rgb: Int) -> Color { Color(argb: 0xFF00_0000 | UInt32(rgb)) }
 
 /// The wardrobe's front, its left edge at ox mm (0: drawn on its wall): the carcass, plinth or legs, sections, inserts
-/// (unless the doors are shown), doors, problem outlines and the selected section.
+/// (unless the doors are shown), doors, problem outlines and the selected section. edge: the piece opens by its edge
+/// (HandleRules.swift opensByEdge), so a front without a handle shows no push mark.
 func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: Workshop, _ carcassRgb: Int, _ frontRgb: Int, _ sel: Int, _ doors: Bool,
-              _ bad: [Int: String], labels: Bool) {
+              _ bad: [Int: String], labels: Bool, edge: Bool = false) {
     let t = ws.t, z0 = legsOf(m, ws) + m.elev, base = wardBase(m)
     func X(_ mm: Int) -> CGFloat { lay.x(mm - ox) }
     let l = X(m.x), r = X(m.x + m.w), top = lay.y(z0 + m.h), bot = lay.y(z0)
@@ -134,10 +135,10 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
                     c.fill(box, with: .color(x.kind == "drawer" ? front : GAP_FILL)); c.stroke(box, with: .color(onC), lineWidth: 0.9)
                     switch x.kind {
                     case "drawer":
-                        // an open section's drawer without a handle: the push mark where it would be
+                        // a drawer (an open section's, or behind the doors) without a handle: the push mark where it would be
                         let cx = (il + ir) / 2, y = bt + min(4, bh / 3)
-                        if open && !drawerHandle(m, x) { pushMark(c, CGPoint(x: cx, y: y + 1), onF, min(2.6, bh / 3)) }
-                        else { c.line(onF, CGPoint(x: cx - 6, y: y), CGPoint(x: cx + 6, y: y), 1.4, round: true) }
+                        if drawerHandle(m, x) { c.line(onF, CGPoint(x: cx - 6, y: y), CGPoint(x: cx + 6, y: y), 1.4, round: true) }
+                        else if !edge { pushMark(c, CGPoint(x: cx, y: y + 1), onF, min(2.6, bh / 3)) }
                     case "trouser": for k in 1...4 { let xx = il + (ir - il) * CGFloat(k) / 5; c.line(PC.ink3, CGPoint(x: xx, y: bt + 2), CGPoint(x: xx, y: bt + bh - 2), 0.8) }
                     case "shoe": c.line(PC.ink3, CGPoint(x: il + 4, y: bt + bh - 2), CGPoint(x: ir - 4, y: bt + 2), 0.9)
                     default: break
@@ -163,8 +164,9 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
                     let hmm = max(min(z0 + 1000, z0 + m.h - 90), z0 + base + 90)
                     let hy = lay.y(hmm)
                     if doorHandle(m, i, j) { c.line(onF, CGPoint(x: hx, y: hy - 9), CGPoint(x: hx, y: hy + 9), 1.6, round: true) }
-                    // no handle (a glass door never has one): the push latch's mark, a little in from the edge
-                    else { pushMark(c, CGPoint(x: hx > fx + fw / 2 ? hx - 2 : hx + 2, y: hy), s.face == "glass" ? PC.ink : onF, 2.8) }
+                    // no handle (a glass door never has one): the push latch's mark, a little in from the edge; none on a
+                    // piece opened by its edge
+                    else if !edge { pushMark(c, CGPoint(x: hx > fx + fw / 2 ? hx - 2 : hx + 2, y: hy), s.face == "glass" ? PC.ink : onF, 2.8) }
                 }
             }
         }
@@ -255,7 +257,8 @@ func wardDims(_ c: GraphicsContext, _ lay: KLay, _ cuts: [Int], _ total: Int, _ 
 private struct WardDrawing: View {
     let m: Module, f: Furniture, cx: WardCtx, ws: Workshop, mats: [Mat], step: Int, sel: Int
     let onSec: (Int) -> Void
-    /// The doors step: each door and open drawer is tapped to give it a handle or take it away (nil: no targets).
+    /// The doors step: each door and open drawer is tapped to give it a handle or take it away (nil: no targets; the
+    /// drawers behind the doors: InnerDrawers).
     var onFront: ((HFront) -> Void)? = nil
     var body: some View {
         let onWall = step == 1
@@ -265,6 +268,7 @@ private struct WardDrawing: View {
         let H = onWall ? max(cx.roomH ?? 2700, topOf(m, ws)) : outerH(m, ws)
         let lay = KLay(L, H, 360, true)
         let front = rgbOf(mats.first { $0.id == f.mats.front }?.rgb ?? "#CDBFAE"), carcass = rgbOf(mats.first { $0.id == f.mats.carcass }?.rgb ?? "#F5F5F2")
+        let edge = opensByEdge(f)
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         GeometryReader { geo in
             Canvas { ctx, size in
@@ -274,12 +278,12 @@ private struct WardDrawing: View {
                 // on its wall the piece's other boxes stand beside it; alone, a hung box is drawn from its own bottom
                 if onWall {
                     for o in f.modules where o.type == "wardrobe" && o.id != m.id && o.wall == m.wall {
-                        drawWard(c, lay, o, ox, ws, carcass, front, -1, true, [:], labels: false)
+                        drawWard(c, lay, o, ox, ws, carcass, front, -1, true, [:], labels: false, edge: edge)
                     }
                 }
                 var shown = m
                 if !onWall { shown.elev = 0 }
-                drawWard(c, lay, shown, ox, ws, carcass, front, (step == 3 && m.slide == nil) || step == 4 ? sel : -1, doors, cx.bad, labels: true)
+                drawWard(c, lay, shown, ox, ws, carcass, front, (step == 3 && m.slide == nil) || step == 4 ? sel : -1, doors, cx.bad, labels: true, edge: edge)
                 if onWall {
                     for p in cx.room?.points ?? [] where p.wall == m.wall { drawSitePoint(c, p, CGPoint(x: lay.x(p.off), y: lay.y(p.h)), lay.s, 6) }
                     wardDims(c, lay, Array(Set([0, m.x, m.x + m.w, L])).sorted(), L, outerH(m, ws), m.x)
@@ -310,7 +314,7 @@ private struct WardDrawing: View {
     @ViewBuilder private func targets(_ lay: KLay, _ ox: Int, _ onWall: Bool) -> some View {
         if let onFront = self.onFront, !onWall, m.slide == nil {
             let b = atFloor(m)
-            FrontTargets(lay: lay, ox: ox, m: b, boxes: wardFrontBoxes(b, ws), onTap: onFront)
+            FrontTargets(lay: lay, ox: ox, m: b, boxes: wardFrontBoxes(b, ws), onTap: onFront, edge: opensByEdge(f))
         }
     }
 }
@@ -335,7 +339,7 @@ struct WardThumb: View {
             var c = ctx
             c.translateBy(x: (size.width - lay.vw * k) / 2, y: (size.height - lay.vh * k) / 2); c.scaleBy(x: k, y: k)
             c.line(PC.ink, CGPoint(x: lay.x0 - 6, y: lay.yF), CGPoint(x: lay.x(m.w) + 6, y: lay.yF), 2)
-            drawWard(c, lay, m, m.x, ws, carcass, front, -1, true, [:], labels: false)
+            drawWard(c, lay, m, m.x, ws, carcass, front, -1, true, [:], labels: false, edge: opensByEdge(f))
         }
     }
 }
@@ -798,7 +802,11 @@ private struct DoorStep: View {
                         }
                     }
                 }
-                if let sl = m.slide { SlideDoors(p: p, f: f, m: m, sl: sl, ws: ws) } else {
+                if let sl = m.slide {
+                    SlideDoors(p: p, f: f, m: m, sl: sl, ws: ws)
+                    // the drawers behind the sliding doors: their handles one by one, or all of the box at once
+                    SlideDrawerHandles(pid: p.id, fid: f.id, m: m)
+                } else {
                     T(tr("wd.doors", ["s": sel + 1]), ui(15.5, 800))
                     SecChips(m: m, sel: sel, onPick: onSec)
                     Seg(items: [("2", tr("wd.d2")), ("1", tr("wd.d1")), ("0", tr("wd.d0"))], cur: cur) { k in changeSec(p.id, f.id, sel) { x in var n = x; n.fronts = fr(k); return n } }
@@ -831,7 +839,7 @@ private struct DoorStep: View {
                     }
                     // handles: each door and drawer on its own (tapped on the drawing), or all of the box at once; soft
                     // close per section (25 Oct 2026)
-                    DoorHandles(app: app, pid: p.id, fid: f.id, m: m, sel: sel, cur: cur)
+                    DoorHandles(app: app, pid: p.id, fid: f.id, m: m, sel: sel, cur: cur, edge: opensByEdge(f))
                     if let dh = frontSizes(Fronts("door", 1), s.w, m.h - wardBase(m), ws).first?.0 {
                         // how many hinges: workshop detail, the advanced app only
                         let hinges = AppSettings.shared.advanced ? tr("wd.hinges", ["v": dh, "n": hingesFor(dh)]) + " " : ""
@@ -851,11 +859,15 @@ private struct DoorHandles: View {
     let m: Module
     let sel: Int
     let cur: String
+    /// The piece opens by its edge (opensByEdge): the fronts without a handle need no push latch.
+    let edge: Bool
     var body: some View {
         let pid = self.pid, fid = self.fid
         VStack(alignment: .leading, spacing: 10) {
-            HandleButtons(ms: [m], onAll: { ward(pid, fid) { allHandles($0, true) } }, onNone: { ward(pid, fid) { allHandles($0, false) } })
-            if !handleFronts(m).isEmpty { T(tr("hd.tap"), ui(12.5, 400, G.ink2, lh: 1.4)) }
+            HandleButtons(ms: [m], onAll: { ward(pid, fid) { allHandles($0, true) } }, onNone: { ward(pid, fid) { allHandles($0, false) } }, edge: edge)
+            if handleFronts(m).contains(where: { !$0.inner }) { T(tr(edge ? "hd.tapE" : "hd.tap"), ui(12.5, 400, G.ink2, lh: 1.4)) }
+            // the drawers behind the doors are hidden on the picture: a chip each (25 Oct 2026)
+            InnerDrawers(m: m) { fr in ward(pid, fid) { toggleHandle($0, fr.key) } }
             if cur != "0" { softRow }
         }
     }
@@ -879,6 +891,19 @@ private struct DoorHandles: View {
             return y
         }
         app.say("hd.softAll", ["v": tr(on ? "hd.yes" : "hd.no")])
+    }
+}
+
+/// The sliding doors step's handles: the drawers behind the doors, one by one or all of the box at once.
+private struct SlideDrawerHandles: View {
+    let pid: String, fid: String
+    let m: Module
+    var body: some View {
+        let pid = self.pid, fid = self.fid
+        VStack(alignment: .leading, spacing: 10) {
+            HandleButtons(ms: [m], onAll: { ward(pid, fid) { allHandles($0, true) } }, onNone: { ward(pid, fid) { allHandles($0, false) } })
+            InnerDrawers(m: m) { fr in ward(pid, fid) { toggleHandle($0, fr.key) } }
+        }
     }
 }
 

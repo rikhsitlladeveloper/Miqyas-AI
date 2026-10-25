@@ -25,6 +25,8 @@ func frontFigures(_ f: Furniture, _ room: Room?, _ ws0: Workshop, _ mats: [Mat])
         // each cabinet of the piece (a stenka's, a corner wardrobe's), drawn from its own bottom; a bed or a table has none
         let front = rgbOf(mats.first { $0.id == f.mats.front }?.rgb ?? "#CDBFAE"), carcass = rgbOf(mats.first { $0.id == f.mats.carcass }?.rgb ?? "#F5F5F2")
         var out: [FrontFig] = []
+        // a piece opened by its edge (the mirror cabinet) shows no push mark
+        let edge = opensByEdge(f)
         for box in f.modules where box.type == "wardrobe" {
             var m0 = box; m0.elev = 0
             let m = m0
@@ -32,7 +34,7 @@ func frontFigures(_ f: Furniture, _ room: Room?, _ ws0: Workshop, _ mats: [Mat])
             out.append(FrontFig(wall: nil, vw: lay.vw, vh: lay.vh) { c in
                 Theme.shared.onPaper {
                     c.line(PC.ink, CGPoint(x: lay.x0 - 10, y: lay.yF), CGPoint(x: lay.x(m.w) + 10, y: lay.yF), 2)
-                    drawWard(c, lay, m, m.x, ws, carcass, front, -1, true, [:], labels: false)
+                    drawWard(c, lay, m, m.x, ws, carcass, front, -1, true, [:], labels: false, edge: edge)
                     var acc = 0
                     wardDims(c, lay, [0] + m.sections.map { acc += $0.w; return acc }, m.w, outerH(m, ws), 0)
                 }
