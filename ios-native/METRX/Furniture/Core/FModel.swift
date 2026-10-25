@@ -4,7 +4,9 @@ import Foundation
  * The shared furniture core's data (design/furniture/FURNITURE_PLAN.md, section 6; Android furniture/FModel.kt). Every
  * designer (kitchen, wardrobe, later living room and bedroom) produces Furniture with Modules; the core turns them into
  * parts, a cut list, a sheet layout, hardware and a cost. Lengths are millimetres. Every field has a default so older
- * orders still load, and the JSON is the Android app's.
+ * orders still load, and the JSON is the Android app's. Fields added later that are written only when set (Module.noHandle,
+ * Insert.push, Section.noHandle and soft; Android @EncodeDefault NEVER) keep an older order's saved form, and so an
+ * issued quote's fingerprint, as it was.
  */
 
 /// A piece of furniture in an order: kind kitchen or wardrobe; its modules; which material plays which role.
@@ -102,7 +104,10 @@ struct Module: Codable, Equatable, Identifiable {
     var inserts: [Insert] = []
     var sections: [Section] = []
     var legs = true
+    /// Soft-close hinges; a wardrobe's section can differ (Section.soft).
     var soft = true
+    /// The piece's handles at all ("Tutqichsiz" in Change for all turns it off); the fronts left without one are in
+    /// noHandle and on the sections (HandleRules.swift).
     var handles = true
     var label = ""
     /// What it is for: sink, hob, oven, dishwasher, fridge (free-standing), fridgeB (built-in), hood, micro; "" for storage.
@@ -118,12 +123,15 @@ struct Module: Codable, Equatable, Identifiable {
     var led = false
     /// A board-built piece that is not a cabinet (bed, table, bar counter, mirror panel, mirror): its options (Items.swift).
     var opt: ItemOpt? = nil
+    /// The box's own fronts without a handle (a push latch opens them): "f0".. a kitchen unit's doors or drawers, "bd0"..
+    /// a bed's drawers (HandleRules.swift).
+    var noHandle: [String] = []
     init(id: String, type: String, w: Int, h: Int, d: Int, x: Int = 0, wall: String? = nil, elev: Int = 0, fronts: Fronts = Fronts(), inserts: [Insert] = [],
          sections: [Section] = [], legs: Bool = true, soft: Bool = true, handles: Bool = true, label: String = "", app: String = "", sideL: Bool = true, sideR: Bool = true,
-         slide: Slide? = nil, base: Int? = nil, led: Bool = false, opt: ItemOpt? = nil) {
+         slide: Slide? = nil, base: Int? = nil, led: Bool = false, opt: ItemOpt? = nil, noHandle: [String] = []) {
         self.id = id; self.type = type; self.w = w; self.h = h; self.d = d; self.x = x; self.wall = wall; self.elev = elev; self.fronts = fronts
         self.inserts = inserts; self.sections = sections; self.legs = legs; self.soft = soft; self.handles = handles; self.label = label; self.app = app
-        self.sideL = sideL; self.sideR = sideR; self.slide = slide; self.base = base; self.led = led; self.opt = opt
+        self.sideL = sideL; self.sideR = sideR; self.slide = slide; self.base = base; self.led = led; self.opt = opt; self.noHandle = noHandle
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -131,7 +139,18 @@ struct Module: Codable, Equatable, Identifiable {
         x = c.v(.x, 0); wall = c.v(.wall, nil); elev = c.v(.elev, 0); fronts = c.v(.fronts, Fronts()); inserts = c.v(.inserts, [])
         sections = c.v(.sections, []); legs = c.v(.legs, true); soft = c.v(.soft, true); handles = c.v(.handles, true); label = c.v(.label, "")
         app = c.v(.app, ""); sideL = c.v(.sideL, true); sideR = c.v(.sideR, true); slide = c.v(.slide, nil)
-        base = c.v(.base, nil); led = c.v(.led, false); opt = c.v(.opt, nil)
+        base = c.v(.base, nil); led = c.v(.led, false); opt = c.v(.opt, nil); noHandle = c.v(.noHandle, [])
+    }
+    /// The synthesized form, with noHandle written only when set.
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id); try c.encode(type, forKey: .type); try c.encode(w, forKey: .w); try c.encode(h, forKey: .h); try c.encode(d, forKey: .d)
+        try c.encode(x, forKey: .x); try c.encodeIfPresent(wall, forKey: .wall); try c.encode(elev, forKey: .elev); try c.encode(fronts, forKey: .fronts)
+        try c.encode(inserts, forKey: .inserts); try c.encode(sections, forKey: .sections); try c.encode(legs, forKey: .legs); try c.encode(soft, forKey: .soft)
+        try c.encode(handles, forKey: .handles); try c.encode(label, forKey: .label); try c.encode(app, forKey: .app)
+        try c.encode(sideL, forKey: .sideL); try c.encode(sideR, forKey: .sideR); try c.encodeIfPresent(slide, forKey: .slide)
+        try c.encodeIfPresent(base, forKey: .base); try c.encode(led, forKey: .led); try c.encodeIfPresent(opt, forKey: .opt)
+        if !noHandle.isEmpty { try c.encode(noHandle, forKey: .noHandle) }
     }
 }
 
@@ -190,10 +209,20 @@ struct Fronts: Codable, Equatable, Hashable {
 struct Insert: Codable, Equatable, Hashable {
     var kind: String
     var pos = 0, qty = 1, h = 0
-    init(_ kind: String, pos: Int = 0, qty: Int = 1, h: Int = 0) { self.kind = kind; self.pos = pos; self.qty = qty; self.h = h }
+    /// A drawer of an open section without a handle: a push latch opens it (HandleRules.swift).
+    var push = false
+    init(_ kind: String, pos: Int = 0, qty: Int = 1, h: Int = 0, push: Bool = false) {
+        self.kind = kind; self.pos = pos; self.qty = qty; self.h = h; self.push = push
+    }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
-        kind = c.v(.kind, "shelf"); pos = c.v(.pos, 0); qty = c.v(.qty, 1); h = c.v(.h, 0)
+        kind = c.v(.kind, "shelf"); pos = c.v(.pos, 0); qty = c.v(.qty, 1); h = c.v(.h, 0); push = c.v(.push, false)
+    }
+    /// The synthesized form, with push written only when set.
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(kind, forKey: .kind); try c.encode(pos, forKey: .pos); try c.encode(qty, forKey: .qty); try c.encode(h, forKey: .h)
+        if push { try c.encode(push, forKey: .push) }
     }
 }
 
@@ -211,15 +240,28 @@ struct Section: Codable, Equatable, Hashable {
     var blind = 0
     /// The doors' face: "" the front board, "mirror" a mirror on the board, "glass" glass in an aluminium frame (a vitrina's).
     var face = ""
+    /// The doors (0 the left one) without a handle: a push latch opens them (HandleRules.swift).
+    var noHandle: [Int] = []
+    /// Soft-close hinges on this section's doors; nil: as the box (Module.soft).
+    var soft: Bool? = nil
     init(_ w: Int, fronts: Fronts = Fronts("door", 2), inserts: [Insert] = [], lock: Bool = false, knee: Bool = false, hinge: String = "",
-         blind: Int = 0, face: String = "") {
+         blind: Int = 0, face: String = "", noHandle: [Int] = [], soft: Bool? = nil) {
         self.w = w; self.fronts = fronts; self.inserts = inserts; self.lock = lock; self.knee = knee; self.hinge = hinge
-        self.blind = blind; self.face = face
+        self.blind = blind; self.face = face; self.noHandle = noHandle; self.soft = soft
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         w = c.v(.w, 600); fronts = c.v(.fronts, Fronts("door", 2)); inserts = c.v(.inserts, []); lock = c.v(.lock, false); knee = c.v(.knee, false)
         hinge = c.v(.hinge, ""); blind = c.v(.blind, 0); face = c.v(.face, "")
+        noHandle = c.v(.noHandle, []); soft = c.v(.soft, nil)
+    }
+    /// The synthesized form, with noHandle and soft written only when set.
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(w, forKey: .w); try c.encode(fronts, forKey: .fronts); try c.encode(inserts, forKey: .inserts); try c.encode(lock, forKey: .lock)
+        try c.encode(knee, forKey: .knee); try c.encode(hinge, forKey: .hinge); try c.encode(blind, forKey: .blind); try c.encode(face, forKey: .face)
+        if !noHandle.isEmpty { try c.encode(noHandle, forKey: .noHandle) }
+        try c.encodeIfPresent(soft, forKey: .soft)
     }
 }
 

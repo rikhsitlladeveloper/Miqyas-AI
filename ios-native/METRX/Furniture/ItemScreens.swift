@@ -181,10 +181,31 @@ private struct BedOptions: View {
             Seg(items: kinds, cur: o.bed) { k in setOpt(p, f, m) { var x = $0; x.bed = k; return x } }
             T(tr("fb.bt." + o.bed + ".s"), ui(12.5, 400, G.ink2, lh: 1.4))
             ForEach(["mw", "ml", "h", "hb"], id: \.self) { k in ISize(app: app, p: p, f: f, m: m, key: k) }
-            if o.bed == "drawers" {
-                FToggle(label: tr("km.handles"), on: m.handles, id: "it.handles") { changeItem(p, f, m.id) { x in var n = x; n.handles.toggle(); return n } }
+            // the drawers' handles one by one (25 Oct 2026), or all at once
+            if o.bed == "drawers" { BedHandles(p: p, f: f, m: m) }
+        }
+    }
+}
+
+/// A bed's drawers as chips, each tapped to give it a handle or take it away, with "Hammasiga" / "Hech biriga".
+private struct BedHandles: View {
+    let p: Project, f: Furniture, m: Module
+    var body: some View {
+        let p = self.p, f = self.f, mid = m.id
+        VStack(alignment: .leading, spacing: 10) {
+            HandleButtons(ms: [m], onAll: { changeItem(p, f, mid) { allHandles($0, true) } }, onNone: { changeItem(p, f, mid) { allHandles($0, false) } })
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 6) {
+                    ForEach(handleFronts(m), id: \.key) { fr in self.chip(fr) }
+                }
             }
         }
+    }
+
+    private func chip(_ fr: HFront) -> some View {
+        let on = hasHandle(m, fr.key), p = self.p, f = self.f, mid = m.id, key = fr.key
+        return FChip(label: frontName(m, fr) + " · " + tr(on ? "hd.yes" : "hd.no"), on: on) { changeItem(p, f, mid) { toggleHandle($0, key) } }
+            .accessibilityIdentifier("front:" + key)
     }
 }
 

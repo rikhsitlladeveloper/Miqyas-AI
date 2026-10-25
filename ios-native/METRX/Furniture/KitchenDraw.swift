@@ -237,7 +237,8 @@ func drawUnit(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ws: Workshop, _ 
             c.line(PC.ink3, CGPoint(x: l + w * 0.14, y: split + h * 0.05), CGPoint(x: l + w * 0.14, y: split + h * 0.2), 1.6, round: true)
         case "dishwasher":
             board(l + g / 2, t + g / 2, w - g, h - g)
-            c.line(onF, CGPoint(x: l + w * 0.3, y: t + h * 0.1), CGPoint(x: r - w * 0.3, y: t + h * 0.1), 1.4, round: true)
+            if hasHandle(m, "f0") { c.line(onF, CGPoint(x: l + w * 0.3, y: t + h * 0.1), CGPoint(x: r - w * 0.3, y: t + h * 0.1), 1.4, round: true) }
+            else { pushMark(c, CGPoint(x: (l + r) / 2, y: t + h * 0.1), onF, min(2.4, w * 0.08)) }
         default:
             c.stroke(rect(l + 1, t + 1, w - 2, h - 2), with: .color(PC.greyLine), style: StrokeStyle(lineWidth: 1, dash: DASH))
         }
@@ -255,13 +256,12 @@ func drawUnit(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ws: Workshop, _ 
             for i in 0..<n {
                 let fl = l + g + CGFloat(i) * (fw + g)
                 board(fl, t + g, fw, h - 2 * g)
-                if m.handles {
-                    // the handle on the opening edge: right of a single door, the middle of a pair
-                    let hx = n == 1 || i == 0 ? fl + fw - max(2.5, fw * 0.1) : fl + max(2.5, fw * 0.1)
-                    let hy = m.type == "wall" ? t + h * 0.82 : t + h * 0.14
-                    let len = min(10, h * 0.18)
-                    c.line(onF, CGPoint(x: hx, y: hy - len / 2), CGPoint(x: hx, y: hy + len / 2), 1.4, round: true)
-                }
+                // the handle on the opening edge: right of a single door, the middle of a pair; without one the push mark
+                let hx = n == 1 || i == 0 ? fl + fw - max(2.5, fw * 0.1) : fl + max(2.5, fw * 0.1)
+                let hy = m.type == "wall" ? t + h * 0.82 : t + h * 0.14
+                let len = min(10, h * 0.18)
+                if hasHandle(m, "f\(i)") { c.line(onF, CGPoint(x: hx, y: hy - len / 2), CGPoint(x: hx, y: hy + len / 2), 1.4, round: true) }
+                else { pushMark(c, CGPoint(x: hx, y: hy), onF, min(2.4, fw * 0.12)) }
             }
         } else {
             // drawers and appliance panels, one above the other
@@ -269,9 +269,10 @@ func drawUnit(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ws: Workshop, _ 
             for i in 0..<n {
                 let ft = t + g + CGFloat(i) * (fh + g)
                 board(l + g, ft, w - 2 * g, fh)
-                if m.handles && m.fronts.kind == "drawer" {
+                if m.fronts.kind == "drawer" {
                     let len = min(14, w * 0.3), y = ft + min(5, fh * 0.22)
-                    c.line(onF, CGPoint(x: l + w / 2 - len / 2, y: y), CGPoint(x: l + w / 2 + len / 2, y: y), 1.4, round: true)
+                    if hasHandle(m, "f\(i)") { c.line(onF, CGPoint(x: l + w / 2 - len / 2, y: y), CGPoint(x: l + w / 2 + len / 2, y: y), 1.4, round: true) }
+                    else { pushMark(c, CGPoint(x: l + w / 2, y: y + 0.5), onF, min(2.4, fh * 0.2)) }
                 }
             }
         }

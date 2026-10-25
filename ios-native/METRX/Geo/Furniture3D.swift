@@ -399,7 +399,7 @@ private final class FBuilder {
                 if !bare, let (fh, fw) = frontSizes(m.fronts, m.w, m.h, ws).first {
                     let fp = role("front", m.fronts.kind == "panel" ? "fp.panel" : "fp.door")
                     box(w, fp, x0 + edge, x0 + edge + d(fw), y0 + edge, y0 + edge + d(fh), dd, dd + T, true)
-                    if m.handles {
+                    if hasHandle(m, "f0") {
                         let mid = x0 + d(m.w) / 2
                         box(w, handle, mid - hLen / 2, mid + hLen / 2, y0 + edge + d(fh) - 46, y0 + edge + d(fh) - 34, dd + T, dd + T + 25)
                     }
@@ -435,8 +435,10 @@ private final class FBuilder {
         switch m.fronts.kind {
         case "door" where ovenNiche:
             let fw = d(fs[0].1), lo = 800 - g / 2 - (y0 + edge), y2 = 1395 + g / 2
-            door(w, "\(m.id):f0", x0 + edge, dd, y0 + edge, lo, fw, 1, m.handles, lo - 90)
-            door(w, "\(m.id):f1", x0 + edge, dd, y2, y1 - edge - y2, fw, 1, m.handles, 90)
+            // the housing's one door in the lists: both halves follow its handle
+            let hd = hasHandle(m, "f0")
+            door(w, "\(m.id):f0", x0 + edge, dd, y0 + edge, lo, fw, 1, hd, lo - 90)
+            door(w, "\(m.id):f1", x0 + edge, dd, y2, y1 - edge - y2, fw, 1, hd, 90)
         case "door":
             for (j, (fh, fw)) in fs.enumerated() {
                 let a = x0 + edge + Double(j) * (d(fw) + g)
@@ -444,13 +446,13 @@ private final class FBuilder {
                 let right = fs.count == 2 && j == 1
                 // handles near the top of a low door, near the bottom of a wall unit's, at 1 m on a tall one
                 let hy: Double = m.type == "wall" ? 90 : fh > 1200 ? handleAt(1000 - y0, d(fh)) : d(fh) - 90
-                door(w, "\(m.id):f\(j)", right ? a + d(fw) : a, dd, y0 + edge, d(fh), d(fw), right ? -1 : 1, m.handles, hy)
+                door(w, "\(m.id):f\(j)", right ? a + d(fw) : a, dd, y0 + edge, d(fh), d(fw), right ? -1 : 1, hasHandle(m, "f\(j)"), hy)
             }
         case "drawer", "panel":
             var y = y1 - edge
             for (j, (fh, fw)) in fs.enumerated() {
                 y -= d(fh)
-                if m.fronts.kind == "drawer" { drawer(w, "\(m.id):f\(j)", x0 + edge, d(fw), y, d(fh), dd, dd, m.handles) }
+                if m.fronts.kind == "drawer" { drawer(w, "\(m.id):f\(j)", x0 + edge, d(fw), y, d(fh), dd, dd, hasHandle(m, "f\(j)")) }
                 else if !bare { box(w, role("front", "fp.panel"), x0 + edge, x0 + edge + d(fw), y, y + d(fh), dd, dd + T, true) }
                 y -= g
             }
@@ -548,7 +550,7 @@ private final class FBuilder {
                     box(w, metal, il + 5, il + 25, y + 54, y + d(blockH(x)), di / 2 - 15, di / 2 + 15)
                 case "drawer":
                     // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
-                    if s.fronts.kind == "open" { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 2, iw - 4, y, d(blockH(x)), di - T, di - 60, m.handles, "front") }
+                    if s.fronts.kind == "open" { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 2, iw - 4, y, d(blockH(x)), di - T, di - 60, drawerHandle(m, x), "front") }
                     else { drawer(w, "\(m.id):s\(i):d\(x.pos)", il + 4, iw - 8, y, d(blockH(x)), di - 40 - T, di - 60, m.handles, "carcass") }
                 default:
                     // trouser and shoe racks: a frame that pulls out
@@ -578,7 +580,7 @@ private final class FBuilder {
                     // only a hinge at the piece's free end opens wide; beside a divider, a wall or a neighbour it stops at 90°
                     let wide: Bool
                     if right { wide = i == secs.count - 1 && j == fs.count - 1 && freeR } else { wide = i == 0 && j == 0 && freeL }
-                    let hd = m.handles && s.face != "glass"
+                    let hd = doorHandle(m, i, j)
                     door(w, "\(m.id):s\(i):f\(j)", right ? a + d(fw) : a, dd, yb + edge, d(fh), d(fw), right ? -1 : 1, hd,
                          handleAt(1000 - yb, d(fh)), deg: wide ? OPEN_DEG : SHUT_DEG, face: s.face)
                 }
@@ -663,7 +665,7 @@ private final class FBuilder {
             let sb = right ? WallBasis(ox: o.x, oz: o.z, ux: -w.nx, uz: -w.nz, nx: w.ux, nz: w.uz, len: len)
                            : WallBasis(ox: o.x, oz: o.z, ux: w.nx, uz: w.nz, nx: -w.ux, nz: -w.uz, len: len)
             let a = right ? m.d - dr.n1 : dr.n0
-            drawer(sb, "\(m.id):bd\(i)", Double(a), Double(dr.n1 - dr.n0), Double(dr.y0), Double(dr.y1 - dr.y0), -Double(t), Double(dr.depth), m.handles)
+            drawer(sb, "\(m.id):bd\(i)", Double(a), Double(dr.n1 - dr.n0), Double(dr.y0), Double(dr.y1 - dr.y0), -Double(t), Double(dr.depth), hasHandle(m, "bd\(i)"))
         }
     }
 

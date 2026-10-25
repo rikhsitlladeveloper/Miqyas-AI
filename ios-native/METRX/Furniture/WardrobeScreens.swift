@@ -39,7 +39,8 @@ private func ward(_ pid: String, _ fid: String, _ fn: @escaping (Module) -> Modu
 }
 
 private func changeSec(_ pid: String, _ fid: String, _ i: Int, _ fn: @escaping (Section) -> Section) {
-    ward(pid, fid) { m in var n = m; n.sections = m.sections.enumerated().map { k, s in k == i ? fn(s) : s }; return n }
+    // new doors: the doors chosen without a handle before are other doors now (HandleRules.swift)
+    ward(pid, fid) { m in var n = m; n.sections = m.sections.enumerated().map { k, s in k == i ? frontsChanged(s, fn(s)) : s }; return n }
 }
 
 private func sortedByPos(_ xs: [Insert]) -> [Insert] { xs.enumerated().sorted { ($0.element.pos, $0.offset) < ($1.element.pos, $1.offset) }.map(\.element) }
@@ -132,7 +133,11 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
                     let box = Path(roundedRect: CGRect(x: il + 1.5, y: bt, width: ir - il - 3, height: bh), cornerRadius: 1.5)
                     c.fill(box, with: .color(x.kind == "drawer" ? front : GAP_FILL)); c.stroke(box, with: .color(onC), lineWidth: 0.9)
                     switch x.kind {
-                    case "drawer": let cx = (il + ir) / 2, y = bt + min(4, bh / 3); c.line(onF, CGPoint(x: cx - 6, y: y), CGPoint(x: cx + 6, y: y), 1.4, round: true)
+                    case "drawer":
+                        // an open section's drawer without a handle: the push mark where it would be
+                        let cx = (il + ir) / 2, y = bt + min(4, bh / 3)
+                        if open && !drawerHandle(m, x) { pushMark(c, CGPoint(x: cx, y: y + 1), onF, min(2.6, bh / 3)) }
+                        else { c.line(onF, CGPoint(x: cx - 6, y: y), CGPoint(x: cx + 6, y: y), 1.4, round: true) }
                     case "trouser": for k in 1...4 { let xx = il + (ir - il) * CGFloat(k) / 5; c.line(PC.ink3, CGPoint(x: xx, y: bt + 2), CGPoint(x: xx, y: bt + bh - 2), 0.8) }
                     case "shoe": c.line(PC.ink3, CGPoint(x: il + 4, y: bt + bh - 2), CGPoint(x: ir - 4, y: bt + 2), 0.9)
                     default: break
@@ -153,14 +158,13 @@ func drawWard(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ox: Int, _ ws: W
                     let fx = sl + g + CGFloat(j) * (fw + g)
                     c.fill(rect(fx, ft, fw, fb - ft), with: .color(fill)); c.stroke(rect(fx, ft, fw, fb - ft), with: .color(onF), lineWidth: 0.8)
                     if s.face == "glass" { c.stroke(rect(fx, ft, fw, fb - ft), with: .color(PROFILE_C), lineWidth: max(1.2, 20 * lay.s)) }
-                    // a glass door in its frame opens by push (no handle)
-                    if m.handles && s.face != "glass" {
-                        let hx = n == 2 ? (j == 0 ? fx + fw - 3 : fx + 3) : (!hingeRight(m, i) ? fx + fw - 3 : fx + 3)
-                        // about 1 m up, but on the door of a low or hung cabinet
-                        let hmm = max(min(z0 + 1000, z0 + m.h - 90), z0 + base + 90)
-                        let hy = lay.y(hmm)
-                        c.line(onF, CGPoint(x: hx, y: hy - 9), CGPoint(x: hx, y: hy + 9), 1.6, round: true)
-                    }
+                    let hx = n == 2 ? (j == 0 ? fx + fw - 3 : fx + 3) : (!hingeRight(m, i) ? fx + fw - 3 : fx + 3)
+                    // about 1 m up, but on the door of a low or hung cabinet
+                    let hmm = max(min(z0 + 1000, z0 + m.h - 90), z0 + base + 90)
+                    let hy = lay.y(hmm)
+                    if doorHandle(m, i, j) { c.line(onF, CGPoint(x: hx, y: hy - 9), CGPoint(x: hx, y: hy + 9), 1.6, round: true) }
+                    // no handle (a glass door never has one): the push latch's mark, a little in from the edge
+                    else { pushMark(c, CGPoint(x: hx > fx + fw / 2 ? hx - 2 : hx + 2, y: hy), s.face == "glass" ? PC.ink : onF, 2.8) }
                 }
             }
         }
@@ -251,6 +255,8 @@ func wardDims(_ c: GraphicsContext, _ lay: KLay, _ cuts: [Int], _ total: Int, _ 
 private struct WardDrawing: View {
     let m: Module, f: Furniture, cx: WardCtx, ws: Workshop, mats: [Mat], step: Int, sel: Int
     let onSec: (Int) -> Void
+    /// The doors step: each door and open drawer is tapped to give it a handle or take it away (nil: no targets).
+    var onFront: ((HFront) -> Void)? = nil
     var body: some View {
         let onWall = step == 1
         let doors = step == 1 || step == 3 || step == 5
@@ -297,8 +303,20 @@ private struct WardDrawing: View {
         .accessibilityElement()
         .accessibilityLabel(tr("kt.wardrobe"))
         .accessibilityIdentifier("wd.drawing")
+        // over the drawing's own element, so each front is one for VoiceOver and the tests
+        .overlay { targets(lay, ox, onWall) }
+    }
+
+    @ViewBuilder private func targets(_ lay: KLay, _ ox: Int, _ onWall: Bool) -> some View {
+        if let onFront = self.onFront, !onWall, m.slide == nil {
+            let b = atFloor(m)
+            FrontTargets(lay: lay, ox: ox, m: b, boxes: wardFrontBoxes(b, ws), onTap: onFront)
+        }
     }
 }
+
+/// The box drawn from its own bottom (as the designer's drawing shows it off its wall).
+private func atFloor(_ m: Module) -> Module { var n = m; n.elev = 0; return n }
 
 /// A small picture for the workspace card.
 struct WardThumb: View {
@@ -340,6 +358,16 @@ struct WardrobeScreen: View {
         }
     }
 
+    /// The doors step's tap on a front: its section picked, its handle the other way (25 Oct 2026).
+    private func frontTap(_ sel: Int, _ pick: @escaping (Int) -> Void) -> ((HFront) -> Void)? {
+        guard step == 3 else { return nil }
+        let pid = self.pid, fid = self.fid
+        return { fr in
+            if fr.sec >= 0 && fr.sec != sel { pick(fr.sec) }
+            ward(pid, fid) { toggleHandle($0, fr.key) }
+        }
+    }
+
     private func boxOf(_ f: Furniture) -> Module? {
         if let id = self.mod, let b = f.modules.first(where: { $0.id == id && $0.type == "wardrobe" }) { return b }
         return curWard(f)
@@ -376,7 +404,7 @@ struct WardrobeScreen: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 Steps(cur: step) { app.setTop(.wardrobe(pid: pid, fid: fid, step: $0, sec: sel, mod: modId)) }
                                 if many { BoxPicker(app: app, p: p, f: f, cur: m) { app.setTop(.wardrobe(pid: pid, fid: fid, step: step, sec: 0, d3: d3, mod: modId)) } }
-                                WardDrawing(m: m, f: f, cx: cx, ws: ws, mats: mats, step: step, sel: sel, onSec: pick)
+                                WardDrawing(m: m, f: f, cx: cx, ws: ws, mats: mats, step: step, sel: sel, onSec: pick, onFront: frontTap(sel, pick))
                                 VStack(alignment: .leading, spacing: 10) {
                                     switch step {
                                     case 1: PlaceStep(app: app, p: p, f: f, m: m, cx: cx)
@@ -792,14 +820,18 @@ private struct DoorStep: View {
                         GBtn(tr("wd.all"), kind: .secondary, height: 40, corner: 14, fontSize: 14, fill: false) {
                             ward(p.id, f.id) { mm in
                                 var n = mm
-                                n.sections = mm.sections.map { x in var y = x; y.fronts = cur == "0" ? fr("0") : Fronts("door", cur == "2" && x.w >= 400 ? 2 : 1); return y }
+                                n.sections = mm.sections.map { x in
+                                    var y = x; y.fronts = cur == "0" ? fr("0") : Fronts("door", cur == "2" && x.w >= 400 ? 2 : 1)
+                                    return frontsChanged(x, y)
+                                }
                                 return n
                             }
                         }
                         .accessibilityIdentifier("wd.all")
                     }
-                    FToggle(label: tr("km.handles") + (!m.handles ? " · " + tr("wd.push") : ""), on: m.handles, id: "wd.handles") { ward(p.id, f.id) { x in var n = x; n.handles.toggle(); return n } }
-                    FToggle(label: tr("km.soft"), on: m.soft, id: "wd.soft") { ward(p.id, f.id) { x in var n = x; n.soft.toggle(); return n } }
+                    // handles: each door and drawer on its own (tapped on the drawing), or all of the box at once; soft
+                    // close per section (25 Oct 2026)
+                    DoorHandles(app: app, pid: p.id, fid: f.id, m: m, sel: sel, cur: cur)
                     if let dh = frontSizes(Fronts("door", 1), s.w, m.h - wardBase(m), ws).first?.0 {
                         // how many hinges: workshop detail, the advanced app only
                         let hinges = AppSettings.shared.advanced ? tr("wd.hinges", ["v": dh, "n": hingesFor(dh)]) + " " : ""
@@ -808,6 +840,45 @@ private struct DoorStep: View {
                 }
             }
         }
+    }
+}
+
+/// The doors step's handles ("Tutqichlar": the count, "Hammasiga" / "Hech biriga") and the section's soft close with
+/// its own "Hammasiga" for every section of the piece.
+private struct DoorHandles: View {
+    let app: AppModel
+    let pid: String, fid: String
+    let m: Module
+    let sel: Int
+    let cur: String
+    var body: some View {
+        let pid = self.pid, fid = self.fid
+        VStack(alignment: .leading, spacing: 10) {
+            HandleButtons(ms: [m], onAll: { ward(pid, fid) { allHandles($0, true) } }, onNone: { ward(pid, fid) { allHandles($0, false) } })
+            if !handleFronts(m).isEmpty { T(tr("hd.tap"), ui(12.5, 400, G.ink2, lh: 1.4)) }
+            if cur != "0" { softRow }
+        }
+    }
+
+    private var softRow: some View {
+        let soft = softOf(m, sel), i = sel
+        let pid = self.pid, fid = self.fid
+        return HStack(spacing: 8) {
+            FToggle(label: tr("km.soft") + " · " + tr("hd.secN", ["s": i + 1]), on: soft, id: "wd.soft") { ward(pid, fid) { withSoft($0, i, !soft) } }
+                .frame(maxWidth: .infinity)
+            GBtn(tr("hd.all"), kind: .secondary, height: 40, corner: 14, fontSize: 14, fill: false) { self.softEverywhere(soft) }
+                .accessibilityIdentifier("hd.softAll")
+        }
+    }
+
+    /// Every section of every box of the piece closing as the one picked.
+    private func softEverywhere(_ on: Bool) {
+        KitOps.shared.change(pid, fid) { x in
+            var y = x
+            y.modules = x.modules.map { $0.type == "wardrobe" ? softAll($0, on) : $0 }
+            return y
+        }
+        app.say("hd.softAll", ["v": tr(on ? "hd.yes" : "hd.no")])
     }
 }
 
@@ -882,7 +953,8 @@ private struct InsideStep: View {
                     }
                     .accessibilityIdentifier("wd.spread")
                 }
-                FToggle(label: tr("wd.led"), on: m.led, id: "wd.led") { ward(p.id, f.id) { x in var n = x; n.led.toggle(); return n } }
+                // the strip runs along the whole box's top, not the section picked above: it says so (25 Oct 2026)
+                FToggle(label: tr("wd.ledAll"), on: m.led, id: "wd.led") { ward(p.id, f.id) { x in var n = x; n.led.toggle(); return n } }
             }
             .onChange(of: sel) { _, _ in dragI = -1; dragDy = 0 }
         }

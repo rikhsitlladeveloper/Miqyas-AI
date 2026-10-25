@@ -853,6 +853,9 @@ final class Furniture5Tests: ScreenTestCase {
         app.buttons["wd.step3"].tap(); usleep(800_000)
         app.buttons["wd.sec2"].tap(); usleep(500_000)
         btn(app, "1 eshik").tap(); usleep(700_000); shot("f5-06-doors")
+        // that door tapped on the drawing: no handle, a push latch's mark instead (handles per door, 25 Oct 2026)
+        let door = app.descendants(matching: .any).matching(identifier: "front:s1:f0").firstMatch
+        if door.waitForExistence(timeout: 3) && door.isHittable { door.tap(); usleep(800_000); shot("f5-06b-door-push") }
         app.buttons["wd.step4"].tap(); usleep(800_000)
         app.buttons["wd.sec1"].tap(); usleep(500_000)
         app.buttons["wd.add.drawer"].tap(); sleep(1)

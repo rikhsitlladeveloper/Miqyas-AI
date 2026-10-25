@@ -783,6 +783,8 @@ private struct ModuleSheet: View {
     @State private var shelves: Int
     @State private var soft: Bool
     @State private var handles: Bool
+    /// The fronts left without a handle (HandleRules.swift).
+    @State private var noH: [String]
     @FocusState private var focus: KF?
     init(app: AppModel, pid: String, fid: String, mid: String) {
         self.app = app; self.pid = pid; self.fid = fid; self.mid = mid
@@ -793,6 +795,7 @@ private struct ModuleSheet: View {
         _drawers = State(initialValue: fk == "drawer" ? (m?.fronts.n ?? 3) : 3)
         _shelves = State(initialValue: m?.inserts.filter { $0.kind == "shelf" }.reduce(0) { $0 + $1.qty } ?? 0)
         _soft = State(initialValue: m?.soft ?? true); _handles = State(initialValue: m?.handles ?? true)
+        _noH = State(initialValue: m?.noHandle ?? [])
     }
     var body: some View {
         let s = AppSettings.shared, kit = KitOps.shared
@@ -809,7 +812,9 @@ private struct ModuleSheet: View {
             let di = Int(d).flatMap { (16...800).contains($0) ? $0 : nil }
             let fronts: Fronts = fr == "d" ? Fronts("drawer", drawers) : fr == "o" ? Fronts("open", 0) : fr == "2" ? Fronts("door", 2) : fr == "1" ? Fronts("door", 1) : m.fronts
             let inserts = m.inserts.filter { $0.kind != "shelf" } + (fr != "d" && shelves > 0 && boxed ? [Insert("shelf", qty: shelves)] : [])
-            let next: Module = { var n = m; n.w = wi ?? m.w; n.h = hi ?? m.h; n.d = di ?? m.d; n.fronts = fronts; n.inserts = inserts; n.soft = soft; n.handles = handles; return n }()
+            let typed: Module = { var n = m; n.w = wi ?? m.w; n.h = hi ?? m.h; n.d = di ?? m.d; n.fronts = fronts; n.inserts = inserts; n.soft = soft; n.handles = handles; n.noHandle = noH; return n }()
+            // new fronts: the ones chosen without a handle before are other fronts now
+            let next: Module = frontsChanged(m, typed)
             let ok = wi != nil && hi != nil && di != nil
             let type = tr(m.type == "gap" ? "km.tGap" : m.type == "filler" ? "km.tFiller" : m.type == "tall" ? "km.tTall" : isUpper(m) ? "km.tUp" : "km.tLow")
             GlassSheet(modName(m), onClose: { app.sheet = nil }) {
@@ -839,8 +844,10 @@ private struct ModuleSheet: View {
                     if fr == "d" { FStepper(label: tr("km.drawers"), v: drawers, lo: 2, hi: 5, id: "km.drawers") { drawers = $0 } }
                     else { FStepper(label: tr("km.shelves"), v: shelves, lo: 0, hi: 8, id: "km.shelves") { shelves = $0 } }
                     if fr != "o" {
-                        FToggle(label: tr("km.handles"), on: handles, id: "km.handles") { handles.toggle() }
-                        if fr != "d" { FToggle(label: tr("km.soft"), on: soft, id: "km.soft") { soft.toggle() } }
+                        // the unit's fronts: each one tapped to give it a handle or take it away (25 Oct 2026)
+                        UnitHandles(app: app, pid: p.id, fid: f.id, mid: m.id, next: next, ws: ws, f: f, showSoft: fr != "d", soft: $soft) { x in
+                            self.handles = x.handles; self.noH = x.noHandle
+                        }
                     }
                 }
                 // what the workshop will cut and fit for it: the advanced app only
@@ -880,6 +887,52 @@ private struct ModuleSheet: View {
             .onChange(of: h) { _, v in let t = String(v.filter(\.isNumber).prefix(4)); if t != v { h = t } }
             .onChange(of: d) { _, v in let t = String(v.filter(\.isNumber).prefix(3)); if t != v { d = t } }
         }
+    }
+}
+
+/// A unit sheet's handles (its fronts drawn small, each tapped; "Tutqichlar" with "Hammasiga" / "Hech biriga") and its
+/// soft close, with "Hammasiga" for every unit with doors. onSet takes the unit with its new handles (not saved yet).
+private struct UnitHandles: View {
+    let app: AppModel
+    let pid: String, fid: String, mid: String
+    let next: Module
+    let ws: Workshop
+    let f: Furniture
+    let showSoft: Bool
+    @Binding var soft: Bool
+    let onSet: (Module) -> Void
+    var body: some View {
+        let next = self.next, onSet = self.onSet
+        VStack(alignment: .leading, spacing: 10) {
+            UnitFronts(m: next, ws: ws, f: f) { k in onSet(toggleHandle(next, k.key)) }
+            T(tr("hd.tap"), ui(12.5, 400, G.ink2, lh: 1.4))
+            HandleButtons(ms: [next], onAll: { onSet(allHandles(next, true)) }, onNone: { onSet(allHandles(next, false)) })
+            if showSoft { softRow }
+        }
+    }
+
+    private var softRow: some View {
+        HStack(spacing: 8) {
+            FToggle(label: tr("km.soft"), on: soft, id: "km.soft") { self.soft.toggle() }
+                .frame(maxWidth: .infinity)
+            GBtn(tr("hd.all"), kind: .secondary, height: 40, corner: 14, fontSize: 14, fill: false) { self.softEverywhere() }
+                .accessibilityIdentifier("hd.softAll")
+        }
+    }
+
+    /// Every unit with doors (and this one) closing the same.
+    private func softEverywhere() {
+        let on = soft, mid = self.mid
+        KitOps.shared.change(pid, fid) { x in
+            var y = x
+            y.modules = x.modules.map { u in
+                guard u.fronts.kind == "door" || u.id == mid else { return u }
+                var n = u; n.soft = on
+                return n
+            }
+            return y
+        }
+        app.say("hd.softAllK", ["v": tr(on ? "hd.yes" : "hd.no")])
     }
 }
 

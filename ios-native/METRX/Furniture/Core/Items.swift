@@ -296,7 +296,8 @@ func itemHardware(_ m: Module, _ ws: Workshop, _ add: (String, Int) -> Void) {
         if o.bed == "lift" { add("bedLift", 1) } else { add("bedBase", 1) }
         if o.bed == "legs" { add("leg", 4 + (o.mw >= 1400 ? 1 : 0)) }
         let ds = bedDrawers(m, ws)
-        add("runner", ds.count); if m.handles { add("handle", ds.count) }
+        // each drawer with its handle, or a push latch (HandleRules.swift)
+        add("runner", ds.count); for i in ds.indices { add(hasHandle(m, "bd\(i)") ? "handle" : "push", 1) }
     case "bunk": add("bedBase", 2); add("confirmat", 36)
     case "loft": add("bedBase", 1); add("confirmat", 28)
     case "table":

@@ -33,18 +33,22 @@ func hwAmount(_ kind: String, _ v: Int, _ en: Bool) -> String {
 
 func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
     var n = Counts()
-    let hinge = m.soft ? "hingeSoft" : "hinge"
-    func fronts(_ f: Fronts, _ w: Int, _ h: Int, _ face: String = "") {
+    // soft close is a section's own choice (a kitchen unit's is the unit's)
+    func hinge(_ sec: Int) -> String { (sec < 0 ? m.soft : softOf(m, sec)) ? "hingeSoft" : "hinge" }
+    // a front without a handle opens by a push latch (HandleRules.swift)
+    func pull(_ key: String) { n.add(hasHandle(m, key) ? "handle" : "push", 1) }
+    func fronts(_ f: Fronts, _ w: Int, _ h: Int, _ face: String = "", sec: Int = -1) {
         let fs = frontSizes(f, w, h, ws)
+        func key(_ j: Int) -> String { sec < 0 ? "f\(j)" : "s\(sec):f\(j)" }
         switch f.kind {
         case "door":
-            for (fh, fw) in fs {
-                // a glass door in its frame opens by push (no handle, as the 3D shows it)
-                n.add(hinge, hingesFor(fh)); if m.handles && face != "glass" { n.add("handle", 1) }
+            for (j, (fh, fw)) in fs.enumerated() {
+                // a glass door in its frame has no handle: a push latch, as the 3D shows it
+                n.add(hinge(sec), hingesFor(fh)); pull(key(j))
                 // a vitrina's glass door in its frame, a mirror glued on a board door
                 if face == "glass" { n.add("glassDoor", fh * fw) } else if face == "mirror" { n.add("mirror", (fh - 10) * (fw - 10)) }
             }
-        case "drawer": n.add("runner", fs.count); if m.handles { n.add("handle", fs.count) }
+        case "drawer": n.add("runner", fs.count); for j in fs.indices { pull(key(j)) }
         default: break
         }
     }
@@ -66,10 +70,12 @@ func hardwareOf(_ m: Module, _ ws: Workshop) -> Counts {
     if m.type == "wardrobe" {
         let secs = m.sections.isEmpty ? [Section(m.w)] : m.sections
         for (i, s) in secs.enumerated() {
-            if m.slide == nil { fronts(s.fronts, frontW(s), m.h - wardBase(m), s.face) }
+            if m.slide == nil { fronts(s.fronts, frontW(s), m.h - wardBase(m), s.face, sec: i) }
             inside(s.inserts, wardInner(m, secs, i, t))
-            // drawers in an open section are pulled by a handle of their own
-            if s.fronts.kind == "open" && m.handles { n.add("handle", s.inserts.filter { $0.kind == "drawer" }.count) }
+            // drawers in an open section are pulled by a handle of their own, or pushed open
+            if s.fronts.kind == "open" {
+                for x in s.inserts where x.kind == "drawer" { n.add(drawerHandle(m, x) ? "handle" : "push", 1) }
+            }
         }
         if let sl = m.slide {
             let n2 = min(4, max(2, sl.n))

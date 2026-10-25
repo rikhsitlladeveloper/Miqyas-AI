@@ -423,7 +423,7 @@ private struct MatSheet: View {
     }
 }
 
-private let HW_KINDS = ["hingeSoft", "hinge", "runner", "handle", "leg", "pin", "rail", "railEnd", "confirmat", "hanger", "lift"]
+private let HW_KINDS = ["hingeSoft", "hinge", "runner", "handle", "push", "leg", "pin", "rail", "railEnd", "confirmat", "hanger", "lift"]
 
 private struct HwSheet: View {
     let app: AppModel
