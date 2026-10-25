@@ -2,7 +2,8 @@ import SwiftUI
 import UIKit
 
 /*
- * A piece of furniture drawn in 3D for the gallery's cards and the size steps (gallery v5, 21 Oct 2026; Android
+ * A piece of furniture drawn in 3D for the size steps (and a card's fallback; the gallery's cards are snapshots of the
+ * real 3D since 25 Oct 2026, Furniture/GalleryCards.swift) (gallery v5, 21 Oct 2026; Android
  * ui/furniture/PieceView.kt and Gallery.kt PiecePics): the designer's own boards (Geo/Furniture3D) on the floor of the
  * piece's made-up room, the walls it stands on behind it, flat-shaded and drawn back to front with Core Graphics. A size
  * step tints the run it asks about and draws that size as a blue dimension line. Core Graphics' y grows downward here,
@@ -400,43 +401,12 @@ func drawPiece(_ cg: CGContext, _ size: CGSize, _ s: PieceScene, hi: String?, az
     UIGraphicsPopContext()
 }
 
-/// The piece as a still picture of size points at the screen's scale (the gallery's cards).
+/// The piece as a still picture of size points at the screen's scale (a piece's card on the order; the gallery's cards
+/// are the real 3D's now, GalleryCards.swift, and drawn this way only when the 3D cannot make one).
 func piecePicture(_ s: PieceScene, _ size: CGSize) -> UIImage {
     let fmt = UIGraphicsImageRendererFormat.preferred()
     fmt.opaque = true
     return UIGraphicsImageRenderer(size: size, format: fmt).image { c in drawPiece(c.cgContext, size, s, hi: nil, az: 0, label: nil) }
-}
-
-/// The gallery's pictures, made once from the app's own 3D of each model at its usual size (again when the workshop or
-/// the boards change). The 3D and the drawing run off the main thread; each picture shows as soon as it is ready.
-@Observable final class PiecePics {
-    static let shared = PiecePics()
-    private(set) var pics: [String: UIImage] = [:]
-    @ObservationIgnored private var madeFor: (Workshop, [Mat])? = nil
-    @ObservationIgnored private var job: Task<Void, Never>? = nil
-
-    @MainActor
-    func make(_ ws: Workshop, _ mats: [Mat]) {
-        if let mf = madeFor, mf.0 == ws, mf.1 == mats {
-            if job != nil { return }      // already making this workshop's pictures
-        } else {
-            job?.cancel(); job = nil; pics = [:]; madeFor = (ws, mats)
-        }
-        let ids = GALLERY.flatMap { $0.1 }.filter { pics[$0] == nil }
-        if ids.isEmpty { return }
-        job = Task { @MainActor [weak self] in
-            for id in ids {
-                if Task.isCancelled { return }
-                guard let m = fModel(id) else { continue }
-                let img = await Task.detached(priority: .utility) {
-                    piecePicture(pieceScene(pieceOf(m, [:], ws, ""), ws, mats), CGSize(width: 200, height: 170))
-                }.value
-                guard let self, !Task.isCancelled else { return }
-                self.pics[id] = img
-            }
-            if !Task.isCancelled { self?.job = nil }
-        }
-    }
 }
 
 /// The piece live: a horizontal drag turns it (±1.1 rad); hi the step being asked and label its value (or "?").

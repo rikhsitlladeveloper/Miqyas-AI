@@ -189,9 +189,10 @@ final class Modern3DTests: XCTestCase {
 
     func testPictureFilesAreLookedForBySize() {
         let f = texFiles("oak_light", 256)
-        XCTAssertEqual(f.first, "oak_light_256.jpg")
+        // the shared tex/ folder's layout first (256/ or 512/ WebP), the other size next, then other spellings
+        XCTAssertEqual(Array(f.prefix(2)), ["256/oak_light.webp", "512/oak_light.webp"])
         XCTAssertTrue(f.firstIndex(of: "oak_light_256.webp")! < f.firstIndex(of: "oak_light_512.jpg")!)
         XCTAssertTrue(f.contains("oak_light.png"))
-        XCTAssertEqual(texFiles("walnut", 512).first, "walnut_512.jpg")
+        XCTAssertEqual(texFiles("walnut", 512).first, "512/walnut.webp")
     }
 }

@@ -4,7 +4,8 @@ import SwiftUI
  * Adding furniture (decided 21 Oct 2026, mockup design/furniture/gallery-steps-mockup.html v5; Android
  * ui/furniture/Gallery.kt): one gallery of 3D cards grouped by room; a model's main sizes one at a time, the size being
  * asked shown on the piece; which room it goes into (or none). In a measured room the sizes come from the room and the
- * walls step follows (FPlaceScreen). The rules are in Furniture/Core/Steps.swift, the pictures in PieceView.swift.
+ * walls step follows (FPlaceScreen). The rules are in Furniture/Core/Steps.swift; the cards' pictures (the real 3D) in
+ * GalleryCards.swift, the steps' live picture in PieceView.swift.
  */
 
 private var en: Bool { AppSettings.shared.lang == .en }
@@ -21,6 +22,9 @@ func decodeVals(_ s: String?) -> [String: Int] {
     }
     return out
 }
+
+/// A new piece in the order's design style st ("" none), as addPiece makes it: the size steps' picture shows its colours.
+func styledNew(_ f: Furniture, _ st: String) -> Furniture { st.isEmpty || designPreset(st) == nil || f.look != nil ? f : withPreset(f, st, fresh: true) }
 
 /// A typed length in mm (nil when empty, unreadable or zero).
 func parseLen(_ s: String, _ unit: LenUnit) -> Int? {
@@ -71,7 +75,8 @@ struct FGalleryScreen: View {
             let first = groupOf(p, rid)
             let groups = first == nil ? GALLERY : GALLERY.filter { $0.0 == first } + GALLERY.filter { $0.0 != first }
             let on = cur ?? groups[0].0
-            let pics = PiecePics.shared.pics
+            // the cards' pictures from the real 3D, kept once made (GalleryCards.swift)
+            let pics = CardPics.shared.pics
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
                     GlassIconButton("back", tr("nt.back")) { app.pop() }.padding(.leading, 6).accessibilityIdentifier("back")
@@ -155,7 +160,13 @@ struct FGalleryScreen: View {
                     }
                 }
             }
-            .onAppear { PiecePics.shared.make(s.workshop, s.mats) }
+            .onAppear { CardPics.shared.use(s.workshop, s.mats, p.fstyle); CardPics.shared.prefer(cardOrder(groups, on)) }
+            // the group at the top of the list (or jumped to) is made first
+            .onChange(of: cur) { _, g in CardPics.shared.prefer(cardOrder(groups, g ?? groups[0].0)) }
+            // another style, other boards or another workshop: other pictures
+            .onChange(of: p.fstyle) { _, st in CardPics.shared.use(s.workshop, s.mats, st) }
+            .onChange(of: s.mats) { _, ms in CardPics.shared.use(s.workshop, ms, p.fstyle) }
+            .onChange(of: s.workshop) { _, w in CardPics.shared.use(w, s.mats, p.fstyle) }
         }
     }
 
@@ -163,6 +174,12 @@ struct FGalleryScreen: View {
         KitOps.shared.sel = nil
         if let room { app.push(.fPlace(pid: p.id, fid: nil, rid: room.id, model: m.id)) } else { app.push(.fSteps(pid: p.id, model: m.id)) }
     }
+}
+
+/// The gallery's models in the order their cards should be made: group g's first, then the ones below it, then the rest.
+private func cardOrder(_ groups: [(String, [String])], _ g: String) -> [String] {
+    let i = groups.firstIndex { $0.0 == g } ?? 0
+    return (groups[i...] + groups[..<i]).flatMap { $0.1 }
 }
 
 private struct ModelCard: View {
@@ -174,7 +191,7 @@ private struct ModelCard: View {
         let name = tr("fz.m." + m.id)
         let img = ZStack {
             Color(argb: 0xFFF6F8FC)
-            if let pic { Image(uiImage: pic).resizable().scaledToFill() } else { T("3D…", ui(11, 600, G.ink3)) }
+            if let pic { Image(uiImage: pic).resizable().scaledToFill().transition(.opacity) } else { CardShimmer() }
         }
         .aspectRatio(200 / 170, contentMode: .fit)
         .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
@@ -260,7 +277,8 @@ struct FStepsScreen: View {
             let edit = fid.flatMap { id in p.furniture.first { $0.id == id } }
             // only sizes within their range reach the piece: a typed 99999 would otherwise build a 100 m kitchen on every key
             let vals = typedVals(steps, unit)
-            let piece = edit.map { resized($0, vals, ws) } ?? pieceOf(m, vals, ws, "")
+            // a new piece is shown in the order's design style, as it will be made (addPiece)
+            let piece = edit.map { resized($0, vals, ws) } ?? styledNew(pieceOf(m, vals, ws, ""), p.fstyle)
             let scene = pieceScene(piece, ws, s.mats)
             let uw = unitWord(unit)
             let hi: String? = at < n && !steps[at].choice ? steps[at].key : nil
