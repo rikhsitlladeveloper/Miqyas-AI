@@ -5,8 +5,9 @@ import Foundation
  * material's colour, on its wall's frame (WallBasis). Doors swing open about 100°, drawers pull out; Furn3D.picks are
  * what a tap can open. Each part has its look (Geo/Look.swift pieceLooks: the piece's design, PieceLook.swift); the
  * modern kitchen's fronts, handles, worktop, sink, LED, crown and appliances are drawn in Geo/Kitchen3D.swift (modern
- * 3D part 3); a wardrobe's sliding doors, tracks, LED, rails, legs and crown in Geo/Wardrobe3D.swift (part 5). Sizes
- * come in millimetres and go out in metres.
+ * 3D part 3); a wardrobe's sliding doors, tracks, LED, rails, legs and crown in Geo/Wardrobe3D.swift (part 5); beds,
+ * tables, the bar counter, hall panels, mirrors and a vanity's basin in Geo/ItemsScene3D.swift (part 6b). Sizes come in
+ * millimetres and go out in metres.
  */
 
 /// A box with corner o and edges a, b, c (perpendicular, not necessarily unit length).
@@ -118,6 +119,7 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
         B.style = f.look?.style ?? "flat"; B.htype = handleType(f); B.hid = f.handle
         B.fglass = f.look?.fglass == true; B.legsMetal = metalLegs(f); B.ledOn = f.kx?.led == true
         B.accentOn = !(f.look?.accent ?? "").isEmpty
+        B.design = f.look
         // a wardrobe's LED in each section (with a door sensor) and its cornice or row up to the ceiling (a kitchen's are its own)
         // (a gorka's LED strips and neoclassic cornice are its own: Geo/GorkaScene3D.swift)
         let gorka = f.type == "gorka"
@@ -295,6 +297,9 @@ final class FBuilder {
     var crownTop = 0
     /// The box being built takes the upper fronts' board (frontUp; isUpperFront).
     var up = false
+    /// The piece's design as it is (PieceLook.swift; nil a piece made before it): a bed's headboard, soft wall panel and
+    /// legs (Geo/ItemsScene3D.swift).
+    var design: PieceLook? = nil
     /// A kitchen's worktop: its thickness and its top above the floor, mm.
     var topT = Double(K_TOP), wtTop = 0.0
     let t: Int, g: Double, edge: Double
@@ -541,6 +546,8 @@ final class FBuilder {
         let mid = Double(m.x) + Double(m.w) / 2, bw = min(500, Double(m.w) - 120), bd = min(380, Double(m.d) - 80)
         guard bw >= 200, bd >= 200 else { return }
         let n0 = (Double(m.d) - bd) / 2 + 20
+        // the lit 3D: a white ceramic bowl and a tall tap in the handle colour (Geo/ItemsScene3D.swift)
+        if fancy { basinLit(w, mid, top, n0, bw, bd); return }
         let white = p("white"), metal = p("metal")
         box(w, white, mid - bw / 2, mid + bw / 2, top, top + 130, n0, n0 + bd, true)
         box(w, metal, mid - 15, mid + 15, top, top + 230, n0 - 45, n0 - 15, true)
@@ -710,12 +717,20 @@ final class FBuilder {
         if lifts { st.keys.append(liftKey) }
         let th = 38.0 * .pi / 180 * (lifts ? how(liftKey) : 0)
         let pivotY = Double(m.h - BED_SINK - 30), pivotN = Double(t) + 4
-        for b in bs {
-            let part = itemPart(b.role, b.key)
-            let line = !b.key.isEmpty || b.role == "mirror"
-            if b.lift && th > 1e-6 { tilted(w, part, x0, b, pivotY, pivotN, th, line) }
-            else if b.round > 0 { roundTop(w, part, x0, b) }
-            else { box(w, part, x0 + b.a0, x0 + b.a1, b.y0, b.y1, b.n0, b.n1, line) }
+        // the lit 3D draws them in the modern style (Geo/ItemsScene3D.swift); the 2D drawings keep their boxes, a bed's
+        // hidden base and soft wall panel among them
+        if fancy { itemLit(w, m, bs, th, pivotY, pivotN) }
+        else {
+            let foot = bedFoot(m, design)
+            for b in bs {
+                if b.role == "metal" && foot == "base" { continue }
+                let part = itemPart(b.role, b.key)
+                let line = !b.key.isEmpty || b.role == "mirror"
+                if b.lift && th > 1e-6 { tilted(w, part, x0, b, pivotY, pivotN, th, line) }
+                else if b.round > 0 { roundTop(w, part, x0, b) }
+                else { box(w, part, x0 + b.a0, x0 + b.a1, b.y0, b.y1, b.n0, b.n1, line) }
+            }
+            itemFlatExtras(w, m)
         }
         if lifts, let b = bs.first(where: { $0.role == "mattress" }) {
             let o = w.at(Double(x0 + b.a0) / 1000, Double(b.y0) / 1000, Double(b.n0) / 1000)

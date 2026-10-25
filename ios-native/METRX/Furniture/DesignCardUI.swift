@@ -419,6 +419,24 @@ private struct DzBed: View {
                 dzLook(pid, fid) { x in var n = x; n.head = v; return n }
             }
             FToggle(label: tr("lk.panel"), on: l.panel, id: "lk.panel") { dzLook(pid, fid) { x in var n = x; n.panel.toggle(); return n } }
+            if f.modules.contains(where: { $0.type == "bed" && $0.opt?.bed == "legs" }) { DzBedFoot(p: p, f: f) }
+        }
+    }
+}
+
+/// A bed on legs: a hidden base set in under it (the mockup's floating bed) or its metal legs in the handle colour
+/// (Geo/ItemsScene3D.swift bedFoot).
+private struct DzBedFoot: View {
+    let p: Project
+    let f: Furniture
+    var body: some View {
+        let l = f.look ?? PieceLook()
+        let pid = p.id, fid = f.id
+        VStack(alignment: .leading, spacing: 10) {
+            DzTitle(label: tr("lk.legs"))
+            DzChips(items: [DzChip(v: "plinth", label: tr("lk.l.plinth")), DzChip(v: "metal", label: tr("lk.l.metal"))], cur: l.legs ? "metal" : "plinth") { v in
+                dzLook(pid, fid) { x in var n = x; n.legs = v == "metal"; return n }
+            }
         }
     }
 }

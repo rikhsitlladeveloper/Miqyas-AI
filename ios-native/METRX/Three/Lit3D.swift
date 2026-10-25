@@ -33,6 +33,8 @@ extension Scene3DCoordinator {
             m.clearcoat = .init(scale: Float(l.clearcoat))
             m.clearcoatRoughness = .init(scale: Float(l.clearcoatRoughness))
         }
+        // cloth's sheen (iOS 15 and later; RealityKit has no separate sheen roughness: the tint's brightness is its strength)
+        if let s = l.sheen { m.sheen = PhysicallyBasedMaterial.SheenColor(tint: uiColor(s)) }
         if l.emissive > 0 {
             m.emissiveColor = .init(color: uiColor(l.emissiveRgb ?? l.rgb))
             m.emissiveIntensity = Float(l.emissive)

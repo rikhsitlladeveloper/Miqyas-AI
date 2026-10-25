@@ -35,6 +35,9 @@ struct Look: Hashable {
     var flat: Int? = nil
     /// The picture is laid upright from each face's corner (a printed skinali; fitUVs), not along a board's grain.
     var fit: Bool = false
+    /// Cloth's soft sheen at grazing angles (the mockup's fabric sheen; modern 3D part 6b): its colour (sRGB, darker a
+    /// weaker sheen); nil none. A weak phone has none.
+    var sheen: Int? = nil
 
     var flatRgb: Int { flat ?? rgb }
     var glows: Bool { emissive > 0 }
@@ -80,6 +83,7 @@ struct Look: Hashable {
     func lowered() -> Look {
         var l = self
         l.clearcoat = 0
+        l.sheen = nil
         if l.metallic > 0.5 { l.metallic = 0.35; l.roughness = max(0.32, l.roughness) }
         else if l.alpha >= 1 { l.roughness = max(0.28, l.roughness) }
         return l
@@ -218,6 +222,17 @@ func pieceLooks(_ f: Furniture, _ rgb: (String) -> Int, _ tex: (String) -> Strin
     l["display"] = lookFlat(Look(rgb: 0x2A1405, roughness: 0.5, emissive: 1.4, emissiveRgb: 0xFF8A2A), 0x94A3B8)
     l["zone"] = lookFlat(Look(rgb: 0x3A3D42, roughness: 0.25, clearcoat: 0.6, clearcoatRoughness: 0.1), 0x475569)
     l["glow"] = Look(rgb: 0xFFB068, roughness: 1, emissive: 0.9, emissiveRgb: 0xFFB068, alpha: 0.12)
+    // a bed's upholstery and bedding (modern 3D part 6b, Geo/ItemsScene3D.swift): the look's fabric with its sheen, the
+    // soft wall panel's a little lighter, white linen, an off-white duvet, the hidden base's black; a vanity's white
+    // ceramic basin and its tap in the handle colour (chrome without one)
+    let fab = gkFabricLook(f)
+    l["fabric"] = fab
+    l["fabric2"] = itLighter(fab, 0.28)
+    l["linen"] = IT_LINEN
+    l["duvet"] = IT_DUVET
+    l["bedBase"] = IT_BASE
+    l["ceramic"] = IT_CERAMIC
+    l["tap"] = hc.isEmpty ? l["chrome"]! : handle
     return l
 }
 

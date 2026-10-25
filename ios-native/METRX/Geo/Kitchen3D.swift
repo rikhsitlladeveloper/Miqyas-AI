@@ -165,11 +165,11 @@ extension FBuilder {
     }
 
     /// A turned part round the axis from c along d (unit, metres): its profile (radius, distance along d) from the
-    /// axis at the bottom out, up the side and back in at the top.
-    func lathe(_ part: Part3, _ c: V3, _ d: V3, _ prof: [(Double, Double)]) {
+    /// axis at the bottom out, up the side and back in at the top; n sides (nil: sides).
+    func lathe(_ part: Part3, _ c: V3, _ d: V3, _ prof: [(Double, Double)], n: Int? = nil) {
         let ref = abs(d.y) < 0.9 ? V3(0, 1, 0) : V3(1, 0, 0)
         let x = d.cross(ref).unit, y = d.cross(x).unit
-        let k = sides
+        let k = n ?? sides
         func pt(_ i: Int, _ j: Int) -> V3 {
             let t = Double(j % k) / Double(k) * 2 * .pi
             return c + d * prof[i].1 + (x * cos(t) + y * sin(t)) * prof[i].0

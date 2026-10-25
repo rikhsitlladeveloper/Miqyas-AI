@@ -60,6 +60,8 @@ func gkFabricLook(_ f: Furniture) -> Look {
     let c = rgbOf(s.rgb)
     var l = Look.fabric(c, s.tex ?? "fabric")
     if s.finish == "velvet" { l.roughness = 0.55; l.clearcoat = 0.15; l.clearcoatRoughness = 0.4 }
+    // the mockup's sheen over the cloth (Geo/ItemsScene3D.swift itSheen; a weak phone has none)
+    l.sheen = itSheen(c, velvet: s.finish == "velvet")
     return lookFlat(l, c)
 }
 
