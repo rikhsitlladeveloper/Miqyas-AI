@@ -41,31 +41,24 @@ struct Furn3D {
     }
 }
 
-private let METAL = 0xC5CBD4
-private let DARK = 0x1E293B
-private let HANDLE = 0x4B5563
-private let WHITE = 0xE8EAEE
 private let OPEN_DEG = 100.0
 /// A door with a wall, another piece or a door beside its hinge stops at a right angle, not swinging into it.
 private let SHUT_DEG = 90.0
-private let MIRROR = 0xC9D3DD
-private let GLASS_P = 0x8FA9C4
-/// A vitrina's clear glass, seen through; a bed's mattress and slats; an LED strip's light.
-private let CLEAR = 0xBFD8E8
-private let MATTRESS = 0xF1F3F6
-private let LAMEL = 0xD9C29A
-private let LED = 0xFFF3C4
+/// The materials' colours and looks: Geo/Look.swift furnLooks.
 
-/// The faces of a box, each facing out.
+/// The faces of a box, each facing out, each with its grain along the board's long side (Look.swift boxGrains).
 private func obbFaces(_ p: Part3, _ x: Obb) {
     let ctr = x.o + (x.a + x.b + x.c) * 0.5
+    let o = x.o, a = x.a, b = x.b, c = x.c
+    let gr = boxGrains(a, b, c)
+    var k = 0
     func face(_ q: [V3]) {
         let fc = V3(q.reduce(0) { $0 + $1.x } / 4, q.reduce(0) { $0 + $1.y } / 4, q.reduce(0) { $0 + $1.z } / 4)
         var n = (q[1] - q[0]).cross(q[3] - q[0]).unit
         if n.dot(fc - ctr) < 0 { n = n * -1 }
-        p.faces.append(Face3(n: n, pts: q))
+        p.faces.append(Face3(n: n, pts: q, grain: gr[k]))
+        k += 1
     }
-    let o = x.o, a = x.a, b = x.b, c = x.c
     face([o, o + a, o + a + b, o + b]); face([o + c, o + c + a, o + c + a + b, o + c + b])
     face([o, o + c, o + c + b, o + b]); face([o + a, o + a + c, o + a + c + b, o + a + b])
     face([o, o + a, o + a + c, o + c]); face([o + b, o + b + a, o + b + a + c, o + b + c])
@@ -101,7 +94,6 @@ struct PartHi: Equatable {
 private let PART_TAGGED: Set<String> = ["fp.side", "fp.top", "fp.bottom", "fp.divider", "fp.shelf", "fp.back", "fp.door", "fp.dFace", "fp.rail", "fp.plinth",
                                         "fp.panel", "fp.filler", "fp.slidePanel", "fp.dSide", "fp.dFront", "fp.dBottom",
                                         "fp.endLow", "fp.endUp"]
-private let HI_PART = 0xF59E0B
 
 /// A handle's length along its door or drawer, mm: the piece's handle type (a knob, a long bar, the usual 128 skoba).
 func handleLen(_ id: String) -> Int {
@@ -115,17 +107,16 @@ func handleLen(_ id: String) -> Int {
 /// The furniture fs of a room whose walls are bases. rgb gives a material's colour; open holds the keys of open doors
 /// and drawers, or amt says how far each one is open, 0 to 1 (moving between the two while it opens or shuts).
 /// bare: "See inside", no doors, drawer fronts or sliding doors (the drawers' boxes stay, shut); hi a part lit up.
+/// tex gives a board's decor picture by its id (Mat.tex), for the lit 3D.
 func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop, _ rgb: (String) -> Int, _ open: Set<String>,
-                 amt: ((String) -> Double)? = nil, bare: Bool = false, hi: PartHi? = nil) -> Furn3D {
+                 amt: ((String) -> Double)? = nil, bare: Bool = false, hi: PartHi? = nil, tex: ((String) -> String?)? = nil) -> Furn3D {
     let how: (String) -> Double = amt ?? { k in open.contains(k) ? 1 : 0 }
+    let texOf: (String) -> String? = tex ?? { _ in nil }
     let st = FStore()
     for f in fs {
-        let colors = ["carcass": rgb(f.mats.carcass), "front": rgb(f.mats.front), "back": rgb(f.mats.back), "top": rgb("wt38"),
-                      "mirror": MIRROR, "glass": GLASS_P, "splash": rgb("splash6"),
-                      "metal": METAL, "dark": DARK, "handle": HANDLE, "white": WHITE,
-                      "clear": CLEAR, "mattress": MATTRESS, "lamel": LAMEL, "led": LED, "hi": HI_PART]
+        let looks = furnLooks(f.mats, rgb, texOf)
         let fws = wsOf(f, ws)
-        let B = FBuilder(fws, colors, st, how)
+        let B = FBuilder(fws, looks, st, how)
         B.bare = bare; B.hi = hi; B.piece = f.id; B.hLen = Double(handleLen(f.handle))
         let lens = { (id: String) in bases[id].map { Int(($0.len * 1000).rounded(.towardZero)) } }
         // the island (or peninsula) stands where it was dragged, else 900 mm out from the front of the first wall's
@@ -226,10 +217,10 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
     return Furn3D(parts: st.order.map { st.parts[$0]! }, edges: st.edgeOrder.map { st.edges[$0]! }, picks: st.picks, keys: st.keys)
 }
 
-/// What the builders of all pieces share: parts one per wall and colour (so opening a door does not change how many
+/// What the builders of all pieces share: parts one per wall and look (so opening a door does not change how many
 /// there are), outlines one per wall, picks and keys.
 private final class FStore {
-    struct K: Hashable { let wall: String?; let rgb: Int }
+    struct K: Hashable { let wall: String?; let look: Look }
     var parts: [K: Part3] = [:], order: [K] = []
     var edges: [String: Edges3] = [:], edgeOrder: [String] = []
     var picks: [Pick] = [], keys: [String] = []
@@ -239,7 +230,8 @@ private func d(_ v: Int) -> Double { Double(v) }
 
 /// Builds the boards of one piece of furniture on a wall frame; lengths in mm.
 private final class FBuilder {
-    let ws: Workshop, colors: [String: Int], st: FStore, how: (String) -> Double
+    /// Each material key's look (Look.swift furnLooks); a part's plain colour is its look's flatRgb.
+    let ws: Workshop, looks: [String: Look], st: FStore, how: (String) -> Double
     /// The wall being furnished: the furniture's parts are kept per wall (it stays solid when its wall goes see-through).
     var wall: String? = nil
     /// The piece being built has nothing past its left / right end (no wall, no neighbour): a door hinged there opens wide.
@@ -252,23 +244,23 @@ private final class FBuilder {
     var piece = "", mod = "", sec = ""
     var hLen = 128.0
     let t: Int, g: Double, edge: Double
-    init(_ ws: Workshop, _ colors: [String: Int], _ st: FStore, _ how: @escaping (String) -> Double) {
-        self.ws = ws; self.colors = colors; self.st = st; self.how = how
+    init(_ ws: Workshop, _ looks: [String: Look], _ st: FStore, _ how: @escaping (String) -> Double) {
+        self.ws = ws; self.looks = looks; self.st = st; self.how = how
         t = ws.t; g = Double(ws.gap10) / 10; edge = Double(ws.edge10) / 10
     }
 
     func p(_ k: String) -> Part3 {
-        let c = colors[k]!, w = wall == ISLAND ? nil : wall
-        // the worktop is a part of its own (even in the fronts' colour): its top and outline are drawn as a slab
+        let l = looks[k] ?? Look.matte(0xCCCCCC), c = l.flatRgb, w = wall == ISLAND ? nil : wall
+        // the worktop is a part of its own (even in the fronts' look): its top and outline are drawn as a slab
         if k == "top" {
-            let tk = FStore.K(wall: "top|" + (w ?? ""), rgb: c)
+            let tk = FStore.K(wall: "top|" + (w ?? ""), look: l)
             if let x = st.parts[tk] { return x }
-            let x = Part3(0, w, .furn, c, 1, slab: true); st.parts[tk] = x; st.order.append(tk); return x
+            let x = Part3(0, w, .furn, c, 1, slab: true, look: l); st.parts[tk] = x; st.order.append(tk); return x
         }
-        let key = FStore.K(wall: w, rgb: c)
+        let key = FStore.K(wall: w, look: l)
         if let x = st.parts[key] { return x }
         // clear glass is seen through
-        let x = Part3(0, w, .furn, c, k == "clear" ? 0.38 : 1); st.parts[key] = x; st.order.append(key); return x
+        let x = Part3(0, w, .furn, c, k == "clear" ? 0.38 : 1, look: l); st.parts[key] = x; st.order.append(key); return x
     }
     /// Board k of role r (carcass, front, back) being drawn: in the highlight's colour when it is the part asked for.
     func role(_ r: String, _ k: String = "") -> Part3 {

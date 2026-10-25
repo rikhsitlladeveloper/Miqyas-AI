@@ -55,13 +55,18 @@ struct Mat: Codable, Equatable, Identifiable {
     var grain = false
     var rgb = "#F5F5F2"
     var preset = false
-    init(_ id: String, _ kind: String, _ name: String, _ t: Int, l: Int = 2800, w: Int = 2070, price: String = "", grain: Bool = false, rgb: String = "#F5F5F2", preset: Bool = false) {
+    /// The decor picture of the lit 3D (Geo/Look.swift: a file under tex/, e.g. "oak_light"); nil a plain colour.
+    var tex: String? = nil
+    init(_ id: String, _ kind: String, _ name: String, _ t: Int, l: Int = 2800, w: Int = 2070, price: String = "", grain: Bool = false, rgb: String = "#F5F5F2", preset: Bool = false,
+         tex: String? = nil) {
         self.id = id; self.kind = kind; self.name = name; self.t = t; self.l = l; self.w = w; self.price = price; self.grain = grain; self.rgb = rgb; self.preset = preset
+        self.tex = tex
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id); kind = c.v(.kind, "board"); name = c.v(.name, ""); t = c.v(.t, 16)
         l = c.v(.l, 2800); w = c.v(.w, 2070); price = c.v(.price, ""); grain = c.v(.grain, false); rgb = c.v(.rgb, "#F5F5F2"); preset = c.v(.preset, false)
+        tex = (try? c.decodeIfPresent(String.self, forKey: .tex)) ?? nil
     }
 }
 

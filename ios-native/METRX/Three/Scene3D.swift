@@ -5,9 +5,11 @@ import Observation
 
 /*
  * The 3D picture (prototype mount3D / draw3D and the ux module's camera limits), drawn with RealityKit in an ARView
- * without the camera feed (iOS 17 has no non-AR RealityView). As on Android, the colours are worked out the way
- * three.js lights the prototype's Lambert walls (geo shade) and handed over as flat unlit colours, so the picture
- * matches the prototype's.
+ * without the camera feed (iOS 17 has no non-AR RealityView). Lit ("modern furniture 3D", 25 Oct 2026): every part a
+ * PhysicallyBasedMaterial from its Look (Geo/Look.swift, Three/Lit3D.swift) with normals and texture coordinates, a
+ * studio environment for the reflections, a warm sun with soft shadows on strong phones, thin soft outlines on the
+ * furniture (Three/RenderTier.swift picks how much). The old picture stays as the flat fallback: the colours worked
+ * out the way three.js lights the prototype's Lambert walls (geo shade), handed over as flat unlit colours.
  */
 
 let BG3D = 0xF3F6FA
@@ -178,9 +180,7 @@ struct Scene3DView: UIViewRepresentable {
     func makeUIView(context: Context) -> Scene3DARView {
         let v = Scene3DARView(frame: .zero, cameraMode: .nonAR, automaticallyConfigureSession: false)
         v.environment.background = .color(uiColor(BG3D))
-        v.renderOptions = [.disableMotionBlur, .disableDepthOfField, .disableHDR, .disableGroundingShadows, .disableCameraGrain,
-                           .disableAREnvironmentLighting]
-        context.coordinator.attach(v)
+        context.coordinator.attach(v, Quality3.current())
         return v
     }
 
@@ -190,13 +190,21 @@ struct Scene3DView: UIViewRepresentable {
 }
 
 final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
-    private struct Prim { let e: ModelEntity; let rgb: Int; let op: Double; let role: Role3; let group: Int; let wall: String?; var alpha: Double = -1 }
-    private struct LineP { let e: ModelEntity; let group: Int; let wall: String; let rgb: Int; var alpha: Double = -1 }
+    /// A part on screen: its look (in the flat picture, Look(rgb: its lit colour)); its own opacity is the look's alpha.
+    private struct Prim { let e: ModelEntity; let look: Look; let role: Role3; let group: Int; let wall: String?; var alpha: Double = -1 }
+    /// An outline: its colour and own opacity (the soft furniture lines are faint).
+    private struct LineP { let e: ModelEntity; let group: Int; let wall: String; let rgb: Int; let op: Double; var alpha: Double = -1 }
+    private struct MatKey: Hashable { let look: Look; let alpha: Double }
     private weak var view: Scene3DARView?
     private var cam: Cam3D?
     private let anchor = AnchorEntity(world: .zero)
     private let camera = PerspectiveCamera()
     private let content = Entity()
+    /// The warm sun of the lit picture (mockup: #FFF0DE from above the front corner).
+    private let sun = DirectionalLight()
+    private var tier: Quality3 = .high
+    private var lit: Bool { tier != .flat }
+    private var mats: [MatKey: RealityKit.Material] = [:]
     private var key: String? = nil
     private var baseKey: String? = nil
     private var prims: [Prim] = []
@@ -204,12 +212,15 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
     private var shell: Shell3D?
     var onTap: ((CGPoint) -> Void)? = nil
 
-    func attach(_ v: Scene3DARView) {
+    func attach(_ v: Scene3DARView, _ q: Quality3) {
         view = v
+        tier = q
+        setLight(v)
         camera.camera.fieldOfViewInDegrees = 40
         if #available(iOS 18.0, *) { camera.camera.fieldOfViewOrientation = .vertical }
         camera.camera.near = 0.1
         anchor.addChild(camera); anchor.addChild(content)
+        if lit { anchor.addChild(sun) }
         v.scene.addAnchor(anchor)
         v.onLayout = { [weak self] s in self?.cam?.resize(s.width, s.height) }
         let pan = UIPanGestureRecognizer(target: self, action: #selector(onPan(_:)))
@@ -222,6 +233,62 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
     }
 
     func detach() { cam?.onMove = nil; cam?.projector = nil; cam?.stop() }
+
+    /// The view's light for the tier. high: HDR with tone mapping, the studio's reflections, grounding shadows; low: the
+    /// same studio a little brighter, no HDR and no shadows; flat: none (unlit colours), as before.
+    private func setLight(_ v: Scene3DARView) {
+        switch tier {
+        case .flat:
+            v.renderOptions = [.disableMotionBlur, .disableDepthOfField, .disableHDR, .disableGroundingShadows, .disableCameraGrain,
+                               .disableAREnvironmentLighting]
+            return
+        case .high: v.renderOptions = [.disableMotionBlur, .disableDepthOfField, .disableCameraGrain]
+        case .low: v.renderOptions = [.disableMotionBlur, .disableDepthOfField, .disableCameraGrain, .disableHDR, .disableGroundingShadows]
+        }
+        if let env = Scene3DCoordinator.studio() { v.environment.lighting.resource = env }
+        v.environment.lighting.intensityExponent = tier == .high ? 0.25 : 0.5
+        var c = DirectionalLightComponent()
+        c.color = uiColor(0xFFF0DE)
+        c.intensity = tier == .high ? 1500 : 1900
+        sun.light = c
+    }
+
+    /// The sun over the scene's middle from the shell's light direction; soft shadows on the high tier (iOS 18: there the
+    /// walls can be kept from casting them, see shadowRules).
+    private func placeSun(_ s: Shell3D) {
+        guard lit else { return }
+        let t = V3(s.tgt.x, 0.6, s.tgt.z)
+        sun.look(at: f3(t), from: f3(t + s.light.unit * 10), relativeTo: nil)
+        sun.shadow = nil
+        guard tier == .high else { return }
+        if #available(iOS 18.0, *) {
+            let reach = min(40, max(8, s.r * 1.6 + max(s.L, s.W)))
+            sun.shadow = DirectionalLightComponent.Shadow(maximumDistance: Float(reach), depthBias: 1.5)
+        }
+    }
+
+    /// Who casts shadows (iOS 18): not the walls, openings or glass (a wall between the sun and the room would darken it;
+    /// a see-through wall must not); the furniture also drops a soft grounding shadow on the high tier.
+    private func shadowRules(_ e: ModelEntity, _ role: Role3, _ look: Look) {
+        guard tier == .high else { return }
+        if #available(iOS 18.0, *) {
+            if role == .wall || role == .opening || role == .glass || look.alpha < 1 {
+                e.components.set(DynamicLightShadowComponent(castsShadow: false))
+            } else if role == .furn {
+                e.components.set(GroundingShadowComponent(castsShadow: true))
+            }
+        }
+    }
+
+    /// The material of look at opacity a: lit (made once per look and opacity) or the flat colour.
+    private func material(_ look: Look, _ a: Double) -> RealityKit.Material {
+        if !lit { return mat(look.rgb, a) }
+        let k = MatKey(look: look, alpha: a)
+        if let m = mats[k] { return m }
+        let m = Scene3DCoordinator.litMaterial(look, alpha: a, tier: tier)
+        mats[k] = m
+        return m
+    }
 
     func update(_ s: Shell3D, _ k: String, _ bk: String?, _ c: Cam3D, _ shot: Shot3D?) {
         if cam !== c {
@@ -281,6 +348,7 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         addParts(s.parts, s.light)
         addEdges(s.edges)
         addGrid(s)
+        placeSun(s)
     }
 
     /// The furniture taken out and built again from s; the walls, the floor and the grid stay as they are.
@@ -294,49 +362,92 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         addEdges(s.edges.filter { $0.wall.hasPrefix("furn ") })
     }
 
-    /// Faces: one entity per piece and lit colour.
-    private func addParts(_ parts: [Part3], _ light: V3) {
-        for p in parts where !p.faces.isEmpty {
-            var byColor: [Int: [Face3]] = [:]
-            var order: [Int] = []
-            for f in p.faces {
-                let c = shade(p.slab && f.n.y > 0.9 ? slabTop(p.rgb) : p.rgb, f.n, light)
-                if byColor[c] == nil { order.append(c) }
-                byColor[c, default: []].append(f)
-            }
-            for c in order {
-                var pos: [SIMD3<Float>] = [], idx: [UInt32] = []
-                for f in byColor[c]! {
-                    let base = UInt32(pos.count)
-                    pos += f.pts.map(f3)
-                    let tris = f.tris ?? (1..<max(1, f.pts.count - 1)).flatMap { [0, $0, $0 + 1] }
-                    var t = 0
-                    while t + 2 < tris.count {
-                        let a = f.pts[tris[t]], b = f.pts[tris[t + 1]], cc = f.pts[tris[t + 2]]
-                        // counter-clockwise seen from the face's outside
-                        if (b - a).cross(cc - a).dot(f.n) >= 0 { idx += [base + UInt32(tris[t]), base + UInt32(tris[t + 1]), base + UInt32(tris[t + 2])] }
-                        else { idx += [base + UInt32(tris[t]), base + UInt32(tris[t + 2]), base + UInt32(tris[t + 1])] }
-                        t += 3
-                    }
-                }
-                guard let m = mesh(pos, idx) else { continue }
-                let e = ModelEntity(mesh: m, materials: [mat(c, p.op)])
-                content.addChild(e)
-                prims.append(Prim(e: e, rgb: c, op: p.op, role: p.role, group: p.group, wall: p.wall))
-            }
+    /// A face's triangles, counter-clockwise seen from its outside, its corners numbered from base.
+    private func triangles(_ f: Face3, _ base: UInt32, _ idx: inout [UInt32]) {
+        let tris = f.tris ?? (1..<max(1, f.pts.count - 1)).flatMap { [0, $0, $0 + 1] }
+        var t = 0
+        while t + 2 < tris.count {
+            let a = f.pts[tris[t]], b = f.pts[tris[t + 1]], cc = f.pts[tris[t + 2]]
+            if (b - a).cross(cc - a).dot(f.n) >= 0 { idx += [base + UInt32(tris[t]), base + UInt32(tris[t + 1]), base + UInt32(tris[t + 2])] }
+            else { idx += [base + UInt32(tris[t]), base + UInt32(tris[t + 2]), base + UInt32(tris[t + 1])] }
+            t += 3
         }
     }
 
-    /// The dark outlines: thin bars.
+    /// Faces: lit, one entity per part (a wall's furniture in one look); flat, one per part and lit colour.
+    private func addParts(_ parts: [Part3], _ light: V3) {
+        for p in parts where !p.faces.isEmpty {
+            if !lit { addFlat(p, light); continue }
+            let look = p.look ?? roleLook(p.role, p.rgb, p.op, tile: p.tile)
+            guard let m = litMesh(p.faces, look) else { continue }
+            let e = ModelEntity(mesh: m, materials: [material(look, look.alpha)])
+            shadowRules(e, p.role, look)
+            content.addChild(e)
+            prims.append(Prim(e: e, look: look, role: p.role, group: p.group, wall: p.wall))
+        }
+    }
+
+    /// The faces with their normals and texture coordinates (metres along the grain over the look's repeat).
+    private func litMesh(_ faces: [Face3], _ look: Look) -> MeshResource? {
+        var pos: [SIMD3<Float>] = [], nrm: [SIMD3<Float>] = [], uvs: [SIMD2<Float>] = [], idx: [UInt32] = []
+        for f in faces {
+            let base = UInt32(pos.count)
+            pos += f.pts.map(f3)
+            nrm += Array(repeating: f3(f.n), count: f.pts.count)
+            uvs += faceUVs(f, look).map { SIMD2<Float>(Float($0.x), Float($0.y)) }
+            triangles(f, base, &idx)
+        }
+        guard !idx.isEmpty else { return nil }
+        var d = MeshDescriptor(name: "m")
+        d.positions = MeshBuffers.Positions(pos)
+        d.normals = MeshBuffers.Normals(nrm)
+        d.textureCoordinates = MeshBuffers.TextureCoordinates(uvs)
+        d.primitives = .triangles(idx)
+        return try? MeshResource.generate(from: [d])
+    }
+
+    /// The flat picture's part: one entity per lit colour.
+    private func addFlat(_ p: Part3, _ light: V3) {
+        var byColor: [Int: [Face3]] = [:]
+        var order: [Int] = []
+        for f in p.faces {
+            let c = shade(p.slab && f.n.y > 0.9 ? slabTop(p.rgb) : p.rgb, f.n, light)
+            if byColor[c] == nil { order.append(c) }
+            byColor[c, default: []].append(f)
+        }
+        for c in order {
+            var pos: [SIMD3<Float>] = [], idx: [UInt32] = []
+            for f in byColor[c]! {
+                let base = UInt32(pos.count)
+                pos += f.pts.map(f3)
+                triangles(f, base, &idx)
+            }
+            guard let m = mesh(pos, idx) else { continue }
+            let e = ModelEntity(mesh: m, materials: [mat(c, p.op)])
+            content.addChild(e)
+            prims.append(Prim(e: e, look: Look(rgb: c, alpha: p.op), role: p.role, group: p.group, wall: p.wall))
+        }
+    }
+
+    /// The outlines: thin bars. The walls' stay dark; the furniture's, in the lit picture, are thin and faint (mockup
+    /// finalize: #1B2230 at 12–16 %), the worktops' light.
     private func addEdges(_ edges: [Edges3]) {
         for ed in edges where !ed.segs.isEmpty {
+            let soft = lit && ed.wall.hasPrefix("furn ")
+            let slab = ed.rgb == SLAB_LINE
+            let w = soft ? 0.0045 : 0.012
+            let rgb = soft && !slab ? 0x1B2230 : ed.rgb
+            let op: Double = !soft ? 1 : slab ? 0.5 : tier == .low ? 0.16 : 0.13
             var pos: [SIMD3<Float>] = [], idx: [UInt32] = []
             var i = 0
-            while i + 1 < ed.segs.count { bar(&pos, &idx, ed.segs[i], ed.segs[i + 1], 0.012); i += 2 }
+            // a faint bar drawn from both sides would show twice as dark: only its outside then
+            while i + 1 < ed.segs.count { bar(&pos, &idx, ed.segs[i], ed.segs[i + 1], w, both: !soft); i += 2 }
             guard let m = mesh(pos, idx) else { continue }
-            let e = ModelEntity(mesh: m, materials: [mat(ed.rgb, 1)])
+            let e = ModelEntity(mesh: m, materials: [mat(rgb, op)])
+            // outlines cast no shadows
+            if lit { if #available(iOS 18.0, *) { e.components.set(DynamicLightShadowComponent(castsShadow: false)) } }
             content.addChild(e)
-            lines.append(LineP(e: e, group: ed.group, wall: ed.wall, rgb: ed.rgb))
+            lines.append(LineP(e: e, group: ed.group, wall: ed.wall, rgb: rgb, op: op))
         }
     }
 
@@ -355,8 +466,8 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         if let m = mesh(mp, mi) { content.addChild(ModelEntity(mesh: m, materials: [mat(0xC3CEDF, 1)])) }
     }
 
-    /// A segment as a thin square bar, both windings (seen from any side).
-    private func bar(_ pos: inout [SIMD3<Float>], _ idx: inout [UInt32], _ a: V3, _ b: V3, _ w: Double) {
+    /// A segment as a thin square bar, both windings (seen from any side), or only its outside (both false).
+    private func bar(_ pos: inout [SIMD3<Float>], _ idx: inout [UInt32], _ a: V3, _ b: V3, _ w: Double, both: Bool = true) {
         let d = (b - a).unit
         if (b - a).len < 1e-6 { return }
         let ref = abs(d.y) < 0.9 ? V3(0, 1, 0) : V3(1, 0, 0)
@@ -366,7 +477,9 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         for k in 0..<4 {
             let k1 = (k + 1) % 4
             let q: [UInt32] = [base + UInt32(k), base + UInt32(k1), base + 4 + UInt32(k1), base + UInt32(k), base + 4 + UInt32(k1), base + 4 + UInt32(k)]
-            idx += q; idx += [q[0], q[2], q[1], q[3], q[5], q[4]]
+            // q faces into the bar; the reversed triangles face out
+            if both { idx += q }
+            idx += [q[0], q[2], q[1], q[3], q[5], q[4]]
         }
     }
 
@@ -389,12 +502,12 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         }
         // the wall facing the eye goes see-through, its doors and windows with it; the furniture on it stays solid
         for i in prims.indices {
-            let p = prims[i], f = facing(p.group, p.wall)
-            let a: Double = p.role == .wall ? (f ? 0.14 : 1) : p.role == .opening ? (f ? min(0.12, p.op) : p.op) : p.op
-            if a != p.alpha { prims[i].alpha = a; p.e.model?.materials = [mat(p.rgb, a)] }
+            let p = prims[i], f = facing(p.group, p.wall), op = p.look.alpha
+            let a: Double = p.role == .wall ? (f ? 0.14 : 1) : p.role == .opening ? (f ? min(0.12, op) : op) : op
+            if a != p.alpha { prims[i].alpha = a; p.e.model?.materials = [material(p.look, a)] }
         }
         for i in lines.indices {
-            let l = lines[i], a = facing(l.group, l.wall) ? 0.35 : 1
+            let l = lines[i], a = l.op * (facing(l.group, l.wall) ? 0.35 : 1)
             if a != l.alpha { lines[i].alpha = a; l.e.model?.materials = [mat(l.rgb, a)] }
         }
     }

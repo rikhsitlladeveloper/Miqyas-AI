@@ -32,7 +32,8 @@ struct WallBasis: Equatable {
 }
 
 /// A flat face: a convex polygon (tris nil, drawn as a fan) or a triangulated polygon (the floor of a drawn room).
-struct Face3 { let n: V3; let pts: [V3]; var tris: [Int]? = nil }
+/// grain: the direction its picture's grain runs (a board's long side, Geo/Look.swift boxGrains); nil the world's.
+struct Face3 { let n: V3; let pts: [V3]; var tris: [Int]? = nil; var grain: V3? = nil }
 
 /// Faces with one colour and opacity, belonging to one wall of one room (group); floors and loose glass have no wall.
 /// tile: a tiler's tiles (Tiles/Mesh.swift).
@@ -41,9 +42,11 @@ final class Part3 {
     let tile: Bool
     /// A worktop: its top is lit like a stone surface and its outline drawn light, so a dark one shows its thickness.
     let slab: Bool
+    /// How it looks in the lit 3D (Geo/Look.swift); nil: worked out from its role and colour (roleLook).
+    let look: Look?
     var faces: [Face3] = []
-    init(_ group: Int, _ wall: String?, _ role: Role3, _ rgb: Int, _ op: Double, tile: Bool = false, slab: Bool = false) {
-        self.group = group; self.wall = wall; self.role = role; self.rgb = rgb; self.op = op; self.tile = tile; self.slab = slab
+    init(_ group: Int, _ wall: String?, _ role: Role3, _ rgb: Int, _ op: Double, tile: Bool = false, slab: Bool = false, look: Look? = nil) {
+        self.group = group; self.wall = wall; self.role = role; self.rgb = rgb; self.op = op; self.tile = tile; self.slab = slab; self.look = look
     }
 }
 
@@ -496,8 +499,8 @@ func buildShell(_ rooms: [Room], single: Bool, snap: Bool = true, bare: Set<Stri
         for p in row.it {
             let gi = groups.count, dx = x - p.x0, dz = z - p.z0, mv = V3(dx, 0, dz)
             for pt in p.b.parts {
-                let np = Part3(gi, pt.wall, pt.role, pt.rgb, pt.op)
-                np.faces = pt.faces.map { Face3(n: $0.n, pts: $0.pts.map { $0 + mv }, tris: $0.tris) }
+                let np = Part3(gi, pt.wall, pt.role, pt.rgb, pt.op, look: pt.look)
+                np.faces = pt.faces.map { Face3(n: $0.n, pts: $0.pts.map { $0 + mv }, tris: $0.tris, grain: $0.grain) }
                 parts.append(np)
             }
             for e in p.b.edges { let ne = Edges3(gi, e.wall); ne.segs = e.segs.map { $0 + mv }; edges.append(ne) }

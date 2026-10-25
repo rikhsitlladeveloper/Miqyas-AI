@@ -1,0 +1,117 @@
+import RealityKit
+import UIKit
+import Metal
+
+/*
+ * The lit 3D's materials, decor pictures and studio light ("modern furniture 3D" part 1; the approved mockup's mats() and
+ * makeEnv()). A Look (Geo/Look.swift) becomes a PhysicallyBasedMaterial; the pictures come from tex/ in the app (the
+ * Android app's assets/tex folder, shared through project.yml) and a missing one leaves the plain colour. Kept on the
+ * 3D view's coordinator, so it runs where the rest of the RealityKit code runs.
+ */
+
+extension Scene3DCoordinator {
+    /// Pictures loaded so far, by "id@px"; the ones with no file.
+    private static var texLoaded: [String: TextureResource] = [:]
+    private static var texMissing: Set<String> = []
+    /// The studio light, made once (nil if it could not be made: RealityKit's own then).
+    private static var studioMade = false
+    private static var studioEnv: EnvironmentResource? = nil
+
+    /// The material for look at opacity alpha on a phone of quality tier (high or low).
+    static func litMaterial(_ look: Look, alpha: Double, tier: Quality3) -> PhysicallyBasedMaterial {
+        let l = tier == .low ? look.lowered() : look
+        var m = PhysicallyBasedMaterial()
+        if let id = l.tex, let t = texture(id, tier.texPx) {
+            m.baseColor = .init(tint: uiColor(l.texTint), texture: repeating(t))
+        } else {
+            m.baseColor = .init(tint: uiColor(l.rgb))
+        }
+        m.roughness = .init(scale: Float(min(1, max(0, l.roughness))))
+        m.metallic = .init(scale: Float(min(1, max(0, l.metallic))))
+        if l.clearcoat > 0 {
+            m.clearcoat = .init(scale: Float(l.clearcoat))
+            m.clearcoatRoughness = .init(scale: Float(l.clearcoatRoughness))
+        }
+        if l.emissive > 0 {
+            m.emissiveColor = .init(color: uiColor(l.emissiveRgb ?? l.rgb))
+            m.emissiveIntensity = Float(l.emissive)
+        }
+        if alpha < 1 { m.blending = .transparent(opacity: .init(floatLiteral: Float(max(0, alpha)))) }
+        return m
+    }
+
+    /// A picture repeating across the surface (texture coordinates are in metres, well past 0…1), smooth when far.
+    private static func repeating(_ t: TextureResource) -> MaterialParameters.Texture {
+        let d = MTLSamplerDescriptor()
+        d.sAddressMode = .repeat; d.tAddressMode = .repeat
+        d.minFilter = .linear; d.magFilter = .linear; d.mipFilter = .linear
+        d.maxAnisotropy = 4
+        var x = MaterialParameters.Texture(t)
+        x.sampler = MaterialParameters.Texture.Sampler(d)
+        return x
+    }
+
+    /// Decor picture id at px (512 or 256; the other size, or one without a size, when that is all there is); nil when
+    /// tex/ has no file for it.
+    static func texture(_ id: String, _ px: Int) -> TextureResource? {
+        let k = "\(id)@\(px)"
+        if let t = texLoaded[k] { return t }
+        if texMissing.contains(k) { return nil }
+        let root = Bundle.main.bundleURL.appendingPathComponent("tex", isDirectory: true)
+        let fm = FileManager.default
+        if fm.fileExists(atPath: root.path) {
+            for name in texFiles(id, px) {
+                let u = root.appendingPathComponent(name)
+                guard fm.fileExists(atPath: u.path), let img = UIImage(contentsOfFile: u.path)?.cgImage else { continue }
+                if let t = try? TextureResource.generate(from: img, options: .init(semantic: .color)) {
+                    texLoaded[k] = t
+                    return t
+                }
+            }
+        }
+        texMissing.insert(k)
+        return nil
+    }
+
+    /// The studio the reflections and the soft light come from (mockup makeEnv): light walls, a bright ceiling with light
+    /// strips, two bright windows, a darker warm floor, a few dark pieces for the gloss to mirror.
+    static func studio() -> EnvironmentResource? {
+        if !studioMade {
+            studioMade = true
+            if let cg = studioImage(512, 256) { studioEnv = try? EnvironmentResource.generate(fromEquirectangular: cg) }
+        }
+        return studioEnv
+    }
+
+    /// The studio as an equirectangular picture w × h (top: straight up).
+    private static func studioImage(_ w: Int, _ h: Int) -> CGImage? {
+        let f = UIGraphicsImageRendererFormat()
+        f.scale = 1; f.opaque = true
+        let W = CGFloat(w), H = CGFloat(h)
+        let img = UIGraphicsImageRenderer(size: CGSize(width: W, height: H), format: f).image { r in
+            let c = r.cgContext
+            let space = CGColorSpaceCreateDeviceRGB()
+            func band(_ y0: CGFloat, _ y1: CGFloat, _ a: Int, _ b: Int) {
+                guard let g = CGGradient(colorsSpace: space, colors: [uiColor(a).cgColor, uiColor(b).cgColor] as CFArray, locations: [0, 1]) else { return }
+                c.saveGState(); c.clip(to: CGRect(x: 0, y: y0 * H, width: W, height: (y1 - y0) * H))
+                c.drawLinearGradient(g, start: CGPoint(x: 0, y: y0 * H), end: CGPoint(x: 0, y: y1 * H), options: [])
+                c.restoreGState()
+            }
+            func rect(_ x0: CGFloat, _ y0: CGFloat, _ x1: CGFloat, _ y1: CGFloat, _ rgb: Int) {
+                c.setFillColor(uiColor(rgb).cgColor); c.fill(CGRect(x: x0 * W, y: y0 * H, width: (x1 - x0) * W, height: (y1 - y0) * H))
+            }
+            // ceiling, walls, floor
+            band(0, 0.24, 0xF6F3EE, 0xEAE6DF)
+            band(0.24, 0.5, 0xC9C3BA, 0xB7B1A8)
+            band(0.5, 0.56, 0xB7B1A8, 0x8A7A69)
+            band(0.56, 1, 0x7A6A5A, 0x4A3B2E)
+            // light strips across the ceiling
+            for y in [0.05, 0.11, 0.17] as [CGFloat] { rect(0, y, 1, y + 0.018, 0xFFFFFF) }
+            // windows, a little warm
+            rect(0.08, 0.28, 0.30, 0.50, 0xFFFDF7); rect(0.56, 0.30, 0.68, 0.50, 0xFBF8F1); rect(0.84, 0.32, 0.90, 0.48, 0xF3EFE7)
+            // dark pieces in the room
+            rect(0.36, 0.47, 0.50, 0.58, 0x2B2D31); rect(0.72, 0.40, 0.77, 0.60, 0x6B5240); rect(0.93, 0.44, 0.99, 0.58, 0x8C8278)
+        }
+        return img.cgImage
+    }
+}
