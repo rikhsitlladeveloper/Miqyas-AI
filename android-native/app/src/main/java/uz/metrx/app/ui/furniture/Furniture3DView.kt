@@ -41,6 +41,7 @@ import uz.metrx.app.geo.Furn3D
 import uz.metrx.app.geo.Shell3D
 import uz.metrx.app.geo.buildShell
 import uz.metrx.app.geo.furniture3D
+import uz.metrx.app.geo.picksAt
 import uz.metrx.app.geo.ready3D
 import uz.metrx.app.geo.rgbOf
 import uz.metrx.app.ui.LocalApp
@@ -69,6 +70,8 @@ class DoorMotion {
     /** "See inside" (bazis ideas, 23 Oct 2026): every door, drawer front and sliding door hidden. */
     var bare by mutableStateOf(false)
     val prog = mutableStateMapOf<String, Float>()
+    /** How far front [k] is open now, 0 to 1 (Scene3D moves the fronts by it, a tap picks with it). */
+    val amt: (String) -> Double = { k -> (prog[k] ?: 0f).toDouble() }
     fun toggle(k: String) { target = if (k in target) target - k - inner(k, target) else target + k }
     fun openAll(keys: Collection<String>) { target = keys.toSet() }
     fun closeAll() { target = emptySet() }
@@ -93,13 +96,10 @@ fun rememberDoorMotion(id: String): DoorMotion {
             if (keys.isEmpty()) return
             val from = keys.associateWith { mo.prog[it] ?: 0f }
             val t0 = withFrameNanos { it }
-            var last = 0L
             while (true) {
                 val now = withFrameNanos { it }
                 val e = ((now - t0) / 300_000_000f).coerceIn(0f, 1f)
-                // each step rebuilds the room's scene: about 25 a second is smooth enough and keeps it light
-                if (e < 1f && now - last < 40_000_000L) continue
-                last = now
+                // a step only moves the fronts (Scene3D sets their transforms, nothing is rebuilt): every frame
                 val k = e * e * (3 - 2 * e)
                 keys.forEach { mo.prog[it] = from.getValue(it) + (to - from.getValue(it)) * k }
                 if (e >= 1f) break
@@ -123,17 +123,18 @@ fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion): Pa
     val app = LocalApp.current
     val ws = app.settings.workshop; val mats = app.settings.mats
     val fs = p.furniture.filter { it.roomId == room.id || (it.roomId == null && uz.metrx.app.furniture.FREE_ROOM + it.id == room.id) }
-    val amt = mo.prog.toMap()
     val bare = mo.bare
     // the light tier draws no glow and fewer small details (modern 3D part 3)
     val ctx = LocalContext.current
     val light = remember(app.settings.quality) { uz.metrx.app.ui.three.Quality3D.tier(ctx, app.settings.quality) == uz.metrx.app.ui.three.Tier.LOW }
     val ceil = room.dim("H").v
-    val fur = remember(base, fs, amt, ws, mats, bare, light, ceil) {
-        furniture3D(fs, base.bases, ws, matRgb(mats), emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare, look = matLook(mats),
-            mats = mats, light = light, ceil = ceil, decor = !light)
+    // built once with every door and drawer shut on its own (split): opening one only moves it ([mo] is read by
+    // Scene3D's open, not here), so nothing is rebuilt while it moves
+    val fur = remember(base, fs, ws, mats, bare, light, ceil) {
+        furniture3D(fs, base.bases, ws, matRgb(mats), emptySet(), bare = bare, look = matLook(mats),
+            mats = mats, light = light, ceil = ceil, decor = !light, split = true)
     }
-    val shell = remember(base, fur) { base.plus(fur.parts, fur.edges) }
+    val shell = remember(base, fur) { base.plus(fur.parts, fur.edges, fur.fronts, fur.toggles) }
     return shell to fur
 }
 
@@ -147,14 +148,14 @@ fun matRgb(mats: List<uz.metrx.app.furniture.Mat>): (String) -> Int = { id -> rg
 fun matLook(mats: List<uz.metrx.app.furniture.Mat>): (String) -> uz.metrx.app.geo.Look =
     { id -> matOf(mats, id).let { m -> uz.metrx.app.geo.Looks.of(m?.kind ?: "board", rgbOf(m?.rgb ?: "#F5F5F2"), m?.tex, m?.finish?.takeIf { it == "gloss" || it == "satin" } ?: "matte") } }
 
-/** The door or drawer under pixel [x], [y], nearest the eye. */
-fun Furn3D.pick(cam: Cam3D, x: Float, y: Float): String? {
+/** The door or drawer under pixel [x], [y], nearest the eye, with each as far open as [amt] says (where it is drawn now). */
+fun Furn3D.pick(cam: Cam3D, x: Float, y: Float, amt: (String) -> Double = { 0.0 }): String? {
     val (e, d) = cam.ray(x, y)
-    return picks.mapNotNull { pk -> pk.box.hit(e, d)?.let { pk.key to it } }.minByOrNull { it.second }?.first
+    return picksAt(amt).mapNotNull { pk -> pk.box.hit(e, d)?.let { pk.key to it } }.minByOrNull { it.second }?.first
 }
 
-/** The same, for callers outside this package. */
-fun pickOf(f: Furn3D, cam: Cam3D, at: androidx.compose.ui.geometry.Offset): String? = f.pick(cam, at.x, at.y)
+/** The same, for callers outside this package: the fronts where [mo] has them. */
+fun pickOf(f: Furn3D, cam: Cam3D, at: androidx.compose.ui.geometry.Offset, mo: DoorMotion): String? = f.pick(cam, at.x, at.y, mo.amt)
 
 /** The "See inside" pill over a 3D picture: hides every door and drawer front, a second tap brings them back. */
 @Composable
@@ -200,7 +201,7 @@ fun ColumnScope.Furniture3D(p: Project, room: Room) {
     val shot = remember { Shot3D() }
     var taking by remember { mutableStateOf(false) }
     Box(Modifier.weight(1f).fillMaxWidth()) {
-        Scene3D(shell, cam, Modifier.fillMaxSize(), shot, onTap = { pos -> fur.pick(cam, pos.x, pos.y)?.let { k -> mo.toggle(k) } }) {
+        Scene3D(shell, cam, Modifier.fillMaxSize(), shot, open = mo.amt, onTap = { pos -> fur.pick(cam, pos.x, pos.y, mo.amt)?.let { k -> mo.toggle(k) } }) {
             // a picture for the customer shows the doors: no saving while seeing inside
             if (!free && !mo.bare) ShotPill("camera", tr("3d.save"), Modifier.align(Alignment.TopEnd).padding(top = 10.dp, end = 10.dp)) {
                 // a second tap while a picture is being taken does nothing; the limit is read from the store, not this page

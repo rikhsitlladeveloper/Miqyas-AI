@@ -243,6 +243,15 @@ internal class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: a
     private val prims = ArrayList<Prim>(); private val lines = ArrayList<Line>()
     private val nodes = ArrayList<Node>()
     private var shell: Shell3D? = null
+    /**
+     * A door or drawer's own nodes (Fronts3D.kt), built shut: [main] always drawn, [inner] (a drawer's box) only while
+     * it is open at all; [k] how far open they were last put.
+     */
+    private class Mover(val front: uz.metrx.app.geo.Front3D, val main: List<GeometryNode>, val inner: List<GeometryNode>) { var k = -1.0 }
+    private class Shown(val toggle: uz.metrx.app.geo.Toggle3D, val nodes: List<GeometryNode>) { var on: Boolean? = null }
+    private val movers = ArrayList<Mover>(); private val shown = ArrayList<Shown>()
+    /** How many nodes the doors, drawers and toggles have of their own (each a draw call or two: for the log). */
+    val frontNodes get() = movers.sumOf { it.main.size + it.inner.size } + shown.sumOf { it.nodes.size }
     /** Drawn lit (furniture): real materials, a sun and the studio light, tone-mapped. Else flat baked colours. */
     var lit = false
     var tier = Tier.HIGH
@@ -284,98 +293,120 @@ internal class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: a
 
     fun clear(root: Node) {
         nodes.forEach { root.removeChildNode(it); it.destroy() }
-        nodes.clear(); prims.clear(); lines.clear()
+        nodes.clear(); prims.clear(); lines.clear(); movers.clear(); shown.clear()
+    }
+
+    /**
+     * The doors and drawers put [amt] of the way open (0 shut … 1 open) and what depends on them shown or hidden: only
+     * their transforms (Filament's TransformManager) and visibility change, nothing is rebuilt. True if anything changed.
+     */
+    fun pose(amt: (String) -> Double): Boolean {
+        var any = false
+        movers.forEach { mv ->
+            val k = amt(mv.front.key).coerceIn(0.0, 1.0)
+            if (k == mv.k) return@forEach
+            mv.k = k; any = true
+            val m = mv.front.at(k).columns()
+            mv.main.forEach { n -> n.transformManager.setTransform(n.transformInstance, m) }
+            // a drawer's box only while it is out (the full rebuild left it out when shut)
+            mv.inner.forEach { n -> n.transformManager.setTransform(n.transformInstance, m); n.isVisible = k > 0.0 }
+        }
+        shown.forEach { sh ->
+            val on = sh.toggle.shown(amt)
+            if (on == sh.on) return@forEach
+            sh.on = on; any = true
+            sh.nodes.forEach { it.isVisible = on }
+        }
+        return any
     }
 
     fun build(root: Node, s: Shell3D) {
         clear(root); shell = s
-        if (lit) { buildLit(root, s); return }
-        // faces, one node per piece, one primitive per lit colour
-        s.parts.forEach { p ->
-            if (p.faces.isEmpty()) return@forEach
-            val byColor = LinkedHashMap<Int, ArrayList<uz.metrx.app.geo.Face>>()
-            p.faces.forEach { f -> byColor.getOrPut(shade(if (p.slab && f.n.y > .9) slabTop(p.rgb) else p.rgb, f.n, s.light)) { ArrayList() } += f }
-            val verts = ArrayList<Geometry.Vertex>(); val prim = ArrayList<List<Int>>(); val colors = ArrayList<Int>()
-            byColor.forEach { (c, fs) ->
-                val idx = ArrayList<Int>()
-                fs.forEach { f ->
-                    val base = verts.size
-                    val n = Float3(f.n.x.toFloat(), f.n.y.toFloat(), f.n.z.toFloat())
-                    f.pts.forEach { q -> verts += Geometry.Vertex(position = Float3(q.x.toFloat(), q.y.toFloat(), q.z.toFloat()), normal = n) }
-                    val tris = f.tris ?: (1 until f.pts.size - 1).flatMap { listOf(0, it, it + 1) }
-                    for (t in tris.indices step 3) {
-                        val a = f.pts[tris[t]]; val b = f.pts[tris[t + 1]]; val cc = f.pts[tris[t + 2]]
-                        val cr = (b - a).let { u -> (cc - a).let { v -> V3(u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x) } }
-                        if (cr.dot(f.n) >= 0) { idx += base + tris[t]; idx += base + tris[t + 1]; idx += base + tris[t + 2] }
-                        else { idx += base + tris[t]; idx += base + tris[t + 2]; idx += base + tris[t + 1] }
-                    }
+        if (lit) buildLit(root, s)
+        else {
+            s.parts.forEach { flatPart(root, it, s) }
+            s.edges.forEach { flatLines(root, it) }
+            s.fronts.forEach { f -> movers += Mover(f, f.parts.mapNotNull { flatPart(root, it, s) } + f.edges.mapNotNull { flatLines(root, it) },
+                f.inner.mapNotNull { flatPart(root, it, s) } + f.innerEdges.mapNotNull { flatLines(root, it) }) }
+            s.toggles.forEach { t -> shown += Shown(t, t.parts.mapNotNull { flatPart(root, it, s) } + t.edges.mapNotNull { flatLines(root, it) }) }
+            flatGrid(root, s)
+        }
+        // every door and drawer shut until the screen puts them where they are (Scene3D's open)
+        pose { 0.0 }
+    }
+
+    /**
+     * A part in flat baked colours (the rooms; the furniture when the lit materials fail): one node, one primitive per
+     * lit colour. A door turning keeps the shades it has shut (its colours are baked by its faces' directions).
+     */
+    private fun flatPart(root: Node, p: uz.metrx.app.geo.Part, s: Shell3D): GeometryNode? {
+        if (p.faces.isEmpty()) return null
+        val byColor = LinkedHashMap<Int, ArrayList<uz.metrx.app.geo.Face>>()
+        p.faces.forEach { f -> byColor.getOrPut(shade(if (p.slab && f.n.y > .9) slabTop(p.rgb) else p.rgb, f.n, s.light)) { ArrayList() } += f }
+        val verts = ArrayList<Geometry.Vertex>(); val prim = ArrayList<List<Int>>(); val colors = ArrayList<Int>()
+        byColor.forEach { (c, fs) ->
+            val idx = ArrayList<Int>()
+            fs.forEach { f ->
+                val base = verts.size
+                val n = Float3(f.n.x.toFloat(), f.n.y.toFloat(), f.n.z.toFloat())
+                f.pts.forEach { q -> verts += Geometry.Vertex(position = Float3(q.x.toFloat(), q.y.toFloat(), q.z.toFloat()), normal = n) }
+                val tris = f.tris ?: (1 until f.pts.size - 1).flatMap { listOf(0, it, it + 1) }
+                for (t in tris.indices step 3) {
+                    val a = f.pts[tris[t]]; val b = f.pts[tris[t + 1]]; val cc = f.pts[tris[t + 2]]
+                    val cr = (b - a).let { u -> (cc - a).let { v -> V3(u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x) } }
+                    if (cr.dot(f.n) >= 0) { idx += base + tris[t]; idx += base + tris[t + 1]; idx += base + tris[t + 2] }
+                    else { idx += base + tris[t]; idx += base + tris[t + 2]; idx += base + tris[t + 1] }
                 }
-                prim += idx; colors += c
             }
-            val geo = Geometry.Builder().vertices(verts).primitivesIndices(prim).build(engine)
-            val node = GeometryNode(engine, geo, colors.map { mat(it, p.op) }, geo.primitivesOffsets)
-            colors.forEachIndexed { i, c -> prims += Prim(node, i, c, p.op, p.role, p.group, p.wall) }
-            root.addChildNode(node); nodes += node
+            prim += idx; colors += c
         }
-        // the dark wall outlines
-        s.edges.forEach { e ->
-            if (e.segs.isEmpty()) return@forEach
-            val geo = Geometry.Builder(RenderableManager.PrimitiveType.LINES)
-                .vertices(e.segs.map { Geometry.Vertex(position = Float3(it.x.toFloat(), it.y.toFloat(), it.z.toFloat())) })
-                .indices(e.segs.indices.toList()).build(engine)
-            val node = GeometryNode(engine, geo, mat(e.rgb, 1f))
-            lines += Line(node, e.group, e.wall, e.rgb); root.addChildNode(node); nodes += node
+        val geo = Geometry.Builder().vertices(verts).primitivesIndices(prim).build(engine)
+        val node = GeometryNode(engine, geo, colors.map { mat(it, p.op) }, geo.primitivesOffsets)
+        colors.forEachIndexed { i, c -> prims += Prim(node, i, c, p.op, p.role, p.group, p.wall) }
+        root.addChildNode(node); nodes += node
+        return node
+    }
+
+    /** A dark outline in the flat scene. */
+    private fun flatLines(root: Node, e: uz.metrx.app.geo.Edges): GeometryNode? {
+        if (e.segs.isEmpty()) return null
+        val geo = Geometry.Builder(RenderableManager.PrimitiveType.LINES)
+            .vertices(e.segs.map { Geometry.Vertex(position = Float3(it.x.toFloat(), it.y.toFloat(), it.z.toFloat())) })
+            .indices(e.segs.indices.toList()).build(engine)
+        val node = GeometryNode(engine, geo, mat(e.rgb, 1f))
+        lines += Line(node, e.group, e.wall, e.rgb); root.addChildNode(node); nodes += node
+        return node
+    }
+
+    /** The floor grid (three.js GridHelper: the middle lines darker). */
+    private fun flatGrid(root: Node, s: Shell3D) {
+        val half = s.gridSize / 2; val step = s.gridSize / s.gridDiv; val center = if (s.gridDiv % 2 == 0) s.gridDiv / 2 else -1
+        val v = ArrayList<Geometry.Vertex>(); val mid = ArrayList<Int>(); val rest = ArrayList<Int>()
+        for (i in 0..s.gridDiv) {
+            val k = (-half + i * step).toFloat(); val y = -.002f
+            val x0 = (s.gridCx - half).toFloat(); val x1 = (s.gridCx + half).toFloat(); val z0 = (s.gridCz - half).toFloat(); val z1 = (s.gridCz + half).toFloat()
+            val list = if (i == center) mid else rest
+            list += v.size; v += Geometry.Vertex(position = Float3(x0, y, s.gridCz.toFloat() + k)); list += v.size; v += Geometry.Vertex(position = Float3(x1, y, s.gridCz.toFloat() + k))
+            list += v.size; v += Geometry.Vertex(position = Float3(s.gridCx.toFloat() + k, y, z0)); list += v.size; v += Geometry.Vertex(position = Float3(s.gridCx.toFloat() + k, y, z1))
         }
-        // the floor grid (three.js GridHelper: the middle lines darker)
-        run {
-            val half = s.gridSize / 2; val step = s.gridSize / s.gridDiv; val center = if (s.gridDiv % 2 == 0) s.gridDiv / 2 else -1
-            val v = ArrayList<Geometry.Vertex>(); val mid = ArrayList<Int>(); val rest = ArrayList<Int>()
-            for (i in 0..s.gridDiv) {
-                val k = (-half + i * step).toFloat(); val y = -.002f
-                val x0 = (s.gridCx - half).toFloat(); val x1 = (s.gridCx + half).toFloat(); val z0 = (s.gridCz - half).toFloat(); val z1 = (s.gridCz + half).toFloat()
-                val list = if (i == center) mid else rest
-                list += v.size; v += Geometry.Vertex(position = Float3(x0, y, s.gridCz.toFloat() + k)); list += v.size; v += Geometry.Vertex(position = Float3(x1, y, s.gridCz.toFloat() + k))
-                list += v.size; v += Geometry.Vertex(position = Float3(s.gridCx.toFloat() + k, y, z0)); list += v.size; v += Geometry.Vertex(position = Float3(s.gridCx.toFloat() + k, y, z1))
-            }
-            val ps = listOf(mid, rest).filter { it.isNotEmpty() }
-            val cs = listOf(0xC3CEDF to mid, 0xDCE4F0 to rest).filter { it.second.isNotEmpty() }.map { it.first }
-            val geo = Geometry.Builder(RenderableManager.PrimitiveType.LINES).vertices(v).primitivesIndices(ps).build(engine)
-            val node = GeometryNode(engine, geo, cs.map { mat(it, 1f) }, geo.primitivesOffsets)
-            root.addChildNode(node); nodes += node
-        }
+        val ps = listOf(mid, rest).filter { it.isNotEmpty() }
+        val cs = listOf(0xC3CEDF to mid, 0xDCE4F0 to rest).filter { it.second.isNotEmpty() }.map { it.first }
+        val geo = Geometry.Builder(RenderableManager.PrimitiveType.LINES).vertices(v).primitivesIndices(ps).build(engine)
+        val node = GeometryNode(engine, geo, cs.map { mat(it, 1f) }, geo.primitivesOffsets)
+        root.addChildNode(node); nodes += node
     }
 
     /**
      * The lit scene: one node and one primitive per part (a wall's furniture in one material), texture coordinates
-     * in each picture's repeats; soft outlines; furniture casts shadows, the room only takes them.
+     * in each picture's repeats; soft outlines; furniture casts shadows, the room only takes them. Each door and
+     * drawer (Fronts3D.kt) has nodes of its own, built shut, which [pose] moves; the rest is built once.
      */
     private fun buildLit(root: Node, s: Shell3D) {
-        s.parts.forEach { p ->
-            if (p.faces.isEmpty()) return@forEach
-            val look = p.look ?: shellLook(p)
-            val geo = litGeometry(p, look.uvScale, look.uvScaleV)
-            val alpha = if (p.look != null) look.alpha else p.op
-            val node = GeometryNode(engine, geo, litMat(look, alpha))
-            node.isShadowCaster = p.role == Role.FURN && alpha >= 1f && look.emissive <= 0f
-            node.isShadowReceiver = look.emissive <= 0f
-            prims += Prim(node, 0, p.rgb, alpha, p.role, p.group, p.wall, look)
-            root.addChildNode(node); nodes += node
-        }
-        // soft outlines (mockup finalize(): a dark ink at 12 %, 16 % on the light tier); the worktop's stay light
-        s.edges.forEach { e ->
-            if (e.segs.isEmpty()) return@forEach
-            val furn = e.wall.startsWith("furn")
-            val (rgb, a0) = when {
-                e.rgb == uz.metrx.app.geo.SLAB_LINE -> e.rgb to .5f
-                furn -> 0x1B2230 to (if (tier == Tier.LOW) .16f else .12f)
-                else -> e.rgb to .3f
-            }
-            val pts = if (furn || e.rgb == uz.metrx.app.geo.SLAB_LINE) outset(e.segs) else e.segs
-            val geo = lineGeometry(pts)
-            val node = GeometryNode(engine, geo, mat(rgb, a0))
-            node.isShadowCaster = false; node.isShadowReceiver = false
-            lines += Line(node, e.group, e.wall, rgb, a0); root.addChildNode(node); nodes += node
-        }
+        s.parts.forEach { litPart(root, it) }
+        s.edges.forEach { litLines(root, it) }
+        s.fronts.forEach { f -> movers += Mover(f, f.parts.mapNotNull { litPart(root, it) } + f.edges.mapNotNull { litLines(root, it) },
+            f.inner.mapNotNull { litPart(root, it) } + f.innerEdges.mapNotNull { litLines(root, it) }) }
+        s.toggles.forEach { t -> shown += Shown(t, t.parts.mapNotNull { litPart(root, it) } + t.edges.mapNotNull { litLines(root, it) }) }
         // the floor grid, faint (not on a gallery card)
         if (grid) run {
             val half = s.gridSize / 2; val step = s.gridSize / s.gridDiv
@@ -393,10 +424,41 @@ internal class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: a
         }
     }
 
+    /** One lit part: its own node and material; furniture casts shadows. */
+    private fun litPart(root: Node, p: uz.metrx.app.geo.Part): GeometryNode? {
+        if (p.faces.isEmpty()) return null
+        val look = p.look ?: shellLook(p)
+        val geo = litGeometry(p, look.uvScale, look.uvScaleV)
+        val alpha = if (p.look != null) look.alpha else p.op
+        val node = GeometryNode(engine, geo, litMat(look, alpha))
+        node.isShadowCaster = p.role == Role.FURN && alpha >= 1f && look.emissive <= 0f
+        node.isShadowReceiver = look.emissive <= 0f
+        prims += Prim(node, 0, p.rgb, alpha, p.role, p.group, p.wall, look)
+        root.addChildNode(node); nodes += node
+        return node
+    }
+
+    /** Soft outlines (mockup finalize(): a dark ink at 12 %, 16 % on the light tier); the worktop's stay light. */
+    private fun litLines(root: Node, e: uz.metrx.app.geo.Edges): GeometryNode? {
+        if (e.segs.isEmpty()) return null
+        val furn = e.wall.startsWith("furn")
+        val (rgb, a0) = when {
+            e.rgb == uz.metrx.app.geo.SLAB_LINE -> e.rgb to .5f
+            furn -> 0x1B2230 to (if (tier == Tier.LOW) .16f else .12f)
+            else -> e.rgb to .3f
+        }
+        val pts = if (furn || e.rgb == uz.metrx.app.geo.SLAB_LINE) outset(e.segs) else e.segs
+        val geo = lineGeometry(pts)
+        val node = GeometryNode(engine, geo, mat(rgb, a0))
+        node.isShadowCaster = false; node.isShadowReceiver = false
+        lines += Line(node, e.group, e.wall, rgb, a0); root.addChildNode(node); nodes += node
+        return node
+    }
+
     /**
      * The triangles of part [p] straight into Filament buffers (positions, a tangent frame per face, texture
      * coordinates in the picture's repeats [su] x [sv]): several times quicker than SceneView's list of vertices, which
-     * counts when a door opening rebuilds the room 25 times a second.
+     * counts when the room is rebuilt (a door opening no longer rebuilds it: it only moves, [pose]).
      */
     private fun litGeometry(p: uz.metrx.app.geo.Part, su: Double, sv: Double): Geometry {
         var nv = 0; var ni = 0
@@ -570,14 +632,18 @@ class Shot3D {
  * [overlay] draws on top (labels are positioned with [Cam3D.project]).
  */
 @Composable
-fun Scene3D(shell: Shell3D, cam: Cam3D, modifier: Modifier = Modifier, shot: Shot3D? = null, onTap: ((Offset) -> Unit)? = null, overlay: @Composable BoxScope.() -> Unit = {}) {
+fun Scene3D(shell: Shell3D, cam: Cam3D, modifier: Modifier = Modifier, shot: Shot3D? = null, onTap: ((Offset) -> Unit)? = null,
+            /** How far each of the shell's doors and drawers is open now (read as state: as it changes they move, nothing is rebuilt). */
+            open: ((String) -> Double)? = null,
+            overlay: @Composable BoxScope.() -> Unit = {}) {
     val engine = Engine3D.engine
     val ctx = LocalContext.current
     val ml = rememberMaterialLoader(engine)
     val el = rememberEnvironmentLoader(engine)
     val view = rememberView(engine)
     // furniture is drawn lit (real materials, sun, studio light) when the lit materials load; rooms stay flat
-    val lit = remember(shell) { shell.parts.any { it.look != null } } && remember(engine) { Lit3D.ready(engine, ctx) }
+    val lit = remember(shell) { shell.parts.any { it.look != null } || shell.fronts.any { f -> f.parts.any { it.look != null } } } && remember(engine) { Lit3D.ready(engine, ctx) }
+    val openNow by androidx.compose.runtime.rememberUpdatedState(open)
     val qSetting = uz.metrx.app.ui.LocalApp.current.settings.quality
     val tier = remember(qSetting) { Quality3D.tier(ctx, qSetting) }
     val flatEnv = rememberEnvironment(el) { Environment() }
@@ -673,10 +739,17 @@ fun Scene3D(shell: Shell3D, cam: Cam3D, modifier: Modifier = Modifier, shot: Sho
             }
             val t0 = System.nanoTime()
             nodes.build(rt, shell)
-            if (lit) android.util.Log.d("Render3D", "lit scene ${shell.parts.size} parts, built in ${(System.nanoTime() - t0) / 1_000_000} ms, $tier")
+            if (lit) android.util.Log.d("Render3D", "lit scene ${shell.parts.size} parts, ${shell.fronts.size} moving fronts (${nodes.frontNodes} nodes), " +
+                "built in ${(System.nanoTime() - t0) / 1_000_000} ms, $tier")
             cam.onMove = ::push
             cam.load(shell)
             push()
+            // the doors and drawers where they are now, then each step of their opening or shutting: only their
+            // transforms change (the snapshot of how far each is open is read here, not in the composition)
+            if (shell.fronts.isNotEmpty() || shell.toggles.isNotEmpty()) androidx.compose.runtime.snapshotFlow {
+                val f = openNow ?: { _: String -> 0.0 }
+                shell.fronts.map { f(it.key) } + shell.toggles.map { t -> if (t.shown(f)) 1.0 else 0.0 }
+            }.collect { if (nodes.pose(openNow ?: { 0.0 })) inv.requestRender() }
         }
         DisposableEffect(Unit) { onDispose { cam.onMove = null; cam.anim?.cancel(); root?.let { nodes.clear(it) } } }
         if (shot != null) DisposableEffect(shot) {

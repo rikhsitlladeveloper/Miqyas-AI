@@ -69,7 +69,14 @@ class Pick(val key: String, val box: Obb)
 
 class Furn3D(val parts: List<Part>, val edges: List<Edges>, val picks: List<Pick>, val keys: List<String>,
              /** Where each front's handle was put (the lit 3D only), by its door or drawer key. */
-             val spots: Map<String, HandleSpot> = emptyMap())
+             val spots: Map<String, HandleSpot> = emptyMap(),
+             /**
+              * Built with split: each door, drawer, sliding door, rack and lift-up base on its own, shut, with how it
+              * moves ([parts], [edges] and [picks] are then the rest, which stays put); else empty.
+              */
+             val fronts: List<Front3D> = emptyList(),
+             /** Built with split: what is drawn one way while a door is open and another while shut (a wardrobe's LED). */
+             val toggles: List<Toggle3D> = emptyList())
 
 /**
  * A handle on a front, in the front's own frame (mm from its corner at the hinge side and the bottom): the middle
@@ -281,9 +288,16 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
                 boxes: Boolean = false,
 
                 /** The small decor (a gorka's dishes, the big table's pendant…, Gorka3D.kt): left out on the light tier. */
-                decor: Boolean = true): Furn3D {
-    // how far each door or drawer is open, 0 to 1 (moving between the two while it opens or shuts)
-    val how = amt ?: { k: String -> if (k in open) 1.0 else 0.0 }
+                decor: Boolean = true,
+                /**
+                 * The 3D screens' build (Fronts3D.kt): every door, drawer, sliding door, rack and lift-up base built
+                 * shut on its own ([Furn3D.fronts]) with how it moves, so opening one only moves it; [open] and [amt]
+                 * are not read.
+                 */
+                split: Boolean = false): Furn3D {
+    // how far each door or drawer is open, 0 to 1 (moving between the two while it opens or shuts); split: all shut
+    val how: (String) -> Double = if (split) { _ -> 0.0 } else amt ?: { k -> if (k in open) 1.0 else 0.0 }
+    val fronts = LinkedHashMap<String, FrontCap>(); val toggles = ArrayList<ToggleCap>()
     val parts = LinkedHashMap<Pair<String?, Any>, Part>(); val edges = LinkedHashMap<String?, Edges>()
     val picks = ArrayList<Pick>(); val keys = ArrayList<String>(); val spots = LinkedHashMap<String, HandleSpot>()
     val matLook = look ?: { id: String -> Looks.board(rgb(id)) }
@@ -329,8 +343,8 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             "glowTop0" to Looks.glow(.07f), "glowTop1" to Looks.glow(.04f), "glowTop2" to Looks.glow(.018f)) +
             GLOW.mapIndexed { i, a -> "glow$i" to Looks.glow(a) } + WGLOW.mapIndexed { i, a -> "wglow$i" to Looks.glow(a) }
         val fws = uz.metrx.app.furniture.wsOf(f, ws)
-        val B = Builder3(fws, colors, looks, parts, edges, picks, keys, how, spots)
-        B.bare = bare; B.hi = hi; B.piece = f.id; B.hLen = handleLen(f.handle).toDouble()
+        val B = Builder3(fws, colors, looks, parts, edges, picks, keys, how, spots, fronts, toggles)
+        B.split = split; B.bare = bare; B.hi = hi; B.piece = f.id; B.hLen = handleLen(f.handle).toDouble()
         B.rich = rich; B.light = light
         B.hType = handleType(f); B.hId = f.handle; B.style = l?.style ?: "flat"; B.fglass = l?.fglass == true
         B.metalLegs = metalLegs(f); B.plinth = f.kx?.plinth == true
@@ -460,7 +474,7 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             }
         }
     }
-    return Furn3D(parts.values.toList(), edges.values.toList(), picks, keys, spots)
+    return Furn3D(parts.values.toList(), edges.values.toList(), picks, keys, spots, fronts.values.map { it.done() }, toggles.map { it.done() })
 }
 
 /** A front's own frame: its corner [o] at the hinge side and the bottom, unit directions across it [e], up it, out of it [tn]. */
@@ -473,9 +487,45 @@ private class Frame(val o: V3, val e: V3, val up: V3, val tn: V3) {
 
 /** Builds the boards of one piece of furniture on a wall frame; lengths in mm. */
 internal class Builder3(
-    val ws: Workshop, val colors: Map<String, Int>, val looks: Map<String, Look>, val parts: LinkedHashMap<Pair<String?, Any>, Part>, val edgeMap: LinkedHashMap<String?, Edges>,
-    val picks: ArrayList<Pick>, val keys: ArrayList<String>, val how: (String) -> Double, val spots: MutableMap<String, HandleSpot>
+    val ws: Workshop, val colors: Map<String, Int>, val looks: Map<String, Look>, private val parts0: LinkedHashMap<Pair<String?, Any>, Part>,
+    private val edges0: LinkedHashMap<String?, Edges>, private val picks0: ArrayList<Pick>, val keys: ArrayList<String>, val how: (String) -> Double,
+    val spots: MutableMap<String, HandleSpot>,
+    private val fronts: LinkedHashMap<String, FrontCap> = LinkedHashMap(), private val toggles: ArrayList<ToggleCap> = ArrayList()
 ) {
+    /** Building each front on its own (Fronts3D.kt); [cap] what is being drawn into now (null: the piece's parts). */
+    var split = false
+    private var cap: Cap? = null
+    val parts: LinkedHashMap<Pair<String?, Any>, Part> get() = cap?.parts ?: parts0
+    val edgeMap: LinkedHashMap<String?, Edges> get() = cap?.edges ?: edges0
+    val picks: ArrayList<Pick> get() = cap?.picks ?: picks0
+
+    /**
+     * What [body] draws is front [key], moving as [motion] (split only; else, or inside another front, it is drawn
+     * with the rest).
+     */
+    fun moving(key: String, motion: () -> Motion, body: () -> Unit) {
+        if (!split || cap != null) { body(); return }
+        val fc = fronts.getOrPut(key) { FrontCap(key, motion()) }
+        cap = fc.main
+        try { body() } finally { cap = null }
+    }
+
+    /** While drawing front [key]: what [body] draws shows only while it is open, a drawer's box (split; else as it is). */
+    fun innerOf(key: String, body: () -> Unit) {
+        val fc = fronts[key]
+        if (!split || fc == null || cap !== fc.main) { body(); return }
+        cap = fc.inner
+        try { body() } finally { cap = fc.main }
+    }
+
+    /** What [body] draws shows only while any of [deps] is open ([whenOpen]) or only while all are shut (split only). */
+    fun toggle(deps: List<String>, whenOpen: Boolean, body: () -> Unit) {
+        if (!split || cap != null) { body(); return }
+        val tc = ToggleCap(deps, whenOpen).also { toggles += it }
+        cap = tc.cap
+        try { body() } finally { cap = null }
+    }
+
     /**
      * The wall being furnished: the furniture on a wall that faces the camera goes see-through with it (an island's
      * never does). Parts are one per wall and colour, so opening a door does not change how many there are.
@@ -657,8 +707,16 @@ internal class Builder3(
              deg: Double = SHUT_DEG, face: String = "", pos: String = "mid") {
         // seeing inside: no doors at all
         if (bare) return
-        val p = p0 ?: role(fr, "fp.door")
         keys += key
+        // split: built shut, turning about its hinge edge (the line up through [ha]) by [deg], its free edge into the room
+        moving(key, { Motion.turn(w.at(ha / 1000, y0 / 1000, n / 1000), cross(w.dir(1.0, 0.0), w.dir(0.0, s.toDouble())), Math.toRadians(deg)) }) {
+            doorAt(w, key, ha, n, y0, h, fw, s, handles, hy, p0, deg, face, pos)
+        }
+    }
+
+    private fun doorAt(w: WallBasis, key: String, ha: Double, n: Double, y0: Double, h: Double, fw: Double, s: Int, handles: Boolean, hy: Double, p0: Part?,
+                       deg: Double, face: String, pos: String) {
+        val p = p0 ?: role(fr, "fp.door")
         val th = Math.toRadians(deg) * how(key)
         val e = w.dir(s * cos(th), sin(th)); val tn = w.dir(-s * sin(th), cos(th))
         val o = w.at(ha / 1000, y0 / 1000, n / 1000)
@@ -702,6 +760,12 @@ internal class Builder3(
     fun drawer(w: WallBasis, key: String, a0: Double, fw: Double, y0: Double, fh: Double, n: Double, d: Double, handles: Boolean, pr: String = "front", box: Boolean = true) {
         // seeing inside: the drawer's box stays (shut), its front goes
         if (!bare) keys += key
+        // split: built shut, pulled out three quarters of its depth; its box shows only while it is out
+        if (bare) drawerAt(w, key, a0, fw, y0, fh, n, d, handles, pr, box)
+        else moving(key, { Motion.move(w.dir(0.0, d * .75 / 1000)) }) { drawerAt(w, key, a0, fw, y0, fh, n, d, handles, pr, box) }
+    }
+
+    private fun drawerAt(w: WallBasis, key: String, a0: Double, fw: Double, y0: Double, fh: Double, n: Double, d: Double, handles: Boolean, pr: String, box: Boolean) {
         val out = if (bare) 0.0 else d * .75 * how(key)
         val nn = n + out
         val o = w.at(a0 / 1000, y0 / 1000, nn / 1000)
@@ -717,7 +781,7 @@ internal class Builder3(
             if (rich && (pr == "front" || inner)) zf = frontBody(ff, p, fw, fh, t.toDouble(), x.a) else obb(p, x, true, x.a)
             if (!bare) picks += Pick(key, x)
         }
-        if (box && (out > 0 || bare)) {
+        if (box && (out > 0 || bare || (split && !bare))) innerOf(key) {
             val bh = min(fh - 40, 150.0).coerceAtLeast(60.0); val bx0 = a0 + 26; val bx1 = a0 + fw - 26; val by = y0 + 20
             val c = role("carcass", "fp.dBox")
             box(w, c, bx0, bx1, by, by + 12, nn - d + 40, nn)
@@ -1108,16 +1172,19 @@ internal class Builder3(
                         else drawer(w, "${m.id}:s$i:d${x.pos}", il + 4, iw - 8.0, y, blockH(x).toDouble(), di - 40 - t, di - 60, uz.metrx.app.furniture.drawerHandle(m, x), "carcass")
                     else -> {
                         // trouser and shoe racks: a frame that pulls out
-                        keys += "${m.id}:s$i:r${x.pos}"
+                        val rk = "${m.id}:s$i:r${x.pos}"
+                        keys += rk
                         // within the inside's depth: in a sliding wardrobe the doors run in front of it
-                        val out = di * .7 * how("${m.id}:s$i:r${x.pos}")
-                        val h = blockH(x).toDouble()
-                        val o = w.at((il + 13) / 1000, y / 1000, (20 + out) / 1000)
-                        val bx = Obb(o, w.dir((iw - 26) / 1000.0, 0.0), V3(0.0, h / 1000, 0.0), w.dir(0.0, (di - 60) / 1000))
-                        obbEdges(edges, bx); picks += Pick("${m.id}:s$i:r${x.pos}", bx)
-                        box(w, metal, il + 13, il + iw - 13, y, y + 10, 20 + out, di - 40 + out)
-                        for (k in 1..4) { val yy = if (x.kind == "shoe") y + h * k / 5 else y + h - 12; val nn = 20 + out + (di - 60) * k / 5
-                            box(w, metal, il + 13, il + iw - 13, yy, yy + 8, nn - 6, nn) }
+                        moving(rk, { Motion.move(w.dir(0.0, di * .7 / 1000)) }) {
+                            val out = di * .7 * how(rk)
+                            val h = blockH(x).toDouble()
+                            val o = w.at((il + 13) / 1000, y / 1000, (20 + out) / 1000)
+                            val bx = Obb(o, w.dir((iw - 26) / 1000.0, 0.0), V3(0.0, h / 1000, 0.0), w.dir(0.0, (di - 60) / 1000))
+                            obbEdges(edges, bx); picks += Pick(rk, bx)
+                            box(w, metal, il + 13, il + iw - 13, y, y + 10, 20 + out, di - 40 + out)
+                            for (k in 1..4) { val yy = if (x.kind == "shoe") y + h * k / 5 else y + h - 12; val nn = 20 + out + (di - 60) * k / 5
+                                box(w, metal, il + 13, il + iw - 13, yy, yy + 8, nn - 6, nn) }
+                        }
                     }
                 }
             }
@@ -1135,10 +1202,16 @@ internal class Builder3(
             // the LED inside, along the section's front: lit while a door before it is open (its door sensor), seeing
             // inside, behind glass doors and in a vitrina (always on); off, a plain aluminium strip, behind shut doors
             if (rich && (m.led || ledLook)) {
-                val lit = bare || m.led || s.face == "glass" || (m.slide?.let { sd -> (0 until sd.n.coerceIn(2, 4)).any { how("${m.id}:slide$it") > .02 } }
-                    ?: (s.fronts.kind != "door" || fs.indices.any { how("${m.id}:s$i:f$it") > .02 }))
+                val always = bare || m.led || s.face == "glass" || (m.slide == null && s.fronts.kind != "door")
+                // the doors whose sensors light it: the sliding doors, else the section's own
+                val deps = m.slide?.let { sd -> (0 until sd.n.coerceIn(2, 4)).map { "${m.id}:slide$it" } } ?: fs.indices.map { "${m.id}:s$i:f$it" }
                 val tops = s.inserts.filter { it.kind == "shelf" || it.kind == "glass" }.map { floor + it.pos + if (it.kind == "glass") 6.0 else t.toDouble() } + floor
-                ledIn(w, il, iw.toDouble(), ledY(m, s, floor, yt), di, floor, lit, tops)
+                val ly = ledY(m, s, floor, yt)
+                // split: both, the lit one shown while a door is open, the plain strip while all are shut
+                if (split && !always) {
+                    toggle(deps, true) { ledIn(w, il, iw.toDouble(), ly, di, floor, true, tops) }
+                    toggle(deps, false) { ledIn(w, il, iw.toDouble(), ly, di, floor, false, tops) }
+                } else ledIn(w, il, iw.toDouble(), ly, di, floor, always || deps.any { how(it) > .02 }, tops)
             }
             acc = a1
         }
@@ -1233,7 +1306,16 @@ internal class Builder3(
         for (j in 0 until n) {
             val key = "${m.id}:slide$j"
             keys += key
-            // a door slides one step towards the middle: the last one left, the others right
+            // a door slides one step towards the middle: the last one left, the others right (split: built shut, moved along)
+            moving(key, { Motion.move(w.dir((if (j == n - 1) -step else step) / 1000, 0.0)) }) { slideRichAt(w, sl, key, j, n, ax, y, d, dw, dh, step, split, pw, rt, rb, pd) }
+        }
+    }
+
+    /** Sliding door [j] of [n] (the part of [slidingRich] each door moves with); [split] the kupe split rail's height, mm. */
+    private fun slideRichAt(w: WallBasis, sl: uz.metrx.app.furniture.Slide, key: String, j: Int, n: Int, ax: Double, y: Double, d: Double, dw: Double, dh: Double,
+                            step: Double, split: Double?, pw: Double, rt: Double, rb: Double, pd: Double) {
+        val pf = p("frame")
+        run {
             val shift = (if (j == n - 1) -step else step) * how(key)
             val a = ax + j * step + shift
             val n0 = if (j % 2 == 0) d - 56 else d - 93
@@ -1268,6 +1350,13 @@ internal class Builder3(
         val c = w.at((x.a0 + x.a1) / 2000, (x.y0 + x.y1) / 2000, (x.n0 + x.n1) / 2000)
         obb(p, Obb(c - a * (sa / 2) - y * (sy / 2) - n * (sn / 2), a * sa, y * sy, n * sn), x.line)
     }
+
+    /**
+     * How a lift-up bed's base rises (split): 38° about the line along wall frame [w] at [pivotY] up and [pivotN] out
+     * (mm), its far side going up ([tilted], Items3D.kt Pen.at).
+     */
+    fun liftMotion(w: WallBasis, pivotY: Double, pivotN: Double) =
+        Motion.turn(w.at(0.0, pivotY / 1000, pivotN / 1000), cross(UP, w.dir(0.0, -1.0)), Math.toRadians(38.0))
 
     /** A box [b] of an item, tilted [th] about a line across it at [pivotY] up and [pivotN] out (a lift-up bed's base rising). */
     private fun tilted(w: WallBasis, p: Part, x0: Int, b: uz.metrx.app.furniture.Board, pivotY: Double, pivotN: Double, th: Double, line: Boolean) {
@@ -1320,13 +1409,17 @@ internal class Builder3(
         val th = Math.toRadians(38.0) * (if (lifts) how(liftKey) else 0.0)
         val pivotY = (m.h - uz.metrx.app.furniture.BED_SINK - 30).toDouble(); val pivotN = t + 4.0
         bs.forEach { b ->
-            val part = when (b.role) { "carcass" -> role("carcass", b.key); "top" -> top; "metal" -> metal; "white" -> white; "mattress" -> p("mattress"); "lamel" -> p("lamel"); "mirror" -> p("mirror"); else -> role(fr, b.key) }
-            val line = b.key.isNotEmpty() || b.role == "mirror"
-            when {
-                b.lift && th > 1e-6 -> tilted(w, part, x0, b, pivotY, pivotN, th, line)
-                b.round > 0 -> roundTop(w, part, x0, b)
-                else -> box(w, part, x0 + b.a0, x0 + b.a1, b.y0, b.y1, b.n0, b.n1, line)
+            fun draw() {
+                val part = when (b.role) { "carcass" -> role("carcass", b.key); "top" -> top; "metal" -> metal; "white" -> white; "mattress" -> p("mattress"); "lamel" -> p("lamel"); "mirror" -> p("mirror"); else -> role(fr, b.key) }
+                val line = b.key.isNotEmpty() || b.role == "mirror"
+                when {
+                    b.lift && th > 1e-6 -> tilted(w, part, x0, b, pivotY, pivotN, th, line)
+                    b.round > 0 -> roundTop(w, part, x0, b)
+                    else -> box(w, part, x0 + b.a0, x0 + b.a1, b.y0, b.y1, b.n0, b.n1, line)
+                }
             }
+            // split: what rises is built down and turned with the lift-up base
+            if (b.lift) moving(liftKey, { liftMotion(w, pivotY, pivotN) }) { draw() } else draw()
         }
         if (lifts) bs.firstOrNull { it.role == "mattress" }?.let { b ->
             picks += Pick(liftKey, Obb(w.at((x0 + b.a0) / 1000.0, b.y0 / 1000.0, b.n0 / 1000.0), w.dir((b.a1 - b.a0) / 1000.0, 0.0), V3(0.0, (b.y1 - b.y0) / 1000.0, 0.0), w.dir(0.0, (b.n1 - b.n0) / 1000.0)))
@@ -1354,19 +1447,21 @@ internal class Builder3(
         for (j in 0 until n) {
             val key = "${m.id}:slide$j"
             keys += key
-            // a door slides one step towards the middle: the last one left, the others right
-            val shift = (if (j == n - 1) -step else step) * how(key)
-            val a = ax + j * step + shift
-            val n0 = d - 95 + (j % 2) * 45; val n1 = n0 + 22
-            val y = y0 + uz.metrx.app.furniture.SLIDE_CLEAR / 2.0
-            val fill = when (sl.panel(j)) { "mirror" -> p("mirror"); "glass" -> p("glass"); else -> role(fr, "fp.slidePanel") }
-            val fw = uz.metrx.app.furniture.SLIDE_FRAME_W.toDouble(); val fh = uz.metrx.app.furniture.SLIDE_FRAME_H / 2.0
-            box(w, fill, a + fw, a + dw - fw, y + fh, y + dh - fh, n0 + 6, n1 - 6, true, up = true)
-            // the frame: two uprights, the top and the bottom
-            box(w, metal, a, a + fw, y, y + dh, n0, n1, true); box(w, metal, a + dw - fw, a + dw, y, y + dh, n0, n1, true)
-            box(w, metal, a + fw, a + dw - fw, y, y + fh, n0, n1, true); box(w, metal, a + fw, a + dw - fw, y + dh - fh, y + dh, n0, n1, true)
-            val o = w.at(a / 1000, y / 1000, n0 / 1000)
-            picks += Pick(key, Obb(o, w.dir(dw / 1000.0, 0.0), V3(0.0, dh / 1000.0, 0.0), w.dir(0.0, (n1 - n0) / 1000.0)))
+            // a door slides one step towards the middle: the last one left, the others right (split: built shut, moved along)
+            moving(key, { Motion.move(w.dir((if (j == n - 1) -step else step) / 1000, 0.0)) }) {
+                val shift = (if (j == n - 1) -step else step) * how(key)
+                val a = ax + j * step + shift
+                val n0 = d - 95 + (j % 2) * 45; val n1 = n0 + 22
+                val y = y0 + uz.metrx.app.furniture.SLIDE_CLEAR / 2.0
+                val fill = when (sl.panel(j)) { "mirror" -> p("mirror"); "glass" -> p("glass"); else -> role(fr, "fp.slidePanel") }
+                val fw = uz.metrx.app.furniture.SLIDE_FRAME_W.toDouble(); val fh = uz.metrx.app.furniture.SLIDE_FRAME_H / 2.0
+                box(w, fill, a + fw, a + dw - fw, y + fh, y + dh - fh, n0 + 6, n1 - 6, true, up = true)
+                // the frame: two uprights, the top and the bottom
+                box(w, metal, a, a + fw, y, y + dh, n0, n1, true); box(w, metal, a + dw - fw, a + dw, y, y + dh, n0, n1, true)
+                box(w, metal, a + fw, a + dw - fw, y, y + fh, n0, n1, true); box(w, metal, a + fw, a + dw - fw, y + dh - fh, y + dh, n0, n1, true)
+                val o = w.at(a / 1000, y / 1000, n0 / 1000)
+                picks += Pick(key, Obb(o, w.dir(dw / 1000.0, 0.0), V3(0.0, dh / 1000.0, 0.0), w.dir(0.0, (n1 - n0) / 1000.0)))
+            }
         }
     }
 }

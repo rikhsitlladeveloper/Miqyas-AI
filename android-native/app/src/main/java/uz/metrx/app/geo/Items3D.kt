@@ -393,40 +393,44 @@ private fun bed3D(B: Builder3, P: Pen, m: Module) {
     }
     // what rises with a lift-up base: its slats on their frame, the mattress and the bedding
     P.th = th; P.py = pivotY; P.pn = pivotN
-    val lam = bs.firstOrNull { it.role == "lamel" }
-    if (lam != null) {
-        if (lift) {
-            val st = B.p("metal"); val lp = B.p("lamel")
-            val a0 = lam.a0.toDouble(); val a1 = lam.a1.toDouble(); val l0 = lam.n0.toDouble(); val l1 = lam.n1.toDouble()
-            val y0 = lam.y0.toDouble(); val y1 = lam.y1.toDouble()
-            P.box(st, a0, a0 + 30, y0, y1 - 8, l0, l1); P.box(st, a1 - 30, a1, y0, y1 - 8, l0, l1)
-            P.box(st, a0 + 30, a1 - 30, y0, y1 - 8, l0, l0 + 30); P.box(st, a0 + 30, a1 - 30, y0, y1 - 8, l1 - 30, l1)
-            val spine = o.mw >= 1400
-            if (spine) P.box(st, W / 2 - 15, W / 2 + 15, y0, y1 - 8, l0 + 30, l1 - 30)
-            val spans = if (spine) listOf(a0 + 4 to W / 2 - 4, W / 2 + 4 to a1 - 4) else listOf(a0 + 4 to a1 - 4)
-            var n = l0 + 45
-            while (n + 63 < l1 - 40) { spans.forEach { (s0, s1) -> P.box(lp, s0, s1, y1 - 8, y1, n, n + 63) }; n += 100 }
-        } else P.board(B.p("lamel"), lam, false)
+    fun rise() {
+        val lam = bs.firstOrNull { it.role == "lamel" }
+        if (lam != null) {
+            if (lift) {
+                val st = B.p("metal"); val lp = B.p("lamel")
+                val a0 = lam.a0.toDouble(); val a1 = lam.a1.toDouble(); val l0 = lam.n0.toDouble(); val l1 = lam.n1.toDouble()
+                val y0 = lam.y0.toDouble(); val y1 = lam.y1.toDouble()
+                P.box(st, a0, a0 + 30, y0, y1 - 8, l0, l1); P.box(st, a1 - 30, a1, y0, y1 - 8, l0, l1)
+                P.box(st, a0 + 30, a1 - 30, y0, y1 - 8, l0, l0 + 30); P.box(st, a0 + 30, a1 - 30, y0, y1 - 8, l1 - 30, l1)
+                val spine = o.mw >= 1400
+                if (spine) P.box(st, W / 2 - 15, W / 2 + 15, y0, y1 - 8, l0 + 30, l1 - 30)
+                val spans = if (spine) listOf(a0 + 4 to W / 2 - 4, W / 2 + 4 to a1 - 4) else listOf(a0 + 4 to a1 - 4)
+                var n = l0 + 45
+                while (n + 63 < l1 - 40) { spans.forEach { (s0, s1) -> P.box(lp, s0, s1, y1 - 8, y1, n, n + 63) }; n += 100 }
+            } else P.board(B.p("lamel"), lam, false)
+        }
+        val ma0 = t + 6; val ma1 = W - t - 6
+        val nb0 = t + 6 + (if (head.isNotEmpty() && hb - H > 100) HEAD_SOFT_D.toDouble() else 0.0); val nb1 = D - t - 6
+        val my1 = yp + 200
+        val fine = !B.light
+        P.soft(B.p("mattress"), ma0, ma1, yp, my1, nb0, nb1, 45.0, if (fine) 3 else 1)
+        if (fine) {
+            P.soft(B.lookPart(DUVET), -6.0, W + 6, H + 4, my1 + 30, nb0 + (nb1 - nb0) * .38, D - t + 12, 60.0, 3)
+            P.soft(B.lookPart(fab), -12.0, W + 12, H + 8, my1 + 45, D - t - 430, D - t + 20, 30.0, 3)
+        }
+        val two = o.mw >= 1200
+        val pw = if (two) min(700.0, (ma1 - ma0 - 60) / 2) else min(700.0, ma1 - ma0 - 80)
+        val cxs = if (two) listOf(W / 2 - pw / 2 - 15, W / 2 + pw / 2 + 15) else listOf(W / 2)
+        val linen = B.lookPart(LINEN); val cush = B.lookPart(fab.copy(rgb = lighter(fab.rgb, .28)))
+        cxs.forEach { cx ->
+            // propped up against the headboard, their faces to the foot (the mockup's lean)
+            P.soft(linen, cx - pw / 2, cx + pw / 2, my1 + 30, my1 + 190, nb0 + 10, nb0 + 470, 70.0, if (fine) 3 else 1, if (fine) .55 else 0.0)
+            if (fine) { val c2 = W / 2 + (cx - W / 2) * .71; val cw = min(460.0, pw * .65)
+                P.soft(cush, c2 - cw / 2, c2 + cw / 2, my1 + 20, my1 + 140, nb0 + 260, nb0 + 620, 50.0, 3, .45) }
+        }
     }
-    val ma0 = t + 6; val ma1 = W - t - 6
-    val nb0 = t + 6 + (if (head.isNotEmpty() && hb - H > 100) HEAD_SOFT_D.toDouble() else 0.0); val nb1 = D - t - 6
-    val my1 = yp + 200
-    val fine = !B.light
-    P.soft(B.p("mattress"), ma0, ma1, yp, my1, nb0, nb1, 45.0, if (fine) 3 else 1)
-    if (fine) {
-        P.soft(B.lookPart(DUVET), -6.0, W + 6, H + 4, my1 + 30, nb0 + (nb1 - nb0) * .38, D - t + 12, 60.0, 3)
-        P.soft(B.lookPart(fab), -12.0, W + 12, H + 8, my1 + 45, D - t - 430, D - t + 20, 30.0, 3)
-    }
-    val two = o.mw >= 1200
-    val pw = if (two) min(700.0, (ma1 - ma0 - 60) / 2) else min(700.0, ma1 - ma0 - 80)
-    val cxs = if (two) listOf(W / 2 - pw / 2 - 15, W / 2 + pw / 2 + 15) else listOf(W / 2)
-    val linen = B.lookPart(LINEN); val cush = B.lookPart(fab.copy(rgb = lighter(fab.rgb, .28)))
-    cxs.forEach { cx ->
-        // propped up against the headboard, their faces to the foot (the mockup's lean)
-        P.soft(linen, cx - pw / 2, cx + pw / 2, my1 + 30, my1 + 190, nb0 + 10, nb0 + 470, 70.0, if (fine) 3 else 1, if (fine) .55 else 0.0)
-        if (fine) { val c2 = W / 2 + (cx - W / 2) * .71; val cw = min(460.0, pw * .65)
-            P.soft(cush, c2 - cw / 2, c2 + cw / 2, my1 + 20, my1 + 140, nb0 + 260, nb0 + 620, 50.0, 3, .45) }
-    }
+    // split: built down, turned with the base as it rises (Fronts3D.kt)
+    if (lift) B.moving(liftKey, { B.liftMotion(P.w, pivotY, pivotN) }) { rise() } else rise()
     P.th = 0.0
     if (lift) bs.firstOrNull { it.role == "mattress" }?.let { b ->
         B.picks += Pick(liftKey, Obb(P.at(b.a0.toDouble(), b.y0.toDouble(), b.n0.toDouble()), P.w.dir((b.a1 - b.a0) / 1000.0, 0.0), V3(0.0, (b.y1 - b.y0) / 1000.0, 0.0), P.w.dir(0.0, (b.n1 - b.n0) / 1000.0)))

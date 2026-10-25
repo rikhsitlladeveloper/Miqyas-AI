@@ -87,11 +87,16 @@ class Shell3D(
     val light: V3,
     val far: Double,
     /** One room only: each wall's frame, for the furniture of a furniture order. */
-    val bases: Map<String, WallBasis> = emptyMap()
+    val bases: Map<String, WallBasis> = emptyMap(),
+    /** The furniture's doors and drawers, each on its own, shut, and how it moves (Fronts3D.kt); the 3D moves them. */
+    val fronts: List<Front3D> = emptyList(),
+    /** What the furniture draws one way with a door open, another with all shut (a wardrobe's LED, Fronts3D.kt). */
+    val toggles: List<Toggle3D> = emptyList()
 ) {
-    /** The same scene with more parts and outlines (the furniture). */
-    fun plus(more: List<Part>, moreEdges: List<Edges>) = Shell3D(parts + more, edges + moreEdges, groups, labels, rooms3, L, W, H, tgt, r, theta, phi, bounds, rMin, fit,
-        gridSize, gridDiv, gridCx, gridCz, light, far, bases)
+    /** The same scene with more parts and outlines (the furniture), and its doors and drawers that move. */
+    fun plus(more: List<Part>, moreEdges: List<Edges>, moreFronts: List<Front3D> = emptyList(), moreToggles: List<Toggle3D> = emptyList()) =
+        Shell3D(parts + more, edges + moreEdges, groups, labels, rooms3, L, W, H, tgt, r, theta, phi, bounds, rMin, fit,
+            gridSize, gridDiv, gridCx, gridCz, light, far, bases, fronts + moreFronts, toggles + moreToggles)
 
     /**
      * Only the floor: furniture without a room, drawn without walls (the walls' frames stay for placing it). With no
