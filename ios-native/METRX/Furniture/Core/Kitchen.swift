@@ -73,7 +73,7 @@ func fillOf(_ f: Furniture, _ r: Run, _ upper: Bool) -> Fill {
 
 /// Library kinds, by group: lower storage, upper storage, tall, appliances.
 let LIB_LOW = ["base", "drawers", "sink", "hob"]
-let LIB_UP = ["wall", "open", "hood", "micro"]
+let LIB_UP = ["wall", "vitrina", "open", "hood", "micro"]
 let LIB_TALL = ["pantry", "oven", "fridgeB"]
 let LIB_APP = ["dishwasher", "fridge"]
 
@@ -100,6 +100,8 @@ func template(_ kind: String, _ ws: Workshop, _ wall: String, _ w: Int? = nil) -
     case "hob": return base(w ?? 600, Fronts("drawer", 3), [], "hob")
     case "wall": let x = w ?? 600; return wallU(x, K_WALL_H, up, doors(x), [Insert("shelf", qty: 2)])
     case "open": return wallU(w ?? 600, K_WALL_H, up, Fronts("open", 0), [Insert("shelf", qty: 1)])
+    // a vitrina: glass doors in their frames over one glass shelf (the mockup's lit wall unit with dishes)
+    case "vitrina": let x = w ?? 600; return withGlassDoors(wallU(x, K_WALL_H, up, doors(x), [Insert("shelf", qty: 1)]), true)
     // the hood's cabinet ends level with the wall units, its visor 750 over the worktop
     case "hood": return wallU(w ?? 600, K_SPLASH + K_WALL_H - 750, worktopTop(ws) + 750, Fronts("door", 1), [], "hood")
     // the microwave's niche at the bottom of a wall unit of the usual height, a shelf over it
@@ -118,12 +120,33 @@ func template(_ kind: String, _ ws: Workshop, _ wall: String, _ w: Int? = nil) -
     }
 }
 
+/// A kitchen wall unit with glass doors in frames (a vitrina): the doors are bought by the m², not cut (Parts.swift, Hardware.swift).
+func glassDoors(_ m: Module) -> Bool { m.glass && m.type == "wall" && m.fronts.kind == "door" }
+
+/// m with glass doors (on) or board ones: its shelves glass or boards as well (as many as before); the wood accent
+/// inside goes with the glass. Only a wall unit with doors takes glass.
+func withGlassDoors(_ m: Module, _ on: Bool) -> Module {
+    let g = on && m.type == "wall" && m.fronts.kind == "door"
+    var n = m
+    n.glass = g; n.accentIn = g && m.accentIn
+    n.inserts = m.inserts.map { x in
+        var y = x
+        if g && x.kind == "shelf" { y.kind = "glass" } else if !g && x.kind == "glass" { y.kind = "shelf" }
+        return y
+    }
+    return n
+}
+
+/// Whether f has glass doors anywhere: a vitrina's or a gorka's sections, a kitchen's glass wall units (the fluted glass goes in them).
+func hasGlassDoors(_ f: Furniture) -> Bool { f.modules.contains { m in glassDoors(m) || m.sections.contains { $0.face == "glass" } } }
+
 /// The library kind a module was made from, for its name.
 func kindOf(_ m: Module) -> String {
     if m.app == "space" { return "spaceLow" }
     if !m.app.isEmpty { return m.app }
     if m.type == "base" && m.fronts.kind == "drawer" { return "drawers" }
     if m.type == "wall" && m.fronts.kind == "open" { return "open" }
+    if glassDoors(m) { return "vitrina" }
     if m.type == "tall" { return "pantry" }
     if m.type == "filler" { return isUpper(m) ? "fillerUp" : "fillerLow" }
     if m.type == "gap" { return "spaceUp" }

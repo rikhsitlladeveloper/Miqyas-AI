@@ -116,7 +116,16 @@ data class Module(
     val opt: Opt? = null,
     /** The box's own fronts without a handle (a push latch opens them): "f0".. a kitchen unit's doors or drawers, "bd0".. a bed's drawers (Handles.kt). */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    val noHandle: List<String> = emptyList()
+    val noHandle: List<String> = emptyList(),
+    /**
+     * A kitchen wall unit's doors are glass in frames, a vitrina (Kitchen.kt glassDoors): bought by the m², not cut;
+     * its shelves glass. Written only when set.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val glass: Boolean = false,
+    /** A glass-door wall unit's inside (its back) in the look's wood accent, as the mockup's vitrina. Written only when set. */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val accentIn: Boolean = false
 )
 
 /**

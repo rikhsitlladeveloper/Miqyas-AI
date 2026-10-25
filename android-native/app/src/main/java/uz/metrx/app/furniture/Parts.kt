@@ -169,7 +169,8 @@ fun partsOf(m: Module, ws: Workshop): List<FPart> {
             out += part("fp.top", id, "carcass", m.w - 2 * t, m.d, 2, THICK)
             shelves(m.w - 2 * t, m.d, m.inserts)
             out += backPanel(id, m.w, m.h, ws)
-            out += fronts(id, m.fronts, m.w, m.h, ws)
+            // a vitrina's glass doors are bought, not cut (its glass shelves too: Hardware.kt)
+            out += fronts(id, m.fronts, m.w, m.h, ws, if (glassDoors(m)) "glass" else "")
             if (m.fronts.kind == "drawer") frontSizes(m.fronts, m.w, m.h, ws).forEach { (fh, _) -> out += drawerBox(id, m.w - 2 * t, m.d, fh, t) }
         }
     }

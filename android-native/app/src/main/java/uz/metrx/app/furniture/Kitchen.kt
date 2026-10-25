@@ -78,7 +78,7 @@ fun fillOf(f: Furniture, r: Run, upper: Boolean): Fill {
 
 /** Library kinds, by group: lower storage, upper storage, tall, appliances. */
 val LIB_LOW = listOf("base", "drawers", "sink", "hob")
-val LIB_UP = listOf("wall", "open", "hood", "micro")
+val LIB_UP = listOf("wall", "vitrina", "open", "hood", "micro")
 val LIB_TALL = listOf("pantry", "oven", "fridgeB")
 val LIB_APP = listOf("dishwasher", "fridge")
 
@@ -96,6 +96,8 @@ fun template(kind: String, ws: Workshop, wall: String, w: Int? = null): Module {
         "hob" -> base(w ?: 600, Fronts("drawer", 3), emptyList(), "hob")
         "wall" -> (w ?: 600).let { wallU(it, K_WALL_H, up, doors(it), listOf(Insert("shelf", qty = 2))) }
         "open" -> wallU(w ?: 600, K_WALL_H, up, Fronts("open", 0), listOf(Insert("shelf", qty = 1)))
+        // a vitrina: glass doors in their frames over one glass shelf (the mockup's lit wall unit with dishes)
+        "vitrina" -> (w ?: 600).let { withGlassDoors(wallU(it, K_WALL_H, up, doors(it), listOf(Insert("shelf", qty = 1))), true) }
         // the hood's cabinet ends level with the wall units, its visor 750 over the worktop
         "hood" -> wallU(w ?: 600, K_SPLASH + K_WALL_H - 750, worktopTop(ws) + 750, Fronts("door", 1), emptyList(), "hood")
         // the microwave's niche at the bottom of a wall unit of the usual height, a shelf over it
@@ -120,11 +122,28 @@ fun kindOf(m: Module): String = when {
     m.app.isNotEmpty() -> m.app
     m.type == "base" && m.fronts.kind == "drawer" -> "drawers"
     m.type == "wall" && m.fronts.kind == "open" -> "open"
+    glassDoors(m) -> "vitrina"
     m.type == "tall" -> "pantry"
     m.type == "filler" -> if (isUpper(m)) "fillerUp" else "fillerLow"
     m.type == "gap" -> "spaceUp"
     else -> m.type
 }
+
+/** A kitchen wall unit with glass doors in frames (a vitrina): the doors are bought by the m², not cut (Parts.kt, Hardware.kt). */
+fun glassDoors(m: Module) = m.glass && m.type == "wall" && m.fronts.kind == "door"
+
+/**
+ * [m] with glass doors ([on]) or board ones: its shelves glass or boards as well (as many as before); the wood accent
+ * inside goes with the glass. Only a wall unit with doors takes glass.
+ */
+fun withGlassDoors(m: Module, on: Boolean): Module {
+    val g = on && m.type == "wall" && m.fronts.kind == "door"
+    return m.copy(glass = g, accentIn = g && m.accentIn,
+        inserts = m.inserts.map { x -> if (g && x.kind == "shelf") x.copy(kind = "glass") else if (!g && x.kind == "glass") x.copy(kind = "shelf") else x })
+}
+
+/** Whether [f] has glass doors anywhere: a vitrina's or a gorka's sections, a kitchen's glass wall units (the fluted glass goes in them). */
+fun hasGlassDoors(f: Furniture) = f.modules.any { m -> glassDoors(m) || m.sections.any { it.face == "glass" } }
 
 /**
  * Fills the empty rows of every wall: 600 mm units, the last one narrower (from 300) or a filler; the unit over the cold

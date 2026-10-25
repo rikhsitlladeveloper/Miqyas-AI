@@ -159,6 +159,41 @@ private func gkDishes(_ out: inout [GuestBox], _ m: Module, _ a0: Double, _ a1: 
     }
 }
 
+/// A kitchen vitrina's glass shelves (Kitchen.swift glassDoors), mm above the floor of the shelf's underside: spaced
+/// evenly in the box as its board shelves would be (the 3D's kitchen unit).
+func vitrinaShelves(_ m: Module, _ t: Int) -> [Double] {
+    let n = m.inserts.filter { $0.kind == "glass" }.reduce(0) { $0 + $1.qty }
+    guard n > 0 else { return [] }
+    return (1...n).map { k in Double(m.elev) + Double(m.h - t) * Double(k) / Double(n + 1) }
+}
+
+/// The dishes in a kitchen vitrina (mockup buildKitchen): plates standing at the back of its floor (up to three, 170 mm
+/// apart) and cups on its first glass shelf (up to four, 130 mm apart), each where there is room. The light tier has none.
+func vitrinaDishes(_ m: Module, _ t: Int) -> [GuestBox] {
+    var out: [GuestBox] = []
+    let il = Double(m.x + t), iw = Double(m.w - 2 * t)
+    if iw < 250 { return out }
+    let cx = il + iw / 2
+    let floor = Double(m.elev + t), top = Double(m.elev + m.h - t)
+    let ys = vitrinaShelves(m, t)
+    let room = (ys.first ?? top) - floor
+    if room >= 160 {
+        let dd = min(200, room - 40), np = min(3, max(1, Int((iw - 40) / 170)))
+        for i in 0..<np { gkDisc(&out, cx + (Double(i) - Double(np - 1) / 2) * 170, floor + dd / 2 + 2, 50, dd, 8, true, GK_PORCELAIN) }
+    }
+    if let y = ys.first {
+        let ys0 = y + 6, up = (ys.count > 1 ? ys[1] : top) - ys0
+        if up >= 110 {
+            let nc = min(4, max(1, Int((iw - 40) / 130)))
+            for i in 0..<nc {
+                let c = cx + (Double(i) - Double(nc - 1) / 2) * 130
+                out.append(GuestBox(c - 35, c + 35, ys0, ys0 + 75, 115, 185, look: GK_PORCELAIN))
+            }
+        }
+    }
+    return out
+}
+
 /// The TV panel: its board, the facing over it (stone, slats or mouldings), the TV.
 func tvPanel(_ f: Furniture, _ m: Module, _ ws: Workshop) -> [GuestBox] {
     var out: [GuestBox] = []

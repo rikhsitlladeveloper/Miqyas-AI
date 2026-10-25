@@ -88,7 +88,7 @@ func modSub(_ m: Module) -> String {
     case "drawer": out.append(tr("km.fd") + " \(m.fronts.n)")
     default: break
     }
-    let q = m.inserts.filter { $0.kind == "shelf" }.reduce(0) { $0 + $1.qty }
+    let q = m.inserts.filter { $0.kind == "shelf" || $0.kind == "glass" }.reduce(0) { $0 + $1.qty }
     if q > 0 { out.append(tr("km.shelves") + " \(q)") }
     return out.joined(separator: " · ")
 }
@@ -112,6 +112,8 @@ private var CORNER_FILL: Color { pc(0xFFE7E5E4, 0xFF2A3042) }
 private var GAP_FILL: Color { pc(0xFFF1F5F9, 0xFF2B3346) }
 private var GLASS_DARK: Color { pc(0xFF1E293B, 0xFF0B1220) }
 private var OPEN_FILL: Color { pc(0xFFE2E6EC, 0xFF283044) }
+/// A vitrina's glass in the wall drawing, inside its door's frame.
+private var GLASS_2D: Color { pc(0xFFD6E6EC, 0xFF3A4A5C) }
 private let DASH: [CGFloat] = [4, 3]
 
 /// Where a run sits in a viewBox vw wide: L × H mm, with room for sizes under it when dims.
@@ -258,6 +260,12 @@ func drawUnit(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ws: Workshop, _ 
             for i in 0..<n {
                 let fl = l + g + CGFloat(i) * (fw + g)
                 board(fl, t + g, fw, h - 2 * g)
+                // a vitrina's door: glass inside a narrow frame
+                if glassDoors(m) {
+                    let fi = max(1.5, min(fw, h) * 0.07)
+                    c.fill(rect(fl + fi, t + g + fi, fw - 2 * fi, h - 2 * g - 2 * fi), with: .color(GLASS_2D))
+                    c.stroke(rect(fl, t + g, fw, h - 2 * g), with: .color(onF), lineWidth: 0.8)
+                }
                 // the handle on the opening edge: right of a single door, the middle of a pair; without one the push mark
                 let hx = n == 1 || i == 0 ? fl + fw - max(2.5, fw * 0.1) : fl + max(2.5, fw * 0.1)
                 let hy = m.type == "wall" ? t + h * 0.82 : t + h * 0.14
