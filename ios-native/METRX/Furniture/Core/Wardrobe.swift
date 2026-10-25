@@ -113,9 +113,17 @@ let KUPE_SPLIT_MIN = 1500.0
 /// KUPE_SPLIT_TOP under its top; a door under KUPE_SPLIT_MIN has none (nil).
 func kupeSplit(_ m: Module, _ t: Int, _ dh: Double? = nil, _ lift: Double = Double(SLIDE_CLEAR) / 2) -> Double? {
     let h = dh ?? Double(slideDoor(m, t).1)
-    let v = m.sections.flatMap { s in s.inserts.filter { $0.kind == "shelf" } }
-        .map { Double($0.pos) + Double(t) / 2 - lift }.filter { $0 >= h * 0.6 && $0 <= h - 250 }.max()
-    if let v { return v }
+    // spelled out step by step: as one chain the type checker gave up
+    let half: Double = Double(t) / 2 - lift
+    let lo: Double = h * 0.6, hi: Double = h - 250
+    var best: Double? = nil
+    for s in m.sections {
+        for x in s.inserts where x.kind == "shelf" {
+            let y: Double = Double(x.pos) + half
+            if y >= lo && y <= hi && (best == nil || y > best!) { best = y }
+        }
+    }
+    if let v = best { return v }
     return h >= KUPE_SPLIT_MIN ? h - KUPE_SPLIT_TOP : nil
 }
 
