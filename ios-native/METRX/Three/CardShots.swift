@@ -52,9 +52,10 @@ final class CardRenderer {
         n += 1
         let shell = cardShell(f, ws, mats, tier)
         co.update(shell, "card\(n)", nil, cam, nil)
-        // the camera of the 2D card's angle (PieceView pieceScene az0), a little from above, the boards filling the picture
+        // the camera of the 2D card's angle (PieceView pieceScene az0), a little from above, the piece with its floor and
+        // wall framed with the same room round it as every card (CardCache.swift cardAim)
         let ps = pieceScene(f, ws, mats)
-        let aim = cardAim(ps.ext, az: ps.az0, el: CARD_EL, aspect: Double(spec.pt.width / max(1, spec.pt.height)))
+        let aim = cardAim(ps.cardExt, piece: ps.ext, az: ps.az0, el: CARD_EL, aspect: Double(spec.pt.width / max(1, spec.pt.height)))
         cam.stop()
         cam.bounds = nil; cam.rMin = 0.2; cam.rMax = nil
         cam.tgt = aim.tgt; cam.r = aim.r

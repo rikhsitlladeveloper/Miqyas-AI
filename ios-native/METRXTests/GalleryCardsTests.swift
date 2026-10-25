@@ -87,25 +87,79 @@ final class GalleryCardsTests: XCTestCase {
 
     /* ---------------- the camera ---------------- */
 
-    /// Every corner of the piece is inside the picture, with the margin left round it.
-    func testAimFitsEveryCorner() {
-        guard let f = cardPiece("L", ws, "") else { return XCTFail("no L kitchen") }
-        let s = pieceScene(f, ws, MAT_PRESETS)
-        let aspect = 300.0 / 255.0
-        let a = cardAim(s.ext, az: s.az0, el: CARD_EL, aspect: aspect)
-        let eye = a.tgt + a.back * a.r
-        let fw = a.back * -1, rt = fw.cross(V3(0, 1, 0)).unit, up = rt.cross(fw)
-        let tv = tan(FOV_HALF), th = tv * aspect
-        var most = 0.0
-        for q in s.ext {
-            let d = q - eye, z = d.dot(fw)
-            XCTAssertGreaterThan(z, 0.1)
-            let k = max(abs(d.dot(rt)) / z / th, abs(d.dot(up)) / z / tv)
-            XCTAssertLessThanOrEqual(k, 1.0)
-            most = max(most, k)
+    /// The framed box's and the boards' shares of the card's tighter side, and where the boards fall (-1 to 1).
+    private func shares(_ s: PieceScene, _ tier: Quality3) -> (fit: Double, piece: Double, span: [Double]) {
+        let spec = cardSpec(tier)
+        let aspect = Double(spec.pt.width / spec.pt.height)
+        let a = cardAim(s.cardExt, piece: s.ext, az: s.az0, el: CARD_EL, aspect: aspect)
+        let fit = cardShare(s.cardExt, at: a.tgt, dist: a.r, back: a.back, aspect: aspect, half: FOV_HALF)
+        let piece = cardShare(s.ext, at: a.tgt, dist: a.r, back: a.back, aspect: aspect, half: FOV_HALF)
+        let span = cardSpan(s.ext, at: a.tgt, dist: a.r, back: a.back, aspect: aspect, half: FOV_HALF) ?? [9, 9, 9, 9]
+        return (fit, piece, span)
+    }
+
+    private func scene(_ id: String) -> PieceScene? {
+        guard let f = cardPiece(id, ws, "") else { return nil }
+        return pieceScene(f, ws, MAT_PRESETS)
+    }
+
+    /// The coffee table, the desk, the mirror cabinet, an L kitchen and a kupe (26 Oct 2026): the framed box (the boards,
+    /// the floor under them, the wall behind) takes 70–82% of the card's tighter side, the boards inside with room round.
+    func testSmallLowAndBigPiecesGetTheSameRoom() {
+        for id in ["coffee", "desk", "mirrorC", "L", "s2"] {
+            for t in [Quality3.high, Quality3.low] {
+                guard let s = scene(id) else { XCTFail("no \(id)"); continue }
+                let r = shares(s, t)
+                print("card \(id) \(t): framed box \(r.fit), boards \(r.piece)")
+                XCTAssertGreaterThanOrEqual(r.fit, 0.70, "\(id) \(t)")
+                XCTAssertLessThanOrEqual(r.fit, 0.82, "\(id) \(t)")
+                for v in r.span { XCTAssertLessThan(abs(v), 0.9, "\(id) \(t) \(r.span)") }
+            }
         }
-        // and it fills the picture: not a small piece in the middle
-        XCTAssertGreaterThan(most, 0.8)
+    }
+
+    /// Every gallery model: the framed box takes CARD_FILL (more only where the boards alone would be too small), the
+    /// boards never under CARD_PIECE_MIN and all in the picture.
+    func testEveryModelIsFramed() {
+        for (_, ids) in GALLERY {
+            for id in ids {
+                guard let s = scene(id) else { continue }
+                let r = shares(s, .high)
+                print("card \(id): framed box \(r.fit), boards \(r.piece)")
+                XCTAssertGreaterThanOrEqual(r.piece, CARD_PIECE_MIN - 0.005, id)
+                XCTAssertGreaterThanOrEqual(r.fit, CARD_FILL - 0.005, id)
+                XCTAssertTrue(r.fit <= CARD_FILL + 0.005 || r.piece <= CARD_PIECE_MIN + 0.005, "\(id) \(r.fit)")
+                for v in r.span { XCTAssertLessThan(abs(v), 0.95, "\(id) \(r.span)") }
+            }
+        }
+    }
+
+    /// A 400 mm-tall nightstand still reads well: its wall's 300 mm above it would leave it small, so the camera comes in
+    /// until the boards take CARD_PIECE_MIN of the card.
+    func testASmallNightstandStillReadsWell() {
+        guard let m = fModel("nightstand"), let usual = scene("nightstand") else { return XCTFail("no nightstand") }
+        let low = pieceScene(pieceOf(m, ["h": 400], ws, ""), ws, MAT_PRESETS)
+        var top = 0.0
+        for q in low.ext { top = max(top, q.y) }
+        XCTAssertEqual(top, 0.4, accuracy: 0.03)
+        for s in [usual, low] {
+            for t in [Quality3.high, Quality3.low] {
+                let r = shares(s, t)
+                print("card nightstand \(t): framed box \(r.fit), boards \(r.piece)")
+                XCTAssertGreaterThanOrEqual(r.piece, CARD_PIECE_MIN - 0.005)
+                XCTAssertGreaterThanOrEqual(r.fit, CARD_FILL - 0.005)
+                for v in r.span { XCTAssertLessThan(abs(v), 0.9, "\(r.span)") }
+            }
+        }
+    }
+
+    /// The same 3/4 angle and height as before: only how far off and where it looks change.
+    func testAimKeepsTheAngle() {
+        guard let s = scene("desk") else { return XCTFail("no desk") }
+        let a = cardAim(s.cardExt, piece: s.ext, az: s.az0, el: CARD_EL, aspect: 300.0 / 255.0)
+        XCTAssertEqual(asin(a.back.y), CARD_EL, accuracy: 1e-9)
+        XCTAssertEqual(atan2(a.back.x, a.back.z), s.az0, accuracy: 1e-9)
+        XCTAssertGreaterThan(a.r, 0.5)
     }
 
     /* ---------------- the disk cache ---------------- */
