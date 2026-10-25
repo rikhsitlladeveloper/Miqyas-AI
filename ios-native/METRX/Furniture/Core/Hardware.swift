@@ -24,7 +24,7 @@ struct Counts: Equatable {
 let METRE_KINDS: Set<String> = ["rail", "slideTrack", "slideV", "slideH", "cornice", "led", "plinthK", "barRail", "gola", "ceilUnit"]
 /// Kinds counted in square millimetres and bought by the m².
 let AREA_KINDS: Set<String> = ["mirror", "glass", "glassShelf", "glassDoor", "frontShaker", "frontFluted", "fglass", "mirrorBronze", "mirrorGraphite",
-                                "headSoft", "headTufted", "softPanel"]
+                                "headSoft", "headTufted", "softPanel", "tvStone", "tvSlats", "tvMould"]
 
 /// How a kind is bought: "m", "m2" or "pcs" (the strings key fu.*).
 func hwUnit(_ kind: String) -> String { METRE_KINDS.contains(kind) ? "m" : AREA_KINDS.contains(kind) ? "m2" : "pcs" }
@@ -121,6 +121,8 @@ func hardware(_ fs: [Furniture], _ ws: Workshop) -> Counts {
         }
         for (k, v) in extrasHardware(f).pairs { n.add(k, v) }
         for (k, v) in lookHardware(f, ws).pairs { n.add(k, v) }
+        // a gorka's LED strips and cornice (Gorka.swift)
+        for (k, v) in gorkaHardware(f, ws).pairs { n.add(k, v) }
     }
     return n
 }

@@ -52,7 +52,7 @@ let F_MODELS: [FModelDef] = [
 } + NEWER_DEFS
 
 /// The gallery's later pieces of several boxes and items, in a fixed order (Pieces.swift PIECE_TYPES + ITEM_TYPES).
-let NEWER_MODELS: [String] = ["stenka", "cornerW", "cornerDesk", "vitrina", "washer", "bed", "bunk", "loft", "dining", "coffee", "bar", "mirrorP"]
+let NEWER_MODELS: [String] = ["stenka", "cornerW", "cornerDesk", "vitrina", "washer", "gorka", "bed", "bunk", "loft", "dining", "coffee", "bar", "mirrorP", "dining12"]
 /// the gallery's later pieces (Pieces.swift): their sizes come from their steps
 private let NEWER_DEFS: [FModelDef] = NEWER_MODELS.map { t in FModelDef(id: t, kind: "wardrobe", doors: "type", type: t, group: "more") }
 
@@ -408,7 +408,7 @@ func firstStart(_ f: Furniture, _ wallLen: Int?) -> Int {
 /// corner; keep its size kept. A corner kitchen's first side shorter than its wall gets an empty stretch at the wall's
 /// start, so its last unit stands in the corner where the next side turns.
 /// Pieces that may stand away from the walls, turned any way (a kitchen's island always may): a desk, shelving as a divider.
-let FREE_TYPES: Set<String> = ["desk", "shelving", "bed", "bunk", "loft", "dining", "coffee", "bar"]
+let FREE_TYPES: Set<String> = ["desk", "shelving", "bed", "bunk", "loft", "dining", "coffee", "bar", "dining12"]
 
 func canStandFree(_ f: Furniture) -> Bool { f.kind == "wardrobe" && FREE_TYPES.contains(f.type) }
 

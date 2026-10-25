@@ -158,6 +158,8 @@ private struct ItemOptions: View {
         switch m.type {
         case "bed": BedOptions(app: app, p: p, f: f, m: m)
         case "bunk", "loft": BunkOptions(app: app, p: p, f: f, m: m)
+        // the big dining table: its seats, legs, top and chairs (GorkaViews.swift)
+        case "table" where (m.opt?.seats ?? 0) > 0: BigTableOptions(app: app, p: p, f: f, m: m)
         case "table": TableOptions(app: app, p: p, f: f, m: m)
         case "bar": BarOptions(app: app, p: p, f: f, m: m)
         case "hooks": HooksOptions(app: app, p: p, f: f, m: m)

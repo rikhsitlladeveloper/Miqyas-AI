@@ -9,7 +9,7 @@ import Foundation
  */
 
 /// The module types of these pieces (Module.type).
-let ITEM_MODS: Set<String> = ["bed", "bunk", "loft", "table", "bar", "hooks", "mirror"]
+let ITEM_MODS: Set<String> = ["bed", "bunk", "loft", "table", "bar", "hooks", "mirror", TV_PANEL]
 
 /// The ladder of a bunk or loft bed stands this far out from the frame's front.
 let LADDER_D = 60
@@ -184,6 +184,8 @@ private func tableBoards(_ m: Module, _ ws: Workshop, _ out: inout [Board]) {
             out.append(Board("", "metal", a, a + 40, 0, 30, 30, D - 30))
             out.append(Board("", "metal", a, a + 40, y1 - 30, y1, 50, D - 50))
         }
+    // the big table (Gorka.swift): two panel legs set in from its ends
+    case _ where o.seats > 0: out += bigTableLegs(m, ws, y1)
     default:
         out.append(Board("fp.tLeg", "front", 60, 60 + t, 0, y1, 50, D - 50))
         out.append(Board("fp.tLeg", "front", W - 60 - t, W - 60, 0, y1, 50, D - 50))
@@ -266,6 +268,7 @@ func itemBoards(_ m: Module, _ ws: Workshop) -> [Board] {
     case "bar": barBoards(m, ws, &out)
     case "hooks": hooksBoards(m, ws, &out)
     case "mirror": out.append(Board("", "mirror", 0, m.w, m.elev, m.elev + m.h, 0, 5))
+    case TV_PANEL: out += panelBoards(m, ws)
     default: break
     }
     return out
@@ -303,6 +306,11 @@ func itemHardware(_ m: Module, _ ws: Workshop, _ add: (String, Int) -> Void) {
     case "table":
         add("confirmat", 8)
         if o.legs == "metal4" { add("tableLeg", 4) } else if o.legs == "frame" { add("tableFrame", 1) }
+        // the big table: its doubled panel legs, and its top joined from worktop strips
+        if o.seats > 0 {
+            if o.legs == "board" { add("confirmat", 8) }
+            if o.top == "wt" { add("wtJoint", topStrips(m) - 1) }
+        }
     case "bar":
         add("confirmat", 20)
         if o.shelves { add("pin", 4 * (m.w > 1200 ? 4 : 2)) }
@@ -312,12 +320,17 @@ func itemHardware(_ m: Module, _ ws: Workshop, _ add: (String, Int) -> Void) {
         if o.mirW > 0 && o.mirH > 0 { add("mirror", min(o.mirW, m.w - 160) * min(o.mirH, m.h - 200)); add("clip", 4) }
         if o.shelf { add("confirmat", 4) }
     case "mirror": add("mirror", m.w * m.h); add("clip", 4)
+    case TV_PANEL: panelHardware(m, add)
     default: break
     }
 }
 
 /// Worktop board a table or bar counter's top takes, running mm (bought by the metre like a kitchen's).
-func itemWorktopMm(_ m: Module) -> Int { (m.type == "table" || m.type == "bar") && m.opt?.top == "wt" ? m.w : 0 }
+func itemWorktopMm(_ m: Module) -> Int {
+    guard (m.type == "table" || m.type == "bar") && m.opt?.top == "wt" else { return 0 }
+    // the big table's top is joined from strips of worktop board
+    return m.w * ((m.opt?.seats ?? 0) > 0 ? topStrips(m) : 1)
+}
 
 /// How high an item reaches: a bed's headboard, a mirror panel's hat shelf.
 func itemTop(_ m: Module, _ ws: Workshop) -> Int {
@@ -337,6 +350,7 @@ func itemSized(_ m: Module, _ ws: Workshop) -> Module {
     case "bed": n.w = o.mw + 2 * t + 10; n.d = o.ml + 2 * t + 10
     case "bunk", "loft": n.w = o.ml + 2 * t + 10; n.d = o.mw + 2 * t + 10 + LADDER_D
     case "hooks": n.d = o.shelf ? 250 : t + 60
+    case TV_PANEL: n.d = t + GK_FACING
     default: break
     }
     return n
@@ -349,6 +363,7 @@ func itemModule(_ type: String, _ ws: Workshop, _ wall: String, _ x: Int, _ w: I
 
 /// The usual ranges of an item's sizes in its designer, mm.
 func itemRange(_ m: Module, _ key: String) -> ClosedRange<Int> {
+    if m.type == "table" && (m.opt?.seats ?? 0) > 0 { return bigTableRange(key) }
     switch key {
     case "mw": return m.type == "bed" ? 700...2000 : 700...1000
     case "ml": return m.type == "bed" ? 1800...2200 : 1600...2100

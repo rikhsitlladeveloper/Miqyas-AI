@@ -408,6 +408,8 @@ struct WardrobeScreen: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 Steps(cur: step) { app.setTop(.wardrobe(pid: pid, fid: fid, step: $0, sec: sel, mod: modId)) }
                                 if many { BoxPicker(app: app, p: p, f: f, cur: m) { app.setTop(.wardrobe(pid: pid, fid: fid, step: step, sec: 0, d3: d3, mod: modId)) } }
+                                // the gorka's own options (GorkaViews.swift)
+                                if f.type == "gorka" { GorkaCard(app: app, p: p, f: f) }
                                 WardDrawing(m: m, f: f, cx: cx, ws: ws, mats: mats, step: step, sel: sel, onSec: pick, onFront: frontTap(sel, pick))
                                 VStack(alignment: .leading, spacing: 10) {
                                     switch step {

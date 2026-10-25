@@ -194,12 +194,18 @@ struct ItemOpt: Codable, Equatable, Hashable {
     var hooks = 5, shelf = true, mirW = 0, mirH = 0
     /// Bar counters: open shelves on the kitchen side, the top's overhang on the seating side, a footrest.
     var shelves = true, over = 300, foot = true
+    /// The big dining table (Gorka.swift): the seats it is laid for, 10 or 12 (0: an ordinary table).
+    var seats = 0
+    /// A gorka's TV panel (Gorka.swift): its facing ("stone", "slats", "mould") and the TV it holds, inches.
+    var panel = ""
+    var tv = 0
     init(bed: String = "legs", mw: Int = 1600, ml: Int = 2000, hb: Int = 1000, legs: String = "board", top: String = "ldsp", round: Bool = false,
          ladder: String = "R", under: String = "desk", hooks: Int = 5, shelf: Bool = true, mirW: Int = 0, mirH: Int = 0,
-         shelves: Bool = true, over: Int = 300, foot: Bool = true) {
+         shelves: Bool = true, over: Int = 300, foot: Bool = true, seats: Int = 0, panel: String = "", tv: Int = 0) {
         self.bed = bed; self.mw = mw; self.ml = ml; self.hb = hb; self.legs = legs; self.top = top; self.round = round
         self.ladder = ladder; self.under = under; self.hooks = hooks; self.shelf = shelf; self.mirW = mirW; self.mirH = mirH
         self.shelves = shelves; self.over = over; self.foot = foot
+        self.seats = seats; self.panel = panel; self.tv = tv
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: CodingKeys.self)
@@ -207,6 +213,21 @@ struct ItemOpt: Codable, Equatable, Hashable {
         top = c.v(.top, "ldsp"); round = c.v(.round, false); ladder = c.v(.ladder, "R"); under = c.v(.under, "desk")
         hooks = c.v(.hooks, 5); shelf = c.v(.shelf, true); mirW = c.v(.mirW, 0); mirH = c.v(.mirH, 0)
         shelves = c.v(.shelves, true); over = c.v(.over, 300); foot = c.v(.foot, true)
+        seats = c.v(.seats, 0); panel = c.v(.panel, ""); tv = c.v(.tv, 0)
+    }
+    // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
+    enum CodingKeys: String, CodingKey { case bed, mw, ml, hb, legs, top, round, ladder, under, hooks, shelf, mirW, mirH, shelves, over, foot, seats, panel, tv }
+    /// The synthesized form, with the big table's and the TV panel's fields written only when set (Android @EncodeDefault NEVER).
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(bed, forKey: .bed); try c.encode(mw, forKey: .mw); try c.encode(ml, forKey: .ml); try c.encode(hb, forKey: .hb)
+        try c.encode(legs, forKey: .legs); try c.encode(top, forKey: .top); try c.encode(round, forKey: .round)
+        try c.encode(ladder, forKey: .ladder); try c.encode(under, forKey: .under); try c.encode(hooks, forKey: .hooks)
+        try c.encode(shelf, forKey: .shelf); try c.encode(mirW, forKey: .mirW); try c.encode(mirH, forKey: .mirH)
+        try c.encode(shelves, forKey: .shelves); try c.encode(over, forKey: .over); try c.encode(foot, forKey: .foot)
+        if seats != 0 { try c.encode(seats, forKey: .seats) }
+        if !panel.isEmpty { try c.encode(panel, forKey: .panel) }
+        if tv != 0 { try c.encode(tv, forKey: .tv) }
     }
 }
 

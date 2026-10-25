@@ -286,8 +286,9 @@ func withPreset(_ f: Furniture, _ id: String, fresh: Bool = false) -> Furniture 
     l.mirror = p.mirror; l.fabric = p.fabric; l.head = p.head; l.accent = "wd_" + p.accent
     g.look = l
     g = withHandleType(g, p.handle)
-    // the crown is a kitchen's (a wardrobe's height is its own size)
-    if kitchen { g = withCrown(g, p.crown == "none" ? "" : p.crown) }
+    // the crown is a kitchen's (a wardrobe's height is its own size); a gorka takes the neoclassic cornice on its
+    // towers and bridge (its height is its own size: no "to the ceiling")
+    if kitchen { g = withCrown(g, p.crown == "none" ? "" : p.crown) } else if f.type == "gorka" { g = withCrown(g, p.crown == "cornice" ? "cornice" : "") }
     if kitchen && (g.kx?.splash ?? 0) == 0 { var k = g.kx ?? KExtras(); k.splash = K_SPLASH; g.kx = k }
     if fresh {
         g.modules = g.modules.map { m in
@@ -445,7 +446,8 @@ func lookHardware(_ f: Furniture, _ ws0: Workshop) -> Counts {
     }
     if f.kind == "kitchen" && l.crown == "ceiling" { n.add("ceilUnit", wallUnitsMm(f)) }
     n.add("waterfall", waterfallEnds(f))
-    if f.kind == "wardrobe" && l.led {
+    // (a gorka's LED is its strips round the towers, the base and the bridge: Gorka.swift gorkaHardware)
+    if f.kind == "wardrobe" && l.led && f.type != "gorka" {
         for m in f.modules where m.type == "wardrobe" && !m.led {
             n.add("led", m.w - 2 * ws.t); n.add("ledPsu", 1)
             let doors = m.sections.filter { $0.fronts.kind == "door" }.count

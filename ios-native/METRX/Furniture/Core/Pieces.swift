@@ -9,9 +9,9 @@ import Foundation
  */
 
 /// Pieces with their own short designer (Items.swift) instead of the wardrobe designer.
-let ITEM_TYPES: Set<String> = ["bed", "bunk", "loft", "dining", "coffee", "bar", "mirrorP"]
+let ITEM_TYPES: Set<String> = ["bed", "bunk", "loft", "dining", "coffee", "bar", "mirrorP", "dining12"]
 /// Pieces of several boxes on the wardrobe's engine.
-let PIECE_TYPES: Set<String> = ["stenka", "cornerW", "cornerDesk", "vitrina", "washer"]
+let PIECE_TYPES: Set<String> = ["stenka", "cornerW", "cornerDesk", "vitrina", "washer", "gorka"]
 /// Pieces on two walls round a corner: the first wall's run ends in the corner, the second starts past its depth.
 let CORNER_TYPES: Set<String> = ["cornerW", "cornerDesk"]
 /// One box standing on another.
@@ -43,6 +43,8 @@ private func firstWall(_ f: Furniture) -> String? { f.walls.first ?? wardOfF(f)?
 func firstRun(_ f: Furniture) -> [Module] {
     let w0 = firstWall(f)
     let on = boxes(f).filter { $0.wall == w0 }
+    // a gorka's floating base and bridge are its run too (with one tower they reach past it)
+    if f.type == "gorka" { return on }
     let standing = on.filter { !hung($0) }
     return standing.isEmpty ? on : standing
 }
@@ -85,6 +87,7 @@ func packPiece(_ f: Furniture, _ lenA: Int? = nil, changed: String? = nil, ws: W
     if f.kind != "wardrobe" { return f }
     if CORNER_TYPES.contains(f.type) { return cornerFit(f, lenA) }
     if f.type == "stenka" { return stenkaPack(f) }
+    if f.type == "gorka" { return gorkaPack(f, changed, ws) }
     if STACK_TYPES.contains(f.type) { return stackPack(f, changed, ws) }
     if f.type == "loft" { return loftPack(f, ws, changed) }
     if f.modules.contains(where: { $0.type == "mirror" }) { return mirrorPack(f, ws) }
@@ -417,6 +420,11 @@ func newPiece(_ type: String, _ v: (String) -> Int, _ ws: Workshop, _ name: Stri
     case "dining", "coffee":
         let o = ItemOpt(legs: optAt(v("lg"), LEG_KINDS), top: v("tp") == 1 ? "wt" : "ldsp", round: v("rc") == 1)
         mods = [itemModule("table", ws, "A", x, v("w"), v("h"), v("d"), o)]
+    // the big dining table (Gorka.swift): a 38 mm top, laid for 10 or 12
+    case "dining12":
+        let o = ItemOpt(legs: optAt(v("lg"), DT_LEGS), top: "wt", seats: v("st") >= 0 && v("st") < DT_SEATS.count ? DT_SEATS[v("st")] : 12)
+        mods = [itemModule("table", ws, "A", x, v("w"), v("h"), v("d"), o)]
+    case "gorka": mods = gorkaBoxes(ws, gkOpts(v))
     case "bar": mods = [itemModule("bar", ws, "A", x, v("w"), v("h"), v("d"), ItemOpt(top: "wt"))]
     case "mirrorP": mods = [itemModule("hooks", ws, "A", x, v("w"), v("h"), 0, ItemOpt(hooks: 4, shelf: true, mirW: 450, mirH: 1000), elev: 300)]
     case "stenka": mods = stenka(ws, v("w"), v("h"), v("d"))
@@ -426,7 +434,13 @@ func newPiece(_ type: String, _ v: (String) -> Int, _ ws: Workshop, _ name: Stri
     case "washer": mods = washer(ws, v("w"), v("h"), v("d"))
     default: mods = oneCabinet(type, v, ws)
     }
-    let f = Furniture(id: uid(), kind: "wardrobe", name: name, roomId: nil, walls: walls, modules: mods, mats: BATH_TYPES.contains(type) ? bathMats() : FMats(),
+    let mats: FMats
+    if BATH_TYPES.contains(type) { mats = bathMats() }
+    // the big table's top, the gorka's stone panel: a stone-look worktop board (wood for a wood top)
+    else if type == "dining12" { mats = FMats(top: dtTop(v("tk") == 1 ? "wood" : "stone", nil)) }
+    else if type == "gorka" { mats = FMats(top: dtTop("stone", nil)) }
+    else { mats = FMats() }
+    let f = Furniture(id: uid(), kind: "wardrobe", name: name, roomId: nil, walls: walls, modules: mods, mats: mats,
                       created: now, model: type, type: type)
     // a corner piece with its corner on the left: the same arms on the made-up room's left and back walls
     if CORNER_TYPES.contains(type) && shapeLeft(type, v("sh")) {
@@ -460,6 +474,10 @@ func pieceVals(_ f: Furniture, _ ws: Workshop) -> [String: Int] {
     case "loft": return ["mw": o.mw, "ml": o.ml, "h": main.h, "lad": o.ladder == "L" ? 0 : 1, "und": indexIn(UNDER_KINDS, o.under)]
     case "dining", "coffee":
         return ["w": main.w, "d": main.d, "h": main.h, "lg": indexIn(LEG_KINDS, o.legs), "tp": o.top == "wt" ? 1 : 0, "rc": o.round ? 1 : 0]
+    case "dining12":
+        return ["w": main.w, "d": main.d, "h": main.h, "st": DT_SEATS.firstIndex(of: o.seats) ?? 1, "lg": indexIn(DT_LEGS, o.legs),
+                "tk": worktopKind(f.mats.top) == "wood" ? 1 : 0]
+    case "gorka": return gorkaVals(f, ws)
     case "bar": return ["w": main.w, "h": main.h, "d": main.d]
     case "mirrorP": return ["w": main.w, "h": main.h]
     case "stenka":
@@ -498,9 +516,12 @@ private func itemResized(_ f: Furniture, _ main: Module, _ v: [String: Int], _ w
     if let i = v["lg"], i >= 0, i < LEG_KINDS.count { o.legs = LEG_KINDS[i] }
     if let i = v["tp"] { o.top = i == 1 ? "wt" : "ldsp" }
     if let i = v["rc"] { o.round = i == 1 }
+    if let i = v["st"], o.seats > 0 { o.seats = i >= 0 && i < DT_SEATS.count ? DT_SEATS[i] : o.seats }
     m.opt = o
     let nm = itemSized(m, ws)
     var out = f
+    // the big table's top: stone or wood (its decor kept where it can be)
+    if let k = v["tk"], f.type == "dining12" { out.mats.top = dtTop(k == 1 ? "wood" : "stone", f.mats.top) }
     out.modules = f.modules.map { $0.id == main.id ? nm : $0 }
     return out
 }
@@ -518,6 +539,8 @@ func pieceResized(_ f: Furniture, _ v: [String: Int], _ ws: Workshop) -> Furnitu
         // the handles chosen for the whole piece ("Change for all", or none at all) stay as they were, and so do the
         // doors and drawers chosen without one and each section's soft close (HandleRules.swift)
         r.handle = f.handle
+        // and so does its design (a piece of several boxes, e.g. a gorka, built again keeps its look)
+        r.look = f.look
         r = keepFrontChoices(f, r)
         return CORNER_TYPES.contains(f.type) ? r : shiftRun(r, runStart(f))
     }
@@ -551,6 +574,7 @@ func pieceResized(_ f: Furniture, _ v: [String: Int], _ ws: Workshop) -> Furnitu
 
 /// What a box of a piece is called in the designer (strings key): a stenka's tall or low piece or shelf, a corner's arms, a stack's halves.
 func boxRole(_ f: Furniture, _ m: Module) -> String {
+    if let g = gorkaRole(f, m) { return g }
     if CORNER_TYPES.contains(f.type) {
         let w1: String? = f.walls.count > 1 ? f.walls[1] : nil
         if m.wall == w1 { return "pc.armB" }

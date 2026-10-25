@@ -489,7 +489,8 @@ private struct DzExtras: View {
         let pid = p.id, fid = f.id
         let kitchen = kind == "kitchen"
         let cur = l.accent.hasPrefix("wd_") ? String(l.accent.dropFirst(3)) : l.accent
-        let wardLed = kind == "kupe" || (kind == "case" && f.modules.contains { m in m.type == "wardrobe" && m.sections.contains { $0.fronts.kind == "door" } })
+        // (a gorka's LED is on its own card: GorkaViews.swift)
+        let wardLed = kind == "kupe" || (kind == "case" && f.type != "gorka" && f.modules.contains { m in m.type == "wardrobe" && m.sections.contains { $0.fronts.kind == "door" } })
         VStack(alignment: .leading, spacing: 10) {
             if kitchen || kind == "bed" {
                 DzTitle(label: tr("lk.accent"), value: cur.isEmpty ? nil : tr("lk.w." + cur))

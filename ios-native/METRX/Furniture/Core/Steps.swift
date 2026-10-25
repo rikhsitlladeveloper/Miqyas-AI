@@ -10,7 +10,7 @@ import Foundation
 let GALLERY: [(String, [String])] = [
     ("kitchen", ["I", "L", "U", "O", "P", "dining", "bar", "pantry"]),
     ("bedroom", ["h2", "h3", "s2", "s3", "cornerW", "bed", "dresser", "nightstand", "vanity", "shelfW", "tvBed"]),
-    ("living", ["tv", "stenka", "vitrina", "sideboard", "shelving", "coffee", "shelvesW"]),
+    ("living", ["tv", "stenka", "gorka", "vitrina", "sideboard", "shelving", "dining12", "coffee", "shelvesW"]),
     ("hall", ["hallway", "shoe", "hallW", "mirrorP", "op"]),
     ("kids", ["bunk", "loft", "kidsW", "toys"]),
     ("office", ["desk", "cornerDesk", "bookcase", "officeC"]),
@@ -63,6 +63,14 @@ private func newSteps(_ m: FModelDef) -> [SizeStep]? {
     switch t {
     case "bed", "bunk", "loft": return bedSteps(t)
     case "dining": return [wStep(1400, 600, 3000), dStep(800, 500, 1200), hStep(750, 600, 900), legs, choiceStep("tp", "fb.tp", ["fb.tp.ldsp", "fb.tp.wt"]), round]
+    // the big table for guests (Gorka.swift): 2800 × 1100, laid for 10 or 12
+    case "dining12":
+        return [wStep(2800, 1800, 3600), dStep(1100, 900, 1300), hStep(760, 700, 800), choiceStep("st", "dt.st", ["dt.st.10", "dt.st.12"], 1),
+                choiceStep("lg", "fb.lg", ["fb.lg.board", "fb.lg.metal4"]), choiceStep("tk", "dt.tk", ["dt.tk.stone", "dt.tk.wood"])]
+    // the gorka (Gorka.swift): 3000 × 2100, towers 500 wide, a 65″ TV; the rest in its designer
+    case "gorka":
+        return [wStep(3000, 1800, 3600, "fz.wAll"), hStep(2100, 1800, 2800), SizeStep(key: "tw", label: "gk.tw", help: "gk.tw.h", usual: 500, min: 300, max: 800),
+                choiceStep("tv", "gk.tv", GK_TVS.map { "gk.tv.\($0)" }, 1)]
     case "coffee": return [wStep(1000, 400, 1600), dStep(600, 300, 1000), hStep(450, 300, 600), legs, round]
     case "bar": return [wStep(1500, 600, 3000), hStep(1100, 900, 1250), dStep(600, 400, 900, "fb.barD")]
     case "mirrorP": return [wStep(1000, 400, 2000), SizeStep(key: "h", label: "fz.wH", help: "fb.hPanel", usual: 1600, min: 600, max: 2200)]
@@ -377,7 +385,8 @@ func roomCabinet(_ m: FModelDef, _ wallLen: Int?, _ roomH: Int?, _ ws: Workshop,
     }
     let w = wallLen.map { min(sw, $0 - 2 * W_GAP_SIDE) } ?? sw
     let h = m.type.isEmpty && roomH != nil ? min(st["h"]!, roomH! - W_GAP_TOP) : st["h"]!
+    // (a gorka has no depth step: its boxes have their own)
     var v = st
-    v["w"] = max(300, w); v["h"] = h; v["d"] = st["d"] ?? m.d
+    v["w"] = max(300, w); v["h"] = h
     return pieceOf(m, v, ws, name, now: now)
 }

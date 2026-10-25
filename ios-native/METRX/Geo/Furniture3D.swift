@@ -98,11 +98,14 @@ private let PART_TAGGED: Set<String> = ["fp.side", "fp.top", "fp.bottom", "fp.di
 /// tex gives a board's decor picture by its id (Mat.tex), for the lit 3D (by default the one in mats); mats the
 /// workshop's list the boards' finishes come from (nil: the presets). detail: .high everything, .low no glow on the
 /// wall and fewer sides to round parts, .flat boxes only (the 2D drawings: six faces a box). ceilH the room's height,
-/// mm (a kitchen's row of units to the ceiling).
+/// mm (a kitchen's row of units to the ceiling). decor: the small decor (a gorka's dishes and books, the big table's
+/// bowl, vase and pendant; Geo/GorkaScene3D.swift); nil: on the high tier only (left out on a weak phone and in the 2D
+/// drawings, like Android's light tier).
 func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop, _ rgb: (String) -> Int, _ open: Set<String>,
                  amt: ((String) -> Double)? = nil, bare: Bool = false, hi: PartHi? = nil, tex: ((String) -> String?)? = nil,
-                 mats: [Mat]? = nil, detail: Quality3 = .high, ceilH: Int = 2700) -> Furn3D {
+                 mats: [Mat]? = nil, detail: Quality3 = .high, ceilH: Int = 2700, decor: Bool? = nil) -> Furn3D {
     let how: (String) -> Double = amt ?? { k in open.contains(k) ? 1 : 0 }
+    let withDecor = decor ?? (detail == .high)
     let list = mats ?? MAT_PRESETS
     let texOf: (String) -> String? = tex ?? { id in list.first { $0.id == id }?.tex }
     let st = FStore()
@@ -116,8 +119,10 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
         B.fglass = f.look?.fglass == true; B.legsMetal = metalLegs(f); B.ledOn = f.kx?.led == true
         B.accentOn = !(f.look?.accent ?? "").isEmpty
         // a wardrobe's LED in each section (with a door sensor) and its cornice or row up to the ceiling (a kitchen's are its own)
-        B.wardLed = f.kind == "wardrobe" && f.look?.led == true
-        B.crown = f.kind == "kitchen" ? "" : crownOf(f)
+        // (a gorka's LED strips and neoclassic cornice are its own: Geo/GorkaScene3D.swift)
+        let gorka = f.type == "gorka"
+        B.wardLed = f.kind == "wardrobe" && f.look?.led == true && !gorka
+        B.crown = f.kind == "kitchen" || gorka ? "" : crownOf(f)
         B.crownTop = f.modules.filter { $0.type == "wardrobe" }.map { legsOf($0, fws) + $0.elev + $0.h }.max() ?? 0
         // the worktop's own thickness (a slim stone one 20): its top that much lower, the units as they are
         let topT = Double(min(60, max(12, list.first { $0.id == worktopOf(f) }?.t ?? K_TOP)))
@@ -143,7 +148,11 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
             B.mod = m.label.isEmpty ? m.id : m.label; B.sec = ""
             // a two-tone piece's upper fronts (a kitchen's wall units, another piece's hung boxes) take their own board
             B.up = isUpperFront(f, m)
-            if m.type == "wardrobe" {
+            // the gorka's and the big table's own (Geo/GorkaScene3D.swift): the TV panel and the big table drawn there
+            // alone, a gorka's lights, dishes and cornice over its boxes
+            let gx = guestScene(f, mm, fws, decor: withDecor)
+            if let gx, gx.own { B.guestBoxes(b, gx.boxes) }
+            else if m.type == "wardrobe" {
                 // what stands past each end along its wall: the wall's corner, or another box close by (of another piece or this one)
                 let L = bases[m.wall ?? ""].map { Int($0.len * 1000) }
                 func near(_ at: Int) -> Bool {
@@ -165,6 +174,7 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
                 if f.type == "sinkV" { B.basin(b, mm) }
             } else if ITEM_MODS.contains(m.type) { B.item(b, mm) }
             else { B.kitchenUnit(b, m) }
+            if let gx, !gx.own { B.guestBoxes(b, gx.boxes) }
         }
         // the worktop over the lower row of each wall (and over the corner it turns into)
         if f.kind == "kitchen" {
