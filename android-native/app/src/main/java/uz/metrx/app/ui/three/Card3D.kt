@@ -144,6 +144,13 @@ object Card3D {
         if (!Lit3D.ready(engine, ctx)) { broken = true; return null }
         val buf = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
         var done = false
+        // which way up the pixels come back, found once on the empty scene
+        if (topDown == null) (rig ?: Rig(ctx).also { rig = it }).let { r0 ->
+            timed { r0.setUp(tier) }
+            val td = probe(r0, r0.swap(w, h), w, h) { f -> timed(f) }
+            Log.i(TAG, "pixels come back ${when (td) { true -> "top row first"; false -> "bottom row first"; null -> "unknown way up: taken as bottom first" }}")
+            topDown = td ?: false
+        }
         val (r, sc, ents) = timed {
             val r = rig ?: Rig(ctx).also { rig = it }
             r.nodes.tier = tier
@@ -190,12 +197,58 @@ object Card3D {
         }
     }
 
-    /** Filament's rows run from the bottom up: turned over into a picture. */
+    /**
+     * Whether the pixels Filament reads back start with the picture's top row: OpenGL's start at the bottom, but the
+     * emulator's driver gives them top first (the cards came out upside down there). Drawn once on the empty scene:
+     * the bottom quarter white (the sky in a viewport, which Filament counts from the bottom), the rest cleared black;
+     * the end of the buffer that is white is the bottom. Null when it cannot tell (no frame came back).
+     */
+    private suspend fun probe(r: Rig, sc: SwapChain, w: Int, h: Int, timed: (() -> Unit) -> Unit): Boolean? {
+        val buf = ByteBuffer.allocateDirect(w * h * 4).order(ByteOrder.nativeOrder())
+        var done = false
+        val sky = r.scene.skybox; val clear = r.renderer.clearOptions
+        val white = Skybox.Builder().color(4f, 4f, 4f, 1f).build(r.engine)
+        try {
+            r.scene.skybox = white
+            r.renderer.clearOptions = Renderer.ClearOptions().apply { this.clear = true; clearColor = doubleArrayOf(0.0, 0.0, 0.0, 1.0) }
+            r.view.viewport = Viewport(0, 0, w, maxOf(1, h / 4))
+            var began = false
+            for (i in 0 until 40) {
+                var ok = false
+                timed { ok = r.renderer.beginFrame(sc, System.nanoTime()) }
+                if (ok) { began = true; break }
+                delay(16)
+            }
+            if (!began) return null
+            timed {
+                r.renderer.render(r.view)
+                r.renderer.readPixels(0, 0, w, h, Texture.PixelBufferDescriptor(buf, Texture.Format.RGBA, Texture.Type.UBYTE, 1, 0, 0, w,
+                    Handler(Looper.getMainLooper()), Runnable { done = true }))
+                r.renderer.endFrame()
+            }
+            for (i in 0 until 90) { if (done) break; delay(8) }
+            if (!done) { timed { r.engine.flushAndWait() }; for (i in 0 until 30) { if (done) break; delay(10) } }
+            if (!done) return null
+            fun lum(row: Int): Int { val i = (row * w + w / 2) * 4; return (buf.get(i).toInt() and 255) + (buf.get(i + 1).toInt() and 255) + (buf.get(i + 2).toInt() and 255) }
+            val first = lum(0); val last = lum(h - 1)
+            return if (kotlin.math.abs(first - last) < 90) null else last > first
+        } finally {
+            r.scene.skybox = sky; r.renderer.clearOptions = clear
+            timed { r.engine.flushAndWait() }
+            r.engine.destroySkybox(white)
+        }
+    }
+
+    /** Which way up the pixels come back ([probe]); null: not found yet (then as OpenGL gives them, bottom first). */
+    @Volatile private var topDown: Boolean? = null
+
+    /** The rows read back made into a picture, top row first: as they come ([topDown]), else turned over. */
     private fun toBitmap(px: ByteBuffer, w: Int, h: Int): Bitmap {
         val row = w * 4
         val out = ByteBuffer.allocateDirect(row * h)
         val line = ByteArray(row)
-        for (y in 0 until h) { px.position((h - 1 - y) * row); px.get(line); out.put(line) }
+        val keep = topDown == true
+        for (y in 0 until h) { px.position((if (keep) y else h - 1 - y) * row); px.get(line); out.put(line) }
         out.rewind()
         return Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888).apply { copyPixelsFromBuffer(out); setHasAlpha(false) }
     }

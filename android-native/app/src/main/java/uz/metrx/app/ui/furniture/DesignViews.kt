@@ -317,6 +317,13 @@ fun DesignCard(p: Project, f: Furniture) {
         // LED: a kitchen's under the wall units (its extras), a wardrobe's inside with a door sensor
         if (kitchen) Toggle(tr("lk.led"), f.kx?.led == true) { change { g -> withLook(g) { it }.let { x -> x.copy(kx = (x.kx ?: KExtras()).copy(led = x.kx?.led != true)) } } }
         else if (kind == "kupe" || (kind == "case" && f.modules.any { it.type == "wardrobe" && it.sections.any { s -> s.fronts.kind == "door" } })) Toggle(tr("lk.ledW"), l.led) { look { it.copy(led = !it.led) } }
+        // a tall wardrobe's crown (modern 3D part 5): a cornice, or a panel up to the ceiling, as the 3D draws them
+        if ((kind == "kupe" || kind == "case") && f.modules.any { it.type == "wardrobe" && !uz.metrx.app.furniture.hung(it) && it.elev + it.h >= 1700 }) {
+            RowTitle(tr("lk.crown"))
+            Chips(listOf(Triple("", tr("lk.c0"), false), Triple("cornice", tr("lk.cCornice"), false), Triple("ceiling", tr("lk.cCeiling"), false)), crownOf(f)) { v ->
+                change { withLook(withCrown(it, v)) { x -> x } }
+            }
+        }
         if (kitchen) {
             RowTitle(tr("lk.legs"))
             Chips(listOf(Triple("plinth", tr("lk.l.plinth"), false), Triple("metal", tr("lk.l.metal"), true)), if (l.legs) "metal" else "plinth") { v -> look { it.copy(legs = v == "metal") } }

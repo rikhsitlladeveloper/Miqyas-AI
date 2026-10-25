@@ -92,7 +92,7 @@ fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>, bare: Boolean = fals
     val room = freeRoom(f)
     val shell = buildShell(listOf(room), true, true)
     val b = shell.bases
-    val fur = furniture3D(listOf(f), b, ws, matRgb(mats), emptySet(), bare = bare, hi = hi, look = matLook(mats))
+    val fur = furniture3D(listOf(f), b, ws, matRgb(mats), emptySet(), bare = bare, hi = hi, look = matLook(mats), boxes = true)
     // every box of furniture3D adds its six faces to its part one after another, painted in the lit 3D's colours
     val furn = fur.parts.flatMap { p -> val c = paintRgb(p); p.faces.chunked(6).filter { it.size == 6 }.map { b -> SBox(b.map { SFace(it.pts, it.n, c, p.op, p.wall, p.slab) }) } }
     val env = ArrayList<SFace>()

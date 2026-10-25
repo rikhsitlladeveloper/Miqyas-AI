@@ -113,10 +113,10 @@ object Looks {
     /** Handles: dark painted metal (the app's handle colour, a soft sheen). */
     val handle = Look(0x3A3F47, rough = .4f, metal = .6f)
     /**
-     * A mirror: silver, nearly smooth. Half metal: a full one shows only the studio's floor from above and reads as a
+     * A mirror: silver, nearly smooth. Partly metal (.4 since part 5; .55 read grey on the wardrobes): a full one shows only the studio's floor from above and reads as a
      * dark panel; this way it stays a bright silver with the room's light running over it.
      */
-    val mirror = Look(0xD3DCE4, rough = .05f, metal = .55f, reflect = .9f)
+    val mirror = Look(0xD3DCE4, rough = .05f, metal = .4f, reflect = .9f)
     /** Lakobel, the painted glass of sliding-door panels: opaque, glossy. */
     val lacobel = Look(0x8FA9C4, rough = .06f, clear = 1f, reflect = .7f)
     /** Clear glass (vitrina doors, glass shelves): faint green-white, see-through. */
@@ -165,6 +165,14 @@ object Looks {
         else -> if (((rgb shr 16) and 255) + ((rgb shr 8) and 255) + (rgb and 255) < 3 * 0x50) Look(rgb, rough = .45f, metal = .5f) else Look(rgb, rough = .3f, metal = 1f)
     }
 
+    /** Polished chrome: a wardrobe's hanging rails (mockup steel rails, brighter). */
+    val chrome = Look(0xECEEF1, rough = .08f, metal = 1f)
+    /** A LED strip's aluminium channel while it is off (a wardrobe's, its doors shut: mockup #D3D5D8). */
+    val ledOff = Look(0xD3D5D8, rough = .4f, metal = .2f)
+    /** A glass shelf: thicker-looking than a door's glass, its green edge showing (mockup shelfG #D6EAE3, .4). */
+    val shelfGlass = Look(0xD6EAE3, rough = .04f, alpha = .4f, reflect = .7f)
+    /** A light streak across a mirror ([alpha] see-through white, unlit: Furniture3D sheen). */
+    fun sheen(alpha: Float) = Look(0xFFFFFF, rough = 1f, emissive = 1.05f, alpha = alpha)
     /** Fluted (reeded) glass: frosted by its ribs, half see-through (mockup fglass). */
     val flutedGlass = Look(0xEAF2F0, rough = .3f, alpha = .55f, reflect = .6f)
     /** An oven's and a microwave's window: smoked glass a shade lighter than the door. */

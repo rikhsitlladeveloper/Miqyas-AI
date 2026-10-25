@@ -148,6 +148,8 @@ private const val LAMEL = 0xD9C29A
 private const val LED = 0xFFF3C4
 /** The see-through of the LED glow's bands on the wall, from the wall units' bottom down (40 mm each). */
 private val GLOW = listOf(.22f, .17f, .13f, .10f, .07f, .05f, .03f, .015f)
+/** The same inside a wardrobe, from its LED down the back (70 mm each) and on the shelves under it: brighter, the light close by. */
+private val WGLOW = listOf(.34f, .27f, .21f, .16f, .12f, .08f, .05f, .025f)
 private val UP = V3(0.0, 1.0, 0.0)
 
 /**
@@ -271,13 +273,18 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
                 /** The light quality tier (weak phones): no glow on the wall, no small details. */
                 light: Boolean = false,
                 /** The room's height, mm (a kitchen's row of units up to the ceiling); null: a room-less piece's own, else 2700. */
-                ceil: Int? = null): Furn3D {
+                ceil: Int? = null,
+                /**
+                 * Every board one box of six faces even with [look] (the 2D painter, PieceView.kt, reads them six at a
+                 * time): the looks' colours kept, none of the lit 3D's shaped details.
+                 */
+                boxes: Boolean = false): Furn3D {
     // how far each door or drawer is open, 0 to 1 (moving between the two while it opens or shuts)
     val how = amt ?: { k: String -> if (k in open) 1.0 else 0.0 }
     val parts = LinkedHashMap<Pair<String?, Any>, Part>(); val edges = LinkedHashMap<String?, Edges>()
     val picks = ArrayList<Pick>(); val keys = ArrayList<String>(); val spots = LinkedHashMap<String, HandleSpot>()
     val matLook = look ?: { id: String -> Looks.board(rgb(id)) }
-    val rich = look != null
+    val rich = look != null && !boxes
     fs.forEach { f ->
         val ms = mats ?: MAT_PRESETS
         val upId = f.mats.frontUp ?: f.mats.front
@@ -308,19 +315,26 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
                 "plinth" to matLook(f.mats.front), "handle" to Looks.handle, "frame" to Looks.steel, "gola" to Looks.metalOf(0x232427), "legs" to Looks.steel,
                 "mirror" to Looks.mirror, "clear" to Looks.clearGlass, "faucet" to Looks.steel)
         }
-        val looks = design + mapOf("glass" to Looks.lacobel, "fglass" to Looks.flutedGlass,
+        // lacobel (a sliding door's painted glass) in the lower fronts' colour, white under a wood decor (modern 3D part 5)
+        val lacobel = if (mats != null) lookOf(f, null, "frontLow", ms).let { s -> if (s.tex == null) Looks.lacobel.copy(rgb = rgbOf(s.rgb)) else Looks.lacobel.copy(rgb = 0xEDEAE4) } else Looks.lacobel
+        val looks = design + mapOf("glass" to Looks.lacobel, "lacobel" to lacobel, "fglass" to Looks.flutedGlass,
+            "rail" to Looks.chrome, "ledOff" to Looks.ledOff, "shelfGlass" to Looks.shelfGlass, "sheen0" to Looks.sheen(.06f), "sheen1" to Looks.sheen(.035f),
             "metal" to Looks.steel, "dark" to Looks.blackGlass, "white" to Looks.enamel, "mattress" to Looks.mattress, "lamel" to Looks.lamel,
             "led" to Looks.led, "hi" to Looks.hi, "ovenWin" to Looks.ovenWindow, "display" to Looks.display, "ring" to Looks.hobRing,
             "sinkIn" to (if (chrome) Looks.sinkSteel else Looks.granite),
             "lamp" to (if (f.kx?.led == true) Looks.led else Looks.steel.copy(metal = .2f, rough = .4f)),
             "glowTop0" to Looks.glow(.07f), "glowTop1" to Looks.glow(.04f), "glowTop2" to Looks.glow(.018f)) +
-            GLOW.mapIndexed { i, a -> "glow$i" to Looks.glow(a) }
+            GLOW.mapIndexed { i, a -> "glow$i" to Looks.glow(a) } + WGLOW.mapIndexed { i, a -> "wglow$i" to Looks.glow(a) }
         val fws = uz.metrx.app.furniture.wsOf(f, ws)
         val B = Builder3(fws, colors, looks, parts, edges, picks, keys, how, spots)
         B.bare = bare; B.hi = hi; B.piece = f.id; B.hLen = handleLen(f.handle).toDouble()
         B.rich = rich; B.light = light
         B.hType = handleType(f); B.hId = f.handle; B.style = l?.style ?: "flat"; B.fglass = l?.fglass == true
         B.metalLegs = metalLegs(f); B.plinth = f.kx?.plinth == true
+        // a wardrobe's LED with door sensors, its cornice or panel up to the ceiling (the room's height, a room-less piece's own)
+        B.ledLook = f.kind == "wardrobe" && l?.led == true
+        B.crown = if (f.kind == "kitchen") "" else crownOf(f)
+        B.ceilH = (ceil ?: f.free?.h ?: 2700).toDouble()
         // the worktop's thickness: a slim 20 mm stone sits on the same carcasses, its top lower
         val wtT = if (rich) (ms.firstOrNull { it.id == topId }?.t ?: K_TOP).coerceIn(10, 60) else K_TOP
         B.wtT = wtT.toDouble(); B.wt = (worktopTop(fws) - K_TOP + wtT).toDouble()
@@ -466,20 +480,25 @@ private class Builder3(
     var rich = false; var light = false
     /** The design: handle type and hardware id, front style, fluted glass, metal legs or the hidden plinth (Look.kt). */
     var hType = "bar"; var hId = ""; var style = "flat"; var fglass = false; var metalLegs = false; var plinth = false
+    /** A wardrobe's LED inside with door sensors (Look.led); on top of it: "", "cornice" or "ceiling"; the ceiling's height, mm. */
+    var ledLook = false; var crown = ""; var ceilH = 2700.0
     /** The front board of the box being built: "front" (the lower fronts) or "frontUp" (a two-tone piece's upper ones). */
     var fr = "front"
     /** The worktop's top above the floor and its thickness, mm. */
     var wt = 0.0; var wtT = K_TOP.toDouble()
     val gola get() = rich && hType == "gola"
 
-    /** Board [k] of role [r] (carcass, front, frontUp, back) being drawn: in the highlight's colour when it is the part asked for. */
-    fun role(r: String, k: String = ""): Part {
-        val h = hi ?: return p(r)
+    /**
+     * Board [k] of role [r] (carcass, front, frontUp, back) being drawn: in the highlight's colour when it is the part
+     * asked for, else in the look of [show] (a wardrobe's inner drawer faces, of carcass board, shown in the fronts' look).
+     */
+    fun role(r: String, k: String = "", show: String = r): Part {
+        val h = hi ?: return p(show)
         val inMod = "$piece|$mod" in h.mods || (sec.isNotEmpty() && "$piece|$mod/$sec" in h.mods)
         val dBox = h.key == "fp.dSide" || h.key == "fp.dFront" || h.key == "fp.dBottom"
         val named = h.key !in TAGGED || k == h.key || (dBox && k == "fp.dBox")
         val rr = if (r == "frontUp") "front" else r
-        return if (inMod && named && (h.role == rr || dBox)) p("hi") else p(r)
+        return if (inMod && named && (h.role == rr || dBox)) p("hi") else p(show)
     }
     fun p(k: String): Part {
         val lk = looks.getValue(k); val c = colors[k] ?: lk.rgb; val w = if (wall == ISLAND) null else wall
@@ -587,6 +606,20 @@ private class Builder3(
         else fbox(ff, p, cu - len / 2, cu + len / 2, cv - hb / 2, cv + hb / 2, zf + so, zf + so + hb, false, ff.e)
     }
 
+    /**
+     * A mirror's pane [u0]..[u1] × [v0]..[v1] in frame [ff], its face [z] mm out: two faint light streaks slanting up
+     * across it, the room it shows (the mockup's mirrors reflect the room; ours have the studio's soft light only, and
+     * without them read as a grey panel). The light tier has none.
+     */
+    private fun sheen(ff: Frame, u0: Double, u1: Double, v0: Double, v1: Double, z: Double) {
+        if (light) return
+        val w = u1 - u0; val h = v1 - v0; val k = min(w * .6, h * .3)
+        listOf(Triple(.28, .11, "sheen0"), Triple(.45, .04, "sheen1")).forEach { (at, wd, key) ->
+            val a = v0 + h * at; val b = a + h * wd
+            if (w > 60 && b + k <= v1) flatFace(p(key), listOf(ff.at(u0, a, z), ff.at(u1, a + k, z), ff.at(u1, b + k, z), ff.at(u0, b, z)), ff.tn)
+        }
+    }
+
     /** A round knob: a rosette, a stem and a flattened ball (mockup b.knob). */
     private fun knob(ff: Frame, u: Double, v: Double, zf: Double) {
         val p = handle; val n = if (light) 8 else 16
@@ -628,6 +661,7 @@ private class Builder3(
             when (face) {
                 "glass" -> glassDoor(ff, fw, h)
                 "mirror" -> { obb(p, x, true, up); obb(p("mirror"), Obb(o + e * .005 + up * .005 + tn * (t / 1000.0), e * (fw / 1000 - .01), up * (h / 1000 - .01), tn * .004), false)
+                    sheen(ff, 5.0, fw - 5, 5.0, h - 5, t + 4.5)
                     if (handles) handleOn(ff, key, fw, h, t + 4.0, "door", pos, hy) }
                 else -> { val zf = frontBody(ff, p, fw, h, t.toDouble(), up); if (handles) handleOn(ff, key, fw, h, zf, "door", pos, hy) }
             }
@@ -668,8 +702,10 @@ private class Builder3(
         // seeing inside, an inner drawer's face (behind a door, of the carcass board) stays: only fronts go
         // a drawer front's grain runs across it (Parts.kt: its length is its width)
         if (!bare || pr != "front") {
-            val p = role(if (pr == "front") fr else pr, "fp.dFace")
-            if (rich && pr == "front") zf = frontBody(ff, p, fw, fh, t.toDouble(), x.a) else obb(p, x, true, x.a)
+            // the lit 3D shows a wardrobe's inner drawers (their faces cut from the carcass board) in the fronts' look (mockup)
+            val inner = rich && pr == "carcass"
+            val p = role(if (pr == "front") fr else pr, "fp.dFace", show = if (inner) fr else if (pr == "front") fr else pr)
+            if (rich && (pr == "front" || inner)) zf = frontBody(ff, p, fw, fh, t.toDouble(), x.a) else obb(p, x, true, x.a)
             if (!bare) picks += Pick(key, x)
         }
         if (box && (out > 0 || bare)) {
@@ -985,7 +1021,6 @@ private class Builder3(
         }
     }
 
-    /** A wardrobe: sides (none at a wall), top and bottom, plinth, dividers, backs, inside, doors. */
     /** A vanity's basin on its top, the tap behind it. */
     fun basin(w: WallBasis, m: Module) {
         // a wall-hung vanity's top is its height above the floor up
@@ -998,6 +1033,13 @@ private class Builder3(
         box(w, metal, mid - 12, mid + 12, top + 200, top + 225, n0 - 15, n0 + 90, true)
     }
 
+    /**
+     * A wardrobe (and every cabinet on its engine): sides (none at a wall), top and bottom, plinth or legs, dividers,
+     * backs, inside, doors. In the lit 3D (modern 3D part 5, the mockup's buildKupe): the doors in the design's style
+     * with its handles, mirrors in their tint, glass doors in frames; round legs in the handles' colour; chrome rails,
+     * glass shelves, inner drawers in the fronts' look; the LED inside ([ledLook] with door sensors, a vitrina's always
+     * on) and its glow; the cornice or the panel up to the ceiling ([crown]); sliding doors in aluminium profiles.
+     */
     fun wardrobe(w: WallBasis, m: Module) {
         val x0 = m.x.toDouble(); val x1 = x0 + m.w; val d = m.d.toDouble()
         // sliding doors take the front of the depth: the inside is shallower
@@ -1018,7 +1060,9 @@ private class Builder3(
         // (none at an end without a side: a corner desk's second arm rests on the first there)
         else ((if (m.sideL) listOf(x0 + 20) else emptyList()) + m.sections.runningFold(x0) { a, s -> a + s.w }.drop(1).dropLast(1).map { it - 18 } +
             (if (m.sideR) listOf(x1 - 56) else emptyList())).forEach { a ->
-            box(w, metal, a, a + 36, 0, z0, 40, 76); box(w, metal, a, a + 36, 0, z0, d - 76, d - 40)
+            // the lit 3D: round legs, a little wider at the foot, in the handles' colour
+            if (rich) listOf(58.0, d - 58).forEach { n -> rod(w, p("legs"), Triple(a + 18, 0.0, n), Triple(a + 18, z0, n), 15.0, 13.0) }
+            else { box(w, metal, a, a + 36, 0, z0, 40, 76); box(w, metal, a, a + 36, 0, z0, d - 76, d - 40) }
         }
         var acc = x0
         val secs = m.sections
@@ -1041,8 +1085,8 @@ private class Builder3(
                 val y = floor + x.pos
                 when (x.kind) {
                     "shelf" -> box(w, role("carcass", "fp.shelf"), il, il + iw, y, y + t, 3, di - 17, true)
-                    "glass" -> box(w, p("clear"), il, il + iw, y, y + 6, 3, di - 17, true)
-                    "rail" -> box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, di / 2 - 12, di / 2 + 12)
+                    "glass" -> box(w, p(if (rich) "shelfGlass" else "clear"), il, il + iw, y, y + 6, 3, di - 17, true)
+                    "rail" -> if (rich) rail(w, il, iw.toDouble(), y, di / 2) else box(w, metal, il + 5, il + iw - 5, y - 12, y + 12, di / 2 - 12, di / 2 + 12)
                     "lift" -> { box(w, metal, il + 20, il + iw - 20, y + 30, y + 54, di / 2 - 12, di / 2 + 12); box(w, metal, il + 5, il + 25, y + 54, y + blockH(x), di / 2 - 15, di / 2 + 15) }
                     // in an open section the drawer's face is seen: front board, flush with the carcass, with a handle
                     "drawer" -> if (s.fronts.kind == "open") drawer(w, "${m.id}:s$i:d${x.pos}", il + 2, iw - 4.0, y, blockH(x).toDouble(), di - t, di - 60, uz.metrx.app.furniture.drawerHandle(m, x), "front")
@@ -1074,15 +1118,137 @@ private class Builder3(
                 door(w, "${m.id}:s$i:f$j", if (right) a + fw else a, d, yb + edge, fh.toDouble(), fw.toDouble(), if (right) -1 else 1, uz.metrx.app.furniture.doorHandle(m, i, j),
                     (1000 - yb).coerceIn(minOf(150.0, fh / 2.0), maxOf(fh / 2.0, fh - 150.0)), deg = if (wide) OPEN_DEG else SHUT_DEG, face = s.face)
             }
+            // the LED inside, along the section's front: lit while a door before it is open (its door sensor), seeing
+            // inside, behind glass doors and in a vitrina (always on); off, a plain aluminium strip, behind shut doors
+            if (rich && (m.led || ledLook)) {
+                val lit = bare || m.led || s.face == "glass" || (m.slide?.let { sd -> (0 until sd.n.coerceIn(2, 4)).any { how("${m.id}:slide$it") > .02 } }
+                    ?: (s.fronts.kind != "door" || fs.indices.any { how("${m.id}:s$i:f$it") > .02 }))
+                val tops = s.inserts.filter { it.kind == "shelf" || it.kind == "glass" }.map { floor + it.pos + if (it.kind == "glass") 6.0 else t.toDouble() } + floor
+                ledIn(w, il, iw.toDouble(), ledY(m, s, floor, yt), di, floor, lit, tops)
+            }
             acc = a1
         }
         sec = ""
-        // a vitrina's light along the inside of its top
-        if (m.led) box(w, p("led"), x0 + sl + 10, x1 - sr - 10, yt - t - 8, yt - t, di - 70, di - 50)
+        // the 2D painter: a vitrina's light along the inside of its top
+        if (m.led && !rich) box(w, p("led"), x0 + sl + 10, x1 - sr - 10, yt - t - 8, yt - t, di - 70, di - 50)
         m.slide?.let { sl -> slidingDoors(w, m, sl, x0 + sl0(m), yb + t, d) }
+        // on top of a tall box standing on the floor: the cornice, or a panel up to the ceiling; in front of the doors
+        if (crown.isNotEmpty() && !uz.metrx.app.furniture.hung(m) && yt >= 1800) wardCrown(w, x0, x1, yt, if (m.slide != null) d else d + t)
+    }
+
+    /**
+     * Where a section's LED goes (its top, mm above the floor): a vitrina's under its top; the design's under the
+     * lowest shelf from 1600 mm up (the hat shelf over the rail, the mockup's), else under the top.
+     */
+    private fun ledY(m: Module, s: uz.metrx.app.furniture.Section, floor: Double, yt: Double): Double {
+        if (!m.led) s.inserts.filter { it.kind == "shelf" || it.kind == "glass" }.map { floor + it.pos }.filter { it >= 1600 && it <= yt - t - 150 }.minOrNull()?.let { return it }
+        return yt - t
+    }
+
+    /**
+     * A LED strip [il]..+[iw] along a section, its top at [y], near the front of the inside ([di] deep); [lit]: glowing,
+     * and its soft light on the back panel under it (eight bands, fainter downwards, to the section's [floor]) and on
+     * the tops of the shelves [tops] (mm above the floor) within 640 mm under it, fainter further down. The light tier
+     * has none.
+     */
+    private fun ledIn(w: WallBasis, il: Double, iw: Double, y: Double, di: Double, floor: Double, lit: Boolean, tops: List<Double> = emptyList()) {
+        box(w, p(if (lit) "led" else "ledOff"), il + 20, il + iw - 20, y - 8, y, di - 70, di - 52)
+        if (!lit || light) return
+        val nn = V3(w.nx, 0.0, w.nz); val a0 = (il + 2) / 1000; val a1 = (il + iw - 2) / 1000
+        val ua = V3(w.ux, 0.0, w.uz); val n1 = (di - 20) / 1000
+        WGLOW.forEachIndexed { i, _ ->
+            val b1 = y - 8 - i * 70.0; val b0 = max(floor + 1, b1 - 70)
+            if (b1 <= b0) return@forEachIndexed
+            val B0 = b0 / 1000; val B1 = b1 / 1000
+            flatFace(p("wglow$i"), listOf(w.at(a0, B0, .0045), w.at(a1, B0, .0045), w.at(a1, B1, .0045), w.at(a0, B1, .0045)), nn)
+            // and on the section's two sides (the side or divider each end), which the view sees past the open door
+            flatFace(p("wglow$i"), listOf(w.at(a0 - .0015, B0, .004), w.at(a0 - .0015, B0, n1), w.at(a0 - .0015, B1, n1), w.at(a0 - .0015, B1, .004)), ua)
+            flatFace(p("wglow$i"), listOf(w.at(a1 + .0015, B0, .004), w.at(a1 + .0015, B1, .004), w.at(a1 + .0015, B1, n1), w.at(a1 + .0015, B0, n1)), ua * -1.0)
+        }
+        tops.filter { it < y - 30 && it > y - 640 }.forEach { yy ->
+            val k = ((y - yy) / 80).toInt().coerceIn(1, WGLOW.lastIndex)
+            val h = (yy + .6) / 1000
+            flatFace(p("wglow$k"), listOf(w.at(a0, h, .004), w.at(a1, h, .004), w.at(a1, h, (di - 20) / 1000), w.at(a0, h, (di - 20) / 1000)), UP)
+        }
+    }
+
+    /** A chrome hanging rail [il]..+[iw] at [y] (its middle), [n] out from the wall, on a flange at each end. */
+    private fun rail(w: WallBasis, il: Double, iw: Double, y: Double, n: Double) {
+        val pr = p("rail")
+        rod(w, pr, Triple(il + 2, y, n), Triple(il + iw - 2, y, n), 12.5)
+        if (!light) listOf(il to il + 3, il + iw - 3 to il + iw).forEach { (a, b) -> rod(w, pr, Triple(a, y, n), Triple(b, y, n), 18.0) }
+    }
+
+    /**
+     * On top of a wardrobe [x0]..[x1] whose top is [yt], its front [front] mm out from the wall: the cornice (three
+     * profiled layers of the upper fronts' board, 76 mm high, each further out, carried past a free end: as the
+     * kitchen's) or a panel of that board up to 4 mm under the ceiling ([ceilH]; none when less than 20 mm is left).
+     */
+    fun wardCrown(w: WallBasis, x0: Double, x1: Double, yt: Double, front: Double) {
+        val pc = role("frontUp")
+        if (crown == "ceiling") { val top = ceilH - 4; if (top - yt >= 20) box(w, pc, x0, x1, yt, top, 0, front, true, up = true); return }
+        if (crown != "cornice") return
+        listOf(Triple(0.0, 22.0, 10.0), Triple(22.0, 58.0, 26.0), Triple(58.0, 76.0, 38.0)).forEach { (h0, h1, out) ->
+            box(w, pc, if (freeL) x0 - out else x0, if (freeR) x1 + out else x1, yt + h0, yt + h1, 0, front + out, true)
+        }
     }
 
     private fun sl0(m: Module) = if (m.sideL) t else 0
+
+    /**
+     * The lit 3D's sliding doors (mockup buildKupe / kupeDoor): the top track (30 mm) and the bottom one (12 mm) in the
+     * profiles' colour across the opening ([ax] along, from [y0] up, the front at [d]); each door in its track (the
+     * even ones in front, the odd ones behind, 34 mm deep), each overlapping the next; a frame of aluminium profiles in
+     * the handles' colour (uprights 42 wide, the top rail 30, the bottom one 50) and a split rail at [kupeSplit]. Below
+     * the split the door's own filling: the front board in its style, a mirror in its tint, lacobel in the fronts'
+     * colour; above it the upper fronts' board. A tapped door slides over its neighbour.
+     */
+    private fun slidingRich(w: WallBasis, m: Module, sl: uz.metrx.app.furniture.Slide, ax: Double, y0: Double, d: Double) {
+        val n = sl.n.coerceIn(2, 4)
+        val (dw0, dh0) = uz.metrx.app.furniture.slideDoor(m, t)
+        val dw = dw0.toDouble(); val dh = dh0.toDouble()
+        val (ow, oh) = uz.metrx.app.furniture.slideOpening(m, t)
+        val step = dw - uz.metrx.app.furniture.SLIDE_OV
+        val pf = p("frame")
+        val yTop = y0 + oh
+        box(w, pf, ax, ax + ow, yTop - 30, yTop, d - 98, d - 2, true); box(w, pf, ax, ax + ow, y0, y0 + 12, d - 98, d - 2, true)
+        val y = y0 + uz.metrx.app.furniture.SLIDE_CLEAR / 2.0
+        val split = kupeSplit(m, dh, y - y0)
+        val pw = min(42.0, dw / 6); val rt = 30.0; val rb = 50.0; val pd = 34.0
+        for (j in 0 until n) {
+            val key = "${m.id}:slide$j"
+            keys += key
+            // a door slides one step towards the middle: the last one left, the others right
+            val shift = (if (j == n - 1) -step else step) * how(key)
+            val a = ax + j * step + shift
+            val n0 = if (j % 2 == 0) d - 56 else d - 93
+            val ff = Frame(w.at(a / 1000, y / 1000, n0 / 1000), w.dir(1.0, 0.0), UP, w.dir(0.0, 1.0))
+            fbox(ff, pf, 0.0, pw, 0.0, dh, 0.0, pd, true); fbox(ff, pf, dw - pw, dw, 0.0, dh, 0.0, pd, true)
+            fbox(ff, pf, pw, dw - pw, dh - rt, dh, 4.0, pd - 4, true, ff.e); fbox(ff, pf, pw, dw - pw, 0.0, rb, 4.0, pd - 4, true, ff.e)
+            if (split != null) fbox(ff, pf, pw, dw - pw, split - 7, split + 7, 6.0, pd - 6, true, ff.e)
+            fun fill(v0: Double, v1: Double, kind: String, board: String) {
+                if (v1 - v0 < 1) return
+                when (kind) {
+                    "mirror" -> { fbox(ff, p("mirror"), pw, dw - pw, v0, v1, 13.0, 19.0, false); sheen(ff, pw, dw - pw, v0, v1, 19.5) }
+                    "glass" -> fbox(ff, p("lacobel"), pw, dw - pw, v0, v1, 13.0, 19.0, false)
+                    else -> frontBody(Frame(ff.at(pw, v0, 12.0), ff.e, ff.up, ff.tn), role(board, "fp.slidePanel"), dw - 2 * pw, v1 - v0, 10.0, ff.up)
+                }
+            }
+            if (split == null) fill(rb, dh - rt, sl.panel(j), fr)
+            else { fill(rb, split - 7, sl.panel(j), fr); fill(split + 7, dh - rt, "ldsp", "frontUp") }
+            picks += Pick(key, ff.obb(0.0, dw, 0.0, dh, 0.0, pd))
+        }
+    }
+
+    /**
+     * Where a sliding door [dh] mm high (its bottom [lift] mm over the inside's floor) has its split rail, mm up the
+     * door: at the shelf the wardrobe's top storage rests on (its highest shelf between 60 % of the door and 250 mm
+     * under its top, the mockup's antresol), else 420 mm under its top; a door under 1500 mm has none.
+     */
+    private fun kupeSplit(m: Module, dh: Double, lift: Double): Double? {
+        val v = m.sections.flatMap { s -> s.inserts.filter { it.kind == "shelf" } }.map { it.pos + t / 2.0 - lift }.filter { it >= dh * .6 && it <= dh - 250 }.maxOrNull()
+        return v ?: if (dh >= 1500) dh - 420 else null
+    }
 
     /** A box [b] of an item, tilted [th] about a line across it at [pivotY] up and [pivotN] out (a lift-up bed's base rising). */
     private fun tilted(w: WallBasis, p: Part, x0: Int, b: uz.metrx.app.furniture.Board, pivotY: Double, pivotN: Double, th: Double, line: Boolean) {
@@ -1147,6 +1313,7 @@ private class Builder3(
      */
     fun slidingDoors(w: WallBasis, m: Module, sl: uz.metrx.app.furniture.Slide, ax: Double, y0: Double, d: Double) {
         if (bare) return
+        if (rich) { slidingRich(w, m, sl, ax, y0, d); return }
         val n = sl.n.coerceIn(2, 4)
         val (dw, dh) = uz.metrx.app.furniture.slideDoor(m, t)
         val step = (dw - uz.metrx.app.furniture.SLIDE_OV).toDouble()
