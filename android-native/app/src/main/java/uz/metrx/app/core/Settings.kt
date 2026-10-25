@@ -47,6 +47,9 @@ class Settings(context: Context) {
     /** A windows-and-doors maker: own home, orders, products fitted in the openings (win/Win.kt). */
     val win get() = industry == "win"
     fun setIndustryKind(v: String) { industry = v; p.edit().putString("industry", v).apply() }
+    /** The furniture 3D's quality (Profile → Sifat): "auto" by the phone, "high" everything, "low" light (ui/three/Render3D.kt). */
+    var quality by mutableStateOf(p.getString("quality3d", "auto") ?: "auto"); private set
+    fun setQuality3D(v: String) { quality = v; p.edit().putString("quality3d", v).apply() }
     /** A furniture maker's prices, order stages, workshop rules and cutting lists (Profile → Advanced); off, the app is just the 3D design. */
     var advanced by mutableStateOf(p.getBoolean("advanced", false)); private set
     fun setAdvancedOn(v: Boolean) { advanced = v; p.edit().putBoolean("advanced", v).apply() }

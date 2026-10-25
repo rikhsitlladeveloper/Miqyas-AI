@@ -42,11 +42,12 @@ data class Workshop(
 /**
  * A board or banding in the workshop's list. [kind] board (carcass/fronts), back, worktop (priced by the running metre), band; [t] thickness, mm (banding:
  * tenths, 20 = 2 mm); a sheet's [l] × [w]; [price] per sheet, or per metre for banding and worktops, smallest unit; [grain] keeps parts
- * along the sheet's length; [rgb] for drawings and 3D.
+ * along the sheet's length; [rgb] for drawings and 3D; [tex] its decor picture in the lit 3D (geo/Look.kt TEXTURES), null plain.
  */
 @Serializable
 data class Mat(val id: String, val kind: String, val name: String, val t: Int, val l: Int = 2800, val w: Int = 2070,
-               val price: String = "", val grain: Boolean = false, val rgb: String = "#F5F5F2", val preset: Boolean = false)
+               val price: String = "", val grain: Boolean = false, val rgb: String = "#F5F5F2", val preset: Boolean = false,
+               val tex: String? = null)
 
 /** A hardware item: [kind] says what the core counts it as; [price] per piece (per metre for rails, per pair for runners). */
 @Serializable

@@ -66,20 +66,30 @@ private const val CLEAR = 0xBFD8E8
 private const val MATTRESS = 0xF1F3F6
 private const val LAMEL = 0xD9C29A
 private const val LED = 0xFFF3C4
+private val UP = V3(0.0, 1.0, 0.0)
 
-/** The faces of a box, each facing out. */
-private fun obbFaces(p: Part, x: Obb) {
+/**
+ * The faces of a box, each facing out, with texture coordinates in metres: u along the grain, which runs along
+ * [grain] (one of the box's edges, or a direction) or else the box's longest edge (a board's long side).
+ */
+private fun obbFaces(p: Part, x: Obb, grain: V3? = null) {
     val ctr = x.o + (x.a + x.b + x.c) * .5
-    fun face(q: List<V3>) {
+    val g = (grain ?: listOf(x.a, x.b, x.c).maxBy { it.len() }).unit()
+    val (offU, offV) = grainOffset(x.o)
+    fun along(e: V3) = kotlin.math.abs(e.unit().dot(g)) > .99
+    fun face(q: List<V3>, e1: V3, e2: V3) {
         val fc = V3(q.sumOf { it.x } / 4, q.sumOf { it.y } / 4, q.sumOf { it.z } / 4)
         var n = (q[1] - q[0]).let { u -> (q[3] - q[0]).let { v -> V3(u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x) } }.unit()
         if (n.dot(fc - ctr) < 0) n = n * -1.0
-        p.faces += Face(n, q)
+        // the grain along the face's edge that follows it, else along its longer edge (a board's end)
+        val first = along(e1) || (!along(e2) && e1.len() >= e2.len())
+        val ua = (if (first) e1 else e2).unit(); val va = (if (first) e2 else e1).unit()
+        p.faces += Face(n, q, uv = uvOf(q, x.o, ua, va, offU, offV))
     }
     val o = x.o; val a = x.a; val b = x.b; val c = x.c
-    face(listOf(o, o + a, o + a + b, o + b)); face(listOf(o + c, o + c + a, o + c + a + b, o + c + b))
-    face(listOf(o, o + c, o + c + b, o + b)); face(listOf(o + a, o + a + c, o + a + c + b, o + a + b))
-    face(listOf(o, o + a, o + a + c, o + c)); face(listOf(o + b, o + b + a, o + b + a + c, o + b + c))
+    face(listOf(o, o + a, o + a + b, o + b), a, b); face(listOf(o + c, o + c + a, o + c + a + b, o + c + b), a, b)
+    face(listOf(o, o + c, o + c + b, o + b), c, b); face(listOf(o + a, o + a + c, o + a + c + b, o + a + b), c, b)
+    face(listOf(o, o + a, o + a + c, o + c), a, c); face(listOf(o + b, o + b + a, o + b + a + c, o + b + c), a, c)
 }
 
 private fun obbEdges(e: Edges, x: Obb) {
@@ -116,18 +126,30 @@ fun handleLen(id: String) = when (id) { "handleKnob" -> 24; "handleLong" -> 320;
 fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop, rgb: (String) -> Int, open: Set<String>,
                 amt: ((String) -> Double)? = null,
                 /** "See inside": no doors, drawer fronts or sliding doors (the drawers' boxes stay, shut). */
-                bare: Boolean = false, hi: PartHi? = null): Furn3D {
+                bare: Boolean = false, hi: PartHi? = null,
+                /**
+                 * How a material id (a board, the worktop, the splashback) looks in the lit 3D: its colour, finish and
+                 * decor picture. Without it, a matte board in its [rgb] colour.
+                 */
+                look: ((String) -> Look)? = null): Furn3D {
     // how far each door or drawer is open, 0 to 1 (moving between the two while it opens or shuts)
     val how = amt ?: { k: String -> if (k in open) 1.0 else 0.0 }
-    val parts = LinkedHashMap<Pair<String?, Int>, Part>(); val edges = LinkedHashMap<String?, Edges>()
+    val parts = LinkedHashMap<Pair<String?, Any>, Part>(); val edges = LinkedHashMap<String?, Edges>()
     val picks = ArrayList<Pick>(); val keys = ArrayList<String>()
+    val matLook = look ?: { id: String -> Looks.board(rgb(id)) }
     fs.forEach { f ->
         val colors = mapOf("carcass" to rgb(f.mats.carcass), "front" to rgb(f.mats.front), "back" to rgb(f.mats.back), "top" to rgb("wt38"),
             "mirror" to MIRROR, "glass" to GLASS_P, "splash" to rgb("splash6"),
             "metal" to METAL, "dark" to DARK, "handle" to HANDLE, "white" to WHITE,
             "clear" to CLEAR, "mattress" to MATTRESS, "lamel" to LAMEL, "led" to LED, "hi" to HI)
+        // the same keys' looks: the boards from the workshop's list, the rest fixed (mockup mats())
+        val top = look?.invoke("wt38") ?: Looks.worktop(rgb("wt38"))
+        val looks = mapOf("carcass" to matLook(f.mats.carcass), "front" to matLook(f.mats.front), "back" to matLook(f.mats.back).copy(rough = .85f),
+            "top" to top, "mirror" to Looks.mirror, "glass" to Looks.lacobel, "splash" to (look?.invoke("splash6") ?: Looks.plain(rgb("splash6")).copy(rough = .3f)),
+            "metal" to Looks.steel, "dark" to Looks.blackGlass, "handle" to Looks.handle, "white" to Looks.enamel,
+            "clear" to Looks.clearGlass, "mattress" to Looks.mattress, "lamel" to Looks.lamel, "led" to Looks.led, "hi" to Looks.hi)
         val fws = uz.metrx.app.furniture.wsOf(f, ws)
-        val B = Builder3(fws, colors, parts, edges, picks, keys, how)
+        val B = Builder3(fws, colors, looks, parts, edges, picks, keys, how)
         B.bare = bare; B.hi = hi; B.piece = f.id; B.hLen = handleLen(f.handle).toDouble()
         val first = f.walls.firstOrNull { it != ISLAND }
         // the island (or peninsula) stands where it was dragged, else 900 mm out from the front of the first wall's
@@ -188,12 +210,12 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
                     val ends = if (isl) listOf(lo to (f.layout != "P"), hi to true) else listOf(lo to (lo > 20), hi to (wl != null && hi < wl - 20 && !penSide))
                     // the end panels are parts of no module (KitchenExtras.extrasParts): lit up from the parts list by their own name
                     val sm = B.mod; val ss = B.sec; B.mod = ""; B.sec = ""
-                    if (kx0.ends > 0) ends.forEach { (a, free) -> if (free) B.box(b, B.role("front", "fp.endLow"), if (a == lo) a - 18 else a, if (a == lo) a else a + 18, 0, wt - K_TOP, 0, 600, true) }
+                    if (kx0.ends > 0) ends.forEach { (a, free) -> if (free) B.box(b, B.role("front", "fp.endLow"), if (a == lo) a - 18 else a, if (a == lo) a else a + 18, 0, wt - K_TOP, 0, 600, true, up = true) }
                     val up = f.modules.filter { it.wall == r.wall && it.type == "wall" }
                     if (kx0.endsUp > 0 && up.isNotEmpty() && wl != null) {
                         val u0 = up.minOf { it.x }; val u1 = up.maxOf { it.x + it.w }; val y0 = up.minOf { it.elev }; val y1 = up.maxOf { it.elev + it.h }; val d = up.maxOf { it.d }
-                        if (u0 > 20) B.box(b, B.role("front", "fp.endUp"), u0 - 18, u0, y0, y1, 0, d, true)
-                        if (u1 < wl - 20) B.box(b, B.role("front", "fp.endUp"), u1, u1 + 18, y0, y1, 0, d, true)
+                        if (u0 > 20) B.box(b, B.role("front", "fp.endUp"), u0 - 18, u0, y0, y1, 0, d, true, up = true)
+                        if (u1 < wl - 20) B.box(b, B.role("front", "fp.endUp"), u1, u1 + 18, y0, y1, 0, d, true, up = true)
                     }
                     B.mod = sm; B.sec = ss
                 }
@@ -215,7 +237,7 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
 
 /** Builds the boards of one piece of furniture on a wall frame; lengths in mm. */
 private class Builder3(
-    val ws: Workshop, val colors: Map<String, Int>, val parts: LinkedHashMap<Pair<String?, Int>, Part>, val edgeMap: LinkedHashMap<String?, Edges>,
+    val ws: Workshop, val colors: Map<String, Int>, val looks: Map<String, Look>, val parts: LinkedHashMap<Pair<String?, Any>, Part>, val edgeMap: LinkedHashMap<String?, Edges>,
     val picks: ArrayList<Pick>, val keys: ArrayList<String>, val how: (String) -> Double
 ) {
     /**
@@ -237,10 +259,11 @@ private class Builder3(
     }
     private fun p(k: String): Part {
         val c = colors.getValue(k); val w = if (wall == ISLAND) null else wall
+        val lk = looks.getValue(k)
         // the worktop is a part of its own (even in the fronts' colour): its top and outline are drawn as a slab
-        if (k == "top") return parts.getOrPut(("top|" + (w ?: "")) to c) { Part(0, w, Role.FURN, c, 1f, slab = true) }
-        // clear glass is seen through
-        return parts.getOrPut(w to c) { Part(0, w, Role.FURN, c, if (k == "clear") .38f else 1f) }
+        if (k == "top") return parts.getOrPut(("top|" + (w ?: "")) to lk) { Part(0, w, Role.FURN, c, 1f, slab = true, look = lk) }
+        // clear glass is seen through; one part for each wall and look (a colour in two finishes is two parts)
+        return parts.getOrPut(w to lk) { Part(0, w, Role.FURN, c, if (k == "clear") .38f else 1f, look = lk) }
     }
     val carcass get() = role("carcass"); val front get() = role("front"); val back get() = role("back"); val top get() = p("top")
     val metal get() = p("metal"); val dark get() = p("dark"); val handle get() = p("handle"); val white get() = p("white")
@@ -253,14 +276,18 @@ private class Builder3(
     /** The worktop's light outline, kept apart from the dark one of the boards. */
     private val slabEdges get() = (if (wall == ISLAND) null else wall).let { w -> edgeMap.getOrPut("top|" + (w ?: "")) { Edges(0, "furn " + (w ?: "island"), SLAB_LINE) } }
 
-    fun obb(p: Part, x: Obb, line: Boolean) { obbFaces(p, x); if (line) obbEdges(if (p.slab) slabEdges else edges, x) }
+    /** A box of [p]; its grain along [grain] (null: its long side). */
+    fun obb(p: Part, x: Obb, line: Boolean, grain: V3? = null) { obbFaces(p, x, grain); if (line) obbEdges(if (p.slab) slabEdges else edges, x) }
 
-    /** An upright box [a0]..[a1] along the wall, [y0]..[y1] up, [n0]..[n1] out from the wall. */
-    fun box(w: WallBasis, p: Part, a0: Number, a1: Number, y0: Number, y1: Number, n0: Number, n1: Number, line: Boolean = false) {
+    /**
+     * An upright box [a0]..[a1] along the wall, [y0]..[y1] up, [n0]..[n1] out from the wall; [up] its grain upright
+     * (fronts cut with the grain along their height, Parts.kt), else along its long side.
+     */
+    fun box(w: WallBasis, p: Part, a0: Number, a1: Number, y0: Number, y1: Number, n0: Number, n1: Number, line: Boolean = false, up: Boolean = false) {
         val A0 = a0.toDouble() / 1000; val A1 = a1.toDouble() / 1000; val Y0 = y0.toDouble() / 1000; val Y1 = y1.toDouble() / 1000
         val N0 = n0.toDouble() / 1000; val N1 = n1.toDouble() / 1000
         if (A1 - A0 < 1e-4 || Y1 - Y0 < 1e-4 || N1 - N0 < 1e-4) return
-        obb(p, Obb(w.at(A0, Y0, N0), w.dir(A1 - A0, 0.0), V3(0.0, Y1 - Y0, 0.0), w.dir(0.0, N1 - N0)), line)
+        obb(p, Obb(w.at(A0, Y0, N0), w.dir(A1 - A0, 0.0), V3(0.0, Y1 - Y0, 0.0), w.dir(0.0, N1 - N0)), line, if (up) UP else null)
     }
 
     /**
@@ -288,8 +315,9 @@ private class Builder3(
                 picks += Pick(key, x)
             }
             // a mirror on the board door's face
-            "mirror" -> { obb(p, x, true); obb(p("mirror"), Obb(o + e * .005 + up * .005 + tn * (t / 1000.0), e * (fw / 1000 - .01), up * (h / 1000 - .01), tn * .004), false); picks += Pick(key, x) }
-            else -> { obb(p, x, true); picks += Pick(key, x) }
+            "mirror" -> { obb(p, x, true, up); obb(p("mirror"), Obb(o + e * .005 + up * .005 + tn * (t / 1000.0), e * (fw / 1000 - .01), up * (h / 1000 - .01), tn * .004), false); picks += Pick(key, x) }
+            // a door's grain runs up it
+            else -> { obb(p, x, true, up); picks += Pick(key, x) }
         }
         if (handles) {
             // a knob is as wide as it is long; a long handle is no longer than the door less 40 mm
@@ -309,7 +337,8 @@ private class Builder3(
         val o = w.at(a0 / 1000, y0 / 1000, nn / 1000)
         val x = Obb(o, w.dir(fw / 1000, 0.0), V3(0.0, fh / 1000, 0.0), w.dir(0.0, t / 1000.0))
         // seeing inside, an inner drawer's face (behind a door, of the carcass board) stays: only fronts go
-        if (!bare || pr != "front") { obb(role(pr, "fp.dFace"), x, true); if (!bare) picks += Pick(key, x) }
+        // a drawer front's grain runs across it (Parts.kt: its length is its width)
+        if (!bare || pr != "front") { obb(role(pr, "fp.dFace"), x, true, x.a); if (!bare) picks += Pick(key, x) }
         if (box && (out > 0 || bare)) {
             val bh = min(fh - 40, 150.0).coerceAtLeast(60.0); val bx0 = a0 + 26; val bx1 = a0 + fw - 26; val by = y0 + 20
             val c = role("carcass", "fp.dBox")
@@ -331,7 +360,7 @@ private class Builder3(
         val x0 = m.x.toDouble(); val x1 = x0 + m.w; val y0 = m.elev.toDouble(); val y1 = y0 + m.h; val d = m.d.toDouble()
         when (m.type) {
             // a strip of front board flush with the row's fronts
-            "filler" -> { val fn = if (isUpper(m)) K_WALL_D.toDouble() else K_BASE_D.toDouble(); box(w, role("front", "fp.filler"), x0, x1, y0, y1, fn, fn + t, true); return }
+            "filler" -> { val fn = if (isUpper(m)) K_WALL_D.toDouble() else K_BASE_D.toDouble(); box(w, role("front", "fp.filler"), x0, x1, y0, y1, fn, fn + t, true, up = true); return }
             "gap" -> {
                 when (m.app) {
                     "fridge" -> {
@@ -343,7 +372,7 @@ private class Builder3(
                     "dishwasher" -> {
                         box(w, metal, x0 + 3, x1 - 3, y0, y1 - 10, 0, d - 20)
                         if (!bare) frontSizes(m.fronts, m.w, m.h, ws).firstOrNull()?.let { (fh, fw) ->
-                            box(w, role("front", if (m.fronts.kind == "panel") "fp.panel" else "fp.door"), x0 + edge, x0 + edge + fw, y0 + edge, y0 + edge + fh, d, d + t, true)
+                            box(w, role("front", if (m.fronts.kind == "panel") "fp.panel" else "fp.door"), x0 + edge, x0 + edge + fw, y0 + edge, y0 + edge + fh, d, d + t, true, up = true)
                             if (uz.metrx.app.furniture.hasHandle(m, "f0")) box(w, handle, x0 + m.w / 2.0 - hLen / 2, x0 + m.w / 2.0 + hLen / 2, y0 + edge + fh - 46, y0 + edge + fh - 34, d + t, d + t + 25)
                         }
                     }
@@ -389,7 +418,7 @@ private class Builder3(
                 fs.forEachIndexed { j, (fh, fw) ->
                     y -= fh
                     if (m.fronts.kind == "drawer") drawer(w, "${m.id}:f$j", x0 + edge, fw.toDouble(), y, fh.toDouble(), d, d, uz.metrx.app.furniture.hasHandle(m, "f$j"))
-                    else if (!bare) box(w, role("front", "fp.panel"), x0 + edge, x0 + edge + fw, y, y + fh, d, d + t, true)
+                    else if (!bare) box(w, role("front", "fp.panel"), x0 + edge, x0 + edge + fw, y, y + fh, d, d + t, true, up = true)
                     y -= g
                 }
             }
@@ -589,7 +618,7 @@ private class Builder3(
             val y = y0 + uz.metrx.app.furniture.SLIDE_CLEAR / 2.0
             val fill = when (sl.panel(j)) { "mirror" -> p("mirror"); "glass" -> p("glass"); else -> role("front", "fp.slidePanel") }
             val fw = uz.metrx.app.furniture.SLIDE_FRAME_W.toDouble(); val fh = uz.metrx.app.furniture.SLIDE_FRAME_H / 2.0
-            box(w, fill, a + fw, a + dw - fw, y + fh, y + dh - fh, n0 + 6, n1 - 6, true)
+            box(w, fill, a + fw, a + dw - fw, y + fh, y + dh - fh, n0 + 6, n1 - 6, true, up = true)
             // the frame: two uprights, the top and the bottom
             box(w, metal, a, a + fw, y, y + dh, n0, n1, true); box(w, metal, a + dw - fw, a + dw, y, y + dh, n0, n1, true)
             box(w, metal, a + fw, a + dw - fw, y, y + fh, n0, n1, true); box(w, metal, a + fw, a + dw - fw, y + dh - fh, y + dh, n0, n1, true)

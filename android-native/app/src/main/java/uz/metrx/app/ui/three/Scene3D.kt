@@ -39,6 +39,7 @@ import androidx.compose.ui.input.pointer.PointerInputChange
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.unit.DpOffset
@@ -46,9 +47,11 @@ import androidx.compose.ui.unit.dp
 import com.google.android.filament.Camera
 import com.google.android.filament.Colors
 import com.google.android.filament.Engine
+import com.google.android.filament.LightManager
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.RenderableManager
 import com.google.android.filament.View
+import dev.romainguy.kotlin.math.Float2
 import dev.romainguy.kotlin.math.Float3
 import io.github.sceneview.FrameRatePolicy
 import io.github.sceneview.RenderInvalidator
@@ -61,6 +64,7 @@ import io.github.sceneview.loaders.MaterialLoader
 import io.github.sceneview.math.colorOf
 import io.github.sceneview.node.CameraNode
 import io.github.sceneview.node.GeometryNode
+import io.github.sceneview.node.LightNode
 import io.github.sceneview.node.Node
 import io.github.sceneview.rememberEnvironment
 import io.github.sceneview.rememberEnvironmentLoader
@@ -71,6 +75,9 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import uz.metrx.app.geo.Bounds
 import uz.metrx.app.geo.FOV_HALF
+import uz.metrx.app.geo.Look
+import uz.metrx.app.geo.Looks
+import uz.metrx.app.geo.planarUv
 import uz.metrx.app.geo.Role
 import uz.metrx.app.geo.Shell3D
 import uz.metrx.app.geo.V3
@@ -90,17 +97,34 @@ import kotlin.math.tan
 
 /*
  * The 3D picture (prototype mount3D / draw3D and the ux module's camera limits), drawn with SceneView.
- * The colours are worked out here the way three.js lights the prototype's Lambert walls, and handed to
+ * Rooms: the colours are worked out here the way three.js lights the prototype's Lambert walls, and handed to
  * Filament as flat colours with its post-processing off, so the picture matches the prototype's.
+ * Furniture (parts with a Look, modern 3D part 1): lit materials, decor pictures, the studio light, a sun with
+ * soft shadows and a neutral tone curve (Render3D.kt), in the phone's quality tier; flat as above if the lit
+ * materials fail to load.
  */
 
 const val BG3D = 0xF3F6FA
+
+/** The lit 3D's sun, lux (with the camera's exposure 1: a white board square to it shows about white). */
+private const val SUN_LUX = 2.4f
+
+/** SceneView's Geometry constructor that takes ready buffers (internal to its module, public to the JVM). */
+private val GEO_NEW: java.lang.reflect.Constructor<*>? = runCatching {
+    Geometry::class.java.constructors.firstOrNull { it.parameterTypes.size == 7 }
+}.getOrNull()
 
 /**
  * One Filament engine (and its GL context) for the whole app: SceneView would make and destroy one per 3D screen,
  * and on the emulator tearing GL contexts down and up again crashed the PC's graphics driver.
  */
-object Engine3D { val engine: Engine by lazy { io.github.sceneview.createEngine(io.github.sceneview.createEglContext()) } }
+object Engine3D {
+    val engine: Engine by lazy {
+        // the GPU's name first (for the quality tier), from a context of its own
+        if (Quality3D.gpu == null) Quality3D.readGpu()
+        io.github.sceneview.createEngine(io.github.sceneview.createEglContext())
+    }
+}
 
 /** Where the camera is and where it may go. One per 3D picture. */
 class Cam3D {
@@ -212,23 +236,47 @@ private class Lens(engine: Engine) : CameraNode(engine) {
 }
 
 /** The SceneView nodes of a shell and the cut-away of the walls that face the camera (prototype draw3D). */
-private class ShellNodes(val engine: Engine, val ml: MaterialLoader) {
-    private class Prim(val node: GeometryNode, val index: Int, val rgb: Int, val op: Float, val role: Role, val group: Int, val wall: String?) { var alpha = -1f }
-    private class Line(val node: GeometryNode, val group: Int, val wall: String, val rgb: Int) { var alpha = -1f }
+private class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: android.content.Context) {
+    private class Prim(val node: GeometryNode, val index: Int, val rgb: Int, val op: Float, val role: Role, val group: Int, val wall: String?, val look: Look? = null) { var alpha = -1f }
+    private class Line(val node: GeometryNode, val group: Int, val wall: String, val rgb: Int, val a0: Float = 1f) { var alpha = -1f }
     private val mats = HashMap<Long, MaterialInstance>()
     private val prims = ArrayList<Prim>(); private val lines = ArrayList<Line>()
     private val nodes = ArrayList<Node>()
     private var shell: Shell3D? = null
+    /** Drawn lit (furniture): real materials, a sun and the studio light, tone-mapped. Else flat baked colours. */
+    var lit = false
+    var tier = Tier.HIGH
 
-    /** A flat colour; see-through ones are handed over divided by their opacity, which Filament applies twice. */
-    fun mat(rgb: Int, alpha: Float): MaterialInstance = mats.getOrPut((rgb.toLong() shl 8) or (alpha * 255).toLong()) {
-        val r = ((rgb shr 16) and 255) / 255f; val g = ((rgb shr 8) and 255) / 255f; val b = (rgb and 255) / 255f
+    /**
+     * A flat colour; see-through ones are handed over divided by their opacity, which Filament applies twice. Lit,
+     * the picture is tone-mapped: the colour goes in linear, and [exact] ones (the background) so that they come out as given.
+     */
+    fun mat(rgb: Int, alpha: Float, exact: Boolean = false, glow: Float = 0f): MaterialInstance = mats.getOrPut(
+        ((rgb.toLong() shl 8) or (alpha * 255).toLong()) * 8 + (if (lit) 1 else 0) + (if (exact) 2 else 0) + (if (glow > 0f) 4 else 0)) {
+        var r = ((rgb shr 16) and 255) / 255f; var g = ((rgb shr 8) and 255) / 255f; var b = (rgb and 255) / 255f
+        if (lit) {
+            val v = if (exact) untonemapped(rgb) else floatArrayOf(srgbToLinear(r), srgbToLinear(g), srgbToLinear(b))
+            val k = 1f + glow; r = v[0] * k; g = v[1] * k; b = v[2] * k
+        }
         ml.createUnlitColorInstance(colorOf(r, g, b, alpha)).apply {
             val k = if (alpha < 1f) 1f / alpha else 1f
             setParameter("color", Colors.RgbaType.LINEAR, r * k, g * k, b * k, alpha)
             if (alpha < 1f) setDepthWrite(false)
             setCullingMode(com.google.android.filament.Material.CullingMode.BACK)
         }
+    }
+
+    /** The lit material of [look] at opacity [alpha]; a glowing look (LED) is a bright flat colour. */
+    fun litMat(look: Look, alpha: Float): MaterialInstance =
+        if (look.emissive > 1f) mat(look.rgb, 1f, glow = look.emissive)
+        else Lit3D.instance(engine, ctx, look, tier, alpha) ?: mat(look.rgb, alpha)
+
+    /** How a part of the room looks lit (the furniture brings its own). */
+    private fun shellLook(p: uz.metrx.app.geo.Part): Look = when (p.role) {
+        Role.WALL -> Looks.wall(p.rgb)
+        Role.FLOOR -> Looks.floor(p.rgb)
+        Role.GLASS -> Looks.clearGlass.copy(rgb = p.rgb, alpha = p.op)
+        else -> Looks.plain(p.rgb, p.op)
     }
 
     fun clear(root: Node) {
@@ -238,6 +286,7 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader) {
 
     fun build(root: Node, s: Shell3D) {
         clear(root); shell = s
+        if (lit) { buildLit(root, s); return }
         // faces, one node per piece, one primitive per lit colour
         s.parts.forEach { p ->
             if (p.faces.isEmpty()) return@forEach
@@ -293,6 +342,195 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader) {
         }
     }
 
+    /**
+     * The lit scene: one node and one primitive per part (a wall's furniture in one material), texture coordinates
+     * in each picture's repeats; soft outlines; furniture casts shadows, the room only takes them.
+     */
+    private fun buildLit(root: Node, s: Shell3D) {
+        s.parts.forEach { p ->
+            if (p.faces.isEmpty()) return@forEach
+            val look = p.look ?: shellLook(p)
+            val geo = litGeometry(p, look.uvScale, look.uvScaleV)
+            val alpha = if (p.look != null) look.alpha else p.op
+            val node = GeometryNode(engine, geo, litMat(look, alpha))
+            node.isShadowCaster = p.role == Role.FURN && alpha >= 1f && look.emissive <= 0f
+            node.isShadowReceiver = look.emissive <= 0f
+            prims += Prim(node, 0, p.rgb, alpha, p.role, p.group, p.wall, look)
+            root.addChildNode(node); nodes += node
+        }
+        // soft outlines (mockup finalize(): a dark ink at 12 %, 16 % on the light tier); the worktop's stay light
+        s.edges.forEach { e ->
+            if (e.segs.isEmpty()) return@forEach
+            val furn = e.wall.startsWith("furn")
+            val (rgb, a0) = when {
+                e.rgb == uz.metrx.app.geo.SLAB_LINE -> e.rgb to .5f
+                furn -> 0x1B2230 to (if (tier == Tier.LOW) .16f else .12f)
+                else -> e.rgb to .3f
+            }
+            val pts = if (furn || e.rgb == uz.metrx.app.geo.SLAB_LINE) outset(e.segs) else e.segs
+            val geo = lineGeometry(pts)
+            val node = GeometryNode(engine, geo, mat(rgb, a0))
+            node.isShadowCaster = false; node.isShadowReceiver = false
+            lines += Line(node, e.group, e.wall, rgb, a0); root.addChildNode(node); nodes += node
+        }
+        // the floor grid, faint
+        run {
+            val half = s.gridSize / 2; val step = s.gridSize / s.gridDiv
+            val v = ArrayList<Geometry.Vertex>(); val ix = ArrayList<Int>()
+            for (i in 0..s.gridDiv) {
+                val k = (-half + i * step).toFloat(); val y = -.002f
+                val x0 = (s.gridCx - half).toFloat(); val x1 = (s.gridCx + half).toFloat(); val z0 = (s.gridCz - half).toFloat(); val z1 = (s.gridCz + half).toFloat()
+                ix += v.size; v += Geometry.Vertex(position = Float3(x0, y, s.gridCz.toFloat() + k)); ix += v.size; v += Geometry.Vertex(position = Float3(x1, y, s.gridCz.toFloat() + k))
+                ix += v.size; v += Geometry.Vertex(position = Float3(s.gridCx.toFloat() + k, y, z0)); ix += v.size; v += Geometry.Vertex(position = Float3(s.gridCx.toFloat() + k, y, z1))
+            }
+            val geo = Geometry.Builder(RenderableManager.PrimitiveType.LINES).vertices(v).indices(ix).build(engine)
+            val node = GeometryNode(engine, geo, mat(0xC3CEDF, .45f))
+            node.isShadowCaster = false; node.isShadowReceiver = false
+            root.addChildNode(node); nodes += node
+        }
+    }
+
+    /**
+     * The triangles of part [p] straight into Filament buffers (positions, a tangent frame per face, texture
+     * coordinates in the picture's repeats [su] x [sv]): several times quicker than SceneView's list of vertices, which
+     * counts when a door opening rebuilds the room 25 times a second.
+     */
+    private fun litGeometry(p: uz.metrx.app.geo.Part, su: Double, sv: Double): Geometry {
+        var nv = 0; var ni = 0
+        p.faces.forEach { f -> nv += f.pts.size; ni += f.tris?.size ?: ((f.pts.size - 2) * 3) }
+        val pos = java.nio.ByteBuffer.allocateDirect(nv * 12).order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer()
+        val tan = java.nio.ByteBuffer.allocateDirect(nv * 16).order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer()
+        val tex = java.nio.ByteBuffer.allocateDirect(nv * 8).order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer()
+        val ix = java.nio.ByteBuffer.allocateDirect(ni * 4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer()
+        var x0 = Float.MAX_VALUE; var y0 = Float.MAX_VALUE; var z0 = Float.MAX_VALUE; var x1 = -Float.MAX_VALUE; var y1 = -Float.MAX_VALUE; var z1 = -Float.MAX_VALUE
+        var base = 0
+        p.faces.forEach { f ->
+            val q = tangentFrame(f.n)
+            val uv = f.uv ?: planarUv(f)
+            f.pts.forEachIndexed { i, v ->
+                val x = v.x.toFloat(); val y = v.y.toFloat(); val z = v.z.toFloat()
+                pos.put(x); pos.put(y); pos.put(z); tan.put(q)
+                tex.put((uv[2 * i] / su).toFloat()); tex.put((uv[2 * i + 1] / sv).toFloat())
+                x0 = min(x0, x); y0 = min(y0, y); z0 = min(z0, z); x1 = max(x1, x); y1 = max(y1, y); z1 = max(z1, z)
+            }
+            // each triangle wound to face its face's normal (a drawn floor comes either way)
+            val tris = f.tris ?: (1 until f.pts.size - 1).flatMap { listOf(0, it, it + 1) }
+            for (t in tris.indices step 3) {
+                val a = f.pts[tris[t]]; val b = f.pts[tris[t + 1]]; val cc = f.pts[tris[t + 2]]
+                val u = b - a; val w = cc - a
+                val cr = V3(u.y * w.z - u.z * w.y, u.z * w.x - u.x * w.z, u.x * w.y - u.y * w.x)
+                ix.put(base + tris[t])
+                if (cr.dot(f.n) >= 0) { ix.put(base + tris[t + 1]); ix.put(base + tris[t + 2]) } else { ix.put(base + tris[t + 2]); ix.put(base + tris[t + 1]) }
+            }
+            base += f.pts.size
+        }
+        pos.flip(); tan.flip(); tex.flip(); ix.flip()
+        val vb = com.google.android.filament.VertexBuffer.Builder().bufferCount(3).vertexCount(nv)
+            .attribute(com.google.android.filament.VertexBuffer.VertexAttribute.POSITION, 0, com.google.android.filament.VertexBuffer.AttributeType.FLOAT3, 0, 12)
+            .attribute(com.google.android.filament.VertexBuffer.VertexAttribute.TANGENTS, 1, com.google.android.filament.VertexBuffer.AttributeType.FLOAT4, 0, 16)
+            .attribute(com.google.android.filament.VertexBuffer.VertexAttribute.UV0, 2, com.google.android.filament.VertexBuffer.AttributeType.FLOAT2, 0, 8)
+            .build(engine)
+        vb.setBufferAt(engine, 0, pos); vb.setBufferAt(engine, 1, tan); vb.setBufferAt(engine, 2, tex)
+        val ib = com.google.android.filament.IndexBuffer.Builder().indexCount(ni).bufferType(com.google.android.filament.IndexBuffer.Builder.IndexType.UINT).build(engine)
+        ib.setBuffer(engine, ix)
+        val box = com.google.android.filament.Box((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, max(1e-4f, (x1 - x0) / 2), max(1e-4f, (y1 - y0) / 2), max(1e-4f, (z1 - z0) / 2))
+        // SceneView's Geometry takes ready buffers only through its (module-internal) constructor
+        val g = runCatching { GEO_NEW?.newInstance(RenderableManager.PrimitiveType.TRIANGLES, emptyList<Geometry.Vertex>(), vb, listOf(emptyList<Int>()), ib, listOf(0 until ni), box) as Geometry }.getOrNull()
+        if (g != null) return g
+        engine.destroyVertexBuffer(vb); engine.destroyIndexBuffer(ib)
+        return slowGeometry(p, su, sv)
+    }
+
+    /** Line segments (pairs of [pts]) straight into a Filament buffer, as [litGeometry]. */
+    private fun lineGeometry(pts: List<V3>): Geometry {
+        val n = pts.size
+        val pos = java.nio.ByteBuffer.allocateDirect(n * 12).order(java.nio.ByteOrder.nativeOrder()).asFloatBuffer()
+        val ix = java.nio.ByteBuffer.allocateDirect(n * 4).order(java.nio.ByteOrder.nativeOrder()).asIntBuffer()
+        var x0 = Float.MAX_VALUE; var y0 = Float.MAX_VALUE; var z0 = Float.MAX_VALUE; var x1 = -Float.MAX_VALUE; var y1 = -Float.MAX_VALUE; var z1 = -Float.MAX_VALUE
+        pts.forEachIndexed { i, v ->
+            val x = v.x.toFloat(); val y = v.y.toFloat(); val z = v.z.toFloat()
+            pos.put(x); pos.put(y); pos.put(z); ix.put(i)
+            x0 = min(x0, x); y0 = min(y0, y); z0 = min(z0, z); x1 = max(x1, x); y1 = max(y1, y); z1 = max(z1, z)
+        }
+        pos.flip(); ix.flip()
+        val vb = com.google.android.filament.VertexBuffer.Builder().bufferCount(1).vertexCount(n)
+            .attribute(com.google.android.filament.VertexBuffer.VertexAttribute.POSITION, 0, com.google.android.filament.VertexBuffer.AttributeType.FLOAT3, 0, 12)
+            .build(engine)
+        vb.setBufferAt(engine, 0, pos)
+        val ib = com.google.android.filament.IndexBuffer.Builder().indexCount(n).bufferType(com.google.android.filament.IndexBuffer.Builder.IndexType.UINT).build(engine)
+        ib.setBuffer(engine, ix)
+        val box = com.google.android.filament.Box((x0 + x1) / 2, (y0 + y1) / 2, (z0 + z1) / 2, max(1e-4f, (x1 - x0) / 2), max(1e-4f, (y1 - y0) / 2), max(1e-4f, (z1 - z0) / 2))
+        val g = runCatching { GEO_NEW?.newInstance(RenderableManager.PrimitiveType.LINES, emptyList<Geometry.Vertex>(), vb, listOf(emptyList<Int>()), ib, listOf(0 until n), box) as Geometry }.getOrNull()
+        if (g != null) return g
+        engine.destroyVertexBuffer(vb); engine.destroyIndexBuffer(ib)
+        return Geometry.Builder(RenderableManager.PrimitiveType.LINES)
+            .vertices(pts.map { Geometry.Vertex(position = Float3(it.x.toFloat(), it.y.toFloat(), it.z.toFloat())) })
+            .indices(pts.indices.toList()).build(engine)
+    }
+
+    /** The same through SceneView's own builder (if its constructor cannot be reached). */
+    private fun slowGeometry(p: uz.metrx.app.geo.Part, su: Double, sv: Double): Geometry {
+        val verts = ArrayList<Geometry.Vertex>(p.faces.size * 4); val idx = ArrayList<Int>(p.faces.size * 6)
+        p.faces.forEach { f ->
+            val base = verts.size
+            val n = Float3(f.n.x.toFloat(), f.n.y.toFloat(), f.n.z.toFloat())
+            val uv = f.uv ?: planarUv(f)
+            f.pts.forEachIndexed { i, q ->
+                verts += Geometry.Vertex(position = Float3(q.x.toFloat(), q.y.toFloat(), q.z.toFloat()), normal = n,
+                    uvCoordinate = Float2((uv[2 * i] / su).toFloat(), (uv[2 * i + 1] / sv).toFloat()))
+            }
+            val tris = f.tris ?: (1 until f.pts.size - 1).flatMap { listOf(0, it, it + 1) }
+            for (t in tris.indices step 3) {
+                val a = f.pts[tris[t]]; val b = f.pts[tris[t + 1]]; val cc = f.pts[tris[t + 2]]
+                val cr = (b - a).let { u -> (cc - a).let { v -> V3(u.y * v.z - u.z * v.y, u.z * v.x - u.x * v.z, u.x * v.y - u.y * v.x) } }
+                if (cr.dot(f.n) >= 0) { idx += base + tris[t]; idx += base + tris[t + 1]; idx += base + tris[t + 2] }
+                else { idx += base + tris[t]; idx += base + tris[t + 2]; idx += base + tris[t + 1] }
+            }
+        }
+        return Geometry.Builder().vertices(verts).indices(idx).build(engine)
+    }
+
+    /** The tangent frame of a flat face with normal [n], as the quaternion Filament's lit materials read. */
+    private fun tangentFrame(n: V3): FloatArray {
+        val nz = n.unit()
+        // a tangent across the normal (x, or z for a face facing along x), the bitangent completing the frame
+        val ref = if (kotlin.math.abs(nz.x) < .9) V3(1.0, 0.0, 0.0) else V3(0.0, 0.0, 1.0)
+        val b = V3(nz.y * ref.z - nz.z * ref.y, nz.z * ref.x - nz.x * ref.z, nz.x * ref.y - nz.y * ref.x).unit()
+        val t = V3(b.y * nz.z - b.z * nz.y, b.z * nz.x - b.x * nz.z, b.x * nz.y - b.y * nz.x)
+        // the rotation with columns t, b, n as a quaternion (x, y, z, w), w kept positive
+        val m00 = t.x; val m10 = t.y; val m20 = t.z; val m01 = b.x; val m11 = b.y; val m21 = b.z; val m02 = nz.x; val m12 = nz.y; val m22 = nz.z
+        val tr = m00 + m11 + m22
+        var qx: Double; var qy: Double; var qz: Double; var qw: Double
+        if (tr > 0) { val s = kotlin.math.sqrt(tr + 1.0) * 2; qw = .25 * s; qx = (m21 - m12) / s; qy = (m02 - m20) / s; qz = (m10 - m01) / s }
+        else if (m00 > m11 && m00 > m22) { val s = kotlin.math.sqrt(1.0 + m00 - m11 - m22) * 2; qw = (m21 - m12) / s; qx = .25 * s; qy = (m01 + m10) / s; qz = (m02 + m20) / s }
+        else if (m11 > m22) { val s = kotlin.math.sqrt(1.0 + m11 - m00 - m22) * 2; qw = (m02 - m20) / s; qx = (m01 + m10) / s; qy = .25 * s; qz = (m12 + m21) / s }
+        else { val s = kotlin.math.sqrt(1.0 + m22 - m00 - m11) * 2; qw = (m10 - m01) / s; qx = (m02 + m20) / s; qy = (m12 + m21) / s; qz = .25 * s }
+        if (qw < 0) { qx = -qx; qy = -qy; qz = -qz; qw = -qw }
+        return floatArrayOf(qx.toFloat(), qy.toFloat(), qz.toFloat(), qw.toFloat())
+    }
+
+    /**
+     * A box's outline (furniture3D's 12 edges, 24 points a box) moved 0.7 mm out of the box on each of its axes: lying
+     * exactly on the faces, the faint lines came and went in dashes against them.
+     */
+    private fun outset(segs: List<V3>): List<V3> {
+        if (segs.size % 24 != 0) return segs
+        val out = ArrayList<V3>(segs.size); val eps = .0007
+        for (b in segs.indices step 24) {
+            // corners o, o+a, o+a+c, o+c, o+b, … (obbEdges): the first edge is a, the second c, the ninth b
+            val k0 = segs[b]; val a = segs[b + 1] - k0; val c = segs[b + 3] - segs[b + 2]; val bb = segs[b + 17] - k0
+            val ctr = k0 + (a + bb + c) * .5
+            val ax = listOf(a.unit(), bb.unit(), c.unit())
+            for (i in 0 until 24) {
+                val p = segs[b + i]; val d = p - ctr
+                var q = p
+                ax.forEach { u -> val s = d.dot(u); if (kotlin.math.abs(s) > 1e-6) q = q + u * (if (s > 0) eps else -eps) }
+                out += q
+            }
+        }
+        return out
+    }
+
     /** Walls between the camera and the room's middle become see-through (prototype draw3D). */
     fun cutaway(eye: V3, phi: Double) {
         val s = shell ?: return
@@ -306,11 +544,13 @@ private class ShellNodes(val engine: Engine, val ml: MaterialLoader) {
         // the wall facing the eye goes see-through, its doors and windows with it; the furniture on it stays solid
         prims.forEach { p ->
             val f = facing(p.group, p.wall)
-            val a = when (p.role) { Role.WALL -> if (f) .14f else 1f; Role.OPENING -> if (f) min(.12f, p.op) else p.op; Role.FURN -> p.op; else -> p.op }
-            if (a != p.alpha) { p.alpha = a; p.node.setMaterialInstanceAt(p.index, mat(p.rgb, a)) }
+            // lit, a see-through wall catches the light and veils the room: fainter
+            val wa = if (lit) .05f else .14f
+            val a = when (p.role) { Role.WALL -> if (f) wa else 1f; Role.OPENING -> if (f) min(if (lit) .06f else .12f, p.op) else p.op; Role.FURN -> p.op; else -> p.op }
+            if (a != p.alpha) { p.alpha = a; p.node.setMaterialInstanceAt(p.index, p.look?.let { litMat(it, a) } ?: mat(p.rgb, a)) }
         }
         lines.forEach { l ->
-            val a = if (facing(l.group, l.wall)) .35f else 1f
+            val a = if (facing(l.group, l.wall)) .35f * l.a0 else l.a0
             if (a != l.alpha) { l.alpha = a; l.node.setMaterialInstanceAt(0, mat(l.rgb, a)) }
         }
     }
@@ -329,15 +569,31 @@ class Shot3D {
 @Composable
 fun Scene3D(shell: Shell3D, cam: Cam3D, modifier: Modifier = Modifier, shot: Shot3D? = null, onTap: ((Offset) -> Unit)? = null, overlay: @Composable BoxScope.() -> Unit = {}) {
     val engine = Engine3D.engine
+    val ctx = LocalContext.current
     val ml = rememberMaterialLoader(engine)
     val el = rememberEnvironmentLoader(engine)
     val view = rememberView(engine)
-    val env = rememberEnvironment(el) { Environment() }
+    // furniture is drawn lit (real materials, sun, studio light) when the lit materials load; rooms stay flat
+    val lit = remember(shell) { shell.parts.any { it.look != null } } && remember(engine) { Lit3D.ready(engine, ctx) }
+    val qSetting = uz.metrx.app.ui.LocalApp.current.settings.quality
+    val tier = remember(qSetting) { Quality3D.tier(ctx, qSetting) }
+    val flatEnv = rememberEnvironment(el) { Environment() }
+    // the studio light is the app's (made once, kept): not handed to rememberEnvironment, which would destroy it
+    val env = if (lit) remember(tier) { Environment(indirectLight = Lit3D.ibl(engine, tier)) } else flatEnv
+    val sun = remember(engine) {
+        LightNode(engine, LightManager.Type.DIRECTIONAL) {
+            // warm white (mockup sun #FFF0DE), soft shadows from a 1024 map
+            color(1f, .94f, .87f); intensity(SUN_LUX); direction(-.4f, -.8f, -.45f); castShadows(true)
+            shadowOptions(LightManager.ShadowOptions().apply { mapSize = 1024; shadowCascades = 1; constantBias = .001f; normalBias = 1f; shadowFar = 0f; stable = false })
+        }
+    }
+    DisposableEffect(sun) { onDispose { runCatching { sun.destroy() } } }
     val lens = remember(engine) { Lens(engine).apply { setExposure(1f) } }
     // the engine outlives this screen, so its camera is let go here (after SceneView has let go of it)
     DisposableEffect(lens) { onDispose { runCatching { lens.destroy() } } }
     val inv: RenderInvalidator = rememberRenderInvalidator()
-    val nodes = remember(engine) { ShellNodes(engine, ml) }
+    val nodes = remember(engine) { ShellNodes(engine, ml, ctx) }
+    nodes.lit = lit; nodes.tier = tier
     var root by remember { mutableStateOf<Node?>(null) }
     val host = LocalView.current
     val density = LocalDensity.current.density
@@ -353,36 +609,68 @@ fun Scene3D(shell: Shell3D, cam: Cam3D, modifier: Modifier = Modifier, shot: Sho
         SceneView(
             Modifier.fillMaxSize(), surfaceType = SURFACE, engine = engine, materialLoader = ml, environmentLoader = el,
             view = view, isOpaque = true, frameRatePolicy = FrameRatePolicy.OnDemand(), renderInvalidator = inv, renderQuality = RenderQuality.Default,
-            autoCenterContent = false, environment = env, mainLightNode = null, fillLightNode = null, cameraNode = lens,
+            autoCenterContent = false, environment = env, mainLightNode = if (lit) sun else null, fillLightNode = null, cameraNode = lens,
             cameraManipulator = null, onGestureListener = null
         ) {
             Node(apply = { root = this })
         }
         // the background is a flat panel carried by the camera: Filament's own clear colour comes out a shade off
-        DisposableEffect(lens) {
+        DisposableEffect(lens, lit) {
             val q = listOf(Float3(-2000f, -2000f, -280f), Float3(2000f, -2000f, -280f), Float3(2000f, 2000f, -280f), Float3(-2000f, 2000f, -280f))
             val g = Geometry.Builder().vertices(q.map { Geometry.Vertex(position = it, normal = Float3(0f, 0f, 1f)) }).indices(listOf(0, 1, 2, 0, 2, 3)).build(engine)
-            val bg = GeometryNode(engine, g, nodes.mat(BG3D, 1f))
+            // lit, the tone curve would change it: handed over so that it comes out as BG3D
+            val bg = GeometryNode(engine, g, nodes.mat(BG3D, 1f, exact = lit))
+            bg.isShadowCaster = false; bg.isShadowReceiver = false
             lens.addChildNode(bg)
             onDispose { lens.removeChildNode(bg); bg.destroy() }
         }
-        LaunchedEffect(view) {
-            // after SceneView's own quality preset: plain colours, smooth edges, nothing else
-            view.renderQuality = view.renderQuality.apply { hdrColorBuffer = View.QualityLevel.HIGH }
-            view.ambientOcclusionOptions = view.ambientOcclusionOptions.apply { enabled = false }
-            view.bloomOptions = view.bloomOptions.apply { enabled = false }
-            view.dynamicResolutionOptions = view.dynamicResolutionOptions.apply { enabled = false }
-            view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 4 }
-            view.antiAliasing = View.AntiAliasing.NONE
-            view.dithering = View.Dithering.NONE
-            view.setShadowingEnabled(false)
-            view.isPostProcessingEnabled = false
+        LaunchedEffect(view, lit, tier) {
+            if (lit) {
+                // lit (modern 3D): tone-mapped HDR, MSAA, the sun's soft shadows and ambient occlusion on strong phones
+                view.renderQuality = view.renderQuality.apply { hdrColorBuffer = View.QualityLevel.MEDIUM }
+                view.colorGrading = Lit3D.grading(engine)
+                view.ambientOcclusionOptions = view.ambientOcclusionOptions.apply {
+                    enabled = tier.ao; radius = .28f; intensity = .85f; power = 1.1f; quality = View.QualityLevel.LOW; resolution = .5f
+                }
+                view.bloomOptions = view.bloomOptions.apply { enabled = false }
+                val dense = ctx.resources.displayMetrics.density > 2.4f
+                view.dynamicResolutionOptions = view.dynamicResolutionOptions.apply {
+                    enabled = tier.maxScale < 1f && dense; minScale = tier.maxScale; maxScale = tier.maxScale; quality = View.QualityLevel.MEDIUM
+                }
+                view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = tier.msaa > 1; sampleCount = tier.msaa }
+                view.antiAliasing = View.AntiAliasing.NONE
+                view.dithering = View.Dithering.TEMPORAL
+                view.setShadowingEnabled(tier.shadows)
+                // filtered shadow map: clean edges (DPCF's soft ones dither, blurred VSM washes the shadows out)
+                view.setShadowType(View.ShadowType.PCF)
+                view.isPostProcessingEnabled = true
+            } else {
+                // after SceneView's own quality preset: plain colours, smooth edges, nothing else
+                view.renderQuality = view.renderQuality.apply { hdrColorBuffer = View.QualityLevel.HIGH }
+                view.ambientOcclusionOptions = view.ambientOcclusionOptions.apply { enabled = false }
+                view.bloomOptions = view.bloomOptions.apply { enabled = false }
+                view.dynamicResolutionOptions = view.dynamicResolutionOptions.apply { enabled = false }
+                view.multiSampleAntiAliasingOptions = view.multiSampleAntiAliasingOptions.apply { enabled = true; sampleCount = 4 }
+                view.antiAliasing = View.AntiAliasing.NONE
+                view.dithering = View.Dithering.NONE
+                view.setShadowingEnabled(false)
+                view.isPostProcessingEnabled = false
+            }
             inv.requestRender()
         }
-        LaunchedEffect(root, shell) {
+        LaunchedEffect(root, shell, lit, tier) {
             val rt = root ?: return@LaunchedEffect
             lens.farM = shell.far.toFloat(); lens.updateProjection()
+            // the sun from behind the viewer's start corner, a little to the right and high (mockup: front, right,
+            // above): it lights the fronts, and the shadows fall behind the furniture onto the walls
+            if (lit) {
+                val th = (shell.theta ?: (PI / 2 + .75)) + .5
+                val d = V3(-cos(th), -1.35, -sin(th)).unit()
+                sun.lightManager.setDirection(sun.lightInstance, d.x.toFloat(), d.y.toFloat(), d.z.toFloat())
+            }
+            val t0 = System.nanoTime()
             nodes.build(rt, shell)
+            if (lit) android.util.Log.d("Render3D", "lit scene ${shell.parts.size} parts, built in ${(System.nanoTime() - t0) / 1_000_000} ms, $tier")
             cam.onMove = ::push
             cam.load(shell)
             push()

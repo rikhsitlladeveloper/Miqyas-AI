@@ -126,7 +126,8 @@ fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion): Pa
     val amt = mo.prog.toMap()
     val bare = mo.bare
     val fur = remember(base, fs, amt, ws, mats, bare) {
-        furniture3D(fs, base.bases, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare)
+        furniture3D(fs, base.bases, ws, { id -> rgbOf(mats.firstOrNull { it.id == id }?.rgb ?: "#F5F5F2") }, emptySet(), amt = { k -> (amt[k] ?: 0f).toDouble() }, bare = bare,
+            look = { id -> mats.firstOrNull { it.id == id }.let { m -> uz.metrx.app.geo.Looks.of(m?.kind ?: "board", rgbOf(m?.rgb ?: "#F5F5F2"), m?.tex) } })
     }
     val shell = remember(base, fur) { base.plus(fur.parts, fur.edges) }
     return shell to fur

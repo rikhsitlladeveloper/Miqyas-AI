@@ -53,11 +53,13 @@ android {
     // Phones (arm64, older arm) and the x86_64 emulator; Filament's libraries are compressed in the APK.
     defaultConfig { ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") } }
     packaging { jniLibs { useLegacyPackaging = true } }
-    // SceneView ships lighting files and materials the 3D view never loads: only the two flat-colour materials are used.
+    // SceneView ships lighting files and materials the 3D view never loads. Used: the two flat-colour materials and,
+    // for the lit furniture (modern 3D, 25 Oct 2026), the lit colour, lit picture and see-through lit ones; the studio
+    // light is made in code (ui/three/Render3D.kt), so SceneView's environments stay out.
     androidResources {
         ignoreAssetsPatterns += listOf(
-            "<dir>environments", "contact_shadow.filamat", "image_texture.filamat", "occlusion.filamat", "opaque_colored.filamat",
-            "opaque_textured.filamat", "semantics_overlay.filamat", "splat.filamat", "transparent_colored.filamat", "transparent_textured.filamat",
+            "<dir>environments", "contact_shadow.filamat", "image_texture.filamat", "occlusion.filamat",
+            "semantics_overlay.filamat", "splat.filamat", "transparent_textured.filamat",
             "video_texture.filamat", "video_texture_chroma_key.filamat", "view_texture_lit.filamat", "view_texture_unlit.filamat"
         )
     }

@@ -118,6 +118,8 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                     }
                 }
                 Text(tr("adv.sub"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 8.dp))
+                // how much the furniture 3D does: by the phone, everything, or light (modern 3D part 1)
+                Card(Modifier.padding(top = 10.dp)) { Row1("cube", tr("q.row"), tr("q.${s.quality}")) { app.sheet = Sheet.Quality3D } }
             }
             // tilers: the same switch; on, the quantities, prices, estimate and quotes (off: only the tiles in 3D)
             if (s.tiler) {
@@ -319,7 +321,7 @@ private fun Li(icon: String, text: String, tint: Color) {
 
 @Composable
 fun ProfileSheet(s: Sheet): Boolean = when (s) {
-    Sheet.ReportLang, Sheet.PdfParts, Sheet.Defaults, Sheet.Units, Sheet.RoomLabel, Sheet.About -> { ProfileSheetUi(s); true }
+    Sheet.ReportLang, Sheet.PdfParts, Sheet.Defaults, Sheet.Units, Sheet.RoomLabel, Sheet.About, Sheet.Quality3D -> { ProfileSheetUi(s); true }
     else -> false
 }
 
@@ -331,6 +333,7 @@ private fun ProfileSheetUi(s: Sheet) {
         Sheet.Defaults -> DefaultsSheet()
         Sheet.Units -> UnitsSheet()
         Sheet.RoomLabel -> RoomLabelSheet()
+        Sheet.Quality3D -> QualitySheet()
         Sheet.About -> AboutSheet()
         else -> {}
     }
@@ -392,6 +395,21 @@ private fun RoomLabelSheet() {
     val app = LocalApp.current
     GlassSheet(tr("se.label"), { app.sheet = null }) {
         listOf("both", "name", "area", "none").forEach { k -> Opt(tr("se.label.$k"), app.settings.roomLabel == k) { app.settings.setRoomLabelMode(k); app.sheet = null } }
+    }
+}
+
+/** Profile → Sifat: the furniture 3D by the phone (auto), full, or light; with what "auto" chose here. */
+@Composable
+private fun QualitySheet() {
+    val app = LocalApp.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    GlassSheet(tr("q.row"), { app.sheet = null }) {
+        val auto = uz.metrx.app.ui.three.Quality3D.auto(ctx)
+        listOf("auto", "high", "low").forEach { k ->
+            val sub = when (k) { "auto" -> tr("q.autoEx", "t" to tr(if (auto == uz.metrx.app.ui.three.Tier.HIGH) "q.high" else "q.low")); else -> tr("q.${k}Ex") }
+            Opt(tr("q.$k"), app.settings.quality == k, sub) { app.settings.setQuality3D(k); app.sheet = null }
+        }
+        Text(tr("q.note"), style = ui(13f, 400, G.ink2, 1.45f))
     }
 }
 

@@ -152,6 +152,8 @@ sealed interface Sheet {
     data object Defaults : Sheet
     data object Units : Sheet
     data object RoomLabel : Sheet
+    /** Profile → Sifat: the furniture 3D's quality. */
+    data object Quality3D : Sheet
     data object About : Sheet
     /** The Measure page: typing a reading, the brick settings, sending a reading to a room, the camera picker. */
     data object QmManual : Sheet

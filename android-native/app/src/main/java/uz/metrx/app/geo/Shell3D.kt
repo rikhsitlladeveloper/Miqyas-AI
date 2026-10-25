@@ -41,13 +41,18 @@ class WallBasis(val ox: Double, val oz: Double, val ux: Double, val uz: Double, 
     fun dir(da: Double, dn: Double) = V3(ux * da + nx * dn, 0.0, uz * da + nz * dn)
 }
 
-/** A flat face: a convex polygon ([tris] null, drawn as a fan) or a triangulated polygon (the floor of a drawn room). */
-class Face(val n: V3, val pts: List<V3>, val tris: List<Int>? = null)
+/**
+ * A flat face: a convex polygon ([tris] null, drawn as a fan) or a triangulated polygon (the floor of a drawn room).
+ * [uv]: each point's texture coordinates in metres, u along the board's grain (null: worked out from the face's plane).
+ */
+class Face(val n: V3, val pts: List<V3>, val tris: List<Int>? = null, val uv: DoubleArray? = null)
 
 /** Faces with one colour and opacity, belonging to one wall of one room ([group]); floors and loose glass have no wall. [tile]: a tiler's tiles. */
 class Part(val group: Int, val wall: String?, val role: Role, val rgb: Int, val op: Float, val tile: Boolean = false,
            /** A worktop: its top is lit like a stone surface and its outline drawn light, so a dark one shows its thickness. */
-           val slab: Boolean = false) { val faces = ArrayList<Face>() }
+           val slab: Boolean = false,
+           /** How it looks in the lit 3D (furniture); null: drawn in its flat colour, as the rooms are. */
+           val look: Look? = null) { val faces = ArrayList<Face>() }
 
 /** A wall's outline as line segments (pairs of points), like the prototype's EdgesGeometry lines. */
 class Edges(val group: Int, val wall: String, val rgb: Int = WALL_INK) { val segs = ArrayList<V3>() }
