@@ -245,7 +245,7 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
         case .high: v.renderOptions = [.disableMotionBlur, .disableDepthOfField, .disableCameraGrain]
         case .low: v.renderOptions = [.disableMotionBlur, .disableDepthOfField, .disableCameraGrain, .disableHDR, .disableGroundingShadows]
         }
-        if let env = Scene3DCoordinator.studio() { v.environment.lighting.resource = env }
+        Scene3DCoordinator.studio { [weak v] env in v?.environment.lighting.resource = env }
         v.environment.lighting.intensityExponent = tier == .high ? 0.25 : 0.5
         var c = DirectionalLightComponent()
         c.color = uiColor(0xFFF0DE)

@@ -16,6 +16,7 @@ extension Scene3DCoordinator {
     /// The studio light, made once (nil if it could not be made: RealityKit's own then).
     private static var studioMade = false
     private static var studioEnv: EnvironmentResource? = nil
+    private static var studioWait: [(EnvironmentResource) -> Void] = []
 
     /// The material for look at opacity alpha on a phone of quality tier (high or low).
     static func litMaterial(_ look: Look, alpha: Double, tier: Quality3) -> PhysicallyBasedMaterial {
@@ -75,12 +76,19 @@ extension Scene3DCoordinator {
 
     /// The studio the reflections and the soft light come from (mockup makeEnv): light walls, a bright ceiling with light
     /// strips, two bright windows, a darker warm floor, a few dark pieces for the gloss to mirror.
-    static func studio() -> EnvironmentResource? {
-        if !studioMade {
-            studioMade = true
-            if let cg = studioImage(512, 256) { studioEnv = try? EnvironmentResource.generate(fromEquirectangular: cg) }
+    /// Made once, off the first call (the SDK's equirectangular init may be async); [done] gets it as soon as it is ready.
+    static func studio(_ done: @escaping (EnvironmentResource) -> Void) {
+        if let e = studioEnv { done(e); return }
+        studioWait.append(done)
+        if studioMade { return }
+        studioMade = true
+        guard let cg = studioImage(512, 256) else { return }
+        Task { @MainActor in
+            guard let e = try? await EnvironmentResource(equirectangular: cg) else { return }
+            studioEnv = e
+            let w = studioWait; studioWait = []
+            w.forEach { $0(e) }
         }
-        return studioEnv
     }
 
     /// The studio as an equirectangular picture w × h (top: straight up).
