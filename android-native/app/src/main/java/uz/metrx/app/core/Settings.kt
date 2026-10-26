@@ -53,6 +53,14 @@ class Settings(context: Context) {
     /** A furniture maker's prices, order stages, workshop rules and cutting lists (Profile → Advanced); off, the app is just the 3D design. */
     var advanced by mutableStateOf(p.getBoolean("advanced", false)); private set
     fun setAdvancedOn(v: Boolean) { advanced = v; p.edit().putBoolean("advanced", v).apply() }
+    /** "Mijozga 3D yuborish" (ui/furniture/Share3D.kt): what the client's 3D file shows, the price (Advanced), the sizes, the maker's phone. */
+    var share3dPrice by mutableStateOf(p.getBoolean("share3dPrice", false)); private set
+    var share3dDims by mutableStateOf(p.getBoolean("share3dDims", true)); private set
+    var share3dPhone by mutableStateOf(p.getBoolean("share3dPhone", true)); private set
+    fun setShare3d(price: Boolean = share3dPrice, dims: Boolean = share3dDims, phone: Boolean = share3dPhone) {
+        share3dPrice = price; share3dDims = dims; share3dPhone = phone
+        p.edit().putBoolean("share3dPrice", price).putBoolean("share3dDims", dims).putBoolean("share3dPhone", phone).apply()
+    }
 
     // declared before the first property that decodes with it (trade, workshop), or it is still null there
     private val js = kotlinx.serialization.json.Json { ignoreUnknownKeys = true; encodeDefaults = true }

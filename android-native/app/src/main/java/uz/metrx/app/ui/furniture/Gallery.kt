@@ -193,6 +193,17 @@ fun FGalleryScreen(rt: Route.FGallery) {
                 val f = { mm: Int? -> fmtLen(mm, LenUnit.M, en) }
                 Text(tr("fg.forRoom", "r" to (p.floors.firstOrNull { it.id == room.floorId }?.let { floorName(it, lang) } ?: dn(room.name, lang)),
                     "a" to f(room.dim("A").v), "b" to f(room.dim("B").v), "h" to f(room.dim("H").v)), style = ui(13.5f, 400, G.ink2, 1.4f))
+                // a measured kitchen: the auto kitchen builds all six styles for its walls, water and gas (AutoKitchen.kt)
+                if (first == "kitchen" && uz.metrx.app.geo.stepKeys(room, app.settings.angleSnap).all { room.dim(it).status == "conf" })
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(G.cobalt.copy(alpha = .1f)).clickable(role = Role.Button) { app.push(Route.AutoKitchen(p.id, room.id)) }
+                        .padding(horizontal = 12.dp, vertical = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        MIcon("kitchen", G.cobalt, 26.dp, 2f)
+                        Column(Modifier.weight(1f)) {
+                            Text(tr("ak.title"), style = ui(15f, 800, G.cobalt2))
+                            Text(tr("ak.entryS"), style = ui(12.5f, 400, G.ink2, 1.35f))
+                        }
+                        MIcon("chev", G.cobalt2, 16.dp, 2f)
+                    }
             } else Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).dashedGlass(18.dp).clickable(role = Role.Button) { app.sheet = Sheet.FNewRoom(p.id) }
                 .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 MIcon("room", G.cobalt, 24.dp, 2f)

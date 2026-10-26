@@ -145,8 +145,11 @@ fun footsOf(f: Furniture, walls: List<PlanWall>, ws0: Workshop): List<Foot> {
         // the lower row under its worktop, 600 deep; tall units and a free-standing fridge their own
         row(ms.filter { !isUpper(it) && it.type != "tall" && it.app != "fridge" }, 600, 0, worktopTop(ws), true)
         ms.filter { it.type == "tall" || it.app == "fridge" }.forEach { row(listOf(it), it.d, 0, it.elev + it.h, true) }
-        val up = ms.filter { isUpper(it) }
-        if (up.isNotEmpty()) row(up, up.maxOf { it.d }, up.minOf { it.elev }, up.maxOf { it.elev + it.h }, false)
+        // the upper row in its stretches: a space left over a window (or a tall unit) splits it, so it does not cover the window
+        val up = ms.filter { isUpper(it) }.sortedBy { it.x }
+        val parts = ArrayList<ArrayList<Module>>()
+        up.forEach { m -> if (parts.isEmpty() || parts.last().last().let { it.x + it.w } < m.x) parts += arrayListOf(m) else parts.last() += m }
+        parts.forEach { s -> row(s, s.maxOf { it.d }, s.minOf { it.elev }, s.maxOf { it.elev + it.h }, false) }
     }
     islandPoseIn(f, walls)?.let { frameOf(walls, it) }?.let { fr ->
         // its worktop covers its cabinets and its finished back

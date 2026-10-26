@@ -149,5 +149,8 @@ val HW_PRESETS = listOf(
     // the gorka's TV panel facing (modern 3D part 6a): samples for the makers to replace
     Hw("tvStone", "tvStone", "TV panel, tosh ko‘rinishli plita (m²)", "450000", true),
     Hw("tvSlats", "tvSlats", "TV panel, yog‘och reykalar (m²)", "550000", true),
-    Hw("tvMould", "tvMould", "TV panel, frezerli MDF (m²)", "300000", true)
+    Hw("tvMould", "tvMould", "TV panel, frezerli MDF (m²)", "300000", true),
+    // the Premium price option's hardware (PriceTiers.kt, 26 Oct 2026): priced only there, in place of the usual hinge and runner
+    Hw("hingeBlum", "hingeBlum", "Petlya Blum turidagi, yumshoq yopilish", "45000", true),
+    Hw("runnerBlum", "runnerBlum", "Yo‘naltiruvchi Blum turidagi, to‘liq chiqadigan, yumshoq", "380000", true)
 )

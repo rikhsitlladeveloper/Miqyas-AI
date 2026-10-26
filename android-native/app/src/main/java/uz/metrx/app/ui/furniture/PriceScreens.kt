@@ -182,8 +182,11 @@ fun FPriceTab(p: Project) {
                 }
             }
         }
+        // the three price options for the customer: Ekonom, Standart, Premium (furniture/PriceTiers.kt)
+        TierCard(p, fs, rems)
         // the documents: the customer's PDF first, then the workshop's pack and the parts with their sheet layout
         GBtn(tr("fd.btn"), { app.push(Route.Report(p.id)) }, icon = "share", height = 52.dp, corner = 16.dp, fontSize = 15.5f)
+        GBtn(tr("sh3.btn"), { app.sheet = Sheet.Share3D(p.id) }, Btn.SECONDARY, icon = "cube", height = 50.dp, corner = 16.dp, fontSize = 14.5f)
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GBtn(tr("fw.btn"), { app.push(Route.FPack(p.id)) }, Btn.SECONDARY, icon = "doc", height = 50.dp, corner = 16.dp, fontSize = 14.5f, modifier = Modifier.weight(1f), maxLines = 2)
             GBtn(tr("fc.title"), { app.push(Route.FCut(p.id)) }, Btn.SECONDARY, icon = "board", height = 50.dp, corner = 16.dp, fontSize = 14.5f, modifier = Modifier.weight(1f), maxLines = 2)
