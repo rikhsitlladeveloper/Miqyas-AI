@@ -225,7 +225,7 @@ fun NewOrderScreen(industry: String = "furniture") {
 /* ---------------- the order's rooms with their furniture ---------------- */
 
 @Composable
-fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
+fun FRoomsTab(p: Project, lang: Lang, route: Route.Project, addCard: Boolean = true) {
     val app = LocalApp.current
     val s = app.settings
     val en = lang == Lang.EN
@@ -304,7 +304,7 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
         }
         // the client's 3D files of the room with the most furniture (a piece's own room: its menu)
         if (p.furniture.any { it.modules.isNotEmpty() }) GBtn(tr("sh3.btn"), { app.sheet = Sheet.Share3D(p.id) }, Btn.SECONDARY, icon = "share", height = 48.dp, fontSize = 15f)
-        Row(
+        if (addCard) Row(
             Modifier.fillMaxWidth().height(60.dp).dashedGlass(22.dp).pressable({ app.push(Route.FGallery(p.id)) }, .98f),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically
         ) {

@@ -96,6 +96,8 @@ fun ProjectScreen(r: Route.Project) {
     val app = LocalApp.current
     val lang = LocalLang.current
     val p = app.store.get(r.id) ?: return
+    // a furniture order: its own page with the progress bar and the bottom action bar (UX upgrades §1, §2)
+    if (p.isFurniture) { uz.metrx.app.ui.ux.FOrderScreen(r, p); return }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         // the pill names the page underneath: the orders list on that tab, or Home or Profile when opened from there
         val under = app.tab.takeIf { app.stack.size >= 2 && app.stack[app.stack.size - 2] == uz.metrx.app.ui.Route.Root && it != uz.metrx.app.ui.main.Tab.PROJECTS }
@@ -321,7 +323,7 @@ private fun EmptyWorkspaces() {
 /* ---------------- Details tab ---------------- */
 
 @Composable
-private fun InfoTab(p: Project, lang: Lang) {
+internal fun InfoTab(p: Project, lang: Lang) {
     val app = LocalApp.current
     val context = LocalContext.current
     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -362,9 +364,9 @@ private fun Kv(label: String, value: String, extra: (@Composable () -> Unit)? = 
 /* ---------------- Quotes tab (prototype quotesTab) ---------------- */
 
 @Composable
-private fun QuotesTab(p: Project, lang: Lang) {
+internal fun QuotesTab(p: Project, lang: Lang, issueBar: Boolean = true) {
     val app = LocalApp.current
-    if (p.isFurniture) FIssueBar(p, lang)
+    if (p.isFurniture && issueBar) FIssueBar(p, lang)
     if (p.quotes.isEmpty() && p.isFurniture) return
     if (p.quotes.isEmpty()) {
         Column(

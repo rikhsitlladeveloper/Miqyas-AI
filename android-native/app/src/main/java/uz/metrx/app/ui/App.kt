@@ -94,6 +94,8 @@ sealed interface Route {
     data class FCheck(val pid: String) : Route
     /** The workshop's remnants (Advanced): what is kept, deleting them. */
     data object Remnants : Route
+    /** A furniture order's "Narx va yuborish" (UX upgrades §4, §8): the price, the quote, Telegram. */
+    data class FPrice(val pid: String) : Route
     /** The draft report (prototype PAGES.report). */
     data class Report(val pid: String) : Route
     /** An issued quote, frozen (prototype PAGES.quote). */
@@ -287,7 +289,39 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     fun openLaser() { if (laser.isReal || laser.simOn) sheet = Sheet.Device else push(Route.LaserRadar) }
 
     fun say(key: String, vararg v: Pair<String, Any?>, kind: ToastKind = ToastKind.OK, action: String? = null, onAction: (() -> Unit)? = null) {
-        toast = ToastMsg(Strings.t(key, settings.lang, if (v.isEmpty()) null else v.toMap()), kind, action?.let { Strings.t(it, settings.lang) }, onAction)
+        // every Undo in a toast reads "Ortga qaytarish" (UX upgrades §3) and ticks
+        val act = if (action == "common.undo") "ux.undo" else action
+        if (kind == ToastKind.ERROR) haptic(uz.metrx.app.ui.ux.Hap.WARN)
+        toast = ToastMsg(Strings.t(key, settings.lang, if (v.isEmpty()) null else v.toMap()), kind, act?.let { Strings.t(it, settings.lang) },
+            onAction?.let { f -> { haptic(uz.metrx.app.ui.ux.Hap.TICK); f() } })
+    }
+
+    /* ---------------- UX upgrades (26 Oct 2026) ---------------- */
+
+    /** The window's view, for the haptics (set by MetrxApp). */
+    var view: java.lang.ref.WeakReference<android.view.View>? = null
+    /** §10: a tick, confirm or warning, when Profile → "Tebranish" is on. */
+    fun haptic(kind: uz.metrx.app.ui.ux.Hap) { if (settings.haptic) view?.get()?.let { uz.metrx.app.ui.ux.Haptics.play(it, kind) } }
+    /** Work that outlives a page (making and sending a quote's PDF). */
+    val scope = kotlinx.coroutines.MainScope()
+    /** The bottom bars on screen and their height from the screen's bottom (px): the toast sits above the highest (§3). */
+    val bars = androidx.compose.runtime.mutableStateMapOf<String, Int>()
+    /** Where each coach mark's target is on screen (§11), by screen key. */
+    val coach = androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.ui.geometry.Rect>()
+    /** The order page's and price screen's Undo (§1): the last actions, newest last, each with its words. */
+    val undos = mutableStateListOf<Pair<String, () -> Unit>>()
+    /** An action that can be undone: a toast with "Ortga qaytarish", a tick, and the bottom bar's Undo. */
+    fun act(text: String, undo: () -> Unit, kind: ToastKind = ToastKind.OK) {
+        undos.add(text to undo); if (undos.size > 20) undos.removeAt(0)
+        haptic(uz.metrx.app.ui.ux.Hap.TICK)
+        val entry = undos.last()
+        toast = ToastMsg(text, kind, t("ux.undo"), onAction = { if (undos.remove(entry)) { haptic(uz.metrx.app.ui.ux.Hap.TICK); entry.second() } })
+    }
+    /** The bottom bar's Undo: the newest action goes back. */
+    fun undoLast() {
+        val e = undos.removeLastOrNull() ?: run { say("ux.nothingUndo", kind = ToastKind.INFO); return }
+        e.second(); haptic(uz.metrx.app.ui.ux.Hap.TICK)
+        say("ux.undone", "m" to e.first, kind = ToastKind.INFO)
     }
     fun t(key: String, vararg v: Pair<String, Any?>) = Strings.t(key, settings.lang, if (v.isEmpty()) null else v.toMap())
 
@@ -347,6 +381,7 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.FCut -> store.get(r.pid) != null
                     is Route.FPack -> store.get(r.pid) != null
                     is Route.FCheck -> store.get(r.pid) != null
+                    is Route.FPrice -> store.get(r.pid) != null
                     Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, Route.Remnants, is Route.Measure, Route.LiveCam, Route.LaserTest, Route.LaserRadar -> true
                 }
             }

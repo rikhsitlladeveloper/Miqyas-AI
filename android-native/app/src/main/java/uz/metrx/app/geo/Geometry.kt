@@ -39,7 +39,8 @@ const val H_TALL = 4_500
 
 /* ---------------- units and number formats ---------------- */
 
-enum class LenUnit { M, CM }
+/** Metres, centimetres, or millimetres (furniture makers, UX upgrades §5: "3400", no decimals). */
+enum class LenUnit { M, CM, MM }
 
 /** Comma decimals, except English (point). */
 fun decMark(english: Boolean) = if (english) '.' else ','
@@ -47,6 +48,7 @@ fun decMark(english: Boolean) = if (english) '.' else ','
 /** Length as the prototype's fmtLen: metres with 2 decimals (3 when the mm need it), or centimetres with 0 or 1. */
 fun fmtLen(mm: Int?, unit: LenUnit = LenUnit.M, english: Boolean = false, full: Boolean = false): String {
     if (mm == null) return "?"
+    if (unit == LenUnit.MM) return mm.toString()
     val s = if (unit == LenUnit.CM) "%.${if (full || mm % 10 != 0) 1 else 0}f".format(java.util.Locale.ROOT, mm / 10.0)
             else "%.${if (full) 3 else if (mm % 10 != 0) 3 else 2}f".format(java.util.Locale.ROOT, mm / 1000.0)
     return s.replace('.', decMark(english))
@@ -82,7 +84,7 @@ fun parseDec(str: String?, maxDec: Int): Parsed {
     return Parsed.Ok(if (v > Int.MAX_VALUE.toBigInteger()) Int.MAX_VALUE.toLong() else v.toLong())
 }
 
-fun unitDecimals(unit: LenUnit) = if (unit == LenUnit.CM) 1 else 3
+fun unitDecimals(unit: LenUnit) = when (unit) { LenUnit.CM -> 1; LenUnit.MM -> 0; else -> 3 }
 
 /** A typed length in mm, or the error (key + values) to show. [max] in mm; [zeroOk] for an offset or a sill. */
 fun lenErr(str: String?, max: Int, unit: LenUnit, english: Boolean, zeroOk: Boolean = false, min: Int = 0): Parsed {
@@ -92,11 +94,11 @@ fun lenErr(str: String?, max: Int, unit: LenUnit, english: Boolean, zeroOk: Bool
     if (mm == 0L && !zeroOk) return Parsed.Err("err.zero")
     if (mm in 1 until min) {
         val m = fmtLen(min, unit, english).replace(Regex("[.,]0+$"), "")
-        return Parsed.Err("err.min", mapOf("min" to m + " " + (if (unit == LenUnit.CM) "@u.cm" else "@u.m")))
+        return Parsed.Err("err.min", mapOf("min" to m + " " + (when (unit) { LenUnit.CM -> "@u.cm"; LenUnit.MM -> "@u.mm"; else -> "@u.m" })))
     }
     if (mm > max) {
         val m = fmtLen(max, unit, english).replace(Regex("[.,]0+$"), "")
-        return Parsed.Err("err.max", mapOf("max" to m + " " + (if (unit == LenUnit.CM) "@u.cm" else "@u.m")))
+        return Parsed.Err("err.max", mapOf("max" to m + " " + (when (unit) { LenUnit.CM -> "@u.cm"; LenUnit.MM -> "@u.mm"; else -> "@u.m" })))
     }
     return Parsed.Ok(mm)
 }

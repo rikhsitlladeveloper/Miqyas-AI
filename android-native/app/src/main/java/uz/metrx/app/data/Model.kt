@@ -70,7 +70,15 @@ data class Project(
     val fstyle: String = "",
     /** Furniture orders (Advanced): the customer's PDF shows the three price options, Ekonom, Standart, Premium (furniture/PriceTiers.kt). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val tri: Boolean = false
+    val tri: Boolean = false,
+    /** Furniture orders (UX upgrades §11): the "Namuna — oshxona" sample order; never counted in reports, totals or counts. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val sample: Boolean = false,
+    /** Furniture orders (UX upgrades §2): the progress bar's Dizayn and Narx steps were done (the designer's "Narxni ko‘rish", the price screen seen). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val designed: Boolean = false,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val priced: Boolean = false
 ) {
     val isFurniture get() = industry == "furniture"
     /** A tiler's order (its own app: layouts in 3D, like the furniture maker's). */
