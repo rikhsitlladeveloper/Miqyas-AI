@@ -72,7 +72,7 @@ func priceLine(_ p: Project) -> String? {
 }
 
 /// The price as a line: grey and approximate in the simple app, nothing before there is furniture.
-struct PriceLine: View {
+struct OrderPriceLine: View {
     let p: Project
     var size: CGFloat = 13.5
     var body: some View {

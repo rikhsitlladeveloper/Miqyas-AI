@@ -147,9 +147,9 @@ footer a { color: var(--ink3); }
   <h2>3. Nimalarni qilmaymiz</h2>
   <ul>
     <li>Hisob va kirish yo‘q.</li>
-    <li>Server yo‘q: ilovaning o‘z internet aloqasi yo‘q, u internetsiz ishlaydi.</li>
+    <li>Server yo‘q: ilova internetsiz ishlaydi. Yagona istisno — ovoz paketi: ovoz bilan kiritishni birinchi marta ishlatganingizda va «Yuklab olish»ni bosganingizda, ilova nutqni tanish modelini (taxminan 57 MB) bir marta whisper.cpp loyihasining Hugging Face’dagi sahifasidan, faqat Wi-Fi orqali yuklab oladi. Bu oddiy fayl yuklash: unda sizning hech qanday ma’lumotingiz yuborilmaydi. Yuklashni rad etsangiz, qolgan hamma narsa ishlayveradi.</li>
     <li>Statistika, reklama va kuzatish yo‘q. Ma’lumotlarni sotmaymiz va hech kimga bermaymiz.</li>
-    <li>Ilova ichida boshqa kompaniyalarning kodi (SDK) yo‘q.</li>
+    <li>Statistika yoki reklama SDK’lari yo‘q. Ilovada faqat ochiq kodli whisper.cpp nutq tanish kutubxonasi bor (MIT litsenziyasi); u faqat telefonda ishlaydi va hech narsa yubormaydi.</li>
   </ul>
 
   <h2>4. Ruxsatlar va ular nima uchun</h2>
@@ -158,6 +158,7 @@ footer a { color: var(--ink3); }
     <li><strong>Bluetooth</strong> — lazer o‘lchagichingizni (ZB-08) topish va u o‘lchagan masofani olish uchun. Lazerni qidirganingizda so‘raladi.</li>
     <li><strong>Kamera</strong> — devor yoki teshikni suratga olib, ustiga o‘lcham chizish uchun. Suratga olganingizda so‘raladi.</li>
     <li><strong>Suratlar</strong> — galereyadagi suratni ochib, ustiga o‘lcham chizish uchun. Ilova faqat siz tanlagan suratni oladi.</li>
+    <li><strong>Mikrofon</strong> — o‘lchamni ovoz bilan aytish uchun («uch ming to‘rt yuz» → 3400): faqat mikrofon tugmasini bosib turganingizda yozadi. Ovoz telefonning o‘zida matnga aylantiriladi, saqlanmaydi va hech qayerga yuborilmaydi. Birinchi marta bosib turganingizda so‘raladi.</li>
     <li><strong>Joylashuv (ixtiyoriy)</strong> — faqat loyiha ma’lumotlarida «Joylashuvni aniqlash»ni bosganingizda. Ilova joylashuvni bir marta oladi va obyektni keyin topish uchun shu loyihada saqlaydi. U shu loyihaning PDF taklifida ham chiqadi. Ilova sizni kuzatmaydi va joylashuvdan fonda foydalanmaydi. Uni istalgan vaqtda loyihadan olib tashlashingiz mumkin.</li>
   </ul>
 
@@ -234,9 +235,9 @@ footer a { color: var(--ink3); }
   <h2>3. Чего мы не делаем</h2>
   <ul>
     <li>Нет аккаунта и входа.</li>
-    <li>Нет серверов: у приложения нет своего подключения к интернету, оно работает офлайн.</li>
+    <li>Нет серверов: приложение работает офлайн. Единственное исключение — голосовой пакет: когда вы впервые пользуетесь вводом голосом и нажимаете «Загрузить», приложение один раз скачивает модель распознавания речи (около 57 МБ) со страницы проекта whisper.cpp на Hugging Face, только по Wi-Fi. Это обычная загрузка файла: ваши данные при этом не передаются. Если отказаться, всё остальное работает как прежде.</li>
     <li>Нет аналитики, рекламы и слежки. Мы не продаём и никому не передаём данные.</li>
-    <li>Нет стороннего кода (SDK) внутри приложения.</li>
+    <li>Нет SDK аналитики и рекламы. В приложении есть только открытая библиотека распознавания речи whisper.cpp (лицензия MIT); она работает на телефоне и ничего не передаёт.</li>
   </ul>
 
   <h2>4. Разрешения и зачем они</h2>
@@ -245,6 +246,7 @@ footer a { color: var(--ink3); }
     <li><strong>Bluetooth</strong> — чтобы найти лазерный дальномер (ZB-08) и получать измеренные им расстояния. Запрашивается при поиске лазера.</li>
     <li><strong>Камера</strong> — чтобы сфотографировать стену или проём и нанести на фото размеры. Запрашивается, когда вы делаете снимок.</li>
     <li><strong>Фото</strong> — чтобы открыть снимок из галереи и нанести на него размеры. Приложение получает только выбранный вами снимок.</li>
+    <li><strong>Микрофон</strong> — чтобы назвать размер голосом («три тысячи четыреста» → 3400): запись идёт, только пока вы удерживаете кнопку микрофона. Голос распознаётся на самом телефоне, не сохраняется и никуда не отправляется. Запрашивается при первом нажатии.</li>
     <li><strong>Геолокация (по желанию)</strong> — только когда вы нажимаете «Определить местоположение» в данных проекта. Приложение определяет место один раз и сохраняет его в этом проекте, чтобы потом найти объект. Оно также печатается в PDF-предложении этого проекта. Приложение не следит за вами и не использует геолокацию в фоне. Место можно в любой момент убрать из проекта.</li>
   </ul>
 
@@ -321,9 +323,9 @@ footer a { color: var(--ink3); }
   <h2>3. What we don’t do</h2>
   <ul>
     <li>No account or sign-in.</li>
-    <li>No servers: the app has no internet connection of its own and works offline.</li>
+    <li>No servers: the app works offline. The one exception is the voice pack: the first time you use voice input and tap “Download”, the app downloads the speech model (about 57 MB) once from the whisper.cpp project’s Hugging Face page, over Wi-Fi only. It is a plain file download: none of your data is sent. If you decline, everything else works as before.</li>
     <li>No analytics, no advertising, no tracking. We don’t sell or share data.</li>
-    <li>No third-party code (SDKs) inside the app.</li>
+    <li>No analytics or advertising SDKs. The only third-party code is the open-source speech library whisper.cpp (MIT licence); it runs on the phone and sends nothing.</li>
   </ul>
 
   <h2>4. Permissions and why</h2>
@@ -332,6 +334,7 @@ footer a { color: var(--ink3); }
     <li><strong>Bluetooth</strong> — to find your laser meter (ZB-08) and read the distances it measures. Asked when you search for the laser.</li>
     <li><strong>Camera</strong> — to take a photo of a wall or opening and draw dimensions on it. Asked when you take a photo.</li>
     <li><strong>Photos</strong> — to open a photo from your library and draw dimensions on it. The app gets only the photo you pick.</li>
+    <li><strong>Microphone</strong> — to say a size (“three thousand four hundred” → 3400): it records only while you hold the microphone button. The voice is turned into text on the phone itself, is not kept and is never sent anywhere. Asked the first time you hold the button.</li>
     <li><strong>Location (optional)</strong> — only when you tap “Get my location” in a project’s details. The app takes your position once and saves it in that project so you can find the site later. It is also printed on that project’s PDF quote. The app doesn’t track you or use location in the background. You can remove it from the project at any time.</li>
   </ul>
 

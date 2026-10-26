@@ -456,7 +456,7 @@ private struct FOrderPage: View {
                 }
                 OrderProgress(app: app, p: p).padding(.horizontal, 10)
                 HStack(spacing: 8) {
-                    PriceLine(p: p)
+                    OrderPriceLine(p: p)
                     Spacer(minLength: 0)
                     if adv { FStageChip(stage: p.stage) }
                     InstallChip(p: p)

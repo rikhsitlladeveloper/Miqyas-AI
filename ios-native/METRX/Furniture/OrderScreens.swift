@@ -193,7 +193,7 @@ private struct OrderLine: View {
             // the order's progress and what comes next (UX upgrades section 2), the price (section 4)
             MiniProgress(p: p)
             HStack(spacing: 8) {
-                PriceLine(p: p, size: 12.5)
+                OrderPriceLine(p: p, size: 12.5)
                 Spacer(minLength: 0)
                 T(nextLine(p), ui(12.5, 700, G.cobalt2), lines: 1)
             }
@@ -254,7 +254,7 @@ struct OrderRow: View {
             // the progress line, "Keyingi: …" and the price (UX upgrades sections 2 and 4)
             MiniProgress(p: p)
             HStack(spacing: 8) {
-                PriceLine(p: p, size: 12.5)
+                OrderPriceLine(p: p, size: 12.5)
                 Spacer(minLength: 0)
                 T(nextLine(p), ui(12.5, 700, G.cobalt2), lines: 1)
             }

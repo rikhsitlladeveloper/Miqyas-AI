@@ -6,13 +6,14 @@ What to answer in App Store Connect, and why. Checked against the iPhone code in
 
 | Question | What I found in `ios-native/METRX` |
 |---|---|
-| Does the app talk to any server? | **No.** No `URLSession`, `URLRequest`, `NWConnection`, Network framework, WebKit/`WKWebView`, `SFSafariViewController`, CloudKit or iCloud in any Swift file. |
-| Third-party code (SDKs, analytics, ads, crash tools)? | **None.** `project.yml` has no Swift packages and no other dependencies; the only bundled extras are fonts (OFL licence, `ios-native/FONT_LICENSE_OFL.txt`). |
+| Does the app talk to any server? | **Only for one file download (since the UX upgrades, 26 Oct 2026).** `UX/VoicePack.swift` downloads the voice pack (whisper.cpp's `ggml-base-q5_1.bin`, about 57 MB, from `huggingface.co/ggerganov/whisper.cpp`, pinned to one version and checked by SHA-256) when the user taps "Yuklab olish". Wi-Fi only (`allowsCellularAccess`, `allowsExpensiveNetworkAccess` and `allowsConstrainedNetworkAccess` off; `NWPathMonitor` only to show whether Wi-Fi is there). It is a plain GET with no user data; the file is kept in Application Support (not backed up). Nothing else: no `URLRequest` with user data, WebKit, CloudKit or iCloud. |
+| Third-party code (SDKs, analytics, ads, crash tools)? | **No analytics, ads or crash tools.** One library: whisper.cpp's official XCFramework (MIT licence, release b5130) as a local Swift package (`ios-native/Packages/WhisperBin`), for on-device speech to text. It makes no network calls. Fonts: OFL licence (`ios-native/FONT_LICENSE_OFL.txt`). |
 | Where is data stored? | On the phone only: projects as JSON files in the app's Application Support folder (`Data/Store.swift`), 3D pictures and photos next to them (`Data/ViewFiles.swift`), small settings in `UserDefaults` (`Core/Settings.swift`). Nothing is excluded from the iPhone's own backups, so iCloud Backup or a computer backup made by the user includes it. Apple keeps that, not us. |
 | Links the app opens | Three, all started by the user: `tel:` (the "Call" button opens the Phone app), the iPhone's Settings page for METRX (when Bluetooth permission is off), and `https://www.google.com/maps/search/?api=1&query=lat,lng` ("Open in maps" on a project with a saved location). That one opens Google Maps or Safari, outside the app. |
 | Sharing | The PDF quote goes through the iPhone's share sheet (`Report/ReportScreen.swift`), to an app or person the user chooses. |
 | Bluetooth | CoreBluetooth only, to find and connect the ZB-08 laser and read its distance messages (`Laser/RealLaser.swift`). No background modes. |
 | Camera / Photos | `AVCaptureSession` and `UIImagePickerController` for photos the user takes or picks to draw dimensions on (`Markup/`). Photos are saved inside the app only. |
+| Microphone | `NSMicrophoneUsageDescription` (Uzbek and English). `AVAudioEngine` records only while the size field's mic button is held (`UX/VoiceEngine.swift`); whisper.cpp turns it into text on the phone and `UX/VoiceParse.swift` into millimetres. The audio is kept in memory only, never saved or sent. |
 | Location | **Yes, optional.** `NSLocationWhenInUseUsageDescription` is in `Info.plist`, and `CLLocationManager` is used in `Projects/ProjectsList.swift` (`OneFix`). It is asked only when the user taps **"Get my location"** in a project's or order's details. It takes **one** fix (it stops after 15 s), saves latitude, longitude and accuracy in that project, and can be removed ("Remove"). There is no background or continuous tracking. The PDF quote prints the saved coordinates (`Report/Pages.swift`). GPS works without internet. |
 | Personal details typed by the user | The user's own name and phone (printed on quotes), and customers' names, phones and addresses in projects. All stay on the phone. |
 
@@ -105,3 +106,9 @@ You can change the category later.
 - **Availability:** Uzbekistan first (you can add countries later).
 - **EU Digital Services Act (trader status):** App Store Connect asks this once for the account. It matters only for EU storefronts. As an individual with a free app and no business, the usual answer is *not a trader*. If you later sell in the EU as a trader, your address, phone and email are shown on the EU store.
 - **Sign-in required for review:** No.
+
+## Voice input (added 26 Oct 2026)
+
+- App Privacy stays **"Data Not Collected"**: the audio is processed on the device and discarded; the voice pack download sends no user data (Apple's definition of *collect* is data sent off the device that we can access).
+- The privacy policy (`site/privacy.html`, all three languages) now names the microphone permission and the one-time voice pack download from the whisper.cpp project's Hugging Face page.
+- Export compliance is unchanged: the download is HTTPS by the system (exempt encryption).
