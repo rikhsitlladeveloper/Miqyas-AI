@@ -110,7 +110,9 @@ fun snapshotOf(p: Project, unit: LenUnit, builderName: String, builderPhone: Str
             .map { SnapExtra(it.id, it.kind, it.name, floorName(w, l), it.text, it.checks, it.edited, it.els, it.src, it.W, it.H, it.caption) }
     }
     return Snap(
-        name = p.name, customer = p.customer, phone = p.phone, address = p.address, location = p.location,
+        name = p.name, customer = p.customer, phone = p.phone, address = p.address,
+        // only a builder's report prints the location: furniture and the trades' orders keep it for the maker (room-shapes spec §1)
+        location = if (p.industry == "build") p.location else null,
         currency = p.currency, precision = p.precision, unit = if (unit == LenUnit.CM) "cm" else "m", lang = l.code, notes = p.reportNotes,
         builderName = builderName, builderPhone = builderPhone, pdf = pdf, rooms = rooms, estimate = p.estimate, extras = extras, snap = snap, industry = p.industry
     )

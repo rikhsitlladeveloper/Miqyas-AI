@@ -64,6 +64,7 @@ import uz.metrx.app.data.uid
 import uz.metrx.app.furniture.priceOf
 import uz.metrx.app.furniture.runMm
 import uz.metrx.app.geo.stepKeys
+import uz.metrx.app.ui.loc.LocState
 import uz.metrx.app.ui.App
 import uz.metrx.app.ui.LocalApp
 import uz.metrx.app.ui.Route
@@ -175,6 +176,14 @@ fun NewOrderScreen(industry: String = "furniture") {
     var phone by rememberSaveable { mutableStateOf("") }
     var address by rememberSaveable { mutableStateOf("") }
     var tried by rememberSaveable { mutableStateOf(false) }
+    // the "Joylashuv" block (room-shapes spec §1): GPS only, read when tapped; optional, like the address
+    var locState by remember { mutableStateOf(LocState.NONE) }
+    var loc by remember { mutableStateOf<uz.metrx.app.data.Location?>(null) }
+    val gps = uz.metrx.app.ui.loc.rememberGps { l ->
+        if (locState != LocState.LOCATING) return@rememberGps
+        if (l != null) { loc = l; locState = LocState.OK; app.haptic(uz.metrx.app.ui.ux.Hap.CONFIRM) }
+        else { locState = LocState.FAIL; app.haptic(uz.metrx.app.ui.ux.Hap.WARN) }
+    }
     val focus = LocalFocusManager.current
     val fWho = remember { FocusRequester() }; val fPhone = remember { FocusRequester() }; val fAddr = remember { FocusRequester() }
     LaunchedEffect(Unit) { runCatching { fWho.requestFocus() } }
@@ -186,9 +195,10 @@ fun NewOrderScreen(industry: String = "furniture") {
         tried = true
         if (!ok || !app.once()) return
         focus.clearFocus()
+        gps.cancel()
         // named after the customer; "Oshxona — Akmal" once they say what they need (renameOrder)
         val name = who.trim()
-        val p = newProject(name, name, Phone.digits(phone), address.trim(), null, app.settings.currency, app.settings.reportLang.code).copy(industry = industry, autoName = industry == "furniture")
+        val p = newProject(name, name, Phone.digits(phone), address.trim(), if (locState == LocState.OK) loc else null, app.settings.currency, app.settings.reportLang.code).copy(industry = industry, autoName = industry == "furniture")
         app.store.add(p)
         app.replaceTop(Route.Project(p.id))
         // a tiler picks the layout first (tiles/Tiles.kt), a furniture maker the design style and then the furniture (Look.kt)
@@ -213,7 +223,8 @@ fun NewOrderScreen(industry: String = "furniture") {
                     focusRequester = fWho, capitalization = KeyboardCapitalization.Words)
                 GField(tr("np.customerPhone"), phone, { phone = it }, "90 123 45 67", optional = true, phone = true, error = phErr, showError = tried || phone.length >= 9,
                     onIme = { fAddr.requestFocus() }, focusRequester = fPhone)
-                GField(tr("np.address"), address, { address = it }, tr("smp.address"), optional = true, imeAction = ImeAction.Done, onIme = ::create, focusRequester = fAddr)
+                GField(tr("np.address"), address, { address = it }, tr("smp.address"), optional = true, imeAction = ImeAction.Done, onIme = { focus.clearFocus() }, focusRequester = fAddr)
+                uz.metrx.app.ui.loc.LocFormBlock(locState, loc, gps, { locState = it }, { loc = it })
                 Text(tr("fz.nextNote"), style = ui(13.5f, 400, G.ink2, 1.4f))
             }
             if (imeOn) footer(Modifier)
@@ -330,6 +341,7 @@ fun OrderFlowSheet(s: Sheet): Boolean {
     when (s) {
         is Sheet.FNewRoom -> NewRoomSheet(s)
         is Sheet.FInstall -> InstallSheet(s.pid)
+        is Sheet.LocAdd, is Sheet.Yol -> uz.metrx.app.ui.loc.LocSheet(s)
         else -> return false
     }
     return true

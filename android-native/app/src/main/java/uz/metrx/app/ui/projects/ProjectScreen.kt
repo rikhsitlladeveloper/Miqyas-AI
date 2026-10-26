@@ -155,7 +155,8 @@ private fun Header(p: Project, tab: String, lang: Lang) {
                     overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(top = 2.dp))
                 if (p.isFurniture) uz.metrx.app.ui.furniture.CallButton(p)
                 else if (p.phone.isNotEmpty()) RoundIc("phone", tr("pl.call")) { context.startActivity(Intent(Intent.ACTION_DIAL, Uri.parse("tel:+998" + Phone.digits(p.phone)))) }
-                if (p.location != null) RoundIc("pin", tr("loc.open")) { openMap(context, p) }
+                // a trade's order opens the "Yo‘l" sheet (Yandex, Navigator, Google, copy)
+                if (p.location != null) RoundIc("pin", tr(if (p.industry == "build") "loc.open" else "loc.yolA")) { if (p.industry == "build") openMap(context, p) else app.sheet = Sheet.Yol(p.id) }
                 RoundIc("more", tr("common.menu")) { app.sheet = Sheet.ProjectMenu(p.id) }
             }
             // the simple furniture app shows no stage: with no address either, the line goes
@@ -337,15 +338,19 @@ internal fun InfoTab(p: Project, lang: Lang) {
             }
             Hairline()
             Kv(tr("pr.address"), dn(p.address, lang).ifEmpty { "—" })
-            Hairline()
-            Kv(tr("pr.location"), p.location?.let { "%.5f, %.5f".format(java.util.Locale.ROOT, it.lat, it.lng) } ?: tr("loc.none")) {
-                if (p.location != null) GBtn(tr("loc.open"), { openMap(context, p) }, Btn.SECONDARY, icon = "pin", height = 40.dp, corner = 14.dp, fontSize = 14f, fill = false)
+            // a builder's project keeps its location row; the trades' orders have their own card below (room-shapes spec §1)
+            if (p.industry == "build") {
+                Hairline()
+                Kv(tr("pr.location"), p.location?.let { "%.5f, %.5f".format(java.util.Locale.ROOT, it.lat, it.lng) } ?: tr("loc.none")) {
+                    if (p.location != null) GBtn(tr("loc.open"), { openMap(context, p) }, Btn.SECONDARY, icon = "pin", height = 40.dp, corner = 14.dp, fontSize = 14f, fill = false)
+                }
             }
             // the simple furniture app has no prices, so no currency either
             if (!simpleOrder(p)) { Hairline(); Kv(tr("np.currency"), p.currency) }
             Hairline()
             Kv(tr("rpt.lang"), Lang.of(p.reportLang).longName)
         }
+        if (p.industry != "build") uz.metrx.app.ui.loc.LocInfoCard(p)
         GBtn(tr("pj.edit"), { app.push(Route.NewProject(p.id)) }, Btn.SECONDARY, icon = "edit")
     }
 }

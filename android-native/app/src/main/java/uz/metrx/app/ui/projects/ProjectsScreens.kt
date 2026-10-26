@@ -1,14 +1,5 @@
 package uz.metrx.app.ui.projects
 
-import android.Manifest
-import android.annotation.SuppressLint
-import android.content.Context
-import android.content.pm.PackageManager
-import android.location.LocationManager
-import android.os.Build
-import android.os.CancellationSignal
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -57,7 +48,6 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.shadow.Shadow
 import androidx.compose.ui.graphics.vector.PathParser
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.input.ImeAction
@@ -65,7 +55,6 @@ import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
-import androidx.core.content.ContextCompat
 import uz.metrx.app.core.Phone
 import uz.metrx.app.data.Location
 import uz.metrx.app.data.Project
@@ -232,6 +221,8 @@ private fun ProjectRow(p: Project, onClick: () -> Unit) {
                 }
                 Text("${st.conf}/${st.need}", style = ui(12f, 700, G.slate))
             }
+            // a trade's order in the advanced app's list (the builders' projects keep theirs on the project page)
+            if (p.industry != "build") uz.metrx.app.ui.loc.OrderLocRow(p)
         }
     }
 }
@@ -248,7 +239,6 @@ fun NewProjectScreen(editId: String?) {
     var phone by rememberSaveable { mutableStateOf(edit?.phone ?: "") }
     var address by rememberSaveable { mutableStateOf(edit?.let { dn(it.address, lang) } ?: "") }
     var loc by remember { mutableStateOf(edit?.location) }
-    var locating by remember { mutableStateOf(false) }
     var tried by rememberSaveable { mutableStateOf(false) }
     val touched = remember { mutableStateOf(setOf<String>()) }
     val focus = LocalFocusManager.current
@@ -263,17 +253,10 @@ fun NewProjectScreen(editId: String?) {
     fun show(k: String) = tried || k in touched.value
     fun touch(k: String) { touched.value = touched.value + k }
 
-    val context = LocalContext.current
-    val askLocation = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
-        if (res.values.any { it }) { locating = true; currentLocation(context) { l -> locating = false; if (l != null) loc = l else app.say("loc.fail", kind = ToastKind.ERROR) } }
-        else app.say("loc.fail", kind = ToastKind.ERROR)
-    }
-    fun locate() {
-        val has = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-            ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
-        if (has) { locating = true; currentLocation(context) { l -> locating = false; if (l != null) loc = l else app.say("loc.fail", kind = ToastKind.ERROR) } }
-        else askLocation.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION))
-    }
+    // the GPS (shared with the trades' new-order form, ui/loc): the permission is asked on the first tap
+    val gps = uz.metrx.app.ui.loc.rememberGps { l -> if (l != null) loc = l else app.say("loc.fail", kind = ToastKind.ERROR) }
+    val locating = gps.locating
+    fun locate() = gps.locate()
 
     fun save() {
         tried = true
@@ -373,26 +356,5 @@ private fun LocationBlock(loc: Location?, locating: Boolean, onLocate: () -> Uni
             Text(tr("loc.again"), style = ui(14f, 700, G.cobalt), modifier = Modifier.heightIn(min = 44.dp).clickable(role = Role.Button, onClick = onLocate).padding(horizontal = 8.dp, vertical = 12.dp))
             Text(tr("loc.remove"), style = ui(14f, 700, G.err), modifier = Modifier.heightIn(min = 44.dp).clickable(role = Role.Button, onClick = onRemove).padding(horizontal = 8.dp, vertical = 12.dp))
         }
-    }
-}
-
-/** One GPS fix (GPS works without internet). Calls back with null when the phone can't get one within 15 s. */
-@SuppressLint("MissingPermission")
-private fun currentLocation(context: Context, done: (Location?) -> Unit) {
-    val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    val provider = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).firstOrNull { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
-    if (provider == null) { done(null); return }
-    val main = android.os.Handler(android.os.Looper.getMainLooper())
-    var finished = false
-    fun finish(l: android.location.Location?) {
-        if (finished) return; finished = true
-        done(l?.let { Location(it.latitude, it.longitude, maxOf(1, it.accuracy.toInt()), System.currentTimeMillis()) })
-    }
-    main.postDelayed({ finish(lm.getLastKnownLocation(provider)) }, 15000)
-    if (Build.VERSION.SDK_INT >= 30) {
-        lm.getCurrentLocation(provider, CancellationSignal(), ContextCompat.getMainExecutor(context)) { finish(it) }
-    } else {
-        @Suppress("DEPRECATION")
-        lm.requestSingleUpdate(provider, { l -> finish(l) }, android.os.Looper.getMainLooper())
     }
 }

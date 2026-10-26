@@ -218,6 +218,7 @@ fun TOrderRow(p: Project, onClick: () -> Unit) {
             Text(dn(p.name, lang), style = ui(15f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
             val sub = if (p.tiles.isEmpty()) tr("tl.noLayouts") else p.tiles.map { layoutTitle(it) }.distinct().joinToString(", ")
             Text(sub, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            uz.metrx.app.ui.loc.OrderLocRow(p, Modifier.padding(top = 4.dp))
         }
         CallButton(p)
     }

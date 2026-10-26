@@ -241,6 +241,9 @@ sealed interface Sheet {
     data class Share3D(val pid: String, val fid: String? = null) : Sheet
     /** The voice pack's first-use sheet (UX upgrades §9): 50 MB over Wi-Fi, or later. */
     data object VoicePack : Sheet
+    /** An order's location (room-shapes spec §1): adding or changing it by GPS, and the "Yo‘l" sheet that opens it in a map. */
+    data class LocAdd(val pid: String) : Sheet
+    data class Yol(val pid: String) : Sheet
 }
 
 /** Everything the screens share: settings, the projects, where each tab is, the open sheet and the toast. */

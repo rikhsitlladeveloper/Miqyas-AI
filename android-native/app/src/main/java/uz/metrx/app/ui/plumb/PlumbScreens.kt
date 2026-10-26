@@ -290,6 +290,7 @@ fun POrderRow(p: Project, onClick: () -> Unit) {
             val sub = if (p.plumb.fixes.isEmpty() && p.plumb.free.isEmpty()) tr("sx.noFix") else fixSummary(p.plumb.fixes.filter { it.t != "manif" }) +
                 if (p.plumb.free.isNotEmpty()) " · " + tr("el.freeN", "n" to p.plumb.free.size) else ""
             Text(sub, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            uz.metrx.app.ui.loc.OrderLocRow(p, Modifier.padding(top = 4.dp))
         }
         CallButton(p)
     }

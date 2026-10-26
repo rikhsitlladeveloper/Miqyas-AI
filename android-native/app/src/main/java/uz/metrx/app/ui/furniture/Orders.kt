@@ -246,6 +246,8 @@ fun FOrderCard(p: Project, onClick: () -> Unit) {
                 FStageChip(p.stage); InstallChip(p)
             }
             uz.metrx.app.ui.ux.MiniProgress(p)
+            // the sample is not a real customer's: no location
+            if (!p.sample) uz.metrx.app.ui.loc.OrderLocRow(p)
         }
         if (p.sample) Column(Modifier.heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.errWash).clickable(role = Role.Button) { app.deleteSample(p.id) }
             .padding(horizontal = 10.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)) {
