@@ -35,21 +35,10 @@ struct KitchenScreen: View {
             ZStack {
                 RoomGrid().ignoresSafeArea()
                 VStack(spacing: 0) {
-                    HStack(spacing: 8) {
-                        GlassIconButton("back", tr("nt.back")) { app.pop() }.accessibilityIdentifier("back")
-                        VStack(alignment: .leading, spacing: 0) {
-                            T(dn(f.name), ui(19, 800, G.ink, lh: 1.2), lines: 1)
-                            T(tr("kt.sub", ["n": f.modules.count, "v": runMetres(f, en)]), ui(12, 400, G.ink2), lines: 1)
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        GlassIconButton("undo", tr("common.undo"), tint: kit.canUndo(f.id) ? G.ink : PC.offIcon) { kit.undo(p.id, f.id) }.accessibilityIdentifier("kt.undo")
-                        GlassIconButton("redo", tr("common.redo"), tint: kit.canRedo(f.id) ? G.ink : PC.offIcon) { kit.redo(p.id, f.id) }
-                        GlassIconButton("more", tr("common.menu")) { app.sheet = .fMenu(pid: p.id, fid: f.id) }.accessibilityIdentifier("kt.menu")
-                    }
-                    .padding(.horizontal, 16).frame(height: 64)
+                    // the UX upgrades' bars (sections 1, 2, 4): the name and the compact progress on top; Undo, 2D/3D and
+                    // "Narxni ko‘rish" at the bottom
+                    DesignerHead(app: app, p: p, f: f, sub: tr("kt.sub", ["n": f.modules.count, "v": runMetres(f, en)]))
                     if let room, let run {
-                        HStack { DimSeg(d3: d3) { app.setTop(.kitchen(pid: pid, fid: fid, wall: wall, d3: $0)) }; Spacer() }
-                            .padding(.horizontal, 16).padding(.bottom, 10)
                         if d3 { Furniture3DPane(app: app, p: p, room: room) } else {
                         ScrollView {
                             VStack(alignment: .leading, spacing: 12) {
@@ -123,6 +112,7 @@ struct KitchenScreen: View {
                         }
                         LivePrice(app: app, p: p, f: f)
                         }
+                        DesignerBar(app: app, p: p, f: f) { DimSeg(d3: d3) { v in Haptic.tick(); app.setTop(.kitchen(pid: pid, fid: fid, wall: wall, d3: v)) } }
                     } else {
                         T(tr("kt.roomLost"), ui(15, 500, G.ink2, lh: 1.45)).padding(24)
                         Spacer()

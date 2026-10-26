@@ -237,14 +237,14 @@ struct AutoKitchenScreen: View {
             let R = akRoomOf(room, snap)
             let key = st.ensure(R, room, s.workshop, snap: snap)
             let en = s.lang == .en
-            let sub = tr("ak.sub", ["r": roomTitle(p, room), "a": Geo.fmtLen(room.dim("A").v, .m, en), "b": Geo.fmtLen(room.dim("B").v, .m, en)])
+            let sub = tr("ak.sub", ["r": roomTitle(p, room), "a": Geo.fmtLen(room.dim("A").v, AppSettings.shared.unit, en), "b": Geo.fmtLen(room.dim("B").v, AppSettings.shared.unit, en)])
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
                     GlassIconButton("back", tr("nt.back")) { app.pop() }.padding(.leading, 6).accessibilityIdentifier("back")
                     BarTitle(title: tr("ak.title"), eyebrow: dn(p.name), sub: sub)
                 }
                 .padding(.trailing, 12).frame(minHeight: 64)
-                .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+                .background(barTint.ignoresSafeArea(edges: .top))
                 .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) {

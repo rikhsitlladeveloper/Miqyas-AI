@@ -57,6 +57,13 @@ struct ProfileScreen: View {
                             }
                         }
                         T(tr("adv.sub"), ui(12.5, 400, G.ink2, lh: 1.4)).padding(.horizontal, 28).padding(.top, 8)
+                        // the size unit and the voice pack (UX upgrades sections 5 and 9)
+                        Card {
+                            UnitRow()
+                            Hairline().padding(.leading, 60)
+                            VoicePackRow(app: app)
+                        }
+                        .padding(.top, 10)
                     }
                     // tilers: the same switch; on, the quantities, prices, estimate and quotes (off: only the tiles in 3D)
                     if s.tiler {
@@ -121,6 +128,21 @@ struct ProfileScreen: View {
                     }
                     // dark mode: this app's own (the prototype has only the light look)
                     Card { SwitchRow(icon: "moon", title: tr("nt.dark"), on: s.dark) { s.setDarkMode(!s.dark) } }.padding(.top, 10)
+                    // haptics, and the tour, coach marks and sample order back (UX upgrades sections 10 and 11)
+                    Card {
+                        SwitchRow(icon: "device", title: tr("ux.haptic"), on: s.haptics) {
+                            s.setHaptics(!s.haptics); if s.haptics { Haptic.tick() }
+                            app.say(s.haptics ? "ux.hapticOn" : "ux.hapticOff")
+                        }
+                        .accessibilityIdentifier("pf.haptic")
+                        Row1(icon: "info", title: tr("ux.hints"), value: nil, sub: tr("ux.hintsS")) {
+                            s.resetTour(); SampleOrder.ensure()
+                            app.selectTab(.home)
+                            app.say("ux.hintsDone")
+                        }
+                        .accessibilityIdentifier("pf.hints")
+                    }
+                    .padding(.top, 10)
                     Group1(text: tr("pf.gMeasure"))
                     Card {
                         Row1(icon: "door", title: tr("se.defaults"), value: Geo.fmtLen(s.doorW, s.unit, s.lang == .en) + " × " + Geo.fmtLen(s.doorH, s.unit, s.lang == .en)) { app.sheet = .defaults }
@@ -384,5 +406,36 @@ private struct DefaultsSheet: View {
         .onAppear {
             if f.isEmpty { f = [s.doorW, s.doorH, s.winW, s.winH, s.winSill].map { Geo.fmtField($0, u, en) } }
         }
+    }
+}
+
+/// "Mebel uchun o‘lcham birligi": Millimetr / Santimetr / Metr (furniture makers; builders keep their metres).
+private struct UnitRow: View {
+    var body: some View {
+        let s = AppSettings.shared
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 12) {
+                IconTile(icon: "ruler")
+                VStack(alignment: .leading, spacing: 1) {
+                    T(tr("ux.unitT"), ui(15.5, 500, G.ink, lh: 1.4))
+                    T(tr("ux.unitS"), ui(13, 400, G.ink2, lh: 1.35))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            HStack(spacing: 4) {
+                ForEach([("mm", "ux.uMm"), ("cm", "ux.uCm"), ("m", "ux.uM")], id: \.0) { k, l in
+                    let on = s.furnUnit == k
+                    T(tr(l), ui(13.5, on ? 800 : 600, on ? G.ink : G.ink2), lines: 1).minimumScaleFactor(0.8)
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(on ? G.glass(0.95) : .clear))
+                        .pressable(0.97) { Haptic.tick(); s.setFurnUnit(k) }
+                        .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+                        .accessibilityIdentifier("pf.unit." + k)
+                }
+            }
+            .padding(3)
+            .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.ink.opacity(0.06)))
+        }
+        .padding(.horizontal, 12).padding(.vertical, 10)
     }
 }

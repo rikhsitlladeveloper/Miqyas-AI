@@ -66,7 +66,7 @@ struct FPage<Content: View, Footer: View>: View {
                     BarTitle(title: title, eyebrow: eyebrow)
                 }
                 .padding(.trailing, 12).frame(minHeight: 64)
-                .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+                .background(barTint.ignoresSafeArea(edges: .top))
                 .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 12) { content }
@@ -115,7 +115,7 @@ struct FreeBanner: View {
 
 /// A room-less piece's line: its model, sizes and running metres.
 func freeSub(_ f: Furniture, _ en: Bool) -> String {
-    func m(_ v: Int) -> String { Geo.fmtLen(v, .m, en) }
+    func m(_ v: Int) -> String { Geo.fmtLen(v, AppSettings.shared.unit, en) }
     if f.kind == "wardrobe" {
         guard let w = wardOfF(f) else { return "" }
         // a sliding wardrobe is named by the doors it has now, not by the model it started from ("Kupe, 3 eshik" → 4)
@@ -125,15 +125,15 @@ func freeSub(_ f: Furniture, _ en: Bool) -> String {
         let v = valsOf(f, AppSettings.shared.workshop)
         let h = v["h"] ?? w.h
         let sizes: String
-        if let mw = v["mw"] { sizes = m(mw) + " × " + m(v["ml"] ?? 0) + U_M }
-        else if let w2 = v["w2"] { sizes = m(v["w"] ?? w.w) + " + " + m(w2) + " × " + m(h) + U_M }
-        else { sizes = m(v["w"] ?? w.w) + " × " + m(h) + " × " + m(v["d"] ?? w.d) + U_M }
+        if let mw = v["mw"] { sizes = m(mw) + " × " + m(v["ml"] ?? 0) + U_L }
+        else if let w2 = v["w2"] { sizes = m(v["w"] ?? w.w) + " + " + m(w2) + " × " + m(h) + U_L }
+        else { sizes = m(v["w"] ?? w.w) + " × " + m(h) + " × " + m(v["d"] ?? w.d) + U_L }
         return [name, sizes].compactMap { $0 }.joined(separator: " · ")
     }
     let fs = f.free
     let run = fs.map { freeRunMm(f.layout, $0.sides, $0.island) } ?? runMm(f)
     let t = (max(0, run) + 50) / 100
-    let sizes = fs.map { ($0.sides + ($0.island > 0 ? [$0.island] : [])).map { m($0) }.joined(separator: " + ") + U_M }
+    let sizes = fs.map { ($0.sides + ($0.island > 0 ? [$0.island] : [])).map { m($0) }.joined(separator: " + ") + U_L }
     return [tr(f.model.isEmpty ? "kt.l" + f.layout : "fz.m." + f.model), sizes, "\(t / 10)\(en ? "." : ",")\(t % 10) " + tr("kt.pm")].compactMap { $0 }.joined(separator: " · ")
 }
 
@@ -214,7 +214,7 @@ struct PickRoomSheet: View {
         if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }) {
             let snap = AppSettings.shared.angleSnap
             let rooms = p.rooms.filter { measuredRoom($0, snap) }
-            let m = { (v: Int?) -> String in v.map { Geo.fmtLen($0, .m, en) } ?? "?" }
+            let m = { (v: Int?) -> String in v.map { Geo.fmtLen($0, AppSettings.shared.unit, en) } ?? "?" }
             GlassSheet(tr("fz.pickT", ["n": dn(f.name)]), onClose: { app.sheet = nil }) {
                 if rooms.isEmpty { T(tr("fz.noMeasured"), ui(14, 400, G.ink2, lh: 1.45)) }
                 ForEach(rooms) { r in
@@ -223,7 +223,7 @@ struct PickRoomSheet: View {
                         MIcon(w?.type == "kitchen" ? "kitchen" : "room", G.cobalt, 22, 2)
                         VStack(alignment: .leading, spacing: 1) {
                             T(w.map { floorName($0) } ?? dn(r.name), ui(15.5, 700), lines: 1)
-                            T(m(r.dim("A").v) + " × " + m(r.dim("B").v) + U_M + " · h " + m(r.dim("H").v), num(12.5, 500, G.ink2), lines: 1)
+                            T(m(r.dim("A").v) + " × " + m(r.dim("B").v) + U_L + " · h " + m(r.dim("H").v), num(12.5, 500, G.ink2), lines: 1)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         MIcon("chev", G.ink3, 16, 2)

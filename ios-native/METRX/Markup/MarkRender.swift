@@ -19,7 +19,7 @@ enum MkMode { case edit, thumb, report }
 struct MkFmt {
     let unit: LenUnit, en: Bool, m: String, lang: Lang
     static func current(_ l: Lang = AppSettings.shared.lang) -> MkFmt {
-        MkFmt(unit: AppSettings.shared.unit, en: l == .en, m: Strings.t(AppSettings.shared.unit == .cm ? "u.cm" : "u.m", l), lang: l)
+        MkFmt(unit: AppSettings.shared.unit, en: l == .en, m: Strings.t(unitKey(AppSettings.shared.unit), l), lang: l)
     }
 }
 

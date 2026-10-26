@@ -100,7 +100,8 @@ struct RootView: View {
             if let sh = app.sheet { sheetView(sh).zIndex(5) }
             if app.soon { SoonSheet(onLocal: { app.soon = false; authNav.local() }, onClose: { app.soon = false }).zIndex(6) }
             LaserWaitBar().zIndex(6.5)
-            ToastHost(msg: app.toast) { app.toast = nil }.zIndex(7)
+            // at the bottom, just above the page's bottom bar (UX upgrades section 3); over a sheet, at the top
+            ToastHost(msg: app.toast, lift: app.toastLift, top: app.sheet != nil || inAuth) { app.toast = nil }.zIndex(7)
         }
     }
 
@@ -119,11 +120,23 @@ struct RootView: View {
                     .gesture(DragGesture(minimumDistance: 10).onEnded { v in if v.translation.width > 70 { if let b = app.backOverride { b() } else { app.pop() } } })
             }
             // the tab bar shows on the tab pages and the project page; it steps away under a sheet
-            if app.sheet == nil && (app.top == .root || { switch app.top { case .project, .measure: return true; default: return false } }()) {
+            // not inside a furniture order (UX upgrades section 1): its own bottom bar is there
+            if app.sheet == nil && (app.top == .root || { switch app.top {
+                case .project(let id, _, _, _): return Store.shared.get(id)?.isFurniture != true
+                case .measure: return true
+                default: return false } }()) {
                 // it stays at the bottom when the keyboard opens (the keyboard covers it, as in other iPhone apps)
-                GlassNav(cur: app.tab) { app.selectTab($0) }.transition(.opacity).ignoresSafeArea(.keyboard)
+                GlassNav(cur: app.tab) { app.selectTab($0) }.bottomBar().transition(.opacity).ignoresSafeArea(.keyboard)
+            }
+            // a furniture maker's first start: the three tour cards over Home (UX upgrades section 11)
+            if AppSettings.shared.furniture && !AppSettings.shared.tourDone && app.top == .root && app.tab == .home && app.sheet == nil {
+                TourOverlay().zIndex(4)
             }
         }
+        .overlayPreferenceValue(CoachKey.self) { marks in CoachLayer(marks: marks) }
+        .onAppear { SampleOrder.ensure() }
+        .onChange(of: AppSettings.shared.industry) { _, _ in SampleOrder.ensure() }
+        .onChange(of: AppSettings.shared.sampleMade) { _, _ in SampleOrder.ensure() }
     }
 
     @ViewBuilder private var page: some View {
@@ -190,6 +203,7 @@ struct RootView: View {
         switch s {
         case .language: LanguageSheet(app: app)
         case .device: DeviceSheet(app: app)
+        case .voicePack: VoicePackSheet(app: app)
         default:
             if WinSheet.handles(s) { WinSheet(app: app, sheet: s) }
             else if PlumbSheet.handles(s) { PlumbSheet(app: app, sheet: s) }

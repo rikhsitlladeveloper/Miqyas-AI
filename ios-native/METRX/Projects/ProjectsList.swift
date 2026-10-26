@@ -57,7 +57,9 @@ struct ProjectsList: View {
             if all.isEmpty {
                 ProjectsEmpty(app: app)
             } else {
-                let n = ["active": ps.filter { stageOf($0) != "done" }.count, "done": ps.filter { stageOf($0) == "done" }.count, "all": ps.count, "other": others.count]
+                // the sample order is never counted (UX upgrades section 11)
+                let real = ps.filter { !$0.sample }
+                let n = ["active": real.filter { stageOf($0) != "done" }.count, "done": real.filter { stageOf($0) == "done" }.count, "all": real.count, "other": others.filter { !$0.sample }.count]
                 let needle = q.trimmingCharacters(in: .whitespaces).lowercased()
                 let list = (seg == "other" ? others : ps).filter { p in
                     let inSeg = seg == "all" || seg == "other" || (seg == "done" ? stageOf(p) == "done" : stageOf(p) != "done")
@@ -226,7 +228,7 @@ struct NewProjectScreen: View {
                     BarTitle(title: tr(furn ? "fo.details" : "np.editTitle"), eyebrow: edit == nil ? tr(furn ? "fo.new" : "np.title") : nil)
                 }
                 .padding(.trailing, 12).frame(minHeight: 64)
-                .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+                .background(barTint.ignoresSafeArea(edges: .top))
                 .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {

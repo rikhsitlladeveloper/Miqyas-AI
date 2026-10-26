@@ -93,7 +93,7 @@ struct TViewScreen: View {
             }
         }
         .padding(.trailing, 12).frame(minHeight: 64)
-        .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+        .background(barTint.ignoresSafeArea(edges: .top))
         .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
     }
 

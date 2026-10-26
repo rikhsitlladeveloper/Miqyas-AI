@@ -1,0 +1,61 @@
+import SwiftUI
+
+/*
+ * "Telegram’ga yuborish" (UX upgrades 26 Oct 2026, section 8): one tap issues the quote (freezes the price, the
+ * pictures and the boards, as "Taklifni chiqarish" does, with no confirm sheet) and opens the share sheet with its PDF;
+ * on iPhone there is no way to hand a file to Telegram itself, and the sheet puts the apps used most first. A toast
+ * offers Undo, which takes the quote back to a draft. "Boshqa…" opens the same sheet.
+ */
+enum QuoteSend {
+    /// Issues the order's quote (or reuses the last one when nothing changed since) and shares its PDF.
+    static func send(_ app: AppModel, _ pid: String) { MainActor.assumeIsolated { sendNow(app, pid) } }
+
+    @MainActor private static func sendNow(_ app: AppModel, _ pid: String) {
+        guard let p = Store.shared.get(pid), p.isFurniture else { return }
+        let sn = snapshotOf(p)
+        guard !sn.furniture.isEmpty else { app.say("ux.needFurn", kind: .info); return }
+        guard app.once() else { return }
+        let before = p
+        var no = p.quotes.count + 1
+        var made = false
+        if let last = p.quotes.last, sameAsQuote(sn, last.fp) {
+            no = last.no
+        } else {
+            let q = freezeQuote(p, sn, no, nowMs())
+            let early = p.stage == "measure" || p.stage == "estimate" || p.stage == "design"
+            Store.shared.update(pid) { x in
+                x.quotes.append(q)
+                if early { x.stage = "quote" }
+                if !x.flow.contains("price") { x.flow.append("price") }
+            }
+            made = true
+        }
+        guard let q = Store.shared.get(pid)?.quotes.first(where: { $0.no == no }) else { return }
+        let pages = furniturePages(q.sn, draft: false, meta: QuoteMeta(no: q.no, ts: q.ts), image: viewLoader(), prices: true)
+        let fname = pdfName(dn(q.sn.name), tr("q.no", ["n": no]))
+        guard let url = pdfFile(pages, fname) else { app.say("cm.shareErr", kind: .error); return }
+        presentShare(url)
+        Haptic.confirm()
+        if made {
+            app.act("ux.sent", ["n": no]) {
+                // back to a draft: the quote goes, the stage is what it was
+                Store.shared.update(pid) { x in x.quotes.removeAll { $0.no == no }; x.stage = before.stage }
+                if case .report(let id, let n) = app.top, id == pid, n == no { app.pop() }
+            }
+        } else {
+            app.say("ux.resent", ["n": no])
+        }
+    }
+
+    /// "Boshqa…": the draft quote's PDF (marked as a draft) in the share sheet, nothing issued.
+    static func other(_ app: AppModel, _ pid: String) { MainActor.assumeIsolated { otherNow(app, pid) } }
+
+    @MainActor private static func otherNow(_ app: AppModel, _ pid: String) {
+        guard let p = Store.shared.get(pid) else { return }
+        let sn = snapshotOf(p)
+        guard !sn.furniture.isEmpty else { app.say("ux.needFurn", kind: .info); return }
+        let pages = furniturePages(sn, draft: true, meta: nil, image: viewLoader(), prices: true)
+        let fname = pdfName(dn(p.name), tr("es.draft"))
+        if let url = pdfFile(pages, fname) { presentShare(url) } else { app.say("cm.shareErr", kind: .error) }
+    }
+}

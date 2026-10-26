@@ -34,7 +34,7 @@ func parseLen(_ s: String, _ unit: LenUnit) -> Int? {
     return nil
 }
 
-func unitWord(_ unit: LenUnit) -> String { tr(unit == .cm ? "u.cm" : "u.m") }
+func unitWord(_ unit: LenUnit) -> String { tr(unitKey(unit)) }
 
 /// The gallery group a room's furniture belongs to: a kitchen's kitchens, a living room's, a hallway's; the others the bedroom's.
 private func groupOf(_ p: Project, _ rid: String?) -> String? {
@@ -85,8 +85,10 @@ struct FGalleryScreen: View {
                     BarTitle(title: tr("fg.title"), eyebrow: dn(p.name))
                 }
                 .padding(.trailing, 12).frame(minHeight: 64)
-                .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+                .background(barTint.ignoresSafeArea(edges: .top))
                 .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
+                // the order's design style on top: new pieces start with it, the cards repaint at once (Core/PieceLook.swift)
+                StyleRow(app: app, p: p).padding(.top, 10)
                 ScrollViewReader { proxy in
                     ScrollView(.horizontal, showsIndicators: false) {
                         HStack(spacing: 6) {
@@ -108,10 +110,8 @@ struct FGalleryScreen: View {
                     }
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
-                            // the order's design style: new pieces start with it (Core/PieceLook.swift)
-                            StyleRow(app: app, p: p)
                             if let room {
-                                let f = { (mm: Int?) in Geo.fmtLen(mm, .m, en) }
+                                let f = { (mm: Int?) in Geo.fmtLen(mm, AppSettings.shared.unit, en) }
                                 let name = p.floors.first { $0.id == room.floorId }.map { floorName($0) } ?? dn(room.name)
                                 T(tr("fg.forRoom", ["r": name, "a": f(room.dim("A").v), "b": f(room.dim("B").v), "h": f(room.dim("H").v)]), ui(13.5, 400, G.ink2, lh: 1.4))
                                 // a measured kitchen: built for it, six styles to pick from (Joylan ideas, 26 Oct 2026)
@@ -138,6 +138,7 @@ struct FGalleryScreen: View {
                                     HStack(alignment: .top, spacing: 10) {
                                         ForEach(ms[i..<min(i + 2, ms.count)], id: \.id) { m in
                                             ModelCard(m: m, pic: pics[m.id], wide: i + 1 >= ms.count) { pick(p, room, m) }
+                                                .coachMark(g == groups[0].0 && i == 0 && m.id == ms[0].id ? "gallery" : "")
                                         }
                                     }
                                     .fixedSize(horizontal: false, vertical: true)
@@ -240,6 +241,12 @@ struct FStepsScreen: View {
     @State private var back = false
     @State private var was = ""
     @State private var laser: String? = nil   // "busy", or the reading's words
+    /// The field glows green a moment after a laser or voice value (UX upgrades section 6).
+    @State private var flash = false
+    /// A voice value just put in: the words heard and the text before, for the "Bekor" chip.
+    @State private var voice: VoiceGot? = nil
+    /// A spoken size that was not understood ("Raqam noto‘g‘ri. Masalan: 3400").
+    @State private var heardBad = false
     /// This page's turn at app.backOverride (BackOwner).
     @State private var backToken = 0
     @FocusState private var typing: Bool
@@ -297,7 +304,7 @@ struct FStepsScreen: View {
                         BarTitle(title: tr("fz.m." + m.id), eyebrow: at < n ? tr("fx.step", ["i": at + 1, "n": n]) : tr(edit != nil ? "fz.editSizes" : "fx.sumT"))
                     }
                     .padding(.trailing, 12).frame(minHeight: 64)
-                    .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+                    .background(barTint.ignoresSafeArea(edges: .top))
                     .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
@@ -337,7 +344,11 @@ struct FStepsScreen: View {
                         }
                         .accessibilityIdentifier("fx.save")
                     } else {
-                        GBtn(tr("fr.continue"), enabled: allOk) {
+                        // no measured room in the order: "Qaysi xonaga?" is skipped, the piece goes in without a room and
+                        // the designer opens (UX upgrades section 7)
+                        let roomless = !p.rooms.contains { measuredRoom($0, s.angleSnap) }
+                        GBtn(tr(roomless ? "ux.toDesign" : "fr.continue"), enabled: allOk) {
+                            if roomless { placeRoomless(p, m, vals); return }
                             // the sizes stay with this page, so coming back from "Which room?" finds them
                             app.setTop(.fSteps(pid: pid, model: m.id, fid: nil, vals: encodeVals(vals)))
                             app.push(.fWhere(pid: pid, model: m.id, vals: encodeVals(vals)))
@@ -356,6 +367,23 @@ struct FStepsScreen: View {
             .onDisappear { if BackOwner.last == backToken { app.backOverride = nil; BackOwner.last = 0 } }
             // a real laser's measurement goes into the size being asked, then on to the next step when it fits
             .laserSink { mm in gotReal(mm) }
+        }
+    }
+
+    /// The piece without a room, straight into its designer; Undo takes it out again.
+    private func placeRoomless(_ p: Project, _ m: FModelDef, _ vals: [String: Int]) {
+        guard app.once() else { return }
+        let ws = AppSettings.shared.workshop
+        let f = pieceOf(m, vals, ws, pieceName(p, m), now: nowMs())
+        let before = p
+        addPiece(pid, f)
+        KitOps.shared.sel = nil
+        app.popTo { if case .project(let id, _, _, _) = $0 { return id == pid }; return false }
+        app.push(designer(pid, f, step: 2))
+        app.act("ux.addedFree", ["n": dn(f.name)]) {
+            Store.shared.update(before.id) { $0 = before }
+            if case .wardrobe(let id, let fid, _, _, _, _) = AppModel.shared.top, id == before.id, fid == f.id { AppModel.shared.pop() }
+            if case .kitchen(let id, let fid, _, _) = AppModel.shared.top, id == before.id, fid == f.id { AppModel.shared.pop() }
         }
     }
 
@@ -386,7 +414,7 @@ struct FStepsScreen: View {
             let t = text.trimmingCharacters(in: .whitespaces)
             if t.isEmpty { return nil }
             let digits = t.drop { $0 == "0" || $0 == "," || $0 == "." }
-            return tr(digits.isEmpty ? "err.zero" : "tl.sizeErr")
+            return digits.isEmpty ? tr("err.zero") : tr("ux.badNum", ["v": Geo.fmtField(s.usual, unit, en)])
         }
         guard let r = stepIssue(s, mm) else { return nil }
         return tr(r.0, ["v": Geo.fmtLen(r.1, unit, en) + " " + unitWord(unit)])
@@ -398,8 +426,9 @@ struct FStepsScreen: View {
         return parseLen(t, unit) != nil && issue(steps[i], t, unit) == nil
     }
     private func next(_ steps: [SizeStep], _ unit: LenUnit) {
-        guard at < steps.count, ok(steps, at, unit) else { return }
-        laser = nil
+        guard at < steps.count, ok(steps, at, unit) else { Haptic.warn(); return }
+        Haptic.tick()
+        laser = nil; voice = nil; heardBad = false
         if back { back = false; at = steps.count } else { at += 1 }
     }
     private func prev(_ n: Int) {
@@ -425,30 +454,46 @@ struct FStepsScreen: View {
             T(tr(s.help), ui(13, 400, G.ink2, lh: 1.4))
             HStack(spacing: 10) {
                 TextField("", text: Binding(get: { txt(steps, i) }, set: { v in
-                    setTxt(steps, i, String(v.filter { $0.isNumber || $0 == "," || $0 == "." }.prefix(8))); laser = nil
+                    setTxt(steps, i, String(v.filter { $0.isNumber || $0 == "," || $0 == "." }.prefix(8))); laser = nil; voice = nil; heardBad = false
                 }), prompt: Text(Geo.fmtField(s.usual, unit, en)).foregroundColor(Color(argb: 0xFFA7B0C0)))
-                .font(num(24, 700).font).foregroundColor(G.ink)
-                .keyboardType(.decimalPad).focused($typing)
+                .font(num(34, 800).font).foregroundColor(G.ink)
+                .keyboardType(unit == .mm ? .numberPad : .decimalPad).focused($typing)
                 .accessibilityLabel(tr(s.label)).accessibilityIdentifier("fx.value")
-                T(uw, ui(15, 700, G.ink3))
-                // the laser's button sits in the field, so it stays in sight above the keyboard
-                if on { GBtn(tr("fx.laser"), icon: "laser", enabled: laser != "busy", height: 44, corner: 14, fontSize: 13.5, fill: false) { reading(steps, unit) }.accessibilityIdentifier("fx.laser") }
+                T(uw, ui(17, 700, G.ink3))
             }
-            .padding(.horizontal, 16).frame(minHeight: 60)
-            .background(shape.fill(G.glass(0.85)))
-            .overlay(shape.strokeBorder(bad != nil ? G.err : G.cobalt, lineWidth: 2))
+            .padding(.horizontal, 16).frame(minHeight: 72)
+            .background(shape.fill(flash ? G.greenWash : G.glass(0.85)))
+            .overlay(shape.strokeBorder(bad != nil || heardBad ? G.err : flash ? G.green : G.cobalt, lineWidth: 2))
+            .shadow(color: flash ? G.green.opacity(0.45) : .clear, radius: flash ? 12 : 0)
+            .animation(.easeOut(duration: 0.25), value: flash)
             if let bad { HStack(alignment: .top, spacing: 6) { MIcon("alert", G.err, 18, 2); T(bad, ui(13.5, 500, G.err)) } }
+            else if heardBad { HStack(alignment: .top, spacing: 6) { MIcon("alert", G.err, 18, 2); T(tr("ux.badNum", ["v": Geo.fmtField(s.usual, unit, en)]), ui(13.5, 500, G.err)) } }
+            // a voice value: what was heard, and "Bekor" to put the old value back
+            if let v = voice, v.step == i {
+                HStack(spacing: 8) {
+                    PathIcon(MIC_ICON, G.cobalt2, 16, 2)
+                    T(tr("ux.fromVoice", ["w": v.said, "v": txt(steps, i) + " " + uw]), ui(13, 600, G.cobalt2), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
+                    T(tr("ux.cancelV"), ui(13.5, 800, G.cobalt2)).padding(.horizontal, 12).frame(minHeight: 40)
+                        .background(Capsule().fill(G.cobalt.opacity(0.12)))
+                        .pressable(0.97) { setTxt(steps, i, v.before); voice = nil; Haptic.tick() }
+                        .accessibilityIdentifier("ux.voiceUndo")
+                }
+                .padding(.horizontal, 12).padding(.vertical, 6)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.cobalt.opacity(0.08)))
+            }
+            // always under the field: the laser (or the radar to connect one) and hold-to-talk (UX upgrades section 6)
+            HStack(spacing: 10) {
+                LaserFieldButton(app: app, busy: laser == "busy") { reading(steps, unit) }
+                MicButton(app: app) { mm, words in gotVoice(steps, i, mm, words, unit) }
+            }
             // the usual sizes (a mattress's) a tap away
             if !s.picks.isEmpty { picksRow(steps, i, unit) }
-            // one line under the field: the laser's state or its reading; without a laser, the way to connect one
+            // the laser's state or its reading, in one line
             HStack(spacing: 8) {
                 Circle().fill(on ? Color(argb: 0xFF16A34A) : G.ink3).frame(width: 9, height: 9)
                 T(laser == "busy" ? tr("fx.busy") : laser ?? tr(on ? "fx.laserOn" : "fx.laserOff"), ui(12.5, 600, G.ink2, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
-                if !on { T(tr("fx.connect"), ui(13.5, 700, G.cobalt2)) }
             }
-            .padding(.horizontal, 4).frame(minHeight: 40)
-            .contentShape(Rectangle())
-            .onTapGesture { if !on { app.openLaser() } }
+            .padding(.horizontal, 4).frame(minHeight: 32)
         }
     }
 
@@ -518,8 +563,33 @@ struct FStepsScreen: View {
         let tv = Geo.fmtField(mm, unit, en)
         setTxt(steps, i, tv)
         laser = tr("fx.got", ["v": Geo.fmtLen(mm, unit, en) + " " + unitWord(unit)])
+        glow()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { nextAfter(i, tv, unit) }
         return true
+    }
+
+    /// A laser or voice value went in: the field glows green a moment, and a confirm haptic.
+    private func glow() {
+        Haptic.confirm()
+        flash = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.7) { flash = false }
+    }
+
+    /// A size said: written into the field straight away (with "Bekor"), or the error when no number was understood.
+    private func gotVoice(_ steps: [SizeStep], _ i: Int, _ mm: Int?, _ words: String, _ unit: LenUnit) {
+        guard at == i, i < steps.count else { return }
+        guard let mm else {
+            heardBad = !words.isEmpty
+            Haptic.warn()
+            if words.isEmpty { app.say("ux.vNothing", kind: .info) }
+            return
+        }
+        let before = txt(steps, i)
+        setTxt(steps, i, Geo.fmtField(mm, unit, en))
+        heardBad = false
+        laser = nil
+        voice = VoiceGot(said: words, before: before, step: i)
+        glow()
     }
 
     /// With the real laser, its next measurement; with no laser, the radar to connect one. With the screen tests'
@@ -542,6 +612,7 @@ struct FStepsScreen: View {
             AppSettings.shared.markReadingUsed(r.id, tr(s.label))
             let tv = Geo.fmtField(r.mm, unit, en)
             setTxt(steps, i, tv)
+            glow()
             laser = tr("fx.got", ["v": Geo.fmtLen(r.mm, unit, en) + " " + unitWord(unit)])
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { nextAfter(i, tv, unit) }
             return
@@ -551,6 +622,7 @@ struct FStepsScreen: View {
             let v = (s.usual + Int.random(in: -120...120)) / 5 * 5
             let tv = Geo.fmtField(v, unit, en)
             setTxt(steps, i, tv)
+            glow()
             laser = tr("fx.got", ["v": Geo.fmtLen(v, unit, en) + " " + unitWord(unit)])
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.9) { nextAfter(i, tv, unit) }
         }
@@ -661,7 +733,7 @@ struct FWhereScreen: View {
         let w = p.floors.first { $0.id == r.floorId }
         let name = w.map { floorName($0) } ?? dn(r.name)
         let ready = measuredRoom(r, snap)
-        let f = { (mm: Int?) in Geo.fmtLen(mm, .m, en) }
+        let f = { (mm: Int?) in Geo.fmtLen(mm, AppSettings.shared.unit, en) }
         HStack(spacing: 12) {
             MIcon(w?.type == "kitchen" ? "kitchen" : "room", ready ? G.cobalt : G.ink3, 24, 2)
             VStack(alignment: .leading, spacing: 3) {
@@ -669,7 +741,7 @@ struct FWhereScreen: View {
                 if ready {
                     let fit = bestFirst(probe, Geo.walls(r, snap).map(\.id), { wallLen(r, snap, $0) }, r.dim("H").v, s.workshop)
                     let good = fit.1.isEmpty
-                    T(f(r.dim("A").v) + " × " + f(r.dim("B").v) + U_M + " · h " + f(r.dim("H").v), num(12.5, 500, G.ink2))
+                    T(f(r.dim("A").v) + " × " + f(r.dim("B").v) + U_L + " · h " + f(r.dim("H").v), num(12.5, 500, G.ink2))
                     T(good ? "✓ " + tr("fq.fits") : issueText(fit.1[0]), ui(12, 700, good ? Color(argb: 0xFF15803D) : G.err, lh: 1.3))
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(good ? G.greenWash : G.errWash))
@@ -687,3 +759,6 @@ struct FWhereScreen: View {
         .accessibilityIdentifier(ready ? "fq.room" : "fq.unmeasured")
     }
 }
+
+/// A size heard by the voice input: the words, the field's text before, and the step it went into.
+struct VoiceGot: Equatable { let said: String; let before: String; let step: Int }

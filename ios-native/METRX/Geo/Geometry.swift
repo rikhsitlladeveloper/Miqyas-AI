@@ -6,7 +6,10 @@ import Foundation
  * All lengths are millimetres (Int), areas mm² (Int64). Plan y points down; corners and walls run clockwise.
  */
 
-enum LenUnit { case m, cm }
+enum LenUnit { case m, cm, mm }
+
+/// The strings key of a unit's short name: "u.m", "u.cm" or "u.mm".
+func unitKey(_ u: LenUnit) -> String { u == .cm ? "u.cm" : u == .mm ? "u.mm" : "u.m" }
 
 /// Kotlin's roundToInt (Math.round: halves go up), so both apps solve the same shapes to the same millimetre.
 func kround(_ x: Double) -> Int { Int((x + 0.5).rounded(.down)) }
@@ -47,6 +50,8 @@ enum Geo {
     /// Length as the prototype's fmtLen: metres with 2 decimals (3 when the mm need it), or centimetres with 0 or 1.
     static func fmtLen(_ mm: Int?, _ unit: LenUnit = .m, _ en: Bool = false, full: Bool = false) -> String {
         guard let mm else { return "?" }
+        // furniture makers' millimetres: whole numbers, no decimals ("3400")
+        if unit == .mm { return "\(mm)" }
         let s = unit == .cm ? String(format: "%.\(full || mm % 10 != 0 ? 1 : 0)f", Double(mm) / 10)
                             : String(format: "%.\(full ? 3 : mm % 10 != 0 ? 3 : 2)f", Double(mm) / 1000)
         return s.replacingOccurrences(of: ".", with: decMark(en))
@@ -84,7 +89,7 @@ enum Geo {
         return .ok(min(Int64(digits) ?? Int64.max, Int64(Int32.max)))
     }
 
-    static func unitDecimals(_ unit: LenUnit) -> Int { unit == .cm ? 1 : 3 }
+    static func unitDecimals(_ unit: LenUnit) -> Int { unit == .mm ? 0 : unit == .cm ? 1 : 3 }
 
     /// A typed length in mm, or the error (key + values) to show. max in mm; zeroOk for an offset or a sill.
     static func lenErr(_ str: String?, _ max: Int, _ unit: LenUnit, _ en: Bool, zeroOk: Bool = false, min: Int = 0) -> Parsed {
@@ -94,12 +99,12 @@ enum Geo {
         if mm >= 1 && mm < Int64(min) {
             var m = fmtLen(min, unit, en)
             if let rg = m.range(of: "[.,]0+$", options: .regularExpression) { m.removeSubrange(rg) }
-            return .err("err.min", ["min": m + " " + (unit == .cm ? "@u.cm" : "@u.m")])
+            return .err("err.min", ["min": m + " " + "@" + unitKey(unit)])
         }
         if mm > Int64(max) {
             var m = fmtLen(max, unit, en)
             if let rg = m.range(of: "[.,]0+$", options: .regularExpression) { m.removeSubrange(rg) }
-            return .err("err.max", ["max": m + " " + (unit == .cm ? "@u.cm" : "@u.m")])
+            return .err("err.max", ["max": m + " " + "@" + unitKey(unit)])
         }
         return .ok(mm)
     }

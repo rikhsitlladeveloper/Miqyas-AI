@@ -152,7 +152,7 @@ private func baseSnapshot(_ p: Project, _ s: AppSettings, pdf: PdfParts?) -> Sna
         }
     }
     return Snap(name: p.name, customer: p.customer, phone: p.phone, address: p.address, location: p.location,
-                currency: p.currency, precision: p.precision, unit: s.unit == .cm ? "cm" : "m", lang: l.code, notes: p.reportNotes,
+                currency: p.currency, precision: p.precision, unit: s.unit == .cm ? "cm" : s.unit == .mm ? "mm" : "m", lang: l.code, notes: p.reportNotes,
                 builderName: s.builderName, builderPhone: s.builderPhone, pdf: pdf ?? s.pdf, rooms: rooms, estimate: p.estimate, extras: extras,
                 snap: s.angleSnap, industry: p.industry)
 }

@@ -39,7 +39,10 @@ struct ProjectScreen: View {
     }
 
     var body: some View {
-        if let p = Store.shared.get(id) {
+        // a furniture order: the UX upgrades' page (no tab bar, the progress, the bottom action bar)
+        if let p = Store.shared.get(id), p.isFurniture {
+            FOrderPage(app: app, p: p, tab: tab, view: view, floor: floor, call: { call(p) }, map: { openMap(p) })
+        } else if let p = Store.shared.get(id) {
             // price and quotes are the advanced app's; a link to them opens the rooms
             let tab = simpleOrder(p) && (self.tab == "price" || self.tab == "quotes" || self.tab == "estimate") ? "rooms" : self.tab
             let withTotal = tab == "estimate" && !(p.estimate.materials.isEmpty && p.estimate.labor.isEmpty)
@@ -422,5 +425,131 @@ private struct FIssueBar: View {
             }
         }
         .padding(.horizontal, 20).padding(.top, 12)
+    }
+}
+
+/* ---------------- a furniture order (UX upgrades 26 Oct 2026, sections 1–4) ---------------- */
+
+/// A furniture order inside the app: no tab bar; Back and the order's name (two lines, never cut), the progress
+/// Xona → Mebel → Dizayn → Narx → PDF and the price under it; two tabs, Mebel and Ma'lumot (with the client and the
+/// 7 production stages; Advanced also has Narx and Takliflar); a bottom bar with the one next-step button and Undo.
+private struct FOrderPage: View {
+    let app: AppModel
+    let p: Project
+    let tab: String
+    let view: String
+    let floor: String?
+    let call: () -> Void
+    let map: () -> Void
+
+    var body: some View {
+        let adv = AppSettings.shared.advanced
+        let tabs: [(String, String)] = adv ? [("rooms", "ux.tFurn"), ("price", "fo.price"), ("quotes", "pj.t.quotes"), ("info", "pj.info")]
+                                           : [("rooms", "ux.tFurn"), ("info", "pj.info")]
+        let tab = tabs.contains { $0.0 == self.tab } ? self.tab : "rooms"
+        let act = mainAction(app, p)
+        VStack(spacing: 0) {
+            UXTop {
+                UXTopBar(title: dn(p.name), sub: orderSub(p, " · ").isEmpty ? tr("ux.order") : orderSub(p, " · "), badge: p.sample, back: { app.pop() }) {
+                    CallButton(p: p)
+                    GlassIconButton("more", tr("common.menu"), iconSize: 18) { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
+                }
+                OrderProgress(app: app, p: p).padding(.horizontal, 10)
+                HStack(spacing: 8) {
+                    PriceLine(p: p)
+                    Spacer(minLength: 0)
+                    if adv { FStageChip(stage: p.stage) }
+                    InstallChip(p: p)
+                }
+                .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 10)
+            }
+            ScrollView {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 2) {
+                        ForEach(tabs, id: \.0) { k, l in
+                            let on = tab == k
+                            T(tr(l), ui(14, on ? 800 : 600, on ? G.ink : G.slate), lines: 1)
+                                .padding(.horizontal, 4)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(on ? G.glass(0.95) : .clear).boxShadow(on ? G.shade.opacity(0.12) : .clear, blur: 10, y: 3))
+                                .pressable(0.97) { Haptic.tick(); app.setProjectTab(k) }
+                                .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+                                .accessibilityIdentifier("ptab." + k)
+                        }
+                    }
+                    .padding(4).frame(height: 46)
+                    .background(Capsule().fill(G.ink.opacity(0.06)))
+                    .padding(.horizontal, 20).padding(.top, 12)
+                    switch tab {
+                    case "info":
+                        // the client first, then the 7 production stages (Advanced changes them here)
+                        InfoTab(app: app, p: p, call: call, map: map)
+                        FurnitureInfo(app: app, p: p)
+                        if !adv { FStagesView(p: p) }
+                    case "price": FPriceTab(app: app, p: p)
+                    case "quotes": QuotesTab(app: app, p: p)
+                    default:
+                        if view != "list" && !p.rooms.isEmpty {
+                            VStack(alignment: .leading, spacing: 0) {
+                                ViewSeg(cur: view) { app.setProjectView($0) }
+                                if view == "2d" { Plans2D(app: app, p: p) } else { Project3D(app: app, p: p, floor: floor) }
+                            }
+                            .padding(.horizontal, 20).padding(.top, 12)
+                        } else {
+                            if p.furniture.isEmpty { FEmptyCard() }
+                            FRoomsTab(app: app, p: p)
+                        }
+                    }
+                }
+                .padding(.bottom, 24)
+            }
+            ActionBar(label: act.label, icon: act.icon, undoOn: app.undoCount > 0, undo: { app.undoLast() }, main: act.go, coach: "order")
+        }
+    }
+}
+
+/// "Hali mebel yo‘q": the bottom button opens the 3D gallery.
+private struct FEmptyCard: View {
+    var body: some View {
+        VStack(spacing: 8) {
+            MIcon("cube", G.cobalt, 28, 2).frame(width: 56, height: 56).background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.cobalt.opacity(0.12)))
+            T(tr("ux.noFurnT"), ui(17, 800), align: .center)
+            T(tr("ux.noFurnB"), ui(13.5, 400, G.ink2, lh: 1.45), align: .center)
+            MIcon("arrow", G.ink3, 18, 2).rotationEffect(.degrees(90))
+        }
+        .padding(20).frame(maxWidth: .infinity)
+        .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
+        .padding(.horizontal, 16).padding(.top, 12)
+    }
+}
+
+/// The simple app's look at the 7 production stages (read only; Advanced changes them in FurnitureInfo).
+private struct FStagesView: View {
+    let p: Project
+    var body: some View {
+        let k = fStage(p)
+        VStack(alignment: .leading, spacing: 4) {
+            HStack {
+                T(tr("ux.stagesT"), ui(15, 800)).frame(maxWidth: .infinity, alignment: .leading)
+                T("\(k + 1) / \(F_STAGES.count)", ui(12.5, 600, G.ink3))
+            }
+            .padding(.bottom, 4)
+            ForEach(Array(F_STAGES.enumerated()), id: \.offset) { i, st in
+                HStack(spacing: 12) {
+                    ZStack {
+                        Circle().fill(i < k ? G.cobalt : .clear)
+                        Circle().strokeBorder(i <= k ? G.cobalt : G.ink3.opacity(0.35), lineWidth: 2)
+                        if i < k { MIcon("check", .white, 12, 3) } else { T("\(i + 1)", ui(11.5, 800, i == k ? G.cobalt2 : G.ink3)) }
+                    }
+                    .frame(width: 24, height: 24)
+                    T(tr("fs." + st), ui(14, i == k ? 800 : 500, i > k ? G.ink3 : G.ink))
+                }
+                .frame(minHeight: 32)
+            }
+            T(tr("ux.stagesNote"), ui(12.5, 400, G.ink2, lh: 1.4)).padding(.top, 4)
+        }
+        .padding(14)
+        .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
+        .padding(.horizontal, 16).padding(.top, 12)
     }
 }

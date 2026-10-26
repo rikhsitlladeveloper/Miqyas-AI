@@ -136,7 +136,7 @@ struct NewOrderScreen: View {
                     BarTitle(title: tr("fz.whoT"), eyebrow: tr("fo.new"))
                 }
                 .padding(.trailing, 12).frame(minHeight: 64)
-                .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+                .background(barTint.ignoresSafeArea(edges: .top))
                 .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
@@ -175,7 +175,8 @@ struct NewOrderScreen: View {
         app.replaceTop(.project(id: p.id, tab: "rooms"))
         // a tiler picks the layout first (Tiles/Tiles.swift), a furniture maker the design style and then the furniture
         // (Furniture/Core/PieceLook.swift)
-        var next: Route = .fStyle(pid: p.id, fromNew: true)
+        // the style is picked on the gallery itself (UX upgrades section 7)
+        var next: Route = .fGallery(pid: p.id, fromNew: true)
         if industry == "tiler" { next = .tGallery(pid: p.id, fromNew: true) }
         else if industry == "elec" { next = .eGallery(pid: p.id, fromNew: true) }
         else if industry == "plumb" { next = .pGallery(pid: p.id, fromNew: true) }
@@ -231,7 +232,7 @@ struct FRoomsTab: View {
         let kind = roomKind(w)
         let a = room?.dim("A").v, b = room?.dim("B").v, h = room?.dim("H").v
         let sub: String = {
-            if drawn, let a, let b { return Geo.fmtLen(a, .m, en) + " × " + Geo.fmtLen(b, .m, en) + U_M + (h.map { " · h " + Geo.fmtLen($0, .m, en) } ?? "") }
+            if drawn, let a, let b { return Geo.fmtLen(a, AppSettings.shared.unit, en) + " × " + Geo.fmtLen(b, AppSettings.shared.unit, en) + U_L + (h.map { " · h " + Geo.fmtLen($0, AppSettings.shared.unit, en) } ?? "") }
             return tr(room != nil ? "fo.notMeasured" : "fo.notDrawn")
         }()
         return VStack(alignment: .leading, spacing: 10) {
@@ -267,7 +268,7 @@ struct FRoomsTab: View {
         let ward = f.kind == "wardrobe"
         let sub: String
         if ward && (isItemPiece(f) || boxes(f).count > 1) { sub = freeSub(f, en) }
-        else if ward { sub = wardOfF(f).map { Geo.fmtLen($0.w, .m, en) + " × " + Geo.fmtLen(valsOf(f, AppSettings.shared.workshop)["h"] ?? $0.h, .m, en) + U_M } ?? "" }
+        else if ward { sub = wardOfF(f).map { Geo.fmtLen($0.w, AppSettings.shared.unit, en) + " × " + Geo.fmtLen(valsOf(f, AppSettings.shared.workshop)["h"] ?? $0.h, AppSettings.shared.unit, en) + U_L } ?? "" }
         else { sub = tr("kt.l" + f.layout) + " · " + runMetres(f, en) + " " + tr("kt.pm") }
         return HStack(spacing: 10) {
             MIcon(ward ? "board" : "kitchen", G.ink3, 18, 2)
@@ -437,7 +438,15 @@ private struct InstallSheet: View {
 struct NextStep: View {
     let app: AppModel
     let p: Project
-    private struct Step { let title: String; let sub: String?; let button: String; let go: () -> Void }
+    struct Step {
+        let title: String; let sub: String?; let button: String; var place = false; let go: () -> Void
+        init(title: String, sub: String?, button: String, place: Bool = false, go: @escaping () -> Void) {
+            self.title = title; self.sub = sub; self.button = button; self.place = place; self.go = go
+        }
+    }
+
+    /// The step for order p (the order page's bottom bar uses its button: UX upgrades section 1).
+    static func of(_ app: AppModel, _ p: Project) -> Step? { NextStep(app: app, p: p).step }
 
     private var step: Step? {
         let s = AppSettings.shared, snap = s.angleSnap
@@ -488,7 +497,7 @@ struct NextStep: View {
         if let loose, let b = bare {
             let (w, r) = b
             let vars = ["n": dn(loose.name), "r": floorName(w)]
-            return Step(title: tr("ns.placeT", vars), sub: tr("ns.placeS", vars), button: tr("fz.toRoom")) { app.push(.fPlace(pid: pid, fid: loose.id, rid: r.id)) }
+            return Step(title: tr("ns.placeT", vars), sub: tr("ns.placeS", vars), button: tr("fz.toRoom"), place: true) { app.push(.fPlace(pid: pid, fid: loose.id, rid: r.id)) }
         }
         if let b = bare {
             let (w, r) = b

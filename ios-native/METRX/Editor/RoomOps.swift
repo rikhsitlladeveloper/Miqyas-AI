@@ -380,4 +380,4 @@ func srcKey(_ src: String?) -> String {
 }
 
 /// "m" or "sm" in the current language.
-func unitName() -> String { tr(AppSettings.shared.unit == .cm ? "u.cm" : "u.m") }
+func unitName() -> String { tr(unitKey(AppSettings.shared.unit)) }

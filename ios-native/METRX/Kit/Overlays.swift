@@ -95,6 +95,10 @@ struct ToastMsg: Identifiable, Equatable {
 /// it closes by itself (longer with an action or an error) or with the cross.
 struct ToastHost: View {
     let msg: ToastMsg?
+    /// The bottom bar's height: the toast sits just above it (UX upgrades section 3), so it never covers Back.
+    var lift: CGFloat = 0
+    /// At the top instead (over a sheet, whose buttons are at the bottom).
+    var top = false
     let onGone: () -> Void
     @State private var visible = false
     @State private var shown: ToastMsg? = nil
@@ -103,16 +107,19 @@ struct ToastHost: View {
 
     var body: some View {
         VStack {
+            if !top { Spacer() }
             if visible, let m = shown {
                 let (tc, icon): (Color, String) = m.kind == .ok ? (Color(argb: 0xFF5BE49B), "check") : m.kind == .info ? (Color(argb: 0xFF9DB1FF), "info") : (Color(argb: 0xFFFF7A7A), "alert")
                 HStack(spacing: 12) {
                     MIcon(icon, tc, 18, 2.4).frame(width: 32, height: 32).background(Circle().fill(tc.opacity(0.2)))
                     T(m.text, ui(14.5, 600, .white, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
                     if let a = m.action {
-                        HStack(spacing: 6) { MIcon("undo", .white, 16, 2.2); T(a, ui(14, 700, .white)) }
-                            .padding(.horizontal, 14).frame(minHeight: 42)
-                            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.white.opacity(0.12)))
+                        // 48 pt: easy to hit (UX upgrades section 3)
+                        HStack(spacing: 6) { MIcon("undo", .white, 16, 2.2); T(a, ui(14, 700, .white), lines: 2).fixedSize(horizontal: false, vertical: true) }
+                            .padding(.horizontal, 12).frame(minHeight: 48)
+                            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.white.opacity(0.14)))
                             .pressable(0.97) { if acted != m.id { acted = m.id; m.onAction?() }; hide() }
+                            .accessibilityIdentifier("toast.undo")
                     }
                     MIcon("x", Color.white.opacity(0.62), 18, 2).frame(width: 40, height: 40).pressable(0.95, label: tr("common.close")) { hide() }
                 }
@@ -120,13 +127,14 @@ struct ToastHost: View {
                 .frame(minHeight: 58)
                 .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(Color(argb: 0xFF0F1626)))
                 .boxShadow(Color(argb: 0x52000000), blur: 32, y: 12)
-                .padding(.horizontal, 10).padding(.top, 8)
-                .transition(.move(edge: .top).combined(with: .opacity))
+                .padding(.horizontal, 10).padding(.top, top ? 8 : 0).padding(.bottom, top ? 0 : lift + 8)
+                .transition(.move(edge: top ? .top : .bottom).combined(with: .opacity))
                 .accessibilityElement(children: .combine)
                 .accessibilityIdentifier("toast")
             }
-            Spacer()
+            if top { Spacer() }
         }
+        .animation(.easeOut(duration: 0.2), value: lift)
         .onChange(of: msg?.id) { _, _ in
             guard let m = msg else { return }
             shown = m

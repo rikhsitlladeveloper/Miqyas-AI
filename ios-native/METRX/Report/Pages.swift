@@ -78,11 +78,11 @@ final class Doc {
 
     init(_ sn: Snap, _ draft: Bool, _ meta: QuoteMeta?, _ image: @escaping (String) -> UIImage?, _ now: Ms) {
         self.sn = sn; self.draft = draft; self.meta = meta; self.image = image; self.now = now
-        l = Lang.of(sn.lang); en = l == .en; unit = sn.unit == "cm" ? .cm : .m
+        l = Lang.of(sn.lang); en = l == .en; unit = sn.unit == "cm" ? .cm : sn.unit == "mm" ? .mm : .m
     }
 
     func t(_ k: String, _ v: [String: Any]? = nil) -> String { Strings.t(k, l, v) }
-    func mUnit() -> String { t(unit == .cm ? "u.cm" : "u.m") }
+    func mUnit() -> String { t(unitKey(unit)) }
     func len(_ mm: Int?) -> String { Geo.fmtLen(mm, unit, en) }
     func money(_ v: Decimal) -> String { Money.str(v, sn.precision, en).replacingOccurrences(of: " ", with: NBSP) }
 

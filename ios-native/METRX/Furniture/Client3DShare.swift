@@ -36,7 +36,7 @@ func c3InfoFor(_ p: Project, _ s: AppSettings, rid: String?) -> C3Info {
     info.line1 = names + (fs.isEmpty ? "" : " · " + t("sh3.units", ["n": akUnits(fs)]))
     if let r = room {
         let rn = p.floors.first { $0.id == r.floorId }.map { floorName($0, l) } ?? dn(r.name, l)
-        let a = Geo.fmtLen(r.dim("A").v, .m, en), b = Geo.fmtLen(r.dim("B").v, .m, en)
+        let a = Geo.fmtLen(r.dim("A").v, AppSettings.shared.unit, en), b = Geo.fmtLen(r.dim("B").v, AppSettings.shared.unit, en)
         info.line2 = t("sh3.room", ["r": rn, "a": a, "b": b, "d": fmtDate(nowMs())])
     } else {
         info.line2 = fmtDate(nowMs())

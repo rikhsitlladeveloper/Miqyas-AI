@@ -1261,7 +1261,7 @@ private struct LrReadingBox: View {
 
     var body: some View {
         let s = AppSettings.shared
-        let unitWord = tr(s.unit == .cm ? "u.cm" : "u.m")
+        let unitWord = tr(unitKey(s.unit))
         let value: String = r.map { Geo.fmtLen($0.mm, s.unit, s.lang == .en, full: true) + " " + unitWord } ?? "— " + unitWord
         let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
         VStack(spacing: 2) {

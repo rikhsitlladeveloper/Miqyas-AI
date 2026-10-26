@@ -43,7 +43,21 @@ final class AppSettings {
     /// Lengths in metres or centimetres; 90°/45° snapping for drawn rooms.
     private(set) var unitCm: Bool
     private(set) var angleSnap: Bool
-    var unit: LenUnit { unitCm ? .cm : .m }
+    /// Furniture makers measure in millimetres (UX upgrades 26 Oct 2026, section 5): Profile → "Mebel uchun o‘lcham birligi"
+    /// ("mm", "cm" or "m", millimetres at first); builders and the trades keep their metres or centimetres.
+    private(set) var furnUnit: String
+    var unit: LenUnit {
+        if furniture { return furnUnit == "cm" ? .cm : furnUnit == "m" ? .m : .mm }
+        return unitCm ? .cm : .m
+    }
+    /// Haptics (section 10): a tick, a confirm and a warning; on at first, Profile → "Tebranish (haptik)".
+    private(set) var haptics: Bool
+    /// The first-start tour's three cards were seen or skipped (section 11), and the screens whose coach mark was shown.
+    private(set) var tourDone: Bool
+    private(set) var coachSeen: [String]
+    /// The "Namuna — oshxona" sample order was made once (it is not made again after it is deleted, until the hints
+    /// come back).
+    private(set) var sampleMade: Bool
     /// "Don't show again" for the editor's first-time tip.
     private(set) var editorTipOff: Bool
     /// What a plan shows in the middle of a room: "both", "name", "area" or "none".
@@ -110,6 +124,14 @@ final class AppSettings {
         currency = d.string(forKey: "currency") ?? "UZS"
         reportLang = Lang.of(d.string(forKey: "reportLang") ?? d.string(forKey: "lang"))
         unitCm = d.string(forKey: "unit") == "cm"
+        furnUnit = d.string(forKey: "furnUnit") ?? "mm"
+        haptics = d.object(forKey: "haptics") as? Bool ?? true
+        // the screen tests start past the tour and its marks, with no sample order, unless they ask for them
+        let uiRun = ProcessInfo.processInfo.arguments.contains("-uiReset")
+        let wantTour = ProcessInfo.processInfo.arguments.contains("-uiTour")
+        tourDone = d.object(forKey: "tourDone") as? Bool ?? (uiRun && !wantTour)
+        coachSeen = d.stringArray(forKey: "coachSeen") ?? []
+        sampleMade = d.object(forKey: "sampleMade") as? Bool ?? (uiRun && !wantTour)
         angleSnap = d.object(forKey: "angleSnap") as? Bool ?? true
         editorTipOff = d.bool(forKey: "tipEditor")
         roomLabel = d.string(forKey: "roomLabel") ?? "both"
@@ -147,6 +169,17 @@ final class AppSettings {
     func setReportLangDefault(_ l: Lang) { reportLang = l; d.set(l.code, forKey: "reportLang") }
     func setCurrencyDefault(_ c: String) { currency = c; d.set(c, forKey: "currency") }
     func setUnit(cm: Bool) { unitCm = cm; d.set(cm ? "cm" : "m", forKey: "unit") }
+    func setFurnUnit(_ u: String) { furnUnit = u; d.set(u, forKey: "furnUnit") }
+    func setHaptics(_ on: Bool) { haptics = on; d.set(on, forKey: "haptics") }
+    func setTourDone(_ on: Bool) { tourDone = on; d.set(on, forKey: "tourDone") }
+    /// Whether the coach mark of screen k still has to show (the tour is over, it was not shown yet).
+    func coachDue(_ k: String) -> Bool { tourDone && !coachSeen.contains(k) && !AppSettings.uxQuiet }
+    /// The screen tests: no tour, coach marks or sample order unless a test asks for them with -uiTour.
+    static let uxQuiet: Bool = ProcessInfo.processInfo.arguments.contains("-uiReset") && !ProcessInfo.processInfo.arguments.contains("-uiTour")
+    func markCoach(_ k: String) { if !coachSeen.contains(k) { coachSeen.append(k); d.set(coachSeen, forKey: "coachSeen") } }
+    func setSampleMade(_ on: Bool) { sampleMade = on; d.set(on, forKey: "sampleMade") }
+    /// Profile → "Maslahatlarni qayta ko‘rsatish": the tour, the coach marks and the sample order come back.
+    func resetTour() { setTourDone(false); coachSeen = []; d.set([String](), forKey: "coachSeen"); setSampleMade(false); resetHints() }
     func setSnap(_ on: Bool) { angleSnap = on; d.set(on, forKey: "angleSnap") }
     func setDarkMode(_ on: Bool) { dark = on; d.set(on, forKey: "dark") }
     func setIndustryKind(_ v: String) { industry = v; d.set(v, forKey: "industry") }
@@ -213,3 +246,5 @@ func tr(_ key: String, _ vars: [String: Any]? = nil) -> String { Strings.t(key, 
 var U_M: String { " " + tr("u.m") }
 var U_M2: String { " " + tr("u.m2") }
 var U_MM: String { " " + tr("u.mm") }
+/// " mm", " sm" or " m": the unit lengths are shown in (a furniture maker's millimetres, a builder's metres).
+var U_L: String { " " + tr(unitKey(AppSettings.shared.unit)) }

@@ -694,12 +694,14 @@ final class Furniture1Tests: ScreenTestCase {
         app.buttons["fo.addPay"].tap(); usleep(900_000); shot("f1-10-add-payment")
         app.buttons["fo.paySave"].tap(); sleep(4); shot("f1-11-paid-off")
 
+        shot("f1-11b-order-bar")
+        for _ in 0..<4 where !app.buttons["tab.projects"].exists { backVisible(app) }
         app.buttons["tab.projects"].tap(); usleep(900_000); shot("f1-12-orders")
         app.buttons["tab.profile"].tap(); usleep(900_000)
         btn(app, "Soha").tap(); usleep(800_000); shot("f1-13-industry-sheet")
         app.buttons["sheet.close"].tap(); usleep(600_000)
-        // Home's tab still shows the order: a second tap goes back to Home
-        app.buttons["tab.home"].tap(); usleep(800_000); app.buttons["tab.home"].tap(); usleep(900_000)
+        app.buttons["tab.home"].tap(); usleep(800_000)
+        for _ in 0..<4 where !app.buttons["home.sheets"].exists && app.buttons["back"].exists { backVisible(app) }
         app.buttons["home.sheets"].tap(); sleep(1); shot("f1-14-sheets-tool")
     }
 }
@@ -710,27 +712,27 @@ final class Furniture2Tests: ScreenTestCase {
         let app = launch()
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Dilnoza Karimova", "kitchen")
-        measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
+        measuredRoom(app, "3400", "2600", "2700", openings: false)
         sleep(6)    // the last toast goes away
         app.buttons["ed.walls"].tap(); usleep(900_000); shot("f2-01-wall-empty")
         app.buttons["pt.add"].tap(); usleep(900_000); shot("f2-02-point-sheet")
         app.buttons["pt.cold"].tap(); usleep(400_000)
-        retype(app, "pt.off", "1,3"); retype(app, "pt.h", "0,55"); shot("f2-03-cold-water")
+        retype(app, "pt.off", "1300"); retype(app, "pt.h", "550"); shot("f2-03-cold-water")
         app.buttons["pt.save"].tap(); sleep(1)
         app.buttons["pt.add"].tap(); usleep(900_000)
         app.buttons["pt.sewer"].tap(); usleep(400_000)
-        retype(app, "pt.off", "1,34"); app.buttons["pt.save"].tap(); sleep(1)
+        retype(app, "pt.off", "1340"); app.buttons["pt.save"].tap(); sleep(1)
         app.buttons["pt.add"].tap(); usleep(900_000)
-        retype(app, "pt.off", "0,52"); app.buttons["pt.save"].tap(); sleep(1)       // a socket at 300
+        retype(app, "pt.off", "520"); app.buttons["pt.save"].tap(); sleep(1)       // a socket at 300
         app.buttons["pt.add"].tap(); usleep(900_000)
         app.buttons["pt.cold"].tap(); usleep(400_000)
-        retype(app, "pt.off", "5"); app.buttons["pt.save"].tap(); usleep(800_000); shot("f2-04-past-the-wall")
+        retype(app, "pt.off", "5000"); app.buttons["pt.save"].tap(); usleep(800_000); shot("f2-04-past-the-wall")
         app.buttons["sheet.close"].tap(); sleep(5); shot("f2-05-wall-A-points")
         app.buttons["wv.next"].tap(); usleep(700_000)
         app.buttons["wv.add"].tap(); usleep(800_000); shot("f2-06-wall-add")
         app.buttons["wa.point"].tap(); usleep(900_000)
         app.buttons["pt.gas"].tap(); usleep(400_000)
-        retype(app, "pt.off", "0,9"); app.buttons["pt.save"].tap(); sleep(1); shot("f2-07-wall-B-gas")
+        retype(app, "pt.off", "900"); app.buttons["pt.save"].tap(); sleep(1); shot("f2-07-wall-B-gas")
         noToast(app)    // the "added" toast with Undo covers the back button
         app.buttons["back"].tap(); usleep(900_000); shot("f2-08-plan")
         app.buttons["ed.3d"].tap(); sleep(3); shot("f2-09-3d")
@@ -781,12 +783,12 @@ final class Furniture4Tests: ScreenTestCase {
         let app = launch(extra: ["-advanced", "YES"])
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Akmal Yusupov", "kitchen")
-        measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
+        measuredRoom(app, "3400", "2600", "2700", openings: false)
         sleep(6)    // the last toast goes away
         app.buttons["ed.walls"].tap(); usleep(900_000)
         app.buttons["pt.add"].tap(); usleep(900_000)
         app.buttons["pt.cold"].tap(); usleep(400_000)
-        retype(app, "pt.off", "1,3"); app.buttons["pt.save"].tap(); sleep(1)
+        retype(app, "pt.off", "1300"); app.buttons["pt.save"].tap(); sleep(1)
         shot("f4-00a-wall")
         noToast(app)    // the "added" toast with Undo covers the back button
         app.buttons["back"].tap(); sleep(2); shot("f4-00b-after-back")
@@ -840,7 +842,7 @@ final class Furniture5Tests: ScreenTestCase {
         let app = launch(extra: ["-advanced", "YES"])
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Nodira Aliyeva", "wardrobe")
-        measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
+        measuredRoom(app, "3400", "2600", "2700", openings: false)
         sleep(6)    // the last toast goes away
         // the bedroom's gallery: a 3-section built-in wardrobe, placed on the walls step
         XCTAssertTrue(app.buttons["ed.addFurn"].waitForExistence(timeout: 4))
@@ -885,7 +887,7 @@ final class Furniture6Tests: ScreenTestCase {
         let app = launch()
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Bobur Rahimov", "kitchen")
-        measuredRoom(app, "3,4", "2,6", "2,7", openings: true)
+        measuredRoom(app, "3400", "2600", "2700", openings: true)
         sleep(6)
         // an L-kitchen on A and B, filled
         placeFromEditor(app, "L"); sleep(4)
@@ -912,7 +914,7 @@ final class Furniture6Tests: ScreenTestCase {
             if app.buttons["fg.chip.bedroom"].waitForExistence(timeout: 3) { app.buttons["fg.chip.bedroom"].tap(); usleep(700_000) }
             if app.buttons["model.h3"].waitForExistence(timeout: 3) {
                 tapModel(app, "h3")
-                for v in ["1,5", "2,2", "0,6"] {          // width, height, depth in metres
+                for v in ["1500", "2200", "600"] {          // width, height, depth in millimetres
                     guard app.textFields["fx.value"].waitForExistence(timeout: 3) else { break }
                     retype(app, "fx.value", v); app.buttons["fx.next"].tap(); usleep(800_000)
                 }
@@ -937,7 +939,7 @@ final class Furniture7Tests: ScreenTestCase {
         let app = launch(extra: ["-advanced", "YES"])
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Kamola Tursunova", "kitchen")
-        measuredRoom(app, "3,4", "2,6", "2,7", openings: false)
+        measuredRoom(app, "3400", "2600", "2700", openings: false)
         sleep(6)
         placeFromEditor(app, "L"); sleep(4)
         if app.buttons["kt.auto"].exists { app.buttons["kt.auto"].tap(); sleep(5) }
@@ -994,13 +996,14 @@ final class Furniture8Tests: ScreenTestCase {
             app.buttons["fx.next"].tap(); usleep(800_000)
         }
         shot("f8-02b-first-size")
-        retype(app, "fx.value", "3,4"); app.buttons["fx.next"].tap(); usleep(800_000); shot("f8-03-step2")
-        retype(app, "fx.value", "2,6"); app.buttons["fx.next"].tap(); usleep(800_000)
-        retype(app, "fx.value", "2,7"); app.buttons["fx.next"].tap(); usleep(800_000); shot("f8-04-summary")
+        retype(app, "fx.value", "3400"); app.buttons["fx.next"].tap(); usleep(800_000); shot("f8-03-step2")
+        retype(app, "fx.value", "2600"); app.buttons["fx.next"].tap(); usleep(800_000)
+        retype(app, "fx.value", "2700"); app.buttons["fx.next"].tap(); usleep(800_000); shot("f8-04-summary")
         XCTAssertTrue(app.buttons["fx.go"].waitForExistence(timeout: 3))
-        app.buttons["fx.go"].tap(); usleep(900_000); shot("f8-05-where")
-        XCTAssertTrue(app.buttons["fq.none"].waitForExistence(timeout: 3))
-        app.buttons["fq.none"].tap(); sleep(2); shot("f8-06-designer")
+        app.buttons["fx.go"].tap(); sleep(2); shot("f8-05-designer")
+        // no measured room in the order: no "Qaysi xonaga?" (UX upgrades section 7)
+        XCTAssertFalse(app.buttons["fq.none"].exists)
+        if app.buttons["dim.3D"].waitForExistence(timeout: 4) { app.buttons["dim.3D"].tap(); sleep(3); shot("f8-06-designer-3d"); app.buttons["dim.2D"].tap(); usleep(800_000) }
         // back to the order's page (a toast or a sliding page can take a tap)
         for _ in 0..<5 where !app.buttons["ptab.rooms"].exists { backVisible(app) }
         XCTAssertTrue(app.buttons["ptab.rooms"].waitForExistence(timeout: 4)); shot("f8-07-order")

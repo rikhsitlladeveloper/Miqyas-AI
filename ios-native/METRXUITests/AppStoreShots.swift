@@ -183,7 +183,8 @@ final class AppStoreShots: ScreenTestCase {
         guard sizes(app) else { skip(name, "sizes"); return false }
         guard tap(app, "fx.go", 6) else { skip(name, "summary"); return false }
         usleep(1_000_000)
-        guard let none = find(app, "fq.none", 10), bring(app, none), hit(app, none) else { skip(name, "where"); return false }
+        // with no measured room "Qaysi xonaga?" is skipped and the designer opens (UX upgrades section 7)
+        if let none = find(app, "fq.none", 3), bring(app, none) { _ = hit(app, none) }
         sleep(2)
         guard open3D(app, name) else { return false }
         before?()

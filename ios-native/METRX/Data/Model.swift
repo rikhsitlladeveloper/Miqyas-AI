@@ -77,6 +77,11 @@ struct Project: Codable, Equatable, Identifiable {
     /// Furniture orders (Advanced): the customer's PDF shows the three price options, Ekonom, Standart and Premium
     /// (Furniture/Core/PriceTiers.swift); written only when on, as Android leaves it out.
     var tri = false
+    /// The "Namuna — oshxona" sample order (UX upgrades section 11): marked NAMUNA, never counted in totals or reports.
+    var sample = false
+    /// Furniture orders: the progress steps passed that the order itself does not show (UX upgrades section 2): "design"
+    /// once the designer's main button was used, "price" once the price was looked at; written only when set.
+    var flow: [String] = []
 
     var isFurniture: Bool { industry == "furniture" }
     /// A tiler's order (its own app: layouts in 3D, like the furniture maker's).
@@ -108,13 +113,14 @@ struct Project: Codable, Equatable, Identifiable {
         tiles = c.v(.tiles, []); troom = c.v(.troom, []); elec = c.v(.elec, ElecOrder())
         plumb = c.v(.plumb, PlumbOrder()); win = c.v(.win, WinOrder())
         cutAt = c.v(.cutAt, 0); fstyle = c.v(.fstyle, ""); tri = c.v(.tri, false)
+        sample = c.v(.sample, false); flow = c.v(.flow, [])
     }
 
     // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
     enum CodingKeys: String, CodingKey {
         case id, name, customer, phone, address, location, currency, precision, reportLang, stage, floors, rooms, estimate, quotes
         case reportRooms, reportViews, reportNotes, created, edited, industry, agreed, payments, furniture, fprice, approvedAt, install
-        case want, autoName, tiles, troom, elec, plumb, win, cutAt, fstyle, tri
+        case want, autoName, tiles, troom, elec, plumb, win, cutAt, fstyle, tri, sample, flow
     }
     /// The synthesized form, with fstyle and tri written only when set (an order without them saves as before).
     func encode(to e: Encoder) throws {
@@ -132,6 +138,8 @@ struct Project: Codable, Equatable, Identifiable {
         try c.encode(elec, forKey: .elec); try c.encode(plumb, forKey: .plumb); try c.encode(win, forKey: .win); try c.encode(cutAt, forKey: .cutAt)
         if !fstyle.isEmpty { try c.encode(fstyle, forKey: .fstyle) }
         if tri { try c.encode(tri, forKey: .tri) }
+        if sample { try c.encode(sample, forKey: .sample) }
+        if !flow.isEmpty { try c.encode(flow, forKey: .flow) }
     }
 }
 

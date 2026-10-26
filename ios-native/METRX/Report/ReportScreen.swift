@@ -47,6 +47,8 @@ struct ReportScreen: View {
             let key = quote.map { "q\($0.no)" } ?? (design ? "d" : "") + fingerprint(sn) + "\(sn.pdf)" + sn.lang + sn.roomLabel + sn.extras.map { $0.text + "\($0.checks)" }.joined()
             let total = quote.flatMap { Decimal(string: $0.total) } ?? (p.isFurniture ? Decimal(string: sn.ftotal) ?? 0 : snapTotal(sn))
             let lang = AppSettings.shared.lang
+            // a furniture order's draft is its "Narx va yuborish" page (UX upgrades sections 2, 4 and 8)
+            let send = p.isFurniture && quote == nil
             GeometryReader { geo in
                 let w = geo.size.width - 32
                 ZStack {
@@ -54,7 +56,7 @@ struct ReportScreen: View {
                         HStack(spacing: 10) {
                             GlassIconButton("back", tr("nt.back")) { app.pop() }.accessibilityIdentifier("back")
                             VStack(alignment: .leading, spacing: 0) {
-                                T(quote.map { tr("q.no", ["n": $0.no]) } ?? tr(design ? "rpt.design" : "rpt.title"), ui(17, 700, G.ink, lh: 1.2), lines: 1)
+                                T(quote.map { tr("q.no", ["n": $0.no]) } ?? tr(send ? "ux.priceT" : design ? "rpt.design" : "rpt.title"), ui(17, 700, G.ink, lh: 1.2), lines: 1)
                                 T(dn(p.name), ui(12.5, 400, G.ink2, lh: 1.2), lines: 1)
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -68,8 +70,10 @@ struct ReportScreen: View {
                             }
                         }
                         .padding(.leading, 14).padding(.trailing, 12).frame(height: 64)
+                        if send { OrderProgress(app: app, p: p).padding(.horizontal, 10).padding(.bottom, 6) }
                         ScrollView {
                             VStack(spacing: 10) {
+                                if send { SendCard(app: app, p: p, share: { share(p, quote, sn, key) }) }
                                 if quote == nil {
                                     if AppSettings.shared.builderName.trimmingCharacters(in: .whitespaces).isEmpty {
                                         Banner(icon: "alert", text: tr("rpt.noBuilder"), amber: true, action: tr("rpt.addBuilder")) { app.sheet = .issue(pid: p.id, builderOnly: true) }
@@ -120,10 +124,22 @@ struct ReportScreen: View {
                                 }
                                 T(tr("rp2.tapZoom"), ui(12.5, 400, G.ink2), align: .center)
                             }
-                            .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 120)
+                            .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, send ? 24 : 120)
+                        }
+                        if send {
+                            // one big "Telegram’ga yuborish" (it issues the quote at once), Undo, and "Boshqa…" for the share sheet
+                            let same = p.quotes.last.map { sameAsQuote(sn, $0.fp) } ?? false
+                            ActionBar(label: tr(same ? "ux.resend" : "ux.tg"), icon: "send", undoOn: app.undoCount > 0, undo: { app.undoLast() },
+                                      main: { QuoteSend.send(app, p.id) }, id: "ux.tg", coach: "price", middle: { EmptyView() }) {
+                                HStack(spacing: 6) { MIcon("share", G.cobalt2, 16, 2); T(tr("ux.other"), ui(14, 700, G.cobalt2)) }
+                                    .padding(.horizontal, 14).frame(minHeight: 40)
+                                    .pressable(0.97) { QuoteSend.other(app, p.id) }
+                                    .accessibilityElement(children: .combine).accessibilityAddTraits(.isButton)
+                                    .accessibilityIdentifier("ux.other")
+                            }
                         }
                     }
-                    VStack {
+                    if !send { VStack {
                         Spacer()
                         FloatingFooter {
                             if design {
@@ -141,9 +157,10 @@ struct ReportScreen: View {
                                 GBtn(tr("rpt.share"), icon: "share") { share(p, quote, sn, key) }.accessibilityIdentifier("rp.share")
                             }
                         }
-                    }
+                    } }
                     if let start = viewer { PageViewer(pages: pages, start: start) { viewer = nil }.zIndex(3) }
                 }
+                .onAppear { if send { markFlow(p.id, "price") } }
                 .task(id: key + "\(Int(w))") {
                     guard w > 0 else { return }
                     let built = layout(p, quote, sn)
@@ -157,7 +174,7 @@ struct ReportScreen: View {
     }
 
     /// The simple furniture, tiler or electrician app's draft: the design, shared without a price.
-    private func isDesign(_ p: Project, _ quote: Quote?) -> Bool { quote == nil && (p.isFurniture || p.isTiler || p.isElec || p.isPlumb || p.isWin) && !AppSettings.shared.advanced }
+    private func isDesign(_ p: Project, _ quote: Quote?) -> Bool { quote == nil && (p.isTiler || p.isElec || p.isPlumb || p.isWin) && !AppSettings.shared.advanced }
 
     /// The draft's snapshot; a tiler's or an electrician's design has no estimate in it.
     private func designSnap(_ p: Project, _ design: Bool) -> Snap {
@@ -169,7 +186,7 @@ struct ReportScreen: View {
     /// A furniture order's quote has its own pages (furniture plan section 10).
     private func layout(_ p: Project, _ quote: Quote?, _ sn: Snap) -> [RPage] {
         let meta = quote.map { QuoteMeta(no: $0.no, ts: $0.ts) }
-        return p.isFurniture ? furniturePages(sn, draft: quote == nil, meta: meta, image: viewLoader(), prices: !(quote == nil && !AppSettings.shared.advanced))
+        return p.isFurniture ? furniturePages(sn, draft: quote == nil, meta: meta, image: viewLoader(), prices: true)
                              : reportPages(sn, draft: quote == nil, meta: meta, image: viewLoader(), design: isDesign(p, quote))
     }
 
@@ -510,4 +527,49 @@ private struct IssueSheet: View {
 func shownViews(_ p: Project) -> Set<String> {
     let inRep = p.rooms.filter { p.reportRooms[$0.id] != false }.flatMap(\.views).filter { p.reportViews[$0.id] != false }
     return Set(inRep.prefix(4).map(\.id))
+}
+
+/* ---------------- "Narx va yuborish" (UX upgrades 26 Oct 2026, sections 4 and 8) ---------------- */
+
+/// The draft quote's card: the price (approximate in the simple app; exact with cost and profit in Advanced), and the
+/// report's two buttons with their full text ("Qoralamani ulashish", "Taklifni chiqarish"), wrapping to two lines.
+private struct SendCard: View {
+    let app: AppModel
+    let p: Project
+    let share: () -> Void
+    var body: some View {
+        let adv = AppSettings.shared.advanced
+        let en = AppSettings.shared.lang == .en
+        let s = AppSettings.shared
+        let fs = p.furniture.filter { !$0.modules.isEmpty }
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                T(tr("q.no", ["n": p.quotes.count + 1]), ui(16, 800)).frame(maxWidth: .infinity, alignment: .leading)
+                T(tr("ux.draft"), ui(12, 700, G.amberInk)).padding(.horizontal, 10).padding(.vertical, 4).background(Capsule().fill(G.amberWash))
+            }
+            if adv, !fs.isEmpty {
+                let pr = priceOf(fs, p.fprice, s.workshop, s.mats, s.hws)
+                let cost = costOf(fs, s.workshop, s.mats, s.hws).total
+                VStack(alignment: .leading, spacing: 2) {
+                    T(tr("ux.clientPrice"), ui(12.5, 500, G.ink2))
+                    Text(Money.str(pr.price, p.precision, en) + " " + Money.cur(p.currency)).st(num(24, 800)).lineLimit(1).minimumScaleFactor(0.7)
+                    T(tr("ux.costProfit", ["c": Money.str(cost, p.precision, en), "p": Money.str(pr.price - cost, p.precision, en)]), ui(12.5, 500, G.ink2), lines: 2)
+                }
+            } else {
+                VStack(alignment: .leading, spacing: 2) {
+                    T(tr("ux.priceApprox"), ui(12.5, 500, G.ink2))
+                    T(priceLine(p) ?? "—", ui(22, 800, G.ink3), lines: 1).minimumScaleFactor(0.7).accessibilityIdentifier("ux.price")
+                    T(tr("ux.advHint"), ui(12, 400, G.ink3, lh: 1.35))
+                }
+            }
+            T(tr("ux.repT"), ui(13, 700, G.ink2)).padding(.top, 4)
+            HStack(spacing: 10) {
+                GBtn(tr("rp2.shareDraft"), kind: .secondary, icon: "share", height: 54, fontSize: 14.5, lines: 2, share).accessibilityIdentifier("rp.shareDraft")
+                GBtn(tr("rpt.issue"), kind: .secondary, icon: "lock", height: 54, fontSize: 14.5, lines: 2) { app.sheet = .issue(pid: p.id) }
+                    .accessibilityIdentifier("rp.issue")
+            }
+        }
+        .padding(14)
+        .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.6))
+    }
 }

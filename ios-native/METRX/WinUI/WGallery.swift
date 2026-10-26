@@ -45,7 +45,7 @@ struct WGalleryScreen: View {
                     BarTitle(title: tr("dw.galT"), eyebrow: dn(p.name))
                 }
                 .padding(.trailing, 12).frame(minHeight: 64)
-                .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+                .background(barTint.ignoresSafeArea(edges: .top))
                 .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
                 ScrollViewReader { proxy in
                     chips(groups, on, proxy)
@@ -209,7 +209,7 @@ struct WPlaceScreen: View {
                         BarTitle(title: tr("dw.k." + k.id), eyebrow: tr("dw.whereE"))
                     }
                     .padding(.trailing, 12).frame(minHeight: 64)
-                    .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+                    .background(barTint.ignoresSafeArea(edges: .top))
                     .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {

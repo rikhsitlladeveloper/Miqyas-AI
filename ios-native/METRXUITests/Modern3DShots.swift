@@ -76,8 +76,9 @@ final class Modern3DShots: ScreenTestCase {
         guard m3Sizes(app) else { m3Skip(name, "sizes"); return }
         guard m3Tap(app, "fx.go", 6) else { m3Skip(name, "summary"); return }
         usleep(1_000_000)
-        guard let none = m3Find(app, "fq.none", 10), m3Bring(app, none) else { m3Skip(name, "where"); return }
-        none.tap(); sleep(2)
+        // with no measured room "Qaysi xonaga?" is skipped and the designer opens (UX upgrades section 7)
+        if let none = m3Find(app, "fq.none", 3), m3Bring(app, none) { none.tap() }
+        sleep(2)
         design?()
         guard m3Open3D(app, name) else { return }
         shot("m3d-" + name)

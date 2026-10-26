@@ -6,6 +6,10 @@ options:
   deploymentTarget:
     iOS: "17.0"
   createIntermediateGroups: true
+# the voice input's offline speech engine (whisper.cpp's XCFramework, Packages/WhisperBin)
+packages:
+  WhisperBin:
+    path: Packages/WhisperBin
 settings:
   base:
     SWIFT_VERSION: "5.0"
@@ -30,6 +34,9 @@ targets:
       - path: ../android-native/app/src/main/assets/tex
         type: folder
         buildPhase: resources
+    dependencies:
+      - package: WhisperBin
+        product: WhisperBin
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: uz.metrx.app
@@ -50,6 +57,9 @@ targets:
         buildPhase: resources
       - path: ../android-native/app/src/test/resources/edges
         type: folder
+        buildPhase: resources
+      # spoken sizes to mm (UX upgrades section 9): the cases both apps' parsers must pass
+      - path: ../design/ux-upgrades/voice-cases.json
         buildPhase: resources
     dependencies:
       - target: METRX

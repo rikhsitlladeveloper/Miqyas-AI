@@ -265,7 +265,7 @@ struct EGalleryScreen: View {
                     BarTitle(title: tr("el.galT"), eyebrow: dn(p.name))
                 }
                 .padding(.trailing, 12).frame(minHeight: 64)
-                .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+                .background(barTint.ignoresSafeArea(edges: .top))
                 .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
                 ScrollViewReader { proxy in
                     chips(kinds, on, proxy)
@@ -454,7 +454,7 @@ struct EStepsScreen: View {
                         BarTitle(title: tr("el.kit." + k.id), eyebrow: tr("tl.stepN", ["i": min(at, n - 1) + 1, "n": n]))
                     }
                     .padding(.trailing, 12).frame(minHeight: 64)
-                    .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+                    .background(barTint.ignoresSafeArea(edges: .top))
                     .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {

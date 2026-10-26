@@ -42,7 +42,7 @@ struct WViewScreen: View {
             if let room { GlassIconButton("edit", tr("common.edit")) { openRoom(app, p.id, room.id) } }
         }
         .padding(.trailing, 12).frame(minHeight: 64)
-        .background(G.sheet(0.55).ignoresSafeArea(edges: .top))
+        .background(barTint.ignoresSafeArea(edges: .top))
         .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
     }
 

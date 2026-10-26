@@ -26,6 +26,7 @@
 	<key>NSLocationWhenInUseUsageDescription</key><string>METRX saves the project's place so you can find it on a map later. / Loyiha joyini saqlab, keyin xaritada topish uchun.</string>
 	<key>NSCameraUsageDescription</key><string>METRX takes photos of walls and openings to draw dimensions on them. / Devor va ochiq joylarni suratga olib, ustiga o‘lcham chizish uchun.</string>
 	<!-- asked only when the builder searches for the laser ("Qidirish") or it is remembered; no background modes -->
+	<key>NSMicrophoneUsageDescription</key><string>O‘lchamni ovoz bilan aytish uchun mikrofon kerak: tugmani bosib turib gapirasiz. Ovoz telefonning o‘zida taniladi va hech qayerga yuborilmaydi. / The microphone hears a size you say while you hold the button; the voice is recognised on the phone and never sent anywhere.</string>
 	<key>NSBluetoothAlwaysUsageDescription</key><string>METRX lazer o‘lchagichdan masofani olish uchun Bluetooth’dan foydalanadi. / METRX uses Bluetooth to read distances from your laser meter.</string>
 	<key>NSBluetoothPeripheralUsageDescription</key><string>METRX lazer o‘lchagichdan masofani olish uchun Bluetooth’dan foydalanadi. / METRX uses Bluetooth to read distances from your laser meter.</string>
 	<key>NSPhotoLibraryUsageDescription</key><string>METRX opens a photo from your library to draw dimensions on it. / Galereyadagi suratni ochib, ustiga o‘lcham chizish uchun.</string>

@@ -105,6 +105,8 @@ enum Route: Hashable {
 /// Bottom sheets. One at a time, like the prototype's U.sheet.
 enum Sheet: Equatable {
     case language, device, reportLang, units, roomLabel, about, currency
+    /// The voice pack's first-use sheet (UX upgrades section 9).
+    case voicePack
     case projectMenu(pid: String), projectDelete(pid: String)
     case newSpace(pid: String, editWid: String?), spaceMenu(pid: String, wid: String), spaceDelete(pid: String, wid: String)
     /// "+" in a workspace: step "root", "sketch" or "photo".
@@ -191,6 +193,9 @@ enum Sheet: Equatable {
     case wPrices(pid: String?)
 }
 
+/// An action the bottom bar's Undo can take back.
+struct UndoEntry { let id = UUID(); let text: String; let run: () -> Void }
+
 /// Screens of the sign-in flow.
 enum AuthStep { case welcome, signUp, logIn, local, industry }
 
@@ -214,6 +219,13 @@ final class AppModel {
     var splashDone = false
     /// A room being measured for a room-less piece (room id, furniture id): when it is done, the piece goes in.
     var placeAfter: (rid: String, fid: String)? = nil
+    /// The bottom bars on screen (a page's action bar, the tab bar) by id, and their heights: toasts sit just above the
+    /// highest (UX upgrades section 3).
+    var bars: [UUID: CGFloat] = [:]
+    var toastLift: CGFloat { bars.values.max() ?? 0 }
+    /// What the bottom bar's Undo takes back, newest last (an action's toast has the same Undo).
+    @ObservationIgnored var undos: [UndoEntry] = []
+    var undoCount = 0
 
     var stack: [Route] { stacks[tab] ?? [.root] }
     var top: Route { stack.last ?? .root }
@@ -319,8 +331,28 @@ final class AppModel {
         else { withAnimation(.easeOut(duration: 0.18)) { tab = t } }
     }
 
+    /// An action that can be taken back: its toast with "Ortga qaytarish" (48 pt) and the bottom bar's Undo do it; a tick.
+    func act(_ key: String, _ vars: [String: Any]? = nil, undo: @escaping () -> Void) {
+        let e = UndoEntry(text: tr(key, vars), run: undo)
+        undos.append(e); if undos.count > 30 { undos.removeFirst() }
+        undoCount = undos.count
+        Haptic.tick()
+        toast = ToastMsg(text: e.text, kind: .ok, action: tr("ux.undo"), onAction: { [weak self] in self?.undoEntry(e.id) })
+    }
+    /// Takes back the newest action (the bottom bar's Undo).
+    func undoLast() { if let e = undos.last { undoEntry(e.id) } }
+    private func undoEntry(_ id: UUID) {
+        guard let i = undos.firstIndex(where: { $0.id == id }) else { return }
+        let e = undos.remove(at: i)
+        undoCount = undos.count
+        e.run()
+        Haptic.tick()
+        toast = ToastMsg(text: tr("ux.undone", ["a": e.text]), kind: .info)
+    }
+
     func say(_ key: String, _ vars: [String: Any]? = nil, kind: ToastKind = .ok, action: String? = nil, onAction: (() -> Void)? = nil) {
-        toast = ToastMsg(text: tr(key, vars), kind: kind, action: action.map { tr($0) }, onAction: onAction)
+        // every Undo in a toast reads "Ortga qaytarish" (UX upgrades section 3)
+        toast = ToastMsg(text: tr(key, vars), kind: kind, action: action.map { tr($0 == "common.undo" ? "ux.undo" : $0) }, onAction: onAction)
     }
 
 }

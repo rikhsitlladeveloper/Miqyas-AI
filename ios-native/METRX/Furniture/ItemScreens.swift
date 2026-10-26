@@ -40,19 +40,8 @@ struct ItemScreen: View {
         ZStack {
             RoomGrid().ignoresSafeArea()
             VStack(spacing: 0) {
-                HStack(spacing: 8) {
-                    GlassIconButton("back", tr("nt.back")) { app.pop() }.accessibilityIdentifier("back")
-                    VStack(alignment: .leading, spacing: 0) {
-                        T(dn(f.name), ui(19, 800, G.ink, lh: 1.2), lines: 1)
-                        T(pieceLine(f, ws), ui(12, 400, G.ink2), lines: 1)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    GlassIconButton("undo", tr("common.undo"), tint: kit.canUndo(f.id) ? G.ink : PC.offIcon) { kit.undo(p.id, f.id) }.accessibilityIdentifier("kt.undo")
-                    GlassIconButton("redo", tr("common.redo"), tint: kit.canRedo(f.id) ? G.ink : PC.offIcon) { kit.redo(p.id, f.id) }
-                    GlassIconButton("more", tr("common.menu")) { app.sheet = .fMenu(pid: p.id, fid: f.id) }.accessibilityIdentifier("kt.menu")
-                }
-                .padding(.horizontal, 16).frame(height: 64)
-                if let room = roomOf(p, f) { content(room) } else {
+                DesignerHead(app: app, p: p, f: f, sub: pieceLine(f, ws))
+                if let room = roomOf(p, f) { content(room); DesignerBar(app: app, p: p, f: f) { EmptyView() } } else {
                     T(tr("kt.roomLost"), ui(15, 500, G.ink2, lh: 1.45)).padding(24)
                     Spacer()
                 }

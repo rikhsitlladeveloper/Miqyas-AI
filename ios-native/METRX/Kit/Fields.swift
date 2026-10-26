@@ -188,10 +188,12 @@ struct FloatingFooter<Content: View>: View {
         let shape = RoundedRectangle(cornerRadius: 30, style: .continuous)
         VStack(spacing: 8) { content }
             .padding(.horizontal, 20).padding(.top, 12).padding(.bottom, 14)
-            .glassBlur(shape, tint: G.sheet(0.55))
+            .glassBlur(shape, tint: barTint)
             .topHighlight(shape)
             .overlay(shape.strokeBorder(G.rim, lineWidth: 1))
             .background(shape.fill(Color.black.opacity(0.001)).boxShadow(G.shade.opacity(0.1), blur: 30, y: -10))
             .padding(.horizontal, 12).padding(.bottom, 12)
+            // toasts rise above it (UX upgrades section 3)
+            .bottomBar()
     }
 }

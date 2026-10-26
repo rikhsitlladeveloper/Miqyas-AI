@@ -28,10 +28,17 @@ private func dzBoardName(_ id: String?) -> String {
 }
 
 /// Changes piece fid of order pid (the designer's undo list keeps the version before).
-private func dzChange(_ pid: String, _ fid: String, _ fn: (Furniture) -> Furniture) { KitOps.shared.change(pid, fid, fn) }
+private func dzChange(_ pid: String, _ fid: String, _ fn: (Furniture) -> Furniture) { KitOps.shared.change(pid, fid, fn); dzSaid(pid, fid) }
+
+/// A quick design change (style, handle, colour…): a toast with Undo, which takes the piece one change back (UX upgrades
+/// section 3).
+private func dzSaid(_ pid: String, _ fid: String) {
+    Haptic.tick()
+    AppModel.shared.say("ux.changed", action: "common.undo") { KitOps.shared.undo(pid, fid); Haptic.tick() }
+}
 
 /// Changes the piece's look (it is then no longer its preset).
-private func dzLook(_ pid: String, _ fid: String, _ fn: @escaping (PieceLook) -> PieceLook) { KitOps.shared.change(pid, fid) { withLook($0, fn) } }
+private func dzLook(_ pid: String, _ fid: String, _ fn: @escaping (PieceLook) -> PieceLook) { KitOps.shared.change(pid, fid) { withLook($0, fn) }; dzSaid(pid, fid) }
 
 /// The piece with a look of its own (no longer its preset), the rest as it was.
 private func dzOwn(_ f: Furniture) -> Furniture { withLook(f) { $0 } }
@@ -646,32 +653,40 @@ struct FStyleScreen: View {
     }
 }
 
-/// On the gallery: the order's style and the way to change it.
+/// On the gallery: the order's style as a row of the six presets (UX upgrades section 7: picked here, the cards repaint at
+/// once; no separate "Dizayn uslubi" page in a new order).
 struct StyleRow: View {
     let app: AppModel
     let p: Project
     var body: some View {
-        let d = designPreset(p.fstyle)
-        let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
         let pid = p.id
-        HStack(spacing: 10) {
-            if let d {
-                PresetPicture(p: d).frame(width: 54, height: 38).clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
-            } else {
-                MIcon("sliders", G.cobalt, 22, 2)
+        VStack(alignment: .leading, spacing: 6) {
+            T(tr("ux.styleRow"), ui(12, 600, G.ink3)).padding(.horizontal, 16)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach(DESIGN_PRESETS, id: \.id) { d in
+                        let on = p.fstyle == d.id
+                        HStack(spacing: 8) {
+                            PresetPicture(p: d).frame(width: 40, height: 30).clipShape(RoundedRectangle(cornerRadius: 7, style: .continuous))
+                            T(tr("lk.p." + d.id), ui(13.5, on ? 800 : 600, on ? G.cobalt2 : G.ink), lines: 1)
+                        }
+                        .padding(.leading, 5).padding(.trailing, 12).frame(minHeight: 44)
+                        .background(Capsule().fill(on ? G.cobalt.opacity(0.12) : G.glass(0.6)))
+                        .overlay(Capsule().strokeBorder(on ? G.cobalt : G.rim, lineWidth: on ? 2 : 1))
+                        .pressable(0.97) {
+                            guard !on else { return }
+                            Haptic.tick()
+                            Store.shared.update(pid) { $0.fstyle = d.id }
+                        }
+                        .accessibilityElement(children: .combine)
+                        .accessibilityAddTraits(on ? [.isSelected, .isButton] : .isButton)
+                        .accessibilityIdentifier("lk.p." + d.id)
+                    }
+                }
+                .padding(.horizontal, 16)
             }
-            VStack(alignment: .leading, spacing: 1) {
-                T(tr("lk.styleT"), ui(12, 500, G.ink2))
-                T(d.map { tr("lk.p." + $0.id) } ?? tr("lk.noStyle"), ui(14.5, 700), lines: 1)
-            }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            MIcon("chev", G.ink3, 16, 2)
         }
-        .padding(.horizontal, 12).padding(.vertical, 8)
-        .frame(minHeight: 56)
-        .glassCard(shape, fill: G.glass(0.6))
-        .pressable(0.98) { app.push(.fStyle(pid: pid)) }
-        .accessibilityElement(children: .combine).accessibilityAddTraits(.isButton)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("lk.styleRow")
     }
 }
