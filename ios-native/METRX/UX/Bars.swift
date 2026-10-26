@@ -173,7 +173,9 @@ struct DesignerBar<Middle: View>: View {
     var body: some View {
         let kit = KitOps.shared
         let pid = p.id
-        ActionBar(label: tr("ux.seePrice"), icon: nil, undoOn: kit.canUndo(f.id), undo: { kit.undo(pid, f.id); Haptic.tick() },
+        // the piece's own changes first, then the order's last action (a piece added…)
+        ActionBar(label: tr("ux.seePrice"), icon: nil, undoOn: kit.canUndo(f.id) || app.undoCount > 0,
+                  undo: { if kit.canUndo(f.id) { kit.undo(pid, f.id); Haptic.tick() } else { app.undoLast() } },
                   main: { markFlow(pid, "design"); if let q = Store.shared.get(pid) { openPrice(app, q) } }, id: "ux.desMain",
                   coach: "", undoCoach: "designer", middle: { middle }, extra: { EmptyView() })
     }

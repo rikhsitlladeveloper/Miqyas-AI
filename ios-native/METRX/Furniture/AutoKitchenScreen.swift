@@ -284,6 +284,11 @@ struct AutoKitchenScreen: View {
                     }
                     .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 28)
                 }
+                // the next step at the bottom (UX upgrades section 1): the style looked at goes in; once in, its 3D
+                let placed = st.placed != nil
+                ActionBar(label: placed ? tr("ak.open3d") : tr("ux.ak.pick", ["n": tr("lk.p." + st.focus)]), icon: placed ? "cube" : "check",
+                          enabled: placed || st.plans[st.focus] != nil, undoOn: app.undoCount > 0, undo: { app.undoLast() },
+                          main: { pick(p, room, st.placed ?? st.focus) }, id: "ak.main")
             }
             .onAppear { start(R); pictures(key, room) }
             .onChange(of: key) { _, k in pictures(k, room) }
@@ -347,11 +352,11 @@ struct AutoKitchenScreen: View {
         st.placedIds = fs.map(\.id)
         st.focus = id
         let state = st
-        app.say("ak.placedT", ["n": tr("lk.p." + id)], action: "ak.undo") {
+        // the toast and the bottom bar's Undo both take the kitchen back out (UX upgrades section 3)
+        app.act("ak.placedT", ["n": tr("lk.p." + id)]) {
             Store.shared.update(before.id) { $0 = before }
             state.placed = nil
             state.placedIds = []
-            AppModel.shared.say("ak.undone", kind: .info)
         }
     }
 }
