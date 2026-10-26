@@ -322,9 +322,9 @@ struct FStepsScreen: View {
         self.app = app; self.pid = pid; self.model = model; self.fid = fid
         let s = AppSettings.shared
         let edit = fid.flatMap { id in Store.shared.get(pid)?.furniture.first { $0.id == id } }
-        let t = fid == nil ? tpl.flatMap { id in s.templates.first { $0.id == id } } : nil
-        tplF = t
-        let have = vals.map { decodeVals($0) } ?? edit.map { valsOf($0, s.workshop) } ?? t.map { valsOf($0, s.workshop) } ?? [:]
+        let tf = fid == nil ? tpl.flatMap { id in s.templates.first { $0.id == id } } : nil
+        tplF = tf
+        let have = vals.map { decodeVals($0) } ?? edit.map { valsOf($0, s.workshop) } ?? tf.map { valsOf($0, s.workshop) } ?? [:]
         had = have
         let all = fModel(model).map { stepsOf($0, have) } ?? []
         var t: [String: String] = [:]
