@@ -10,18 +10,19 @@ import SwiftUI
 var barTint: Color { G.sheet(0.94) }
 
 extension View {
-    /// This view is a bottom bar: toasts rise above it while it shows (AppModel.bars).
-    func bottomBar() -> some View { modifier(BottomBarHeight()) }
+    /// This view is a bottom bar: toasts rise above it while it shows (AppModel.bars); extra: what is under it besides.
+    func bottomBar(extra: CGFloat = 0) -> some View { modifier(BottomBarHeight(extra: extra)) }
 }
 
 private struct BottomBarHeight: ViewModifier {
+    let extra: CGFloat
     @State private var id = UUID()
     func body(content: Content) -> some View {
         content
             .background(GeometryReader { g in
                 Color.clear
-                    .onAppear { AppModel.shared.bars[id] = g.size.height }
-                    .onChange(of: g.size.height) { _, h in AppModel.shared.bars[id] = h }
+                    .onAppear { AppModel.shared.bars[id] = g.size.height + extra }
+                    .onChange(of: g.size.height) { _, h in AppModel.shared.bars[id] = h + extra }
             })
             .onDisappear { AppModel.shared.bars[id] = nil }
     }

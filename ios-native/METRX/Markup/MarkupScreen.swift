@@ -597,6 +597,7 @@ private struct MkTools: View {
         .topHighlight(shape, 0.95)
         .overlay(shape.strokeBorder(G.rim, lineWidth: 1))
         .padding(.horizontal, 12).padding(.top, 8).padding(.bottom, 12)
+        .bottomBar()
     }
 }
 

@@ -85,7 +85,7 @@ struct ProjectScreen: View {
                     }
                 }
                 // the total floats over the tab bar, the rows scroll above it (prototype .footer.gs-tot)
-                if withTotal { EstimateTotal(app: app, p: p).padding(.bottom, NAV_SPACE - 12) }
+                if withTotal { EstimateTotal(app: app, p: p).bottomBar(extra: NAV_SPACE - 12).padding(.bottom, NAV_SPACE - 12) }
             }
         }
     }

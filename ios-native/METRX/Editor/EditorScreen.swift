@@ -91,8 +91,12 @@ struct EditorScreen: View {
                 // keyboard still fit on the screen (a page taller than the screen would push the sheet's buttons
                 // under the keyboard)
                 .frame(minHeight: app.sheet == nil ? 170 : 0)
-                StepPanel(app: app, pid: p.id, r: r, f: f)
-                Tools(app: app, pid: p.id, r: r)
+                // toasts rise above the step panel and the tools (UX upgrades section 3)
+                VStack(spacing: 0) {
+                    StepPanel(app: app, pid: p.id, r: r, f: f)
+                    Tools(app: app, pid: p.id, r: r)
+                }
+                .bottomBar()
             }
             if !ops.tipSeen && !AppSettings.shared.editorTipOff && app.sheet == nil { EditorTip() }
         }
