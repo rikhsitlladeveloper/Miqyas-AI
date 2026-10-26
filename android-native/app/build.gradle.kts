@@ -50,9 +50,10 @@ android {
 
     buildFeatures { compose = true }
 
-    // Phones (arm64, older arm) and the x86_64 emulator; Filament's libraries are compressed in the APK.
+    // Phones (arm64, older arm) and the x86_64 emulator. Native libraries are stored uncompressed and 16 KB aligned in
+    // the APK (Google Play's 16 KB page-size rule, 26 Oct 2026), so Android maps them straight from the APK.
     defaultConfig { ndk { abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64") } }
-    packaging { jniLibs { useLegacyPackaging = true } }
+    packaging { jniLibs { useLegacyPackaging = false } }
     // SceneView ships lighting files and materials the 3D view never loads. Used: the two flat-colour materials and,
     // for the lit furniture (modern 3D, 25 Oct 2026), the lit colour, lit picture and see-through lit ones; the studio
     // light is made in code (ui/three/Render3D.kt), so SceneView's environments stay out.
@@ -87,7 +88,10 @@ dependencies {
     implementation("androidx.camera:camera-lifecycle:1.6.2")
     implementation("androidx.camera:camera-view:1.6.2")
     // offline voice numbers (UX upgrades §9): Vosk; the Uzbek and Russian models are downloaded by the app over Wi-Fi
-    implementation("com.alphacephei:vosk-android:0.3.47")
+    // 0.3.75 ships 16 KB-aligned arm64/x86_64 libvosk.so (0.3.47's was 4 KB); JNA 5.19.1's libjnidispatch.so is
+    // 16 KB aligned on every ABI (Vosk itself asks for 5.18.1)
+    implementation("com.alphacephei:vosk-android:0.3.75")
+    implementation("net.java.dev.jna:jna:5.19.1@aar")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.ui:ui-tooling-preview")
     testImplementation("junit:junit:4.13.2")
