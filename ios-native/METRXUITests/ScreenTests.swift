@@ -1066,6 +1066,11 @@ final class UXTests: ScreenTestCase {
             if !dark.isHittable { app.buttons["lk.p.twotone"].swipeLeft(); usleep(800_000) }
             if dark.isHittable { dark.tap(); sleep(2); shot("ux-12-gallery-dark") }
         }
+        // a new order without a room: a model's size steps (the sample's gallery is for its measured room)
+        for _ in 0..<6 where !app.buttons["home.new"].exists { backVisible(app) }
+        app.buttons["home.new"].tap(); usleep(900_000)
+        app.textFields.element(boundBy: 0).typeText("Aziza Nazarova")
+        app.buttons["no.create"].tap(); sleep(2)
         tapModel(app, "straight")
         for _ in 0..<3 where !app.textFields["fx.value"].exists && app.buttons["fx.next"].exists { app.buttons["fx.next"].tap(); usleep(800_000) }
         if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { shot("ux-13-size-coach"); app.buttons["ux.coachOk"].tap(); usleep(600_000) }
