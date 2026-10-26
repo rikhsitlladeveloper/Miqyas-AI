@@ -264,7 +264,8 @@ final class Part2Tests: ScreenTestCase {
         app.buttons["project.menu"].tap(); usleep(600_000)
         btn(app, "Loyihani o‘chirish").tap(); usleep(600_000); shot("54-delete-ask")
         app.buttons["pj.delete"].tap(); usleep(700_000); shot("55-deleted-toast")
-        btn(app, "Qaytarish").tap(); usleep(900_000); shot("56-undo")
+        // the toast's Undo reads "Ortga qaytarish" (UX upgrades section 3)
+        btn(app, "Ortga qaytarish").tap(); usleep(900_000); shot("56-undo")
 
         // closed and opened again: the project, its workspace and the note are still there
         app.terminate()
@@ -1059,7 +1060,12 @@ final class UXTests: ScreenTestCase {
         if app.buttons["ux.step.furn"].waitForExistence(timeout: 3) { app.buttons["ux.step.furn"].tap(); sleep(2) }
         if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { app.buttons["ux.coachOk"].tap(); usleep(600_000) }
         shot("ux-11-gallery")
-        if app.buttons["lk.p.dark"].exists { app.buttons["lk.p.dark"].tap(); sleep(2); shot("ux-12-gallery-dark") }
+        // the style row: a style further along it repaints the cards
+        let dark = app.buttons["lk.p.dark"]
+        if dark.exists {
+            if !dark.isHittable { app.buttons["lk.p.twotone"].swipeLeft(); usleep(800_000) }
+            if dark.isHittable { dark.tap(); sleep(2); shot("ux-12-gallery-dark") }
+        }
         tapModel(app, "straight")
         for _ in 0..<3 where !app.textFields["fx.value"].exists && app.buttons["fx.next"].exists { app.buttons["fx.next"].tap(); usleep(800_000) }
         if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { shot("ux-13-size-coach"); app.buttons["ux.coachOk"].tap(); usleep(600_000) }
