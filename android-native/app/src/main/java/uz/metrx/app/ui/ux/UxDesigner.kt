@@ -84,7 +84,9 @@ fun DesignerBar(p: Project, f: Furniture, d3: Boolean, onD3: (Boolean) -> Unit) 
         app.haptic(Hap.TICK)
         if (!p.designed) app.store.update(p.id, touch = false) { it.copy(designed = true) }
         app.push(Route.FPrice(p.id))
-    }, onUndo = { kit.undo(app, p.id, f.id); app.haptic(Hap.TICK) }, canUndo = kit.canUndo(f.id),
+    // the designer's own history first, then the order's last action (the piece just added, a kitchen placed)
+    }, onUndo = { if (kit.canUndo(f.id)) { kit.undo(app, p.id, f.id); app.haptic(Hap.TICK) } else app.undoLast() },
+        canUndo = kit.canUndo(f.id) || app.undos.isNotEmpty(),
         onRedo = { kit.redo(app, p.id, f.id); app.haptic(Hap.TICK) }, canRedo = kit.canRedo(f.id),
         seg = { Seg2D3D(d3, onD3) }, undoCoach = "designer")
 }

@@ -206,16 +206,19 @@ private fun TourPicture(i: Int) {
 private fun Coach() {
     val app = LocalApp.current
     val key = app.coachKey() ?: return
-    if (key in app.settings.coachSeen || app.sheet != null) return
-    val rect = app.coach[key]
     var show by remember(key) { mutableStateOf(false) }
-    LaunchedEffect(key, rect != null) {
-        if (rect == null) return@LaunchedEffect
-        delay(600)
-        if (app.sheet == null && app.coach[key] != null) { show = true; app.settings.markCoach(key) }
+    // seen once it shows (so it never comes back), but it stays on screen until it is closed
+    val seen = key in app.settings.coachSeen
+    LaunchedEffect(key, seen) {
+        if (seen) return@LaunchedEffect
+        // the target's place settles before the mark points at it
+        // and no toast is up (the toast would cover the bubble)
+        while (app.coach[key] == null || app.toast != null) delay(100)
+        delay(700)
+        if (app.sheet == null && app.coachKey() == key && app.coach[key] != null) { show = true; app.settings.markCoach(key) }
     }
     val r = app.coach[key]
-    if (!show || r == null) return
+    if (!show || r == null || app.sheet != null) return
     val density = LocalDensity.current
     fun close() { show = false }
     AnimatedVisibility(true, enter = fadeIn(), exit = fadeOut()) {

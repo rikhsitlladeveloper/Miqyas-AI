@@ -83,8 +83,9 @@ fun barSpotModifier(): Modifier = Modifier.composed {
 /** Where a coach mark points (§11): the target's place on screen, under [key]. */
 fun Modifier.coachSpot(key: String): Modifier = composed {
     val app = LocalApp.current
-    DisposableEffect(key) { onDispose { app.coach.remove(key) } }
-    this.onGloballyPositioned { c -> val r = c.boundsInRoot(); if (app.coach[key] != r) app.coach[key] = r }
+    // kept after the target leaves (a modifier rebuilt on every recomposition would otherwise make it flicker); the
+    // coach mark reads it only while its own screen is on top
+    this.onGloballyPositioned { c -> val r = c.boundsInRoot(); if (!r.isEmpty && app.coach[key] != r) app.coach[key] = r }
 }
 
 /** The header: Back, a small line above the title (with the NAMUNA badge), the title on up to 3 lines, [right] buttons, and [below]. */
@@ -92,7 +93,7 @@ fun Modifier.coachSpot(key: String): Modifier = composed {
 fun UxTop(title: String, onBack: () -> Unit, eyebrow: String? = null, sample: Boolean = false, right: @Composable RowScope.() -> Unit = {},
           below: (@Composable ColumnScope.() -> Unit)? = null) {
     val haze = LocalHaze.current
-    Column(Modifier.fillMaxWidth().glassBlur(haze, barFill(), 20.dp)
+    Column(Modifier.fillMaxWidth().glassBlur(haze, barFill(), 20.dp).background(barFill())
         .drawBehind { drawRect(G.ink.copy(alpha = .08f), Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
         .statusBarsPadding().padding(start = 8.dp, end = 10.dp, top = 6.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -140,7 +141,7 @@ fun UxBar(main: String, mainIcon: String?, onMain: () -> Unit, onUndo: (() -> Un
     val scope = rememberCoroutineScope()
     Column(barSpotModifier().fillMaxWidth()
         .dropShadow(RoundedCornerShape(0.dp), Shadow(24.dp, G.shade.copy(alpha = .10f), offset = DpOffset(0.dp, (-6).dp)))
-        .glassBlur(haze, barFill(), 20.dp)
+        .glassBlur(haze, barFill(), 20.dp).background(barFill())
         .drawBehind { drawRect(G.ink.copy(alpha = .08f), Offset.Zero, Size(size.width, 1.dp.toPx())) }
         .navigationBarsPadding().padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -234,11 +235,11 @@ fun MiniProgress(p: Project, modifier: Modifier = Modifier) {
                 }))
             }
         }
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            val price = app.priceWords(p, short = true)
-            if (price != null) Text(price, style = ui(12.5f, if (app.settings.advanced) 700 else 600, if (app.settings.advanced) G.ink else G.ink3), maxLines = 1,
-                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-            Box(Modifier.weight(1f))
+        Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // simple mode: the grey "≈ … so‘m (taxminiy)"; Advanced: the exact price (§4)
+            val price = app.priceWords(p, short = app.settings.advanced)
+            Text(price ?: "", style = ui(12.5f, if (app.settings.advanced) 700 else 600, if (app.settings.advanced) G.ink else G.ink3, 1.3f), maxLines = 2,
+                overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             val next = app.nextStepName(p)
             Text(if (next != null) tr("ux.nextV", "s" to next) else tr("ux.sentDone"), style = ui(12.5f, 700, if (next != null) G.cobalt2 else G.green), maxLines = 1)
         }
