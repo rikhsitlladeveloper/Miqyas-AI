@@ -99,15 +99,21 @@ fun App.makeSample() {
         .copy(industry = "furniture", sample = true, fstyle = "wood", floors = listOf(w), rooms = listOf(room), furniture = pieces,
             stage = if (pieces.isEmpty()) "measure" else "design", want = listOf("kitchen"), designed = pieces.isNotEmpty(), created = now - 1, edited = now - 1)
     store.add(p)
+    // an old sample's Undo would now bring back a second one
+    undos.forget(SAMPLE_UNDO)
     settings.setSampleMadeTo(true)
 }
 
 /** The sample goes in one tap, with Undo. */
 fun App.deleteSample(pid: String) {
-    val gone = store.delete(pid) ?: return
+    val (p, at) = store.delete(pid) ?: return
     dropMissing()
-    act(t("ux.sampleDel"), { store.restore(gone.first, gone.second) })
+    // only one sample at a time: Undo never brings back a second one (one made again since, or the same one twice)
+    act(t("ux.sampleDel"), { if (store.projects.none { it.sample }) store.restore(p, at) }, tag = SAMPLE_UNDO)
 }
+
+/** The undo entries that would put a deleted sample back. */
+private const val SAMPLE_UNDO = "sample"
 
 /* ---------------- the tour and the coach marks ---------------- */
 

@@ -311,19 +311,22 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     /** Where each coach mark's target is on screen (§11), by screen key. */
     val coach = androidx.compose.runtime.mutableStateMapOf<String, androidx.compose.ui.geometry.Rect>()
     /** The order page's and price screen's Undo (§1): the last actions, newest last, each with its words. */
-    val undos = mutableStateListOf<Pair<String, () -> Unit>>()
-    /** An action that can be undone: a toast with "Ortga qaytarish", a tick, and the bottom bar's Undo. */
-    fun act(text: String, undo: () -> Unit, kind: ToastKind = ToastKind.OK) {
-        undos.add(text to undo); if (undos.size > 20) undos.removeAt(0)
+    val undos = uz.metrx.app.ui.ux.UndoStack()
+    /**
+     * An action that can be undone: a toast with "Ortga qaytarish", a tick, and the bottom bar's Undo. [tag] names what
+     * it puts back, so the entry can be forgotten once that changed (the sample made again).
+     */
+    fun act(text: String, undo: () -> Unit, kind: ToastKind = ToastKind.OK, tag: String? = null) {
+        val entry = undos.push(text, tag, undo)
         haptic(uz.metrx.app.ui.ux.Hap.TICK)
-        val entry = undos.last()
-        toast = ToastMsg(text, kind, t("ux.undo"), onAction = { if (undos.remove(entry)) { haptic(uz.metrx.app.ui.ux.Hap.TICK); entry.second() } })
+        // the action is put back before the tick, so a haptics failure can never cost the Undo
+        toast = ToastMsg(text, kind, t("ux.undo"), onAction = { if (undos.undo(entry)) haptic(uz.metrx.app.ui.ux.Hap.TICK) })
     }
     /** The bottom bar's Undo: the newest action goes back. */
     fun undoLast() {
-        val e = undos.removeLastOrNull() ?: run { say("ux.nothingUndo", kind = ToastKind.INFO); return }
-        e.second(); haptic(uz.metrx.app.ui.ux.Hap.TICK)
-        say("ux.undone", "m" to e.first, kind = ToastKind.INFO)
+        val e = undos.undoLast() ?: run { say("ux.nothingUndo", kind = ToastKind.INFO); return }
+        haptic(uz.metrx.app.ui.ux.Hap.TICK)
+        say("ux.undone", "m" to e.text, kind = ToastKind.INFO)
     }
     fun t(key: String, vararg v: Pair<String, Any?>) = Strings.t(key, settings.lang, if (v.isEmpty()) null else v.toMap())
 
