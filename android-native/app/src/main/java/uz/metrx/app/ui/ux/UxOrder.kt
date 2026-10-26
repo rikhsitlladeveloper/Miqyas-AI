@@ -103,8 +103,7 @@ private fun FurnPart(p: Project, lang: Lang, r: Route.Project, addCard: Boolean)
     }
     uz.metrx.app.ui.furniture.FRoomsTab(p, lang, r, addCard = addCard)
     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (p.furniture.any { it.roomId == null } && p.rooms.none { uz.metrx.app.ui.furniture.measuredRoom(it, app.settings.angleSnap) })
-            InfoRow("ruler", tr("ux.freeRow"), tr("ux.freeRowS"), null)
+        // (room-less pieces have their own card above, FreeCard)
         p.quotes.lastOrNull()?.let { q ->
             InfoRow("lock", tr("ux.sentRow", "n" to q.no), tr("ux.sentRowS", "d" to fmtDate(q.ts) + " " + uz.metrx.app.ui.report.fmtTime(q.ts))) { app.push(Route.FPrice(p.id)) }
         }

@@ -75,7 +75,8 @@ fun App.openStep(p: Project, key: String) {
             val r = p.rooms.firstOrNull { !measuredRoom(it, snap) } ?: p.rooms.firstOrNull()
             if (r != null) openRoom(p.id, r.id) else sheet = Sheet.FNewRoom(p.id)
         }
-        "furn" -> push(Route.FGallery(p.id))
+        // the gallery for the order's measured room (its sizes come from the room), else room-less
+        "furn" -> push(Route.FGallery(p.id, p.rooms.firstOrNull { measuredRoom(it, settings.angleSnap) }?.id))
         "design" -> p.furniture.firstOrNull()?.let { kit.sel = null; push(designer(p.id, it, 2)) } ?: push(Route.FGallery(p.id))
         else -> if (p.furniture.isEmpty()) say("ux.noFurnPrice", kind = ToastKind.INFO) else push(Route.FPrice(p.id))
     }
@@ -107,7 +108,7 @@ fun App.fNextAct(p: Project, ctx: Context): UxAct {
             else UxAct(t("ux.a.design"), "cube") { p.furniture.firstOrNull()?.let { kit.sel = null; push(designer(p.id, it, 2)) } }
         "price" -> UxAct(t("ux.a.price"), "coin") { push(Route.FPrice(p.id)) }
         "pdf" -> UxAct(t("ux.a.tg"), "tg") { sendQuote(ctx, p.id, telegram = true) }
-        else -> UxAct(t("ux.a.more"), "plus") { push(Route.FGallery(p.id)) }
+        else -> UxAct(t("ux.a.more"), "plus") { push(Route.FGallery(p.id, p.rooms.firstOrNull { measuredRoom(it, snap) }?.id)) }
     }
 }
 

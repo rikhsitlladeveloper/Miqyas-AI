@@ -214,7 +214,7 @@ fun FurnitureHome(nav: MainNav) {
 @Composable
 fun NewOrderPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(28.dp)
-    Row(modifier.heightIn(min = 56.dp).dropShadow(shape, Shadow(24.dp, G.cobalt.copy(alpha = .4f), offset = DpOffset(0.dp, 10.dp)))
+    Row(modifier.then(uz.metrx.app.ui.ux.barSpotModifier()).heightIn(min = 56.dp).dropShadow(shape, Shadow(24.dp, G.cobalt.copy(alpha = .4f), offset = DpOffset(0.dp, 10.dp)))
         .clip(shape).background(G.cobalt).pressable(onClick, .97f).padding(horizontal = 24.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         MIcon("plus", Color.White, 22.dp, 2.6f)

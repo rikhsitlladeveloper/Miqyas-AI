@@ -217,7 +217,7 @@ fun FGalleryScreen(rt: Route.FGallery) {
                     Text(tr("fg.measureS"), style = ui(12.5f, 400, G.ink2))
                 }
             }
-            if (room == null) Text(tr("ux.g.noRoom", "u" to unitWord(app.settings.furnUnit)), style = ui(13f, 500, G.ink2, 1.4f), modifier = Modifier.padding(start = 4.dp))
+            if (room == null && p.rooms.none { measuredRoom(it, app.settings.angleSnap) }) Text(tr("ux.g.noRoom", "u" to unitWord(app.settings.furnUnit)), style = ui(13f, 500, G.ink2, 1.4f), modifier = Modifier.padding(start = 4.dp))
             // the maker's own templates first: their style and layout stay, the sizes refit (UX upgrades §7)
             if (app.settings.templates.isNotEmpty()) TemplatesRow(p, room?.id)
             // the coach mark points at the first card (UX upgrades §11)
@@ -332,7 +332,7 @@ fun FStepsScreen(rt: Route.FSteps) {
         had.mapValues { (k, v) -> if (st.any { it.key == k && it.choice }) "$v" else fmtField(v, unit, en) } })) }
     val texts = decodeTexts(textsS)
     // a corner piece's side steps follow which sides were measured; its shape is chosen once, when it is made
-    val steps = stepsOf(m, texts["ms"]?.toIntOrNull()?.let { mapOf("ms" to it) } ?: emptyMap()).filter { edit == null || it.key != "sh" }
+    val steps = stepsOf(m, texts["ms"]?.toIntOrNull()?.let { mapOf("ms" to it) } ?: emptyMap()).filter { (edit == null && tplF == null) || it.key != "sh" }
     val n = steps.size
     fun txt(i: Int) = texts[steps[i].key] ?: ""
     fun setTxt(i: Int, v: String) { textsS = encodeTexts(texts + (steps[i].key to v)) }

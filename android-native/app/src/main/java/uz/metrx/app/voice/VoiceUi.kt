@@ -153,7 +153,7 @@ fun PackRow(lang: String) {
         horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         UxIcon("wifi", G.cobalt, 22.dp, 2f)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(tr("ux.v.pack"), style = ui(14.5f, 700, G.ink, 1.3f))
+            Text(tr(if (ready) "ux.v.row" else "ux.v.pack"), style = ui(14.5f, 700, G.ink, 1.3f))
             Text(when {
                 ready -> tr("ux.v.ok", "l" to tr(if (lang == "ru") "ux.v.ru" else "ux.v.uz"))
                 prog != null -> if (prog >= .9f) tr("ux.v.unzip") else tr("ux.v.loading", "p" to (prog * 100).toInt())

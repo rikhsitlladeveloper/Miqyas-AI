@@ -833,6 +833,17 @@ private fun FMenuSheet(s: Sheet.FMenu) {
             MenuRow("room", tr("fz.move"), G.ink) { app.sheet = null; app.push(Route.FPlace(p.id, f.id, f.roomId)) }
             MenuRow("room", tr("fz.takeOut"), G.ink) { app.sheet = null; app.takeOut(p.id, f.id) }
         }
+        // UX upgrades §7: a template keeps the style and the layout; its sizes refit where it is used next
+        if (f.modules.isNotEmpty()) MenuRow("save", tr("ux.tpl.save"), G.ink) {
+            val room = if (f.roomId == null) null else roomOf(p, f)
+            val snap = app.settings.angleSnap
+            val loose = if (f.roomId == null) f else uz.metrx.app.furniture.takenOut(f, { id -> room?.let { wallLen(it, snap, id) } }, room?.dim("H")?.v)
+            val t = loose.copy(id = uz.metrx.app.data.uid(), roomId = null, ws = "", created = System.currentTimeMillis())
+            val before = app.settings.templates
+            app.settings.setTemplateList(before + t)
+            app.sheet = null
+            app.act(app.t("ux.tpl.saved", "n" to dn(f.name, lang)), { app.settings.setTemplateList(before) })
+        }
         MenuRow("trash", tr("kt.del"), G.err) {
             val i = p.furniture.indexOfFirst { it.id == f.id }
             app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.filter { it.id != f.id }) }
