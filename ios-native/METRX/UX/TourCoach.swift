@@ -28,7 +28,9 @@ struct CoachLayer: View {
     var body: some View {
         let s = AppSettings.shared
         let order = ["order", "gallery", "size", "designer", "price"]
-        let due = AppModel.shared.sheet == nil && s.furniture ? order.first { marks[$0] != nil && s.coachDue($0) } : nil
+        // after any sheet and toast has gone, so the mark never hides what was just said
+        let quiet = AppModel.shared.sheet == nil && AppModel.shared.toast == nil
+        let due = quiet && s.furniture ? order.first { marks[$0] != nil && s.coachDue($0) } : nil
         GeometryReader { geo in
             if let k = due, ready == k, let a = marks[k] {
                 let r = geo[a].insetBy(dx: -6, dy: -6)

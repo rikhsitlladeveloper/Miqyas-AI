@@ -1028,3 +1028,52 @@ final class EdgeMeasureTests: ScreenTestCase {
         app.buttons["mk.edges"].tap(); usleep(700_000); shot("e4-edges-off")
     }
 }
+
+/// The UX upgrades (26 Oct 2026, design/ux-upgrades/BUILD_SPEC.md): a furniture maker's first start with the three tour
+/// cards, the "Namuna — oshxona" sample order, its page (progress, price, bottom bar, coach mark), Ma'lumot with the
+/// stages, the price-and-send page, the gallery's style row, a size step with the laser and the mic, Profile's new rows
+/// and the sample deleted with Undo.
+final class UXTests: ScreenTestCase {
+    func testUXUpgrades() {
+        let app = launch(extra: ["-uiTour"])
+        firstRun(app, "ind.furn")
+        XCTAssertTrue(app.buttons["ux.tourNext"].waitForExistence(timeout: 6)); usleep(600_000); shot("ux-01-tour-1")
+        app.buttons["ux.tourNext"].tap(); usleep(700_000); shot("ux-02-tour-2")
+        app.buttons["ux.tourNext"].tap(); usleep(700_000); shot("ux-03-tour-3")
+        app.buttons["ux.tourNext"].tap(); sleep(1); shot("ux-04-home-sample")
+        // the sample order's page: progress, price, the bottom bar and its coach mark
+        let sample = app.staticTexts.matching(NSPredicate(format: "label BEGINSWITH %@", "Namuna")).firstMatch
+        guard sample.waitForExistence(timeout: 5) else { XCTFail("no sample order"); return }
+        sample.tap(); sleep(2); shot("ux-05-order-coach")
+        if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { app.buttons["ux.coachOk"].tap(); usleep(600_000) }
+        shot("ux-06-order")
+        app.buttons["ptab.info"].tap(); usleep(900_000); shot("ux-07-info-stages")
+        app.swipeUp(); usleep(600_000); shot("ux-08-info-stages-2")
+        app.buttons["ptab.rooms"].tap(); usleep(900_000)
+        // the price-and-send page
+        if app.buttons["ux.step.send"].waitForExistence(timeout: 3) { app.buttons["ux.step.send"].tap(); sleep(4); shot("ux-09-send-coach") }
+        if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { app.buttons["ux.coachOk"].tap(); usleep(600_000) }
+        shot("ux-10-send")
+        backVisible(app)
+        // the gallery: the style row on top, then a size step with the laser and the mic
+        if app.buttons["ux.step.furn"].waitForExistence(timeout: 3) { app.buttons["ux.step.furn"].tap(); sleep(2) }
+        if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { app.buttons["ux.coachOk"].tap(); usleep(600_000) }
+        shot("ux-11-gallery")
+        if app.buttons["lk.p.dark"].exists { app.buttons["lk.p.dark"].tap(); sleep(2); shot("ux-12-gallery-dark") }
+        tapModel(app, "straight")
+        for _ in 0..<3 where !app.textFields["fx.value"].exists && app.buttons["fx.next"].exists { app.buttons["fx.next"].tap(); usleep(800_000) }
+        if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { shot("ux-13-size-coach"); app.buttons["ux.coachOk"].tap(); usleep(600_000) }
+        shot("ux-14-size")
+        retype(app, "fx.value", "12"); usleep(500_000); shot("ux-15-size-error")
+        retype(app, "fx.value", "3400"); usleep(500_000)
+        if app.buttons["fx.laser"].exists { app.buttons["fx.laser"].tap(); sleep(3); shot("ux-16-size-laser") }
+        // Profile: haptics, the unit, the voice pack, the tips
+        for _ in 0..<6 where !app.buttons["tab.profile"].exists { backVisible(app) }
+        app.buttons["tab.profile"].tap(); usleep(900_000)
+        app.swipeUp(); usleep(600_000); shot("ux-17-profile")
+        app.swipeUp(); usleep(600_000); shot("ux-18-profile-2")
+        // the sample order goes in one tap, Undo in the toast
+        app.buttons["tab.home"].tap(); usleep(900_000)
+        if app.buttons["ux.sampleDel"].waitForExistence(timeout: 3) { app.buttons["ux.sampleDel"].tap(); usleep(900_000); shot("ux-19-sample-deleted") }
+    }
+}
