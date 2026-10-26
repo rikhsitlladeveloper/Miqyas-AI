@@ -61,6 +61,9 @@ targets:
       # spoken sizes to mm (UX upgrades section 9): the cases both apps' parsers must pass
       - path: ../design/ux-upgrades/voice-cases.json
         buildPhase: resources
+      # room shapes' geometry (room-shapes BUILD_SPEC "Geometry"): the mockup's cases both apps must pass
+      - path: ../design/room-shapes/shape-cases.json
+        buildPhase: resources
     dependencies:
       - target: METRX
     settings:
