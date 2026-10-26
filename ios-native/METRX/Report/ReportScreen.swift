@@ -88,7 +88,11 @@ struct ReportScreen: View {
                                     VStack(alignment: .leading, spacing: 0) {
                                         if design { T(dn(p.name), ui(15, 700, .white), lines: 1) } else {
                                             T(tr("rp2.total"), ui(12.5, 400, STRIP_INK))
-                                            Text(Money.str(total, sn.precision, lang == .en) + " " + Money.cur(sn.currency)).st(num(22, 700, .white)).lineLimit(1)
+                                            // the simple app's draft: the approximate price only (UX upgrades section 4)
+                                            let exact: String = Money.str(total, sn.precision, lang == .en) + " " + Money.cur(sn.currency)
+                                            let shownTotal: String = send && !AppSettings.shared.advanced ? (priceLine(p) ?? "—") : exact
+                                            Text(shownTotal)
+                                                .st(num(22, 700, .white)).lineLimit(1).minimumScaleFactor(0.6)
                                                 .accessibilityIdentifier("rp.total")
                                         }
                                     }
