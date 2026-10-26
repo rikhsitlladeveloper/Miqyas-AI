@@ -128,6 +128,8 @@ struct FGalleryScreen: View {
                                 .accessibilityElement(children: .combine).accessibilityAddTraits(.isButton)
                                 .accessibilityIdentifier("fg.measure")
                             }
+                            // the maker's own templates first: their style and layout stay, the sizes refit (UX upgrades section 7)
+                            if !s.templates.isEmpty { TemplatesRow(app: app, p: p, rid: room?.id, pics: pics) }
                             ForEach(groups, id: \.0) { g, ids in
                                 HStack(alignment: .lastTextBaseline, spacing: 8) { T(groupName(g), ui(17, 800)); T("\(ids.count)", ui(12.5, 500, G.ink3)) }
                                     .padding(.top, 8).padding(.leading, 2)
@@ -178,6 +180,68 @@ struct FGalleryScreen: View {
     private func pick(_ p: Project, _ room: Room?, _ m: FModelDef) {
         KitOps.shared.sel = nil
         if let room { app.push(.fPlace(pid: p.id, fid: nil, rid: room.id, model: m.id)) } else { app.push(.fSteps(pid: p.id, model: m.id)) }
+    }
+}
+
+/// "Mening shablonlarim": the saved pieces, a tap puts one in the order (its sizes refit), the cross deletes it (Undo).
+private struct TemplatesRow: View {
+    let app: AppModel
+    let p: Project
+    let rid: String?
+    let pics: [String: UIImage]
+    var body: some View {
+        let s = AppSettings.shared
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .lastTextBaseline, spacing: 8) { T(tr("ux.tpl.group"), ui(17, 800)); T("\(s.templates.count)", ui(12.5, 500, G.ink3)) }
+                .padding(.top, 8).padding(.leading, 2)
+            T(tr("ux.tpl.note"), ui(12.5, 400, G.ink2, lh: 1.4)).padding(.leading, 2)
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 10) {
+                    ForEach(s.templates) { t in
+                        VStack(alignment: .leading, spacing: 6) {
+                            ZStack {
+                                Color(argb: 0xFFF6F8FC)
+                                if let pic = pics[modelOf(t).id] { Image(uiImage: pic).resizable().scaledToFill() } else { MIcon(t.kind == "kitchen" ? "kitchen" : "board", G.cobalt, 30, 2) }
+                            }
+                            .frame(width: 154, height: 116)
+                            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                            HStack(spacing: 4) {
+                                T(dn(t.name), ui(14, 800), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
+                                MIcon("x", G.ink3, 16, 2).frame(width: 40, height: 40)
+                                    .pressable(0.95, label: tr("common.delete")) {
+                                        let before = s.templates
+                                        s.setTemplateList(before.filter { $0.id != t.id })
+                                        app.act("ux.tpl.del") { AppSettings.shared.setTemplateList(before) }
+                                    }
+                            }
+                            .padding(.leading, 4)
+                        }
+                        .padding(8)
+                        .frame(width: 170)
+                        .glassCard(RoundedRectangle(cornerRadius: 20, style: .continuous), fill: G.glass(0.62))
+                        .pressable(0.98) { useTemplate(t) }
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("tpl." + t.id)
+                    }
+                }
+            }
+        }
+    }
+
+    /// A template into the order: in a measured room a room-less copy goes onto its walls; without one its sizes are
+    /// asked again.
+    private func useTemplate(_ t: Furniture) {
+        guard app.once(), let p = Store.shared.get(p.id) else { return }
+        KitOps.shared.sel = nil
+        let m = modelOf(t)
+        if let rid {
+            var f = t
+            f.id = uid(); f.name = pieceName(p, m); f.created = nowMs(); f.roomId = nil; f.ws = ""
+            addPiece(p.id, f)
+            app.push(.fPlace(pid: p.id, fid: f.id, rid: rid))
+        } else {
+            app.push(.fSteps(pid: p.id, model: m.id, tpl: t.id))
+        }
     }
 }
 
@@ -251,11 +315,16 @@ struct FStepsScreen: View {
     @State private var backToken = 0
     @FocusState private var typing: Bool
 
-    init(app: AppModel, pid: String, model: String, fid: String?, vals: String? = nil) {
+    /// A template being put in (its style and layout stay, its sizes asked again).
+    private let tplF: Furniture?
+
+    init(app: AppModel, pid: String, model: String, fid: String?, vals: String? = nil, tpl: String? = nil) {
         self.app = app; self.pid = pid; self.model = model; self.fid = fid
         let s = AppSettings.shared
         let edit = fid.flatMap { id in Store.shared.get(pid)?.furniture.first { $0.id == id } }
-        let have = vals.map { decodeVals($0) } ?? edit.map { valsOf($0, s.workshop) } ?? [:]
+        let t = fid == nil ? tpl.flatMap { id in s.templates.first { $0.id == id } } : nil
+        tplF = t
+        let have = vals.map { decodeVals($0) } ?? edit.map { valsOf($0, s.workshop) } ?? t.map { valsOf($0, s.workshop) } ?? [:]
         had = have
         let all = fModel(model).map { stepsOf($0, have) } ?? []
         var t: [String: String] = [:]
@@ -289,7 +358,7 @@ struct FStepsScreen: View {
             // only sizes within their range reach the piece: a typed 99999 would otherwise build a 100 m kitchen on every key
             let vals = typedVals(steps, unit)
             // a new piece is shown in the order's design style, as it will be made (addPiece)
-            let piece = edit.map { resized($0, vals, ws) } ?? styledNew(pieceOf(m, vals, ws, ""), p.fstyle, ws: ws)
+            let piece = edit.map { resized($0, vals, ws) } ?? tplF.map { resized($0, vals, ws) } ?? styledNew(pieceOf(m, vals, ws, ""), p.fstyle, ws: ws)
             let scene = pieceScene(piece, ws, s.mats)
             let uw = unitWord(unit)
             let hi: String? = at < n && !steps[at].choice ? steps[at].key : nil
@@ -348,7 +417,7 @@ struct FStepsScreen: View {
                         // the designer opens (UX upgrades section 7)
                         let roomless = !p.rooms.contains { measuredRoom($0, s.angleSnap) }
                         GBtn(tr(roomless ? "ux.toDesign" : "fr.continue"), enabled: allOk) {
-                            if roomless { placeRoomless(p, m, vals); return }
+                            if roomless || tplF != nil { placeRoomless(p, m, vals, ask: !roomless); return }
                             // the sizes stay with this page, so coming back from "Which room?" finds them
                             app.setTop(.fSteps(pid: pid, model: m.id, fid: nil, vals: encodeVals(vals)))
                             app.push(.fWhere(pid: pid, model: m.id, vals: encodeVals(vals)))
@@ -371,14 +440,22 @@ struct FStepsScreen: View {
     }
 
     /// The piece without a room, straight into its designer; Undo takes it out again.
-    private func placeRoomless(_ p: Project, _ m: FModelDef, _ vals: [String: Int]) {
+    private func placeRoomless(_ p: Project, _ m: FModelDef, _ vals: [String: Int], ask: Bool = false) {
         guard app.once() else { return }
         let ws = AppSettings.shared.workshop
-        let f = pieceOf(m, vals, ws, pieceName(p, m), now: nowMs())
+        var f = pieceOf(m, vals, ws, pieceName(p, m), now: nowMs())
+        // a template's copy: its style and layout, the new sizes
+        if let t = tplF {
+            var c = t
+            c.id = uid(); c.name = pieceName(p, m); c.created = nowMs(); c.roomId = nil; c.ws = ""; c.pose = nil
+            f = resized(c, vals, ws)
+        }
         let before = p
         addPiece(pid, f)
         KitOps.shared.sel = nil
         app.popTo { if case .project(let id, _, _, _) = $0 { return id == pid }; return false }
+        // the order has a measured room: which one (or none) is asked
+        if ask { app.sheet = .fPickRoom(pid: pid, fid: f.id); return }
         app.push(designer(pid, f, step: 2))
         app.act("ux.addedFree", ["n": dn(f.name)]) {
             Store.shared.update(before.id) { $0 = before }
@@ -667,6 +744,16 @@ struct FStepsScreen: View {
                 DerivedCard(rows: derived.map { d in (tr(d.key), Geo.fmtLen(d.mm, unit, en) + " " + uw, d.bad) })
             }
             T(tr(note), ui(12.5, 400, G.ink2, lh: 1.45)).padding(.top, 4).padding(.leading, 4)
+            // whether "Qaysi xonaga?" comes next or is skipped (UX upgrades section 7)
+            if fid == nil, let p = Store.shared.get(pid) {
+                let room = p.rooms.contains { measuredRoom($0, AppSettings.shared.angleSnap) }
+                HStack(alignment: .top, spacing: 10) {
+                    MIcon(room ? "room" : "info", G.cobalt2, 18, 2)
+                    T(tr(room ? "ux.sum.room" : "ux.sum.skip"), ui(13, 500, G.ink, lh: 1.4)).frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(12)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.blueWash))
+            }
         }
     }
 }

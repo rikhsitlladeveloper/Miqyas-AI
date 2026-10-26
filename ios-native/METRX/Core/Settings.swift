@@ -58,6 +58,9 @@ final class AppSettings {
     /// The "Namuna — oshxona" sample order was made once (it is not made again after it is deleted, until the hints
     /// come back).
     private(set) var sampleMade: Bool
+    /// "Mening shablonlarim" (UX upgrades section 7): pieces saved from a designer; a template keeps its style and
+    /// layout, its sizes refit to the new room.
+    private(set) var templates: [Furniture]
     /// "Don't show again" for the editor's first-time tip.
     private(set) var editorTipOff: Bool
     /// What a plan shows in the middle of a room: "both", "name", "area" or "none".
@@ -132,6 +135,7 @@ final class AppSettings {
         tourDone = d.object(forKey: "tourDone") as? Bool ?? (uiRun && !wantTour)
         coachSeen = d.stringArray(forKey: "coachSeen") ?? []
         sampleMade = d.object(forKey: "sampleMade") as? Bool ?? (uiRun && !wantTour)
+        templates = d.data(forKey: "templates").flatMap { try? JSONDecoder().decode([Furniture].self, from: $0) } ?? []
         angleSnap = d.object(forKey: "angleSnap") as? Bool ?? true
         editorTipOff = d.bool(forKey: "tipEditor")
         roomLabel = d.string(forKey: "roomLabel") ?? "both"
@@ -177,6 +181,7 @@ final class AppSettings {
     /// The screen tests: no tour, coach marks or sample order unless a test asks for them with -uiTour.
     static let uxQuiet: Bool = ProcessInfo.processInfo.arguments.contains("-uiReset") && !ProcessInfo.processInfo.arguments.contains("-uiTour")
     func markCoach(_ k: String) { if !coachSeen.contains(k) { coachSeen.append(k); d.set(coachSeen, forKey: "coachSeen") } }
+    func setTemplateList(_ v: [Furniture]) { templates = v; d.set(try? JSONEncoder().encode(v), forKey: "templates") }
     func setSampleMade(_ on: Bool) { sampleMade = on; d.set(on, forKey: "sampleMade") }
     /// Profile → "Maslahatlarni qayta ko‘rsatish": the tour, the coach marks and the sample order come back.
     func resetTour() { setTourDone(false); coachSeen = []; d.set([String](), forKey: "coachSeen"); setSampleMade(false); resetHints() }

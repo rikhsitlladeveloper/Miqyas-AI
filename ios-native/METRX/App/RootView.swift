@@ -176,7 +176,7 @@ struct RootView: View {
         case .fCheck(let pid): CheckScreen(app: app, pid: pid)
         case .remnants: RemnantsScreen(app: app)
         case .fGallery(let pid, let rid, let fromNew): FGalleryScreen(app: app, pid: pid, rid: rid, fromNew: fromNew)
-        case .fSteps(let pid, let model, let fid, let vals): FStepsScreen(app: app, pid: pid, model: model, fid: fid, vals: vals)
+        case .fSteps(let pid, let model, let fid, let vals, let tpl): FStepsScreen(app: app, pid: pid, model: model, fid: fid, vals: vals, tpl: tpl)
         case .fWhere(let pid, let model, let vals): FWhereScreen(app: app, pid: pid, model: model, vals: vals)
         case .fPlace(let pid, let fid, let rid, let model, let vals): FPlaceScreen(app: app, pid: pid, fid: fid, rid: rid, model: model, vals: vals)
         case .fStyle(let pid, let fromNew): FStyleScreen(app: app, pid: pid, fromNew: fromNew)

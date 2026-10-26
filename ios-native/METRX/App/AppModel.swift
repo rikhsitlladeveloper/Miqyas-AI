@@ -51,7 +51,8 @@ enum Route: Hashable {
     /// fPlace places piece fid, or a new piece of model with the sizes vals ("s0=3000,h=2700"; nil: sizes from the room).
     case fGallery(pid: String, rid: String? = nil, fromNew: Bool = false)
     /// vals: the sizes typed so far ("s0=3400,h=2700"), kept while "Which room?" is on top; the steps open on the summary.
-    case fSteps(pid: String, model: String, fid: String? = nil, vals: String? = nil)
+    /// tpl: a saved template whose style and layout stay while its sizes are asked again (UX upgrades section 7).
+    case fSteps(pid: String, model: String, fid: String? = nil, vals: String? = nil, tpl: String? = nil)
     case fWhere(pid: String, model: String, vals: String)
     case fPlace(pid: String, fid: String?, rid: String, model: String? = nil, vals: String? = nil)
     /// A furniture order's design style, the preset new pieces start with (Furniture/Core/PieceLook.swift); fromNew: a new
@@ -270,7 +271,7 @@ final class AppModel {
                 case .fLabels(let pid), .fCheck(let pid): return store.get(pid) != nil
                 case .autoKitchen(let pid, let rid): return store.get(pid)?.rooms.contains { $0.id == rid } == true
                 case .fGallery(let pid, let rid, _): return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
-                case .fSteps(let pid, _, let fid, _): return store.get(pid).map { p in fid == nil || p.furniture.contains { $0.id == fid } } == true
+                case .fSteps(let pid, _, let fid, _, _): return store.get(pid).map { p in fid == nil || p.furniture.contains { $0.id == fid } } == true
                 case .fPlace(let pid, let fid, let rid, _, _): return store.get(pid).map { p in (fid == nil || p.furniture.contains { $0.id == fid }) && p.rooms.contains { $0.id == rid } } == true
                 case .tGallery(let pid, let rid, _): return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
                 case .tSteps(let pid, _, let lid, _): return store.get(pid).map { p in lid == nil || p.tiles.contains { $0.id == lid } } == true
@@ -347,7 +348,7 @@ final class AppModel {
         undoCount = undos.count
         e.run()
         Haptic.tick()
-        toast = ToastMsg(text: tr("ux.undone", ["a": e.text]), kind: .info)
+        toast = ToastMsg(text: tr("ux.undone", ["m": e.text]), kind: .info)
     }
 
     func say(_ key: String, _ vars: [String: Any]? = nil, kind: ToastKind = .ok, action: String? = nil, onAction: (() -> Void)? = nil) {

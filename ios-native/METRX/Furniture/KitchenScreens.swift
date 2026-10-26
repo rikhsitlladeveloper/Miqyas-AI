@@ -483,6 +483,16 @@ private struct FMenuSheet: View {
                         }
                         FMenuRow(icon: "room", label: tr("fz.takeOut"), color: G.ink) { app.sheet = nil; takeOut(app, p.id, f.id) }.accessibilityIdentifier("fm.takeOut")
                     }
+                    // "Shablon sifatida saqlash": into the gallery's "Mening shablonlarim" (UX upgrades section 7)
+                    FMenuRow(icon: "save", label: tr("ux.tpl.save"), color: G.ink) {
+                        let s = AppSettings.shared
+                        var t = f
+                        t.id = uid(); t.roomId = nil; t.ws = ""; t.pose = nil; t.created = nowMs()
+                        s.setTemplateList(Array((s.templates + [t]).suffix(20)))
+                        app.sheet = nil; Haptic.confirm()
+                        app.say("ux.tpl.saved", ["n": dn(f.name)])
+                    }
+                    .accessibilityIdentifier("fm.tpl")
                     FMenuRow(icon: "trash", label: tr("kt.del"), color: G.err) {
                         let i = p.furniture.firstIndex { $0.id == f.id } ?? 0
                         Store.shared.update(p.id) { pr in pr.furniture.removeAll { $0.id == f.id } }
