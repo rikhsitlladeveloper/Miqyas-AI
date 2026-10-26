@@ -31,8 +31,10 @@ struct TierCard: View {
                     .background(Capsule().fill(G.cobalt.opacity(0.1)))
             }
             T(tr("pt.sub"), ui(12.5, 400, G.ink2, lh: 1.4))
+            let f0 = fs.first { $0.kind == "kitchen" } ?? fs.first
+            let kitchen = fs.contains { $0.kind == "kitchen" }
             ForEach(ps, id: \.tier) { tp in
-                TierRow(p: p, tier: tp, std: std, mats: tierMats(fs, tp.tier))
+                TierRow(p: p, tier: tp, std: std, what: tierWhat(f0, tp.tier, kitchen: kitchen))
             }
             FToggle(label: tr("pt.pdf"), on: p.tri, id: "pt.pdf") { Store.shared.update(p.id) { $0.tri.toggle() } }
             T(tr("pt.pdfNote"), ui(12, 400, G.ink2, lh: 1.35))
@@ -48,20 +50,17 @@ private struct TierRow: View {
     let p: Project
     let tier: TierPrice
     let std: Decimal
-    let mats: TierMats
+    /// What it is made of, line by line (Core/PriceTiers.swift tierWhat).
+    let what: [(String, String)]
     var body: some View {
         let s = AppSettings.shared, en = s.lang == .en
         let isStd = tier.tier == "std"
         let pct = tierPct(tier.price, std)
         let delta = isStd ? tr("pt.asDesign") : tr("pt.delta", ["v": (pct > 0 ? "+" : pct < 0 ? "−" : "") + "\(abs(pct))"])
-        let hw: String = tr(mats.hw) + (mats.led ? " · " + tr("pt.led") : "")
-        let raw: [String?] = [
-            tierBoardName(mats.front, s.mats),
-            tierBoardName(mats.top, s.mats).map { tr("mt.wtK") + ": " + $0 },
-            tierBoardName(mats.splash, s.mats).map { tr("mt.splashK") + ": " + $0 },
-            hw
-        ]
-        let lines = raw.compactMap { $0 }
+        let lines: [String] = what.map { k, v in
+            let value = v.hasPrefix("#") ? (tierBoardName(String(v.dropFirst()), s.mats) ?? tr("pt.std.asIs")) : tr(v)
+            return tr(k) + ": " + value
+        }
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         VStack(alignment: .leading, spacing: 4) {
             HStack(alignment: .firstTextBaseline, spacing: 8) {

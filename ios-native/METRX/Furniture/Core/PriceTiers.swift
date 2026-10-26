@@ -82,17 +82,31 @@ func tierFurniture(_ f: Furniture, _ tier: String) -> Furniture {
     l.finish = gloss ? "gloss" : "matte"
     g.look = l
     if kitchen {
-        let d = worktopDecor(worktopOf(f))
-        let stone = d == "marble" || d == "onyx" || d == "dark" ? d : "onyx"
-        let top = worktopFor("slim", stone)
-        g.mats.top = top
+        // the stone: a stone worktop keeps its decor; a wood one becomes onyx, the plain anthracite wt38 dark quartz
+        let cur = worktopOf(f)
+        let kind = worktopKind(cur)
+        let stone = kind == "stone" || kind == "slim" ? worktopDecor(cur) : kind == "wood" ? "onyx" : cur == "wt38" ? "dark" : "onyx"
+        g.mats.top = worktopFor("slim", stone)
         var k = g.kx ?? KExtras()
         if k.splash == 0 { k.splash = K_SPLASH }
         k.led = true
         g.kx = k
-        g.mats.splash = top
+        g.mats.splash = stoneSplash(stone)
     }
     return tierSoft(g, true)
+}
+
+/// The artificial stone backsplash of a worktop decor (DecorPresets.swift spStone*).
+func stoneSplash(_ decor: String) -> String { decor == "onyx" ? "spStoneO" : decor == "dark" ? "spStoneD" : "spStoneM" }
+
+/// The workshop's hardware as a tier buys it: Premium's hinges and runners at the Blum-type items (hingeBlum,
+/// runnerBlum: the usual kind's last item is the one priced, Costing.swift usualHw); the others as they are.
+func tierHws(_ hws: [Hw], _ tier: String) -> [Hw] {
+    guard tier == "pre" else { return hws }
+    var more: [Hw] = []
+    if var h = hws.first(where: { $0.id == "hingeBlum" }) { h.kind = "hingeSoft"; more.append(h) }
+    if var r = hws.first(where: { $0.id == "runnerBlum" }) { r.kind = "runner"; more.append(r) }
+    return hws + more
 }
 
 /// A tier's price for the customer and what it costs the workshop.
@@ -113,12 +127,13 @@ func tierPrices(_ fs: [Furniture], _ fp: FPrice, _ ws: Workshop, _ mats: [Mat], 
     for t in PRICE_TIERS {
         if t == "std" { out.append(TierPrice(tier: t, price: std.price, cost: std.cost.total)); continue }
         let tf = built.map { tierFurniture($0, t) }
+        let th = tierHws(hws, t)
         if fp.mode == "margin" {
-            let p = priceOf(tf, fp, ws, mats, hws, rems)
+            let p = priceOf(tf, fp, ws, mats, th, rems)
             out.append(TierPrice(tier: t, price: p.price, cost: p.cost.total))
             continue
         }
-        let c = costOf(tf, ws, mats, hws, rems: rems).total
+        let c = costOf(tf, ws, mats, th, rems: rems).total
         let base = std.cost.total
         let price = base > 0 ? tierHalfUp(std.price * c / base) : std.price
         out.append(TierPrice(tier: t, price: price, cost: c))
@@ -157,4 +172,23 @@ func tierMats(_ fs: [Furniture], _ tier: String) -> TierMats {
     let kitchen = f.kind == "kitchen"
     let splash: String? = kitchen && (f.kx?.splash ?? 0) > 0 ? (f.mats.splash ?? "splash6") : nil
     return TierMats(front: f.mats.front, top: kitchen ? worktopOf(f) : nil, splash: splash, hw: "pt.hw." + tier, led: f.kx?.led == true)
+}
+
+/// What tier is made of, line by line (fronts "f", worktop "t", hardware "h", backsplash "s", LED "l"; Android tierWhat):
+/// the line's strings key (pt.l.<line>, LED pt.led) and its value, a strings key (pt.eko.f, pt.pre.t, pt.hw.pre…), or a
+/// material id after "#" (Standart: the piece's own). A piece without a worktop has no worktop or backsplash line.
+func tierWhat(_ f: Furniture?, _ tier: String, kitchen: Bool? = nil) -> [(String, String)] {
+    let isK = kitchen ?? (f?.kind == "kitchen")
+    let lines = isK ? ["f", "t", "h", "s", "l"] : ["f", "h", "l"]
+    return lines.map { k -> (String, String) in
+        let label = k == "l" ? "pt.led" : "pt.l." + k
+        guard let f, tier == "std" else { return (label, k == "h" ? "pt.hw." + tier : "pt." + tier + "." + k) }
+        switch k {
+        case "f": return (label, "#" + f.mats.front)
+        case "t": return (label, "#" + worktopOf(f))
+        case "h": return (label, f.modules.contains { $0.soft } ? "pt.hw.std" : "pt.hw.eko")
+        case "s": return (label, f.mats.splash.map { "#" + $0 } ?? ((f.kx?.splash ?? 0) > 0 ? "#splash6" : "pt.std.sNone"))
+        default: return (label, f.kx?.led == true || f.look?.led == true ? "pt.std.lOn" : "pt.std.lOff")
+        }
+    }
 }

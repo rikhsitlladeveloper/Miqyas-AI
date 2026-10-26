@@ -420,9 +420,18 @@ struct FToggle: View {
     let label: String
     let on: Bool
     var id = ""
+    /// A line under the label (what the option does).
+    var sub: String? = nil
     let action: () -> Void
     var body: some View {
-        HStack { T(label, ui(14.5, 500)).frame(maxWidth: .infinity, alignment: .leading); GSwitch(on: on) }
+        HStack {
+            VStack(alignment: .leading, spacing: 1) {
+                T(label, ui(14.5, 500))
+                if let sub { T(sub, ui(12, 400, G.ink2, lh: 1.35)) }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            GSwitch(on: on)
+        }
             .frame(minHeight: 52).pressable(0.99, action)
             .accessibilityValue(on ? "1" : "0").accessibilityAddTraits(.isToggle).accessibilityIdentifier(id)
     }

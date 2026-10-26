@@ -103,9 +103,10 @@ final class AutoKitchenGenTests: XCTestCase {
         var R = mock()
         R.water = nil; R.gas = nil
         let p = plan(["A"], "line", "neo", app: AKApp(fridge: "fs", oven: "hob", dw: false, hood: "built"), room: R)
-        XCTAssertEqual(p.err, 0); XCTAssertEqual(p.warn, 1)
-        XCTAssertTrue(p.checks.contains { $0.key == "ak.ck.noWater" })
-        XCTAssertTrue(p.checks.contains { $0.key == "ak.ck.noGas" && $0.st == "ok" })
+        // no water and no gas are warnings, as Android
+        XCTAssertEqual(p.err, 0); XCTAssertEqual(p.warn, 2)
+        XCTAssertTrue(p.checks.contains { $0.key == "ak.ck.noWater" && $0.st == "warn" })
+        XCTAssertTrue(p.checks.contains { $0.key == "ak.ck.noGas" && $0.st == "warn" })
     }
 
     func testTooShortGivesNothing() {

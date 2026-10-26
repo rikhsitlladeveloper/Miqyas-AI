@@ -29,13 +29,17 @@ extension Doc {
         h2(t("pt.pdfT"))
         para(a(t("pt.pdfS"), ui(9.5, 400, TP_INK3)), top: 0, bottom: 4)
         let cur = Money.cur(sn.currency, l)
-        let mats = PRICE_TIERS.map { tierMats(sn.furniture, $0) }
+        // what each tier is made of, line by line (Core/PriceTiers.swift tierWhat, as Android's PDF)
+        let built = sn.furniture.filter { !$0.modules.isEmpty }
+        let f0 = built.first { $0.kind == "kitchen" } ?? built.first
+        let kitchen = built.contains { $0.kind == "kitchen" }
+        let what = PRICE_TIERS.map { tierWhat(f0, $0, kitchen: kitchen) }
+        func value(_ v: String) -> String { v.hasPrefix("#") ? (tierMatName(String(v.dropFirst()), sn) ?? t("pt.std.asIs")) : t(v) }
         var rows: [[Cell]] = []
         rows.append(PRICE_TIERS.map { tr0 in th(t("pt." + tr0) + (tr0 == "std" ? " · " + t("pt.rec") : "")) })
-        rows.append(mats.map { cell(tierMatName($0.front, sn) ?? "—") })
-        if mats.contains(where: { $0.top != nil }) { rows.append(mats.map { cell(tierMatName($0.top, sn).map { t("mt.wtK") + ": " + $0 } ?? "—") }) }
-        if mats.contains(where: { $0.splash != nil }) { rows.append(mats.map { cell(tierMatName($0.splash, sn).map { t("mt.splashK") + ": " + $0 } ?? "—") }) }
-        rows.append(mats.map { cell(t($0.hw) + ($0.led ? " · " + t("pt.led") : "")) })
+        for i in what[0].indices {
+            rows.append(what.map { w in cell(t(w[i].0) + ": " + value(w[i].1)) })
+        }
         rows.append(PRICE_TIERS.map { tr0 in Cell([a(money(amount[tr0] ?? 0) + " " + cur, num(11, 700))], right: true, dbl: true) })
         table(rows, fixed: [CW / 3, CW / 3, CW / 3], head: 1, breakable: false)
         // the customer's choice: a box a tier, and the signature

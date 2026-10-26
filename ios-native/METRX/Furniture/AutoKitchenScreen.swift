@@ -232,7 +232,18 @@ struct AutoKitchenScreen: View {
     @State private var st = AKState()
 
     var body: some View {
-        if let p = Store.shared.get(pid), let room = p.rooms.first(where: { $0.id == rid }) {
+        if let p = Store.shared.get(pid), let room = p.rooms.first(where: { $0.id == rid }), !measuredRoom(room, AppSettings.shared.angleSnap) {
+            // the room is not measured yet: walls, door, window, water and gas first (Android ak.needRoom)
+            VStack(spacing: 0) {
+                HStack(spacing: 6) {
+                    GlassIconButton("back", tr("nt.back")) { app.pop() }.padding(.leading, 6).accessibilityIdentifier("back")
+                    BarTitle(title: tr("ak.title"), eyebrow: dn(p.name))
+                }
+                .padding(.trailing, 12).frame(minHeight: 64)
+                T(tr("ak.needRoom"), ui(15, 500, G.ink2, lh: 1.45)).padding(24)
+                Spacer()
+            }
+        } else if let p = Store.shared.get(pid), let room = p.rooms.first(where: { $0.id == rid }) {
             let s = AppSettings.shared, snap = s.angleSnap
             let R = akRoomOf(room, snap)
             let key = st.ensure(R, room, s.workshop, snap: snap)
@@ -250,6 +261,10 @@ struct AutoKitchenScreen: View {
                     VStack(alignment: .leading, spacing: 12) {
                         if let pl = st.placed, p.furniture.contains(where: { st.placedIds.contains($0.id) }) {
                             AKPlacedCard(app: app, p: p, rid: rid, preset: pl, ids: st.placedIds, plan: st.plans[pl])
+                        }
+                        // what the plan shows: the style put in the room (Android ak.onPlan)
+                        if let pl = st.placed {
+                            T(tr("ak.onPlan", ["n": tr("lk.p." + pl), "u": akUnits(st.kitchens[pl] ?? [])]), ui(12.5, 600, G.cobalt2)).padding(.horizontal, 2)
                         }
                         AKPlanCard(R: R, st: st, plan: st.plans[st.placed ?? st.focus], onTap: { tapWall(R, $0) })
                         AKLayoutCard(st: st) { setLayout(R, $0) }
@@ -297,6 +312,8 @@ struct AutoKitchenScreen: View {
         if !akFree(R, w) { app.say("ak.shortWall", kind: .info); return }
         let ws = akTapWall(st.walls, w)
         if ws.isEmpty { app.say("ak.oneWall", kind: .info); return }
+        // three walls must follow one another round the room (a U)
+        if ws.count >= 3 && !akChained(R, ws) { app.say("ak.noChain", kind: .info); return }
         st.walls = ws
         st.layout = akDeriveLayout(R, ws)
     }
@@ -330,7 +347,7 @@ struct AutoKitchenScreen: View {
         st.placedIds = fs.map(\.id)
         st.focus = id
         let state = st
-        app.say("ak.placedT", ["n": tr("lk.p." + id)], action: "common.undo") {
+        app.say("ak.placedT", ["n": tr("lk.p." + id)], action: "ak.undo") {
             Store.shared.update(before.id) { $0 = before }
             state.placed = nil
             state.placedIds = []

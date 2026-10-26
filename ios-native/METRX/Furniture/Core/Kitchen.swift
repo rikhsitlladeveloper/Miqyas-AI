@@ -272,7 +272,9 @@ func checks(_ f: Furniture, _ runs: [Run], _ ws0: Workshop, _ openings: [Opening
     let talls = f.modules.filter { $0.type == "tall" || ($0.type == "gap" && $0.app == "fridge") }
     for m in f.modules {
         let x0 = m.x, x1 = m.x + m.w, y0 = m.elev, y1 = m.elev + m.h
-        for o in openings where o.wall == m.wall && overlaps(x0, x1, o.off, o.off + o.w) && overlaps(y0, y1, o.sill, o.sill + o.h) {
+        // an empty space (left over a window on purpose) covers nothing
+        let space = m.type == "gap" && m.app != "fridge" && m.app != "dishwasher"
+        for o in openings where !space && o.wall == m.wall && overlaps(x0, x1, o.off, o.off + o.w) && overlaps(y0, y1, o.sill, o.sill + o.h) {
             out.append(FCheck(level: o.type == "door" ? "err" : "warn", key: o.type == "door" ? "kc.door" : "kc.window", mid: m.id))
         }
         for p in points where p.wall == m.wall {

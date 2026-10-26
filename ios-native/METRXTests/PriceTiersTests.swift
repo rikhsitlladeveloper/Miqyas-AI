@@ -58,7 +58,8 @@ final class PriceTiersTests: XCTestCase {
         XCTAssertEqual(p.mats.front, "ag_graphite")
         XCTAssertEqual(p.mats.frontUp, "ag_white")
         XCTAssertEqual(p.mats.top, "wt20m")
-        XCTAssertEqual(p.mats.splash, "wt20m")
+        // the backsplash in the worktop's stone (spStone*, by the m²), as Android
+        XCTAssertEqual(p.mats.splash, "spStoneM")
         XCTAssertEqual(p.kx?.led, true)
         XCTAssertTrue(p.modules.allSatisfy { $0.soft })
         // matte fronts become MDF enamel; a wood worktop becomes onyx stone
@@ -67,6 +68,16 @@ final class PriceTiersTests: XCTestCase {
         XCTAssertEqual(g.mats.top, "wt20o")
         XCTAssertEqual(preBoard("ldsp16k", gloss: false), "en_cashmere")
         XCTAssertEqual(preBoard("wd_walnut", gloss: true), "wd_walnut")
+        XCTAssertEqual(g.mats.splash, "spStoneO")
+        // the plain anthracite worktop becomes dark quartz
+        var plain = kitchen("twotone"); plain.mats.top = "wt38"
+        let d = tierFurniture(plain, "pre")
+        XCTAssertEqual(d.mats.top, "wt20d"); XCTAssertEqual(d.mats.splash, "spStoneD")
+        // only Premium prices its hinges and runners at the Blum-type items
+        let hws = tierHws(HW_PRESETS, "pre")
+        XCTAssertEqual(usualHw(hws, "hingeSoft")?.id, "hingeBlum"); XCTAssertEqual(usualHw(hws, "runner")?.id, "runnerBlum")
+        XCTAssertEqual(usualHw(tierHws(HW_PRESETS, "std"), "hingeSoft")?.id, "hingeSoft")
+        XCTAssertTrue(MAT_PRESETS.contains { $0.id == "spStoneD" && $0.byArea })
     }
 
     /// On a typical kitchen Ekonom < Standart < Premium, by the margin and by the running metre alike.

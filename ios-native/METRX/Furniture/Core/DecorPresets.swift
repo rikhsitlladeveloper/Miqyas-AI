@@ -118,7 +118,11 @@ private func decorTops() -> [Mat] {
         // backsplashes by the m² (Lux Home Mebel, Apr 2026): glass (skinali) 250–500 k, ceramic tile 120–350 k
         Mat("skGlass", "splash", "Skinali · oddiy shisha", 6, l: 3000, w: 600, price: "380000", rgb: "#ECE9E3", preset: true, finish: "glass", per: "m2"),
         Mat("skPrint", "splash", "Skinali · rasmli", 6, l: 3000, w: 600, price: "480000", rgb: "#C9D6E2", preset: true, finish: "glass", tex: "skinali_print", per: "m2"),
-        Mat("spTile", "splash", "Kafel (fartuk)", 8, l: 600, w: 300, price: "230000", rgb: "#F1EFEA", preset: true, finish: "gloss", tex: "tile_white", per: "m2")
+        Mat("spTile", "splash", "Kafel (fartuk)", 8, l: 600, w: 300, price: "230000", rgb: "#F1EFEA", preset: true, finish: "gloss", tex: "tile_white", per: "m2"),
+        // the Premium price option's artificial stone backsplash, matching its quartz worktop (PriceTiers.swift stoneSplash)
+        Mat("spStoneM", "splash", "Fartuk · sun’iy tosh, oq marmar", 12, l: 3000, w: 600, price: "650000", rgb: "#F1EFEB", preset: true, finish: "stone", tex: "marble_white", per: "m2"),
+        Mat("spStoneO", "splash", "Fartuk · sun’iy tosh, oniks bej", 12, l: 3000, w: 600, price: "650000", rgb: "#E8DBC2", preset: true, finish: "stone", tex: "onyx_beige", per: "m2"),
+        Mat("spStoneD", "splash", "Fartuk · sun’iy tosh, qora tosh", 12, l: 3000, w: 600, price: "650000", rgb: "#26282B", preset: true, finish: "stone", tex: "stone_dark", per: "m2")
     ]
 }
 

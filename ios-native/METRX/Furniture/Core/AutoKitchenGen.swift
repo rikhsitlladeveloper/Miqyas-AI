@@ -418,10 +418,12 @@ func akTry(_ R: AKRoom, _ walls: [String], _ layout: String, _ app: AKApp, _ pp:
         else if dG <= 2000 { add("warn", "ak.ck.gHose", ["v": .m(dG)]) }
         else { add("err", "ak.ck.gFar", ["v": .m(dG)]) }
     } else {
-        add("ok", "ak.ck.noGas")
+        add("warn", "ak.ck.noGas")
     }
     akFitCheck(runs, add)
-    add("ok", "ak.ck.frEnd")
+    // the tall units under a window: only the last resort, when no wall end was clear of it
+    let frWin = runs.contains { r in r.items.contains { x in x.tall && R.windowsOn(r.w).contains { x.a < $0.b && x.b > $0.a } } }
+    add(frWin ? "warn" : "ok", frWin ? "ak.ck.frWin" : "ak.ck.frEnd")
     if app.dw {
         if !dwPlaced { add("warn", "ak.ck.dwNone") } else if !dwNext { add("warn", "ak.ck.dwFar") } else { add("ok", "ak.ck.dwOk") }
     }
@@ -592,6 +594,19 @@ func akDeriveLayout(_ R: AKRoom, _ ws: [String]) -> String {
     if ws.count <= 1 { return "line" }
     if ws.count >= 3 { return "U" }
     return akAdjacent(R, ws[0], ws[1]) ? "L" : "two"
+}
+
+/// Whether walls ws follow one another round the room (one chain, as a U kitchen needs).
+func akChained(_ R: AKRoom, _ ws: [String]) -> Bool {
+    let set = Set(ws)
+    guard let s = ws.first(where: { !set.contains(R.prev($0)) }) else { return false }
+    var path = [s]
+    while path.count < ws.count {
+        let n = R.next(path[path.count - 1])
+        if !set.contains(n) || path.contains(n) { return false }
+        path.append(n)
+    }
+    return true
 }
 
 /// Whether wall w can take a kitchen: measured, no door on it.

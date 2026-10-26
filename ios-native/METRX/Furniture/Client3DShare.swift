@@ -170,10 +170,10 @@ struct Share3DSheet: View {
                 Share3DFile(tag: "HTML", name: tr("sh3.html"), sub: tr("sh3.htmlS"), on: html, tint: G.green) { html.toggle() }
                     .accessibilityIdentifier("sh3.html")
                 if s.advanced {
-                    FToggle(label: tr("sh3.oPrice"), on: s.share3dPrice, id: "sh3.oPrice") { s.setShare3d("share3dPrice", !s.share3dPrice) }
+                    FToggle(label: tr("sh3.oPrice"), on: s.share3dPrice, id: "sh3.oPrice", sub: tr("sh3.oPriceS")) { s.setShare3d("share3dPrice", !s.share3dPrice) }
                 }
-                FToggle(label: tr("sh3.oDims"), on: s.share3dDims, id: "sh3.oDims") { s.setShare3d("share3dDims", !s.share3dDims) }
-                FToggle(label: tr("sh3.oPhone"), on: s.share3dPhone, id: "sh3.oPhone") { s.setShare3d("share3dPhone", !s.share3dPhone) }
+                FToggle(label: tr("sh3.oDims"), on: s.share3dDims, id: "sh3.oDims", sub: tr("sh3.oDimsS")) { s.setShare3d("share3dDims", !s.share3dDims) }
+                FToggle(label: tr("sh3.oPhone"), on: s.share3dPhone, id: "sh3.oPhone", sub: tr("sh3.oPhoneS")) { s.setShare3d("share3dPhone", !s.share3dPhone) }
                 T(tr("sh3.note"), ui(12.5, 500, G.cobalt2, lh: 1.4))
                     .padding(12).frame(maxWidth: .infinity, alignment: .leading)
                     .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.blueWash))
