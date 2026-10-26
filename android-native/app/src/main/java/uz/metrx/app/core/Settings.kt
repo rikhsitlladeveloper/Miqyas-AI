@@ -186,6 +186,9 @@ class Settings(context: Context) {
     fun setCurrencyDefault(c: String) { currency = c; p.edit().putString("currency", c).apply() }
     fun changeUnit(u: uz.metrx.app.geo.LenUnit) { unit = u; p.edit().putString("unit", if (u == uz.metrx.app.geo.LenUnit.CM) "cm" else "m").apply() }
     fun setSnap(on: Boolean) { angleSnap = on; p.edit().putBoolean("angleSnap", on).apply() }
+    /** The room height last used in the room-shape flow, mm (2 700 the first time): its height step starts from it. */
+    var lastRoomH by mutableStateOf(p.getInt("rshLastH", 2700)); private set
+    fun keepRoomH(v: Int) { lastRoomH = v; p.edit().putInt("rshLastH", v).apply() }
     fun hideEditorTip() { editorTipOff = true; p.edit().putBoolean("tipEditor", true).apply() }
     fun setDarkMode(on: Boolean) { dark = on; p.edit().putBoolean("dark", on).apply() }
     fun saveBuilder(name: String, phone: String) {

@@ -358,11 +358,16 @@ fun diagonalCorner(spec: ShapeSpec): Int = asks(spec).size / 2
 /** The diagonal the walls give, mm (the field's hint is this rounded to 10 mm). */
 fun expectedDiagonal(g: ShapeGeo): Double { val a = g.corners[0]; val b = g.corners[diagonalCorner(g.spec)]; return hypot(a.x - b.x, a.y - b.y) }
 
-/** A typed diagonal: out of range, or off the walls' by more than max(30 mm, 2 %) ([ShapeErrorCode.DIAG_MISMATCH]); null when it matches. */
+/**
+ * A typed diagonal: out of range, or off the walls' by more than the room editor's own tolerance ([SK_TOL], 20 mm,
+ * against the length rounded to whole mm, as Geometry.kt checks a drawn room's diagonal), so a diagonal the flow takes
+ * never shows "warn" in the editor ([ShapeErrorCode.DIAG_MISMATCH]; decided 27 Oct 2026 instead of the mockup's
+ * max(30 mm, 2 %)); null when it matches.
+ */
 fun diagonalError(spec: ShapeSpec, values: List<Int?>, diag: Int?): ShapeError? {
     wallValueError(diag)?.let { return it }
     val d = expectedDiagonal(shapeGeometry(spec, values))
-    return if (abs(diag!! - d) > max(30.0, d * 0.02)) ShapeError(ShapeErrorCode.DIAG_MISMATCH, value = diag.toDouble(), limit = d) else null
+    return if (abs(diag!! - d.roundToInt()) > SK_TOL) ShapeError(ShapeErrorCode.DIAG_MISMATCH, value = diag.toDouble(), limit = d) else null
 }
 
 /* ---------------- doors, windows and pipes on the plan (mockup OP, opNext, opHint) ---------------- */

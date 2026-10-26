@@ -145,7 +145,10 @@ class RoomShapesTest {
         assertEquals(3, diagonalCorner(s))
         assertEquals(3538.36, expectedDiagonal(shapeGeometry(s, v)), 0.01)
         assertNull(diagonalError(s, v, 3540))
-        assertNull(diagonalError(s, v, 3600))                 // within 2 %
+        assertNull(diagonalError(s, v, 3558))                 // within the editor's 20 mm
+        assertNull(diagonalError(s, v, 3518))
+        assertEquals(ShapeErrorCode.DIAG_MISMATCH, diagonalError(s, v, 3559)!!.code)
+        assertEquals(ShapeErrorCode.DIAG_MISMATCH, diagonalError(s, v, 3600)!!.code)   // within 2 %, but past 20 mm
         diagonalError(s, v, 3700)!!.let { assertEquals(ShapeErrorCode.DIAG_MISMATCH, it.code); assertEquals(3538.36, it.limit!!, 0.01) }
         assertEquals(ShapeErrorCode.OUT_OF_RANGE, diagonalError(s, v, 100)!!.code)
     }

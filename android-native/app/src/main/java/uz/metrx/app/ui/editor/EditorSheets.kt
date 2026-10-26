@@ -89,6 +89,7 @@ import uz.metrx.app.ui.theme.LocalLang
 import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
+import uz.metrx.app.ui.rooms.startRoomShape
 
 /** The editor's sheets. Returns false for sheets it doesn't own. */
 @Composable
@@ -164,42 +165,15 @@ private fun NewRoomSheet(s: Sheet.NewRoom) {
     val err = if (name.isBlank()) tr("nr.nameReq") else null
     // the suggested name is kept as a key ("Xona 1" follows the language, as "1-qavat" does); a typed one as typed
     fun keptName() = if (own && name.trim() == floorName(w, lang)) w.name else uz.metrx.app.data.suggestedName(name, "real.roomN", app.settings.lang, mapOf("n" to roomN))
-    fun create(shape: String) {
-        if (name.isBlank()) return
-        val now = System.currentTimeMillis()
-        val nm = keptName()
-        val r = when (shape) {
-            "lshape" -> Room(uid(), w.id, nm, template = "poly", shape = "poly", dims = polyDims(L_SHAPE.size), poly = Poly(L_SHAPE, template = "lshape", snap = app.settings.angleSnap), created = now)
-            else -> Room(uid(), w.id, nm, created = now)
-        }
-        app.store.update(p.id) { it.copy(rooms = it.rooms + r) }
+    // the shape (rectangle, L, U… or a free sketch), the sizes, height and openings come next, in the room-shape flow
+    fun create() {
+        if (name.isBlank() || !app.once()) return
         app.close()
-        app.push(Route.Editor(p.id, r.id))
-        if (shape == "lshape") app.say("sk.created", "n" to dn(r.name, lang)) else app.ops.focus(r.id, "A")
+        app.startRoomShape(p.id, "build", w.type, keptName(), wid = w.id)
     }
-    GlassSheet(tr("nr.title"), { app.close() }, footer = { GBtn(tr("nr.create"), { create("rect") }, enabled = err == null) }) {
-        GField(tr("nr.name"), name, { name = it.take(NAME_MAX) }, tr("smp.living"), error = err, showError = true, imeAction = ImeAction.Done, onIme = { create("rect") })
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(tr("nr.shape"), style = ui(15f, 700))
-            ShapeRow("M2 2H32V24H2Z", tr("nr.rect"), true) {}
-            ShapeRow("M2 2H18V12H32V24H2Z", tr("nr.lshape"), false) { create("lshape") }
-            ShapeRow("M3 22L6 3L25 6L31 19Z", tr("nr.sketch"), false) { if (name.isNotBlank()) { app.close(); app.push(Route.Sketch(p.id, w.id, keptName())) } }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MIcon("info", G.ink2, 17.dp, 2f); Text(tr("nr.hint"), style = ui(13f, 400, G.ink2, 1.4f)) }
-    }
-}
-
-@Composable
-private fun ShapeRow(d: String, label: String, on: Boolean, onClick: () -> Unit) {
-    val shape = RoundedCornerShape(12.dp)
-    Row(
-        Modifier.fillMaxWidth().heightIn(min = 49.dp).clip(shape).background(if (on) G.cobalt.copy(alpha = .12f) else G.idle(.55f))
-            .border(1.dp, if (on) G.cobalt else G.idleRim, shape).clickable(enabled = !on, role = Role.Button, onClick = onClick).padding(horizontal = 14.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)
-    ) {
-        uz.metrx.app.ui.icons.PathIcon(d, if (on) G.cobalt2 else G.ink, 30.dp, 2f, viewBox = 34f)
-        Text(label, style = ui(15f, if (on) 600 else 500, if (on) G.cobalt2 else G.ink), modifier = Modifier.weight(1f))
-        MIcon(if (on) "check" else "chev", if (on) G.cobalt2 else G.ink, 17.dp, 2f)
+    GlassSheet(tr("nr.title"), { app.close() }, footer = { GBtn(tr("fr.continue"), ::create, enabled = err == null) }) {
+        GField(tr("nr.name"), name, { name = it.take(NAME_MAX) }, tr("smp.living"), error = err, showError = true, imeAction = ImeAction.Done, onIme = ::create)
+        Text(tr("rsh.nextNote"), style = ui(13f, 400, G.ink2, 1.4f))
     }
 }
 

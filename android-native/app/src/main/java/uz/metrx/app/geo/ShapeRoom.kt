@@ -119,6 +119,16 @@ fun shapeToRoom(
     return ShapeRoom(room, List(n) { ids[roomOf(it)] }, flipped, shapeLens).withAll(openings)
 }
 
+/**
+ * The room editor's id of each wall of the shape, before the room is made (the walls steps name walls as the editor
+ * will): the same mapping as [shapeToRoom]'s [ShapeRoom.wallIds]. Mirroring reverses the walk (wall A stays A), the
+ * rectangle's walls are A–D, a drawn room's are [polyWallIds] (no H, I, O, T, X: H is the height). [n]: the wall count.
+ */
+fun shapeWallIds(spec: ShapeSpec, n: Int): List<String> {
+    val ids = if (spec.shape == RoomShape.RECT) listOf("A", "B", "C", "D") else polyWallIds(n)
+    return List(n) { j -> ids[if (spec.mirror) (n - j) % n else j] }
+}
+
 private fun ShapeRoom.withAll(ops: List<ShapeOpening>) = ops.fold(this) { r, op -> r.withOpening(op) }
 
 /** Rounds away float dust (−0, 2599.9999999), keeping real fractions (a free sketch's spread corners). */

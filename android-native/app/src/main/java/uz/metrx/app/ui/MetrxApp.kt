@@ -223,6 +223,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.Editor -> uz.metrx.app.ui.editor.EditorScreen(route)
                                     is Route.WallView -> uz.metrx.app.ui.editor.WallViewScreen(route)
                                     is Route.Sketch -> uz.metrx.app.ui.editor.SketchScreen(route)
+                                    is Route.RoomShape -> uz.metrx.app.ui.rooms.RoomShapeScreen(route)
                                     Route.SettingsMore -> uz.metrx.app.ui.main.SettingsMoreScreen()
                                     Route.Workshop -> uz.metrx.app.ui.furniture.WorkshopScreen()
                                     Route.Materials -> uz.metrx.app.ui.furniture.MaterialsScreen()

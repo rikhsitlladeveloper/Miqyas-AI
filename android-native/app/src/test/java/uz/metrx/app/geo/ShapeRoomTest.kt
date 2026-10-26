@@ -26,6 +26,18 @@ class ShapeRoomTest {
         assertTrue(ready3D(r))
     }
 
+    @Test fun wallIdsBeforeTheRoomMatchTheRoomsOwn() {
+        for (sh in RoomShape.entries.filter { it != RoomShape.FREE }) for (mir in listOf(false, true)) for (t in 0..3) {
+            val spec = ShapeSpec(sh, mir, t)
+            val sr = make(spec, asks(spec).map { it.default })
+            assertEquals("$sh $mir $t", sr.wallIds, shapeWallIds(spec, sr.wallIds.size))
+        }
+        val sk = freeSketch(listOf(Pt(0.0, 0.0), Pt(4400.0, 0.0), Pt(4400.0, 2600.0), Pt(2400.0, 2600.0), Pt(2400.0, 4400.0), Pt(0.0, 4400.0)))
+        val spec = ShapeSpec(RoomShape.FREE, sketch = sk)
+        assertEquals(make(spec, sk.hints).wallIds, shapeWallIds(spec, 6))
+        assertEquals(listOf("A", "B", "C", "D", "E", "F", "G", "J"), shapeWallIds(ShapeSpec(RoomShape.BAY), 8))
+    }
+
     @Test fun rectangleIsTheAppsPlainRectangle() {
         val sr = make(ShapeSpec(RoomShape.RECT), listOf(4200, 3100))
         val r = sr.room

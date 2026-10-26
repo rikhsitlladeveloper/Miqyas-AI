@@ -26,6 +26,8 @@ sealed interface Route {
     data class WallView(val pid: String, val rid: String, val wall: String) : Route
     /** Drawing a new room's outline (prototype PAGES.sketch). */
     data class Sketch(val pid: String, val wid: String, val name: String) : Route
+    /** Adding a room: its shape, sizes, height and openings, one step at a time (ui/rooms/RoomFlow.kt); [key] names the draft. */
+    data class RoomShape(val pid: String, val key: String) : Route
     /** Profile → Boshqa sozlamalar (prototype PAGES.settingsMore). */
     data object SettingsMore : Route
     /** Profile → METRX Pro (prototype PAGES.sub). */
@@ -359,6 +361,7 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.Editor -> store.get(r.pid)?.rooms?.any { it.id == r.rid } == true
                     is Route.WallView -> store.get(r.pid)?.rooms?.any { it.id == r.rid } == true
                     is Route.Sketch -> store.get(r.pid)?.floors?.any { it.id == r.wid } == true
+                    is Route.RoomShape -> store.get(r.pid) != null && uz.metrx.app.ui.rooms.RshDrafts.get(r.key) != null
                     is Route.Report -> store.get(r.pid) != null
                     is Route.Markup -> if (r.pid == null) settings.shots.any { it.id == r.iid } else store.get(r.pid)?.floors?.any { w -> w.items.any { it.id == r.iid } } == true
                     is Route.Quote -> store.get(r.pid)?.quotes?.any { it.no == r.no } == true
