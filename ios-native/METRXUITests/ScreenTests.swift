@@ -1067,7 +1067,7 @@ final class UXTests: ScreenTestCase {
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText("Aziza Nazarova")
         app.buttons["no.create"].tap(); sleep(2)
-        tapModel(app, "straight")
+        tapModel(app, "I")
         for _ in 0..<3 where !app.textFields["fx.value"].exists && app.buttons["fx.next"].exists { app.buttons["fx.next"].tap(); usleep(800_000) }
         if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { shot("ux-13-size-coach"); app.buttons["ux.coachOk"].tap(); usleep(600_000) }
         shot("ux-14-size")
