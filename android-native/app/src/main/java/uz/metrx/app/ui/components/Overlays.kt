@@ -124,7 +124,7 @@ private val TOAST_IN = CubicBezierEasing(.2f, .9f, .3f, 1.15f)
  * a thin bar shows the time left; tap the cross to close.
  */
 @Composable
-fun ToastHost(msg: ToastMsg?, bottomPx: Int? = null, atTop: Boolean = false, onGone: () -> Unit) {
+fun ToastHost(msg: ToastMsg?, bottomPx: Int? = null, atTop: Boolean = false, onGone: (id: Long) -> Unit) {
     var shown by remember { mutableStateOf<ToastMsg?>(null) }
     var visible by remember { mutableStateOf(false) }
     // the toast whose action already ran: a second tap during the exit animation must not run Undo again
@@ -134,7 +134,8 @@ fun ToastHost(msg: ToastMsg?, bottomPx: Int? = null, atTop: Boolean = false, onG
         shown = msg; visible = true
         // a toast with Undo stays long enough to reach it (about 6 s)
         delay(if (msg.action != null) 6500 else if (msg.kind == ToastKind.ERROR) 5200 else 3400)
-        visible = false; delay(260); onGone()
+        // says which toast ended: one set meanwhile (before this effect was cancelled) must not be cleared with it
+        visible = false; delay(260); onGone(msg.id)
     }
     // UX upgrades §3: at the bottom, just above the page's bottom bar, so it never covers Back and its Undo is in thumb
     // reach; at the top only while a sheet is open (the sheet's buttons are at the bottom)
@@ -145,7 +146,9 @@ fun ToastHost(msg: ToastMsg?, bottomPx: Int? = null, atTop: Boolean = false, onG
         contentAlignment = if (atTop) Alignment.TopCenter else Alignment.BottomCenter) {
         AnimatedVisibility(visible, enter = slideInVertically(tween(340, easing = TOAST_IN)) { if (atTop) -it else it } + fadeIn(tween(200)),
             exit = slideOutVertically(tween(220)) { if (atTop) -it - 40 else it + 40 } + fadeOut(tween(200))) {
-            val m = shown ?: return@AnimatedVisibility
+            // the newest toast at once (the effect sets [shown] a frame later): a tap never reaches the one it replaced,
+            // whose Undo may have run already; [shown] keeps the last one on screen while it slides away
+            val m = msg ?: shown ?: return@AnimatedVisibility
             val (tc, icon) = when (m.kind) {
                 ToastKind.OK -> Color(0xFF5BE49B) to "check"
                 ToastKind.INFO -> Color(0xFF9DB1FF) to "info"

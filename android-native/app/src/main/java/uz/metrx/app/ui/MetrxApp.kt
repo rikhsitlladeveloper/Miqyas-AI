@@ -285,7 +285,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                 uz.metrx.app.laser.LaserWaitBar(app)
                 // the first-run tour and the coach marks (UX upgrades §11)
                 if (!inAuth && !editMe && !splash) uz.metrx.app.ui.ux.HelpLayer()
-                ToastHost(app.toast, bottomPx = app.bars.values.maxOrNull(), atTop = app.sheet != null) { app.toast = null }
+                ToastHost(app.toast, bottomPx = app.bars.values.maxOrNull(), atTop = app.sheet != null) { id -> if (app.toast?.id == id) app.toast = null }
                 uz.metrx.app.ui.markup.PhotoIntake(app)
             }
             if (splash) {

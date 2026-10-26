@@ -96,8 +96,11 @@ class Store private constructor(context: Context) {
         return p to i
     }
 
-    /** Puts a deleted project back where it was (Undo). */
-    fun restore(p: Project, index: Int) { projects.add(index.coerceIn(0, projects.size), p); save(p, now = true) }
+    /** Puts a deleted project back where it was (Undo); never a second copy of one that is still there. */
+    fun restore(p: Project, index: Int) {
+        if (projects.any { it.id == p.id }) return
+        projects.add(index.coerceIn(0, projects.size), p); save(p, now = true)
+    }
 
     private fun save(p: Project, now: Boolean = false) {
         pending.remove(p.id)?.cancel()
