@@ -65,7 +65,7 @@ fun rshGeo(d: RshDraft, vals: Map<Int, Int>, app: App? = null): RGeo {
     val model = PlanModel(
         pts = g.corners.map(::p2),
         edges = g.walls.map { PlanEdge(it.ask, it.len, it.bad, p2(it.from), p2(it.to)) },
-        dims = g.guides.map { PlanDim(p2(it.a), p2(it.b), it.ask, if (it.ask == 3) "w" else "d") },
+        dims = g.guides.map { PlanDim(p2(it.a), p2(it.b), it.ask, if (it.ask == 3) "w" else "d", g.values.getOrNull(it.ask)?.toDouble() ?: 0.0) },
         gap = g.gap?.let { p2(g.corners.last()) to p2(g.corners.first()) },
         gapLen = g.gap ?: 0.0
     )

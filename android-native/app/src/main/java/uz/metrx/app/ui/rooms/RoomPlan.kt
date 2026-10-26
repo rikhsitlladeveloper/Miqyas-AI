@@ -54,7 +54,7 @@ data class P2(val x: Double, val y: Double)
 data class PlanEdge(val asked: Int?, val len: Double, val bad: Boolean, val a: P2, val b: P2)
 
 /** A size that is not a wall (the bay's width and depth): [asked] its value's index, [kind] "w" or "d". */
-data class PlanDim(val a: P2, val b: P2, val asked: Int, val kind: String)
+data class PlanDim(val a: P2, val b: P2, val asked: Int, val kind: String, val value: Double = 0.0)
 
 /** What the picture draws: the corners, the walls, the bay's sizes, and an open sketch's closing gap. */
 data class PlanModel(val pts: List<P2>, val edges: List<PlanEdge>, val dims: List<PlanDim> = emptyList(), val gap: Pair<P2, P2>? = null, val gapLen: Double = 0.0)
@@ -86,6 +86,8 @@ data class PlanLook(
     /** The bay's sizes: their values in words by asked index, and the words before they are typed ("eni", "chuq."). */
     val dimTxt: Map<Int, String> = emptyMap(),
     val dimWords: Pair<String, String> = "eni" to "chuq.",
+    /** A length in the flow's unit and words ("3 400" mm, "3,4" m). */
+    val fmt: (Double) -> String = ::fmtMm,
     val pad: Float = 28f,
     /** Room kept free on the right (the picture's Ko‘zgu / Burish buttons). */
     val rp: Float = 0f
@@ -124,7 +126,7 @@ private class Fit(m: PlanModel, mir: Boolean, rot: Int, w: Float, h: Float, pad:
 private fun area2(v: List<Offset>): Float { var a = 0f; for (i in v.indices) { val p = v[i]; val q = v[(i + 1) % v.size]; a += p.x * q.y - q.x * p.y }; return a }
 
 /** "3 400", the mockup's fmt. */
-fun fmtMm(v: Double): String = Math.round(abs(v)).toString().reversed().chunked(3).joinToString(" ").reversed()
+fun fmtMm(v: Double): String = Math.round(abs(v)).toString().reversed().chunked(3).joinToString("\u00A0").reversed()
 fun fmtSigned(v: Double): String = (if (v < 0) "−" else "") + fmtMm(v)
 
 /** The plan's colours, as the mockup's tokens. */
@@ -190,6 +192,18 @@ private fun segDist(p: Offset, a: Offset, b: Offset): Float {
 private fun DrawScope.line(a: Offset, b: Offset, c: Color, w: Float, dash: FloatArray? = null, alpha: Float = 1f) =
     drawLine(c.copy(alpha = c.alpha * alpha), a, b, w, StrokeCap.Round, if (dash != null) PathEffect.dashPathEffect(dash) else null)
 
+/** A pill waiting to be drawn: where, which way is out from its wall, its words and state. */
+private class PillAt(val x: Float, val y: Float, val nx: Float, val ny: Float, val t: String, val st: String)
+
+private fun pillW(t: String, st: String) = max(24f, t.length * (if (st == "auto") 5.6f else 6.6f) + 14f)
+
+/** The box a pill takes, as [pill] clamps it inside the picture. */
+private fun pillRect(x0: Float, y0: Float, t: String, st: String, W: Float, H: Float): androidx.compose.ui.geometry.Rect {
+    val w = pillW(t, st)
+    val x = x0.coerceIn(w / 2 + 2, max(w / 2 + 2, W - w / 2 - 2)); val y = y0.coerceIn(12f, max(12f, H - 12f))
+    return androidx.compose.ui.geometry.Rect(x - w / 2, y - 10f, x + w / 2, y + 10f)
+}
+
 /** A size pill: a rounded box with the words, kept inside the picture (the mockup's pill). */
 private fun DrawScope.pill(tm: TextMeasurer, x0: Float, y0: Float, t: String, st: String, W: Float, H: Float) {
     val w = max(24f, t.length * (if (st == "auto") 5.6f else 6.6f) + 14f)
@@ -216,7 +230,7 @@ private fun DrawScope.drawPlan(m: PlanModel, mir: Boolean, rot: Int, o: PlanLook
     val cen = Offset(poly.sumOf { it.x.toDouble() }.toFloat() / poly.size, poly.sumOf { it.y.toDouble() }.toFloat() / poly.size)
     if (m.gap == null) drawPath(Path().apply { moveTo(poly[0].x, poly[0].y); poly.drop(1).forEach { lineTo(it.x, it.y) }; close() }, PC.room)
     else drawPath(Path().apply { moveTo(poly[0].x, poly[0].y); poly.drop(1).forEach { lineTo(it.x, it.y) }; close() }, PC.room.copy(alpha = PC.room.alpha * .6f))
-    val labels = ArrayList<() -> Unit>()
+    val labels = ArrayList<PillAt>()
     fun let(i: Int) = letters.getOrElse(i) { "?" }
     m.edges.forEachIndexed { i, e ->
         val a = f.m(e.a); val b = f.m(e.b)
@@ -236,16 +250,16 @@ private fun DrawScope.drawPlan(m: PlanModel, mir: Boolean, rot: Int, o: PlanLook
         if (!o.nolab && !(st == "auto" && !o.final && o.sel == null && L < 52f)) {
             val t = when {
                 st == "pick" -> let(i)
-                st == "bad" -> fmtSigned(e.len)
-                o.sel != null -> if (st == "cur") let(i) + " · " + fmtMm(e.len) else fmtMm(e.len)
-                o.final -> fmtMm(e.len)
+                st == "bad" -> (if (e.len < 0) "−" else "") + o.fmt(abs(e.len))
+                o.sel != null -> if (st == "cur") let(i) + " · " + o.fmt(e.len) else o.fmt(e.len)
+                o.final -> o.fmt(e.len)
                 st == "cur" -> o.liveTxt ?: "?"
-                st == "done" -> fmtMm(e.len)
+                st == "done" -> o.fmt(e.len)
                 st == "todo" -> let(i)
                 else -> auto
             }
             val px = (a.x + b.x) / 2 + nx * off; val py = (a.y + b.y) / 2 + ny * off
-            labels += { pill(tm, px, py, t, st, W, H) }
+            labels += PillAt(px, py, nx, ny, t, st)
         }
     }
     o.ops.forEach { drawOp(it, m, f, sg, false, tm) }
@@ -266,32 +280,43 @@ private fun DrawScope.drawPlan(m: PlanModel, mir: Boolean, rot: Int, o: PlanLook
             if (d.kind == "w" && nx * (cen.x - mx) + ny * (cen.y - my) < 0) { nx = -nx; ny = -ny }
             val t = d.label(st, o)
             val k = if (d.kind == "w") 13f else 26f
-            labels += { pill(tm, mx + nx * k, my + ny * k, t, st, W, H) }
+            labels += PillAt(mx + nx * k, my + ny * k, nx, ny, t, st)
         }
     }
     if (o.diagK != null && o.diagK < m.pts.size) {
         val a = f.m(m.pts[0]); val b = f.m(m.pts[o.diagK])
         if (o.diagCur) line(a, b, PC.blue, 16f, alpha = glow)
         if (o.diagCur) line(a, b, PC.blue, 3f) else line(a, b, G.ink3, 1.5f, floatArrayOf(5f, 5f))
-        if (!o.nolab && o.diagTxt != null) labels += { pill(tm, (a.x + b.x) / 2, (a.y + b.y) / 2, o.diagTxt, if (o.diagCur) "cur" else "done", W, H) }
+        if (!o.nolab && o.diagTxt != null) labels += PillAt((a.x + b.x) / 2, (a.y + b.y) / 2, 0f, 0f, o.diagTxt, if (o.diagCur) "cur" else "done")
     }
     m.gap?.let { (ga0, gb0) ->
         val ga = f.m(ga0); val gb = f.m(gb0)
         line(ga, gb, PC.red, 2.5f, floatArrayOf(3f, 4f))
-        if (!o.nolab) labels += { pill(tm, (ga.x + gb.x) / 2, (ga.y + gb.y) / 2, gapWord + " " + fmtMm(m.gapLen), "bad", W, H) }
+        if (!o.nolab) labels += PillAt((ga.x + gb.x) / 2, (ga.y + gb.y) / 2, 0f, 0f, gapWord + " " + o.fmt(m.gapLen), "bad")
     }
     if (o.corner != null && o.corner < m.edges.size) {
         val c = f.m(m.edges[o.corner].a)
         drawCircle(PC.blue, 6.5f, c); drawCircle(PC.paper, 6.5f, c, style = Stroke(2.5f))
     }
-    labels.forEach { it() }
+    // pills of short walls meeting at a corner would sit on each other: the asked one stays put, the others step
+    // further out from their wall until they are clear (a few tries)
+    val placed = ArrayList<androidx.compose.ui.geometry.Rect>()
+    labels.sortedBy { if (it.st == "cur") 0 else 1 }.forEach { l ->
+        // out from the wall first, then along it (a pill pushed against the picture's edge cannot go further out)
+        val tx = -l.ny; val ty = l.nx
+        val tries = listOf(0f to 0f, 12f to 0f, 24f to 0f, 36f to 0f, 0f to 18f, 0f to -18f, 0f to 36f, 0f to -36f, 12f to 30f, 12f to -30f)
+        val (x, y) = tries.asSequence().map { (n, t) -> (l.x + l.nx * n + tx * t) to (l.y + l.ny * n + ty * t) }
+            .firstOrNull { (x, y) -> placed.none { it.overlaps(pillRect(x, y, l.t, l.st, W, H)) } } ?: (l.x to l.y)
+        placed += pillRect(x, y, l.t, l.st, W, H)
+        pill(tm, x, y, l.t, l.st, W, H)
+    }
 }
 
 /** A bay size's pill: "?" or the live value while asked, "eni" / "chuq." before, the value after. */
 private fun PlanDim.label(st: String, o: PlanLook) = when (st) {
     "cur" -> o.liveTxt ?: "?"
     "todo" -> if (kind == "w") o.dimWords.first else o.dimWords.second
-    else -> o.dimTxt[asked] ?: ""
+    else -> o.dimTxt[asked] ?: o.fmt(value)
 }
 
 /** An opening or a site point, as the mockup's opSvg: the door's gap, leaf and swing, the window's blue glass, a lettered dot. */

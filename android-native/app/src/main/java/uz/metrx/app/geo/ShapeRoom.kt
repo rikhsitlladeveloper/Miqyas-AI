@@ -67,7 +67,7 @@ data class ShapeRoom(val room: Room, val wallIds: List<String>, val flipped: Lis
  */
 fun shapeToRoom(
     spec: ShapeSpec, values: List<Int?>, height: Int, id: String, floorId: String, name: String, created: Long = 0,
-    diagonal: Int? = null, openings: List<ShapeOpening> = emptyList(), angleSnap: Boolean = true
+    diagonal: Int? = null, openings: List<ShapeOpening> = emptyList(), angleSnap: Boolean = true, src: String = "manual"
 ): ShapeRoom? {
     val g = shapeGeometry(spec, values)
     if (!g.ok) return null
@@ -81,7 +81,10 @@ fun shapeToRoom(
     val mx = V0.minOf { it.x }; val my = V0.minOf { it.y }
     val V = V0.map { Pt(clean(it.x - mx), clean(it.y - my)) }
     val lens = List(n) { k -> val a = V[k]; val b = V[(k + 1) % n]; hypot(b.x - a.x, b.y - a.y).roundToInt() }
-    val H = "H" to Dim(height, "manual"); val T = "T" to Dim(200, "default")
+    // what was asked keeps its source ([src]: "manual" typed, "sim" / "laser" read); worked-out walls are "manual"
+    val H = "H" to Dim(height, src); val T = "T" to Dim(200, "default")
+    val askedRoomWall = BooleanArray(n).also { a -> for (j in 0 until n) if (!g.walls[j].derived) a[roomOf(j)] = true }
+    fun measured(k: Int) = Dim(lens[k], if (askedRoomWall[k]) src else "manual")
     val shapeLens = List(n) { j -> lens[roomOf(j)] }
     val flipped = List(n) { rev }
 
@@ -91,7 +94,7 @@ fun shapeToRoom(
         val rot = when { b.x - a.x > 0.5 -> 0; b.y - a.y > 0.5 -> 1; a.x - b.x > 0.5 -> 2; else -> 3 }
         val ids = listOf("A", "B", "C", "D")
         val room = Room(id, floorId, name, created = created, rot = rot,
-            dims = mapOf("A" to Dim(lens[0], "manual"), "B" to Dim(lens[1], "manual"), H, T))
+            dims = mapOf("A" to measured(0), "B" to measured(1), H, T))
         return ShapeRoom(room, List(n) { ids[roomOf(it)] }, flipped, shapeLens).withAll(openings)
     }
 
@@ -100,18 +103,21 @@ fun shapeToRoom(
     // Those that are not whole mm (the cut, the bay's 45° sides) first, so every stored length is exact; then from the last.
     val open = ArrayList<Int>()
     val derived = (n - 1 downTo 0).filter { g.walls[it].derived }
-    for (j in derived.filter { !whole(g.walls[it].len) } + derived.filter { whole(g.walls[it].len) }) {
+    // a worked-out wall of 50 mm or less is stored measured: the solver takes no wall of 20 mm or less (SK_TOL)
+    for (j in (derived.filter { !whole(g.walls[it].len) } + derived.filter { whole(g.walls[it].len) }).filter { g.walls[it].len > TINY_WALL }) {
         if (open.size == 2) break
         val k = roomOf(j)
         if (open.isEmpty() || !parallel(V, open[0], k)) open += k
     }
     val dims = HashMap<String, Dim>()
-    for (k in 0 until n) dims[ids[k]] = if (k in open) Dim() else Dim(lens[k], "manual")
+    for (k in 0 until n) dims[ids[k]] = if (k in open) Dim() else measured(k)
     dims += H; dims += T
     val diags = ArrayList<Diag>()
     if (diagonal != null) {
-        diags += Diag("X1", cornerOf(0), cornerOf(diagonalCorner(spec)))
-        dims["X1"] = Dim(diagonal, "manual")
+        // its corners in ascending order, as the editor stores a diagonal
+        val a = cornerOf(0); val b = cornerOf(diagonalCorner(spec))
+        diags += Diag("X1", minOf(a, b), maxOf(a, b))
+        dims["X1"] = Dim(diagonal, src)
     }
     val snap = angleSnap && (0 until n).all { k -> val a = V[k]; val b = V[(k + 1) % n]; onStep(atan2(b.y - a.y, b.x - a.x)) }
     val room = Room(id, floorId, name, template = "poly", shape = "poly", dims = dims,
@@ -128,6 +134,9 @@ fun shapeWallIds(spec: ShapeSpec, n: Int): List<String> {
     val ids = if (spec.shape == RoomShape.RECT) listOf("A", "B", "C", "D") else polyWallIds(n)
     return List(n) { j -> ids[if (spec.mirror) (n - j) % n else j] }
 }
+
+/** A worked-out wall this short (mm) is stored measured rather than left to the editor's solver. */
+const val TINY_WALL = 50.0
 
 private fun ShapeRoom.withAll(ops: List<ShapeOpening>) = ops.fold(this) { r, op -> r.withOpening(op) }
 

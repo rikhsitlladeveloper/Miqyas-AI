@@ -92,7 +92,9 @@ fun SizeField(key: Any, label: String, help: String, text: String, fresh: Boolea
     val en = app.english()
     val uw = unitWordOf(unit)
     val fr = remember { FocusRequester() }
-    LaunchedEffect(key) { runCatching { fr.requestFocus() } }
+    // each step opens with its field focused and the phone's number keyboard up (also after Back closed it)
+    val kb = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+    LaunchedEffect(key) { runCatching { fr.requestFocus() }; kb?.show() }
     LaunchedEffect(issue) { if (issue != null) app.haptic(Hap.WARN) }
     val glow = remember { Animatable(0f) }
     LaunchedEffect(flash) { if (flash > 0) { glow.snapTo(1f); glow.animateTo(0f, tween(1100)) } }

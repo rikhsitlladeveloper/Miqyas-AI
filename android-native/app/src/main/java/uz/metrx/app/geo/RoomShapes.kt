@@ -76,9 +76,12 @@ fun freeSketch(corners: List<Pt>): FreeSketch {
     return FreeSketch(dirs, hints)
 }
 
-/** The chosen card with its "Ko‘zgu" (mirror: flips x) and "Burish" (each turn maps (x, y) → (−y, x)), and the free sketch. */
+/**
+ * The chosen card with its "Ko‘zgu" (mirror: flips x) and "Burish" (each turn maps (x, y) → (−y, x)), and the free
+ * sketch. A free card without its sketch (or with fewer than 3 walls) asks nothing and makes no room
+ * ([ShapeErrorCode.EMPTY]), so a screen that reads it before the sketch is drawn does not crash.
+ */
 data class ShapeSpec(val shape: RoomShape, val mirror: Boolean = false, val turns: Int = 0, val sketch: FreeSketch? = null) {
-    init { require(shape != RoomShape.FREE || sketch != null) { "the free shape needs its sketch" } }
     /** Turns as 0–3. */
     val turn: Int get() = ((turns % 4) + 4) % 4
     /** "Ko‘zgu" tapped. */
@@ -107,7 +110,7 @@ fun asks(spec: ShapeSpec): List<ShapeAsk> {
         ShapeKind.CUT -> listOf(0, 1, 3, 4).mapIndexed { j, e -> ShapeAsk(AskKind.WALL, e, sh.defaults[j]) }
         ShapeKind.BAY -> listOf(ShapeAsk(AskKind.WALL, 6, sh.defaults[0]), ShapeAsk(AskKind.WALL, 7, sh.defaults[1]), ShapeAsk(AskKind.WALL, 0, sh.defaults[2]),
             ShapeAsk(AskKind.BAY_WIDTH, null, sh.defaults[3]), ShapeAsk(AskKind.BAY_DEPTH, null, sh.defaults[4]))
-        ShapeKind.FREE -> spec.sketch!!.hints.mapIndexed { i, h -> ShapeAsk(AskKind.WALL, i, h) }
+        ShapeKind.FREE -> spec.sketch?.hints.orEmpty().mapIndexed { i, h -> ShapeAsk(AskKind.WALL, i, h) }
     }
 }
 
@@ -135,7 +138,7 @@ enum class ShapeErrorCode {
     WALLS_CROSS,
     /** The diagonal ([ShapeError.value]) does not match the walls: they give [ShapeError.limit] (± max(30 mm, 2 %)). */
     DIAG_MISMATCH,
-    /** An opening's field is empty. */
+    /** An opening's field is empty; or a free shape has no sketch yet. */
     EMPTY,
     /** An opening's distance is past its wall: [ShapeError.wall], [ShapeError.limit] the wall's length. */
     OP_PAST_WALL,
@@ -204,6 +207,8 @@ private val DV = mapOf('R' to Pt(1.0, 0.0), 'D' to Pt(0.0, 1.0), 'L' to Pt(-1.0,
  */
 fun shapeGeometry(spec: ShapeSpec, values: List<Int?>): ShapeGeo {
     val sh = spec.shape
+    // a free card with no sketch (or under 3 walls) yet: nothing to draw, nothing to make
+    if (sh.kind == ShapeKind.FREE && (spec.sketch?.dirs?.size ?: 0) < 3) return ShapeGeo(spec, listOf(Pt(0.0, 0.0)), emptyList(), ShapeError(ShapeErrorCode.EMPTY), emptyList())
     val P = asks(spec)
     val v = P.mapIndexed { i, p -> values.getOrNull(i) ?: p.default }
     val d = v.map { it.toDouble() }
@@ -242,7 +247,7 @@ fun shapeGeometry(spec: ShapeSpec, values: List<Int?>): ShapeGeo {
             else if (fr <= 0) err = ShapeError(ShapeErrorCode.BAY_TOO_DEEP)
         }
         ShapeKind.FREE -> {
-            val dr = spec.sketch!!.dirs; val n2 = dr.size
+            val dr = spec.sketch!!.dirs; val n2 = dr.size   // 3 or more: checked above
             var x2 = 0.0; var y2 = 0.0; var per = 0.0; pts += Pt(0.0, 0.0)
             for (j in 0 until n2) { x2 += dr[j].x * d[j]; y2 += dr[j].y * d[j]; per += d[j]; pts += Pt(x2, y2) }
             val g = hypot(x2, y2); val tol = max(30.0, per * 0.01)

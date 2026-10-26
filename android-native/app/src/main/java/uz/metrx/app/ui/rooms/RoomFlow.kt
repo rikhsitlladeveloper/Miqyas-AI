@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.isImeVisible
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -221,7 +222,7 @@ fun RoomShapeScreen(rt: Route.RoomShape) {
 /** Moves to another screen of the flow; the height step starts from the height kept, selected. */
 private fun go(app: App, d: RshDraft, s: String) {
     d.heard = null; d.err = null
-    if (s == "height") { d.hIn = lenWords(d.height, app.rshUnit(d), app.english()).replace(" ", ""); d.hFresh = true; d.hErr = null }
+    if (s == "height") { d.hIn = fieldText(d.height, app.rshUnit(d), app.english()); d.hFresh = true; d.hErr = null }
     if (s == "ops") d.op = null
     d.screen = s
 }
@@ -294,8 +295,8 @@ private fun PicBox(height: Dp, d: RshDraft?, content: @Composable () -> Unit) {
         .border(1.dp, G.rim, RoundedCornerShape(22.dp))) {
         content()
         if (d != null && d.shape != "free") Column(Modifier.align(Alignment.TopEnd).padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            ToolBtn(MIRROR, tr("rsh.mirror"), Modifier.width(96.dp)) { d.mir = !d.mir; app.haptic(Hap.TICK) }
-            ToolBtn(ROTATE, tr("rsh.rotate"), Modifier.width(96.dp)) { d.rot = (d.rot + 1) % 4; app.haptic(Hap.TICK) }
+            ToolBtn(MIRROR, tr("rsh.mirror"), Modifier.width(116.dp)) { d.mir = !d.mir; app.haptic(Hap.TICK) }
+            ToolBtn(ROTATE, tr("rsh.rotate"), Modifier.width(116.dp)) { d.rot = (d.rot + 1) % 4; app.haptic(Hap.TICK) }
         }
     }
 }
@@ -350,9 +351,9 @@ private fun ShapeCard(d: RshDraft, k: String, modifier: Modifier) {
             }
             Text(tr("rsh.s.$k"), style = ui(14f, 800), maxLines = 2, modifier = Modifier.padding(start = 4.dp, top = 8.dp, end = 4.dp))
         }
-        if (sel && k != "free") Row(Modifier.fillMaxWidth().heightIn(min = 40.dp).padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            ToolBtn(MIRROR, tr("rsh.mirror"), Modifier.weight(1f)) { d.mir = !d.mir; app.haptic(Hap.TICK) }
-            ToolBtn(ROTATE, tr("rsh.rotate"), Modifier.weight(1f)) { d.rot = (d.rot + 1) % 4; app.haptic(Hap.TICK) }
+        if (sel && k != "free") Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            ToolBtn(MIRROR, tr("rsh.mirror"), Modifier.fillMaxWidth()) { d.mir = !d.mir; app.haptic(Hap.TICK) }
+            ToolBtn(ROTATE, tr("rsh.rotate"), Modifier.fillMaxWidth()) { d.rot = (d.rot + 1) % 4; app.haptic(Hap.TICK) }
         }
         else Text(if (k == "free") tr(if (sel) "rsh.byFinger" else "rsh.everyWall") else tr("rsh.nAsked", "n" to askCount(k)), style = ui(12f, 500, G.ink2, 1.25f),
             minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.heightIn(min = 40.dp).padding(start = 4.dp, end = 4.dp, top = 4.dp))
@@ -393,7 +394,7 @@ private fun WallsStep(d: RshDraft) {
     val sub = if (isD) tr("rsh.diagSub") else tr(if (d.shape == "bay") "rsh.sizeN" else "rsh.wallN", "i" to st + 1, "n" to n)
     val imeOn = WindowInsets.isImeVisible
     val liveTxt = parseLen(d.input, unit)?.let { lenWords(it, unit, en) }
-    val look = PlanLook(cur = if (isD) null else st, done = vals.keys, liveTxt = if (isD) null else liveTxt, pad = 26f, rp = if (free) 0f else 84f,
+    val look = PlanLook(fmt = lenFmt(app, d), cur = if (isD) null else st, done = vals.keys, liveTxt = if (isD) null else liveTxt, pad = 26f, rp = if (free) 0f else 100f,
         diagK = if (isD) rshDiagK(d) else null, diagCur = isD, diagTxt = if (isD) (liveTxt ?: "?") else null,
         dimTxt = vals.mapValues { lenWords(it.value, unit, en) }, dimWords = tr("rsh.dimW") to tr("rsh.dimD"))
     fun next() = wallsNext(app, d)
@@ -401,7 +402,7 @@ private fun WallsStep(d: RshDraft) {
         UxBar(tr(if (isD && d.input.isEmpty()) "rsh.skip" else if (d.ret) "common.save" else "common.next"), null, ::next, null, false, mainEnabled = d.input.isNotEmpty() || isD)
     }) {
         Dots(n + if (free) 1 else 0, st)
-        PicBox(if (imeOn) 150.dp else 210.dp, d) {
+        PicBox(if (imeOn) 160.dp else 236.dp, d) {
             PlanPic(g.model, d.mir, d.rot, look, letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize())
         }
         SizeField("w$st${d.shape}", label, help, d.input, d.fresh, hint, unit, d.err, d.flash, d.heard,
@@ -496,7 +497,7 @@ private fun HeightStep(d: RshDraft) {
     Page(dn(d.name, app.settings.lang), tr("rsh.hSub"), null, { rshBack(app, d) }, bar = {
         UxBar(tr(if (d.ret) "common.save" else "common.next"), null, ::next, null, false, mainEnabled = d.hIn.isNotEmpty())
     }) {
-        PicBox(if (imeOn) 150.dp else 210.dp, null) {
+        PicBox(if (imeOn) 160.dp else 236.dp, null) {
             HeightPic(live?.let { lenWords(it, unit, en) } ?: "?", tr("rsh.floor"), tr("rsh.ceil"), Modifier.fillMaxSize().padding(4.dp))
         }
         SizeField("h", tr("rsh.hT"), tr("rsh.hD"), d.hIn, d.hFresh, 2700, unit, d.hErr, d.flash, d.heard,
@@ -560,7 +561,7 @@ private fun OpsList(d: RshDraft) {
     Page(tr("rsh.opsT"), tr("rsh.opsSub", "n" to dn(d.name, app.settings.lang)), 3, { rshBack(app, d) }, bar = {
         UxBar(tr(if (d.ops.isNotEmpty()) "rsh.ready" else "rsh.skip"), null, { app.haptic(Hap.TICK); go(app, d, "summary") }, null, false)
     }) {
-        PicBox(210.dp, null) { PlanPic(g.model, d.mir, d.rot, PlanLook(final = true, ops = planOps(d)), g.letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize()) }
+        PicBox(236.dp, null) { PlanPic(g.model, d.mir, d.rot, PlanLook(fmt = lenFmt(app, d), final = true, ops = planOps(d)), g.letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize()) }
         OP_KINDS.chunked(3).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 row.forEach { k ->
@@ -602,7 +603,7 @@ private fun OpWall(d: RshDraft, op: OpEdit) {
         UxBar(tr("common.cancel"), null, { d.op = null; app.haptic(Hap.TICK) }, null, false, mainColor = G.ink3)
     }) {
         PicBox(270.dp, null) {
-            PlanPic(g.model, d.mir, d.rot, PlanLook(pick = true, ops = planOps(d)), g.letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize()) { i ->
+            PlanPic(g.model, d.mir, d.rot, PlanLook(fmt = lenFmt(app, d), pick = true, ops = planOps(d)), g.letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize()) { i ->
                 d.op = op.copy(stage = "num", wall = i, sub = 0, input = "", fresh = false, err = null); app.haptic(Hap.TICK)
             }
         }
@@ -631,15 +632,15 @@ private fun OpNum(d: RshDraft, op: OpEdit) {
         "dist" -> tr(if (op.kind == "door" || op.kind == "window") "rsh.distOpD" else "rsh.distPtD", "n" to name.lowercase(), "w" to letter, "l" to lenWords(L.toInt(), unit, en) + " " + unitWordOf(unit))
         "w" -> tr("rsh.wD")
         "h" -> tr("rsh.hOpD", "n" to name.lowercase())
-        else -> tr("rsh.sillD")
+        else -> tr("rsh.sillD", "v" to lenWords(900, unit, en) + " " + unitWordOf(unit))
     }
     val hint = rshOpHint(d, op)
     fun next() = opNext(app, d, op)
     Page("$name · " + tr("rsh.wall", "w" to letter), "${op.sub + 1} / ${fs.size} · " + tr(f.second), null, { rshBack(app, d) }, bar = {
         UxBar(tr(if (op.sub < fs.size - 1) "common.next" else "rsh.add"), null, ::next, null, false, mainEnabled = op.input.isNotEmpty())
     }) {
-        PicBox(if (imeOn) 150.dp else 210.dp, null) {
-            PlanPic(g.model, d.mir, d.rot, PlanLook(sel = op.wall, corner = op.wall, ops = planOps(d), preview = prev, pad = 22f), g.letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize())
+        PicBox(if (imeOn) 160.dp else 236.dp, null) {
+            PlanPic(g.model, d.mir, d.rot, PlanLook(fmt = lenFmt(app, d), sel = op.wall, corner = op.wall, ops = planOps(d), preview = prev, pad = 22f), g.letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize())
         }
         SizeField("op${op.kind}${op.wall}${op.sub}", tr(f.second), help, op.input, op.fresh, hint, unit, op.err, d.flash, d.heard,
             onText = { d.op = op.copy(input = it, fresh = false, err = null); d.heard = null },
@@ -686,7 +687,7 @@ private fun SumRow(label: String, value: String, small: Boolean = false, auto: B
         Text(label, style = ui(14f, 500, G.ink2, 1.3f), modifier = Modifier.weight(1f))
         Text(value, style = if (small) ui(12.5f, 700, if (auto) G.ink2 else G.ink, 1.3f) else num(15.5f, 700, if (auto) G.ink2 else G.ink), textAlign = TextAlign.End,
             modifier = Modifier.weight(1f, fill = false))
-        end()
+        Box(Modifier.widthIn(min = 108.dp), contentAlignment = Alignment.CenterEnd) { end() }
     }
 }
 
@@ -722,7 +723,7 @@ private fun SummaryStep(d: RshDraft) {
         UxBar(tr("rsh.open"), "room", { app.finishRoom(d) }, null, false, mainEnabled = g.err == null)
     }) {
         PicBox(230.dp, null) {
-            PlanPic(g.model, d.mir, d.rot, PlanLook(final = true, ops = planOps(d), diagK = if (d.diag != null) rshDiagK(d) else null, diagTxt = d.diag?.let { lenWords(it, unit, en) }),
+            PlanPic(g.model, d.mir, d.rot, PlanLook(fmt = lenFmt(app, d), final = true, ops = planOps(d), diagK = if (d.diag != null) rshDiagK(d) else null, diagTxt = d.diag?.let { lenWords(it, unit, en) }),
                 g.letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize())
         }
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -737,7 +738,8 @@ private fun SummaryStep(d: RshDraft) {
             MIcon("alert", G.err, 18.dp, 2f); Text(g.err, style = ui(13.5f, 600, G.err, 1.35f), modifier = Modifier.weight(1f))
         }
         Sect(tr("rsh.wallsT"))
-        g.model.edges.forEachIndexed { i, e ->
+        // in the editor's letter order (a mirrored shape was asked the other way round)
+        g.model.edges.withIndex().sortedBy { g.letters.getOrElse(it.index) { "~" } }.forEach { (i, e) ->
             val wl = tr("rsh.wall", "w" to g.letters.getOrElse(i) { "?" })
             if (e.asked != null) SumRow(wl, lenWords(Math.round(e.len).toInt(), unit, en) + " " + u) { ChangeBtn(ch) { edit(e.asked) } }
             else SumRow(wl + (g.angles[i]?.let { " · " + tr("rsh.cutAng", "a" to it) } ?: ""), lenWords(Math.round(e.len).toInt(), unit, en) + " " + u, auto = true) { AutoTag() }
@@ -758,3 +760,6 @@ private fun m2(pts: List<P2>, en: Boolean): String {
     for (i in pts.indices) { val p = pts[i]; val q = pts[(i + 1) % pts.size]; a += p.x * q.y - q.x * p.y }
     return String.format(java.util.Locale.ROOT, "%.1f", abs(a / 2) / 1e6).replace('.', if (en) '.' else ',') + " m²"
 }
+
+/** Lengths on the plan in the flow's unit. */
+private fun lenFmt(app: App, d: RshDraft): (Double) -> String { val u = app.rshUnit(d); val en = app.english(); return { lenWords(Math.round(it).toInt(), u, en) } }

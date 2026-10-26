@@ -149,6 +149,49 @@ class ShapeRoomTest {
         assertNull(shapeToRoom(ShapeSpec(RoomShape.FREE, sketch = sk), listOf(4400, 2600, 2000, 1800, 2400, 4700), 2700, "x", "f", "n"))
     }
 
+    @Test fun tinyWorkedOutWallIsStoredMeasured() {
+        // T with the leg's bottom 3 170: the closing wall G comes out 30 mm, which the editor's solver would reject
+        val sr = make(ShapeSpec(RoomShape.T), listOf(4800, 1400, 1600, 2200, 3170, 2200))
+        val r = sr.room
+        assertEquals(30, r.dim("G").v); assertEquals("manual", r.dim("G").src)
+        assertNull(r.dim("J").v)                       // the other worked-out wall is still the solver's
+        assertTrue(polyGeo(r).solved)
+        assertEquals(30, walls(r).single { it.id == "G" }.len); assertEquals(1400, walls(r).single { it.id == "J" }.len)
+        assertMeasured(r)
+    }
+
+    @Test fun askedValuesKeepTheirSource() {
+        val rect = shapeToRoom(ShapeSpec(RoomShape.RECT), listOf(3400, 2600), 2700, "r", "f", "n", diagonal = null, src = "sim")!!.room
+        assertEquals("sim", rect.dim("A").src); assertEquals("sim", rect.dim("B").src); assertEquals("sim", rect.dim("H").src); assertEquals("default", rect.dim("T").src)
+        val bay = shapeToRoom(ShapeSpec(RoomShape.BAY), listOf(4200, 3600, 1000, 2400, 800), 2700, "r", "f", "n", src = "laser")!!.room
+        // asked: G, J (H), A; worked out and stored: C (the front), E, F
+        assertEquals("laser", bay.dim("G").src); assertEquals("laser", bay.dim("J").src); assertEquals("laser", bay.dim("A").src)
+        assertEquals("manual", bay.dim("C").src); assertEquals("manual", bay.dim("E").src); assertEquals("manual", bay.dim("F").src)
+        assertEquals("manual", make(ShapeSpec(RoomShape.L), listOf(1800, 1800, 2400, 1800)).room.dim("A").src)
+    }
+
+    @Test fun freeShapeWithoutSketchMakesNothing() {
+        val spec = ShapeSpec(RoomShape.FREE)
+        assertTrue(asks(spec).isEmpty())
+        assertEquals(ShapeErrorCode.EMPTY, shapeGeometry(spec, emptyList()).error!!.code)
+        assertNull(shapeToRoom(spec, emptyList(), 2700, "x", "f", "n"))
+        assertEquals(ShapeErrorCode.EMPTY, shapeGeometry(ShapeSpec(RoomShape.FREE, sketch = FreeSketch(listOf(Pt(1.0, 0.0), Pt(-1.0, 0.0)), listOf(3000, 3000))), emptyList()).error!!.code)
+    }
+
+    @Test fun diagonalCornersAscendAndMatchTheEditorWithin20mm() {
+        val sk = FreeSketch(listOf(Pt(1.0, 0.0), Pt(0.0, 1.0), Pt(-1.0, 0.0), Pt(0.0, 1.0), Pt(-1.0, 0.0), Pt(0.0, -1.0)), listOf(4400, 2600, 2000, 1800, 2400, 4400))
+        for (mir in listOf(false, true)) for (t in 0..3) {
+            val spec = ShapeSpec(RoomShape.FREE, mir, t, sk)
+            val r = make(spec, sk.hints, diag = 3558).room
+            val dg = r.poly!!.diags.single()
+            assertTrue("$mir $t ${dg.a} ${dg.b}", dg.a < dg.b)
+            // 20 mm off the walls' 3 538: the flow takes it, and the editor shows it "ok", not "warn"
+            assertNull(diagonalError(spec, sk.hints, 3558))
+            assertEquals("ok", polyGeo(r).diagStatus["X1"])
+            assertNotNull(diagonalError(spec, sk.hints, 3559))
+        }
+    }
+
     @Test fun brokenShapesMakeNoRoom() {
         assertNull(shapeToRoom(ShapeSpec(RoomShape.T), listOf(4800, 1400, 3400, 2200, 1600, 2200), 2700, "x", "f", "n"))
         assertNull(shapeToRoom(ShapeSpec(RoomShape.CUT), listOf(3600, 3000, 2800, 3000), 2700, "x", "f", "n"))
