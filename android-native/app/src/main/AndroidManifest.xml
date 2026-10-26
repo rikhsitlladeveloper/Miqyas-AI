@@ -21,8 +21,18 @@
     <uses-feature android:name="android.hardware.bluetooth" android:required="false" />
     <!-- the laser radar: one soft buzz when the laser connects, two short ones when connecting fails -->
     <uses-permission android:name="android.permission.VIBRATE" />
+    <!-- voice numbers (UX upgrades §9): hold-to-talk on a size field, recognised on the phone (the audio never leaves it);
+         asked on the first hold. The voice pack (about 50 MB a language) is downloaded once, over Wi-Fi only -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <queries>
         <intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent>
+        <!-- "Telegram’ga yuborish" opens Telegram directly when it is installed (UX upgrades §8) -->
+        <package android:name="org.telegram.messenger" />
+        <package android:name="org.telegram.messenger.web" />
+        <package android:name="org.thunderdog.challegram" />
     </queries>
 
     <application

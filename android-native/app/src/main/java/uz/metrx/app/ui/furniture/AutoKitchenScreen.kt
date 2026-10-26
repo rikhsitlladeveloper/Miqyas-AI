@@ -216,27 +216,23 @@ fun AutoKitchenScreen(rt: Route.AutoKitchen) {
         app.renameOrder(p.id)
         replace.forEach { app.kit.forget(it) }
         placed = id; placedIds = made.joinToString(",") { it.id }
-        app.say("ak.placedT", "n" to tr0(app, "lk.p.$id"), action = "ak.undo") {
+        // UX upgrades §3: the toast and the bottom bar's Undo both take the kitchen back out
+        app.act(app.t("ak.placedT", "n" to tr0(app, "lk.p.$id")), {
             app.store.update(p.id) { pr -> pr.copy(furniture = before) }
             made.forEach { app.kit.forget(it.id) }
             placed = prevPlaced; placedIds = prevIds
             app.say(if (prevPlaced.isEmpty()) "ak.undone" else "ak.back")
-        }
+        })
     }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        PageBar(frosted = true) {
-            GlassIconButton("back", tr("nt.back"), { app.pop() }, Modifier.padding(start = 6.dp))
-            Spacer(Modifier.width(6.dp))
-            val rn = p.floors.firstOrNull { it.id == room.floorId }?.let { floorName(it, lang) } ?: dn(room.name, lang)
-            BarTitle(tr("ak.title"), eyebrow = dn(p.name, lang), sub = tr("ak.sub", "r" to rn, "a" to uz.metrx.app.geo.fmtLen(room.dim("A").v, uz.metrx.app.geo.LenUnit.M, en),
-                "b" to uz.metrx.app.geo.fmtLen(room.dim("B").v, uz.metrx.app.geo.LenUnit.M, en)))
-        }
-        if (site.walls.size < 3) {
-            Text(tr("ak.needRoom"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.padding(24.dp))
-            return@Column
-        }
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 32.dp),
+    // UX upgrades: the order's header (Back, the name never cut, the progress) and the bottom action bar with Undo
+    Column(Modifier.fillMaxSize()) {
+        val rn = p.floors.firstOrNull { it.id == room.floorId }?.let { floorName(it, lang) } ?: dn(room.name, lang)
+        uz.metrx.app.ui.ux.UxTop(tr("ak.title"), { app.pop() }, eyebrow = dn(p.name, lang) + " · " + tr("ak.sub", "r" to rn,
+            "a" to uz.metrx.app.geo.fmtLen(room.dim("A").v, uz.metrx.app.geo.LenUnit.M, en), "b" to uz.metrx.app.geo.fmtLen(room.dim("B").v, uz.metrx.app.geo.LenUnit.M, en)),
+            sample = p.sample) { uz.metrx.app.ui.ux.ProgressRow(p, compact = true) }
+        if (site.walls.size < 3) Text(tr("ak.needRoom"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.weight(1f).padding(24.dp))
+        else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             // what this visit placed: open it, or its prices and the client's file
             // a kitchen already in the room (the designer's): the chosen one takes its place
@@ -283,6 +279,11 @@ fun AutoKitchenScreen(rt: Route.AutoKitchen) {
                 StyleCard(p, room, id, pl, pieces[id] ?: emptyList(), placed == id, tier, onFocus = { focus = id }) { choose(id) }
             }
         }
+        // the next step: once a style is in the room, its design; before, the style looked at goes in
+        val canPick = plans.any { it.first == focus && it.second != null }
+        uz.metrx.app.ui.ux.UxBar(if (placed.isNotEmpty()) tr("ak.open3d") else tr("ux.ak.pick", "n" to tr("lk.p.$focus")), if (placed.isNotEmpty()) "cube" else "check",
+            { if (placed.isNotEmpty()) openPlaced(app, p.id, placedIds) else choose(focus) }, onUndo = { app.undoLast() }, canUndo = app.undos.isNotEmpty(),
+            mainEnabled = placed.isNotEmpty() || canPick)
     }
 }
 

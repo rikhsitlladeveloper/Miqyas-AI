@@ -124,7 +124,7 @@ private val TOAST_IN = CubicBezierEasing(.2f, .9f, .3f, 1.15f)
  * a thin bar shows the time left; tap the cross to close.
  */
 @Composable
-fun ToastHost(msg: ToastMsg?, onGone: () -> Unit) {
+fun ToastHost(msg: ToastMsg?, bottomPx: Int? = null, atTop: Boolean = false, onGone: () -> Unit) {
     var shown by remember { mutableStateOf<ToastMsg?>(null) }
     var visible by remember { mutableStateOf(false) }
     // the toast whose action already ran: a second tap during the exit animation must not run Undo again
@@ -136,9 +136,15 @@ fun ToastHost(msg: ToastMsg?, onGone: () -> Unit) {
         delay(if (msg.action != null) 6500 else if (msg.kind == ToastKind.ERROR) 5200 else 3400)
         visible = false; delay(260); onGone()
     }
-    Box(Modifier.fillMaxSize().statusBarsPadding().padding(start = 10.dp, end = 10.dp, top = 8.dp), contentAlignment = Alignment.TopCenter) {
-        AnimatedVisibility(visible, enter = slideInVertically(tween(340, easing = TOAST_IN)) { -it } + fadeIn(tween(200)),
-            exit = slideOutVertically(tween(220)) { -it - 40 } + fadeOut(tween(200))) {
+    // UX upgrades §3: at the bottom, just above the page's bottom bar, so it never covers Back and its Undo is in thumb
+    // reach; at the top only while a sheet is open (the sheet's buttons are at the bottom)
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val lift = with(density) { (bottomPx ?: 0).toDp() }
+    Box((if (atTop) Modifier.fillMaxSize().statusBarsPadding().padding(start = 10.dp, end = 10.dp, top = 8.dp)
+        else Modifier.fillMaxSize().let { if (bottomPx == null) it.navigationBarsPadding().padding(bottom = 16.dp) else it.padding(bottom = lift + 8.dp) }.padding(horizontal = 10.dp)),
+        contentAlignment = if (atTop) Alignment.TopCenter else Alignment.BottomCenter) {
+        AnimatedVisibility(visible, enter = slideInVertically(tween(340, easing = TOAST_IN)) { if (atTop) -it else it } + fadeIn(tween(200)),
+            exit = slideOutVertically(tween(220)) { if (atTop) -it - 40 else it + 40 } + fadeOut(tween(200))) {
             val m = shown ?: return@AnimatedVisibility
             val (tc, icon) = when (m.kind) {
                 ToastKind.OK -> Color(0xFF5BE49B) to "check"
@@ -155,7 +161,7 @@ fun ToastHost(msg: ToastMsg?, onGone: () -> Unit) {
                 Box(Modifier.size(32.dp).clip(CircleShape).background(tc.copy(alpha = .2f)), contentAlignment = Alignment.Center) { MIcon(icon, tc, 18.dp, 2.4f) }
                 val action: (@Composable () -> Unit)? = m.action?.let { label -> {
                     Row(
-                        Modifier.heightIn(min = 42.dp).clip(RoundedCornerShape(13.dp)).background(Color.White.copy(alpha = .12f))
+                        Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(13.dp)).background(Color.White.copy(alpha = .12f))
                             .clickable(role = Role.Button) { if (acted != m.id) { acted = m.id; m.onAction?.invoke() }; visible = false }.padding(horizontal = 14.dp),
                         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) { MIcon("undo", Color.White, 16.dp, 2.2f); Text(label, style = ui(14f, 700, Color.White), maxLines = 1) }

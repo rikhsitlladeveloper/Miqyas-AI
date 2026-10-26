@@ -192,7 +192,7 @@ fun NewOrderScreen(industry: String = "furniture") {
         app.store.add(p)
         app.replaceTop(Route.Project(p.id))
         // a tiler picks the layout first (tiles/Tiles.kt), a furniture maker the design style and then the furniture (Look.kt)
-        app.push(if (industry == "tiler") Route.TGallery(p.id, fromNew = true) else if (industry == "elec") Route.EGallery(p.id, fromNew = true) else if (industry == "plumb") Route.PGallery(p.id, fromNew = true) else if (industry == "win") Route.WGallery(p.id, fromNew = true) else Route.FStyle(p.id, fromNew = true))
+        app.push(if (industry == "tiler") Route.TGallery(p.id, fromNew = true) else if (industry == "elec") Route.EGallery(p.id, fromNew = true) else if (industry == "plumb") Route.PGallery(p.id, fromNew = true) else if (industry == "win") Route.WGallery(p.id, fromNew = true) else Route.FGallery(p.id, fromNew = true))
         app.say("np.created", "n" to name)
     }
 
@@ -225,7 +225,7 @@ fun NewOrderScreen(industry: String = "furniture") {
 /* ---------------- the order's rooms with their furniture ---------------- */
 
 @Composable
-fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
+fun FRoomsTab(p: Project, lang: Lang, route: Route.Project, addCard: Boolean = true) {
     val app = LocalApp.current
     val s = app.settings
     val en = lang == Lang.EN
@@ -250,8 +250,8 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                     Column(Modifier.weight(1f)) {
                         Text(floorName(w, lang), style = ui(16f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         val a = room?.dim("A")?.v; val b = room?.dim("B")?.v; val h = room?.dim("H")?.v
-                        Text(if (drawn && a != null && b != null) uz.metrx.app.geo.fmtLen(a, uz.metrx.app.geo.LenUnit.M, en) + " × " + uz.metrx.app.geo.fmtLen(b, uz.metrx.app.geo.LenUnit.M, en) + " " + tr("u.m") +
-                                (h?.let { " · h " + uz.metrx.app.geo.fmtLen(it, uz.metrx.app.geo.LenUnit.M, en) } ?: "")
+                        Text(if (drawn && a != null && b != null) uz.metrx.app.geo.fmtLen(a, s.furnUnit, en) + " × " + uz.metrx.app.geo.fmtLen(b, s.furnUnit, en) + " " + unitWord(s.furnUnit) +
+                                (h?.let { " · h " + uz.metrx.app.geo.fmtLen(it, s.furnUnit, en) } ?: "")
                             else tr(if (room != null) "fo.notMeasured" else "fo.notDrawn"), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     MIcon("chev", G.ink3, 16.dp, 2f)
@@ -259,8 +259,8 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                 furn.forEach { f ->
                     val ward = f.kind == "wardrobe"
                     val sub = if (ward && (uz.metrx.app.furniture.isItemPiece(f) || uz.metrx.app.furniture.boxes(f).size > 1)) freeSub(f, en)
-                        else if (ward) uz.metrx.app.furniture.wardOfF(f)?.let { m -> uz.metrx.app.geo.fmtLen(m.w, uz.metrx.app.geo.LenUnit.M, en) + " × " +
-                        uz.metrx.app.geo.fmtLen(uz.metrx.app.furniture.valsOf(f, s.workshop)["h"] ?: m.h, uz.metrx.app.geo.LenUnit.M, en) + " " + tr("u.m") } ?: ""
+                        else if (ward) uz.metrx.app.furniture.wardOfF(f)?.let { m -> uz.metrx.app.geo.fmtLen(m.w, s.furnUnit, en) + " × " +
+                        uz.metrx.app.geo.fmtLen(uz.metrx.app.furniture.valsOf(f, s.workshop)["h"] ?: m.h, s.furnUnit, en) + " " + unitWord(s.furnUnit) } ?: ""
                         else tr("kt.l" + f.layout) + " · " + "%.1f".format(java.util.Locale.ROOT, runMm(f) / 1000.0).replace('.', if (en) '.' else ',') + " " + tr("kt.pm")
                     val amount = priced.lines.firstOrNull { it.key == f.id }?.amount?.takeIf { s.advanced }
                     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.glass(.75f)).clickable { app.kit.sel = null; app.push(if (ward) Route.Wardrobe(p.id, f.id) else Route.Kitchen(p.id, f.id)) }
@@ -304,7 +304,7 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
         }
         // the client's 3D files of the room with the most furniture (a piece's own room: its menu)
         if (p.furniture.any { it.modules.isNotEmpty() }) GBtn(tr("sh3.btn"), { app.sheet = Sheet.Share3D(p.id) }, Btn.SECONDARY, icon = "share", height = 48.dp, fontSize = 15f)
-        Row(
+        if (addCard) Row(
             Modifier.fillMaxWidth().height(60.dp).dashedGlass(22.dp).pressable({ app.push(Route.FGallery(p.id)) }, .98f),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically
         ) {

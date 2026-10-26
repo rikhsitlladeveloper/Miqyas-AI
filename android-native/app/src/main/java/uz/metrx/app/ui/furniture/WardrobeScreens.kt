@@ -449,32 +449,21 @@ fun WardrobeScreen(rt: Route.Wardrobe) {
     val sel = rt.sec.coerceIn(0, max(0, m.sections.lastIndex))
     fun pickSec(i: Int) = app.setTop(rt.copy(sec = i))
     Box(Modifier.fillMaxSize().roomGrid()) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GlassIconButton("back", tr("nt.back"), { app.pop() })
-                Column(Modifier.weight(1f)) {
-                    Text(dn(f.name, lang), style = ui(19f, 800, G.ink, 1.2f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(wardHeadSub(f, m, ws), style = ui(12f, 400, G.ink2), maxLines = 1)
-                }
-                GlassIconButton("undo", tr("common.undo"), { kit.undo(app, p.id, f.id) }, tint = if (kit.canUndo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
-                GlassIconButton("redo", tr("common.redo"), { kit.redo(app, p.id, f.id) }, tint = if (kit.canRedo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
-                GlassIconButton("more", tr("common.menu"), { app.sheet = Sheet.FMenu(p.id, f.id) })
-            }
+        // UX upgrades §1: the designer's header and bottom bar (ux/UxDesigner.kt)
+        Column(Modifier.fillMaxSize()) {
+            uz.metrx.app.ui.ux.DesignerTop(p, f, wardHeadSub(f, m, ws))
             val room = cx.room
             if (room == null) {
-                Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.padding(24.dp))
-                return@Column
-            }
-            Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp)) { DimSeg(rt.d3) { app.setTop(rt.copy(d3 = it)) } }
-            if (rt.d3) { Furniture3D(p, room); return@Column }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.weight(1f).padding(24.dp))
+            } else if (rt.d3) Furniture3D(p, room)
+            else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Steps(rt.step) { app.setTop(rt.copy(step = it)) }
                 if (f.modules.count { it.type == "wardrobe" } > 1 || f.type == "stenka") BoxPicker(p, f, m) { app.setTop(rt.copy(sec = 0)) }
                 // the gorka's own options (GorkaViews.kt)
                 if (f.type == "gorka") GorkaCard(p, f)
                 WardDrawing(m, f, cx, ws, mats, rt.step, sel, ::pickSec, if (rt.step != 3) null else { fr ->
                     if (fr.sec >= 0 && fr.sec != sel) pickSec(fr.sec)
-                    app.ward(p.id, f.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) }
+                    app.ward(p.id, f.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) }; with(uz.metrx.app.ui.ux.QuickOps) { app.quick(p.id, f.id, app.t("ux.q.handle")) }
                 })
                 Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     when (rt.step) {
@@ -492,7 +481,7 @@ fun WardrobeScreen(rt: Route.Wardrobe) {
                     .map { uz.metrx.app.furniture.FCheck(it.level, it.key, it.vars, it.mid) } }) { }
                 CostCard(p, f, ws, mats)
             }
-            LivePrice(p, f)
+            uz.metrx.app.ui.ux.DesignerBar(p, f, rt.d3) { app.setTop(rt.copy(d3 = it)) }
         }
     }
 }
@@ -612,7 +601,7 @@ private fun PlaceStep(p: Project, f: Furniture, m: Module, cx: WardCtx, ws: Work
         walls(room, snap).forEach { w ->
             val len = wallLen(room, snap, w.id)
             Box(Modifier.onGloballyPositioned { c -> if (!shown && w.id == m.wall) { shown = true; val x = c.positionInParent().x.toInt(); if (x > 0) scope.launch { wallsSc.scrollTo(x) } } }) {
-                Chip(tr("kt.wallN", "w" to w.id) + (len?.let { " · " + uz.metrx.app.geo.fmtLen(it, app.settings.unit, app.settings.lang == uz.metrx.app.core.Lang.EN) + " " + unitWord(app.settings.unit) } ?: ""), w.id == m.wall) { if (w.id != m.wall) moveTo(w.id, len) }
+                Chip(tr("kt.wallN", "w" to w.id) + (len?.let { " · " + uz.metrx.app.geo.fmtLen(it, app.settings.furnUnit, app.settings.lang == uz.metrx.app.core.Lang.EN) + " " + unitWord(app.settings.furnUnit) } ?: ""), w.id == m.wall) { if (w.id != m.wall) moveTo(w.id, len) }
             }
         }
     }
@@ -727,7 +716,7 @@ private fun DoorStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop
         SlideDoors(p, f, m, sl, ws)
         // the drawers behind the sliding doors: their handles one by one, or all of the box at once
         HandleButtons(listOf(m), { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, true) } }, { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, false) } })
-        InnerDrawers(m) { fr -> app.ward(p.id, f.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) } }
+        InnerDrawers(m) { fr -> app.ward(p.id, f.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) }; with(uz.metrx.app.ui.ux.QuickOps) { app.quick(p.id, f.id, app.t("ux.q.handle")) } }
         return
     }
     Text(tr("wd.doors", "s" to sel + 1), style = ui(15.5f, 800))
@@ -752,7 +741,7 @@ private fun DoorStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop
     HandleButtons(listOf(m), { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, true) } }, { app.ward(p.id, f.id) { uz.metrx.app.furniture.allHandles(it, false) } }, edge)
     if (uz.metrx.app.furniture.handleFronts(m).any { !it.inner }) Text(tr(if (edge) "hd.tapE" else "hd.tap"), style = ui(12.5f, 400, G.ink2, 1.4f))
     // the drawers behind the doors are hidden on the picture: a chip each (25 Oct 2026)
-    InnerDrawers(m) { fr -> app.ward(p.id, f.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) } }
+    InnerDrawers(m) { fr -> app.ward(p.id, f.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) }; with(uz.metrx.app.ui.ux.QuickOps) { app.quick(p.id, f.id, app.t("ux.q.handle")) } }
     // soft close: this section's doors; "Hammasiga" gives every section of the piece the same
     if (cur != "0") {
         val soft = uz.metrx.app.furniture.softOf(m, sel)

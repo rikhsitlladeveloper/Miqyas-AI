@@ -102,6 +102,8 @@ import uz.metrx.app.ui.theme.LocalLang
 import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
+import uz.metrx.app.ui.ux.coachSpot
+import androidx.compose.ui.draw.dropShadow
 
 /*
  * Adding furniture (decided 21 Oct 2026, mockup design/furniture/gallery-steps-mockup.html v5): one gallery of 3D cards
@@ -126,7 +128,10 @@ internal fun decodeTexts(s: String): Map<String, String> =
 internal fun parseMm(s: String, unit: LenUnit): Int? = (parseDec(s, unitDecimals(unit)) as? Parsed.Ok)?.value?.toInt()?.takeIf { it > 0 }
 
 @Composable
-internal fun unitWord(unit: LenUnit) = tr(if (unit == LenUnit.CM) "u.cm" else "u.m")
+internal fun unitWord(unit: LenUnit) = tr(unitKey(unit))
+
+/** The strings key of a unit's short word: mm, sm, m. */
+internal fun unitKey(unit: LenUnit) = when (unit) { LenUnit.CM -> "u.cm"; LenUnit.MM -> "u.mm"; else -> "u.m" }
 
 /** The gallery group a room's furniture belongs to: a kitchen's kitchens, a living room's, a hallway's; the others the bedroom's. */
 private fun App.groupOf(p: Project, rid: String?): String? {
@@ -178,6 +183,8 @@ fun FGalleryScreen(rt: Route.FGallery) {
             Spacer(Modifier.width(6.dp))
             BarTitle(tr("fg.title"), eyebrow = dn(p.name, lang))
         }
+        // the order's style first: a tap repaints the cards at once (UX upgrades §7)
+        Box(Modifier.padding(start = 16.dp, end = 0.dp, top = 8.dp)) { StyleRow(p) }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             groups.forEach { (g, _) ->
                 val on = g == cur
@@ -187,11 +194,9 @@ fun FGalleryScreen(rt: Route.FGallery) {
             }
         }
         Column(Modifier.weight(1f).verticalScroll(scroll).navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            // the order's design style: new pieces start with it (Look.kt)
-            StyleRow(p)
             if (room != null) {
-                val f = { mm: Int? -> fmtLen(mm, LenUnit.M, en) }
-                Text(tr("fg.forRoom", "r" to (p.floors.firstOrNull { it.id == room.floorId }?.let { floorName(it, lang) } ?: dn(room.name, lang)),
+                val f = { mm: Int? -> fmtLen(mm, app.settings.furnUnit, en) }
+                Text(tr("ux.g.forRoom", "u" to unitWord(app.settings.furnUnit), "r" to (p.floors.firstOrNull { it.id == room.floorId }?.let { floorName(it, lang) } ?: dn(room.name, lang)),
                     "a" to f(room.dim("A").v), "b" to f(room.dim("B").v), "h" to f(room.dim("H").v)), style = ui(13.5f, 400, G.ink2, 1.4f))
                 // a measured kitchen: the auto kitchen builds all six styles for its walls, water and gas (AutoKitchen.kt)
                 if (first == "kitchen" && uz.metrx.app.geo.stepKeys(room, app.settings.angleSnap).all { room.dim(it).status == "conf" })
@@ -212,6 +217,11 @@ fun FGalleryScreen(rt: Route.FGallery) {
                     Text(tr("fg.measureS"), style = ui(12.5f, 400, G.ink2))
                 }
             }
+            if (room == null && p.rooms.none { measuredRoom(it, app.settings.angleSnap) }) Text(tr("ux.g.noRoom", "u" to unitWord(app.settings.furnUnit)), style = ui(13f, 500, G.ink2, 1.4f), modifier = Modifier.padding(start = 4.dp))
+            // the maker's own templates first: their style and layout stay, the sizes refit (UX upgrades §7)
+            if (app.settings.templates.isNotEmpty()) TemplatesRow(p, room?.id)
+            // the coach mark points at the first card (UX upgrades §11)
+            val coachId = groups.firstOrNull()?.second?.firstOrNull()
             groups.forEach { (g, ids) ->
                 Row(Modifier.padding(top = 8.dp, start = 2.dp).onGloballyPositioned { tops[g] = it.positionInParent().y.toInt() }, verticalAlignment = Alignment.Bottom,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -220,7 +230,7 @@ fun FGalleryScreen(rt: Route.FGallery) {
                 }
                 ids.mapNotNull { fModel(it) }.chunked(2).forEach { row ->
                     Row(Modifier.fillMaxWidth().height(IntrinsicSize.Max), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        row.forEach { m -> ModelCard(m, p.fstyle, Modifier.weight(1f).fillMaxHeight(), wide = row.size == 1) { pick(m) } }
+                        row.forEach { m -> ModelCard(m, p.fstyle, Modifier.weight(1f).fillMaxHeight().let { if (m.id == coachId) it.coachSpot("gallery") else it }, wide = row.size == 1) { pick(m) } }
                     }
                 }
             }
@@ -228,6 +238,54 @@ fun FGalleryScreen(rt: Route.FGallery) {
                 .clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button) { app.pop() }.padding(horizontal = 16.dp, vertical = 12.dp))
         }
     }
+}
+
+/**
+ * "Mening shablonlarim" (UX upgrades §7): pieces saved from a designer. A template keeps its style and layout; its
+ * sizes refit: in a measured room it is put on the room's walls (FPlace), without one its sizes are asked again.
+ */
+@Composable
+private fun TemplatesRow(p: Project, rid: String?) {
+    val app = LocalApp.current
+    val lang = LocalLang.current
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(Modifier.padding(top = 8.dp, start = 2.dp), verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(tr("ux.tpl.group"), style = ui(17f, 800))
+            Text("${app.settings.templates.size}", style = ui(12.5f, 500, G.ink3))
+        }
+        Text(tr("ux.tpl.note"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(start = 2.dp))
+        Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            app.settings.templates.forEach { t ->
+                val m = uz.metrx.app.furniture.modelOf(t)
+                Column(Modifier.width(170.dp).clip(RoundedCornerShape(20.dp)).glassCard(RoundedCornerShape(20.dp), fill = G.glass(.62f))
+                    .clickable(role = Role.Button) { app.useTemplate(p.id, t, rid) }.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                    ModelPic(m, t.look?.preset ?: p.fstyle, Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(14.dp))
+                        .background(Color(0xFF000000.toInt() or uz.metrx.app.ui.three.CARD_BG)))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(dn(t.name, lang), style = ui(14f, 800), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 4.dp))
+                        Box(Modifier.size(40.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = tr("common.delete")) {
+                            val before = app.settings.templates
+                            app.settings.setTemplateList(before.filter { it.id != t.id })
+                            app.act(app.t("ux.tpl.del"), { app.settings.setTemplateList(before) })
+                        }, contentAlignment = Alignment.Center) { MIcon("x", G.ink3, 16.dp, 2f) }
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** A template into the order: a new room-less copy with a new id and name, then into room [rid] or through its sizes again. */
+internal fun App.useTemplate(pid: String, t: uz.metrx.app.furniture.Furniture, rid: String?) {
+    if (!once()) return
+    val p = store.get(pid) ?: return
+    kit.sel = null
+    val m = uz.metrx.app.furniture.modelOf(t)
+    if (rid != null) {
+        val f = t.copy(id = uz.metrx.app.data.uid(), name = pieceName(p, m), created = System.currentTimeMillis(), roomId = null, ws = "")
+        addPiece(pid, f)
+        push(Route.FPlace(pid, f.id, rid))
+    } else push(Route.FSteps(pid, m.id, tpl = t.id))
 }
 
 @Composable
@@ -262,15 +320,19 @@ fun FStepsScreen(rt: Route.FSteps) {
     val p = app.store.get(rt.pid) ?: return
     val m = fModel(rt.model) ?: return
     val edit = rt.fid?.let { id -> p.furniture.firstOrNull { it.id == id } }
+    // a template (UX upgrades §7): its style and layout stay, its sizes are asked again
+    val tplF = if (edit == null) rt.tpl?.let { id -> app.settings.templates.firstOrNull { it.id == id } } else null
     val ws = app.settings.workshop; val mats = app.settings.mats
-    val unit = app.settings.unit
-    val had = rt.vals?.let { decodeVals(it) } ?: edit?.let { valsOf(it, ws) } ?: emptyMap()
+    val unit = app.settings.furnUnit
+    val had = rt.vals?.let { decodeVals(it) } ?: edit?.let { valsOf(it, ws) } ?: tplF?.let { valsOf(it, ws) } ?: emptyMap()
+    // a measured room in the order: "Qaysi xonaga?" follows the sizes; none: straight to the designer (UX upgrades §7)
+    val hasRoom = p.rooms.any { measuredRoom(it, app.settings.angleSnap) }
     // what was typed, by step key; a choice step keeps the index of what was chosen ("" the usual one)
     var textsS by rememberSaveable(rt) { mutableStateOf(encodeTexts(stepsOf(m, had).let { st ->
         had.mapValues { (k, v) -> if (st.any { it.key == k && it.choice }) "$v" else fmtField(v, unit, en) } })) }
     val texts = decodeTexts(textsS)
     // a corner piece's side steps follow which sides were measured; its shape is chosen once, when it is made
-    val steps = stepsOf(m, texts["ms"]?.toIntOrNull()?.let { mapOf("ms" to it) } ?: emptyMap()).filter { edit == null || it.key != "sh" }
+    val steps = stepsOf(m, texts["ms"]?.toIntOrNull()?.let { mapOf("ms" to it) } ?: emptyMap()).filter { (edit == null && tplF == null) || it.key != "sh" }
     val n = steps.size
     fun txt(i: Int) = texts[steps[i].key] ?: ""
     fun setTxt(i: Int, v: String) { textsS = encodeTexts(texts + (steps[i].key to v)) }
@@ -284,23 +346,30 @@ fun FStepsScreen(rt: Route.FSteps) {
     fun typed(i: Int): Int? = if (steps[i].choice) txt(i).toIntOrNull() else parseMm(txt(i), unit)
     val vals = steps.indices.mapNotNull { i -> typed(i)?.takeIf { stepIssue(steps[i], it) == null }?.let { steps[i].key to it } }.toMap()
     // a new piece in the order's design style, as it will be made (App.addPiece): the preview shows its colours
-    val piece = remember(vals, ws, p.fstyle) {
-        if (edit != null) resized(edit, vals, ws) else pieceOf(m, vals, ws, "").let { if (p.fstyle.isNotEmpty()) uz.metrx.app.furniture.withPreset(it, p.fstyle, fresh = true, ws = ws) else it }
+    val piece = remember(vals, ws, p.fstyle, tplF) {
+        if (edit != null) resized(edit, vals, ws) else if (tplF != null) resized(tplF, vals, ws)
+        else pieceOf(m, vals, ws, "").let { if (p.fstyle.isNotEmpty()) uz.metrx.app.furniture.withPreset(it, p.fstyle, fresh = true, ws = ws) else it }
     }
     val scene = remember(piece, mats) { pieceScene(piece, ws, mats) }
     val uw = unitWord(unit)
     fun issueOf(i: Int): String? {
         if (steps[i].choice) return null
-        // 0 or a wrong number says so (Next stays off without a word otherwise)
-        val mm = parseMm(txt(i), unit) ?: return if (txt(i).isBlank()) null else app.t(if (txt(i).trim().trimStart('0', ',', '.').isEmpty()) "err.zero" else "tl.sizeErr")
-        return stepIssue(steps[i], mm)?.let { (k, v) -> app.t(k, "v" to fmtLen(v, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m")) }
+        // a wrong number says so with an example (UX upgrades §6): "Raqam noto‘g‘ri. Masalan: 3400"
+        val mm = parseMm(txt(i), unit) ?: return if (txt(i).isBlank()) null else app.t("ux.badNum", "v" to fmtField(steps[i].usual, unit, en))
+        return stepIssue(steps[i], mm)?.let { (k, v) -> app.t(k, "v" to fmtLen(v, unit, en) + " " + app.t(unitKey(unit))) }
     }
+    // a laser or voice value lights the field up green for a moment, with a confirm tick (§6)
+    var flash by remember { mutableIntStateOf(0) }
+    // the voice's value: what was in the field before, so "Bekor" puts it back, and the words heard
+    var heard by remember(at) { mutableStateOf<Pair<String, String>?>(null) }
     fun ok(i: Int) = steps[i].choice || (parseMm(txt(i), unit) != null && issueOf(i) == null)
     // the sides worked out from the ones typed (a corner piece), and whether one comes out of what the piece can be
     val derived = uz.metrx.app.furniture.derivedSides(m, vals)
     fun next() {
-        if (at >= n || !ok(at)) return
+        if (at >= n) return
+        if (!ok(at)) { app.haptic(uz.metrx.app.ui.ux.Hap.WARN); return }
         laser = null
+        app.haptic(uz.metrx.app.ui.ux.Hap.TICK)
         if (back) { back = false; at = n } else at += 1
     }
     // after a laser reading [v] went into step [i]: on to the next step when it fits (read from [v]: this page's texts are
@@ -328,7 +397,8 @@ fun FStepsScreen(rt: Route.FSteps) {
         val i = at
         val tv = fmtField(mm, unit, en)
         setTxt(i, tv)
-        laser = app.t("fx.got", "v" to fmtLen(mm, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m"))
+        laser = app.t("fx.got", "v" to fmtLen(mm, unit, en) + " " + app.t(unitKey(unit)))
+        flash++; app.haptic(uz.metrx.app.ui.ux.Hap.CONFIRM)
         scope.launch { delay(900); nextAfter(i, tv) }
         return true
     }
@@ -349,7 +419,8 @@ fun FStepsScreen(rt: Route.FSteps) {
             app.settings.markReadingUsed(r.id, app.t(s.label))
             val tv = fmtField(r.mm, unit, en)
             setTxt(i, tv)
-            laser = app.t("fx.got", "v" to fmtLen(r.mm, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m"))
+            laser = app.t("fx.got", "v" to fmtLen(r.mm, unit, en) + " " + app.t(unitKey(unit)))
+            flash++; app.haptic(uz.metrx.app.ui.ux.Hap.CONFIRM)
             scope.launch { delay(900); nextAfter(i, tv) }
             return
         }
@@ -359,7 +430,8 @@ fun FStepsScreen(rt: Route.FSteps) {
             val v = ((s.usual + Random.nextInt(-120, 121)) / 5) * 5
             val tv = fmtField(v, unit, en)
             setTxt(i, tv)
-            laser = app.t("fx.got", "v" to fmtLen(v, unit, en) + " " + app.t(if (unit == LenUnit.CM) "u.cm" else "u.m"))
+            laser = app.t("fx.got", "v" to fmtLen(v, unit, en) + " " + app.t(unitKey(unit)))
+            flash++; app.haptic(uz.metrx.app.ui.ux.Hap.CONFIRM)
             delay(900)
             nextAfter(i, tv)
         }
@@ -371,6 +443,23 @@ fun FStepsScreen(rt: Route.FSteps) {
             val g = resized(edit, vals, ws)
             app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.map { if (it.id == edit.id) g else it }) }
             app.kit.forget(edit.id); app.kit.tick++; app.pop(); app.say("fz.saved")
+        } else if (!hasRoom || tplF != null) {
+            // UX upgrades §7: no measured room, so "Qaysi xonaga?" is skipped: the piece is placed room-less and the
+            // designer opens; a template's copy keeps its style and layout with the new sizes
+            val now = System.currentTimeMillis()
+            val f = if (tplF != null) resized(tplF.copy(id = uz.metrx.app.data.uid(), name = app.pieceName(p, m), created = now, roomId = null, ws = ""), vals, ws)
+                else pieceOf(m, vals, ws, app.pieceName(p, m), now)
+            val before = p
+            val moved = p.stage == "measure"
+            app.addPiece(p.id, f)
+            app.kit.sel = null
+            app.popTo { it is Route.Project && it.id == p.id }
+            if (hasRoom) { app.sheet = Sheet.FPickRoom(p.id, f.id); return }
+            app.push(app.designer(p.id, f, step = 2))
+            app.act(app.t(if (moved) "fz.createdS" else "fz.created", "n" to dn(f.name, lang), "s" to app.t("fs.design")), {
+                app.store.update(p.id) { pr -> pr.copy(furniture = pr.furniture.filter { it.id != f.id }, stage = before.stage, want = before.want, name = before.name) }
+                app.kit.forget(f.id); app.dropMissing()
+            })
         } else {
             // the sizes stay with this page, so coming back from "Which room?" finds them
             app.setTop(rt.copy(vals = encodeVals(vals)))
@@ -381,8 +470,8 @@ fun FStepsScreen(rt: Route.FSteps) {
     val imeOn = WindowInsets.isImeVisible
     val footer: @Composable (Modifier) -> Unit = { mm ->
         FloatingFooter(mm) {
-            if (at < n) GBtn(tr("common.next"), ::next, enabled = ok(at))
-            else GBtn(tr(if (edit != null) "common.save" else "fr.continue"), ::finish, enabled = steps.indices.all { ok(it) } && derived.none { it.third })
+            if (at < n) GBtn(tr("common.next"), ::next, enabled = txt(at).isNotBlank() || steps[at].choice)
+            else GBtn(tr(if (edit != null) "common.save" else if (!hasRoom) "ux.toDesign" else "fr.continue"), ::finish, enabled = steps.indices.all { ok(it) } && derived.none { it.third })
         }
     }
     Box(Modifier.fillMaxSize().imePadding()) {
@@ -409,14 +498,20 @@ fun FStepsScreen(rt: Route.FSteps) {
                 }
                 if (at < n && steps[at].pics) PicsAsk(m, steps[at], txt(at).toIntOrNull() ?: steps[at].usual, texts["sh"]?.toIntOrNull() ?: had["sh"] ?: 0) { v -> setTxt(at, "$v") }
                 else if (at < n && steps[at].choice) ChoiceAsk(steps[at], txt(at).toIntOrNull() ?: steps[at].usual) { v -> setTxt(at, "$v") }
-                else if (at < n) StepAsk(steps[at], txt(at), { v -> setTxt(at, v); laser = null }, issueOf(at), uw, at, ::next, laser, ::reading)
+                else if (at < n) StepAsk(steps[at], txt(at), { v -> setTxt(at, v); laser = null; heard = null }, issueOf(at), uw, at, ::next, laser, ::reading, flash, heard,
+                    onVoice = { mm, words ->
+                        // the voice's value goes straight into the field, with "Bekor" to put the old one back (§9)
+                        heard = txt(at) to words
+                        setTxt(at, fmtField(mm, unit, en)); laser = null
+                        flash++; app.haptic(uz.metrx.app.ui.ux.Hap.CONFIRM)
+                    }, onUnVoice = { heard?.let { (old, _) -> setTxt(at, old) }; heard = null; app.haptic(uz.metrx.app.ui.ux.Hap.TICK) })
                 else Summary(steps, steps.indices.map { i ->
                     val s = steps[i]
                     if (s.choice) app.t(s.opts.getOrElse(txt(i).toIntOrNull() ?: s.usual) { s.opts[0] }) else (parseMm(txt(i), unit)?.let { fmtLen(it, unit, en) } ?: txt(i)) + " " + uw
                 }, derived.map { (k, v, bad) -> Triple(app.t(k), fmtLen(v, unit, en) + " " + uw, bad) }, when {
                     // a piece of several boxes is built again from its sizes: what was changed box by box goes (said before saving)
                     edit != null && (edit.type in uz.metrx.app.furniture.PIECE_TYPES || edit.type == "loft") -> "fx.noteRebuild"
-                    m.kind == "kitchen" -> "fx.noteK"; m.type in uz.metrx.app.furniture.ITEM_TYPES -> "fx.noteI"; else -> "fx.noteW" }) { i -> was = txt(i); back = true; at = i }
+                    m.kind == "kitchen" -> "fx.noteK"; m.type in uz.metrx.app.furniture.ITEM_TYPES -> "fx.noteI"; else -> "fx.noteW" }, if (edit != null) null else if (hasRoom) "ux.sum.room" else "ux.sum.skip") { i -> was = txt(i); back = true; at = i }
             }
             if (imeOn) footer(Modifier)
         }
@@ -426,34 +521,62 @@ fun FStepsScreen(rt: Route.FSteps) {
 
 @Composable
 private fun StepAsk(s: uz.metrx.app.furniture.SizeStep, text: String, onText: (String) -> Unit, issue: String?, uw: String, at: Int, onNext: () -> Unit,
-                    laser: String?, onRead: () -> Unit) {
+                    laser: String?, onRead: () -> Unit, flash: Int, heard: Pair<String, String>?, onVoice: (Int, String) -> Unit, onUnVoice: () -> Unit) {
     val app = LocalApp.current
     val en = app.settings.lang == Lang.EN
+    val unit = app.settings.furnUnit
     val fr = remember { FocusRequester() }
     LaunchedEffect(at) { runCatching { fr.requestFocus() } }
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    // a wrong number gives a warning buzz when it appears (§6)
+    LaunchedEffect(issue != null) { if (issue != null) app.haptic(uz.metrx.app.ui.ux.Hap.WARN) }
+    // the green glow of a laser or voice value: on at once, fading over about a second
+    val glow = remember { androidx.compose.animation.core.Animatable(0f) }
+    LaunchedEffect(flash) { if (flash > 0) { glow.snapTo(1f); glow.animateTo(0f, androidx.compose.animation.core.tween(1100)) } }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(tr(s.label), style = ui(21f, 800, G.ink, 1.2f), modifier = Modifier.padding(top = 4.dp))
-        Text(tr(s.help), style = ui(13f, 400, G.ink2, 1.4f))
+        if (heard != null) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.greenWash).padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            uz.metrx.app.ui.ux.UxIcon("mic", G.green, 18.dp, 2.2f)
+            Text(tr("ux.micGot", "t" to heard.second, "v" to text + " " + uw), style = ui(13f, 600, G.ink, 1.3f), modifier = Modifier.weight(1f))
+            Text(tr("ux.cancel"), style = ui(14f, 800, G.cobalt2), modifier = Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp))
+                .clickable(role = Role.Button, onClick = onUnVoice).padding(horizontal = 12.dp, vertical = 12.dp))
+        } else Text(tr(s.help), style = ui(13f, 400, G.ink2, 1.4f))
         val bad = issue != null
         val shape = RoundedCornerShape(18.dp)
-        Row(Modifier.fillMaxWidth().heightIn(min = 60.dp).clip(shape).background(G.glass(.85f)).border(2.dp, if (bad) G.err else G.cobalt, shape).padding(horizontal = 16.dp),
+        val green = Color(0xFF22C55E)
+        Row(Modifier.fillMaxWidth().heightIn(min = 68.dp)
+            .dropShadow(shape, androidx.compose.ui.graphics.shadow.Shadow(18.dp, green.copy(alpha = .55f * glow.value)))
+            .clip(shape).background(androidx.compose.ui.graphics.lerp(G.glass(.85f), G.greenWash, glow.value))
+            .border(2.dp, if (bad) G.err else androidx.compose.ui.graphics.lerp(G.cobalt, green, glow.value), shape).padding(horizontal = 16.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.weight(1f)) {
-                if (text.isEmpty()) Text(fmtField(s.usual, app.settings.unit, en), style = num(24f, 600, Color(0xFFA7B0C0)))
-                BasicTextField(text, { v -> onText(v.filter { it.isDigit() || it == ',' || it == '.' || it == ' ' }.take(8)) }, Modifier.fillMaxWidth().focusRequester(fr)
-                    .semantics { contentDescription = app.t(s.label) }, textStyle = num(24f, 700, G.ink), singleLine = true, cursorBrush = SolidColor(G.cobalt),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next), keyboardActions = KeyboardActions(onNext = { onNext() }))
+                if (text.isEmpty()) Text(fmtField(s.usual, unit, en), style = num(30f, 600, Color(0xFFA7B0C0)))
+                // the phone's own number keyboard (§6): whole millimetres, or decimals for cm and m
+                BasicTextField(text, { v -> onText(v.filter { it.isDigit() || (unit != LenUnit.MM && (it == ',' || it == '.' || it == ' ')) }.take(8)) }, Modifier.fillMaxWidth().focusRequester(fr)
+                    .semantics { contentDescription = app.t(s.label) }, textStyle = num(30f, 700, G.ink), singleLine = true, cursorBrush = SolidColor(G.cobalt),
+                    keyboardOptions = KeyboardOptions(keyboardType = if (unit == LenUnit.MM) KeyboardType.Number else KeyboardType.Decimal, imeAction = ImeAction.Next),
+                    keyboardActions = KeyboardActions(onNext = { onNext() }))
             }
-            Text(uw, style = ui(15f, 700, G.ink3))
-            // the laser's button sits in the field, so it stays in sight above the keyboard
-            if (app.settings.laser == Laser.CONNECTED) GBtn(tr("fx.laser"), onRead, icon = "laser", enabled = laser != "busy", height = 44.dp, corner = 14.dp, fontSize = 13.5f, fill = false)
+            Text(uw, style = ui(16f, 700, G.ink3))
         }
-        if (issue != null) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { MIcon("alert", G.err, 18.dp, 2f); Text(issue, style = ui(13.5f, 500, G.err)) }
+        if (issue != null) Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) { MIcon("alert", G.err, 18.dp, 2f); Text(issue, style = ui(13.5f, 600, G.err)) }
         // the usual sizes (a mattress's) a tap away
         if (s.picks.isNotEmpty()) Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            s.picks.forEach { v -> Chip(fmtLen(v, app.settings.unit, en), parseMm(text, app.settings.unit) == v) { onText(fmtField(v, app.settings.unit, en)) } }
+            s.picks.forEach { v -> Chip(fmtLen(v, unit, en), parseMm(text, unit) == v) { onText(fmtField(v, unit, en)) } }
         }
-        LaserLine(app, laser)
+        // always under the field (§6): the laser ("Lazerni ulash" opens the radar) and the hold-to-talk mic
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            val on = app.settings.laser == Laser.CONNECTED
+            val lshape = RoundedCornerShape(16.dp)
+            Row(Modifier.weight(1f).heightIn(min = 56.dp).clip(lshape).background(if (on) G.ink else G.glass(.7f)).border(1.dp, if (on) G.ink else G.rim, lshape)
+                .clickable(role = Role.Button, enabled = laser != "busy") { app.haptic(uz.metrx.app.ui.ux.Hap.TICK); if (on) onRead() else app.push(Route.LaserRadar) }
+                .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
+                MIcon(if (on) "laser" else "bt", if (on) G.solid else G.cobalt2, 20.dp, 2.2f)
+                Text(tr(if (laser == "busy") "ux.lz.busy" else if (on) "ux.lz.measure" else "ux.lz.connect"), style = ui(14.5f, 800, if (on) G.solid else G.cobalt2, 1.15f), maxLines = 2)
+            }
+            uz.metrx.app.voice.VoiceMic(Modifier.weight(1f).coachSpot("size"), onVoice)
+        }
+        if (laser != null && laser != "busy") Text(laser, style = ui(12.5f, 600, G.green, 1.35f), modifier = Modifier.padding(start = 4.dp))
     }
 }
 
@@ -495,7 +618,7 @@ private fun LaserLine(app: App, laser: String?) {
 }
 
 @Composable
-private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<String>, derived: List<Triple<String, String, Boolean>>, note: String, onChange: (Int) -> Unit) {
+private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<String>, derived: List<Triple<String, String, Boolean>>, note: String, extra: String?, onChange: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         steps.forEachIndexed { i, s ->
             Row(Modifier.fillMaxWidth().heightIn(min = 54.dp).clip(RoundedCornerShape(14.dp)).background(G.glass(.7f)).clickable(role = Role.Button) { onChange(i) }
@@ -508,6 +631,11 @@ private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<St
         // a corner piece: the sides worked out from the ones typed, marked as such
         if (derived.isNotEmpty()) DerivedCard(derived)
         Text(tr(note), style = ui(12.5f, 400, G.ink2, 1.45f), modifier = Modifier.padding(top = 4.dp, start = 4.dp))
+        // whether "Qaysi xonaga?" comes next or is skipped (UX upgrades §7)
+        if (extra != null) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.blueWash).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            MIcon(if (extra == "ux.sum.room") "room" else "info", G.cobalt2, 18.dp, 2f)
+            Text(tr(extra), style = ui(13f, 500, G.ink, 1.4f), modifier = Modifier.weight(1f))
+        }
     }
 }
 
@@ -522,7 +650,7 @@ fun FWhereScreen(rt: Route.FWhere) {
     val m = fModel(rt.model) ?: return
     val ws = app.settings.workshop
     val snap = app.settings.angleSnap
-    val unit = app.settings.unit
+    val unit = app.settings.furnUnit
     val vals = remember(rt) { decodeVals(rt.vals) }
     val probe = remember(rt) { pieceOf(m, vals, ws, "") }
     fun made(): uz.metrx.app.furniture.Furniture = pieceOf(m, vals, ws, app.pieceName(p, m), System.currentTimeMillis())
@@ -544,8 +672,8 @@ fun FWhereScreen(rt: Route.FWhere) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                     Text(name, style = ui(15f, 700, if (ready) G.ink else G.ink3), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (ready) {
-                        val f = { mm: Int? -> fmtLen(mm, LenUnit.M, en) }
-                        Text(f(r.dim("A").v) + " × " + f(r.dim("B").v) + " " + tr("u.m") + " · h " + f(r.dim("H").v), style = num(12.5f, 500, G.ink2))
+                        val f = { mm: Int? -> fmtLen(mm, unit, en) }
+                        Text(f(r.dim("A").v) + " × " + f(r.dim("B").v) + " " + unitWord(unit) + " · h " + f(r.dim("H").v), style = num(12.5f, 500, G.ink2))
                         val good = fit!!.second.isEmpty()
                         Text(if (good) "✓ " + tr("fq.fits") else issueText(app, fit.second.first(), lang), style = ui(12f, 700, if (good) Color(0xFF15803D) else G.err, 1.3f),
                             modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (good) G.greenWash else G.errWash).padding(horizontal = 8.dp, vertical = 3.dp))

@@ -193,6 +193,33 @@ class Settings(context: Context) {
         p.edit().putString("builderName", builderName).putString("builderPhone", builderPhone).apply()
     }
     fun finishFirstRun() { firstRunDone = true; p.edit().putBoolean("firstRunDone", true).apply() }
+
+    /* ---------------- UX upgrades (26 Oct 2026, design/ux-upgrades/BUILD_SPEC.md) ---------------- */
+
+    /** §10: a haptic tick, confirm or warning on actions; on by default, Profile → "Tebranish (haptik)". No sound. */
+    var haptic by mutableStateOf(p.getBoolean("haptic", true)); private set
+    fun setHapticOn(v: Boolean) { haptic = v; p.edit().putBoolean("haptic", v).apply() }
+    /** §5: furniture makers' size unit (Profile → "Mebel uchun o‘lcham birligi"), millimetres by default; builders keep [unit]. */
+    var furnUnit by mutableStateOf(when (p.getString("furnUnit", "mm")) { "cm" -> uz.metrx.app.geo.LenUnit.CM; "m" -> uz.metrx.app.geo.LenUnit.M; else -> uz.metrx.app.geo.LenUnit.MM }); private set
+    fun setFurnUnitTo(u: uz.metrx.app.geo.LenUnit) {
+        furnUnit = u
+        p.edit().putString("furnUnit", when (u) { uz.metrx.app.geo.LenUnit.CM -> "cm"; uz.metrx.app.geo.LenUnit.M -> "m"; else -> "mm" }).apply()
+    }
+    /** §11: the three first-run tour cards were seen or skipped; the coach marks seen, by screen. */
+    var tourDone by mutableStateOf(p.getBoolean("uxTourDone", false)); private set
+    fun setTourSeen(v: Boolean) { tourDone = v; p.edit().putBoolean("uxTourDone", v).apply() }
+    var coachSeen: Set<String> by mutableStateOf(p.getStringSet("uxCoach", emptySet())?.toSet() ?: emptySet()); private set
+    fun markCoach(k: String) { coachSeen = coachSeen + k; p.edit().putStringSet("uxCoach", coachSeen).apply() }
+    /** The sample order was made once (it is made again only by "Maslahatlarni qayta ko‘rsatish"). */
+    var sampleMade by mutableStateOf(p.getBoolean("uxSample", false)); private set
+    fun setSampleMadeTo(v: Boolean) { sampleMade = v; p.edit().putBoolean("uxSample", v).apply() }
+    /** Profile → "Maslahatlarni qayta ko‘rsatish": the tour, the coach marks and (by the caller) the sample order come back. */
+    fun resetUxHints() { setTourSeen(false); coachSeen = emptySet(); p.edit().putStringSet("uxCoach", emptySet()).apply(); setSampleMadeTo(false); resetHints() }
+    private val tplSer = kotlinx.serialization.builtins.ListSerializer(uz.metrx.app.furniture.Furniture.serializer())
+    /** §7 templates: pieces saved from a designer ("Shablon sifatida saqlash"); a new piece keeps their style and layout. */
+    var templates: List<uz.metrx.app.furniture.Furniture> by mutableStateOf(p.getString("uxTemplates", null)?.let { runCatching { js.decodeFromString(tplSer, it) }.getOrNull() } ?: emptyList())
+        private set
+    fun setTemplateList(v: List<uz.metrx.app.furniture.Furniture>) { templates = v; p.edit().putString("uxTemplates", js.encodeToString(tplSer, v)).apply() }
 }
 
 /** Uzbek phone numbers: 9 digits after +998, shown as 90 123 45 67. */

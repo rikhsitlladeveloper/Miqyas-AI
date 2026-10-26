@@ -212,8 +212,11 @@ internal fun ModelPic(m: FModelDef, style: String, modifier: Modifier) {
     val q = app.settings.quality
     val tier = remember(q) { Quality3D.tier(ctx, q) }
     val inp = remember(m.id, style, ws, mats, tier) { Cards.inputs(m, style, ws, mats, tier) }
+    // the state outlives its key: another style (UX upgrades §7, the gallery's style row) keeps the old picture only
+    // until the new one is made, so the cards repaint
     val img by produceState(Cards.peek(inp), inp) {
-        if (value == null) value = Cards.model(ctx, m, style, ws, mats, tier)
+        Cards.peek(inp)?.let { value = it; return@produceState }
+        value = Cards.model(ctx, m, style, ws, mats, tier) ?: value
     }
     androidx.compose.runtime.DisposableEffect(inp) { onDispose { Cards.seen(inp, false) } }
     Box(modifier.onGloballyPositioned { c -> Cards.seen(inp, !c.boundsInWindow().isEmpty) }) {

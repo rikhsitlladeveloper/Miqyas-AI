@@ -86,6 +86,8 @@ dependencies {
     implementation("androidx.camera:camera-camera2:1.6.2")
     implementation("androidx.camera:camera-lifecycle:1.6.2")
     implementation("androidx.camera:camera-view:1.6.2")
+    // offline voice numbers (UX upgrades §9): Vosk; the Uzbek and Russian models are downloaded by the app over Wi-Fi
+    implementation("com.alphacephei:vosk-android:0.3.47")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.ui:ui-tooling-preview")
     testImplementation("junit:junit:4.13.2")

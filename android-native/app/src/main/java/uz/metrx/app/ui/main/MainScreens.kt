@@ -88,7 +88,7 @@ fun GlassNav(cur: Tab, onTab: (Tab) -> Unit, modifier: Modifier = Modifier) {
             Modifier.widthIn(max = 300.dp).fillMaxWidth().padding(horizontal = 20.dp).let { it }
                 .height(68.dp)
                 .dropShadow(shape, Shadow(34.dp, G.shade.copy(alpha = .18f), offset = DpOffset(0.dp, 14.dp)))
-                .clip(shape).glassBlur(haze, G.sheet(.45f), 26.dp).topHighlight()
+                .clip(shape).glassBlur(haze, G.sheet(.92f), 26.dp).topHighlight()
                 .border(1.dp, G.rim, shape).padding(6.dp),
             horizontalArrangement = Arrangement.spacedBy(4.dp)
         ) {

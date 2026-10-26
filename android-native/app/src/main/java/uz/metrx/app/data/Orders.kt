@@ -29,7 +29,7 @@ private const val INSTALLED = 5
 /** What customers still owe on approved orders that are not paid yet, and on how many orders. */
 fun owed(ps: List<Project>): Pair<BigInteger, Int> {
     var sum = BigInteger.ZERO; var n = 0
-    ps.filter { it.isFurniture && fStage(it) in APPROVED..INSTALLED }.forEach { p ->
+    ps.filter { it.isFurniture && !it.sample && fStage(it) in APPROVED..INSTALLED }.forEach { p ->
         val left = orderMoney(p).left ?: return@forEach
         if (left.signum() > 0) { sum += left; n++ }
     }

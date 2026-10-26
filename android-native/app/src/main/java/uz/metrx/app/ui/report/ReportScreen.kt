@@ -147,7 +147,7 @@ fun ReportScreen(pid: String, no: Int?) {
         val pages = built?.second.orEmpty(); val bmps = built?.third.orEmpty()
         val total = quote?.total?.let { BigInteger(it) } ?: if (p.isFurniture) (sn.ftotal.toBigIntegerOrNull() ?: BigInteger.ZERO) else snapTotal(sn)
         val rl = Lang.of(sn.lang)
-        fun share() {
+        fun share(tg: Boolean = false) {
             val b = built ?: return
             app.say("sh.making", kind = ToastKind.INFO)
             val fname = pdfName(dn(quote?.sn?.name ?: p.name, lang), if (quote != null) app.t("q.no", "n" to quote.no) else app.t(if (design) "rpt.design" else "es.draft"))
@@ -155,7 +155,7 @@ fun ReportScreen(pid: String, no: Int?) {
             val fresh = b.first == key
             scope.launch {
                 runCatching { withContext(Dispatchers.Default) { pdfFile(ctx, if (fresh) b.second else layout(), fname) } }
-                    .onSuccess { sharePdf(ctx, it, app.t("sh.title")) }
+                    .onSuccess { f -> if (tg) { if (uz.metrx.app.ui.ux.sharePdfVia(ctx, f, app.t("sh.title"), true)) app.haptic(uz.metrx.app.ui.ux.Hap.CONFIRM) } else sharePdf(ctx, f, app.t("sh.title")) }
                     .onFailure { app.say("cm.shareErr", kind = ToastKind.ERROR) }
             }
         }
@@ -218,6 +218,10 @@ fun ReportScreen(pid: String, no: Int?) {
                         val n = if (p.isFurniture) 0 else rowsMissing(p)
                         if (n > 0) app.say("et.block", "n" to n, kind = ToastKind.ERROR) else app.sheet = Sheet.Issue(p.id)
                     }, icon = "lock", modifier = Modifier.weight(1f), maxLines = 2)
+                } else if (p.isFurniture) Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    // an issued quote goes to Telegram directly, or anywhere else through the share sheet (UX upgrades §8)
+                    GBtn(tr("ux.a.tg"), { share(true) }, modifier = Modifier.weight(1.4f), maxLines = 2)
+                    GBtn(tr("ux.other"), { share() }, Btn.SECONDARY, icon = "share", modifier = Modifier.weight(1f), maxLines = 2)
                 } else GBtn(tr("rpt.share"), { share() }, icon = "share")
             }
         }

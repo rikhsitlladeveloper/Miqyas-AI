@@ -89,6 +89,8 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
 
     val inAuth = authStack.isNotEmpty()
     val lang = settings.lang
+    // the haptics play through the window's view
+    SideEffect { app.view = java.lang.ref.WeakReference(view) }
     fun say(key: String, vararg v: Pair<String, Any?>, kind: ToastKind = ToastKind.INFO) = app.say(key, *v, kind = kind)
 
     // light status-bar icons over the blueprint of the opening animation, dark ones on every light screen
@@ -251,6 +253,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.FCut -> uz.metrx.app.ui.furniture.CutScreen(route)
                                     is Route.FPack -> uz.metrx.app.ui.report.PackScreen(route.pid, route.labels)
                                     is Route.FCheck -> uz.metrx.app.ui.furniture.CheckScreen(route)
+                                    is Route.FPrice -> uz.metrx.app.ui.ux.FPriceScreen(route)
                                     Route.Remnants -> uz.metrx.app.ui.furniture.RemnantsScreen()
                                     is Route.Measure -> uz.metrx.app.ui.measure.MeasureScreen(route.calc)
                                     is Route.Markup -> uz.metrx.app.ui.markup.MarkupScreen(route)
@@ -267,17 +270,22 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                     }
                 }
                 // the tab bar shows on the tab pages and the project page; it steps away under a sheet
-                val navOn = !inAuth && !editMe && app.sheet == null && (app.top == Route.Root || app.top is Route.Project || app.top is Route.Measure)
-                if (navOn) Box(Modifier.align(Alignment.BottomCenter)) { GlassNav(app.tab, { app.selectTab(it) }) }
+                // inside a furniture order the tab bar goes: its own bottom bar takes the thumb's place (UX upgrades §1)
+                val inOrder = (app.top as? Route.Project)?.let { app.store.get(it.id)?.isFurniture == true } == true
+                val navOn = !inAuth && !editMe && app.sheet == null && (app.top == Route.Root || (app.top is Route.Project && !inOrder) || app.top is Route.Measure)
+                if (navOn) Box(Modifier.align(Alignment.BottomCenter).then(uz.metrx.app.ui.ux.barSpotModifier())) { GlassNav(app.tab, { app.selectTab(it) }) }
                 when (val sh = app.sheet) {
                     Sheet.Language -> LanguageSheet(lang, { settings.setLanguage(it); app.sheet = null }) { app.sheet = null }
+                    Sheet.VoicePack -> uz.metrx.app.voice.VoicePackSheet()
                     Sheet.Device -> DeviceSheet(onClose = { app.sheet = null }, onTest = { app.sheet = null; app.push(Route.LaserTest) }, onRadar = { app.sheet = null; app.push(Route.LaserRadar) })
                     null -> {}
                     else -> if (!uz.metrx.app.ui.win.WinSheet(sh) && !uz.metrx.app.ui.plumb.PlumbSheet(sh) && !uz.metrx.app.ui.elec.ElecSheet(sh) && !uz.metrx.app.ui.tiles.TileSheet(sh) && !uz.metrx.app.ui.furniture.OrderFlowSheet(sh) && !uz.metrx.app.ui.furniture.BazisSheet(sh) && !uz.metrx.app.ui.furniture.FreeSheet(sh) && !uz.metrx.app.ui.projects.TradeSheet(sh) && !uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)
                 }
                 if (soon) SoonSheet(onLocal = { soon = false; authNav.local() }, onClose = { soon = false })
                 uz.metrx.app.laser.LaserWaitBar(app)
-                ToastHost(app.toast) { app.toast = null }
+                // the first-run tour and the coach marks (UX upgrades §11)
+                if (!inAuth && !editMe && !splash) uz.metrx.app.ui.ux.HelpLayer()
+                ToastHost(app.toast, bottomPx = app.bars.values.maxOrNull(), atTop = app.sheet != null) { app.toast = null }
                 uz.metrx.app.ui.markup.PhotoIntake(app)
             }
             if (splash) {

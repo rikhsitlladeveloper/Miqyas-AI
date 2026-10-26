@@ -237,7 +237,7 @@ internal fun LivePrice(p: Project, f: Furniture) {
     val mln = tr("pl.mln")
     fun short(v: java.math.BigInteger) = shortMoney(p, v, en, mln).let { it.first + " " + (it.second ?: curSuffix(p.currency, lang)) }
     Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 6.dp, bottom = 8.dp).clip(RoundedCornerShape(16.dp)).background(Color(0xFF0E1C36))
-        .clickable(role = Role.Button) { app.push(Route.Project(p.id, tab = "price")) }.padding(horizontal = 14.dp, vertical = 10.dp),
+        .clickable(role = Role.Button) { app.push(Route.FPrice(p.id)) }.padding(horizontal = 14.dp, vertical = 10.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         MIcon("coin", Color(0xFFB7C3D9), 18.dp, 2f)
         Text(tr("bz.live"), style = ui(12.5f, 500, Color(0xFFB7C3D9)), modifier = Modifier.weight(1f), maxLines = 1)
