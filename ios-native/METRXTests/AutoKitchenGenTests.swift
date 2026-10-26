@@ -170,7 +170,9 @@ final class AutoKitchenGenTests: XCTestCase {
                         let low = f.modules.filter { $0.wall == w && !isUpper($0) }.sorted { $0.x < $1.x }
                         let up = f.modules.filter { $0.wall == w && isUpper($0) }.sorted { $0.x < $1.x }
                         XCTAssertEqual(low.first?.x, i > 0 ? K_CORNER : 0, "\(lay) \(pr.id) \(w)")
-                        XCTAssertEqual(low.last.map { $0.x + $0.w }, L, "\(lay) \(pr.id) \(w)")
+                        let rowText = low.map { "\($0.type)/\($0.app):\($0.x)+\($0.w)" }.joined(separator: " ")
+                        let planText = p.runs.filter { $0.w == w }.map { r in r.base.map { "\($0.k)[\(Int($0.a))-\(Int($0.b))]" }.joined(separator: " ") }.joined()
+                        XCTAssertEqual(low.last.map { $0.x + $0.w }, L, "\(lay) \(pr.id) \(w) row: \(rowText) plan: \(planText)")
                         for k in 1..<max(1, low.count) { XCTAssertEqual(low[k].x, low[k - 1].x + low[k - 1].w, "\(lay) \(pr.id) \(w) low \(k)") }
                         XCTAssertEqual(up.first?.x, i > 0 ? K_UP_CORNER : 0, "\(lay) \(pr.id) \(w)")
                         for k in 1..<max(1, up.count) { XCTAssertEqual(up[k].x, up[k - 1].x + up[k - 1].w, "\(lay) \(pr.id) \(w) up \(k)") }
