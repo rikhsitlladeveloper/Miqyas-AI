@@ -6,7 +6,9 @@
 # pictures a language (uz-01-home, 02-kitchen-3d, 03-gallery, 04-wardrobe-3d, 05-gorka-3d, 06-estimate … en-…, plus a
 # few "b"/"c" alternatives). A step that cannot be reached saves <lang>-skip-<shot>-<where>.png instead.
 # Start it with a tag: git tag shots-<n> && git push origin shots-<n>.
-# Artifacts: appstore-screens (the PNGs) and appstore-screens-logs.
+# Then design/appstore/frame_shots.py puts the six store pictures of each language under their headlines
+# (design/appstore/captions.json) on METRX blue: final/<lang>/<n>-<name>.png, 1320 x 2868.
+# Artifacts: appstore-final (the finished pictures), appstore-screens (the raw PNGs) and appstore-screens-logs.
 name: iOS App Store screenshots
 
 on:
@@ -115,6 +117,23 @@ jobs:
           if [ "$S" != "0" ]; then echo "== skipped steps"; ls out/appstore/*-skip-*.png; fi
           if [ "$N" = "0" ]; then echo "::error::no screenshots were made"; exit 1; fi
           exit $R
+
+      - name: Frame the store pictures
+        if: always()
+        run: |
+          # a venv of its own: the runner's Homebrew Python refuses a plain pip install (PEP 668)
+          python3 -m venv out/venv
+          out/venv/bin/pip install --quiet pillow
+          out/venv/bin/python ../design/appstore/frame_shots.py out/appstore out/final
+          N=$(find out/final -name '*.png' 2>/dev/null | wc -l | tr -d ' ')
+          echo "### $N framed App Store pictures (appstore-final)" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: appstore-final
+          path: ios-native/out/final/
+          if-no-files-found: ignore
 
       - uses: actions/upload-artifact@v4
         if: always()

@@ -1,4 +1,6 @@
+import UIKit
 import XCTest
+import ObjectiveC
 
 /// The App Store screenshots, in Uzbek, Russian and English (run by .github/workflows/ios-screenshots.yml on the biggest
 /// iPhone simulator, status bar set to 9:41). Saved as attachments and as PNG files in the folder APPSTORE_SHOTS names
@@ -17,9 +19,15 @@ import XCTest
 /// name from a wrong screen and the run is not stopped by one bad step.
 /// Without APPSTORE_SHOTS the class is skipped, so the usual CI run (ios-native.yml) does not spend time on it.
 /// Labels are found by accessibility identifiers; the back link without one by its text from strings.json in the
-/// shot's language.
+/// shot's language. The estimate's rows scroll under the total-and-report bar at the bottom of the Smeta tab, so its
+/// buttons are tapped only once they are above that bar (a tap behind it opened the report: ru-skip-06-estimate-labour).
+/// The 3D shots are framed before they are taken (fill3D): the furniture is found in the screenshot, moved to the
+/// middle with two fingers and pinched in until it is about 80% of the picture's width (design/appstore/frame_shots.py
+/// then puts each shot under its headline).
 final class AppStoreShots: ScreenTestCase {
     private var lang = "uz"
+    /// Where fill3D last found the furniture (points), for a tap on one of its doors.
+    private var box3D: CGRect? = nil
     private var outDir: URL? {
         let env = ProcessInfo.processInfo.environment
         return (env["APPSTORE_SHOTS"] ?? env["SHOTS"]).map { URL(fileURLWithPath: $0) }
@@ -87,7 +95,7 @@ final class AppStoreShots: ScreenTestCase {
         guard backUntil(app, { self.seenId(app, "ptab.estimate") }) else { skip("06-estimate", "project-page"); return }
         guard tap(app, "ptab.estimate", 4) else { skip("06-estimate", "estimate-tab"); return }
         usleep(900_000)
-        guard tap(app, "es.addMat", 6) else { skip("06-estimate", "add-material"); return }
+        guard tapAboveBar(app, "es.addMat", 6, then: "gs.qty") else { skip("06-estimate", "add-material"); return }
         usleep(900_000)
         guard typeAt(app, 0, s.mat1), typeField(app, "gs.qty", "12"), typeField(app, "gs.price", "50000"), tap(app, "gs.again", 4)
         else { skip("06-estimate", "material-1"); return }
@@ -95,12 +103,13 @@ final class AppStoreShots: ScreenTestCase {
         guard typeAt(app, 0, s.mat2), typeField(app, "gs.qty", "22"), typeField(app, "gs.price", "120000"), tap(app, "gs.save", 4)
         else { skip("06-estimate", "material-2"); return }
         usleep(1_000_000)
-        if tap(app, "gs.addLab", 6) {
+        if tapAboveBar(app, "gs.addLab", 6, then: "gs.sum") {
             usleep(900_000)
             if typeAt(app, 0, s.labour), typeField(app, "gs.sum", "1000000"), tap(app, "gs.save", 4) { sleep(1) } else { skip("06-estimate", "labour") }
         } else { skip("06-estimate", "add-labour") }
         noToast(app, 8)
-        // the Smeta tab from its top
+        // the Smeta tab from its top (a page of the report left open by a stray tap is closed first)
+        if !seenId(app, "es.preview") { _ = backUntil(app, { self.seenId(app, "es.preview") }) }
         for _ in 0..<3 { drag(app, down: true) }
         sleep(1)
         save("06b-estimate-tab")
@@ -138,8 +147,14 @@ final class AppStoreShots: ScreenTestCase {
         guard newOrder(app, who, "dark", "04-wardrobe-3d") else { return }
         piece(app, "s2", "bedroom", "04-wardrobe-3d", before: {
             self.save("04b-wardrobe-closed")
-            // a tap on the middle of the picture slides the door there (Modern3DShots' kupe-door)
-            app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
+            // a tap on the right-hand door slides it over the left one (Modern3DShots' kupe-door): where fill3D found
+            // the wardrobe, else the middle of the picture as before
+            if let b = self.box3D {
+                app.coordinate(withNormalizedOffset: .zero)
+                    .withOffset(CGVector(dx: b.minX + b.width * 0.78, dy: b.minY + b.height * 0.45)).tap()
+            } else {
+                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
+            }
             sleep(4); self.waitStill(8)
         })
         if !piece(app, "gorka", "living", "05-gorka-3d") {
@@ -295,6 +310,7 @@ final class AppStoreShots: ScreenTestCase {
         sleep(5)    // RealityKit's first frames on the simulator
         noToast(app, 4)
         waitStill(10)
+        fill3D(app, name)
         return true
     }
 
@@ -347,6 +363,174 @@ final class AppStoreShots: ScreenTestCase {
             if now == last { same += 1; if same >= 2 { return } } else { same = 0 }
             last = now
         }
+    }
+
+    // ---------- the estimate's buttons above its bottom bar ----------
+
+    /// Taps the Smeta tab's id once it is in sight above the bar at the bottom (the grand total and "View report"): the
+    /// tab's rows scroll under that bar, and a tap there opens the report. True once the sheet's field then is there; a
+    /// report opened by mistake is closed and the tap tried once more.
+    private func tapAboveBar(_ app: XCUIApplication, _ id: String, _ t: TimeInterval, then field: String) -> Bool {
+        for attempt in 0..<2 {
+            guard let e = find(app, id, t), bring(app, e) else { return false }
+            let win = app.windows.firstMatch.frame
+            for _ in 0..<8 {
+                guard e.exists else { break }
+                if e.frame.maxY > barTop(app) - 6 { dragAbove(app, up: true); continue }
+                if e.frame.minY < win.minY + win.height * 0.14 { dragAbove(app, up: false); continue }
+                break
+            }
+            guard e.exists, e.frame.maxY <= barTop(app) - 6 else { return false }
+            e.tap()
+            if app.textFields[field].waitForExistence(timeout: 5) { return true }
+            // the report (or nothing) opened instead: back to the tab and once more
+            if attempt == 0 { _ = backUntil(app, { self.seenId(app, "es.preview") }) }
+        }
+        return false
+    }
+
+    /// The top of the Smeta tab's bottom bar (its total and "View report"), less the bar's padding; the window's bottom
+    /// when the bar is not there.
+    private func barTop(_ app: XCUIApplication) -> CGFloat {
+        var y = app.windows.firstMatch.frame.maxY
+        for id in ["es.grand", "es.preview"] {
+            let el = app.descendants(matching: .any).matching(identifier: id).firstMatch
+            if el.exists, !el.frame.isEmpty { y = min(y, el.frame.minY) }
+        }
+        return y - 22
+    }
+
+    /// A slow drag in the middle of the page, clear of the bottom bar: up true brings what is below into sight.
+    private func dragAbove(_ app: XCUIApplication, up: Bool) {
+        let a = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: up ? 0.6 : 0.3))
+        let b = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: up ? 0.36 : 0.54))
+        a.press(forDuration: 0.05, thenDragTo: b); usleep(800_000)
+    }
+
+    // ---------- the 3D picture filled with the furniture ----------
+
+    /// Frames the designer's 3D for a shot: the furniture is found in the screenshot (furnitureBox), moved to the middle
+    /// of the picture with a two-finger drag and pinched in until it is about 80% of the picture's width (and fits its
+    /// height). A pinch grows the picture from its middle (where the camera looks), so without two fingers of our own
+    /// (Fingers unavailable, or the camera's limits stop the drag) the pinch stops where the furniture would leave the
+    /// picture. The test's log tells what it did ("AppStoreShots: uz-04-wardrobe-3d …").
+    private func fill3D(_ app: XCUIApplication, _ name: String) {
+        box3D = nil
+        guard let v = pictureFrame(app), let pill = find(app, "bz.inside", 2) else { note(name, "3D picture not found"); return }
+        // the furniture is looked for between the "See inside" pill and the hint at the bottom of the picture
+        let top = pill.frame.maxY + 4, bottom = v.maxY - 50
+        guard bottom - top > 200 else { note(name, "3D picture too small"); return }
+        let scan = CGRect(x: v.minX + 2, y: top, width: v.width - 4, height: bottom - top)
+        let goal = CGRect(x: v.minX + v.width * 0.1, y: top + 8, width: v.width * 0.8, height: bottom - top - 16)
+        let mid = CGPoint(x: v.midX, y: v.midY)
+        var canPan = Fingers.available
+        var log: [String] = [canPan ? "fingers" : "no fingers"]
+        for _ in 0..<8 {
+            guard let b = furnitureBox(app, scan) else { log.append("no furniture"); break }
+            box3D = b
+            let cut = b.minX <= scan.minX + 1 || b.maxX >= scan.maxX - 1 || b.minY <= scan.minY + 1 || b.maxY >= scan.maxY - 1
+            let dx = goal.midX - b.midX, dy = goal.midY - b.midY
+            log.append(String(format: "box %.0f,%.0f %.0fx%.0f", b.minX, b.minY, b.width, b.height))
+            if cut {
+                // past an edge: out a little to see all of it
+                pinch3D(app, mid, 0.8); log.append("out 0.8"); continue
+            }
+            if canPan && (abs(dx) > 12 || abs(dy) > 12) {
+                guard Fingers.drag(mid, dx, dy) else { canPan = false; log.append("drag failed"); continue }
+                settle()
+                // a drag the camera's limits stopped: from here on, pinches about the middle only
+                if let a = furnitureBox(app, scan) {
+                    let moved = hypot(a.midX - b.midX, a.midY - b.midY), asked = hypot(dx, dy)
+                    log.append(String(format: "moved %.0f of %.0f", moved, asked))
+                    if moved < asked * 0.3 { canPan = false }
+                }
+                continue
+            }
+            var k = min(goal.width / b.width, goal.height / b.height)
+            if !canPan { k = min(k, growLimit(b, goal, mid)) }
+            if k < 1.06 && k > 0.95 { break }
+            // smaller than asked only because it is already inside the goal: leave it
+            if k <= 0.95 && b.width <= goal.width && b.height <= goal.height { break }
+            k = min(max(k, 0.6), 2.4)
+            pinch3D(app, mid, k); log.append(String(format: "pinch %.2f", k))
+        }
+        if let b = furnitureBox(app, scan) { box3D = b; log.append(String(format: "final %.0f,%.0f %.0fx%.0f", b.minX, b.minY, b.width, b.height)) }
+        note(name, log.joined(separator: "; "))
+    }
+
+    /// How much the box may grow from m (a pinch grows the picture from there) and stay inside g.
+    private func growLimit(_ b: CGRect, _ g: CGRect, _ m: CGPoint) -> CGFloat {
+        var k: CGFloat = 3
+        if b.minX < m.x { k = min(k, (m.x - g.minX) / (m.x - b.minX)) }
+        if b.maxX > m.x { k = min(k, (g.maxX - m.x) / (b.maxX - m.x)) }
+        if b.minY < m.y { k = min(k, (m.y - g.minY) / (m.y - b.minY)) }
+        if b.maxY > m.y { k = min(k, (g.maxY - m.y) / (b.maxY - m.y)) }
+        return max(k, 0.5)
+    }
+
+    /// The 3D picture (points): from the "See inside" pill's top padding to the buttons under the picture.
+    private func pictureFrame(_ app: XCUIApplication) -> CGRect? {
+        guard let open = find(app, "f3.openAll", 3), let pill = find(app, "bz.inside", 3) else { return nil }
+        let win = app.windows.firstMatch.frame
+        let top = pill.frame.minY - 10, bottom = open.frame.minY - 10
+        guard bottom - top > 200 else { return nil }
+        return CGRect(x: win.minX, y: top, width: win.width, height: bottom - top)
+    }
+
+    /// The furniture's box inside scan (points) in a screenshot: its pixels are dark (luminance under 175) or warm (red
+    /// over blue by 7 or more), unlike the picture's blue-grey ground and grid, the light grey floor and its shadow; a
+    /// row or a column counts with 3 such points. Nil when there is none.
+    private func furnitureBox(_ app: XCUIApplication, _ scan: CGRect) -> CGRect? {
+        guard let cg = XCUIScreen.main.screenshot().image.cgImage else { return nil }
+        let win = app.windows.firstMatch.frame
+        guard win.width > 0 else { return nil }
+        let w = cg.width, h = cg.height, s = CGFloat(w) / win.width
+        var px = [UInt8](repeating: 0, count: w * h * 4)
+        let drawn = px.withUnsafeMutableBytes { (raw: UnsafeMutableRawBufferPointer) -> Bool in
+            guard let ctx = CGContext(data: raw.baseAddress, width: w, height: h, bitsPerComponent: 8, bytesPerRow: w * 4,
+                                      space: CGColorSpaceCreateDeviceRGB(),
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return false }
+            ctx.draw(cg, in: CGRect(x: 0, y: 0, width: w, height: h))
+            return true
+        }
+        guard drawn else { return nil }
+        let x0 = max(0, Int(scan.minX)), x1 = min(Int(win.width) - 1, Int(scan.maxX))
+        let y0 = max(0, Int(scan.minY)), y1 = min(Int(win.height) - 1, Int(scan.maxY))
+        guard x1 > x0, y1 > y0 else { return nil }
+        var cols = [Int](repeating: 0, count: x1 - x0 + 1), rows = [Int](repeating: 0, count: y1 - y0 + 1)
+        px.withUnsafeBufferPointer { p in
+            for y in y0...y1 {
+                let py = min(h - 1, Int(CGFloat(y) * s + s / 2))
+                for x in x0...x1 {
+                    let i = (py * w + min(w - 1, Int(CGFloat(x) * s + s / 2))) * 4
+                    let r = Int(p[i]), g = Int(p[i + 1]), b = Int(p[i + 2])
+                    let l = (r * 299 + g * 587 + b * 114) / 1000
+                    if l < 175 || (r - b >= 7 && l < 250) { cols[x - x0] += 1; rows[y - y0] += 1 }
+                }
+            }
+        }
+        guard let cx0 = cols.firstIndex(where: { $0 >= 3 }), let cx1 = cols.lastIndex(where: { $0 >= 3 }),
+              let ry0 = rows.firstIndex(where: { $0 >= 3 }), let ry1 = rows.lastIndex(where: { $0 >= 3 }),
+              cx1 - cx0 > 20, ry1 - ry0 > 20 else { return nil }
+        return CGRect(x: x0 + cx0, y: y0 + ry0, width: cx1 - cx0 + 1, height: ry1 - ry0 + 1)
+    }
+
+    /// A pinch of the 3D picture by k about m: two fingers of our own when there are, else XCUIElement.pinch on the
+    /// window (its middle is inside the picture; ScreenTests' room-3D zoom does the same).
+    private func pinch3D(_ app: XCUIApplication, _ m: CGPoint, _ k: CGFloat) {
+        if !Fingers.pinch(m, k) {
+            app.windows.firstMatch.pinch(withScale: k, velocity: k >= 1 ? 1.2 : -1.2)
+        }
+        settle()
+    }
+
+    /// After a gesture: the camera has no run-out, so the picture is still once RealityKit has drawn it.
+    private func settle() { usleep(600_000); waitStill(6) }
+
+    /// A line in the test's log (the workflow's shots.log), so a run shows how a shot was framed.
+    private func note(_ name: String, _ text: String) {
+        XCTContext.runActivity(named: "AppStoreShots: \(lang)-\(name) \(text)") { _ in }
+        print("AppStoreShots: \(lang)-\(name) \(text)")
     }
 
     // ---------- small helpers (Modern3DShots' m3Find, m3Tap, m3Bring, m3Seen, here under their own names) ----------
@@ -492,4 +676,120 @@ final class AppStoreShots: ScreenTestCase {
         "ind.row": ["Soha", "Соҳа", "Сфера работы", "Trade"],
         "ind.furn": ["Mebelchi", "Мебелчи", "Мебельщик", "Furniture maker"],
     ]
+}
+
+/// Two fingers at once, for the 3D picture's two-finger drag (which XCUITest has no call for) and an exact pinch: made of
+/// XCTest's own event records, XCPointerEventPath and XCSynthesizedEventRecord, which XCUIElement's gestures are built
+/// from. They are not public API (WebDriverAgent drives iPhones with them), so every class and selector is looked up
+/// first: when one is missing, available is false, drag and pinch return false, and AppStoreShots pinches with
+/// XCUIElement.pinch alone. Points are the screen's, in portrait.
+private enum Fingers {
+    private typealias Alloc = @convention(c) (AnyClass, Selector) -> UnsafeMutableRawPointer?
+    private typealias TouchInit = @convention(c) (UnsafeMutableRawPointer, Selector, CGPoint, Double) -> UnsafeMutableRawPointer?
+    private typealias MoveTo = @convention(c) (AnyObject, Selector, CGPoint, Double) -> Void
+    private typealias Lift = @convention(c) (AnyObject, Selector, Double) -> Void
+    private typealias RecordInit = @convention(c) (UnsafeMutableRawPointer, Selector, NSString, Int64) -> UnsafeMutableRawPointer?
+    private typealias AddPath = @convention(c) (AnyObject, Selector, AnyObject) -> Void
+    private typealias Getter = @convention(c) (AnyObject, Selector) -> UnsafeMutableRawPointer?
+    private typealias Synth = @convention(c) (AnyObject, Selector, AnyObject, @convention(block) (Bool, NSError?) -> Void) -> Void
+    private typealias SynthErr = @convention(c) (AnyObject, Selector, AutoreleasingUnsafeMutablePointer<NSError?>?) -> Bool
+
+    private static let pathClass: AnyClass? = NSClassFromString("XCPointerEventPath")
+    private static let recordClass: AnyClass? = NSClassFromString("XCSynthesizedEventRecord")
+    private static let sAlloc = NSSelectorFromString("alloc")
+    private static let sTouch = NSSelectorFromString("initForTouchAtPoint:offset:")
+    private static let sMove = NSSelectorFromString("moveToPoint:atOffset:")
+    private static let sLift = NSSelectorFromString("liftUpAtOffset:")
+    private static let sRecord = NSSelectorFromString("initWithName:interfaceOrientation:")
+    private static let sAdd = NSSelectorFromString("addPointerEventPath:")
+    private static let sSynthesizer = NSSelectorFromString("eventSynthesizer")
+    private static let sSynth = NSSelectorFromString("synthesizeEvent:completion:")
+    private static let sSynthErr = NSSelectorFromString("synthesizeWithError:")
+
+    /// XCUIDevice's event synthesizer, when this Xcode has one that takes records.
+    private static var synthesizer: AnyObject? {
+        let dev = XCUIDevice.shared as NSObject
+        guard dev.responds(to: sSynthesizer), let imp = class_getMethodImplementation(object_getClass(dev), sSynthesizer),
+              let p = unsafeBitCast(imp, to: Getter.self)(dev, sSynthesizer) else { return nil }
+        let o = Unmanaged<AnyObject>.fromOpaque(p).takeUnretainedValue()
+        return (o as? NSObjectProtocol)?.responds(to: sSynth) == true ? o : nil
+    }
+
+    static var available: Bool {
+        guard let pc = pathClass as? NSObject.Type, let rc = recordClass as? NSObject.Type else { return false }
+        guard [sTouch, sMove, sLift].allSatisfy({ pc.instancesRespond(to: $0) }),
+              [sRecord, sAdd].allSatisfy({ rc.instancesRespond(to: $0) }) else { return false }
+        return synthesizer != nil || rc.instancesRespond(to: sSynthErr)
+    }
+
+    /// A new instance of cls from its alloc and the init imp (both +1, the init taking the alloc's object).
+    private static func make(_ cls: AnyClass, _ initSel: Selector, _ call: (IMP, UnsafeMutableRawPointer) -> UnsafeMutableRawPointer?) -> AnyObject? {
+        guard let am = class_getClassMethod(cls, sAlloc), let im = class_getInstanceMethod(cls, initSel),
+              let raw = unsafeBitCast(method_getImplementation(am), to: Alloc.self)(cls, sAlloc),
+              let made = call(method_getImplementation(im), raw) else { return nil }
+        return Unmanaged<AnyObject>.fromOpaque(made).takeRetainedValue()
+    }
+
+    private static func imp(_ o: AnyObject, _ s: Selector) -> IMP? { class_getMethodImplementation(object_getClass(o), s) }
+
+    /// One finger: down at the first point, through the others evenly over duration, up at the end.
+    private static func path(_ pts: [CGPoint], _ duration: Double) -> AnyObject? {
+        guard let pc = pathClass, let first = pts.first,
+              let p = make(pc, sTouch, { i, raw in unsafeBitCast(i, to: TouchInit.self)(raw, sTouch, first, 0) }),
+              let mv = imp(p, sMove), let up = imp(p, sLift) else { return nil }
+        let move = unsafeBitCast(mv, to: MoveTo.self)
+        for (n, q) in pts.enumerated().dropFirst() { move(p, sMove, q, duration * Double(n) / Double(pts.count - 1)) }
+        unsafeBitCast(up, to: Lift.self)(p, sLift, duration + 0.05)
+        return p
+    }
+
+    /// The fingers' paths played as one gesture; false when it could not be sent or did not finish.
+    private static func play(_ name: String, _ paths: [[CGPoint]], _ duration: Double) -> Bool {
+        guard available, let rc = recordClass,
+              let rec = make(rc, sRecord, { i, raw in unsafeBitCast(i, to: RecordInit.self)(raw, sRecord, name as NSString, 1) }),
+              let add = imp(rec, sAdd) else { return false }
+        for pts in paths {
+            guard let p = path(pts, duration) else { return false }
+            unsafeBitCast(add, to: AddPath.self)(rec, sAdd, p)
+        }
+        if let syn = synthesizer, let s = imp(syn, sSynth) {
+            final class Done { var yes = false; var ok = false }
+            let done = Done()
+            unsafeBitCast(s, to: Synth.self)(syn, sSynth, rec) { ok, _ in DispatchQueue.main.async { done.ok = ok; done.yes = true } }
+            let end = Date().addingTimeInterval(duration + 8)
+            while !done.yes && Date() < end { RunLoop.current.run(until: Date().addingTimeInterval(0.05)) }
+            return done.yes
+        }
+        if (rec as? NSObjectProtocol)?.responds(to: sSynthErr) == true, let s = imp(rec, sSynthErr) {
+            var err: NSError? = nil
+            return unsafeBitCast(s, to: SynthErr.self)(rec, sSynthErr, &err)
+        }
+        return false
+    }
+
+    /// Points from a to a + (dx, dy) in n steps.
+    private static func line(_ a: CGPoint, _ dx: CGFloat, _ dy: CGFloat, _ n: Int = 12) -> [CGPoint] {
+        (0...n).map { i in CGPoint(x: a.x + dx * CGFloat(i) / CGFloat(n), y: a.y + dy * CGFloat(i) / CGFloat(n)) }
+    }
+
+    /// Two fingers side by side (70 points apart, round m) moved by (dx, dy): the 3D picture's pan, the scene following
+    /// the fingers. A long move goes in parts of at most 160 points.
+    static func drag(_ m: CGPoint, _ dx: CGFloat, _ dy: CGFloat) -> Bool {
+        let parts = max(1, Int((hypot(dx, dy) / 160).rounded(.up)))
+        let sx = dx / CGFloat(parts), sy = dy / CGFloat(parts)
+        for _ in 0..<parts {
+            // each part starts round m less half the move, so the fingers stay inside the picture
+            let a = CGPoint(x: m.x - sx / 2 - 35, y: m.y - sy / 2), b = CGPoint(x: m.x - sx / 2 + 35, y: m.y - sy / 2)
+            guard play("AppStoreShots pan", [line(a, sx, sy), line(b, sx, sy)], 0.8) else { return false }
+            usleep(400_000)
+        }
+        return true
+    }
+
+    /// Two fingers on a level line through m, from d apart to d·k apart (k over 1 zooms in).
+    static func pinch(_ m: CGPoint, _ k: CGFloat) -> Bool {
+        let d0: CGFloat = k >= 1 ? 40 : 100, d1 = d0 * k
+        let a = CGPoint(x: m.x - d0, y: m.y), b = CGPoint(x: m.x + d0, y: m.y)
+        return play("AppStoreShots pinch", [line(a, -(d1 - d0), 0), line(b, d1 - d0, 0)], 0.9)
+    }
 }

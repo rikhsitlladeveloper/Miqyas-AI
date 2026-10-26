@@ -1,0 +1,41 @@
+{
+  "_about": "Headlines for the App Store pictures made by frame_shots.py. One entry a picture, in store order: n is its number in the file name (final/<lang>/<n>-<name>.png), raw the AppStoreShots.swift shot it is made from (<lang>-<raw>.png), then the shots tried when that one is missing. title: at most 28 characters, benefit first (as in listing.md); sub: the smaller line under it. Uzbek Latin uses ‘ (U+2018) in o‘ and g‘.",
+  "shots": [
+    {
+      "n": 1, "name": "home", "raw": "01c-orders", "fallback": ["01-home"],
+      "uz": { "title": "Buyurtmalar bir joyda", "sub": "Har bir mijoz, o‘lcham va mebel telefoningizda" },
+      "ru": { "title": "Все заказы в одном месте", "sub": "Клиенты, замеры и мебель — в вашем телефоне" },
+      "en": { "title": "All your orders in one place", "sub": "Every client, size and piece of furniture on your phone" }
+    },
+    {
+      "n": 2, "name": "kitchen", "raw": "02-kitchen-3d", "fallback": ["02b-kitchen-open"],
+      "uz": { "title": "Oshxonani 3D da ko‘ring", "sub": "Mijozga natijani shu yerning o‘zida ko‘rsating" },
+      "ru": { "title": "Покажите кухню в 3D", "sub": "Заказчик видит результат прямо на месте" },
+      "en": { "title": "See the kitchen in 3D", "sub": "Show your client the result on the spot" }
+    },
+    {
+      "n": 3, "name": "gallery", "raw": "03-gallery", "fallback": [],
+      "uz": { "title": "Tayyor modellar bir bosishda", "sub": "Oshxona, shkaf, gorka, karavot va stollar" },
+      "ru": { "title": "Готовые модели в один тап", "sub": "Кухни, шкафы, горки, кровати и столы" },
+      "en": { "title": "Ready models, one tap away", "sub": "Kitchens, wardrobes, wall units, beds and tables" }
+    },
+    {
+      "n": 4, "name": "wardrobe", "raw": "04-wardrobe-3d", "fallback": ["04b-wardrobe-closed"],
+      "uz": { "title": "Kupe va shkaflar", "sub": "Eshiklar, bo‘limlar va ichi — hammasi 3D da" },
+      "ru": { "title": "Шкафы-купе и гардеробы", "sub": "Двери, секции и наполнение — всё в 3D" },
+      "en": { "title": "Sliding-door wardrobes", "sub": "Doors, sections and insides, all in 3D" }
+    },
+    {
+      "n": 5, "name": "gorka", "raw": "05-gorka-3d", "fallback": [],
+      "uz": { "title": "Mehmonxona gorkasi", "sub": "Vitrina, televizor joyi va tortmalar o‘z o‘lchamingizda" },
+      "ru": { "title": "Горка для гостиной", "sub": "Витрины, ТВ-зона и ящики по вашим размерам" },
+      "en": { "title": "Living room wall units", "sub": "Display cases, TV space and drawers made to size" }
+    },
+    {
+      "n": 6, "name": "estimate", "raw": "06-estimate", "fallback": ["06b-estimate-tab"],
+      "uz": { "title": "Smeta va PDF taklif", "sub": "Material va ish narxi mijozga bir bosishda" },
+      "ru": { "title": "Смета и PDF-предложение", "sub": "Материалы и работа — заказчику в один тап" },
+      "en": { "title": "Estimates and PDF quotes", "sub": "Materials and labour, sent to your client in one tap" }
+    }
+  ]
+}
