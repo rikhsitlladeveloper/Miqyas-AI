@@ -246,3 +246,9 @@ fun App.resetUxHelp() {
     makeSample()
     say("ux.hints.done", kind = ToastKind.OK)
 }
+
+/** Profile's reset, for callers outside this package. */
+object HelpOps {
+    /** Every tip comes back: the editor's, the tour, the coach marks, and the sample order. */
+    fun App.resetAll() { ops.tipSeen = false; resetUxHelp(); selectTab(Tab.HOME) }
+}

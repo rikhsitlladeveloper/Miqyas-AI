@@ -516,24 +516,14 @@ fun KitchenScreen(rt: Route.Kitchen) {
         app.setTop(rt.copy(wall = runs[(i + step + runs.size) % runs.size].wall)); kit.sel = null
     }
     Box(Modifier.fillMaxSize().roomGrid()) {
-        Column(Modifier.fillMaxSize().statusBarsPadding().navigationBarsPadding()) {
-            Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                GlassIconButton("back", tr("nt.back"), { app.pop() })
-                Column(Modifier.weight(1f)) {
-                    Text(dn(f.name, lang), style = ui(19f, 800, G.ink, 1.2f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(tr("kt.sub", "n" to f.modules.size, "v" to runMetres(f, en)), style = ui(12f, 400, G.ink2), maxLines = 1)
-                }
-                GlassIconButton("undo", tr("common.undo"), { kit.undo(app, p.id, f.id) }, tint = if (kit.canUndo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
-                GlassIconButton("redo", tr("common.redo"), { kit.redo(app, p.id, f.id) }, tint = if (kit.canRedo(f.id)) G.ink else G.ink3.copy(alpha = .45f))
-                GlassIconButton("more", tr("common.menu"), { app.sheet = Sheet.FMenu(p.id, f.id) })
-            }
+        // UX upgrades §1: Back, the name and the menu on top with the compact progress and the price chip; Undo, 2D/3D
+        // and "Narxni ko‘rish" at the bottom, in thumb reach
+        Column(Modifier.fillMaxSize()) {
+            uz.metrx.app.ui.ux.DesignerTop(p, f, tr("kt.sub", "n" to f.modules.size, "v" to runMetres(f, en)))
             if (room == null || run == null) {
-                Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.padding(24.dp))
-                return@Column
-            }
-            Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 10.dp)) { DimSeg(rt.d3) { app.setTop(rt.copy(d3 = it)) } }
-            if (rt.d3) { Furniture3D(p, room); return@Column }
-            Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.weight(1f).padding(24.dp))
+            } else if (rt.d3) Furniture3D(p, room)
+            else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     runs.forEach { r ->
                         val on = r.wall == run.wall
@@ -581,7 +571,7 @@ fun KitchenScreen(rt: Route.Kitchen) {
                 ExtrasCard(p, f)
                 CostCard(p, f, ws, mats)
             }
-            LivePrice(p, f)
+            uz.metrx.app.ui.ux.DesignerBar(p, f, rt.d3) { app.setTop(rt.copy(d3 = it)) }
         }
     }
 }

@@ -119,7 +119,8 @@ fun BackLink(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) {
 fun PageBar(modifier: Modifier = Modifier, frosted: Boolean = false, content: @Composable RowScope.() -> Unit) {
     Row(
         modifier.fillMaxWidth()
-            .let { if (frosted) it.background(G.sheet(.55f)).drawBehind { drawRect(G.rim, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) } else it }
+            // almost solid (UX upgrades §12): the page under it never shows through the words
+            .let { if (frosted) it.background(G.sheet(.95f)).drawBehind { drawRect(G.rim, Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) } else it }
             .heightIn(min = 64.dp).padding(start = 8.dp, end = 12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(2.dp), content = content
     )
@@ -141,9 +142,9 @@ fun FloatingFooter(modifier: Modifier = Modifier, content: @Composable ColumnSco
     val haze = LocalHaze.current
     val shape = RoundedCornerShape(30.dp)
     Column(
-        modifier.fillMaxWidth().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
+        modifier.then(uz.metrx.app.ui.ux.barSpotModifier()).fillMaxWidth().navigationBarsPadding().padding(start = 12.dp, end = 12.dp, bottom = 12.dp)
             .dropShadow(shape, Shadow(30.dp, G.shade.copy(alpha = .1f), offset = DpOffset(0.dp, (-10).dp)))
-            .clip(shape).glassBlur(haze, G.sheet(.55f), 28.dp).topHighlight(.95f)
+            .clip(shape).glassBlur(haze, G.sheet(.94f), 28.dp).topHighlight(.95f)
             .border(1.dp, G.rim, shape).padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 14.dp),
         verticalArrangement = Arrangement.spacedBy(8.dp), content = content
     )

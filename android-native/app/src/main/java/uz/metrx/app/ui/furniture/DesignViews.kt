@@ -212,7 +212,8 @@ private fun designKind(f: Furniture) = when {
 @Composable
 fun DesignCard(p: Project, f: Furniture) {
     val app = LocalApp.current
-    fun change(fn: (Furniture) -> Furniture) { app.kit.change(app, p.id, f.id, fn) }
+    // every quick change here (style, colours, handles, worktop…) says so at the bottom with "Ortga qaytarish" (UX upgrades §3)
+    fun change(fn: (Furniture) -> Furniture) { app.kit.change(app, p.id, f.id, fn); with(uz.metrx.app.ui.ux.QuickOps) { app.quick(p.id, f.id, app.t("ux.q.changed", "n" to dn(f.name, app.settings.lang))) } }
     fun look(fn: (Look) -> Look) = change { withLook(it, fn) }
     val kind = designKind(f)
     val kitchen = kind == "kitchen"

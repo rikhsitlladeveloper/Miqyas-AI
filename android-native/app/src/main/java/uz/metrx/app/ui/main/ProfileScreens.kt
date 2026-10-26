@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
@@ -120,6 +121,37 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                 Text(tr("adv.sub"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 8.dp))
                 // how much the furniture 3D does: by the phone, everything, or light (modern 3D part 1)
                 Card(Modifier.padding(top = 10.dp)) { Row1("cube", tr("q.row"), tr("q.${s.quality}")) { app.sheet = Sheet.Quality3D } }
+                // UX upgrades: the furniture's size unit (§5), the voice pack (§9), the tour and tips again (§11)
+                Card(Modifier.padding(top = 10.dp)) {
+                    Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            IconTile("ruler")
+                            Column(Modifier.weight(1f)) {
+                                Text(tr("ux.unitT"), style = ui(15.5f, 500, G.ink, 1.4f))
+                                Text(tr("ux.unitS"), style = ui(13f, 400, G.ink2, 1.35f))
+                            }
+                        }
+                        Row(Modifier.fillMaxWidth().height(44.dp).clip(RoundedCornerShape(14.dp)).background(G.ink.copy(alpha = .06f)).padding(3.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
+                            listOf(LenUnit.MM to "ux.u.mm", LenUnit.CM to "ux.u.cm", LenUnit.M to "ux.u.m").forEach { (u, k) ->
+                                val on = s.furnUnit == u
+                                Box(Modifier.weight(1f).fillMaxHeight().clip(RoundedCornerShape(11.dp)).background(if (on) G.solid else Color.Transparent)
+                                    .clickable(role = Role.RadioButton) { if (!on) { s.setFurnUnitTo(u); app.haptic(uz.metrx.app.ui.ux.Hap.TICK) } }, contentAlignment = Alignment.Center) {
+                                    Text(tr(k), style = ui(13.5f, if (on) 800 else 600, if (on) G.ink else G.ink2), maxLines = 1)
+                                }
+                            }
+                        }
+                    }
+                    Box(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
+                        val vl = uz.metrx.app.voice.VoicePacks.langOf(s.lang)
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            uz.metrx.app.voice.PackRow(vl)
+                            val ctx = androidx.compose.ui.platform.LocalContext.current
+                            if (!uz.metrx.app.voice.VoicePacks.ready(ctx, vl) && !uz.metrx.app.voice.VoicePacks.progress.containsKey(vl))
+                                uz.metrx.app.ui.components.GBtn(tr("ux.v.load"), { uz.metrx.app.voice.startPack(app, ctx, vl) }, uz.metrx.app.ui.components.Btn.SECONDARY, icon = "save", height = 44.dp, corner = 14.dp, fontSize = 14.5f)
+                        }
+                    }
+                    Row1("info", tr("ux.hints.t"), null, sub = tr("ux.hints.s")) { with(uz.metrx.app.ui.ux.HelpOps) { app.resetAll() } }
+                }
             }
             // tilers: the same switch; on, the quantities, prices, estimate and quotes (off: only the tiles in 3D)
             if (s.tiler) {
@@ -169,7 +201,20 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                 if (!design) Row1("coin", tr("np.currency"), s.currency) { app.sheet = Sheet.Currency }
             }
             // dark mode: this app's own (the prototype has only the light look)
-            Card(Modifier.padding(top = 10.dp)) { SwitchRow("moon", tr("nt.dark"), s.dark) { s.setDarkMode(!s.dark) } }
+            Card(Modifier.padding(top = 10.dp)) {
+                SwitchRow("moon", tr("nt.dark"), s.dark) { s.setDarkMode(!s.dark) }
+                // UX upgrades §10: haptics, on by default, no sound
+                Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).switchState(s.haptic).clickable(role = Role.Switch) {
+                    s.setHapticOn(!s.haptic); if (s.haptic) app.haptic(uz.metrx.app.ui.ux.Hap.TICK); app.say(if (s.haptic) "ux.hap.on" else "ux.hap.off", kind = uz.metrx.app.ui.components.ToastKind.INFO)
+                }.padding(start = 12.dp, end = 14.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    IconTile("vib")
+                    Column(Modifier.weight(1f)) {
+                        Text(tr("ux.hap.t"), style = ui(15.5f, 500, G.ink, 1.4f))
+                        Text(tr("ux.hap.s"), style = ui(12.5f, 400, G.ink2, 1.35f))
+                    }
+                    GSwitch(s.haptic)
+                }
+            }
             Group(tr("pf.gMeasure"))
             Card {
                 Row1("door", tr("se.defaults"), fmtLen(s.doorW, s.unit, en) + " × " + fmtLen(s.doorH, s.unit, en)) { app.sheet = Sheet.Defaults }
@@ -236,7 +281,7 @@ private fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit)
 
 @Composable
 private fun IconTile(icon: String) = Box(Modifier.size(36.dp).clip(RoundedCornerShape(12.dp)).background(G.cobalt.copy(alpha = .12f)), contentAlignment = Alignment.Center) {
-    if (icon == "moon") uz.metrx.app.ui.icons.PathIcon("M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z", G.cobalt, 20.dp, 2f) else MIcon(icon, G.cobalt, 20.dp, 2f)
+    if (icon == "moon") uz.metrx.app.ui.icons.PathIcon("M20 14.5A8.5 8.5 0 1 1 9.5 4a7 7 0 0 0 10.5 10.5z", G.cobalt, 20.dp, 2f) else uz.metrx.app.ui.ux.UxIcon(icon, G.cobalt, 20.dp, 2f)
 }
 
 /** A settings row (prototype .listrow): icon tile, title, its value, a chevron. */
@@ -283,7 +328,7 @@ fun SettingsMoreScreen() {
         Card {
             Row1("ruler", tr("se.units"), tr(if (s.unit == LenUnit.CM) "un.cm" else "un.m")) { app.sheet = Sheet.Units }
             Row1("room", tr("se.label"), tr("se.label." + s.roomLabel)) { app.sheet = Sheet.RoomLabel }
-            Row1("info", tr("se.hintsReset"), null) { s.resetHints(); app.ops.tipSeen = false; app.say("se.hintsDone") }
+            Row1("info", tr("se.hintsReset"), null) { if (s.furniture) with(uz.metrx.app.ui.ux.HelpOps) { app.resetAll() } else { s.resetHints(); app.ops.tipSeen = false; app.say("se.hintsDone") } }
         }
         Card {
             Row1("bt", tr("se.device"), tr(if (s.laser == Laser.CONNECTED) "pf.btOn" else "pf.btDisc")) { app.sheet = Sheet.Device }
