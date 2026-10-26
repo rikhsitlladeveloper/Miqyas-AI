@@ -220,10 +220,11 @@ final class AppModel {
     var splashDone = false
     /// A room being measured for a room-less piece (room id, furniture id): when it is done, the piece goes in.
     var placeAfter: (rid: String, fid: String)? = nil
-    /// The bottom bars on screen (a page's action bar, the tab bar) by id, and their heights: toasts sit just above the
-    /// highest (UX upgrades section 3).
+    /// The bottom bars on screen (a page's action bar, the tab bar, a footer over it) by id, and the y of their tops:
+    /// toasts sit just above the highest (UX upgrades section 3). rootBottom: the bottom of the app's safe area.
     var bars: [UUID: CGFloat] = [:]
-    var toastLift: CGFloat { bars.values.max() ?? 0 }
+    var rootBottom: CGFloat = 0
+    var toastLift: CGFloat { bars.values.min().map { max(0, rootBottom - $0) } ?? 0 }
     /// What the bottom bar's Undo takes back, newest last (an action's toast has the same Undo).
     @ObservationIgnored var undos: [UndoEntry] = []
     var undoCount = 0

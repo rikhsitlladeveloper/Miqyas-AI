@@ -222,7 +222,7 @@ final class PieceLookTests: XCTestCase {
         XCTAssertEqual(worktopKind("wt20m"), "slim"); XCTAssertEqual(worktopKind(nil), "plain"); XCTAssertEqual(worktopDecor("wt38o"), "onyx")
         XCTAssertEqual(splashFor("print"), "skPrint"); XCTAssertNil(splashFor("")); XCTAssertEqual(splashKind("spTile"), "tile")
         // 27 colour fronts by the m², 6 woods, 8 worktops, 3 backsplashes; every one with a texture or none
-        XCTAssertEqual(DECOR_PRESETS.count, 44)
+        XCTAssertEqual(DECOR_PRESETS.count, 47)   // with the three stone backsplashes, as Android
         XCTAssertTrue(DECOR_PRESETS.filter { $0.kind == "board" }.allSatisfy { $0.byArea && !$0.finish.isEmpty })
         XCTAssertTrue(DECOR_PRESETS.compactMap(\.tex).allSatisfy { TEX_IDS.contains($0) })
         XCTAssertEqual(MAT_PRESETS.count, Set(MAT_PRESETS.map(\.id)).count)

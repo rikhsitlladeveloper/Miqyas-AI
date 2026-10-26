@@ -126,5 +126,5 @@ private func decorTops() -> [Mat] {
     ]
 }
 
-/// The decor presets: 27 colour fronts, 6 wood decors, 8 worktops and 3 backsplashes.
+/// The decor presets: 27 colour fronts, 6 wood decors, 8 worktops and 6 backsplashes.
 let DECOR_PRESETS: [Mat] = decorFronts() + decorWoods() + decorTops()

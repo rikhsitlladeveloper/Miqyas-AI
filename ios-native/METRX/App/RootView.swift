@@ -17,6 +17,8 @@ struct RootView: View {
                 // the first screen is laid out under the animation from the start, so nothing flashes when it fades
                 (inAuth ? Color.white : G.paper).ignoresSafeArea()
                 screens
+                    .onAppear { app.rootBottom = geo.frame(in: .global).maxY }
+                    .onChange(of: geo.frame(in: .global).maxY) { _, y in app.rootBottom = y }
                 if splash {
                     RoomHops(dockTo: dock(geo), onDone: endSplash).opacity(splashFade)
                 }
