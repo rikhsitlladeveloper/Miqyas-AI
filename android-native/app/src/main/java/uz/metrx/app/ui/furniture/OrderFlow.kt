@@ -288,6 +288,9 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
                         TodoRow(tr("fz.placeN", "n" to dn(loose.name, lang))) { app.push(Route.FPlace(p.id, loose.id, room.id)) }
                     } ?: TodoRow(tr(if (kind == "kitchen") "fo.addK" else "fo.addW")) { app.push(Route.FGallery(p.id, room.id)) }
                 }
+                // a measured kitchen without a kitchen yet: the auto kitchen, six styles built for this room
+                if (drawn && room != null && kind == "kitchen" && furn.none { it.kind == "kitchen" })
+                    TodoRow(tr("ak.entry")) { app.push(Route.AutoKitchen(p.id, room.id)) }
                 val n = w.items.size
                 if (n > 0 || room != null) Text(tr("fo.photos") + if (n > 0) " · $n" else "", style = ui(13f, 600, G.cobalt2),
                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button) { app.push(Route.Space(p.id, w.id)) }.padding(horizontal = 4.dp, vertical = 6.dp))
@@ -299,6 +302,8 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project) {
             GBtn(tr("pj.v2d"), { app.setTop(route.copy(view = "2d")) }, Btn.SECONDARY, icon = "room", modifier = Modifier.weight(1f), height = 48.dp, fontSize = 15f)
             GBtn(tr("pj.v3d"), { app.setTop(route.copy(view = "3d")) }, Btn.SECONDARY, icon = "cube", modifier = Modifier.weight(1f), height = 48.dp, fontSize = 15f)
         }
+        // the client's 3D files of the room with the most furniture (a piece's own room: its menu)
+        if (p.furniture.any { it.modules.isNotEmpty() }) GBtn(tr("sh3.btn"), { app.sheet = Sheet.Share3D(p.id) }, Btn.SECONDARY, icon = "share", height = 48.dp, fontSize = 15f)
         Row(
             Modifier.fillMaxWidth().height(60.dp).dashedGlass(22.dp).pressable({ app.push(Route.FGallery(p.id)) }, .98f),
             horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically

@@ -98,6 +98,8 @@ fun furniturePages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?,
     if (sn.pdf.views) d.views()
     d.materials(sn)
     if (prices) d.priceBlock(sn)
+    // the three price options for the customer to choose from (Advanced, Project.tri)
+    if (prices && tierLines(sn).size == 3) d.tierBlock(sn)
     // the front drawings, one per wall or wardrobe
     val ws = sn.fws ?: Workshop()
     val figs = sn.furniture.flatMap { f ->
@@ -173,12 +175,14 @@ private fun Doc.materials(sn: Snap) {
 /** The price: a line a piece of furniture, delivery and installation, the total, the prepayment, the rest and the time. */
 private fun Doc.priceBlock(sn: Snap) {
     // the price stays on one page with its total and terms
-    ensure(40f + (max(sn.flines.size, sn.furniture.size) + 5) * 17f + 50f)
+    // the three price options' lines are their own section (tierBlock)
+    val lines = sn.flines.filter { !it.key.startsWith(TIER_KEY) }
+    ensure(40f + (max(lines.size, sn.furniture.size) + 5) * 17f + 50f)
     h2(t("fd.price"))
     val total = sn.ftotal.toBigIntegerOrNull() ?: BigInteger.ZERO
     val rows = ArrayList<List<Cell>>()
-    if (sn.flines.isEmpty()) sn.furniture.forEach { f -> rows += listOf(cell(pieceText(f, sn.fws), span = 2)) }
-    sn.flines.forEach { ln ->
+    if (lines.isEmpty()) sn.furniture.forEach { f -> rows += listOf(cell(pieceText(f, sn.fws), span = 2)) }
+    lines.forEach { ln ->
         val f = sn.furniture.firstOrNull { it.id == ln.key }
         val text = if (ln.key == "deliver") t("fd.deliver") else f?.let { pieceText(it, sn.fws) } ?: ln.key
         rows += listOf(cell(text), rcell(money(ln.amount.toBigIntegerOrNull() ?: BigInteger.ZERO)))
@@ -195,6 +199,52 @@ private fun Doc.priceBlock(sn: Snap) {
         listOf(cell(t("fd.time")), rcell(t("fd.days", "d" to sn.fdays, "i" to sn.finst), ui(10f, 600, align = TextAlign.End)))
     ), fixed = floatArrayOf(CW * .6f, CW * .4f), breakable = false)
     fn(t("fd.valid"))
+}
+
+/**
+ * The three price options (Joylan ideas, 26 Oct 2026; the mockup's PDF): Ekonom, Standart (recommended, as designed)
+ * and Premium side by side, what each is made of and its total, then "Mijoz tanlaydi" with a box for each to tick.
+ */
+private fun Doc.tierBlock(sn: Snap) {
+    val tiers = tierLines(sn).associate { it.key.removePrefix(TIER_KEY) to (it.amount.toBigIntegerOrNull() ?: BigInteger.ZERO) }
+    val f = sn.furniture.firstOrNull { it.kind == "kitchen" } ?: sn.furniture.firstOrNull()
+    val kitchen = sn.furniture.any { it.kind == "kitchen" }
+    fun value(v: String) = if (v.startsWith("#")) sn.fmats.firstOrNull { it.id == v.drop(1) }?.let { presetName(it.id, it.name) } ?: t("pt.std.asIs") else t(v)
+    val what = uz.metrx.app.furniture.TIERS.map { tr -> uz.metrx.app.furniture.tierWhat(f, tr, kitchen) }
+    ensure(60f + (what[0].size + 3) * 26f + 80f)
+    h2(t("pt.pdfT"))
+    fn(t("pt.pdfS"))
+    val cur = uz.metrx.app.core.curSuffix(sn.currency, l)
+    val head = listOf(th("")) + uz.metrx.app.furniture.TIERS.map { tr -> th(t("pt.$tr") + if (tr == uz.metrx.app.furniture.TIER_STD) " · " + t("pt.rec") else "") }
+    val rows = ArrayList<List<Cell>>()
+    rows += head
+    what[0].indices.forEach { i ->
+        rows += listOf(cell(t(what[0][i].first), ui(9f, 600))) + what.map { w -> cell(value(w[i].second), ui(9f)) }
+    }
+    rows += listOf(cell(t("fd.total"), ui(10f, 700))) + uz.metrx.app.furniture.TIERS.map { tr ->
+        Cell(listOf(AnnotatedString(money(tiers[tr] ?: BigInteger.ZERO) + " " + cur) to num(10f, 700)), right = true)
+    }
+    table(rows, fixed = floatArrayOf(CW * .19f, CW * .27f, CW * .27f, CW * .27f), head = 1, breakable = false)
+    // the customer ticks one
+    val lab = measure(t("pt.choose"), ui(10f, 700), CW)
+    ensure(lab.size.height + 60f)
+    space(6f)
+    val top = y
+    val names = uz.metrx.app.furniture.TIERS.map { t("pt.$it") }
+    val sizes = names.map { measure(it, ui(10f, 600)) }
+    draw {
+        drawRect(Color(0xFFEEF2FF), Offset(PX, top), Size(CW, lab.size.height + 44f))
+        drawText(lab, topLeft = Offset(PX + 10f, top + 8f))
+        var x = PX + 10f
+        val by = top + 14f + lab.size.height
+        sizes.forEach { s ->
+            drawRect(F_INK, Offset(x, by + 1f), Size(11f, 11f), style = Stroke(1.2f))
+            drawText(s, topLeft = Offset(x + 17f, by))
+            x += 17f + s.size.width + 28f
+        }
+    }
+    y += lab.size.height + 44f; after(4f)
+    fn(t("pt.sign"))
 }
 
 /* ---------------- the workshop pack ---------------- */

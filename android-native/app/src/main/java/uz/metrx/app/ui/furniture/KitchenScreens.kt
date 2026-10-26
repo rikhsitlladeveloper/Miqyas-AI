@@ -572,6 +572,9 @@ fun KitchenScreen(rt: Route.Kitchen) {
                             height = 46.dp, corner = 16.dp, fontSize = 14.5f, modifier = Modifier.weight(1f))
                     }
                 }
+                // the auto kitchen for this room: six styles built for its walls, water and gas (AutoKitchen.kt)
+                if (f.roomId != null && f.free == null) GBtn(tr("ak.title"), { app.push(Route.AutoKitchen(p.id, f.roomId, f.id)) }, Btn.SECONDARY, icon = "kitchen",
+                    height = 46.dp, corner = 16.dp, fontSize = 14.5f)
                 if (sel != null) SelCard(p, f, sel, run)
                 ChecksCard(f, found) { id -> f.modules.firstOrNull { it.id == id }?.let { m -> if (m.wall != run.wall) app.setTop(rt.copy(wall = m.wall)); kit.sel = m.id } }
                 DesignCard(p, f)
@@ -804,6 +807,7 @@ fun KitchenSheet(s: Sheet): Boolean = when (s) {
     is Sheet.FModule -> { ModuleSheet(s); true }
     is Sheet.KLegs -> { LegsSheet(s); true }
     is Sheet.FLibrary -> { LibrarySheet(s); true }
+    is Sheet.Share3D -> { Share3DSheet(s); true }
     else -> false
 }
 
@@ -830,6 +834,8 @@ private fun FMenuSheet(s: Sheet.FMenu) {
     GlassSheet(dn(f.name, lang), { app.sheet = null }) {
         MenuRow("edit", tr("kt.rename"), G.ink) { app.sheet = Sheet.FRename(p.id, f.id) }
         MenuRow("layers", tr("wd.mats"), G.ink) { app.sheet = Sheet.FMats(p.id, f.id) }
+        // the client's 3D files (USDZ and an offline HTML page) from the share sheet
+        if (f.modules.isNotEmpty()) MenuRow("share", tr("sh3.title"), G.ink) { app.sheet = Sheet.Share3D(p.id, f.id) }
         if (f.roomId == null) {
             MenuRow("room", tr("fz.toRoom"), G.ink) { app.sheet = Sheet.FPickRoom(p.id, f.id) }
             MenuRow("ruler", tr("fz.editSizes"), G.ink) { app.sheet = null; app.push(Route.FSteps(p.id, uz.metrx.app.furniture.modelOf(f).id, f.id)) }

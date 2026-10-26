@@ -67,7 +67,10 @@ data class Project(
     val cutAt: Long = 0,
     /** Furniture orders: the design style preset new pieces start with (furniture/Look.kt DESIGN_PRESETS; "" none). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val fstyle: String = ""
+    val fstyle: String = "",
+    /** Furniture orders (Advanced): the customer's PDF shows the three price options, Ekonom, Standart, Premium (furniture/PriceTiers.kt). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val tri: Boolean = false
 ) {
     val isFurniture get() = industry == "furniture"
     /** A tiler's order (its own app: layouts in 3D, like the furniture maker's). */

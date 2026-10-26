@@ -74,6 +74,15 @@ private fun handleNames(fs: List<uz.metrx.app.furniture.Furniture>, hws: List<uz
     return names.ifEmpty { listOfNotNull(usual?.name) }.joinToString(", ")
 }
 
+/**
+ * A price line of one of the three price options: "pt." and the option, "pt.eko", "pt.std", "pt.pre" (furniture/
+ * PriceTiers.kt TIERS; the iPhone app's keys too). Written only with Project.tri on, outside the fingerprint.
+ */
+const val TIER_KEY = "pt."
+
+/** The three price options' lines of [sn] (none when the order does not show them). */
+fun tierLines(sn: Snap) = sn.flines.filter { it.key.startsWith(TIER_KEY) }
+
 /** A furniture order's part of the snapshot: the furniture, its materials, the price lines and the terms. */
 fun furnSnap(sn: Snap, p: Project, ws: uz.metrx.app.furniture.Workshop, mats: List<uz.metrx.app.furniture.Mat>, hws: List<uz.metrx.app.furniture.Hw>): Snap {
     val fs = p.furniture.filter { it.modules.isNotEmpty() }
@@ -82,7 +91,9 @@ fun furnSnap(sn: Snap, p: Project, ws: uz.metrx.app.furniture.Workshop, mats: Li
     val used = fs.flatMap { listOfNotNull(it.mats.carcass, it.mats.front, it.mats.back, it.mats.frontUp) }.toSet() +
         fs.filter { it.kind == "kitchen" }.map { uz.metrx.app.furniture.worktopOf(it) } +
         fs.filter { (it.kx?.splash ?: 0) > 0 }.map { f -> f.mats.splash ?: "splash6" }
-    return sn.copy(furniture = fs, fmats = mats.filter { it.id in used }, flines = pr.lines.map { uz.metrx.app.data.SnapLine(it.key, it.amount.toString()) },
+    // the three price options (Advanced, Project.tri) go with the lines, keyed "pt.eko", "pt.std", "pt.pre"
+    val tiers = if (p.tri && fs.isNotEmpty()) uz.metrx.app.furniture.tierPrices(fs, p.fprice, ws, mats, hws).map { uz.metrx.app.data.SnapLine(TIER_KEY + it.tier, it.price.toString()) } else emptyList()
+    return sn.copy(furniture = fs, fmats = mats.filter { it.id in used }, flines = pr.lines.map { uz.metrx.app.data.SnapLine(it.key, it.amount.toString()) } + tiers,
         ftotal = pr.price.toString(), fprepay = ws.prepay, fdays = p.fprice.days, finst = p.fprice.inst,
         fhandles = handleNames(fs, hws, ws), fws = ws)
 }

@@ -53,6 +53,8 @@ sealed interface Route {
     data class FPlace(val pid: String, val fid: String?, val rid: String, val model: String? = null, val vals: String? = null) : Route
     /** A furniture order's design style, the preset new pieces start with (furniture/Look.kt); [fromNew]: a new order's first step, the gallery next. */
     data class FStyle(val pid: String, val fromNew: Boolean = false) : Route
+    /** "Oshxona yasash", the auto kitchen in measured room [rid] (furniture/AutoKitchen.kt); [fid] the kitchen it replaces (from the designer), null: a new one. */
+    data class AutoKitchen(val pid: String, val rid: String, val fid: String? = null) : Route
     /**
      * A tiler's order: the gallery of layouts ([rid] the room it is for, [fromNew] right after a new order); a layout's
      * steps (a new one from gallery card [model], or layout [lid]); a room's tiles in 3D ([rid]), or a layout without
@@ -233,6 +235,8 @@ sealed interface Sheet {
     data class WPrices(val pid: String?) : Sheet
     /** The Narx tab: a rate, the fixed price or the lead time ([key] rRun, rTall, fixed, days). */
     data class FPriceField(val pid: String, val key: String) : Sheet
+    /** "Mijozga 3D yuborish": the client's 3D files of piece [fid]'s room (null: the order's room with the most furniture). */
+    data class Share3D(val pid: String, val fid: String? = null) : Sheet
 }
 
 /** Everything the screens share: settings, the projects, where each tab is, the open sheet and the toast. */
@@ -325,6 +329,7 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.FSteps -> store.get(r.pid)?.let { p -> r.fid == null || p.furniture.any { it.id == r.fid } } == true
                     is Route.FWhere -> store.get(r.pid) != null
                     is Route.FStyle -> store.get(r.pid) != null
+                    is Route.AutoKitchen -> store.get(r.pid)?.rooms?.any { it.id == r.rid } == true
                     is Route.FPlace -> store.get(r.pid)?.let { p -> (r.fid == null || p.furniture.any { it.id == r.fid }) && p.rooms.any { it.id == r.rid } } == true
                     is Route.TGallery -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
                     is Route.TSteps -> store.get(r.pid)?.let { p -> r.lid == null || p.tiles.any { it.id == r.lid } } == true
