@@ -159,13 +159,17 @@ extension FBuilder {
         part.faces.append(Face3(n: n, pts: pts, grain: g.unit))
     }
 
-    /// A round rod from a to b (metres), radius r at a and r2 at b (a tapering leg), of n sides.
-    func tube(_ part: Part3, _ a: V3, _ b: V3, _ r: Double, _ r2: Double? = nil, n: Int? = nil) {
+    /// A round rod from a to b (metres), radius r at a and r2 at b (a tapering leg), of n sides. Its sides are turned
+    /// round it from ref (not along it; nil: the world's up, or x for an upright rod). A rod on a front that turns
+    /// (a door's upright bar) takes a ref of the front's own frame, so its sides turn with the door: the full rebuild
+    /// at any angle draws what the split build turned there draws (Geo/FrontMotion3D.swift).
+    func tube(_ part: Part3, _ a: V3, _ b: V3, _ r: Double, _ r2: Double? = nil, n: Int? = nil, ref: V3? = nil) {
         let ax = b - a, L = ax.len
         guard L > 1e-6, r > 0 else { return }
         let d = ax * (1 / L)
-        let ref = abs(d.y) < 0.9 ? V3(0, 1, 0) : V3(1, 0, 0)
-        let x = d.cross(ref).unit, y = d.cross(x).unit
+        var rf = abs(d.y) < 0.9 ? V3(0, 1, 0) : V3(1, 0, 0)
+        if let g = ref, g.len > 1e-9, abs(d.dot(g.unit)) < 0.9 { rf = g }
+        let x = d.cross(rf).unit, y = d.cross(x).unit
         let k = n ?? sides, rb = r2 ?? r
         let mid = a + ax * 0.5
         var ra: [V3] = [], rt: [V3] = []
@@ -302,8 +306,10 @@ extension FBuilder {
             let q = vert ? f.at(a, y + s * c / 2, zf) : f.at(a + s * c / 2, y, zf)
             tube(h, q, q + f.n * so, 0.0042)
         }
+        // the grip's sides turned from the front's own face normal (not the world's x): an upright bar on a door turns
+        // with it, so a door part open draws the same grip as the shut one turned (the split build's)
         let mid = f.at(a, y, zf + so + hb / 2), dir = vert ? f.u : f.e
-        tube(h, mid - dir * (L / 2), mid + dir * (L / 2), hb / 2, n: 8)
+        tube(h, mid - dir * (L / 2), mid + dir * (L / 2), hb / 2, n: 8, ref: vert ? f.n : f.u)
     }
 
     /// A round knob at (a, y) of frame f on the face zf out (mockup b.knob).

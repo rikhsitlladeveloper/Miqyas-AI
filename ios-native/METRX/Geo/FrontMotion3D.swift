@@ -104,12 +104,13 @@ final class FrontCap {
 }
 
 extension Furn3D {
-    /// The tap boxes of everything that can be opened, each where it is with the fronts as open as amt says.
+    /// The tap boxes of everything that can be opened, each where it is with the fronts as open as amt says (0…1, as
+    /// Scene3D poses them: the same clamp and the same FrontMotion.at, so a tap finds a front where it is drawn).
     func picksAt(_ amt: (String) -> Double) -> [Pick] {
         if fronts.isEmpty { return picks }
         var out = picks
         for fr in fronts {
-            let k = amt(fr.key)
+            let k = min(1, max(0, amt(fr.key)))
             let r = fr.at(k)
             for pk in fr.picks { out.append(Pick(key: pk.key, box: k == 0 ? pk.box : r.obb(pk.box))) }
         }
