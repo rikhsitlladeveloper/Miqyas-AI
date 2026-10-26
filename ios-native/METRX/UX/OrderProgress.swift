@@ -96,7 +96,7 @@ func goStep(_ app: AppModel, _ p: Project, _ k: String) {
         if let r = p.rooms.first(where: { !measuredRoom($0, snap) }) ?? p.rooms.first { openRoom(app, pid, r.id) }
         else { app.sheet = .fNewRoom(pid: pid) }
     case "furn":
-        app.push(.fGallery(pid: pid))
+        app.push(galleryRoute(p))
     case "design":
         if let f = p.furniture.first(where: { !$0.modules.isEmpty }) ?? p.furniture.first { KitOps.shared.sel = nil; app.push(designer(pid, f, step: 2)) }
         else { app.say("ux.needFurn", kind: .info) }
@@ -105,6 +105,12 @@ func goStep(_ app: AppModel, _ p: Project, _ k: String) {
     default:
         if p.furniture.contains(where: { !$0.modules.isEmpty }) { app.push(.report(pid: pid, no: nil)) } else { app.say("ux.needFurn", kind: .info) }
     }
+}
+
+/// The gallery for order p, opened on its measured room when it has one (as Android).
+func galleryRoute(_ p: Project) -> Route {
+    let snap = AppSettings.shared.angleSnap
+    return .fGallery(pid: p.id, rid: p.rooms.first { measuredRoom($0, snap) }?.id)
 }
 
 /// The order's price: the Narx tab in Advanced, the price-and-send page (the report) in the simple app.
@@ -126,7 +132,7 @@ struct MainAction { let label: String; let icon: String?; let go: () -> Void }
 func mainAction(_ app: AppModel, _ p: Project) -> MainAction {
     let s = AppSettings.shared
     let pid = p.id
-    let gallery = MainAction(label: tr("ux.addMore"), icon: "plus") { app.push(.fGallery(pid: pid)) }
+    let gallery = MainAction(label: tr("ux.addMore"), icon: "plus") { app.push(galleryRoute(p)) }
     if s.advanced && fStage(p) >= 2 {
         if let st = NextStep.of(app, p) { return MainAction(label: st.button, icon: nil, go: st.go) }
         return gallery
@@ -138,7 +144,7 @@ func mainAction(_ app: AppModel, _ p: Project) -> MainAction {
     case "furn":
         // a room-less piece waiting for its measured room goes in first
         if let st = NextStep.of(app, p), st.place { return MainAction(label: st.button, icon: nil, go: st.go) }
-        return MainAction(label: tr("ux.addFurn"), icon: "plus") { app.push(.fGallery(pid: pid)) }
+        return MainAction(label: tr("ux.addFurn"), icon: "plus") { app.push(galleryRoute(p)) }
     case "design": return MainAction(label: tr("ux.goDesign"), icon: "cube") { goStep(app, p, "design") }
     case "price": return MainAction(label: tr("ux.seePrice"), icon: "coin") { openPrice(app, p) }
     case "send": return MainAction(label: tr("ux.tg"), icon: "send") { QuoteSend.send(app, pid) }
