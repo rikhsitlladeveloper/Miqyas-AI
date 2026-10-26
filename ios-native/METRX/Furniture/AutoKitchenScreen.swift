@@ -362,8 +362,12 @@ private struct AKPlanCard: View {
     let plan: AKPlan?
     let onTap: (String) -> Void
     var body: some View {
+        // spelled out: as one expression the type checker gave up
         let bd = akBounds(R)
-        let aspect = CGFloat((bd.2 - bd.0 + 2 * AK_PAD) / max(1, bd.3 - bd.1 + 2 * AK_PAD))
+        let pad: Double = 2 * Double(AK_PAD)
+        let bw: Double = Double(bd.2) - Double(bd.0) + pad
+        let bh: Double = max(1.0, Double(bd.3) - Double(bd.1) + pad)
+        let aspect = CGFloat(bw / bh)
         VStack(alignment: .leading, spacing: 10) {
             AKStep(n: 1, title: tr("ak.s1"), meta: tr("ak.wallsMeta", ["l": tr("ak.l." + st.layout), "n": st.walls.count]))
             GeometryReader { geo in
