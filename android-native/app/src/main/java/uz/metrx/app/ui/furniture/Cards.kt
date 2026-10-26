@@ -126,6 +126,29 @@ object Cards {
             val f = galleryPiece(m, ws, style)
             CardKey(m.id, "", style, digest(matsLine(mats, ws)), f.handle, tier.name, pieceDigest(JSON.encodeToString(Furniture.serializer(), f))) to f
         }
+        return card(ctx, inp, key, f, ws, mats, tier)
+    }
+
+    /** What a saved piece's card (a template, UX upgrades §7) is asked with, in one line (this run only: hash codes). */
+    fun pieceInputs(f: Furniture, ws: Workshop, mats: List<Mat>, tier: Tier) = "piece|${f.id}|${f.hashCode()}|${ws.hashCode()}|${mats.hashCode()}|$tier"
+
+    /**
+     * Piece [f]'s own card as it was saved (its sizes, layout, style and handles), not its model's usual one: the same
+     * path as the gallery's cards (memory, disk, one made at a time). Called on the main thread.
+     */
+    suspend fun piece(ctx: Context, f: Furniture, ws: Workshop, mats: List<Mat>, tier: Tier): ImageBitmap? {
+        val inp = pieceInputs(f, ws, mats, tier)
+        val key = withContext(Dispatchers.Default) {
+            // its id, name and date change nothing in the picture
+            val same = f.copy(id = "", name = "", created = 0)
+            CardKey(uz.metrx.app.furniture.modelOf(f).id, "piece", f.look?.preset.orEmpty(), digest(matsLine(mats, ws)), f.handle, tier.name,
+                pieceDigest(JSON.encodeToString(Furniture.serializer(), same)))
+        }
+        return card(ctx, inp, key, f, ws, mats, tier)
+    }
+
+    /** Card [key] of piece [f]: from memory, from disk, or made (waits its turn). */
+    private suspend fun card(ctx: Context, inp: String, key: CardKey, f: Furniture, ws: Workshop, mats: List<Mat>, tier: Tier): ImageBitmap? {
         keys[inp] = key
         mem[key.id]?.let { return it }
         val file = File(dir(ctx), key.file)
@@ -209,14 +232,37 @@ internal fun ModelPic(m: FModelDef, style: String, modifier: Modifier) {
     val app = LocalApp.current
     val ctx = LocalContext.current
     val ws = app.settings.workshop; val mats = app.settings.mats
-    val q = app.settings.quality
-    val tier = remember(q) { Quality3D.tier(ctx, q) }
+    val tier = rememberTier()
     val inp = remember(m.id, style, ws, mats, tier) { Cards.inputs(m, style, ws, mats, tier) }
+    CardPic(inp, modifier) { Cards.model(ctx, m, style, ws, mats, tier) }
+}
+
+/** A saved piece's own picture ("Mening shablonlarim", UX upgrades §7): the piece itself drawn by the real 3D. */
+@Composable
+internal fun PiecePic(f: Furniture, modifier: Modifier) {
+    val app = LocalApp.current
+    val ctx = LocalContext.current
+    val ws = app.settings.workshop; val mats = app.settings.mats
+    val tier = rememberTier()
+    val inp = remember(f, ws, mats, tier) { Cards.pieceInputs(f, ws, mats, tier) }
+    CardPic(inp, modifier) { Cards.piece(ctx, f, ws, mats, tier) }
+}
+
+@Composable
+private fun rememberTier(): Tier {
+    val ctx = LocalContext.current
+    val q = LocalApp.current.settings.quality
+    return remember(q) { Quality3D.tier(ctx, q) }
+}
+
+/** A card's picture by its inputs [inp]: from memory at once, else [load]ed; a shimmer until it is ready. */
+@Composable
+private fun CardPic(inp: String, modifier: Modifier, load: suspend () -> ImageBitmap?) {
     // the state outlives its key: another style (UX upgrades §7, the gallery's style row) keeps the old picture only
     // until the new one is made, so the cards repaint
     val img by produceState(Cards.peek(inp), inp) {
         Cards.peek(inp)?.let { value = it; return@produceState }
-        value = Cards.model(ctx, m, style, ws, mats, tier) ?: value
+        value = load() ?: value
     }
     androidx.compose.runtime.DisposableEffect(inp) { onDispose { Cards.seen(inp, false) } }
     Box(modifier.onGloballyPositioned { c -> Cards.seen(inp, !c.boundsInWindow().isEmpty) }) {

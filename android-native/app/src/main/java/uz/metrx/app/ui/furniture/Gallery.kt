@@ -256,10 +256,10 @@ private fun TemplatesRow(p: Project, rid: String?) {
         Text(tr("ux.tpl.note"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(start = 2.dp))
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             app.settings.templates.forEach { t ->
-                val m = uz.metrx.app.furniture.modelOf(t)
                 Column(Modifier.width(170.dp).clip(RoundedCornerShape(20.dp)).glassCard(RoundedCornerShape(20.dp), fill = G.glass(.62f))
                     .clickable(role = Role.Button) { app.useTemplate(p.id, t, rid) }.padding(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    ModelPic(m, t.look?.preset ?: p.fstyle, Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(14.dp))
+                    // the saved piece itself (its sizes, layout and style), not its model's usual card
+                    PiecePic(t, Modifier.fillMaxWidth().aspectRatio(4f / 3f).clip(RoundedCornerShape(14.dp))
                         .background(Color(0xFF000000.toInt() or uz.metrx.app.ui.three.CARD_BG)))
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(dn(t.name, lang), style = ui(14f, 800), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 4.dp))
