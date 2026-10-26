@@ -46,7 +46,13 @@ final class FrontsSplitTests: XCTestCase {
         for f in p.faces {
             let n = rg?.dir(f.n) ?? f.n
             var s = pk + "|\(r(n.x, 1e3)),\(r(n.y, 1e3)),\(r(n.z, 1e3))|"
-            for q in f.pts { s += pt(rg?.point(q) ?? q) + ";" }
+            // the same polygon may be listed from another corner (a turned round cap): start at its smallest corner,
+            // keeping the winding
+            var ps: [String] = []
+            for q in f.pts { ps.append(pt(rg?.point(q) ?? q)) }
+            var at = 0
+            for i in ps.indices where ps[i] < ps[at] { at = i }
+            for i in 0..<ps.count { s += ps[(at + i) % ps.count] + ";" }
             out.append(s)
         }
     }
@@ -55,7 +61,9 @@ final class FrontsSplitTests: XCTestCase {
         var i = 0
         while i + 1 < e.segs.count {
             let a = rg?.point(e.segs[i]) ?? e.segs[i], b = rg?.point(e.segs[i + 1]) ?? e.segs[i + 1]
-            out.append("\(e.wall)|\(e.rgb)|" + pt(a) + ">" + pt(b))
+            // a line is the same whichever end it is listed from
+            let pa = pt(a), pb = pt(b)
+            out.append("\(e.wall)|\(e.rgb)|" + (pa < pb ? pa + ">" + pb : pb + ">" + pa))
             i += 2
         }
     }
