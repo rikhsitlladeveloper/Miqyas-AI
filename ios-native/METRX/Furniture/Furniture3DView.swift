@@ -149,6 +149,9 @@ final class Furn3DCache {
     /// The furniture last built (split) and the key it was built for.
     private var furKey = ""
     private var fur: Furn3D? = nil
+    /// The room-less piece's frame for the camera (Geo/PieceFit3D.swift) and the furniture key it was made for.
+    private var frameKey = ""
+    private var frame: PieceFrame? = nil
 
     /// The room's shell; bare: only its floor (furniture without a room), the camera starting at theta (nil: as usual).
     func base(_ r: Room, _ snap: Bool, bare: Bool = false, theta: Double? = nil) -> Shell3D {
@@ -172,6 +175,14 @@ final class Furn3DCache {
         let f = make()
         fur = f; furKey = key
         return f
+    }
+
+    /// The frame of fur (built for key) for the camera of a room-less piece: worked out once while the key stays the same.
+    func pieceFrameOf(_ key: String, _ fur: Furn3D) -> PieceFrame? {
+        if frameKey == key { return frame }
+        frame = pieceFrame(fur)
+        frameKey = key
+        return frame
     }
 }
 
@@ -227,7 +238,10 @@ struct Furniture3DPane: View {
             // a room-less corner piece with its corner on the left (made-up walls D, A) is seen from the right
             let left = free && p.furniture.contains { FREE_ROOM + $0.id == room.id && $0.walls.first == "D" && $0.layout != "U" }
             let base = cache.base(room, snap, bare: free, theta: left ? Double.pi / 2 - 0.75 : nil)
-            let (shell, fur, key) = furnShell(p, room, base, snap, cache: cache, inside: mo.bare)
+            let (built, fur, key) = furnShell(p, room, base, snap, cache: cache, inside: mo.bare)
+            // a room-less piece: the camera starts on the piece, filling the picture between the pill and the hint (a measured
+            // room keeps its room framing)
+            let shell = free ? built.framing(cache.pieceFrameOf(key, fur)) : built
             Scene3D(shell: shell, key: key, baseKey: cache.key, cam: cam, shot: shot, points: shell.labels.map(\.p), label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
                     onTap: { pt in toggle(fur, pt) }, motion: mo) {
                 InsidePill(on: mo.bare) { mo.bare.toggle() }

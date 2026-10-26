@@ -92,6 +92,16 @@ struct Shell3D {
     /// The furniture's doors and drawers, each on its own, shut, and how it moves (Geo/FrontMotion3D.swift): the 3D moves
     /// them by their transforms, nothing is rebuilt.
     var fronts: [Front3D] = []
+    /// A room-less piece in the designer's 3D (Geo/PieceFit3D.swift): the camera starts on it, filling the picture, instead
+    /// of on the made-up room's middle; nil frames the room (a measured room, the gallery's cards).
+    var piece: PieceFrame? = nil
+
+    /// The same scene, the camera starting on the piece pf (nil: on the room).
+    func framing(_ pf: PieceFrame?) -> Shell3D {
+        var s = self
+        s.piece = pf
+        return s
+    }
 
     /// The same scene with more parts and outlines (the furniture), and its doors and drawers that move.
     func plus(_ more: [Part3], _ moreEdges: [Edges3], fronts moreFronts: [Front3D] = []) -> Shell3D {

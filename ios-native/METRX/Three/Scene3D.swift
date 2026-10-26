@@ -36,6 +36,16 @@ final class Cam3D {
     @ObservationIgnored var fit: [Double]? = nil
     @ObservationIgnored var rFit: Double? = nil
     @ObservationIgnored var dims = [1.0, 1.0, 1.0]
+    /// A room-less piece (Geo/PieceFit3D.swift): the camera starts on it, filling the picture, and "From above" / "From
+    /// the corner" come back to it; nil frames the room as before.
+    @ObservationIgnored var piece: PieceFrame? = nil
+    /// The nearest a pinch goes (a small piece is fitted nearer than the rooms' 3 m).
+    @ObservationIgnored var zMin = 3.0
+    /// The scene's own limits, before a piece's fit widened them.
+    @ObservationIgnored private var rMin0 = 3.0
+    @ObservationIgnored private var bounds0: Bounds3? = nil
+    /// The fingers have moved the camera since the piece was fitted: a new size of the picture no longer fits it again.
+    @ObservationIgnored private var touched = false
     @ObservationIgnored var w: CGFloat = 0
     @ObservationIgnored var h: CGFloat = 0
     /// The room the view is zoomed to (several rooms).
@@ -63,6 +73,7 @@ final class Cam3D {
         cornerTheta = s.theta ?? .pi / 2 + 0.75
         if let p = s.phi { phi = p }
         bounds = s.bounds; rMin = s.rMin; rMax = nil; fit = s.fit; rFit = nil
+        bounds0 = s.bounds; rMin0 = s.rMin; zMin = 3; piece = s.piece; touched = false
         if w > 0 { applyFit() }
         moved()
     }
@@ -70,14 +81,33 @@ final class Cam3D {
     func resize(_ w: CGFloat, _ h: CGFloat) {
         guard w != self.w || h != self.h else { return }
         self.w = w; self.h = h
-        if fit != nil { applyFit() }
+        if fit != nil { applyFit() } else if piece != nil && !touched { fitPiece() }
         moved()
     }
 
     /// The distance that shows everything depends on the shape of the picture (prototype resize3D).
     private func applyFit() {
+        if piece != nil { fit = nil; fitPiece(); return }
         guard let f = fit else { return }
         r = v3Fit(f[0], f[1], f[2], aspect) * f[3]; rFit = r; rMax = r * f[4]; fit = nil
+    }
+
+    /// The camera on the piece at the angles it has now (Geo/PieceFit3D.swift pieceAim): its target, distance and the
+    /// limits round them, the zoom out to 1.6 times as far (as a room's fit) and in to under half of it, the pan over the
+    /// room's floor and the piece.
+    private func fitPiece() {
+        guard let pf = piece, w > 0, h > 0 else { return }
+        let a = pieceAim(pf, theta: theta, phi: phi, w: Double(w), h: Double(h))
+        tgt = a.tgt; r = a.r; rFit = a.r
+        rMin = min(rMin0, a.r * 0.45)
+        zMin = min(3, rMin)
+        rMax = max(a.r * 1.6, a.r + 1)
+        let lo = pf.lo, hi = pf.hi, t = a.tgt
+        if let b = bounds0 {
+            bounds = Bounds3(x0: min(b.x0, lo.x, t.x), x1: max(b.x1, hi.x, t.x), z0: min(b.z0, lo.z, t.z), z1: max(b.z1, hi.z, t.z))
+        } else {
+            bounds = Bounds3(x0: min(lo.x, t.x), x1: max(hi.x, t.x), z0: min(lo.z, t.z), z1: max(hi.z, t.z))
+        }
     }
 
     private func clamp() {
@@ -90,13 +120,17 @@ final class Cam3D {
     func moved() { clamp(); onMove?(); tick &+= 1 }
 
     /// One finger turns the view (prototype: 0.009 per pixel).
-    func rotate(_ dx: CGFloat, _ dy: CGFloat) { theta += Double(dx) * 0.009; phi = min(max(phi - Double(dy) * 0.009, 0.06), 1.5); moved() }
+    func rotate(_ dx: CGFloat, _ dy: CGFloat) {
+        touched = true
+        theta += Double(dx) * 0.009; phi = min(max(phi - Double(dy) * 0.009, 0.06), 1.5); moved()
+    }
 
     /// Pinch: k is the old finger distance over the new one.
-    func zoom(_ k: Double) { r = min(max(r * k, 3), 80); moved() }
+    func zoom(_ k: Double) { touched = true; r = min(max(r * k, zMin), 80); moved() }
 
     /// Two fingers move the view across the floor (prototype v3Pan); dx, dy in points.
     func pan(_ dx: CGFloat, _ dy: CGFloat) {
+        touched = true
         let hh = h > 0 ? Double(h) : 400
         let k = 2 * r * tan(FOV_HALF) / hh, kf = k / max(0.35, cos(phi)), th = theta
         let x = Double(dx), y = Double(dy)
@@ -108,6 +142,8 @@ final class Cam3D {
     func preset(top: Bool) {
         stop()
         if top { phi = 0.07; theta = .pi / 2 } else { phi = 0.95; theta = cornerTheta }
+        // a room-less piece: fitted again from this angle, as it was at the start
+        if piece != nil && w > 0 && h > 0 { touched = false; fitPiece(); moved(); return }
         tgt = V3(dims[0] / 2, dims[2] * 0.3, dims[1] / 2)
         r = rFit ?? (max(dims[0], dims[1]) * 2.2 + 2.5)
         moved()
