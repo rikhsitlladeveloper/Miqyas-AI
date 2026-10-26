@@ -1060,12 +1060,8 @@ final class UXTests: ScreenTestCase {
         if app.buttons["ux.step.furn"].waitForExistence(timeout: 3) { app.buttons["ux.step.furn"].tap(); sleep(2) }
         if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { app.buttons["ux.coachOk"].tap(); usleep(600_000) }
         shot("ux-11-gallery")
-        // the style row: a style further along it repaints the cards
-        let dark = app.buttons["lk.p.dark"]
-        if dark.exists {
-            if !dark.isHittable { app.buttons["lk.p.twotone"].swipeLeft(); usleep(800_000) }
-            if dark.isHittable { dark.tap(); sleep(2); shot("ux-12-gallery-dark") }
-        }
+        // the style row: another style (the second chip, on screen) repaints the cards
+        if app.buttons["lk.p.gloss"].waitForExistence(timeout: 2) { app.buttons["lk.p.gloss"].tap(); sleep(3); shot("ux-12-gallery-gloss") }
         // a new order without a room: a model's size steps (the sample's gallery is for its measured room)
         for _ in 0..<6 where !app.buttons["home.new"].exists { backVisible(app) }
         app.buttons["home.new"].tap(); usleep(900_000)
