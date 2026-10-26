@@ -276,6 +276,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                 if (navOn) Box(Modifier.align(Alignment.BottomCenter).then(uz.metrx.app.ui.ux.barSpotModifier())) { GlassNav(app.tab, { app.selectTab(it) }) }
                 when (val sh = app.sheet) {
                     Sheet.Language -> LanguageSheet(lang, { settings.setLanguage(it); app.sheet = null }) { app.sheet = null }
+                    Sheet.VoicePack -> uz.metrx.app.voice.VoicePackSheet()
                     Sheet.Device -> DeviceSheet(onClose = { app.sheet = null }, onTest = { app.sheet = null; app.push(Route.LaserTest) }, onRadar = { app.sheet = null; app.push(Route.LaserRadar) })
                     null -> {}
                     else -> if (!uz.metrx.app.ui.win.WinSheet(sh) && !uz.metrx.app.ui.plumb.PlumbSheet(sh) && !uz.metrx.app.ui.elec.ElecSheet(sh) && !uz.metrx.app.ui.tiles.TileSheet(sh) && !uz.metrx.app.ui.furniture.OrderFlowSheet(sh) && !uz.metrx.app.ui.furniture.BazisSheet(sh) && !uz.metrx.app.ui.furniture.FreeSheet(sh) && !uz.metrx.app.ui.projects.TradeSheet(sh) && !uz.metrx.app.ui.furniture.FurnitureSheet(sh) && !uz.metrx.app.ui.furniture.KitchenSheet(sh) && !uz.metrx.app.ui.furniture.WardrobeSheet(sh) && !uz.metrx.app.ui.furniture.PriceSheet(sh) && !uz.metrx.app.ui.furniture.WorkshopSheet(sh) && !ProjectSheet(sh) && !uz.metrx.app.ui.main.ProfileSheet(sh) && !uz.metrx.app.ui.measure.MeasureSheet(sh) && !uz.metrx.app.ui.markup.MarkupSheet(sh)) uz.metrx.app.ui.editor.EditorSheet(sh)

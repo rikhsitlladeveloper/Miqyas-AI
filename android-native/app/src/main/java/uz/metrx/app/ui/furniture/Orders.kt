@@ -84,6 +84,7 @@ import uz.metrx.app.ui.theme.Theme
 import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
+import uz.metrx.app.ui.ux.deleteSample
 import java.math.BigInteger
 
 /*
@@ -168,24 +169,15 @@ fun FurnitureHome(nav: MainNav) {
         if (!s.advanced) all.sortedByDescending { it.created }   // no stages or install dates: the newest first
         else uz.metrx.app.data.sortOrders(all.filter { it.stage != "paid" }) + all.filter { it.stage == "paid" } }
     val (debt, nDebt) = owed(orders)
+    Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         GlassHeader(nav::laser)
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 24.dp + NAV_SPACE).navigationBarsPadding(),
+        // the "+ Yangi buyurtma" pill floats at the bottom, in thumb reach (UX upgrades mockup), so the list leaves room for it
+        Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 96.dp + NAV_SPACE).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Column(Modifier.padding(top = 18.dp, bottom = 8.dp)) {
                 Text(if (first.isNotEmpty()) tr("hm.hi", "n" to first) else tr("hm.hi0"), style = ui(34f, 800, G.ink, 1.1f, -.02f))
                 Text(lines[s.visit % lines.size], style = ui(17f, 500, G.slate, 1.35f), modifier = Modifier.padding(top = 8.dp).widthIn(max = 320.dp))
-            }
-            val big = RoundedCornerShape(30.dp)
-            Row(Modifier.fillMaxWidth().glassCard(big, shadowRadius = 36.dp, shadowY = 16.dp, shadowAlpha = .15f).pressable(nav::newProject).padding(18.dp),
-                verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-                Box(Modifier.size(56.dp).dropShadow(RoundedCornerShape(20.dp), Shadow(22.dp, G.cobalt.copy(alpha = .4f), offset = DpOffset(0.dp, 10.dp)))
-                    .clip(RoundedCornerShape(20.dp)).background(G.cobalt).topHighlight(.45f), contentAlignment = Alignment.Center) { MIcon("plus", Color.White, 26.dp, 2.4f) }
-                Column(Modifier.weight(1f)) {
-                    Text(tr("fo.new"), style = ui(22f, 800, G.ink, 1.15f, -.01f))
-                    Text(tr("fo.newS"), style = ui(14f, 400, G.ink2))
-                }
-                PathIcon(ARROW, G.ink, 20.dp, 2.2f)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Tile(RULER, tr("gl.meas"), tr("gl.measS"), nav::measure, Modifier.weight(1f))
@@ -199,17 +191,69 @@ fun FurnitureHome(nav: MainNav) {
                 }
                 Text(tr("fo.owedN", "n" to nDebt), style = ui(12.5f, 400, G.ink2), modifier = Modifier.widthIn(max = 120.dp))
             }
-            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(tr("fo.recent"), style = ui(17f, 800), modifier = Modifier.weight(1f))
+            Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(tr("fo.recent"), style = ui(17f, 800))
+                // the sample is never counted (UX upgrades §11)
+                val real = orders.count { !it.sample }
+                Text(tr("ux.countN", "n" to real) + if (orders.any { it.sample }) " (" + tr("ux.noSample") + ")" else "", style = ui(12.5f, 500, G.ink3),
+                    modifier = Modifier.weight(1f), maxLines = 1)
                 if (orders.isNotEmpty()) Text(tr("fo.all"), style = ui(13.5f, 700, G.cobalt2),
                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button) { app.selectTab(Tab.PROJECTS) }.padding(horizontal = 6.dp, vertical = 8.dp))
             }
             if (orders.isEmpty()) Text(tr("fo.noOrders"), style = ui(14f, 400, G.ink2, 1.45f))
-            orders.take(3).forEach { p -> OrderLine(p) { app.push(Route.Project(p.id)) } }
+            // the sample first while it is there, then the newest
+            (orders.filter { it.sample } + orders.filter { !it.sample }).take(4).forEach { p -> FOrderCard(p) { app.push(Route.Project(p.id)) } }
+            if (s.sampleMade && orders.none { it.sample } && orders.size < 3) Text(tr("ux.sampleGone"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(horizontal = 4.dp))
         }
+    }
+    NewOrderPill(nav::newProject, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = NAV_SPACE + 6.dp))
     }
 }
 
+/** "+ Yangi buyurtma" in thumb reach, just above the tab bar (UX upgrades mockup, Home and Orders). */
+@Composable
+fun NewOrderPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    val shape = RoundedCornerShape(28.dp)
+    Row(modifier.heightIn(min = 56.dp).dropShadow(shape, Shadow(24.dp, G.cobalt.copy(alpha = .4f), offset = DpOffset(0.dp, 10.dp)))
+        .clip(shape).background(G.cobalt).pressable(onClick, .97f).padding(horizontal = 24.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        MIcon("plus", Color.White, 22.dp, 2.6f)
+        Text(tr("fo.new"), style = ui(16.5f, 800, Color.White), maxLines = 1)
+    }
+}
+
+/**
+ * An order's card on Home and in Buyurtmalar (UX upgrades §2, §4, §11): the name, the furniture, the 5-step line with
+ * "Keyingi: …" and the price (grey and approximate in simple mode); the call button, or for the sample its NAMUNA
+ * badge and one-tap delete (with Undo). Advanced adds the stage and install date.
+ */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+@Composable
+fun FOrderCard(p: Project, onClick: () -> Unit) {
+    val app = LocalApp.current
+    val lang = LocalLang.current
+    Row(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(24.dp)).pressable(onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+            if (p.sample) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                uz.metrx.app.ui.ux.SampleBadge(); Text(tr("ux.sampleNote"), style = ui(11.5f, 500, G.ink3), maxLines = 1)
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(dn(p.name, lang), style = ui(15.5f, 700, G.ink, 1.25f), maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Pieces(p)
+            }
+            if (app.settings.advanced) androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                FStageChip(p.stage); InstallChip(p)
+            }
+            uz.metrx.app.ui.ux.MiniProgress(p)
+        }
+        if (p.sample) Column(Modifier.heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.errWash).clickable(role = Role.Button) { app.deleteSample(p.id) }
+            .padding(horizontal = 10.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)) {
+            MIcon("trash", G.err, 18.dp, 2f)
+            Text(tr("common.delete"), style = ui(11.5f, 700, G.err), maxLines = 1)
+        } else CallButton(p)
+    }
+}
 @Composable
 private fun Tile(icon: String, title: String, sub: String, onClick: () -> Unit, modifier: Modifier) {
     Column(modifier.heightIn(min = 112.dp).glassCard(RoundedCornerShape(26.dp)).pressable(onClick).padding(16.dp), verticalArrangement = Arrangement.SpaceBetween) {

@@ -214,16 +214,17 @@ fun FreeBanner(p: Project, f: Furniture) {
 /** A room-less piece's line: its model, sizes and running metres. */
 @Composable
 fun freeSub(f: Furniture, en: Boolean): String {
-    fun m(v: Int) = uz.metrx.app.geo.fmtLen(v, uz.metrx.app.geo.LenUnit.M, en)
+    val fu = LocalApp.current.settings.furnUnit
+    fun m(v: Int) = uz.metrx.app.geo.fmtLen(v, fu, en)
     if (f.kind == "wardrobe") {
         val w = wardOfF(f) ?: return ""
         // the height as asked: a cabinet's with its legs
         val v = uz.metrx.app.furniture.valsOf(f, LocalApp.current.settings.workshop)
         val h = v["h"] ?: w.h
         val sizes = when {
-            "mw" in v -> m(v.getValue("mw")) + " × " + m(v["ml"] ?: 0) + " " + tr("u.m")
-            "w2" in v -> m(v.getValue("w")) + " + " + m(v.getValue("w2")) + " × " + m(h) + " " + tr("u.m")
-            else -> m(v["w"] ?: w.w) + " × " + m(h) + " × " + m(v["d"] ?: w.d) + " " + tr("u.m")
+            "mw" in v -> m(v.getValue("mw")) + " × " + m(v["ml"] ?: 0) + " " + unitWord(fu)
+            "w2" in v -> m(v.getValue("w")) + " + " + m(v.getValue("w2")) + " × " + m(h) + " " + unitWord(fu)
+            else -> m(v["w"] ?: w.w) + " × " + m(h) + " × " + m(v["d"] ?: w.d) + " " + unitWord(fu)
         }
         // a sliding wardrobe is named by the doors it has now, not by the model it started from ("Kupe, 3 eshik" → 4)
         val label = w.slide?.let { tr("fz.slideNow", "n" to it.n) } ?: f.model.takeIf { it.isNotEmpty() }?.let { tr(if (f.type.isNotEmpty()) "ft.$it" else "fz.m.$it") }
@@ -233,7 +234,7 @@ fun freeSub(f: Furniture, en: Boolean): String {
     val run = fs?.let { freeRunMm(f.layout, it.sides, it.island) } ?: uz.metrx.app.furniture.runMm(f)
     val t = (max(0, run) + 50) / 100
     return listOfNotNull(tr(if (f.model.isNotEmpty()) "fz.m.${f.model}" else "kt.l${f.layout}"),
-        fs?.let { (it.sides + listOfNotNull(it.island.takeIf { i -> i > 0 })).joinToString(" + ") { v -> m(v) } + " " + tr("u.m") },
+        fs?.let { (it.sides + listOfNotNull(it.island.takeIf { i -> i > 0 })).joinToString(" + ") { v -> m(v) } + " " + unitWord(fu) },
         "${t / 10}${if (en) "." else ","}${t % 10} " + tr("kt.pm")).joinToString(" · ")
 }
 
@@ -299,7 +300,7 @@ private fun PickRoomSheet(s: Sheet.FPickRoom) {
     val f = p.furniture.firstOrNull { it.id == s.fid } ?: run { app.sheet = null; return }
     val snap = app.settings.angleSnap
     val rooms = p.rooms.filter { measuredRoom(it, snap) }
-    fun m(v: Int?) = v?.let { uz.metrx.app.geo.fmtLen(it, uz.metrx.app.geo.LenUnit.M, en) } ?: "?"
+    fun m(v: Int?) = v?.let { uz.metrx.app.geo.fmtLen(it, app.settings.furnUnit, en) } ?: "?"
     GlassSheet(tr("fz.pickT", "n" to dn(f.name, lang)), { app.sheet = null }) {
         if (rooms.isEmpty()) Text(tr("fz.noMeasured"), style = ui(14f, 400, G.ink2, 1.45f))
         rooms.forEach { r ->
@@ -310,7 +311,7 @@ private fun PickRoomSheet(s: Sheet.FPickRoom) {
                 MIcon(if (w?.type == "kitchen") "kitchen" else "room", G.cobalt, 22.dp, 2f)
                 Column(Modifier.weight(1f)) {
                     Text(w?.let { floorName(it, lang) } ?: dn(r.name, lang), style = ui(15.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(m(r.dim("A").v) + " × " + m(r.dim("B").v) + " " + tr("u.m") + " · h " + m(r.dim("H").v), style = num(12.5f, 500, G.ink2), maxLines = 1)
+                    Text(m(r.dim("A").v) + " × " + m(r.dim("B").v) + " " + unitWord(app.settings.furnUnit) + " · h " + m(r.dim("H").v), style = num(12.5f, 500, G.ink2), maxLines = 1)
                 }
                 MIcon("chev", G.ink3, 16.dp, 2f)
             }
@@ -349,7 +350,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
     val room = p.rooms.firstOrNull { it.id == rt.rid } ?: return
     val snap = app.settings.angleSnap
     val ws = app.settings.workshop
-    val unit = app.settings.unit
+    val unit = app.settings.furnUnit
     val wl = walls(room, snap)
     val ids = wl.map { it.id }
     val len = { id: String -> wallLen(room, snap, id) }

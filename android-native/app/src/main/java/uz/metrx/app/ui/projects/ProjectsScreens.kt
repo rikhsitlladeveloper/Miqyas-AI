@@ -16,6 +16,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.zIndex
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -120,18 +121,24 @@ fun ProjectsList() {
     val seg0 = app.ordersSeg
     val seg = if (seg0 == "other" && others.isEmpty()) (if (staged) "active" else "all") else if (!staged && seg0 != "other") "all" else seg0
     var q by rememberSaveable { mutableStateOf("") }
+    Box(Modifier.fillMaxSize()) {
+    // furniture makers: "+ Yangi buyurtma" in thumb reach above the tab bar (UX upgrades mockup)
+    if (furniture && all.isNotEmpty()) Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = NAV_SPACE + 6.dp).zIndex(1f)) {
+        uz.metrx.app.ui.furniture.NewOrderPill({ app.push(Route.NewProject()) })
+    }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         GlassHeader({ app.openLaser() })
         PageTitle(tr(if (furniture || tiler || elec || plumb || win) "fo.tab" else "tab.projects"), Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp))
         if (all.isEmpty()) { ProjectsEmpty { app.push(Route.NewProject()) }; return@Column }
-        val n = mapOf("active" to ps.count { stageOf(it) != "done" }, "done" to ps.count { stageOf(it) == "done" }, "all" to ps.size)
+        // the sample order is never counted (UX upgrades §11)
+        val n = mapOf("active" to ps.count { !it.sample && stageOf(it) != "done" }, "done" to ps.count { !it.sample && stageOf(it) == "done" }, "all" to ps.count { !it.sample })
         val needle = q.trim().lowercase()
         val list = (if (seg == "other") others else ps).filter { p ->
             val inSeg = seg == "all" || seg == "other" || (if (seg == "done") stageOf(p) == "done" else stageOf(p) != "done")
             inSeg && (needle.isEmpty() || listOf(dn(p.name, lang), dn(p.customer, lang), dn(p.address, lang), p.phone).joinToString(" ").lowercase().contains(needle))
         }
         Column(
-            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 24.dp + NAV_SPACE).navigationBarsPadding(),
+            Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = (if (furniture) 96.dp else 24.dp) + NAV_SPACE).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(14.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -156,7 +163,7 @@ fun ProjectsList() {
             }
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 // the simple app has no install dates: the newest first, as on Home
-                (if ((furniture || tiler || elec || plumb || win) && seg != "other") (if (staged && furniture) uz.metrx.app.data.sortOrders(list) else list.sortedByDescending { it.created }) else list).forEach { p -> if (p.isFurniture) uz.metrx.app.ui.furniture.OrderRow(p) { app.push(Route.Project(p.id)) }
+                (if ((furniture || tiler || elec || plumb || win) && seg != "other") (if (staged && furniture) uz.metrx.app.data.sortOrders(list) else list.sortedByDescending { it.created }) else list).forEach { p -> if (p.isFurniture) uz.metrx.app.ui.furniture.FOrderCard(p) { app.push(Route.Project(p.id)) }
                     else if (p.isTiler && !staged) uz.metrx.app.ui.tiles.TOrderRow(p) { app.push(Route.Project(p.id)) }
                     else if (p.isElec && !staged) uz.metrx.app.ui.elec.EOrderRow(p) { app.push(Route.Project(p.id)) }
                     else if (p.isPlumb && !staged) uz.metrx.app.ui.plumb.POrderRow(p) { app.push(Route.Project(p.id)) }
@@ -165,6 +172,7 @@ fun ProjectsList() {
                     modifier = Modifier.fillMaxWidth().padding(vertical = 24.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
             }
         }
+    }
     }
 }
 

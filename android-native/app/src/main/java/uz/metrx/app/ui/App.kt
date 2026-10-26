@@ -48,7 +48,7 @@ sealed interface Route {
      */
     data class FGallery(val pid: String, val rid: String? = null, val fromNew: Boolean = false) : Route
     /** [vals]: the sizes typed so far ("s0=3400,h=2700"), kept while "Which room?" is on top; the steps open on the summary. */
-    data class FSteps(val pid: String, val model: String, val fid: String? = null, val vals: String? = null) : Route
+    data class FSteps(val pid: String, val model: String, val fid: String? = null, val vals: String? = null, val tpl: String? = null) : Route
     data class FWhere(val pid: String, val model: String, val vals: String) : Route
     data class FPlace(val pid: String, val fid: String?, val rid: String, val model: String? = null, val vals: String? = null) : Route
     /** A furniture order's design style, the preset new pieces start with (furniture/Look.kt); [fromNew]: a new order's first step, the gallery next. */
@@ -239,6 +239,8 @@ sealed interface Sheet {
     data class FPriceField(val pid: String, val key: String) : Sheet
     /** "Mijozga 3D yuborish": the client's 3D files of piece [fid]'s room (null: the order's room with the most furniture). */
     data class Share3D(val pid: String, val fid: String? = null) : Sheet
+    /** The voice pack's first-use sheet (UX upgrades §9): 50 MB over Wi-Fi, or later. */
+    data object VoicePack : Sheet
 }
 
 /** Everything the screens share: settings, the projects, where each tab is, the open sheet and the toast. */

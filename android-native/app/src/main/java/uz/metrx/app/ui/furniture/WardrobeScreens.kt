@@ -612,7 +612,7 @@ private fun PlaceStep(p: Project, f: Furniture, m: Module, cx: WardCtx, ws: Work
         walls(room, snap).forEach { w ->
             val len = wallLen(room, snap, w.id)
             Box(Modifier.onGloballyPositioned { c -> if (!shown && w.id == m.wall) { shown = true; val x = c.positionInParent().x.toInt(); if (x > 0) scope.launch { wallsSc.scrollTo(x) } } }) {
-                Chip(tr("kt.wallN", "w" to w.id) + (len?.let { " · " + uz.metrx.app.geo.fmtLen(it, app.settings.unit, app.settings.lang == uz.metrx.app.core.Lang.EN) + " " + unitWord(app.settings.unit) } ?: ""), w.id == m.wall) { if (w.id != m.wall) moveTo(w.id, len) }
+                Chip(tr("kt.wallN", "w" to w.id) + (len?.let { " · " + uz.metrx.app.geo.fmtLen(it, app.settings.furnUnit, app.settings.lang == uz.metrx.app.core.Lang.EN) + " " + unitWord(app.settings.furnUnit) } ?: ""), w.id == m.wall) { if (w.id != m.wall) moveTo(w.id, len) }
             }
         }
     }

@@ -395,20 +395,40 @@ fun FStyleScreen(rt: Route.FStyle) {
     }
 }
 
-/** On the gallery: the order's style and the way to change it. */
+/**
+ * On the gallery (UX upgrades §7): the six styles in a row at the top; a tap sets the order's style and the cards
+ * repaint at once (the separate "Dizayn uslubi" step is gone). The row fades at its right edge with a "›" while more scrolls.
+ */
 @Composable
 internal fun StyleRow(p: Project) {
     val app = LocalApp.current
-    val d = DESIGN_PRESETS.firstOrNull { it.id == p.fstyle }
-    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).clip(RoundedCornerShape(18.dp)).glassCard(RoundedCornerShape(18.dp), fill = G.glass(.6f))
-        .clickable(role = Role.Button) { app.push(Route.FStyle(p.id)) }.padding(horizontal = 12.dp, vertical = 8.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        if (d != null) Canvas(Modifier.size(54.dp, 38.dp).clip(RoundedCornerShape(8.dp)).background(Color(0xFFEDEAE4))) { presetPicture(d) }
-        else MIcon("sliders", G.cobalt, 22.dp, 2f)
-        Column(Modifier.weight(1f)) {
-            Text(tr("lk.styleT"), style = ui(12f, 500, G.ink2))
-            Text(if (d != null) tr("lk.p.${d.id}") else tr("lk.noStyle"), style = ui(14.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val scroll = androidx.compose.foundation.rememberScrollState()
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(tr("ux.g.style"), style = ui(12.5f, 600, G.ink2), modifier = Modifier.padding(start = 4.dp))
+        Box {
+            Row(Modifier.fillMaxWidth().horizontalScroll(scroll).padding(end = 28.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                DESIGN_PRESETS.forEach { d ->
+                    val on = p.fstyle == d.id
+                    val shape = RoundedCornerShape(16.dp)
+                    Row(Modifier.heightIn(min = 48.dp).clip(shape).background(if (on) G.cobalt.copy(alpha = .12f) else G.glass(.6f))
+                        .border(if (on) 2.dp else 1.dp, if (on) G.cobalt else G.rim, shape).semantics { selected = on }
+                        .clickable(role = Role.RadioButton) {
+                            if (on) return@clickable
+                            val was = p.fstyle
+                            app.store.update(p.id) { it.copy(fstyle = d.id) }
+                            app.haptic(uz.metrx.app.ui.ux.Hap.TICK)
+                            app.act(app.t("ux.g.styleSet", "s" to app.t("lk.p.${d.id}")), { app.store.update(p.id) { it.copy(fstyle = was) } })
+                        }.padding(start = 6.dp, end = 12.dp, top = 6.dp, bottom = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Canvas(Modifier.size(40.dp, 30.dp).clip(RoundedCornerShape(7.dp)).background(Color(0xFFEDEAE4))) { presetPicture(d) }
+                        Text(tr("lk.p.${d.id}"), style = ui(13.5f, if (on) 800 else 600, if (on) G.cobalt2 else G.ink), maxLines = 1)
+                    }
+                }
+            }
+            if (scroll.value < scroll.maxValue) Box(Modifier.align(Alignment.CenterEnd).size(40.dp, 48.dp)
+                .background(androidx.compose.ui.graphics.Brush.horizontalGradient(listOf(Color.Transparent, G.paper))), contentAlignment = Alignment.CenterEnd) {
+                MIcon("chev", G.ink2, 18.dp, 2.2f)
+            }
         }
-        MIcon("chev", G.ink3, 16.dp, 2f)
     }
 }
