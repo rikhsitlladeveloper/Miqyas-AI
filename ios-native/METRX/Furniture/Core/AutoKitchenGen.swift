@@ -703,14 +703,14 @@ private func akRow(_ items: [AKItem], _ x0: Int, _ w: String, _ ws: Workshop, up
     for it in items {
         let a = Int(akRound(it.a)), b = Int(akRound(it.b))
         if a > x { out.append(template(upper ? "spaceUp" : "spaceLow", ws, w, a - x)) }
-        if b - a > 0 { out.append(akModule(it.k, b - a, w, ws)) }
+        if b - a > 0 { out.append(akModule(it.k, b - a, w, ws, upper: upper)) }
         x = max(x, b)
     }
     return out
 }
 
 /// One item as a kitchen unit of the library (Kitchen.swift template).
-func akModule(_ k: String, _ w: Int, _ wall: String, _ ws: Workshop) -> Module {
+func akModule(_ k: String, _ w: Int, _ wall: String, _ ws: Workshop, upper: Bool = true) -> Module {
     switch k {
     case "sink": return template("sink", ws, wall, w)
     case "hob": return template("hob", ws, wall, w)
@@ -731,7 +731,9 @@ func akModule(_ k: String, _ w: Int, _ wall: String, _ ws: Workshop) -> Module {
     case "hood": return template("hood", ws, wall, w)
     case "glass": var m = template("vitrina", ws, wall, w); m.accentIn = true; return m
     case "shelf": return template("open", ws, wall, w)
-    case "doors", "flap": return template("wall", ws, wall, w)
+    // "doors" in the lower row is a base unit with doors (it was made a wall unit, which left the lower rows short)
+    case "doors": return template(upper ? "wall" : "base", ws, wall, w)
+    case "flap": return template("wall", ws, wall, w)
     default: return template("base", ws, wall, w)
     }
 }
