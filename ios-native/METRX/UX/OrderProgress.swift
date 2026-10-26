@@ -205,7 +205,7 @@ func nextLine(_ p: Project) -> String {
 /// The NAMUNA badge of the sample order.
 struct SampleBadge: View {
     var body: some View {
-        T(tr("ux.sample"), ui(11, 800, G.amberInk), lines: 1)
+        T(tr("ux.sample").uppercased(), ui(11, 800, G.amberInk), lines: 1)
             .padding(.horizontal, 8).padding(.vertical, 3)
             .background(Capsule().fill(G.amberWash))
             .accessibilityIdentifier("ux.sampleBadge")

@@ -47,15 +47,7 @@ enum QuoteSend {
         }
     }
 
-    /// "Boshqa…": the draft quote's PDF (marked as a draft) in the share sheet, nothing issued.
-    static func other(_ app: AppModel, _ pid: String) { MainActor.assumeIsolated { otherNow(app, pid) } }
-
-    @MainActor private static func otherNow(_ app: AppModel, _ pid: String) {
-        guard let p = Store.shared.get(pid) else { return }
-        let sn = snapshotOf(p)
-        guard !sn.furniture.isEmpty else { app.say("ux.needFurn", kind: .info); return }
-        let pages = furniturePages(sn, draft: true, meta: nil, image: viewLoader(), prices: true)
-        let fname = pdfName(dn(p.name), tr("es.draft"))
-        if let url = pdfFile(pages, fname) { presentShare(url) } else { app.say("cm.shareErr", kind: .error) }
-    }
+    /// "Boshqa…": the same as the big button (the quote is issued, Undo returns it to a draft), as Android does; the
+    /// share sheet then offers every app.
+    static func other(_ app: AppModel, _ pid: String) { send(app, pid) }
 }
