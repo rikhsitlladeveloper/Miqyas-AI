@@ -146,8 +146,9 @@ struct ReportScreen: View {
                                 GBtn(tr("rpt.share"), icon: "share") { share(p, quote, sn, key) }.accessibilityIdentifier("rp.share")
                             } else if quote == nil {
                                 HStack(spacing: 10) {
-                                    GBtn(tr("rp2.shareDraft"), kind: .secondary, icon: "share") { share(p, quote, sn, key) }.accessibilityIdentifier("rp.shareDraft")
-                                    GBtn(tr("rpt.issue"), icon: "lock") {
+                                    // the full text, on two lines when needed (UX upgrades section 8)
+                                    GBtn(tr("rp2.shareDraft"), kind: .secondary, icon: "share", fontSize: 15, lines: 2) { share(p, quote, sn, key) }.accessibilityIdentifier("rp.shareDraft")
+                                    GBtn(tr("rpt.issue"), icon: "lock", fontSize: 15, lines: 2) {
                                         let n = p.isFurniture ? 0 : rowsMissing(p)
                                         if n > 0 { app.say("et.block", ["n": n], kind: .error) } else { app.sheet = .issue(pid: p.id) }
                                     }

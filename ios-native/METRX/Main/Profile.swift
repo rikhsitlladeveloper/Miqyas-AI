@@ -257,7 +257,8 @@ private struct SwitchRow: View {
             GSwitch(on: on)
         }
         .padding(.leading, 12).padding(.trailing, 14).padding(.vertical, 8).frame(minHeight: 56)
-        .pressable(0.99, action)
+        // a switch gives a tick (UX upgrades section 10)
+        .pressable(0.99) { Haptic.tick(); action() }
         .accessibilityValue(on ? "1" : "0")
         .accessibilityAddTraits(.isToggle)
     }
