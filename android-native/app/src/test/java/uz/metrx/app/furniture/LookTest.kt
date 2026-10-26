@@ -161,8 +161,9 @@ class LookTest {
         assertEquals("wt38o", worktopFor("stone", "onyx")); assertEquals("wt20d", worktopFor("slim", "dark")); assertEquals("wt38h", worktopFor("wood", "halifax"))
         assertEquals("slim", worktopKind("wt20m")); assertEquals("plain", worktopKind(null)); assertEquals("onyx", worktopDecor("wt38o"))
         assertEquals("skPrint", splashFor("print")); assertNull(splashFor("")); assertEquals("tile", splashKind("spTile"))
-        // 27 colour fronts by the m², 6 woods, 8 worktops, 3 backsplashes; every one with a texture or none
-        assertEquals(44, DECOR_PRESETS.size)
+        // 27 colour fronts by the m², 6 woods, 8 worktops, 3 backsplashes and the Premium price option's 3 stone ones
+        // (PriceTiers.kt, 26 Oct 2026); every one with a texture or none
+        assertEquals(47, DECOR_PRESETS.size)
         assertTrue(DECOR_PRESETS.filter { it.kind == "board" }.all { it.byArea && it.finish.isNotEmpty() })
         assertTrue(DECOR_PRESETS.mapNotNull { it.tex }.all { it in TEX_IDS })
         assertEquals(MAT_PRESETS.size, MAT_PRESETS.map { it.id }.distinct().size)

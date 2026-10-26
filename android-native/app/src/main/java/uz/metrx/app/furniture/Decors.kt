@@ -106,5 +106,9 @@ val DECOR_PRESETS: List<Mat> =
         // backsplashes by the m² (Lux Home Mebel, Apr 2026): glass (skinali) 250–500 k, ceramic tile 120–350 k
         Mat("skGlass", "splash", "Skinali · oddiy shisha", 6, 3000, 600, "380000", rgb = "#ECE9E3", preset = true, finish = "glass", per = "m2"),
         Mat("skPrint", "splash", "Skinali · rasmli", 6, 3000, 600, "480000", rgb = "#C9D6E2", preset = true, finish = "glass", tex = "skinali_print", per = "m2"),
-        Mat("spTile", "splash", "Kafel (fartuk)", 8, 600, 300, "230000", rgb = "#F1EFEA", preset = true, finish = "gloss", tex = "tile_white", per = "m2")
+        Mat("spTile", "splash", "Kafel (fartuk)", 8, 600, 300, "230000", rgb = "#F1EFEA", preset = true, finish = "gloss", tex = "tile_white", per = "m2"),
+        // the Premium price option's backsplash (PriceTiers.kt, 26 Oct 2026): artificial stone to match its worktop, by the m²
+        Mat("spStoneM", "splash", "Fartuk · sun’iy tosh, oq marmar", 12, 3000, 600, "650000", rgb = "#F1EFEB", preset = true, finish = "stone", tex = "marble_white", per = "m2"),
+        Mat("spStoneO", "splash", "Fartuk · sun’iy tosh, oniks bej", 12, 3000, 600, "650000", rgb = "#E8DBC2", preset = true, finish = "stone", tex = "onyx_beige", per = "m2"),
+        Mat("spStoneD", "splash", "Fartuk · sun’iy tosh, qora tosh", 12, 3000, 600, "650000", rgb = "#26282B", preset = true, finish = "stone", tex = "stone_dark", per = "m2")
     )

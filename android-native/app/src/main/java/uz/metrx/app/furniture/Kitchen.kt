@@ -252,7 +252,9 @@ fun checks(f: Furniture, runs: List<Run>, ws0: Workshop, openings: List<Opening>
     val talls = f.modules.filter { it.type == "tall" || (it.type == "gap" && it.app == "fridge") }
     f.modules.forEach { m ->
         val x0 = m.x; val x1 = m.x + m.w; val y0 = m.elev; val y1 = m.elev + m.h
-        openings.filter { it.wall == m.wall }.forEach { o ->
+        // an empty space (left over a window on purpose) covers nothing
+        val space = m.type == "gap" && m.app != "fridge" && m.app != "dishwasher"
+        openings.filter { it.wall == m.wall && !space }.forEach { o ->
             if (overlaps(x0, x1, o.off, o.off + o.w) && overlaps(y0, y1, o.sill, o.sill + o.h))
                 out += FCheck(if (o.type == "door") "err" else "warn", if (o.type == "door") "kc.door" else "kc.window", mid = m.id)
         }
