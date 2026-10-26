@@ -74,6 +74,9 @@ struct Project: Codable, Equatable, Identifiable {
     /// Furniture orders: the design style preset new pieces start with (Furniture/Core/PieceLook.swift DESIGN_PRESETS;
     /// "" none, and then not written, as Android leaves it out).
     var fstyle = ""
+    /// Furniture orders (Advanced): the customer's PDF shows the three price options, Ekonom, Standart and Premium
+    /// (Furniture/Core/PriceTiers.swift); written only when on, as Android leaves it out.
+    var tri = false
 
     var isFurniture: Bool { industry == "furniture" }
     /// A tiler's order (its own app: layouts in 3D, like the furniture maker's).
@@ -104,16 +107,16 @@ struct Project: Codable, Equatable, Identifiable {
         approvedAt = c.v(.approvedAt, 0); install = c.v(.install, 0); want = c.v(.want, nil); autoName = c.v(.autoName, false)
         tiles = c.v(.tiles, []); troom = c.v(.troom, []); elec = c.v(.elec, ElecOrder())
         plumb = c.v(.plumb, PlumbOrder()); win = c.v(.win, WinOrder())
-        cutAt = c.v(.cutAt, 0); fstyle = c.v(.fstyle, "")
+        cutAt = c.v(.cutAt, 0); fstyle = c.v(.fstyle, ""); tri = c.v(.tri, false)
     }
 
     // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
     enum CodingKeys: String, CodingKey {
         case id, name, customer, phone, address, location, currency, precision, reportLang, stage, floors, rooms, estimate, quotes
         case reportRooms, reportViews, reportNotes, created, edited, industry, agreed, payments, furniture, fprice, approvedAt, install
-        case want, autoName, tiles, troom, elec, plumb, win, cutAt, fstyle
+        case want, autoName, tiles, troom, elec, plumb, win, cutAt, fstyle, tri
     }
-    /// The synthesized form, with fstyle written only when set (an order without a style saves as before).
+    /// The synthesized form, with fstyle and tri written only when set (an order without them saves as before).
     func encode(to e: Encoder) throws {
         var c = e.container(keyedBy: CodingKeys.self)
         try c.encode(id, forKey: .id); try c.encode(name, forKey: .name); try c.encode(customer, forKey: .customer)
@@ -128,6 +131,7 @@ struct Project: Codable, Equatable, Identifiable {
         try c.encode(autoName, forKey: .autoName); try c.encode(tiles, forKey: .tiles); try c.encode(troom, forKey: .troom)
         try c.encode(elec, forKey: .elec); try c.encode(plumb, forKey: .plumb); try c.encode(win, forKey: .win); try c.encode(cutAt, forKey: .cutAt)
         if !fstyle.isEmpty { try c.encode(fstyle, forKey: .fstyle) }
+        if tri { try c.encode(tri, forKey: .tri) }
     }
 }
 

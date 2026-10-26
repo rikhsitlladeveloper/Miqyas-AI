@@ -95,6 +95,8 @@ struct FPriceTab: View {
                 }
                 .padding(14).frame(maxWidth: .infinity, alignment: .leading)
                 .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.6))
+                // the three price options and whether the PDF shows them (Joylan ideas, 26 Oct 2026)
+                if s.advanced { TierCard(app: app, p: p) }
                 // the documents: the customer's PDF first, then the workshop's pack and the parts with their sheet layout
                 GBtn(tr("fd.btn"), icon: "share", height: 52, corner: 16, fontSize: 15.5) { app.push(.report(pid: p.id, no: nil)) }.accessibilityIdentifier("fp.quote")
                 HStack(spacing: 10) {

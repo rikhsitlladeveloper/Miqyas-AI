@@ -129,6 +129,9 @@ func furnSnap(_ sn: Snap, _ p: Project, _ ws: Workshop, _ mats: [Mat], _ hws: [H
     var out = sn
     out.furniture = fs; out.fmats = mats.filter { used.contains($0.id) }
     out.flines = pr.lines.map { SnapLine(key: $0.key, amount: Money.digits($0.amount)) }
+    // the three price options (Advanced, Core/PriceTiers.swift): price lines of their own, kept with the quote; the
+    // PDF shows them only with its prices
+    if p.tri && !fs.isEmpty { out.flines += tierLines(tierPrices(fs, p.fprice, ws, mats, hws)) }
     out.ftotal = Money.digits(pr.price); out.fprepay = ws.prepay; out.fdays = p.fprice.days; out.finst = p.fprice.inst
     out.fhandles = handleNames(fs, hws, ws); out.fws = ws
     return out

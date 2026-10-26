@@ -477,6 +477,10 @@ private struct FMenuSheet: View {
                     } else {
                         if let rid = f.roomId {
                             FMenuRow(icon: "room", label: tr("fz.move"), color: G.ink) { app.sheet = nil; app.push(.fPlace(pid: p.id, fid: f.id, rid: rid)) }.accessibilityIdentifier("fm.move")
+                            // a kitchen built for its room again, in one of the six styles (Joylan ideas, 26 Oct 2026)
+                            if f.kind == "kitchen" {
+                                FMenuRow(icon: "kitchen", label: tr("ak.entry"), color: G.ink) { app.sheet = nil; app.push(.autoKitchen(pid: p.id, rid: rid)) }.accessibilityIdentifier("fm.auto")
+                            }
                         }
                         FMenuRow(icon: "room", label: tr("fz.takeOut"), color: G.ink) { app.sheet = nil; takeOut(app, p.id, f.id) }.accessibilityIdentifier("fm.takeOut")
                     }

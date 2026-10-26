@@ -210,6 +210,11 @@ struct FRoomsTab: View {
                     GBtn(tr("pj.v3d"), kind: .secondary, icon: "cube", height: 48, fontSize: 15) { app.setProjectView("3d") }.accessibilityIdentifier("pj.v3d")
                 }
             }
+            // the client's 3D files (USDZ and an offline HTML page), sent from the phone (Client3DShare.swift)
+            if p.furniture.contains(where: { !$0.modules.isEmpty }) {
+                GBtn(tr("sh3.btn"), kind: .secondary, icon: "send", height: 48, fontSize: 15) { app.sheet = .share3d(pid: p.id, rid: nil) }
+                    .accessibilityIdentifier("sh3.btn")
+            }
             HStack(spacing: 8) { MIcon("plus", G.cobalt2, 22, 2.2); T(tr("fz.addMore"), ui(16, 700, G.cobalt2)) }
                 .frame(maxWidth: .infinity).frame(height: 60)
                 .dashedGlass(22)
@@ -288,6 +293,8 @@ struct FRoomsTab: View {
     }
 
     @ViewBuilder private func todo(_ w: Workspace, _ room: Room?, _ drawn: Bool, _ empty: Bool, _ kind: String) -> some View {
+        // a measured kitchen: the kitchen built for it, six styles to pick from (Joylan ideas, 26 Oct 2026)
+        if let room, drawn, kind == "kitchen" { AutoKitchenEntry(app: app, pid: p.id, rid: room.id) }
         if let room {
             if !drawn { TodoRow(label: tr("ns.measureT")) { openRoom(app, p.id, room.id) } }
             else if empty {

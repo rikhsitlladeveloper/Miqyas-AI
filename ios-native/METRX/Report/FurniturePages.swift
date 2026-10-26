@@ -149,12 +149,14 @@ private extension Doc {
     /// The price: a line a piece of furniture, delivery and installation, the total, the prepayment, the rest and the time.
     func priceBlock(_ sn: Snap) {
         // the price stays on one page with its total and terms
-        ensure(40 + CGFloat(max(sn.flines.count, sn.furniture.count) + 5) * 17 + 50)
+        // the three price options' lines are their own block (TierPages.swift)
+        let lines = sn.flines.filter { !isTierLine($0) }
+        ensure(40 + CGFloat(max(lines.count, sn.furniture.count) + 5) * 17 + 50)
         h2(t("fd.price"))
         let total = Decimal(string: sn.ftotal) ?? 0
         var rows: [[Cell]] = []
-        if sn.flines.isEmpty { for f in sn.furniture { rows.append([cell(pieceText(f, sn.fws), span: 2)]) } }
-        for ln in sn.flines {
+        if lines.isEmpty { for f in sn.furniture { rows.append([cell(pieceText(f, sn.fws), span: 2)]) } }
+        for ln in lines {
             let f = sn.furniture.first { $0.id == ln.key }
             let text = ln.key == "deliver" ? t("fd.deliver") : f.map { pieceText($0, sn.fws) } ?? ln.key
             rows.append([cell(text), rcell(money(Decimal(string: ln.amount) ?? 0))])
@@ -245,7 +247,7 @@ func furniturePages(_ sn: Snap, draft: Bool, meta: QuoteMeta?, image: @escaping 
     d.newPage(); d.parties()
     if sn.pdf.views { d.views() }
     d.materials(sn)
-    if prices { d.priceBlock(sn) }
+    if prices { d.priceBlock(sn); d.tierBlock(sn) }
     // the front drawings, one per wall or wardrobe
     let ws = sn.fws ?? Workshop()
     let figs = sn.furniture.flatMap { f in frontFigures(f, sn.rooms.first { $0.room.id == f.roomId }?.room, ws, sn.fmats).map { (f, $0) } }

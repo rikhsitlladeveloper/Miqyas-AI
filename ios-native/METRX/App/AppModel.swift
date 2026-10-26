@@ -57,6 +57,8 @@ enum Route: Hashable {
     /// A furniture order's design style, the preset new pieces start with (Furniture/Core/PieceLook.swift); fromNew: a new
     /// order's first step, the gallery next.
     case fStyle(pid: String, fromNew: Bool = false)
+    /// "Oshxona yasash" (Furniture/AutoKitchenScreen.swift): a kitchen built for measured room rid, six styles to pick from.
+    case autoKitchen(pid: String, rid: String)
     /// A tiler's order (Android TilerScreens / TGallery / TView): the gallery of layouts (rid the room it is for, fromNew
     /// right after a new order); a layout's steps (a new one from gallery card model, or layout lid); a room's tiles in 3D
     /// (rid), or a layout without a room (rid nil, layout lid).
@@ -153,6 +155,8 @@ enum Sheet: Equatable {
     case fSwap(pid: String)
     /// A kitchen's legs' height.
     case kLegs(pid: String, fid: String)
+    /// "Mijozga 3D yuborish": the client's 3D files of an order (room rid; nil: the order's kitchen room), what goes in them.
+    case share3d(pid: String, rid: String?)
     /// The wardrobe: one size (key w, h, d, x or secW of section sec), an insert, more inserts for a section.
     /// Narx tab: a price, a rate or the lead time (key fixed, rRun, rTall or days).
     case fPriceField(pid: String, key: String)
@@ -252,6 +256,7 @@ final class AppModel {
                 case .kitchen(let pid, let fid, _, _), .wardrobe(let pid, let fid, _, _, _, _): return store.get(pid)?.furniture.contains { $0.id == fid } == true
                 case .fCut(let pid), .fPack(let pid), .fWhere(let pid, _, _), .fStyle(let pid, _): return store.get(pid) != nil
                 case .fLabels(let pid), .fCheck(let pid): return store.get(pid) != nil
+                case .autoKitchen(let pid, let rid): return store.get(pid)?.rooms.contains { $0.id == rid } == true
                 case .fGallery(let pid, let rid, _): return store.get(pid).map { p in rid == nil || p.rooms.contains { $0.id == rid } } == true
                 case .fSteps(let pid, _, let fid, _): return store.get(pid).map { p in fid == nil || p.furniture.contains { $0.id == fid } } == true
                 case .fPlace(let pid, let fid, let rid, _, _): return store.get(pid).map { p in (fid == nil || p.furniture.contains { $0.id == fid }) && p.rooms.contains { $0.id == rid } } == true

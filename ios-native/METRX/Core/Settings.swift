@@ -86,6 +86,11 @@ final class AppSettings {
     private(set) var devMode: Bool
     /// The 3D picture's quality: "auto" (by the phone, Three/RenderTier.swift), "high" or "low". No Profile switch yet.
     private(set) var quality: String
+    /// "Mijozga 3D yuborish" (Furniture/Client3DShare.swift): what the client's 3D file shows besides the furniture: the
+    /// price, the dimensions, the maker's phone (the mockup's start: no price, dimensions and phone on).
+    private(set) var share3dPrice: Bool
+    private(set) var share3dDims: Bool
+    private(set) var share3dPhone: Bool
 
     private init() {
         // the screen tests start from a clean first run
@@ -123,6 +128,9 @@ final class AppSettings {
         laserName = d.string(forKey: "laserName")
         devMode = d.bool(forKey: "devMode")
         quality = d.string(forKey: "quality") ?? "auto"
+        share3dPrice = d.object(forKey: "share3dPrice") as? Bool ?? false
+        share3dDims = d.object(forKey: "share3dDims") as? Bool ?? true
+        share3dPhone = d.object(forKey: "share3dPhone") as? Bool ?? true
         remnants = d.data(forKey: "remnants").flatMap { try? JSONDecoder().decode([Remnant].self, from: $0) } ?? []
         rowDrafts = (d.data(forKey: "rowDrafts")).flatMap { try? JSONDecoder().decode([String: [String: String]].self, from: $0) } ?? [:]
         visit = d.integer(forKey: "visit") + (d.object(forKey: "visit") == nil ? 0 : 1)
@@ -146,6 +154,16 @@ final class AppSettings {
     func setDevMode(_ on: Bool) { devMode = on; d.set(on, forKey: "devMode") }
     /// "auto", "high" or "low" (Three/RenderTier.swift); anything else counts as auto.
     func setQuality(_ v: String) { quality = v; d.set(v, forKey: "quality") }
+    /// The client 3D file's options: key "share3dPrice", "share3dDims" or "share3dPhone".
+    func setShare3d(_ key: String, _ on: Bool) {
+        switch key {
+        case "share3dPrice": share3dPrice = on
+        case "share3dDims": share3dDims = on
+        case "share3dPhone": share3dPhone = on
+        default: return
+        }
+        d.set(on, forKey: key)
+    }
     func setTradeSet(_ v: TradeSet) { trade = v; d.set(try? JSONEncoder().encode(v), forKey: "tradeSet") }
     func setWorkshopRules(_ v: Workshop) { workshop = v; d.set(try? JSONEncoder().encode(v), forKey: "workshop") }
     func setMatList(_ v: [Mat]) { mats = v; d.set(try? JSONEncoder().encode(v), forKey: "mats") }
