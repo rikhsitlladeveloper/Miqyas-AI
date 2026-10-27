@@ -204,11 +204,11 @@ struct NewProjectScreen: View {
     @State private var phone = ""
     @State private var address = ""
     @State private var loc: Location? = nil
-    @State private var locating = false
     @State private var tried = false
     @State private var touched: Set<String> = []
     @State private var loaded = false
-    @State private var locator = OneFix()
+    // the location, read at its best accuracy for up to 30 s (UX/OrderLocation.swift Gps)
+    @State private var gps = Gps()
     @FocusState private var focus: NF?
 
     private var edit: Project? { editId.flatMap { Store.shared.get($0) } }
@@ -242,7 +242,7 @@ struct NewProjectScreen: View {
                                onSubmit: { focus = nil })
                         VStack(alignment: .leading, spacing: 6) {
                             HStack { T(tr("np.location"), ui(15, 700)).frame(maxWidth: .infinity, alignment: .leading); T(tr("common.optional").capitalizedFirst, ui(13, 500, G.ink3)) }
-                            LocationBlock(loc: loc, locating: locating, onLocate: locate, onRemove: { loc = nil })
+                            LocationBlock(loc: loc, gps: gps, onLocate: locate, onRemove: { loc = nil })
                             T(tr("loc.note"), ui(13, 400, G.ink2))
                         }
                         HStack(alignment: .top, spacing: 10) {
@@ -266,12 +266,15 @@ struct NewProjectScreen: View {
             }
         }
         .onAppear {
+            // updates start quietly when METRX is already allowed, so the tap is instant; nothing is saved without it
+            gps.warm()
             guard !loaded else { return }
             loaded = true
             if let e = edit { name = dn(e.name); customer = dn(e.customer); phone = e.phone; address = dn(e.address); loc = e.location }
             // a new project opens with the cursor in its name, as in the prototype
             else { DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { focus = .name } }
         }
+        .onDisappear { gps.stop() }
     }
 
     private func show(_ k: String) -> Bool { tried || touched.contains(k) }
@@ -297,20 +300,25 @@ struct NewProjectScreen: View {
     }
 
     private func locate() {
-        locating = true
-        locator.get { l in
-            locating = false
-            if let l { loc = l } else { app.say("loc.fail", kind: .error) }
+        gps.locate { end in
+            switch end {
+            case .ok(let l): loc = l
+            case .fail: app.say("loc.fail", kind: .error)
+            // iOS cannot turn the location on from an app: the toast says where and opens METRX's page in Settings
+            case .off: app.say("loc.offT", kind: .error, action: "loc.settings") { openAppSettings() }
+            case .denied: app.say("loc.deniedT", kind: .error, action: "loc.settings") { openAppSettings() }
+            }
         }
     }
 }
 
 private struct LocationBlock: View {
     let loc: Location?
-    let locating: Bool
+    let gps: Gps
     let onLocate: () -> Void
     let onRemove: () -> Void
     var body: some View {
+        let locating = gps.locating
         if loc == nil && !locating {
             GBtn(tr("loc.get"), kind: .secondary, icon: "pin", onLocate).accessibilityIdentifier("np.locate")
         } else {
@@ -328,14 +336,24 @@ private struct LocationBlock: View {
                 .frame(height: 96).background(Theme.shared.dark ? G.blueWash : Color(argb: 0xFFE8EEF8))
                 HStack(spacing: 8) {
                     MIcon("pin", G.ink2, 18, 2)
-                    if locating { T(tr("loc.locating"), ui(14, 500, G.ink2)) }
+                    if locating {
+                        // the best reading so far while it gets better, and "Shu yetarli" to keep it now
+                        if let b = gps.best { T(tr(b.cached ? "loc.liveC" : "loc.live", ["m": b.loc.acc]), ui(14, 700), lines: 2).accessibilityIdentifier("loc.live") }
+                        else { T(tr("loc.locating"), ui(14, 500, G.ink2)) }
+                    }
                     else if let loc {
                         T(String(format: "%.5f, %.5f", loc.lat, loc.lng), ui(14, 700))
                         T(tr("loc.acc", ["m": loc.acc]), ui(13, 400, G.ink2))
                     }
                     Spacer(minLength: 0)
+                    if locating && gps.best != nil {
+                        T(tr("loc.enough"), ui(14, 700, G.cobalt)).padding(.horizontal, 8).frame(minHeight: 44)
+                            .pressable(0.97) { Haptic.tick(); gps.enough() }
+                            .accessibilityIdentifier("loc.enough")
+                    }
                 }
                 .padding(.horizontal, 14).padding(.vertical, 10)
+                if locating && gps.reduced { ApproxNote().padding(.horizontal, 14).padding(.bottom, 10) }
                 if !locating && loc != nil {
                     HStack {
                         T(tr("loc.again"), ui(14, 700, G.cobalt)).padding(.horizontal, 8).padding(.vertical, 12).pressable(0.97, onLocate)
@@ -352,45 +370,3 @@ private struct LocationBlock: View {
     }
 }
 
-/// One location fix (GPS works without internet). Calls back with nil when the phone can't get one within 15 s or
-/// location is not allowed.
-final class OneFix: NSObject, CLLocationManagerDelegate {
-    private let m = CLLocationManager()
-    private var done: ((Location?) -> Void)?
-    private var timer: DispatchWorkItem?
-
-    override init() { super.init(); m.delegate = self; m.desiredAccuracy = kCLLocationAccuracyBest }
-
-    func get(_ cb: @escaping (Location?) -> Void) {
-        done = cb
-        let t = DispatchWorkItem { [weak self] in self?.finish(self?.m.location) }
-        timer = t
-        DispatchQueue.main.asyncAfter(deadline: .now() + 15, execute: t)
-        switch m.authorizationStatus {
-        case .notDetermined: m.requestWhenInUseAuthorization()
-        case .denied, .restricted: finish(nil)
-        default: m.requestLocation()
-        }
-    }
-
-    /// Stops a fix that is running; nothing is called back.
-    func cancel() { done = nil; timer?.cancel(); timer = nil }
-
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        guard done != nil else { return }
-        switch manager.authorizationStatus {
-        case .authorizedWhenInUse, .authorizedAlways: manager.requestLocation()
-        case .denied, .restricted: finish(nil)
-        default: break
-        }
-    }
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) { finish(locations.last) }
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) { finish(nil) }
-
-    private func finish(_ l: CLLocation?) {
-        guard let cb = done else { return }
-        done = nil; timer?.cancel()
-        let r = l.map { Location(lat: $0.coordinate.latitude, lng: $0.coordinate.longitude, acc: max(1, Int($0.horizontalAccuracy)), ts: nowMs()) }
-        DispatchQueue.main.async { cb(r) }
-    }
-}
