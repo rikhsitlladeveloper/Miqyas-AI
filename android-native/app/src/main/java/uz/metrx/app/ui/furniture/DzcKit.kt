@@ -484,7 +484,7 @@ fun BoxScope.DzcCaption(title: String, sub: String, onClose: (() -> Unit)?, up: 
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val fg = if (multi) Color.White else G.ink
         if (up != null && onUp != null) Text("‹ $up", style = ui(13f, 700, G.cobalt2), maxLines = 1, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(role = Role.Button, onClick = onUp).padding(vertical = 8.dp, horizontal = 2.dp))
-        Text(title, style = ui(14f, 800, fg), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+        Text(title, style = ui(14f, 800, fg), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 230.dp))
         Text(sub, style = ui(12f, 500, if (multi) Color.White.copy(alpha = .85f) else G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
         if (onClose != null) Box(Modifier.size(44.dp).clip(CircleShape).semantics { contentDescription = "×" }.clickable(role = Role.Button, onClick = onClose), contentAlignment = Alignment.Center) {
             DzIcon(if (multi) "chk" else "close", fg, 20.dp, 2.2f)
@@ -514,7 +514,8 @@ fun BoxScope.Bubble(text: String, x: Float, y: Float, live: Boolean = false, amb
 fun BoxScope.Callout(text: String, fix: String?, x: Float, y: Float, maxW: Float, onFix: () -> Unit, onFold: () -> Unit) {
     val d = LocalDensity.current
     val wPx = with(d) { 240.dp.toPx() }
-    val left = (x - wPx / 2).coerceIn(with(d) { 8.dp.toPx() }, max(8f, maxW - wPx - with(d) { 8.dp.toPx() }))
+    val lo = with(d) { 8.dp.toPx() }
+    val left = (x - wPx / 2).coerceIn(lo, max(lo, maxW - wPx - lo))
     Column(Modifier.offset { IntOffset(left.roundToInt(), y.roundToInt()) }.width(240.dp).clip(RoundedCornerShape(16.dp)).background(G.solid)
         .border(2.dp, G.err, RoundedCornerShape(16.dp)).padding(10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.Top) {
