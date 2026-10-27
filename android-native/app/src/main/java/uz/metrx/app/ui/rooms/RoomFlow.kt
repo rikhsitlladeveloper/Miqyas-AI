@@ -201,6 +201,30 @@ private fun App.finishRoom(d: RshDraft) {
     })
 }
 
+/* ---------------- the trades' "Xona qo‘shish" sheet (mockup typeSheet) ---------------- */
+
+/** The sheet's line under its title: "Aziza Nazarova · 1-qadam: tur va nom". */
+@Composable
+fun RshSheetSub(p: uz.metrx.app.data.Project) {
+    val lang = app().settings.lang
+    val who = dn(p.customer, lang).ifBlank { dn(p.name, lang) }
+    Text(if (who.isBlank()) tr("rsh.step1n") else tr("rsh.step1", "c" to who), style = ui(13f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+}
+
+/** "Xona turi", over the trade's room-type chips. */
+@Composable
+fun RshTypeLabel() = Text(tr("rsh.typeL"), style = ui(13f, 700, G.ink2))
+
+/** "Davom etish", with "Keyingi qadam — xona shakli." under it. */
+@Composable
+fun androidx.compose.foundation.layout.ColumnScope.RshSheetGo(enabled: Boolean, onGo: () -> Unit) {
+    uz.metrx.app.ui.components.GBtn(tr("fr.continue"), onGo, enabled = enabled)
+    Text(tr("rsh.nextNote"), style = ui(13f, 400, G.ink2, 1.4f), modifier = Modifier.padding(horizontal = 4.dp))
+}
+
+@Composable
+private fun app() = LocalApp.current
+
 /* ---------------- the screen ---------------- */
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)

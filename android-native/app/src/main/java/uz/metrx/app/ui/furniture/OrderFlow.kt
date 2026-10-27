@@ -1,5 +1,8 @@
 package uz.metrx.app.ui.furniture
 
+import uz.metrx.app.ui.rooms.RshSheetGo
+import uz.metrx.app.ui.rooms.RshSheetSub
+import uz.metrx.app.ui.rooms.RshTypeLabel
 import android.content.Intent
 import android.net.Uri
 import androidx.compose.foundation.background
@@ -213,15 +216,15 @@ fun NewOrderScreen(industry: String = "furniture") {
             PageBar(frosted = true) {
                 GlassIconButton("x", tr("common.close"), { app.pop() }, Modifier.padding(start = 6.dp))
                 Spacer(Modifier.width(6.dp))
-                BarTitle(tr("fz.whoT"), eyebrow = tr("fo.new"))
+                BarTitle(tr("fo.new"))
             }
             Column(
                 Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = if (imeOn) 16.dp else 120.dp),
                 verticalArrangement = Arrangement.spacedBy(18.dp)
             ) {
-                GField(tr("np.customerName"), who, { who = it }, tr("smp.customer"), error = whoErr, showError = tried, onIme = { fPhone.requestFocus() },
+                GField(tr("fo.client"), who, { who = it }, tr("smp.customer"), error = whoErr, showError = tried, onIme = { fPhone.requestFocus() },
                     focusRequester = fWho, capitalization = KeyboardCapitalization.Words)
-                GField(tr("np.customerPhone"), phone, { phone = it }, "90 123 45 67", optional = true, phone = true, error = phErr, showError = tried || phone.length >= 9,
+                GField(tr("fo.phone"), phone, { phone = it }, "90 123 45 67", optional = true, phone = true, error = phErr, showError = tried || phone.length >= 9,
                     onIme = { fAddr.requestFocus() }, focusRequester = fPhone)
                 GField(tr("np.address"), address, { address = it }, tr("smp.address"), optional = true, imeAction = ImeAction.Done, onIme = { focus.clearFocus() }, focusRequester = fAddr)
                 uz.metrx.app.ui.loc.LocFormBlock(locState, loc, gps, { locState = it }, { loc = it })
@@ -362,13 +365,13 @@ private fun NewRoomSheet(s: Sheet.FNewRoom) {
         app.sheet = null
         app.startRoomShape(pid, "furniture", type, uz.metrx.app.data.suggestedName(name, "fr.$type", app.settings.lang), fid = s.fid)
     }
-    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fr.continue"), ::create, enabled = name.isNotBlank()) }) {
-        Text(tr("fr.type"), style = ui(15f, 700))
+    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { RshSheetGo(name.isNotBlank(), ::create) }) {
+        RshSheetSub(p)
+        RshTypeLabel()
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             F_ROOMS.forEach { t -> Chip(tr("fr.$t"), t == type) { type = t; name = nameFor(t) } }
         }
         GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr("fr.$type"), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
-        Text(tr("rsh.nextNote"), style = ui(13f, 400, G.ink2, 1.4f))
     }
 }
 

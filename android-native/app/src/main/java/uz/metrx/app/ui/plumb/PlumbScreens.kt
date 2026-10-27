@@ -1,5 +1,8 @@
 package uz.metrx.app.ui.plumb
 
+import uz.metrx.app.ui.rooms.RshSheetGo
+import uz.metrx.app.ui.rooms.RshSheetSub
+import uz.metrx.app.ui.rooms.RshTypeLabel
 import uz.metrx.app.data.putBack
 import androidx.compose.foundation.background
 import uz.metrx.app.ui.components.switchState
@@ -593,13 +596,13 @@ private fun NewRoomSheet(pid: String) {
         app.sheet = null
         app.startRoomShape(pid, "plumb", kind, uz.metrx.app.data.suggestedName(name, kindKey(kind), app.settings.lang))
     }
-    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fr.continue"), ::create, enabled = name.isNotBlank()) }) {
-        Text(tr("fr.type"), style = ui(15f, 700))
+    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { RshSheetGo(name.isNotBlank(), ::create) }) {
+        RshSheetSub(p)
+        RshTypeLabel()
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             KINDS.forEach { k -> Chip(tr(kindKey(k)), k == kind) { kind = k; name = nameFor(k) } }
         }
         GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr(kindKey(kind)), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
-        Text(tr("rsh.nextNote"), style = ui(13f, 400, G.ink2, 1.4f))
     }
 }
 

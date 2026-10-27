@@ -1,5 +1,8 @@
 package uz.metrx.app.ui.win
 
+import uz.metrx.app.ui.rooms.RshSheetGo
+import uz.metrx.app.ui.rooms.RshSheetSub
+import uz.metrx.app.ui.rooms.RshTypeLabel
 import androidx.compose.foundation.background
 import uz.metrx.app.ui.components.switchState
 import androidx.compose.foundation.clickable
@@ -520,10 +523,10 @@ private fun NewRoomSheet(pid: String) {
         app.sheet = null
         app.startRoomShape(pid, "win", "room", uz.metrx.app.data.suggestedName(name, "dw.roomName", app.settings.lang))
     }
-    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fr.continue"), ::create, enabled = name.isNotBlank()) }) {
+    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { RshSheetGo(name.isNotBlank(), ::create) }) {
+        RshSheetSub(p)
         GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr("dw.roomName"), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
         Text(tr("dw.roomB"), style = ui(12.5f, 400, G.ink2, 1.4f))
-        Text(tr("rsh.nextNote"), style = ui(13f, 400, G.ink2, 1.4f))
     }
 }
 
