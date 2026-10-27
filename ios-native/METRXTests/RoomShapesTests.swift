@@ -470,4 +470,35 @@ final class RoomShapesTests: XCTestCase {
         let laser = shapeToRoom(ShapeSpec(.rect), [4200, 3100], height: 2700, id: "l", floorId: "f", name: "n", src: "laser")
         XCTAssertEqual(laser?.room.dim("A"), Dim(v: 4200, src: "laser"))
     }
+
+    /// Asked walls keep their source; worked-out walls stored measured are "manual" (Android ShapeRoomTest askedValuesKeepTheirSource).
+    func testAskedValuesKeepTheirSource() throws {
+        let bay = try XCTUnwrap(shapeToRoom(ShapeSpec(.bay), [4200, 3600, 1000, 2400, 800], height: 2700, id: "r", floorId: "f", name: "n", src: "laser")).room
+        XCTAssertEqual(bay.dim("G").src, "laser")
+        XCTAssertEqual(bay.dim("J").src, "laser")
+        XCTAssertEqual(bay.dim("A").src, "laser")
+        XCTAssertEqual(bay.dim("C").src, "manual")
+        XCTAssertEqual(bay.dim("E").src, "manual")
+        XCTAssertEqual(bay.dim("F").src, "manual")
+        XCTAssertEqual(bay.dim("H").src, "laser")
+        // a free card with a sketch of under 3 walls makes nothing
+        let two = FreeSketch(dirs: [Pt(x: 1, y: 0), Pt(x: -1, y: 0)], hints: [3000, 3000])
+        XCTAssertEqual(shapeGeometry(ShapeSpec(.free, sketch: two), []).error?.code, .empty)
+    }
+
+    /// The flow's letters (shapeWallIds) are the room's (ShapeRoom.wallIds) for every shape, mirrored and turned.
+    func testFlowLettersAreTheRoomsLetters() throws {
+        let sk = FreeSketch(dirs: [Pt(x: 1, y: 0), Pt(x: 0, y: 1), Pt(x: -1, y: 0), Pt(x: 0, y: 1), Pt(x: -1, y: 0), Pt(x: 0, y: -1)],
+                            hints: [4400, 2600, 2000, 1800, 2400, 4400])
+        for s in RoomShape.allCases {
+            for mir in [false, true] {
+                for t in 0..<4 {
+                    let spec = ShapeSpec(s, mirror: s == .free ? false : mir, turns: s == .free ? 0 : t, sketch: s == .free ? sk : nil)
+                    let vals: [Int?] = asks(spec).map { $0.def }
+                    let sr = try XCTUnwrap(shapeToRoom(spec, vals, height: 2700, id: "r", floorId: "f", name: "n"), "\(s.id) \(mir) \(t)")
+                    XCTAssertEqual(shapeWallIds(spec, sr.wallIds.count), sr.wallIds, "\(s.id) \(mir) \(t)")
+                }
+            }
+        }
+    }
 }

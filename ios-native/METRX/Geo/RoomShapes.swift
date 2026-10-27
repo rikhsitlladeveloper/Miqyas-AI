@@ -354,8 +354,9 @@ func shapeGeometry(_ spec: ShapeSpec, _ values: [Int?]) -> ShapeGeo {
         if rs <= 0 { err = ShapeError(.bayNotFit, value: pw, limit: W2) }
         else if fr <= 0 { err = ShapeError(.bayTooDeep) }
     case .free:
-        guard let sk = spec.sketch, !sk.dirs.isEmpty, sk.dirs.count == d.count else {
-            return ShapeGeo(spec: spec, corners: [], walls: [], error: ShapeError(.empty), values: v)
+        // a free card with no sketch (or under 3 walls) yet: nothing to draw, nothing to make
+        guard let sk = spec.sketch, sk.dirs.count >= 3, sk.dirs.count == d.count else {
+            return ShapeGeo(spec: spec, corners: [Pt(x: 0, y: 0)], walls: [], error: ShapeError(.empty), values: v)
         }
         let dr = sk.dirs
         let n2 = dr.count

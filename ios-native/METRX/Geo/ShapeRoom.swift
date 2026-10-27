@@ -97,6 +97,10 @@ func shapeToRoom(_ spec: ShapeSpec, _ values: [Int?], height: Int, id: String, f
     }
     let shapeLens: [Int] = (0..<n).map { j in lens[roomOf(j)] }
     let flipped = [Bool](repeating: rev, count: n)
+    // what was asked keeps its source (src: "manual" typed, "sim" / "laser" read); worked-out walls are "manual"
+    var askedRoomWall = [Bool](repeating: false, count: n)
+    for j in 0..<n where !g.walls[j].derived { askedRoomWall[roomOf(j)] = true }
+    func measured(_ k: Int) -> Dim { Dim(v: lens[k], src: askedRoomWall[k] ? src : "manual") }
 
     var room = Room(id: id, floorId: floorId, name: name, created: created)
     let wallIds: [String]
@@ -106,7 +110,7 @@ func shapeToRoom(_ spec: ShapeSpec, _ values: [Int?], height: Int, id: String, f
         let rot: Int
         if b.x - a.x > 0.5 { rot = 0 } else if b.y - a.y > 0.5 { rot = 1 } else if a.x - b.x > 0.5 { rot = 2 } else { rot = 3 }
         room.rot = rot
-        room.dims = ["A": Dim(v: lens[0], src: src), "B": Dim(v: lens[1], src: src), "H": Dim(v: height, src: src), "T": Dim(v: 200, src: "default")]
+        room.dims = ["A": measured(0), "B": measured(1), "H": Dim(v: height, src: src), "T": Dim(v: 200, src: "default")]
         let ids = ["A", "B", "C", "D"]
         wallIds = (0..<n).map { j in ids[roomOf(j) % 4] }
     } else {
@@ -124,7 +128,7 @@ func shapeToRoom(_ spec: ShapeSpec, _ values: [Int?], height: Int, id: String, f
             if left.isEmpty || !shapeParallel(V, left[0], k) { left.append(k) }
         }
         var dims: [String: Dim] = [:]
-        for k in 0..<n { dims[ids[k]] = left.contains(k) ? Dim() : Dim(v: lens[k], src: src) }
+        for k in 0..<n { dims[ids[k]] = left.contains(k) ? Dim() : measured(k) }
         dims["H"] = Dim(v: height, src: src)
         dims["T"] = Dim(v: 200, src: "default")
         var diags: [Diag] = []
@@ -151,6 +155,16 @@ func shapeToRoom(_ spec: ShapeSpec, _ values: [Int?], height: Int, id: String, f
     var out = ShapeRoom(room: room, wallIds: wallIds, flipped: flipped, lens: shapeLens)
     for op in openings { out = out.withOpening(op) }
     return out
+}
+
+/// The editor's wall letters of a shape's n walls, as shapeToRoom names them (ShapeRoom.wallIds), also while the shape
+/// does not close yet (the walls steps): the rectangle's A–D, a drawn room's Geo.polyWallIds; a mirrored shape is walked
+/// the other way round, still from wall A (Android geo/ShapeRoom.kt shapeWallIds).
+func shapeWallIds(_ spec: ShapeSpec, _ n: Int) -> [String] {
+    guard n > 0 else { return [] }
+    let ids = spec.shape == .rect ? ["A", "B", "C", "D"] : Geo.polyWallIds(n)
+    guard ids.count >= n else { return (0..<n).map { shapeWallLetter($0) } }
+    return (0..<n).map { j in ids[spec.mirror ? (n - j) % n : j] }
 }
 
 /// Rounds away float dust (−0, 2599.9999999), keeping real fractions (a free sketch's spread corners).
