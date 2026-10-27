@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /*
  * Designer C for every cabinet on the wardrobe's engine (founder-approved 27 Oct 2026): wardrobes and kupe, gorka and
@@ -292,7 +293,8 @@ enum DzcWOps {
         var b = c.m
         b.elev = 0
         let u = map.mmX(pt.x) + c.m.x, z = map.mmY(pt.y)
-        return wardFrontBoxes(b, c.ws).first { $0.f.sec == i && u >= $0.x0 - 4 && u <= $0.x1 + 4 && z >= $0.y0 - 4 && z <= $0.y1 + 4 }?.f.key
+        let fb = wardFrontBoxes(b, c.ws).first(where: { $0.f.sec == i && u >= $0.x0 - 4 && u <= $0.x1 + 4 && z >= $0.y0 - 4 && z <= $0.y1 + 4 })
+        return fb?.f.key
     }
 
     static func deselect() {

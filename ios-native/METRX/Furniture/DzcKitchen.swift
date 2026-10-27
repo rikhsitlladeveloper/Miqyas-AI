@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /*
  * Designer C for kitchens (founder-approved 27 Oct 2026; design/designer-c/mockup.html): the wall seen from inside the
@@ -464,9 +465,9 @@ enum DzcKDraw {
         ctx.stroke(p, with: .color(PC.white), lineWidth: 1.5)
         let cx = r.midX, cy = r.midY
         if vertical {
-            for dx in [-2.0, 2.0] { ctx.line(PC.white, CGPoint(x: cx + dx, y: cy - 8), CGPoint(x: cx + dx, y: cy + 8), 1.4, round: true) }
+            for dx: CGFloat in [-2, 2] { ctx.line(PC.white, CGPoint(x: cx + dx, y: cy - 8), CGPoint(x: cx + dx, y: cy + 8), 1.4, round: true) }
         } else {
-            for dy in [-2.0, 2.0] { ctx.line(PC.white, CGPoint(x: cx - 8, y: cy + dy), CGPoint(x: cx + 8, y: cy + dy), 1.4, round: true) }
+            for dy: CGFloat in [-2, 2] { ctx.line(PC.white, CGPoint(x: cx - 8, y: cy + dy), CGPoint(x: cx + 8, y: cy + dy), 1.4, round: true) }
         }
     }
 
@@ -555,7 +556,8 @@ enum DzcKOps {
     /// The front of m under point pt.
     static func hitFront(_ c: DzcKCtx, _ map: DzcMap, _ m: Module, _ pt: CGPoint) -> String? {
         let u = map.mmX(pt.x) - m.x, z = map.mmY(pt.y) - m.elev
-        return unitFrontBoxes(m, c.ws).first { u >= $0.x0 - 4 && u <= $0.x1 + 4 && z >= $0.y0 - 4 && z <= $0.y1 + 4 }?.f.key
+        let b = unitFrontBoxes(m, c.ws).first(where: { u >= $0.x0 - 4 && u <= $0.x1 + 4 && z >= $0.y0 - 4 && z <= $0.y1 + 4 })
+        return b?.f.key
     }
 
     static func deselect() {
@@ -795,7 +797,8 @@ enum DzcKOps {
         }
         if let fk = st.front {
             var a = [tl("handle")]
-            let door = !(handleFronts(m).first { $0.key == fk }?.drawer ?? true)
+            let fr = handleFronts(m).first(where: { $0.key == fk })
+            let door = fr.map { !$0.drawer } ?? false
             if door && m.fronts.kind == "door" && m.fronts.n == 1 { a.append(tl("hinge")) }
             if door { a.append(tl("soft")) }
             a.append(tl("selUp"))

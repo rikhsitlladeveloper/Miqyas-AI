@@ -493,7 +493,7 @@ struct DzcSwatch: View {
         let c = Color(argb: 0xFF00_0000 | UInt32(rgbOf(rgb)))
         VStack(spacing: 3) {
             Circle().fill(c)
-                .overlay(wood ? Circle().strokeBorder(Color.black.opacity(0.12), style: StrokeStyle(lineWidth: 5, dash: [1, 3])) : nil)
+                .overlay { if wood { Circle().strokeBorder(Color.black.opacity(0.12), style: StrokeStyle(lineWidth: 5, dash: [1, 3])) } }
                 .padding(on ? 3 : 1)
                 .frame(width: 36, height: 36)
                 .overlay(Circle().strokeBorder(on ? G.cobalt : G.ink.opacity(0.2), lineWidth: on ? 3 : 1))
