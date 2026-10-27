@@ -164,7 +164,7 @@ private struct RProg: View {
 }
 
 /// A page of the flow: the header (Back, the title on two lines, the progress), the scrolling body and the bottom bar.
-private struct RPage<Content: View>: View {
+private struct RshPage<Content: View>: View {
     let title: String
     let sub: String?
     let prog: Int?
@@ -273,7 +273,7 @@ private struct ShapeStep: View {
     let d: RshDraft
     var body: some View {
         let free = d.shape == "free"
-        RPage(title: tr("rsh.shapeT"), sub: dn(d.name), prog: 0, back: { rshBack(app, d) },
+        RshPage(title: tr("rsh.shapeT"), sub: dn(d.name), prog: 0, back: { rshBack(app, d) },
               bar: RBar(label: tr(free ? "rsh.drawGo" : "fr.continue"), icon: free ? "pen" : nil, id: "rsh.shapeGo") {
                   Haptic.tick()
                   if free { go(d, "sketch") } else { d.ret = false; setStep(d, 0); go(d, "walls") }
@@ -367,7 +367,7 @@ private struct WallsStep: View {
         if isD { look.diagK = rshDiagK(d); look.diagCur = true; look.diagTxt = liveTxt ?? "?" }
         look.dimTxt = vals.mapValues { lenWords($0, unit) }
         let main = isD && d.input.isEmpty ? tr("rsh.skip") : d.ret ? tr("common.save") : tr("common.next")
-        return RPage(title: dn(d.name) + " · " + tr("rsh.s." + d.shape), sub: sub, prog: nil, back: { rshBack(app, d) },
+        return RshPage(title: dn(d.name) + " · " + tr("rsh.s." + d.shape), sub: sub, prog: nil, back: { rshBack(app, d) },
                      bar: RBar(label: main, enabled: !d.input.isEmpty || isD) { wallsNext(d) }) {
             Dots(n: n + (free ? 1 : 0), at: st)
             PicBox(height: kb ? 150 : 220, tools: d) { PlanPic(g: geo.g, look: look, letters: geo.letters) }
@@ -448,7 +448,7 @@ private struct HeightStep: View {
     var body: some View {
         let unit = rshUnit(d)
         let live = parseLen(d.hIn, unit).flatMap { $0 >= RSH_H_MIN && $0 <= RSH_H_MAX ? $0 : nil }
-        RPage(title: dn(d.name), sub: tr("rsh.hSub"), prog: nil, back: { rshBack(app, d) },
+        RshPage(title: dn(d.name), sub: tr("rsh.hSub"), prog: nil, back: { rshBack(app, d) },
               bar: RBar(label: tr(d.ret ? "common.save" : "common.next"), enabled: !d.hIn.isEmpty) { heightNext(d) }) {
             PicBox(height: kb ? 150 : 220) { HeightPic(txt: live.map { lenWords($0, unit) } ?? "?").padding(4) }
             RshSizeField(app: app, d: d, key: "h", label: tr("rsh.hT"), help: tr("rsh.hD"), text: d.hIn, fresh: d.hFresh, hint: SHAPE_HEIGHT_DEFAULT, issue: d.hErr,
@@ -506,7 +506,7 @@ private struct OpsList: View {
         let geo = rshGeo(d)
         var look = PlanLook(final: true)
         look.ops = d.ops; look.fmt = lenFmt(d)
-        return RPage(title: tr("rsh.opsT"), sub: tr("rsh.opsSub", ["n": dn(d.name)]), prog: 3, back: { rshBack(app, d) },
+        return RshPage(title: tr("rsh.opsT"), sub: tr("rsh.opsSub", ["n": dn(d.name)]), prog: 3, back: { rshBack(app, d) },
                      bar: RBar(label: tr(d.ops.isEmpty ? "rsh.skip" : "rsh.ready"), id: "rsh.opsDone") { Haptic.tick(); go(d, "summary") }) {
             PicBox(height: 220) { PlanPic(g: geo.g, look: look, letters: geo.letters) }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
@@ -557,7 +557,7 @@ private struct OpWall: View {
         let name = tr("rsh.op." + op.kind.id)
         var look = PlanLook(pick: true)
         look.ops = d.ops; look.fmt = lenFmt(d)
-        return RPage(title: tr("rsh.whichWall", ["n": name]), sub: tr("rsh.tapWall"), prog: 3, back: { rshBack(app, d) },
+        return RshPage(title: tr("rsh.whichWall", ["n": name]), sub: tr("rsh.tapWall"), prog: 3, back: { rshBack(app, d) },
                      bar: RBar(label: tr("common.cancel"), secondary: true, id: "rsh.opCancel") { d.op = nil; Haptic.tick() }) {
             PicBox(height: 270) {
                 PlanPic(g: geo.g, look: look, letters: geo.letters) { i in
@@ -605,7 +605,7 @@ private struct OpNum: View {
         var look = PlanLook(sel: op.wall, corner: op.wall)
         look.ops = d.ops; look.preview = prev; look.fmt = lenFmt(d); look.pad = 22
         let fieldLabel = tr(opFieldKey(op.kind, f.field))
-        return RPage(title: name + " · " + tr("rsh.wall", ["w": letter]), sub: "\(sub + 1) / \(fs.count) · " + fieldLabel, prog: nil, back: { rshBack(app, d) },
+        return RshPage(title: name + " · " + tr("rsh.wall", ["w": letter]), sub: "\(sub + 1) / \(fs.count) · " + fieldLabel, prog: nil, back: { rshBack(app, d) },
                      bar: RBar(label: tr(sub < fs.count - 1 ? "common.next" : "rsh.add"), enabled: !op.input.isEmpty) { opNext(app, d) }) {
             PicBox(height: kb ? 150 : 220) { PlanPic(g: geo.g, look: look, letters: geo.letters) }
             RshSizeField(app: app, d: d, key: "op\(op.kind.id)\(op.wall)\(sub)", label: fieldLabel, help: help, text: op.input, fresh: op.fresh,
@@ -725,7 +725,7 @@ private struct SummaryStep: View {
         // in the editor's letter order (a mirrored shape was asked the other way round)
         let order = g.walls.indices.sorted { geo.letter($0) < geo.letter($1) }
         func edit(_ i: Int) { d.ret = true; setStep(d, i); go(d, "walls") }
-        return RPage(title: dn(d.name), sub: tr("rsh.sumSub"), prog: 4, back: { rshBack(app, d) },
+        return RshPage(title: dn(d.name), sub: tr("rsh.sumSub"), prog: 4, back: { rshBack(app, d) },
                      bar: RBar(label: tr("rsh.open"), icon: "room", enabled: err == nil, id: "rsh.open") { finishRoom(app, d) }) {
             PicBox(height: 230) { PlanPic(g: g, look: look, letters: geo.letters) }
             FlowLayout(spacing: 8) {
