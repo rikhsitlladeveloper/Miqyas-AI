@@ -157,15 +157,18 @@ class Gps internal constructor(private val context: Context) {
     /** Location must be on: Google's settings check shows the "Turn on location" dialog when it can. */
     private fun checkSettings() {
         val g = gen
-        if (!hasPlayServices(context)) { if (locationOn(context)) search() else turnedOff(); return }
+        // location on: search at once (Google's check would also fail on its "Location Accuracy" switch and ask on
+        // every tap); off: Google's dialog, or without Google Play services the message with "Sozlamalarni ochish"
+        if (locationOn(context)) { search(); return }
+        if (!hasPlayServices(context)) { turnedOff(); return }
         runCatching {
             LocationServices.getSettingsClient(context).checkLocationSettings(LocationSettingsRequest.Builder().addLocationRequest(highAccuracyRequest()).build())
                 .addOnSuccessListener { if (g == gen && locating) search() }
                 .addOnFailureListener { e ->
                     if (g != gen || !locating) return@addOnFailureListener
                     when {
-                        e is ResolvableApiException -> runCatching { resolve(e.resolution.intentSender) }.onFailure { resolved(false) }
                         locationOn(context) -> search()
+                        e is ResolvableApiException -> runCatching { resolve(e.resolution.intentSender) }.onFailure { resolved(false) }
                         else -> turnedOff()
                     }
                 }
