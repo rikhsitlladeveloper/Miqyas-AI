@@ -311,7 +311,8 @@ struct EGalleryScreen: View {
     private func intro(_ p: Project, _ room: Room?) -> String {
         guard let room else { return tr("el.galB") }
         let f = { (mm: Int?) in Geo.fmtLen(mm, .m, en) }
-        return tr("tl.forRoom", ["r": eRoomName(p, room), "a": f(room.dim("A").v), "b": f(room.dim("B").v), "h": f(room.dim("H").v)])
+        let sz = Geo.roomSize(room, AppSettings.shared.angleSnap)
+        return tr("tl.forRoom", ["r": eRoomName(p, room), "a": f(sz?.0), "b": f(sz?.1), "h": f(room.dim("H").v)])
     }
 
     private func chips(_ kinds: [String], _ on: String, _ proxy: ScrollViewProxy) -> some View {
@@ -560,8 +561,8 @@ struct EStepsScreen: View {
     /// A room's line on the "which room" step: its sizes, measured, or to be measured later.
     private func roomSub(_ r: Room, _ snap: Bool) -> String {
         let ready = measuredRoom(r, snap)
-        if ready && !r.isPoly {
-            let a = Geo.fmtLen(r.dim("A").v, .m, en), b = Geo.fmtLen(r.dim("B").v, .m, en)
+        if ready, let rs = Geo.roomSize(r, snap) {
+            let a = Geo.fmtLen(rs.0, .m, en), b = Geo.fmtLen(rs.1, .m, en)
             return a + " × " + b + U_M
         }
         return tr(ready ? "tl.measured" : "el.s.later")

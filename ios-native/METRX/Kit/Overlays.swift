@@ -136,7 +136,8 @@ struct ToastHost: View {
         }
         .animation(.easeOut(duration: 0.2), value: lift)
         .onChange(of: msg?.id) { _, _ in
-            guard let m = msg else { return }
+            // cleared by the app (e.g. the room-shape flow moving to its next screen): it slides away now
+            guard let m = msg else { if visible { withAnimation(.easeIn(duration: 0.22)) { visible = false } }; return }
             shown = m
             withAnimation(.spring(response: 0.34, dampingFraction: 0.8)) { visible = true }
             let id = m.id

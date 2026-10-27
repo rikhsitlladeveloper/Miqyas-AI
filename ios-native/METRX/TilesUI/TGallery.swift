@@ -97,7 +97,8 @@ struct TGalleryScreen: View {
         guard let room else { return tr("tl.galB") }
         let f = { (mm: Int?) in Geo.fmtLen(mm, .m, en) }
         let name = p.floors.first { $0.id == room.floorId }.map { floorName($0) } ?? dn(room.name)
-        return tr("tl.forRoom", ["r": name, "a": f(room.dim("A").v), "b": f(room.dim("B").v), "h": f(room.dim("H").v)])
+        let sz = Geo.roomSize(room, AppSettings.shared.angleSnap)
+        return tr("tl.forRoom", ["r": name, "a": f(sz?.0), "b": f(sz?.1), "h": f(room.dim("H").v)])
     }
 
     private func chips(_ groups: [(String, [TModel])], _ on: String, _ proxy: ScrollViewProxy) -> some View {
@@ -562,7 +563,8 @@ private struct TWhereStep: View {
     private func roomOption(_ r: Room) -> some View {
         let w = p.floors.first { $0.id == r.floorId }
         let ready = measuredRoom(r, snap)
-        let sub = ready && !r.isPoly ? Geo.fmtLen(r.dim("A").v, .m, en) + " × " + Geo.fmtLen(r.dim("B").v, .m, en) + U_M : tr(ready ? "tl.measured" : "fo.notMeasured")
+        let rs = ready ? Geo.roomSize(r, snap) : nil
+        let sub = rs.map { Geo.fmtLen($0.0, .m, en) + " × " + Geo.fmtLen($0.1, .m, en) + U_M } ?? tr(ready ? "tl.measured" : "fo.notMeasured")
         return TOption(title: w.map { floorName($0) } ?? dn(r.name), sub: sub, on: d.roomId == r.id) {
             d.roomId = r.id; d.panel = nil
             d.surfs = defaultSurfs(d, r, p, snap)

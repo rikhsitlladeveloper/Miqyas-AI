@@ -113,7 +113,7 @@ struct FGalleryScreen: View {
                             if let room {
                                 let f = { (mm: Int?) in Geo.fmtLen(mm, AppSettings.shared.unit, en) }
                                 let name = p.floors.first { $0.id == room.floorId }.map { floorName($0) } ?? dn(room.name)
-                                T(tr("fg.forRoom", ["r": name, "a": f(room.dim("A").v), "b": f(room.dim("B").v), "h": f(room.dim("H").v)]), ui(13.5, 400, G.ink2, lh: 1.4))
+                                T(tr("fg.forRoom", ["r": name, "a": f(Geo.roomSize(room, AppSettings.shared.angleSnap)?.0), "b": f(Geo.roomSize(room, AppSettings.shared.angleSnap)?.1), "h": f(room.dim("H").v)]), ui(13.5, 400, G.ink2, lh: 1.4))
                                 // a measured kitchen: built for it, six styles to pick from (Joylan ideas, 26 Oct 2026)
                                 if first == "kitchen" && measuredRoom(room, s.angleSnap) { AutoKitchenEntry(app: app, pid: p.id, rid: room.id) }
                             } else {

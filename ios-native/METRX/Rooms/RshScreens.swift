@@ -57,6 +57,8 @@ struct RoomShapeScreen: View {
 
 /// Moves to another screen of the flow; the height step starts from the height kept, selected.
 private func go(_ d: RshDraft, _ s: String) {
+    // a step's toast (e.g. "Eshik qo‘shildi") does not follow onto the next screen (mockup go → hideToast)
+    if s != d.screen { AppModel.shared.toast = nil }
     d.heard = nil; d.err = nil
     if s == "height" { d.hIn = rshFieldText(d.height, rshUnit(d)); d.hFresh = true; d.hErr = nil }
     if s == "ops" { d.op = nil }
@@ -419,8 +421,8 @@ private func wallsNext(_ d: RshDraft) {
         guard let v = parseLen(d.input, unit), v >= RSH_WALL_MIN, v <= RSH_WALL_MAX else { bad(tr("rsh.e.enter", ["r": range])); return }
         if let e = rshDiagErr(d, v) { bad(e); return }
         d.diag = v
-        AppModel.shared.say("rsh.diagOk")
-        finishWalls(d); return
+        finishWalls(d)
+        AppModel.shared.say("rsh.diagOk"); return
     }
     guard let v = parseLen(d.input, unit), v >= RSH_WALL_MIN, v <= RSH_WALL_MAX else {
         bad(tr(d.shape == "bay" && d.step >= 3 ? "rsh.e.size" : "rsh.e.wall", ["r": range])); return
@@ -669,7 +671,8 @@ private struct SumRow<End: View>: View {
             T(label, ui(14, 500, G.ink2, lh: 1.3)).frame(maxWidth: .infinity, alignment: .leading)
             // fills its half and hugs the button, as the mockup's value next to "O‘zgartirish"
             T(value, small ? ui(12.5, 700, auto ? G.ink2 : G.ink, lh: 1.3) : num(15.5, 700, auto ? G.ink2 : G.ink), align: .trailing)
-                .frame(maxWidth: .infinity, alignment: .trailing)
+                .frame(maxWidth: 190, alignment: .trailing)
+                .fixedSize(horizontal: false, vertical: true)
             end.frame(minWidth: endMin, alignment: .trailing)
         }
         .padding(.leading, 14).padding(.trailing, 6).padding(.vertical, 6).frame(minHeight: 52)
