@@ -263,7 +263,7 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project, addCard: Boolean = t
                     }
                     Column(Modifier.weight(1f)) {
                         Text(floorName(w, lang), style = ui(16f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val a = room?.dim("A")?.v; val b = room?.dim("B")?.v; val h = room?.dim("H")?.v
+                        val sz = room?.let { uz.metrx.app.geo.roomSize(it, s.angleSnap) }; val a = sz?.first; val b = sz?.second; val h = room?.dim("H")?.v
                         Text(if (drawn && a != null && b != null) uz.metrx.app.geo.fmtLen(a, s.furnUnit, en) + " × " + uz.metrx.app.geo.fmtLen(b, s.furnUnit, en) + " " + unitWord(s.furnUnit) +
                                 (h?.let { " · h " + uz.metrx.app.geo.fmtLen(it, s.furnUnit, en) } ?: "")
                             else tr(if (room != null) "fo.notMeasured" else "fo.notDrawn"), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)

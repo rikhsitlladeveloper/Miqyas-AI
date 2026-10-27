@@ -306,8 +306,8 @@ fun ERoomsTab(p: Project, lang: Lang, route: Route.Project) {
                     }
                     Column(Modifier.weight(1f)) {
                         Text(floorName(w, lang) + (if (several && room != null) " · " + dn(room.name, lang) else ""), style = ui(16f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        val a = room?.dim("A")?.v; val b = room?.dim("B")?.v; val h = room?.dim("H")?.v
-                        Text(if (ready && a != null && b != null && room?.isPoly != true) fmtLen(a, LenUnit.M, en) + " × " + fmtLen(b, LenUnit.M, en) + " " + tr("u.m") + (h?.let { " · h " + fmtLen(it, LenUnit.M, en) } ?: "")
+                        val sz = room?.let { uz.metrx.app.geo.roomSize(it, app.settings.angleSnap) }; val a = sz?.first; val b = sz?.second; val h = room?.dim("H")?.v
+                        Text(if (ready && a != null && b != null) fmtLen(a, LenUnit.M, en) + " × " + fmtLen(b, LenUnit.M, en) + " " + tr("u.m") + (h?.let { " · h " + fmtLen(it, LenUnit.M, en) } ?: "")
                             else if (ready) tr("tl.measured") else tr(if (room != null) "fo.notMeasured" else "fo.notDrawn"), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     if (ready) Text("3D", style = ui(13f, 800, G.cobalt2), modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(G.cobalt.copy(alpha = .1f)).padding(horizontal = 10.dp, vertical = 6.dp))

@@ -673,7 +673,7 @@ fun FWhereScreen(rt: Route.FWhere) {
                     Text(name, style = ui(15f, 700, if (ready) G.ink else G.ink3), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     if (ready) {
                         val f = { mm: Int? -> fmtLen(mm, unit, en) }
-                        Text(f(r.dim("A").v) + " × " + f(r.dim("B").v) + " " + unitWord(unit) + " · h " + f(r.dim("H").v), style = num(12.5f, 500, G.ink2))
+                        Text(uz.metrx.app.geo.roomSize(r, app.settings.angleSnap).let { f(it?.first) + " × " + f(it?.second) } + " " + unitWord(unit) + " · h " + f(r.dim("H").v), style = num(12.5f, 500, G.ink2))
                         val good = fit!!.second.isEmpty()
                         Text(if (good) "✓ " + tr("fq.fits") else issueText(app, fit.second.first(), lang), style = ui(12f, 700, if (good) Color(0xFF15803D) else G.err, 1.3f),
                             modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(if (good) G.greenWash else G.errWash).padding(horizontal = 8.dp, vertical = 3.dp))

@@ -127,6 +127,18 @@ fun wallCorner(r: Room, id: String, snap: Boolean = true) = walls(r, snap).first
 /** The measurements the builder takes, in order (prototype hmDimKeys): the non-derived walls, then the height. */
 fun stepKeys(r: Room, snap: Boolean = true): List<String> = walls(r, snap).filter { !it.derived }.map { it.dimKey }.distinct() + "H"
 
+/**
+ * The room's overall size, mm: the walls A × B of a rectangle, the bounding box of a shaped room (an L's
+ * "4 200 × 3 600", not its first two walls); null until it is worked out.
+ */
+fun roomSize(r: Room, snap: Boolean = true): Pair<Int, Int>? {
+    if (!r.isPoly) { val a = r.dim("A").v ?: return null; val b = r.dim("B").v ?: return null; return a to b }
+    val g = polyGeo(r, snap)
+    if (!g.solved || g.verts.size < 3) return null
+    val w = g.verts.maxOf { it.x } - g.verts.minOf { it.x }; val h = g.verts.maxOf { it.y } - g.verts.minOf { it.y }
+    return Math.round(w).toInt() to Math.round(h).toInt()
+}
+
 /* ---------------- areas ---------------- */
 
 data class Areas(val floor: Long, val perim: Long, val gross: Long?, val open: Long?, val net: Long?)
