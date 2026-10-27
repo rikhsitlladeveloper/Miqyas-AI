@@ -229,7 +229,7 @@ fun AutoKitchenScreen(rt: Route.AutoKitchen) {
     Column(Modifier.fillMaxSize()) {
         val rn = p.floors.firstOrNull { it.id == room.floorId }?.let { floorName(it, lang) } ?: dn(room.name, lang)
         uz.metrx.app.ui.ux.UxTop(tr("ak.title"), { app.pop() }, eyebrow = dn(p.name, lang) + " · " + tr("ak.sub", "r" to rn,
-            "a" to uz.metrx.app.geo.fmtLen(room.dim("A").v, uz.metrx.app.geo.LenUnit.M, en), "b" to uz.metrx.app.geo.fmtLen(room.dim("B").v, uz.metrx.app.geo.LenUnit.M, en))) { uz.metrx.app.ui.ux.ProgressRow(p, compact = true) }
+            "a" to uz.metrx.app.geo.fmtLen(uz.metrx.app.geo.roomSize(room, app.settings.angleSnap)?.first, uz.metrx.app.geo.LenUnit.M, en), "b" to uz.metrx.app.geo.fmtLen(uz.metrx.app.geo.roomSize(room, app.settings.angleSnap)?.second, uz.metrx.app.geo.LenUnit.M, en))) { uz.metrx.app.ui.ux.ProgressRow(p, compact = true) }
         if (site.walls.size < 3) Text(tr("ak.needRoom"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.weight(1f).padding(24.dp))
         else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 32.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {

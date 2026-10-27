@@ -247,6 +247,8 @@ fun RoomShapeScreen(rt: Route.RoomShape) {
 /** Moves to another screen of the flow; the height step starts from the height kept, selected. */
 private fun go(app: App, d: RshDraft, s: String) {
     d.heard = null; d.err = null
+    // a step's toast (e.g. "Eshik qo‘shildi") does not follow onto the next screen (mockup go → hideToast)
+    if (s != d.screen) app.toast = null
     if (s == "height") { d.hIn = fieldText(d.height, app.rshUnit(d), app.english()); d.hFresh = true; d.hErr = null }
     if (s == "ops") d.op = null
     d.screen = s
@@ -490,8 +492,8 @@ private fun wallsNext(app: App, d: RshDraft) {
         if (v == null || v !in WALL_MIN..WALL_MAX) { bad(app.t("rsh.e.enter", "r" to range)); return }
         rshDiagErr(app, d, v)?.let { bad(it); return }
         d.diag = v
-        app.toast = ToastMsg(app.t("rsh.diagOk"))
-        finishWalls(app, d); return
+        finishWalls(app, d)
+        app.toast = ToastMsg(app.t("rsh.diagOk")); return
     }
     val v = parseLen(d.input, unit)
     if (v == null || v !in WALL_MIN..WALL_MAX) { bad(app.t(if (d.shape == "bay" && d.step >= 3) "rsh.e.size" else "rsh.e.wall", "r" to range)); return }
@@ -722,8 +724,8 @@ private fun SumRow(label: String, value: String, small: Boolean = false, auto: B
         .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(label, style = ui(14f, 500, G.ink2, 1.3f), modifier = Modifier.weight(1f))
         Text(value, style = if (small) ui(12.5f, 700, if (auto) G.ink2 else G.ink, 1.3f) else num(15.5f, 700, if (auto) G.ink2 else G.ink), textAlign = TextAlign.End,
-            // fills its half and hugs the button, as the mockup's value next to "O‘zgartirish"
-            modifier = Modifier.weight(1f))
+            // hugs the button, as the mockup's value next to "O‘zgartirish"; a long one wraps instead of squeezing the label
+            modifier = Modifier.widthIn(max = 190.dp))
         Box(Modifier.widthIn(min = endMin), contentAlignment = Alignment.CenterEnd) { end() }
     }
 }

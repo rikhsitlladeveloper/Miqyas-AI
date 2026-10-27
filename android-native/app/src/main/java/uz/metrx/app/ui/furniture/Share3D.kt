@@ -132,7 +132,7 @@ internal fun client3D(app: App, p: Project, room: Room, fs: List<Furniture>, pri
     val title = fs.joinToString(" + ") { dn(it.name, l) } + " · " + t("sh3.units", "n" to units)
     val date = uz.metrx.app.data.fmtDate(System.currentTimeMillis())
     val sub = if (uz.metrx.app.furniture.isFreeRoom(room)) date else t("sh3.room", "r" to (p.floors.firstOrNull { it.id == room.floorId }?.let { floorName(it, l) } ?: dn(room.name, l)),
-        "a" to fmtLen(room.dim("A").v, LenUnit.M, en), "b" to fmtLen(room.dim("B").v, LenUnit.M, en), "d" to date)
+        "a" to fmtLen(uz.metrx.app.geo.roomSize(room)?.first, LenUnit.M, en), "b" to fmtLen(uz.metrx.app.geo.roomSize(room)?.second, LenUnit.M, en), "d" to date)
     val priceLine = if (!price || !s.advanced) null else runCatching {
         val v = priceOf(fs, p.fprice, ws, mats, s.hws).lines.filter { ln -> fs.any { it.id == ln.key } }.fold(java.math.BigInteger.ZERO) { a, ln -> a + ln.amount }
         t("sh3.price", "v" to moneyStr(v, p.precision, en) + " " + curSuffix(p.currency, l))
