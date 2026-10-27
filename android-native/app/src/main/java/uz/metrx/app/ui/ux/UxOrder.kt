@@ -61,7 +61,7 @@ fun FOrderScreen(r: Route.Project, p: Project) {
     val act = app.fNextAct(p, ctx)
     val galleryNext = act.label == app.t("ux.a.addFurn") || act.label == app.t("ux.a.more")
     Column(Modifier.fillMaxSize()) {
-        UxTop(dn(p.name, lang), { app.pop() }, eyebrow = tr("ux.order"), sample = p.sample, right = {
+        UxTop(dn(p.name, lang), { app.pop() }, eyebrow = tr("ux.order"), right = {
             uz.metrx.app.ui.furniture.CallButton(p)
             Box(Modifier.size(46.dp).clip(CircleShape).background(G.ink.copy(alpha = .06f)).clickable(role = Role.Button, onClickLabel = tr("common.menu")) {
                 app.sheet = Sheet.ProjectMenu(p.id)
@@ -152,7 +152,7 @@ private fun InfoPart(p: Project, lang: Lang) {
                     Text(tr("fs.$st"), style = ui(14f, if (cur) 800 else 600, if (i > k) G.ink3 else G.ink))
                 }
             }
-            Text(tr("ux.stagesNote"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(top = 4.dp))
+            Text(tr("ux.adv.stages"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

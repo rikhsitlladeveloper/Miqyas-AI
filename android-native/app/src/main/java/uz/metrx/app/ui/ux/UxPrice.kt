@@ -68,7 +68,7 @@ fun FPriceScreen(rt: Route.FPrice) {
     val cur = remember(p, s.workshop, s.mats, s.hws, s.pdf, s.builderName) { app.currentQuote(p) }
     val no = cur?.no ?: ((p.quotes.maxOfOrNull { it.no } ?: 0) + 1)
     Column(Modifier.fillMaxSize()) {
-        UxTop(tr("ux.priceT"), { app.pop() }, eyebrow = dn(p.name, lang), sample = p.sample) { ProgressRow(p) }
+        UxTop(tr("ux.priceT"), { app.pop() }, eyebrow = dn(p.customer, lang).ifBlank { dn(p.name, lang) }) { ProgressRow(p) }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (fs.isEmpty()) {
@@ -97,12 +97,16 @@ fun FPriceScreen(rt: Route.FPrice) {
                     } else {
                         Text(tr("ux.approxT"), style = ui(12.5f, 400, Color(0xFFB7C3D9)))
                         Text(app.priceWords(p, short = true) ?: "—", style = num(25f, 700, Color(0xFFCBD5E1)), maxLines = 1)
-                        Text(tr("ux.advHint"), style = ui(12f, 400, Color(0xFFB7C3D9), 1.35f))
+                        Text(tr("ux.adv.hint"), style = ui(12f, 400, Color(0xFFB7C3D9), 1.35f))
                     }
                 }
                 Kv(tr("ux.kv.client"), dn(p.customer, lang).ifBlank { "—" })
                 Hairline()
-                Kv(tr("ux.kv.furn"), fs.joinToString(", ") { dn(it.name, lang) })
+                // as the mockup: "Oshxona 1 · Burchakli (L)", then its sizes "3400 + 2600 mm"
+                val lines = fs.map { f -> uz.metrx.app.ui.furniture.freeSub(f, en).split(" · ").filter { it.isNotBlank() } }
+                Kv(tr("ux.kv.furn"), fs.mapIndexed { i, f -> (listOf(dn(f.name, lang)) + lines[i].take(if (lines[i].size >= 2) 1 else 0)).joinToString(" · ") }.joinToString(", "))
+                val sizes = lines.mapNotNull { l -> l.getOrNull(if (l.size >= 2) 1 else 0) }
+                if (sizes.isNotEmpty()) { Hairline(); Kv(tr("ux.kv.size"), sizes.joinToString(", ")) }
                 val style = p.fstyle.ifEmpty { fs.firstOrNull()?.look?.preset.orEmpty() }
                 if (style.isNotEmpty()) { Hairline(); Kv(tr("ux.kv.style"), tr("lk.p.$style")) }
             }

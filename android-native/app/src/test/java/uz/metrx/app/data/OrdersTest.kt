@@ -18,6 +18,13 @@ class OrdersTest {
         assertEquals(true, p.payments.single().pre)
     }
 
+    @Test fun anOldSampleOrderIsDeletedAndTheUsersOrdersStay() {
+        val sample = Project("s", "@ux.sampleName", industry = "furniture", sample = true)
+        val (gone, kept) = splitSamples(listOf(order(), sample, Project("p2", "Shgjsf", industry = "furniture")))
+        assertEquals(listOf("s"), gone.map { it.id })
+        assertEquals(listOf("p1", "p2"), kept.map { it.id })
+    }
+
     @Test fun halfRoundsHalfUp() {
         assertEquals(b(16033550), halfOf(b(32067100)))
         assertEquals(b(6), halfOf(b(11)))

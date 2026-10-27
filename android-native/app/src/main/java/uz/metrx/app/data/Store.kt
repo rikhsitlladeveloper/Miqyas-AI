@@ -66,8 +66,11 @@ class Store private constructor(context: Context) {
         val snap = context.getSharedPreferences("metrx", Context.MODE_PRIVATE).getBoolean("angleSnap", true)
         // a room-less kupe saved without its side panels gets them (founder, 26 Oct 2026: an end without a wall has one)
         val fixed = loaded.map { kupeEnds(withSnap(it, snap)) }
-        projects.addAll(fixed.sortedByDescending { it.edited })
-        fixed.forEachIndexed { i, p -> if (p !== loaded[i]) save(p) }
+        // the "Namuna — oshxona" sample order is gone (founder, 27 Oct 2026): one left from before is deleted now
+        val (samples, kept) = splitSamples(fixed)
+        samples.forEach { s -> db.writableDatabase.delete("projects", "id = ?", arrayOf(s.id)) }
+        projects.addAll(kept.sortedByDescending { it.edited })
+        fixed.forEachIndexed { i, p -> if (p !== loaded[i] && !p.sample) save(p) }
     }
 
 

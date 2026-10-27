@@ -11,6 +11,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -119,13 +121,37 @@ fun LaserButton(onClick: () -> Unit) {
     }
 }
 
-/** The glass header: logo and name on the left, the laser button on the right, 64 dp tall. */
+/**
+ * The laser's chip with its state in words, "Lazer ulanmagan" / "Ulanmoqda…" / "Lazer ulangan" (UX upgrades mockup:
+ * the furniture maker's Home, Buyurtmalar and Profil). A tap opens the laser's page, as the round button does.
+ */
 @Composable
-fun GlassHeader(onLaser: () -> Unit, modifier: Modifier = Modifier, left: (@Composable () -> Unit)? = null) {
+fun LaserChip(onClick: () -> Unit) {
+    val settings = LocalSettings.current
+    val on = settings.laser == Laser.CONNECTED
+    val busy = settings.laser == Laser.SEARCHING || settings.laser == Laser.FOUND
+    val c = if (on) G.green else G.ink2
+    val haze = LocalHaze.current
+    val shape = RoundedCornerShape(22.dp)
+    Row(
+        Modifier.heightIn(min = 44.dp).widthIn(max = 220.dp)
+            .dropShadow(shape, Shadow(20.dp, G.shade.copy(alpha = .12f), offset = DpOffset(0.dp, 6.dp)))
+            .clip(shape).glassBlur(haze, G.sheet(.6f), 22.dp).topHighlight(.95f, 1.dp).border(1.dp, G.rim, shape)
+            .pressable(onClick, .96f).padding(horizontal = 12.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)
+    ) {
+        PathIcon(BT_RUNE, if (on) G.green else G.greyIcon, 17.dp, 2.2f)
+        Text(tr(if (on) "gl.btOn" else if (busy) "lz.connecting" else "gl.btOff"), style = ui(12.5f, 700, c, 1.15f), maxLines = 2)
+    }
+}
+
+/** The glass header: logo and name on the left, the laser button (or with [labeled] its chip in words) on the right, 64 dp tall. */
+@Composable
+fun GlassHeader(onLaser: () -> Unit, modifier: Modifier = Modifier, labeled: Boolean = false, left: (@Composable () -> Unit)? = null) {
     Row(modifier.padding(start = 8.dp, end = 12.dp).let { it }.then(Modifier.padding(vertical = 8.dp)), verticalAlignment = Alignment.CenterVertically) {
         if (left != null) left() else Wordmark()
         Spacer(Modifier.weight(1f))
-        LaserButton(onLaser)
+        if (labeled) LaserChip(onLaser) else LaserButton(onLaser)
     }
 }
 

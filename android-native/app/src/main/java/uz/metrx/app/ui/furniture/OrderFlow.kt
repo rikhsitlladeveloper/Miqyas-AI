@@ -242,8 +242,6 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project, addCard: Boolean = t
     val en = lang == Lang.EN
     val priced = remember(p.furniture, p.fprice, s.workshop, s.mats, s.hws) { priceOf(p.furniture.filter { it.modules.isNotEmpty() }, p.fprice, s.workshop, s.mats, s.hws) }
     Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        // everything that is wrong with the order's pieces, in one place (bazis ideas, 23 Oct 2026)
-        CheckCard(p)
         FreeCard(p, lang)
         if (p.floors.isEmpty() && p.furniture.none { it.roomId == null }) Text(tr("fz.empty"), style = ui(14.5f, 400, G.ink2), textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f)).padding(22.dp))
@@ -273,24 +271,10 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project, addCard: Boolean = t
                         else if (ward) uz.metrx.app.furniture.wardOfF(f)?.let { m -> uz.metrx.app.geo.fmtLen(m.w, s.furnUnit, en) + " × " +
                         uz.metrx.app.geo.fmtLen(uz.metrx.app.furniture.valsOf(f, s.workshop)["h"] ?: m.h, s.furnUnit, en) + " " + unitWord(s.furnUnit) } ?: ""
                         else tr("kt.l" + f.layout) + " · " + "%.1f".format(java.util.Locale.ROOT, runMm(f) / 1000.0).replace('.', if (en) '.' else ',') + " " + tr("kt.pm")
-                    val amount = priced.lines.firstOrNull { it.key == f.id }?.amount?.takeIf { s.advanced }
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.glass(.75f)).clickable { app.kit.sel = null; app.push(if (ward) Route.Wardrobe(p.id, f.id) else Route.Kitchen(p.id, f.id)) }
-                        .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        MIcon(if (ward) "board" else "kitchen", G.ink3, 18.dp, 2f)
-                        Column(Modifier.weight(1f)) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                Text(dn(f.name, lang), style = ui(14.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                                if (f.keep) Text(tr("fz.big"), style = ui(11f, 700, G.err), maxLines = 1,
-                                    modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(G.errWash).padding(horizontal = 6.dp, vertical = 2.dp))
-                            }
-                            if (sub.isNotBlank()) Text(sub, style = num(12.5f, 500, G.ink2), maxLines = 1)
-                        }
-                        if (amount != null && amount.signum() > 0) {
-                            val (v, u) = shortMoney(p, amount, en, tr("pl.mln"))
-                            Text(v + (u?.let { " $it" } ?: ""), style = num(14f, 700))
-                        }
-                        MIcon("chev", G.ink3, 16.dp, 2f)
-                    }
+                    PieceRow(p, f, sub, priced.lines.firstOrNull { it.key == f.id }?.amount, lang, badge = if (!f.keep) null else ({
+                        Text(tr("fz.big"), style = ui(11f, 700, G.err), maxLines = 1,
+                            modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(G.errWash).padding(horizontal = 6.dp, vertical = 2.dp))
+                    })) { app.kit.sel = null; app.push(if (ward) Route.Wardrobe(p.id, f.id) else Route.Kitchen(p.id, f.id)) }
                 }
                 when {
                     room == null -> TodoRow(tr("fo.drawRoom")) { app.drawRoomIn(p.id, w, lang) }
@@ -307,6 +291,8 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project, addCard: Boolean = t
                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button) { app.push(Route.Space(p.id, w.id)) }.padding(horizontal = 4.dp, vertical = 6.dp))
             }
         }
+        // everything that is wrong with the order's pieces, in one place (bazis ideas, 23 Oct 2026), under them as in the mockup
+        CheckCard(p)
         // the fronts' board and the handles of every piece in one tap
         SwapButton(p)
         if (p.rooms.isNotEmpty()) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

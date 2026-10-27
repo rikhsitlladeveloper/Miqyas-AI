@@ -46,23 +46,11 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
-import uz.metrx.app.data.Dim
-import uz.metrx.app.data.Room
-import uz.metrx.app.data.Workspace
-import uz.metrx.app.data.newProject
-import uz.metrx.app.data.uid
-import uz.metrx.app.furniture.AkApp
-import uz.metrx.app.furniture.akPieces
-import uz.metrx.app.furniture.akPlan
-import uz.metrx.app.furniture.akSite
-import uz.metrx.app.furniture.akStart
-import uz.metrx.app.furniture.akWallsFor
 import uz.metrx.app.ui.App
 import uz.metrx.app.ui.LocalApp
 import uz.metrx.app.ui.Route
 import uz.metrx.app.ui.components.ToastKind
 import uz.metrx.app.ui.components.pressable
-import uz.metrx.app.ui.furniture.wallLen
 import uz.metrx.app.ui.main.Tab
 import uz.metrx.app.ui.theme.G
 import uz.metrx.app.ui.theme.tr
@@ -70,50 +58,9 @@ import uz.metrx.app.ui.theme.ui
 
 /*
  * Help for furniture makers (UX upgrades §11): three tour cards on first launch with "O‘tkazib yuborish"; then a coach
- * mark the first time on each screen (order, gallery, size, designer, price); the "Namuna — oshxona" sample order.
- * Profile → "Maslahatlarni qayta ko‘rsatish" brings all three back.
+ * mark the first time on each screen (order, gallery, size, designer, price). Profile → "Maslahatlarni qayta ko‘rsatish"
+ * brings both back. There is no sample order (founder, 27 Oct 2026).
  */
-
-/* ---------------- the sample order ---------------- */
-
-/**
- * "Namuna — oshxona": a measured 3400 × 2600 kitchen with an L kitchen in "Tabiiy yog‘och" built by the auto kitchen,
- * marked as the sample (a NAMUNA badge; never counted in reports, totals or counts). Made once; again after a reset.
- */
-fun App.makeSample() {
-    if (store.projects.any { it.sample }) { settings.setSampleMadeTo(true); return }
-    val now = System.currentTimeMillis()
-    val lang = settings.lang
-    val w = Workspace(uid(), uz.metrx.app.data.suggestedName(t("fr.kitchen"), "fr.kitchen", lang), type = "kitchen", created = now)
-    val room = Room(uid(), w.id, w.name, created = now,
-        dims = mapOf("A" to Dim(3400, "manual"), "B" to Dim(2600, "manual"), "H" to Dim(2700, "manual"), "T" to Dim(200, "default")))
-    val snap = settings.angleSnap
-    val ws = settings.workshop
-    val pieces = runCatching {
-        val site = akSite(room, { wallLen(room, snap, it) }, snap)
-        val walls = akWallsFor(site, "L", akStart(site)) ?: akStart(site)
-        val plan = akPlan(site, walls, uz.metrx.app.furniture.akLayoutOf(site, walls) ?: "L", AkApp(), "wood", ws)
-        plan?.let { akPieces(it, site, ws, listOf("@kt.nameN?n=1", "@kt.nameN?n=2"), now) } ?: emptyList()
-    }.getOrDefault(emptyList())
-    val p = newProject("@ux.sampleName", "@ux.sampleClient", "", "", null, settings.currency, settings.reportLang.code)
-        .copy(industry = "furniture", sample = true, fstyle = "wood", floors = listOf(w), rooms = listOf(room), furniture = pieces,
-            stage = if (pieces.isEmpty()) "measure" else "design", want = listOf("kitchen"), designed = pieces.isNotEmpty(), created = now - 1, edited = now - 1)
-    store.add(p)
-    // an old sample's Undo would now bring back a second one
-    undos.forget(SAMPLE_UNDO)
-    settings.setSampleMadeTo(true)
-}
-
-/** The sample goes in one tap, with Undo. */
-fun App.deleteSample(pid: String) {
-    val (p, at) = store.delete(pid) ?: return
-    dropMissing()
-    // only one sample at a time: Undo never brings back a second one (one made again since, or the same one twice)
-    act(t("ux.sampleDel"), { if (store.projects.none { it.sample }) store.restore(p, at) }, tag = SAMPLE_UNDO)
-}
-
-/** The undo entries that would put a deleted sample back. */
-private const val SAMPLE_UNDO = "sample"
 
 /* ---------------- the tour and the coach marks ---------------- */
 
@@ -132,8 +79,6 @@ fun HelpLayer() {
     val app = LocalApp.current
     val s = app.settings
     if (!s.furniture) return
-    // the sample order is made on the first launch as a furniture maker (and after "Maslahatlarni qayta ko‘rsatish")
-    LaunchedEffect(s.sampleMade, s.furniture) { if (!s.sampleMade) app.makeSample() }
     if (!s.tourDone) {
         if (app.tab == Tab.HOME && app.top == Route.Root && app.sheet == null) Tour()
         return
@@ -183,15 +128,9 @@ private fun TourPicture(i: Int) {
                 }
                 Box(Modifier.size(70.dp).clip(CircleShape).background(Color(0xFF0F172A)), contentAlignment = Alignment.Center) { UxIcon("mic", Color.White, 32.dp, 2.4f) }
             }
-            1 -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                listOf(Color(0xFFA67A52), Color(0xFF3F4650), Color(0xFFF6F7F9)).forEach { c ->
-                    Canvas(Modifier.size(78.dp, 96.dp).clip(RoundedCornerShape(12.dp)).background(Color.White)) {
-                        val w = size.width; val h = size.height
-                        drawRect(c, Offset(w * .15f, h * .45f), Size(w * .7f, h * .38f))
-                        drawRect(Color(0xFFEDEAE4), Offset(w * .15f, h * .15f), Size(w * .7f, h * .22f))
-                        drawRect(Color(0xFF0F172A).copy(alpha = .2f), Offset(w * .15f, h * .43f), Size(w * .7f, h * .03f))
-                    }
-                }
+            // the gallery's own card of the L kitchen, drawn by the real 3D (the mockup's iso drawing of it)
+            1 -> uz.metrx.app.furniture.fModel("L")?.let { m ->
+                uz.metrx.app.ui.furniture.ModelPic(m, "", Modifier.fillMaxSize().padding(8.dp).clip(RoundedCornerShape(14.dp)))
             }
             else -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 Column(Modifier.size(70.dp, 92.dp).clip(RoundedCornerShape(10.dp)).background(Color.White).padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -249,15 +188,14 @@ private fun Coach() {
     }
 }
 
-/** Profile → "Maslahatlarni qayta ko‘rsatish": the tour, the coach marks and the sample order come back. */
+/** Profile → "Maslahatlarni qayta ko‘rsatish": the tour and the coach marks come back. */
 fun App.resetUxHelp() {
+    // no toast (the mockup has none): Home opens with the tour at once, and a toast would cover its card
     settings.resetUxHints()
-    makeSample()
-    say("ux.hints.done", kind = ToastKind.OK)
 }
 
 /** Profile's reset, for callers outside this package. */
 object HelpOps {
-    /** Every tip comes back: the editor's, the tour, the coach marks, and the sample order. */
+    /** Every tip comes back: the editor's, the tour and the coach marks. */
     fun App.resetAll() { ops.tipSeen = false; resetUxHelp(); selectTab(Tab.HOME) }
 }

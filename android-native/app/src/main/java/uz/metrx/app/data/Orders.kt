@@ -20,6 +20,12 @@ fun orderMoney(p: Project): OrderMoney {
     return OrderMoney(agreed, paid, agreed?.let { (it - paid).max(BigInteger.ZERO) })
 }
 
+/**
+ * The old "Namuna — oshxona" sample orders and the real ones (founder, 27 Oct 2026: there is no sample order any more).
+ * The store deletes the first on start; the real orders, the user's own, are all kept.
+ */
+fun splitSamples(ps: List<Project>): Pair<List<Project>, List<Project>> = ps.partition { it.sample }
+
 /** Where the order is among [F_STAGES], 0 for anything unknown. */
 fun fStage(p: Project): Int = F_STAGES.indexOf(p.stage).coerceAtLeast(0)
 
@@ -29,7 +35,7 @@ private const val INSTALLED = 5
 /** What customers still owe on approved orders that are not paid yet, and on how many orders. */
 fun owed(ps: List<Project>): Pair<BigInteger, Int> {
     var sum = BigInteger.ZERO; var n = 0
-    ps.filter { it.isFurniture && !it.sample && fStage(it) in APPROVED..INSTALLED }.forEach { p ->
+    ps.filter { it.isFurniture && fStage(it) in APPROVED..INSTALLED }.forEach { p ->
         val left = orderMoney(p).left ?: return@forEach
         if (left.signum() > 0) { sum += left; n++ }
     }

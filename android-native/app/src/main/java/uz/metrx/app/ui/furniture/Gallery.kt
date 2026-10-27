@@ -177,14 +177,9 @@ fun FGalleryScreen(rt: Route.FGallery) {
         if (room != null) app.push(Route.FPlace(p.id, null, room.id, m.id)) else app.push(Route.FSteps(p.id, m.id))
     }
 
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        PageBar(frosted = true) {
-            GlassIconButton("back", tr("nt.back"), { app.pop() }, Modifier.padding(start = 6.dp))
-            Spacer(Modifier.width(6.dp))
-            BarTitle(tr("fg.title"), eyebrow = dn(p.name, lang))
-        }
-        // the order's style first: a tap repaints the cards at once (UX upgrades §7)
-        Box(Modifier.padding(start = 16.dp, end = 0.dp, top = 8.dp)) { StyleRow(p) }
+    Column(Modifier.fillMaxSize()) {
+        // the order's style first, in the header: a tap repaints the cards at once (UX upgrades §7)
+        uz.metrx.app.ui.ux.UxTop(tr("fg.title"), { app.pop() }, eyebrow = dn(p.customer, lang).ifBlank { dn(p.name, lang) }) { StyleRow(p) }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             groups.forEach { (g, _) ->
                 val on = g == cur
@@ -469,9 +464,10 @@ fun FStepsScreen(rt: Route.FSteps) {
 
     val imeOn = WindowInsets.isImeVisible
     val footer: @Composable (Modifier) -> Unit = { mm ->
-        FloatingFooter(mm) {
-            if (at < n) GBtn(tr("common.next"), ::next, enabled = txt(at).isNotBlank() || steps[at].choice)
-            else GBtn(tr(if (edit != null) "common.save" else if (!hasRoom) "ux.toDesign" else "fr.continue"), ::finish, enabled = steps.indices.all { ok(it) } && derived.none { it.third })
+        Box(mm) {
+            if (at < n) uz.metrx.app.ui.ux.UxBar(tr("common.next"), null, ::next, onUndo = null, canUndo = false, mainEnabled = txt(at).isNotBlank() || steps[at].choice)
+            else uz.metrx.app.ui.ux.UxBar(tr(if (edit != null) "common.save" else if (!hasRoom) "ux.toDesign" else "fr.continue"), null, ::finish, onUndo = null, canUndo = false,
+                mainEnabled = steps.indices.all { ok(it) } && derived.none { it.third })
         }
     }
     Box(Modifier.fillMaxSize().imePadding()) {
@@ -511,7 +507,8 @@ fun FStepsScreen(rt: Route.FSteps) {
                 }, derived.map { (k, v, bad) -> Triple(app.t(k), fmtLen(v, unit, en) + " " + uw, bad) }, when {
                     // a piece of several boxes is built again from its sizes: what was changed box by box goes (said before saving)
                     edit != null && (edit.type in uz.metrx.app.furniture.PIECE_TYPES || edit.type == "loft") -> "fx.noteRebuild"
-                    m.kind == "kitchen" -> "fx.noteK"; m.type in uz.metrx.app.furniture.ITEM_TYPES -> "fx.noteI"; else -> "fx.noteW" }, if (edit != null) null else if (hasRoom) "ux.sum.room" else "ux.sum.skip") { i -> was = txt(i); back = true; at = i }
+                    m.kind == "kitchen" -> "fx.noteK"; m.type in uz.metrx.app.furniture.ITEM_TYPES -> "fx.noteI"; else -> "fx.noteW" }, if (edit != null) null else if (hasRoom) "ux.sum.room" else "ux.sum.skip",
+                    p.fstyle.takeIf { it.isNotEmpty() && edit == null }?.let { app.t("lk.p.$it") }) { i -> was = txt(i); back = true; at = i }
             }
             if (imeOn) footer(Modifier)
         }
@@ -568,11 +565,12 @@ private fun StepAsk(s: uz.metrx.app.furniture.SizeStep, text: String, onText: (S
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             val on = app.settings.laser == Laser.CONNECTED
             val lshape = RoundedCornerShape(16.dp)
-            Row(Modifier.weight(1f).heightIn(min = 56.dp).clip(lshape).background(if (on) G.ink else G.glass(.7f)).border(1.dp, if (on) G.ink else G.rim, lshape)
+            // the mockup's .lzb: blue wash and rim to connect, green once connected
+            Row(Modifier.weight(1f).heightIn(min = 56.dp).clip(lshape).background(if (on) G.greenWash else G.blueWash).border(1.5.dp, if (on) G.green else G.cobalt, lshape)
                 .clickable(role = Role.Button, enabled = laser != "busy") { app.haptic(uz.metrx.app.ui.ux.Hap.TICK); if (on) onRead() else app.push(Route.LaserRadar) }
                 .padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally)) {
-                MIcon(if (on) "laser" else "bt", if (on) G.solid else G.cobalt2, 20.dp, 2.2f)
-                Text(tr(if (laser == "busy") "ux.lz.busy" else if (on) "ux.lz.measure" else "ux.lz.connect"), style = ui(14.5f, 800, if (on) G.solid else G.cobalt2, 1.15f), maxLines = 2)
+                MIcon(if (on) "laser" else "bt", if (on) G.green else G.cobalt2, 20.dp, 2.2f)
+                Text(tr(if (laser == "busy") "ux.lz.busy" else if (on) "ux.lz.measure" else "ux.lz.connect"), style = ui(14.5f, 800, if (on) G.green else G.cobalt2, 1.15f), maxLines = 2)
             }
             uz.metrx.app.voice.VoiceMic(Modifier.weight(1f).coachSpot("size"), onVoice)
         }
@@ -618,7 +616,8 @@ private fun LaserLine(app: App, laser: String?) {
 }
 
 @Composable
-private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<String>, derived: List<Triple<String, String, Boolean>>, note: String, extra: String?, onChange: (Int) -> Unit) {
+private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<String>, derived: List<Triple<String, String, Boolean>>, note: String, extra: String?,
+                    style: String?, onChange: (Int) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         steps.forEachIndexed { i, s ->
             Row(Modifier.fillMaxWidth().heightIn(min = 54.dp).clip(RoundedCornerShape(14.dp)).background(G.glass(.7f)).clickable(role = Role.Button) { onChange(i) }
@@ -627,6 +626,12 @@ private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<St
                 Text(texts[i], style = num(17f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
                 Text(tr("fz.change"), style = ui(12.5f, 700, G.cobalt2))
             }
+        }
+        // the order's style, picked in the gallery (changed there or in the designer)
+        if (style != null) Row(Modifier.fillMaxWidth().heightIn(min = 54.dp).clip(RoundedCornerShape(14.dp)).background(G.glass(.7f)).padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Text(tr("ux.kv.style"), style = ui(14.5f, 600), modifier = Modifier.weight(1f))
+            Text(style, style = ui(15.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         // a corner piece: the sides worked out from the ones typed, marked as such
         if (derived.isNotEmpty()) DerivedCard(derived)

@@ -71,7 +71,7 @@ data class Project(
     /** Furniture orders (Advanced): the customer's PDF shows the three price options, Ekonom, Standart, Premium (furniture/PriceTiers.kt). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val tri: Boolean = false,
-    /** Furniture orders (UX upgrades §11): the "Namuna — oshxona" sample order; never counted in reports, totals or counts. */
+    /** The old "Namuna — oshxona" sample order (founder, 27 Oct 2026: no sample any more); read only so the start deletes it (Store). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val sample: Boolean = false,
     /** Furniture orders (UX upgrades §2): the progress bar's Dizayn and Narx steps were done (the designer's "Narxni ko‘rish", the price screen seen). */

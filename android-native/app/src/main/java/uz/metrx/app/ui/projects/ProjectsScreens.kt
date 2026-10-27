@@ -112,15 +112,14 @@ fun ProjectsList() {
     var q by rememberSaveable { mutableStateOf("") }
     Box(Modifier.fillMaxSize()) {
     // furniture makers: "+ Yangi buyurtma" in thumb reach above the tab bar (UX upgrades mockup)
-    if (furniture && all.isNotEmpty()) Box(Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = NAV_SPACE + 6.dp).zIndex(1f)) {
+    if (furniture && all.isNotEmpty()) Box(Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = NAV_SPACE + 10.dp).zIndex(1f)) {
         uz.metrx.app.ui.furniture.NewOrderPill({ app.push(Route.NewProject()) })
     }
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        GlassHeader({ app.openLaser() })
+        GlassHeader({ app.openLaser() }, labeled = furniture)
         PageTitle(tr(if (furniture || tiler || elec || plumb || win) "fo.tab" else "tab.projects"), Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp))
         if (all.isEmpty()) { ProjectsEmpty { app.push(Route.NewProject()) }; return@Column }
-        // the sample order is never counted (UX upgrades §11)
-        val n = mapOf("active" to ps.count { !it.sample && stageOf(it) != "done" }, "done" to ps.count { !it.sample && stageOf(it) == "done" }, "all" to ps.count { !it.sample })
+        val n = mapOf("active" to ps.count { stageOf(it) != "done" }, "done" to ps.count { stageOf(it) == "done" }, "all" to ps.size)
         val needle = q.trim().lowercase()
         val list = (if (seg == "other") others else ps).filter { p ->
             val inSeg = seg == "all" || seg == "other" || (if (seg == "done") stageOf(p) == "done" else stageOf(p) != "done")
@@ -132,15 +131,22 @@ fun ProjectsList() {
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 SearchBox(q, { q = it }, tr("gl.search"), Modifier.weight(1f))
-                Box(
+                // furniture makers have the "+ Yangi buyurtma" pill at the bottom: no second new-order button (mockup)
+                if (!furniture) Box(
                     Modifier.size(52.dp).dropShadow(CircleShape, Shadow(22.dp, G.cobalt.copy(alpha = .38f), offset = DpOffset(0.dp, 10.dp)))
                         .clip(CircleShape).background(G.cobalt).topHighlight(.4f).pressable({ app.push(Route.NewProject()) }, .95f, label = tr(if (uz.metrx.app.ui.main.orderWords()) "fo.new" else "hm.t.new")),
                     contentAlignment = Alignment.Center
                 ) { MIcon("plus", Color.White, 24.dp, 2.4f) }
             }
+            val chips = (if (staged) listOf("active" to "pl.active", "done" to "pl.doneSeg") else emptyList()) + listOf("all" to "pl.allSeg") + (if (others.isNotEmpty()) listOf("other" to "fo.other") else emptyList())
+            // one chip alone is no choice: the simple furniture app shows the mockup's "Faol · N ta" line instead
+            if (furniture && chips.size == 1) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(tr("pl.active"), style = ui(17f, 800))
+                Text(tr("ux.countN", "n" to ps.size), style = ui(12.5f, 500, G.ink3))
+            }
             // the chips share the width when they fit; a fourth one ("Other") scrolls into view rather than being cut off
-            Row(Modifier.horizontalScroll(rememberScrollState()).padding(end = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                ((if (staged) listOf("active" to "pl.active", "done" to "pl.doneSeg") else emptyList()) + listOf("all" to "pl.allSeg") + (if (others.isNotEmpty()) listOf("other" to "fo.other") else emptyList())).forEach { (k, l) ->
+            else Row(Modifier.horizontalScroll(rememberScrollState()).padding(end = 20.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                chips.forEach { (k, l) ->
                     val on = seg == k
                     Text("${tr(l)} · ${if (k == "other") others.size else n[k]}", style = ui(14f, if (on) 700 else 600, if (on) G.solid else G.slate),
                         maxLines = 1, softWrap = false,

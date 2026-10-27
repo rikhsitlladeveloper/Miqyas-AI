@@ -213,11 +213,8 @@ class Settings(context: Context) {
     fun setTourSeen(v: Boolean) { tourDone = v; p.edit().putBoolean("uxTourDone", v).apply() }
     var coachSeen: Set<String> by mutableStateOf(p.getStringSet("uxCoach", emptySet())?.toSet() ?: emptySet()); private set
     fun markCoach(k: String) { coachSeen = coachSeen + k; p.edit().putStringSet("uxCoach", coachSeen).apply() }
-    /** The sample order was made once (it is made again only by "Maslahatlarni qayta ko‘rsatish"). */
-    var sampleMade by mutableStateOf(p.getBoolean("uxSample", false)); private set
-    fun setSampleMadeTo(v: Boolean) { sampleMade = v; p.edit().putBoolean("uxSample", v).apply() }
-    /** Profile → "Maslahatlarni qayta ko‘rsatish": the tour, the coach marks and (by the caller) the sample order come back. */
-    fun resetUxHints() { setTourSeen(false); coachSeen = emptySet(); p.edit().putStringSet("uxCoach", emptySet()).apply(); setSampleMadeTo(false); resetHints() }
+    /** Profile → "Maslahatlarni qayta ko‘rsatish": the tour and the coach marks come back (there is no sample order any more). */
+    fun resetUxHints() { setTourSeen(false); coachSeen = emptySet(); p.edit().putStringSet("uxCoach", emptySet()).apply(); resetHints() }
     private val tplSer = kotlinx.serialization.builtins.ListSerializer(uz.metrx.app.furniture.Furniture.serializer())
     /** §7 templates: pieces saved from a designer ("Shablon sifatida saqlash"); a new piece keeps their style and layout. */
     var templates: List<uz.metrx.app.furniture.Furniture> by mutableStateOf(p.getString("uxTemplates", null)?.let { runCatching { js.decodeFromString(tplSer, it) }.getOrNull() } ?: emptyList())

@@ -256,27 +256,42 @@ fun FreeCard(p: Project, lang: Lang) {
             }
         }
         free.forEach { f ->
-            val ward = f.kind == "wardrobe"
-            val amount = priced.lines.firstOrNull { it.key == f.id }?.amount?.takeIf { s.advanced }
-            Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.glass(.75f)).clickable { app.kit.sel = null; app.push(app.designer(p.id, f)) }
-                .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                MIcon(if (ward) "board" else "kitchen", G.ink3, 18.dp, 2f)
-                Column(Modifier.weight(1f)) {
-                    Text(dn(f.name, lang), style = ui(14.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(freeSub(f, en), style = num(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
-                }
-                if (amount != null && amount.signum() > 0) {
-                    val (v, u) = shortMoney(p, amount, en, tr("pl.mln"))
-                    Text(v + (u?.let { " $it" } ?: ""), style = num(14f, 700))
-                }
-                MIcon("chev", G.ink3, 16.dp, 2f)
-            }
+            PieceRow(p, f, freeSub(f, en), priced.lines.firstOrNull { it.key == f.id }?.amount, lang) { app.kit.sel = null; app.push(app.designer(p.id, f)) }
             Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).dashedGlass(14.dp).clickable(role = Role.Button) { app.sheet = Sheet.FPickRoom(p.id, f.id) }.padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MIcon("plus", G.cobalt2, 18.dp, 2.2f)
                 Text(tr("fz.toRoom"), style = ui(14.5f, 700, G.cobalt2))
             }
         }
+    }
+}
+
+/**
+ * A piece in the order's Mebel tab, as the mockup's furniture card: its own 3D picture, the name, the sizes, the
+ * style and the price (simple mode grey "≈ … mln", Advanced the exact one). [badge] sits after the name.
+ */
+@Composable
+internal fun PieceRow(p: Project, f: Furniture, sub: String, amount: java.math.BigInteger?, lang: Lang, badge: (@Composable () -> Unit)? = null, onClick: () -> Unit) {
+    val s = LocalApp.current.settings
+    val en = lang == Lang.EN
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.glass(.75f)).clickable(onClick = onClick)
+        .padding(horizontal = 10.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        PiecePic(f, Modifier.size(84.dp, 64.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFF000000.toInt() or uz.metrx.app.ui.three.CARD_BG)))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(1.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(dn(f.name, lang), style = ui(14.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                badge?.invoke()
+            }
+            if (sub.isNotBlank()) Text(sub, style = num(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            val style = f.look?.preset.orEmpty()
+            if (style.isNotEmpty()) Text(tr("lk.p.$style"), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            if (amount != null && amount.signum() > 0) {
+                val (v, u) = shortMoney(p, amount, en, tr("pl.mln"))
+                val w = v + (u?.let { " $it" } ?: "")
+                if (s.advanced) Text(w, style = num(14f, 700)) else Text(tr("ux.approxShort", "v" to w), style = num(13f, 600, G.ink3))
+            }
+        }
+        MIcon("chev", G.ink3, 16.dp, 2f)
     }
 }
 
