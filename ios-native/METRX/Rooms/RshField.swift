@@ -52,13 +52,17 @@ struct RshSizeField: View {
                 T(help, ui(13, 400, G.ink2, lh: 1.35))
             }
             HStack(spacing: 10) {
-                TextField("", text: Binding(get: { text }, set: { v in
+                // a value put in for the maker (the last height, a size opened again) shows as the field's blue prompt over an
+                // empty field, so the first key typed replaces it (as selected text would) and "Keyingi" keeps it; the
+                // field's own text is never rewritten under the keyboard, which would leave it out of step with the draft
+                let shownFresh = fresh && !text.isEmpty
+                TextField("", text: Binding(get: { shownFresh ? "" : text }, set: { v in
                     let now = live()
-                    var clean = String(v.filter { $0.isNumber || (unit != .mm && ($0 == "," || $0 == ".")) }.prefix(unit == .mm ? 5 : 8))
-                    // a value put in for the maker is replaced by the first key typed (as selected text would be)
-                    if now.fresh && !now.text.isEmpty { clean = rshReplaceFresh(now.text, clean) }
+                    let clean = String(v.filter { $0.isNumber || (unit != .mm && ($0 == "," || $0 == ".")) }.prefix(unit == .mm ? 5 : 8))
+                    if now.fresh && !now.text.isEmpty { if !clean.isEmpty { onText(clean) }; return }
                     if clean != now.text { onText(clean) }
-                }), prompt: Text(unit == .mm ? fmtMm(Double(hint)) : Geo.fmtField(hint, unit, rshEn)).foregroundColor(Color(argb: 0xFFA7B0C0)))
+                }), prompt: Text(shownFresh ? text : unit == .mm ? fmtMm(Double(hint)) : Geo.fmtField(hint, unit, rshEn))
+                    .foregroundColor(shownFresh ? G.cobalt2 : Color(argb: 0xFFA7B0C0)))
                 .font(num(32, 700).font).foregroundColor(fresh ? G.cobalt2 : G.ink)
                 .keyboardType(unit == .mm ? .numberPad : .decimalPad)
                 .focused($focused)

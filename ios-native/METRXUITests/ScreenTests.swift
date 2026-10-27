@@ -1100,7 +1100,9 @@ final class UXTests: ScreenTestCase {
         shot("ux-11-gallery")
         // the style row: another style (the second chip, on screen) repaints the cards
         if app.buttons["lk.p.gloss"].waitForExistence(timeout: 2) && app.buttons["lk.p.gloss"].isHittable { app.buttons["lk.p.gloss"].tap(); sleep(3); shot("ux-12-gallery-gloss") }
-        // a model's size steps without a room
+        // a model's size steps without a room (a coach mark or the toast that came late goes first)
+        if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { app.buttons["ux.coachOk"].tap(); usleep(600_000) }
+        noToast(app)
         tapModel(app, "I")
         for _ in 0..<3 where !app.textFields["fx.value"].exists && app.buttons["fx.next"].exists { app.buttons["fx.next"].tap(); usleep(800_000) }
         if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { shot("ux-13-size-coach"); app.buttons["ux.coachOk"].tap(); usleep(600_000) }
