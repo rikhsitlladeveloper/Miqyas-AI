@@ -273,7 +273,8 @@ struct PlanPic: View {
         // pills of short walls meeting at a corner would sit on each other: the asked one stays put, the others step
         // further out from their wall (then along it) until they are clear
         var placed: [CGRect] = []
-        let tries: [(CGFloat, CGFloat)] = [(0, 0), (12, 0), (24, 0), (36, 0), (0, 18), (0, -18), (0, 36), (0, -36), (12, 30), (12, -30)]
+        // nearest first, so a letter stays by its own wall (an L's "C" was pushed far above its wall)
+        let tries: [(CGFloat, CGFloat)] = [(0, 0), (0, 18), (0, -18), (12, 0), (12, 18), (12, -18), (0, 36), (0, -36), (24, 0), (36, 0), (12, 30), (12, -30)]
         for l in labels.sorted(by: { ($0.st == "cur" ? 0 : 1) < ($1.st == "cur" ? 0 : 1) }) {
             let tx = -l.ny, ty = l.nx
             var best = pillRect(l.x, l.y, l.t, l.st, W, H)

@@ -121,7 +121,8 @@ struct PinRow: View {
                         .background(Capsule().fill(G.glass(0.85)))
                         .accessibilityIdentifier("loc.acc")
                 }
-                T(tr("loc.src"), ui(12, 400, G.ink2))
+                // "GPS · 24.10" (mockup pinRow: where and when it was read)
+                T(l.ts > 0 ? tr("loc.srcD", ["d": pinDay(l.ts)]) : tr("loc.src"), ui(12, 400, G.ink2))
             }
             .frame(maxWidth: .infinity, alignment: .leading)
         }
@@ -129,6 +130,13 @@ struct PinRow: View {
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.greenWash))
         .accessibilityElement(children: .combine)
     }
+}
+
+/// "24.10": the day a fix was read.
+private func pinDay(_ ts: Ms) -> String {
+    let f = DateFormatter()
+    f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "dd.MM"
+    return f.string(from: Date(timeIntervalSince1970: Double(ts) / 1000))
 }
 
 /// "Joylashuv aniqlanmoqda…" with a spinner and "Bekor".

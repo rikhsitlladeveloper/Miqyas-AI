@@ -136,16 +136,16 @@ struct NewOrderScreen: View {
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
                     GlassIconButton("x", tr("common.close")) { app.pop() }.padding(.leading, 6)
-                    BarTitle(title: tr("fz.whoT"), eyebrow: tr("fo.new"))
+                    BarTitle(title: tr("fo.new"))
                 }
                 .padding(.trailing, 12).frame(minHeight: 64)
                 .background(barTint.ignoresSafeArea(edges: .top))
                 .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
                 ScrollView {
                     VStack(alignment: .leading, spacing: 18) {
-                        GField(label: tr("np.customerName"), value: $who, placeholder: tr("smp.customer"), error: whoErr, showError: tried, focus: $focus, me: .who,
+                        GField(label: tr("fo.client"), value: $who, placeholder: tr("smp.customer"), error: whoErr, showError: tried, focus: $focus, me: .who,
                                onSubmit: { focus = .phone }, caps: .words, id: "no.who")
-                        GField(label: tr("np.customerPhone"), value: $phone, placeholder: "90 123 45 67", optional: true, phone: true, error: phErr,
+                        GField(label: tr("fo.phone"), value: $phone, placeholder: "90 123 45 67", optional: true, phone: true, error: phErr,
                                showError: tried || phone.count >= 9, focus: $focus, me: .phone)
                         GField(label: tr("np.address"), value: $address, placeholder: tr("smp.address"), optional: true, focus: $focus, me: .addr, submit: .done,
                                onSubmit: { focus = nil })
@@ -236,7 +236,8 @@ struct FRoomsTab: View {
         let drawn = room.map { measuredRoom($0, snap) } ?? false
         let furn = p.furniture.filter { $0.ws == w.id || (room != nil && $0.roomId == room?.id) }
         let kind = roomKind(w)
-        let a = room?.dim("A").v, b = room?.dim("B").v, h = room?.dim("H").v
+        let sz = room.flatMap { Geo.roomSize($0, AppSettings.shared.angleSnap) }
+        let a = sz?.0, b = sz?.1, h = room?.dim("H").v
         let sub: String = {
             if drawn, let a, let b { return Geo.fmtLen(a, AppSettings.shared.unit, en) + " × " + Geo.fmtLen(b, AppSettings.shared.unit, en) + U_L + (h.map { " · h " + Geo.fmtLen($0, AppSettings.shared.unit, en) } ?? "") }
             return tr(room != nil ? "fo.notMeasured" : "fo.notDrawn")
@@ -377,7 +378,8 @@ private struct NewRoomSheet: View {
     var body: some View {
         let p = Store.shared.get(pid)
         GlassSheet(tr("fo.addRoom"), onClose: { app.sheet = nil }) {
-            T(tr("fr.type"), ui(15, 700))
+            RshSheetSub(pid: pid)
+            RshTypeLabel()
             FlowLayout(spacing: 8) {
                 ForEach(F_ROOMS, id: \.self) { t in FChip(label: tr("fr." + t), on: t == type) { type = t; name = NewRoomSheet.nameFor(t, p) } }
             }
@@ -385,7 +387,7 @@ private struct NewRoomSheet: View {
                    showError: true, focus: $focus, me: .name, submit: .done, onSubmit: create)
                 .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
         } footer: {
-            GBtn(tr("fr.continue"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("fr.create")
+            RshSheetGo(enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, id: "fr.create", go: create)
         }
     }
     private func create() {

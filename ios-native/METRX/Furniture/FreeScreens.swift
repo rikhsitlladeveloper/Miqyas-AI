@@ -223,7 +223,7 @@ struct PickRoomSheet: View {
                         MIcon(w?.type == "kitchen" ? "kitchen" : "room", G.cobalt, 22, 2)
                         VStack(alignment: .leading, spacing: 1) {
                             T(w.map { floorName($0) } ?? dn(r.name), ui(15.5, 700), lines: 1)
-                            T(m(r.dim("A").v) + " × " + m(r.dim("B").v) + U_L + " · h " + m(r.dim("H").v), num(12.5, 500, G.ink2), lines: 1)
+                            T({ let z = Geo.roomSize(r, AppSettings.shared.angleSnap); return m(z?.0) + " × " + m(z?.1) }() + U_L + " · h " + m(r.dim("H").v), num(12.5, 500, G.ink2), lines: 1)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         MIcon("chev", G.ink3, 16, 2)

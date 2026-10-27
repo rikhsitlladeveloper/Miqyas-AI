@@ -358,9 +358,10 @@ private struct ERoomCard: View {
     }
 
     private func head(_ room: Room?, _ ready: Bool) -> some View {
-        let a = room?.dim("A").v, b = room?.dim("B").v, h = room?.dim("H").v
+        let sz = room.flatMap { Geo.roomSize($0, AppSettings.shared.angleSnap) }
+        let a = sz?.0, b = sz?.1, h = room?.dim("H").v
         let sub: String = {
-            if ready, let a, let b, room?.isPoly != true {
+            if ready, let a, let b {
                 return Geo.fmtLen(a, .m, en) + " × " + Geo.fmtLen(b, .m, en) + U_M + (h.map { " · h " + Geo.fmtLen($0, .m, en) } ?? "")
             }
             if ready { return tr("tl.measured") }

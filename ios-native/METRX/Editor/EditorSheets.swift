@@ -109,13 +109,13 @@ private struct NewRoomSheet: View {
     var body: some View {
         if let p = Store.shared.get(pid), let w = p.floors.first(where: { $0.id == wid }) {
             let err = name.trimmingCharacters(in: .whitespaces).isEmpty ? tr("nr.nameReq") : nil
-            GlassSheet(tr("nr.title"), onClose: close) {
-                GField(label: tr("nr.name"), value: $name, placeholder: tr("smp.living"), error: err, showError: true, focus: $focus, me: .name,
+            GlassSheet(tr("fo.addRoom"), onClose: close) {
+                RshSheetSub(pid: pid)
+                GField(label: tr("fr.name"), value: $name, placeholder: tr("smp.living"), error: err, showError: true, focus: $focus, me: .name,
                        submit: .done, onSubmit: { create(p, w) })
-                // the shape (rectangle, L, U… or a free sketch), the sizes, height and openings come next, in the room-shape flow
-                Note(text: tr("rsh.nextNote"))
             } footer: {
-                GBtn(tr("fr.continue"), enabled: err == nil) { create(p, w) }.accessibilityIdentifier("nr.create")
+                // the shape (rectangle, L, U… or a free sketch), the sizes, height and openings come next, in the room-shape flow
+                RshSheetGo(enabled: err == nil, id: "nr.create") { create(p, w) }
             }
             .onAppear {
                 guard !loaded else { return }

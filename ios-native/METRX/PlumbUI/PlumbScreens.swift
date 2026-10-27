@@ -234,8 +234,9 @@ private struct PSRoomCard: View {
     }
 
     private func subOf(_ room: Room?, _ ready: Bool) -> String {
-        let a = room?.dim("A").v, b = room?.dim("B").v, h = room?.dim("H").v
-        if ready, let a, let b, room?.isPoly != true {
+        let sz = room.flatMap { Geo.roomSize($0, AppSettings.shared.angleSnap) }
+        let a = sz?.0, b = sz?.1, h = room?.dim("H").v
+        if ready, let a, let b {
             let hs: String = h.map { " · h " + Geo.fmtLen($0, .m, psEn) } ?? ""
             return Geo.fmtLen(a, .m, psEn) + " × " + Geo.fmtLen(b, .m, psEn) + U_M + hs
         }

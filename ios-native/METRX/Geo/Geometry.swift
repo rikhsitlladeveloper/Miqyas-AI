@@ -330,6 +330,20 @@ enum Geo {
 
     /// Solves a drawn room from its measured walls (prototype skGeo). Cached on the room's shape, dims and snap. The
     /// room's own snap (Poly.snap) wins; snap is only for a room that has none (an old quote's rooms: the quote's snap).
+    /// The room's overall size, mm: the walls A × B of a rectangle, the bounding box of a shaped room (an L's
+    /// "4 200 × 3 600", not its first two walls); nil until it is worked out (Android geo.roomSize).
+    static func roomSize(_ r: Room, _ snap: Bool = true) -> (Int, Int)? {
+        if !r.isPoly {
+            guard let a = r.dim("A").v, let b = r.dim("B").v else { return nil }
+            return (a, b)
+        }
+        let g = polyGeo(r, snap)
+        guard g.solved, g.verts.count >= 3 else { return nil }
+        let xs = g.verts.map(\.x), ys = g.verts.map(\.y)
+        let w = (xs.max() ?? 0) - (xs.min() ?? 0), h = (ys.max() ?? 0) - (ys.min() ?? 0)
+        return (Int(w.rounded()), Int(h.rounded()))
+    }
+
     static func polyGeo(_ r: Room, _ snap: Bool = true) -> PolyGeo {
         let own = r.poly?.snap ?? snap
         let key = GeoKey(snap: own, poly: r.poly, dims: r.dims)

@@ -64,12 +64,13 @@ private struct WNNewRoomSheet: View {
     }
     var body: some View {
         GlassSheet(tr("fo.addRoom"), onClose: { app.sheet = nil }) {
+            RshSheetSub(pid: pid)
             GField(label: tr("fr.name"), value: $name, placeholder: tr("dw.roomName"), error: name.trimmingCharacters(in: .whitespaces).isEmpty ? tr("nr.nameReq") : nil,
                    showError: true, focus: $focus, me: .name, submit: .done, onSubmit: create)
                 .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
             T(tr("dw.roomB"), ui(12.5, 400, G.ink2, lh: 1.4))
         } footer: {
-            GBtn(tr("fr.continue"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("dw.roomCreate")
+            RshSheetGo(enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, id: "dw.roomCreate", go: create)
         }
     }
     private func create() {

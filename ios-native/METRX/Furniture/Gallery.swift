@@ -828,7 +828,7 @@ struct FWhereScreen: View {
                 if ready {
                     let fit = bestFirst(probe, Geo.walls(r, snap).map(\.id), { wallLen(r, snap, $0) }, r.dim("H").v, s.workshop)
                     let good = fit.1.isEmpty
-                    T(f(r.dim("A").v) + " × " + f(r.dim("B").v) + U_L + " · h " + f(r.dim("H").v), num(12.5, 500, G.ink2))
+                    T({ let z = Geo.roomSize(r, AppSettings.shared.angleSnap); return f(z?.0) + " × " + f(z?.1) }() + U_L + " · h " + f(r.dim("H").v), num(12.5, 500, G.ink2))
                     T(good ? "✓ " + tr("fq.fits") : issueText(fit.1[0]), ui(12, 700, good ? Color(argb: 0xFF15803D) : G.err, lh: 1.3))
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .background(RoundedRectangle(cornerRadius: 8, style: .continuous).fill(good ? G.greenWash : G.errWash))

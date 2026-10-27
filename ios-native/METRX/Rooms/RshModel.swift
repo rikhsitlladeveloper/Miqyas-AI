@@ -264,3 +264,31 @@ func finishRoom(_ app: AppModel, _ d: RshDraft) {
         AppModel.shared.dropMissing()
     }
 }
+
+/* ---------------- the trades' "Xona qo‘shish" sheet (mockup typeSheet) ---------------- */
+
+/// The sheet's line under its title: "Aziza Nazarova · 1-qadam: tur va nom".
+struct RshSheetSub: View {
+    let pid: String
+    var body: some View {
+        let p = Store.shared.get(pid)
+        let who = p.map { dn($0.customer).isEmpty ? dn($0.name) : dn($0.customer) } ?? ""
+        T(who.isEmpty ? tr("rsh.step1n") : tr("rsh.step1", ["c": who]), ui(13, 400, G.ink2), lines: 2)
+    }
+}
+
+/// "Xona turi", over the trade's room-type chips.
+struct RshTypeLabel: View {
+    var body: some View { T(tr("rsh.typeL"), ui(13, 700, G.ink2)) }
+}
+
+/// "Davom etish", with "Keyingi qadam — xona shakli." under it.
+struct RshSheetGo: View {
+    let enabled: Bool
+    let id: String
+    let go: () -> Void
+    var body: some View {
+        GBtn(tr("fr.continue"), enabled: enabled, go).accessibilityIdentifier(id)
+        T(tr("rsh.nextNote"), ui(13, 400, G.ink2, lh: 1.4)).padding(.horizontal, 4).frame(maxWidth: .infinity, alignment: .leading)
+    }
+}

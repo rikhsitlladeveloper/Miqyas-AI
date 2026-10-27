@@ -96,7 +96,8 @@ private struct PSNewRoomSheet: View {
     var body: some View {
         let p = Store.shared.get(pid)
         GlassSheet(tr("fo.addRoom"), onClose: { app.sheet = nil }) {
-            T(tr("fr.type"), ui(15, 700))
+            RshSheetSub(pid: pid)
+            RshTypeLabel()
             FlowLayout(spacing: 8) {
                 ForEach(P_KINDS, id: \.self) { k in FChip(label: tr(pKindKey(k)), on: k == kind) { kind = k; name = PSNewRoomSheet.nameFor(k, p) } }
             }
@@ -104,7 +105,7 @@ private struct PSNewRoomSheet: View {
                    showError: true, focus: $focus, me: .name, submit: .done, onSubmit: create)
                 .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
         } footer: {
-            GBtn(tr("fr.continue"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("sx.roomCreate")
+            RshSheetGo(enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, id: "sx.roomCreate", go: create)
         }
     }
     private func create() {

@@ -148,6 +148,10 @@ private struct RProg: View {
                 let done = i < cur, on = i == cur
                 VStack(spacing: 2) {
                     ZStack {
+                        // the line from the step before (mockup .ps::before): blue once this step is reached
+                        if i > 0 {
+                            Capsule().fill(done || on ? G.cobalt : G.ink.opacity(0.12)).frame(width: 48, height: 2).offset(x: -36)
+                        }
                         Circle().fill(done ? G.cobalt : G.solid)
                         Circle().strokeBorder(done || on ? G.cobalt : G.ink.opacity(0.12), lineWidth: 2)
                         if done { MIcon("check", .white, 12, 3) } else { T("\(i + 1)", ui(11, 800, on ? G.cobalt2 : G.ink3)) }
@@ -211,11 +215,13 @@ private struct ToolBtn: View {
     let icon: String
     let label: String
     var id = ""
+    /// False: the words never shrink (so ViewThatFits can tell when they do not fit side by side).
+    var shrink = true
     let action: () -> Void
     var body: some View {
         HStack(spacing: 5) {
             PathIcon(icon, G.cobalt2, 16, 2.2)
-            T(label, ui(12.5, 800, G.cobalt2), lines: 1).minimumScaleFactor(0.8)
+            T(label, ui(12.5, 800, G.cobalt2), lines: 1).minimumScaleFactor(shrink ? 0.8 : 1).fixedSize(horizontal: !shrink, vertical: false)
         }
         .padding(.horizontal, 8).frame(maxWidth: .infinity, minHeight: 36)
         .background(RoundedRectangle(cornerRadius: 11, style: .continuous).fill(G.cobalt.opacity(0.11)))
@@ -245,21 +251,6 @@ private struct PicBox<Content: View>: View {
         .background(shape.fill(rshPaper))
         .clipShape(shape)
         .overlay(shape.strokeBorder(G.rim, lineWidth: 1))
-    }
-}
-
-/// The step dots: one per asked value, the current one long.
-private struct Dots: View {
-    let n: Int
-    let at: Int
-    var body: some View {
-        HStack(spacing: 6) {
-            ForEach(0..<max(n, 1), id: \.self) { i in
-                Capsule().fill(i == at ? G.cobalt : i < at ? G.cobalt.opacity(0.45) : G.ink.opacity(0.14)).frame(width: i == at ? 22 : 7, height: 7)
-            }
-        }
-        .frame(maxWidth: .infinity)
-        .accessibilityHidden(true)
     }
 }
 
@@ -312,9 +303,16 @@ private struct ShapeCard: View {
             .accessibilityAddTraits(sel ? [.isSelected] : [])
             .accessibilityIdentifier("rsh.shape." + k.id)
             if sel && k != .free {
-                VStack(spacing: 4) {
-                    ToolBtn(icon: MIRROR_IC, label: tr("rsh.mirror"), id: "rsh.mirror") { d.mir.toggle() }
-                    ToolBtn(icon: ROTATE_IC, label: tr("rsh.rotate"), id: "rsh.rotate") { d.rot = (d.rot + 1) % 4 }
+                // side by side as in the mockup; one under the other only when the words don't fit (Russian)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 6) {
+                        ToolBtn(icon: MIRROR_IC, label: tr("rsh.mirror"), id: "rsh.mirror", shrink: false) { d.mir.toggle() }
+                        ToolBtn(icon: ROTATE_IC, label: tr("rsh.rotate"), id: "rsh.rotate", shrink: false) { d.rot = (d.rot + 1) % 4 }
+                    }
+                    VStack(spacing: 4) {
+                        ToolBtn(icon: MIRROR_IC, label: tr("rsh.mirror"), id: "rsh.mirror") { d.mir.toggle() }
+                        ToolBtn(icon: ROTATE_IC, label: tr("rsh.rotate"), id: "rsh.rotate") { d.rot = (d.rot + 1) % 4 }
+                    }
                 }
                 .padding(.top, 2)
             } else {
@@ -369,7 +367,7 @@ private struct WallsStep: View {
         let main = isD && d.input.isEmpty ? tr("rsh.skip") : d.ret ? tr("common.save") : tr("common.next")
         return RshPage(title: dn(d.name) + " · " + tr("rsh.s." + d.shape), sub: sub, prog: nil, back: { rshBack(app, d) },
                      bar: RBar(label: main, enabled: !d.input.isEmpty || isD) { wallsNext(d) }) {
-            Dots(n: n + (free ? 1 : 0), at: st)
+            // no step dots: "Devor 2 / 4" in the header says it (mockup scrWalls)
             PicBox(height: kb ? 150 : 220, tools: d) { PlanPic(g: geo.g, look: look, letters: geo.letters) }
             RshSizeField(app: app, d: d, key: "w\(st)\(d.shape)", label: label, help: help, text: d.input, fresh: d.fresh, hint: hint, issue: d.err,
                          live: { (d.input, d.fresh) },
@@ -535,7 +533,7 @@ private struct OpsList: View {
             } else {
                 Sect(tr("rsh.added2"))
                 ForEach(Array(d.ops.enumerated()), id: \.offset) { i, it in
-                    SumRow(label: tr("rsh.op." + it.kind.id) + " · " + tr("rsh.wall", ["w": geo.letter(it.wall)]), value: opDesc(it, unit), small: true) {
+                    SumRow(label: tr("rsh.op." + it.kind.id) + " · " + tr("rsh.wall", ["w": geo.letter(it.wall)]), value: opDesc(it, unit), small: true, endMin: 40) {
                         MIcon("x", G.ink3, 17, 2).frame(width: 40, height: 40)
                             .pressable(0.95, label: tr("common.delete")) {
                                 guard i < d.ops.count else { return }
@@ -663,13 +661,16 @@ private struct SumRow<End: View>: View {
     let value: String
     var small = false
     var auto = false
+    var endMin: CGFloat = 96
     @ViewBuilder let end: End
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         HStack(spacing: 10) {
             T(label, ui(14, 500, G.ink2, lh: 1.3)).frame(maxWidth: .infinity, alignment: .leading)
+            // fills its half and hugs the button, as the mockup's value next to "O‘zgartirish"
             T(value, small ? ui(12.5, 700, auto ? G.ink2 : G.ink, lh: 1.3) : num(15.5, 700, auto ? G.ink2 : G.ink), align: .trailing)
-            end.frame(minWidth: 96, alignment: .trailing)
+                .frame(maxWidth: .infinity, alignment: .trailing)
+            end.frame(minWidth: endMin, alignment: .trailing)
         }
         .padding(.leading, 14).padding(.trailing, 6).padding(.vertical, 6).frame(minHeight: 52)
         .background(shape.fill(G.glass(0.6)))
@@ -729,7 +730,7 @@ private struct SummaryStep: View {
         let order = g.walls.indices.sorted { geo.letter($0) < geo.letter($1) }
         func edit(_ i: Int) { d.ret = true; setStep(d, i); go(d, "walls") }
         return RshPage(title: dn(d.name), sub: tr("rsh.sumSub"), prog: 4, back: { rshBack(app, d) },
-                     bar: RBar(label: tr("rsh.open"), icon: "room", enabled: err == nil, id: "rsh.open") { finishRoom(app, d) }) {
+                     bar: RBar(label: tr("rsh.open"), enabled: err == nil, id: "rsh.open") { finishRoom(app, d) }) {
             PicBox(height: 230) { PlanPic(g: g, look: look, letters: geo.letters) }
             FlowLayout(spacing: 8) {
                 Chip2(t: tr("rsh.s." + d.shape))
