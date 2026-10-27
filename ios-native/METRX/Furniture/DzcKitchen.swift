@@ -37,6 +37,9 @@ struct DzcShown {
     var newId: String? = nil
     var failX: Int? = nil
     var failWhy = ""
+    var failVars: [String: Int] = [:]
+    /// The dragged tile goes into an empty space (else between two units).
+    var intoSpace = false
 }
 
 /* ---------------- the pane ---------------- */
@@ -182,12 +185,16 @@ struct DzcKitchenCanvas: View {
             let map = DzcMap(lay, geo.size, cam, top: 58, bottom: 6)
             let _ = DzcKOps.note(map, c.scene)
             ZStack(alignment: .topLeading) {
-                Canvas { ctx, _ in DzcKDraw.all(ctx, map, c, shown) }
-                    .allowsHitTesting(false)
+                // while a unit is lifted the others slide aside, frame by frame
+                TimelineView(.animation(minimumInterval: nil, paused: st.live?.kind != "move")) { _ in
+                    Canvas { ctx, _ in DzcKDraw.all(ctx, map, c, shown) }
+                }
+                .allowsHitTesting(false)
                 DzcTouch(act: DzcKOps.actions(app, c, map))
                 DzcKA11y(c: c, f: shown.f, map: map)
                 DzcKBubbles(app: app, c: c, f: shown.f, map: map, size: geo.size)
                 DzcKCallouts(app: app, c: c, map: map, size: geo.size)
+                DzcKTileGhost(sh: shown)
                 if !cam.fit {
                     DzcZoomPill(pct: Int((cam.z * 100).rounded())) { st.cams[c.scene] = DzcCam(); Haptic.tick() }
                         .position(x: geo.size.width / 2, y: geo.size.height - 24)
@@ -264,6 +271,31 @@ private struct DzcKBubbles: View {
                     .overlay(Capsule().strokeBorder(G.amberInk.opacity(0.5), lineWidth: 1))
                     .position(x: min(size.width - 60, max(60, map.sx(tm.x + tm.w / 2))), y: isUpper(tm) ? map.sy(tm.elev + tm.h / 2) : map.sy(450))
                     .allowsHitTesting(false)
+            }
+        }
+    }
+}
+
+/// A tile dragged over the wall: under the finger, its name and where it would go (green), or why not (red).
+private struct DzcKTileGhost: View {
+    let sh: DzcShown
+    var body: some View {
+        let st = DzcState.shared
+        if let td = st.tile {
+            let fr = st.canvasFrame
+            if fr.contains(td.pt) {
+                let ok = sh.failX == nil && sh.newId != nil
+                let why = sh.failX != nil ? tr(sh.failWhy, sh.failVars) : tr(sh.intoSpace ? "dzc.toSpace" : "dzc.toBetween")
+                VStack(alignment: .leading, spacing: 1) {
+                    T(dzcTileName(td.tile) + " \(td.tile.w)", ui(13, 800, .white), lines: 1)
+                    T(why, ui(11.5, 600, .white.opacity(0.92), lh: 1.25), lines: 3)
+                }
+                .padding(.horizontal, 10).padding(.vertical, 6)
+                .frame(maxWidth: 220, alignment: .leading)
+                .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(ok ? PC.okGreen : sh.failX != nil ? PC.red : G.ink))
+                .shadow(color: .black.opacity(0.2), radius: 8, y: 3)
+                .position(x: min(fr.width - 110, max(110, td.pt.x - fr.minX)), y: max(30, td.pt.y - fr.minY - 54))
+                .allowsHitTesting(false)
             }
         }
     }
@@ -377,6 +409,7 @@ enum DzcKDraw {
         g.translateBy(x: map.ox, y: map.oy); g.scaleBy(x: map.k, y: map.k)
         var f = sh.f
         var ghost: Module? = nil
+        slide(&f, c)
         if let lv = st.live, lv.kind == "move", let i = f.modules.firstIndex(where: { $0.id == lv.mid }) {
             ghost = f.modules[i]
             var slot = f.modules[i]
@@ -396,6 +429,22 @@ enum DzcKDraw {
         }
         if let x = sh.failX {
             ctx.line(PC.red, CGPoint(x: map.sx(x), y: map.sy(2300)), CGPoint(x: map.sx(x), y: map.sy(0)), 3, dash: [6, 4])
+        }
+    }
+
+    /// A lifted unit's row: each unit drawn a third of the way nearer its new place each frame.
+    static func slide(_ f: inout Furniture, _ c: DzcKCtx) {
+        let st = DzcState.shared
+        guard st.live?.kind == "move" else {
+            if !st.disp.isEmpty { st.disp = [:] }
+            return
+        }
+        for i in f.modules.indices where f.modules[i].wall == c.run.wall {
+            let id = f.modules[i].id, t = CGFloat(f.modules[i].x)
+            let d0 = st.disp[id] ?? t
+            let d1 = abs(t - d0) < 2 ? t : d0 + (t - d0) * 0.3
+            st.disp[id] = d1
+            f.modules[i].x = Int(d1.rounded())
         }
     }
 
@@ -541,8 +590,8 @@ enum DzcKOps {
         let u = map.mmX(td.pt.x - fr.minX)
         let key = DzcRow(wall: c.run.wall, upper: td.tile.upper)
         let plan = dzcPlanAt(dzcRowMods(c.f, key), td.tile, u: u, start: c.start(td.tile.upper), avail: c.availRow(c.run.wall, td.tile.upper), ws: c.ws, wall: c.run.wall)
-        if !plan.ok { return DzcShown(f: c.f, failX: u, failWhy: plan.why) }
-        return DzcShown(f: pack(dzcWithRow(c.f, key, plan.row), c.runs), newId: plan.id)
+        if !plan.ok { return DzcShown(f: c.f, failX: u, failWhy: plan.why, failVars: plan.vars) }
+        return DzcShown(f: pack(dzcWithRow(c.f, key, plan.row), c.runs), newId: plan.id, intoSpace: plan.space != nil)
     }
 
     /// The unit under point pt: the upper row first (it hangs over tall units), then the lower row with its legs and sizes.

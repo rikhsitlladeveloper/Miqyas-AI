@@ -92,6 +92,8 @@ final class DzcState {
     @ObservationIgnored var delFrame: CGRect = .zero
     /// The drawing's last mapping and its scene, for a tile dropped from the slider.
     @ObservationIgnored var map: DzcMap? = nil
+    /// While a unit is lifted: where each unit of the row is drawn now (mm), easing towards its place (the others slide aside).
+    @ObservationIgnored var disp: [String: CGFloat] = [:]
     @ObservationIgnored var mapScene = ""
 
     var taught: Bool {
