@@ -67,7 +67,7 @@ private struct ENewRoomSheet: View {
             GField(label: tr("fr.name"), value: $name, placeholder: tr(eKindKey(kind)), error: blank ? tr("nr.nameReq") : nil, showError: true,
                    focus: $focus, me: .name, submit: .done, onSubmit: create)
         } footer: {
-            GBtn(tr("fo.drawRoom"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("el.roomCreate")
+            GBtn(tr("fr.continue"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("el.roomCreate")
         }
         .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
     }
@@ -75,9 +75,9 @@ private struct ENewRoomSheet: View {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty, app.once() else { return }
         // a suggested name is kept as its key, so it follows the language
-        let rid = addElecRoom(pid, kind, suggestedName(n, eKindKey(kind)))
         app.sheet = nil
-        openRoom(app, pid, rid)
+        // the shape, sizes, height and openings come next, in the room-shape flow (Rooms/RshScreens.swift)
+        startRoomShape(app, pid, trade: "elec", kind: kind, name: suggestedName(n, eKindKey(kind)))
     }
 }
 

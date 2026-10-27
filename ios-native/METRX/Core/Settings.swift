@@ -46,6 +46,8 @@ final class AppSettings {
     /// Furniture makers measure in millimetres (UX upgrades 26 Oct 2026, section 5): Profile → "Mebel uchun o‘lcham birligi"
     /// ("mm", "cm" or "m", millimetres at first); builders and the trades keep their metres or centimetres.
     private(set) var furnUnit: String
+    /// The room-shape flow's height step starts from the last height used (2 700 the first time; room-shapes spec §2.5).
+    private(set) var lastRoomH: Int = 2700
     var unit: LenUnit {
         if furniture { return furnUnit == "cm" ? .cm : furnUnit == "m" ? .m : .mm }
         return unitCm ? .cm : .m
@@ -128,6 +130,7 @@ final class AppSettings {
         reportLang = Lang.of(d.string(forKey: "reportLang") ?? d.string(forKey: "lang"))
         unitCm = d.string(forKey: "unit") == "cm"
         furnUnit = d.string(forKey: "furnUnit") ?? "mm"
+        lastRoomH = d.object(forKey: "rshLastH") as? Int ?? 2700
         haptics = d.object(forKey: "haptics") as? Bool ?? true
         // the screen tests start past the tour and its marks, with no sample order, unless they ask for them
         let uiRun = ProcessInfo.processInfo.arguments.contains("-uiReset")
@@ -174,6 +177,7 @@ final class AppSettings {
     func setCurrencyDefault(_ c: String) { currency = c; d.set(c, forKey: "currency") }
     func setUnit(cm: Bool) { unitCm = cm; d.set(cm ? "cm" : "m", forKey: "unit") }
     func setFurnUnit(_ u: String) { furnUnit = u; d.set(u, forKey: "furnUnit") }
+    func keepRoomH(_ v: Int) { lastRoomH = v; d.set(v, forKey: "rshLastH") }
     func setHaptics(_ on: Bool) { haptics = on; d.set(on, forKey: "haptics") }
     func setTourDone(_ on: Bool) { tourDone = on; d.set(on, forKey: "tourDone") }
     /// Whether the coach mark of screen k still has to show (the tour is over, it was not shown yet).

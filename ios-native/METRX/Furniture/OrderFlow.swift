@@ -91,11 +91,10 @@ func roomKind(_ w: Workspace?) -> String { w?.type == "kitchen" ? "kitchen" : "w
 /// Opens a room in the editor with wall A waiting for the laser or typing.
 func openRoom(_ app: AppModel, _ pid: String, _ rid: String) { app.push(.editor(pid: pid, rid: rid, mode: "plan")); RoomOps.shared.focus(rid, "A") }
 
-/// Draws the first room of a workspace that has none yet.
+/// Draws the first room of a workspace that has none yet: its shape, sizes, height and openings (room-shape flow).
 func drawRoomIn(_ app: AppModel, _ pid: String, _ w: Workspace) {
-    let r = Room(id: uid(), floorId: w.id, name: floorName(w), created: nowMs())
-    Store.shared.update(pid) { $0.rooms.append(r) }
-    openRoom(app, pid, r.id)
+    if let have = Store.shared.get(pid)?.rooms.first(where: { $0.floorId == w.id }) { openRoom(app, pid, have.id); return }
+    startRoomShape(app, pid, trade: "into", kind: w.type, name: floorName(w), wid: w.id)
 }
 
 /// The customer price of each piece, by furniture id.
@@ -122,6 +121,10 @@ struct NewOrderScreen: View {
     @State private var address = ""
     @State private var tried = false
     @State private var loaded = false
+    // the "Joylashuv" block (room-shapes spec §1): GPS only, read when tapped; optional, like the address
+    @State private var locState: LocState = .none
+    @State private var loc: Location? = nil
+    @State private var gps = Gps()
     @FocusState private var focus: OF?
 
     var body: some View {
@@ -145,7 +148,8 @@ struct NewOrderScreen: View {
                         GField(label: tr("np.customerPhone"), value: $phone, placeholder: "90 123 45 67", optional: true, phone: true, error: phErr,
                                showError: tried || phone.count >= 9, focus: $focus, me: .phone)
                         GField(label: tr("np.address"), value: $address, placeholder: tr("smp.address"), optional: true, focus: $focus, me: .addr, submit: .done,
-                               onSubmit: { create(ok) })
+                               onSubmit: { focus = nil })
+                        LocFormBlock(app: app, state: $locState, loc: $loc, gps: gps)
                         T(tr("fz.nextNote"), ui(13.5, 400, G.ink2, lh: 1.4))
                     }
                     .padding(.horizontal, 20).padding(.top, 18).padding(.bottom, 120)
@@ -167,9 +171,11 @@ struct NewOrderScreen: View {
         tried = true
         guard ok, app.once() else { return }
         focus = nil
+        gps.cancel()
         // named after the customer; "Oshxona — Akmal" once they say what they need (renameOrder)
         let name = who.trimmingCharacters(in: .whitespaces)
-        var p = newProject(name, name, Phone.digits(phone), address.trimmingCharacters(in: .whitespaces), nil, AppSettings.shared.currency, AppSettings.shared.reportLang.code)
+        var p = newProject(name, name, Phone.digits(phone), address.trimmingCharacters(in: .whitespaces), locState == .ok ? loc : nil,
+                           AppSettings.shared.currency, AppSettings.shared.reportLang.code)
         p.industry = industry; p.autoName = industry == "furniture"
         Store.shared.add(p)
         app.replaceTop(.project(id: p.id, tab: "rooms"))
@@ -379,17 +385,17 @@ private struct NewRoomSheet: View {
                    showError: true, focus: $focus, me: .name, submit: .done, onSubmit: create)
                 .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
         } footer: {
-            GBtn(tr("fo.drawRoom"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("fr.create")
+            GBtn(tr("fr.continue"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("fr.create")
         }
     }
     private func create() {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty, app.once() else { return }
         // a suggested name is kept as its key, so it follows the language
-        let rid = addFurnRoom(pid, type, suggestedName(n, "fr." + type))
-        if let fid { app.placeAfter = (rid, fid) }
         app.sheet = nil
-        openRoom(app, pid, rid)
+        // the shape, sizes, height and openings come next, in the room-shape flow (Rooms/RshScreens.swift); a room-less
+        // piece goes in once the room is made
+        startRoomShape(app, pid, trade: "furniture", kind: type, name: suggestedName(n, "fr." + type), fid: fid)
     }
 }
 

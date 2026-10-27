@@ -111,20 +111,11 @@ private struct NewRoomSheet: View {
             let err = name.trimmingCharacters(in: .whitespaces).isEmpty ? tr("nr.nameReq") : nil
             GlassSheet(tr("nr.title"), onClose: close) {
                 GField(label: tr("nr.name"), value: $name, placeholder: tr("smp.living"), error: err, showError: true, focus: $focus, me: .name,
-                       submit: .done, onSubmit: { create(p, w, "rect") })
-                VStack(alignment: .leading, spacing: 8) {
-                    T(tr("nr.shape"), ui(15, 700))
-                    ShapeRow(d: "M2 2H32V24H2Z", label: tr("nr.rect"), on: true) {}
-                    ShapeRow(d: "M2 2H18V12H32V24H2Z", label: tr("nr.lshape"), on: false) { create(p, w, "lshape") }.accessibilityIdentifier("nr.lshape")
-                    ShapeRow(d: "M3 22L6 3L25 6L31 19Z", label: tr("nr.sketch"), on: false) {
-                        let nm = name.trimmingCharacters(in: .whitespaces)
-                        if !nm.isEmpty { close(); app.push(.sketch(pid: p.id, wid: w.id, name: keptName(p, w, nm))) }
-                    }
-                    .accessibilityIdentifier("nr.sketch")
-                }
-                Note(text: tr("nr.hint"))
+                       submit: .done, onSubmit: { create(p, w) })
+                // the shape (rectangle, L, U… or a free sketch), the sizes, height and openings come next, in the room-shape flow
+                Note(text: tr("rsh.nextNote"))
             } footer: {
-                GBtn(tr("nr.create"), enabled: err == nil) { create(p, w, "rect") }.accessibilityIdentifier("nr.create")
+                GBtn(tr("fr.continue"), enabled: err == nil) { create(p, w) }.accessibilityIdentifier("nr.create")
             }
             .onAppear {
                 guard !loaded else { return }
@@ -143,40 +134,13 @@ private struct NewRoomSheet: View {
         return own && typed == floorName(w) ? w.name : suggestedName(typed, "real.roomN", AppSettings.shared.lang, ["n": "\(roomN)"])
     }
 
-    private func create(_ p: Project, _ w: Workspace, _ shape: String) {
+    private func create(_ p: Project, _ w: Workspace) {
         let typed = name.trimmingCharacters(in: .whitespaces)
-        guard !typed.isEmpty else { return }
+        guard !typed.isEmpty, app.once() else { return }
         // the suggested name is kept as a key ("Xona 1" follows the language, as "1-qavat" does); a typed one as typed
         let nm = keptName(p, w, typed)
-        var r = Room(id: uid(), floorId: w.id, name: nm, created: nowMs())
-        if shape == "lshape" {
-            r.template = "poly"; r.shape = "poly"; r.dims = Geo.polyDims(Geo.L_SHAPE.count)
-            r.poly = Poly(verts: Geo.L_SHAPE, template: "lshape", snap: AppSettings.shared.angleSnap)
-        }
-        Store.shared.update(p.id) { $0.rooms.append(r) }
         close()
-        app.push(.editor(pid: p.id, rid: r.id, mode: "plan"))
-        if shape == "lshape" { app.say("sk.created", ["n": dn(r.name)]) } else { RoomOps.shared.focus(r.id, "A") }
-    }
-}
-
-private struct ShapeRow: View {
-    let d: String
-    let label: String
-    let on: Bool
-    let action: () -> Void
-    var body: some View {
-        let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
-        HStack(spacing: 10) {
-            PathIcon(d, on ? G.cobalt2 : G.ink, 30, 2, viewBox: 34)
-            T(label, ui(15, on ? 600 : 500, on ? G.cobalt2 : G.ink)).frame(maxWidth: .infinity, alignment: .leading)
-            MIcon(on ? "check" : "chev", on ? G.cobalt2 : G.ink, 17, 2)
-        }
-        .padding(.horizontal, 14).frame(minHeight: 49)
-        .background(shape.fill(on ? G.cobalt.opacity(0.12) : G.glass(0.55)))
-        .overlay(shape.strokeBorder(on ? G.cobalt : G.rim, lineWidth: 1))
-        .pressable(0.98) { if !on { action() } }
-        .accessibilityAddTraits(on ? .isSelected : [])
+        startRoomShape(app, p.id, trade: "build", kind: w.type, name: nm, wid: w.id)
     }
 }
 

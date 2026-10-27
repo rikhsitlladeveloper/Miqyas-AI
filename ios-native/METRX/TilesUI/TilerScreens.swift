@@ -164,11 +164,7 @@ struct TOrderRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             CallButton(p: p)
         }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .pressable(0.985, action)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
+        .orderCard(p, action)
     }
 }
 
@@ -316,9 +312,8 @@ func drawTileRoom(_ app: AppModel, _ pid: String, _ w: Workspace) {
     // a second tap does not add a second room
     if let have = Store.shared.get(pid)?.rooms.first(where: { $0.floorId == w.id }) { openRoom(app, pid, have.id); return }
     if !app.once() { return }
-    let r = Room(id: uid(), floorId: w.id, name: floorName(w), created: nowMs())
-    Store.shared.update(pid) { $0.rooms.append(r) }
-    openRoom(app, pid, r.id)
+    // its shape, sizes, height and openings in the room-shape flow
+    startRoomShape(app, pid, trade: "into", kind: w.type, name: floorName(w), wid: w.id)
 }
 
 /* ---------------- the next step ---------------- */
@@ -618,16 +613,16 @@ private struct TNewRoomSheet: View {
                    showError: true, focus: $focus, me: .name, submit: .done, onSubmit: create)
                 .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
         } footer: {
-            GBtn(tr("fo.drawRoom"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("tl.roomCreate")
+            GBtn(tr("fr.continue"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("tl.roomCreate")
         }
     }
     private func create() {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty, app.once() else { return }
         // a suggested name is kept as its key, so it follows the language
-        let rid = addTileRoom(pid, type, suggestedName(n, tRoomKey(type)))
         app.sheet = nil
-        openRoom(app, pid, rid)
+        // the shape, sizes, height and openings come next, in the room-shape flow (Rooms/RshScreens.swift)
+        startRoomShape(app, pid, trade: "tiler", kind: type, name: suggestedName(n, tRoomKey(type)))
     }
 }
 

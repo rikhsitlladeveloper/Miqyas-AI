@@ -289,7 +289,7 @@ private struct ModelCard: View {
 
 /// Which sizes page set app.backOverride last: a page going away clears it only while it is still its own (the next
 /// page may have set its own before the old one's onDisappear).
-private enum BackOwner { static var last = 0; static var seq = 0 }
+enum BackOwner { static var last = 0; static var seq = 0 }
 
 struct FStepsScreen: View {
     let app: AppModel

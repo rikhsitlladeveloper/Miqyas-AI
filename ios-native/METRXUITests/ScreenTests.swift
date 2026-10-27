@@ -80,7 +80,7 @@ class ScreenTestCase: XCTestCase {
     /// A furniture order for who with one room, opened in the editor (the three-field order, then the gallery's
     /// "Avval xonani o‘lchash" card and the room sheet). need picks the room type: the kitchen is the sheet's default,
     /// a wardrobe goes in a bedroom.
-    func newFurnitureRoom(_ app: XCUIApplication, _ who: String, _ need: String) {
+    func newFurnitureRoom(_ app: XCUIApplication, _ who: String, _ need: String, openings: Bool = false) {
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText(who)
         app.buttons["no.create"].tap(); usleep(1_200_000)
@@ -98,6 +98,55 @@ class ScreenTestCase: XCTestCase {
         }
         XCTAssertTrue(app.buttons["fr.create"].waitForExistence(timeout: 4))
         app.buttons["fr.create"].tap(); sleep(1)
+        // the room-shape flow: a 3 400 × 2 600 rectangle, 2 700 high
+        shapeFlow(app, walls: ["3400", "2600"], h: "2700", door: openings ? ["600", "900", "2100"] : nil, window: openings ? ["900", "1500", "1500"] : nil)
+    }
+
+    /// Types v into the room-shape flow's size field and goes on ("Keyingi").
+    func flowType(_ app: XCUIApplication, _ v: String) {
+        let f = app.textFields["rsh.value"]
+        XCTAssertTrue(f.waitForExistence(timeout: 4))
+        f.tap(); usleep(300_000)
+        f.typeText(v); usleep(300_000)
+        app.buttons["rsh.next"].tap(); usleep(700_000)
+    }
+
+    /// A door, window or pipe in the flow's openings step: its card, its wall on the plan, then its sizes (a window's
+    /// sill, 900 put in, is kept).
+    func flowOp(_ app: XCUIApplication, _ kind: String, _ wall: String, _ vals: [String]) {
+        XCTAssertTrue(app.buttons["rsh.op." + kind].waitForExistence(timeout: 4))
+        app.buttons["rsh.op." + kind].tap(); usleep(800_000)
+        let w = app.descendants(matching: .any).matching(identifier: "rsh.wall." + wall).firstMatch
+        XCTAssertTrue(w.waitForExistence(timeout: 4))
+        w.tap(); usleep(800_000)
+        for v in vals { flowType(app, v) }
+        if kind == "window" { app.buttons["rsh.next"].tap(); usleep(800_000) }
+        usleep(400_000)
+    }
+
+    /// The room-shape flow from its shape screen to the editor (room-shapes spec §2): the shape (the rectangle unless
+    /// said), each asked wall typed, the height (typed, or the one put in kept), a door on A and a window on C when
+    /// given, the summary's "Xonani ochish". free: a drawn shape, already drawn, whose optional diagonal is skipped.
+    /// shots: a prefix for a picture of each screen.
+    func shapeFlow(_ app: XCUIApplication, shape: String = "rect", walls: [String], h: String?, door: [String]? = nil, window: [String]? = nil,
+                   free: Bool = false, shots: String? = nil, fromWalls: Bool = false) {
+        func pic(_ n: String) { if let shots { shot(shots + n) } }
+        if !free && !fromWalls {
+            XCTAssertTrue(app.buttons["rsh.shapeGo"].waitForExistence(timeout: 5))
+            if shape != "rect" { app.buttons["rsh.shape." + shape].tap(); usleep(500_000) }
+            pic("-shapes")
+            app.buttons["rsh.shapeGo"].tap(); usleep(900_000)
+        }
+        for (i, w) in walls.enumerated() { if i == 0 { pic("-wall-first") }; flowType(app, w) }
+        if free { pic("-diagonal"); app.buttons["rsh.next"].tap(); usleep(800_000) }
+        XCTAssertTrue(app.textFields["rsh.value"].waitForExistence(timeout: 4)); pic("-height")
+        if let h { flowType(app, h) } else { app.buttons["rsh.next"].tap(); usleep(800_000) }
+        XCTAssertTrue(app.buttons["rsh.opsDone"].waitForExistence(timeout: 4)); pic("-openings")
+        if let door { flowOp(app, "door", "A", door) }
+        if let window { flowOp(app, "window", "C", window) }
+        app.buttons["rsh.opsDone"].tap(); usleep(900_000)
+        XCTAssertTrue(app.buttons["rsh.open"].waitForExistence(timeout: 4)); pic("-summary")
+        app.buttons["rsh.open"].tap(); sleep(1)
         if app.buttons["tip.ok"].waitForExistence(timeout: 2) { app.buttons["tip.ok"].tap(); usleep(700_000) }
     }
 
@@ -292,18 +341,17 @@ final class Part3Tests: ScreenTestCase {
         app.buttons["space.add"].tap(); usleep(700_000)
         app.buttons["add.sketch"].tap(); usleep(700_000)
         app.buttons["add.plan"].tap(); usleep(800_000); shot("60-new-room")
-        app.buttons["nr.create"].tap(); sleep(1); shot("61-editor-tip")
-        app.buttons["tip.ok"].tap(); usleep(700_000); shot("62-editor-A")
-
-        app.buttons["ed.manual"].tap(); usleep(700_000)
-        typeValue(app, "4"); shot("63-measure-sheet")
-        app.textFields["ms.value"].typeText("x"); usleep(300_000)
-        app.buttons["ms.save"].tap(); usleep(500_000); shot("64-measure-invalid")
-        let f = app.textFields["ms.value"]
-        f.typeText(XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + "5")
-        app.buttons["ms.save"].tap(); usleep(900_000); shot("65-editor-A-confirmed")
-        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, "4"); app.buttons["ms.save"].tap(); usleep(900_000)
-        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, "3"); app.buttons["ms.save"].tap(); usleep(900_000)
+        // the room-shape flow: a 5 × 4 m rectangle, 3 m high (a wall too short first)
+        app.buttons["nr.create"].tap(); sleep(1); shot("61-room-shapes")
+        app.buttons["rsh.shapeGo"].tap(); usleep(900_000); shot("62-wall-A")
+        let f = app.textFields["rsh.value"]
+        XCTAssertTrue(f.waitForExistence(timeout: 4))
+        f.tap(); f.typeText("0,1"); usleep(300_000)
+        app.buttons["rsh.next"].tap(); usleep(600_000); shot("63-wall-too-short")
+        XCTAssertTrue(app.descendants(matching: .any)["rsh.err"].exists)
+        f.typeText(XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + XCUIKeyboardKey.delete.rawValue + "5")
+        app.buttons["rsh.next"].tap(); usleep(700_000); shot("64-wall-B")
+        shapeFlow(app, walls: ["4"], h: "3", shots: "65", fromWalls: true)
         shot("66-editor-measured")
 
         app.buttons["ed.openings"].tap(); usleep(700_000); shot("67-add-opening")
@@ -340,7 +388,9 @@ final class Part3Tests: ScreenTestCase {
         app.buttons["space.addTile"].tap(); usleep(700_000)
         app.buttons["add.sketch"].tap(); usleep(700_000)
         app.buttons["add.plan"].tap(); usleep(800_000)
-        app.buttons["nr.lshape"].tap(); sleep(1); shot("80-lshape-editor")
+        app.buttons["nr.create"].tap(); sleep(1)
+        shapeFlow(app, shape: "L", walls: ["2", "2", "3", "2"], h: nil)
+        shot("80-lshape-editor")
         sleep(4)    // the "created" toast covers the back button for 3.4 s
         app.buttons["back"].firstMatch.tap(); usleep(1_000_000)
 
@@ -348,14 +398,19 @@ final class Part3Tests: ScreenTestCase {
         app.buttons["space.addTile"].firstMatch.tap(); usleep(700_000)
         app.buttons["add.sketch"].tap(); usleep(700_000)
         app.buttons["add.plan"].tap(); usleep(800_000)
-        app.buttons["nr.sketch"].tap(); usleep(900_000); shot("81-sketch")
+        app.buttons["nr.create"].tap(); sleep(1)
+        app.buttons["rsh.shape.free"].tap(); usleep(500_000)
+        app.buttons["rsh.shapeGo"].tap(); usleep(900_000); shot("81-sketch")
         app.buttons["seg.t"].tap(); usleep(400_000)
         let pad = app.otherElements["pad"].exists ? app.otherElements["pad"] : app.images["pad"]
         for (x, y) in [(0.2, 0.2), (0.8, 0.2), (0.8, 0.7), (0.2, 0.7), (0.2, 0.2)] {
             pad.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y)).tap(); usleep(350_000)
         }
         shot("82-sketch-closed")
-        app.buttons["sk.create"].tap(); sleep(1); shot("83-sketch-editor")
+        app.buttons["sk.create"].tap(); sleep(1)
+        // every drawn wall is asked, then the optional diagonal
+        shapeFlow(app, walls: ["5", "5", "5", "5"], h: nil, free: true, shots: "83")
+        shot("83-sketch-editor")
         sleep(4)
         app.buttons["back"].firstMatch.tap(); usleep(1_000_000); shot("84-workspace-three-rooms")
         app.buttons["Orqaga"].firstMatch.tap(); usleep(1_000_000); shot("85-project-thumb")
@@ -374,8 +429,8 @@ final class Part3Tests: ScreenTestCase {
         app.buttons["add.sketch"].tap(); usleep(700_000)
         app.buttons["add.plan"].tap(); usleep(800_000)
         app.buttons["nr.create"].tap(); sleep(1)
-        app.buttons["tip.ok"].tap(); usleep(700_000); shot("90-ru-editor")
-        app.buttons["ed.manual"].tap(); usleep(700_000); typeValue(app, "5,2"); app.buttons["ms.save"].tap(); usleep(900_000)
+        shapeFlow(app, walls: ["5,2", "4"], h: nil, shots: "89-ru")
+        shot("90-ru-editor")
         app.buttons["ed.openings"].tap(); usleep(700_000)
         app.buttons["ao.window"].tap(); usleep(800_000); shot("91-ru-window-sheet")
         app.buttons["op.save"].tap(); usleep(900_000)
@@ -394,8 +449,7 @@ final class Part4Tests: ScreenTestCase {
         app.buttons["add.sketch"].tap(); usleep(700_000)
         app.buttons["add.plan"].tap(); usleep(800_000)
         app.buttons["nr.create"].tap(); sleep(1)
-        app.buttons["tip.ok"].tap(); usleep(700_000)
-        measuredRoom(app, "5", "4", "3", openings: true)
+        shapeFlow(app, walls: ["5", "4"], h: "3", door: ["0,6", "0,9", "2,1"], window: ["0,9", "1,5", "1,5"])
         sleep(6)    // the last toast goes away
         app.buttons["ed.3d"].tap(); sleep(3); shot("100-room-3d")
         app.buttons["3d.top"].tap(); sleep(1); shot("101-from-above")
@@ -416,7 +470,7 @@ final class Part4Tests: ScreenTestCase {
         app.buttons["add.sketch"].tap(); usleep(700_000)
         app.buttons["add.plan"].tap(); usleep(800_000)
         app.buttons["nr.create"].tap(); sleep(1)
-        measuredRoom(app, "4", "3", "3", openings: false)
+        shapeFlow(app, walls: ["4", "3"], h: "3")
         sleep(6)
         app.buttons["back"].firstMatch.tap(); usleep(1_000_000)
         app.buttons["Orqaga"].firstMatch.tap(); usleep(1_000_000); shot("107-project-buttons")
@@ -439,8 +493,7 @@ final class Part5Tests: ScreenTestCase {
         app.buttons["add.sketch"].tap(); usleep(700_000)
         app.buttons["add.plan"].tap(); usleep(800_000)
         app.buttons["nr.create"].tap(); sleep(1)
-        app.buttons["tip.ok"].tap(); usleep(700_000)
-        measuredRoom(app, "5", "4", "3", openings: true)
+        shapeFlow(app, walls: ["5", "4"], h: "3", door: ["0,6", "0,9", "2,1"], window: ["0,9", "1,5", "1,5"])
         sleep(6)
         app.buttons["back"].firstMatch.tap(); usleep(1_000_000)
         app.buttons["Orqaga"].firstMatch.tap(); usleep(1_000_000)
@@ -497,8 +550,7 @@ final class Part6Tests: ScreenTestCase {
         app.buttons["add.sketch"].tap(); usleep(700_000)
         app.buttons["add.plan"].tap(); usleep(800_000)
         app.buttons["nr.create"].tap(); sleep(1)
-        app.buttons["tip.ok"].tap(); usleep(700_000)
-        measuredRoom(app, "5", "4", "3", openings: true)
+        shapeFlow(app, walls: ["5", "4"], h: "3", door: ["0,6", "0,9", "2,1"], window: ["0,9", "1,5", "1,5"])
         sleep(6)
         app.buttons["back"].firstMatch.tap(); usleep(1_000_000)
         app.buttons["Orqaga"].firstMatch.tap(); usleep(1_000_000)
@@ -600,7 +652,7 @@ final class Part7Tests: ScreenTestCase {
         app.buttons["add.sketch"].tap(); usleep(700_000)
         app.buttons["add.plan"].tap(); usleep(800_000)
         app.buttons["nr.create"].tap(); sleep(1)
-        app.buttons["tip.ok"].tap(); usleep(700_000)
+        shapeFlow(app, walls: ["5", "4"], h: nil)
         app.buttons["ed.tray"].tap(); usleep(900_000); shot("172-tray")
         app.buttons["tr.A"].firstMatch.tap(); usleep(900_000); shot("173-reading-on-wall-A")
     }
@@ -713,7 +765,6 @@ final class Furniture2Tests: ScreenTestCase {
         let app = launch()
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Dilnoza Karimova", "kitchen")
-        measuredRoom(app, "3400", "2600", "2700", openings: false)
         sleep(6)    // the last toast goes away
         app.buttons["ed.walls"].tap(); usleep(900_000); shot("f2-01-wall-empty")
         app.buttons["pt.add"].tap(); usleep(900_000); shot("f2-02-point-sheet")
@@ -784,7 +835,6 @@ final class Furniture4Tests: ScreenTestCase {
         let app = launch(extra: ["-advanced", "YES"])
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Akmal Yusupov", "kitchen")
-        measuredRoom(app, "3400", "2600", "2700", openings: false)
         sleep(6)    // the last toast goes away
         app.buttons["ed.walls"].tap(); usleep(900_000)
         app.buttons["pt.add"].tap(); usleep(900_000)
@@ -843,7 +893,6 @@ final class Furniture5Tests: ScreenTestCase {
         let app = launch(extra: ["-advanced", "YES"])
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Nodira Aliyeva", "wardrobe")
-        measuredRoom(app, "3400", "2600", "2700", openings: false)
         sleep(6)    // the last toast goes away
         // the bedroom's gallery: a 3-section built-in wardrobe, placed on the walls step
         XCTAssertTrue(app.buttons["ed.addFurn"].waitForExistence(timeout: 4))
@@ -887,8 +936,7 @@ final class Furniture6Tests: ScreenTestCase {
     func testFurnitureIn3D() {
         let app = launch()
         firstRun(app, "ind.furn")
-        newFurnitureRoom(app, "Bobur Rahimov", "kitchen")
-        measuredRoom(app, "3400", "2600", "2700", openings: true)
+        newFurnitureRoom(app, "Bobur Rahimov", "kitchen", openings: true)
         sleep(6)
         // an L-kitchen on A and B, filled
         placeFromEditor(app, "L"); sleep(4)
@@ -940,7 +988,6 @@ final class Furniture7Tests: ScreenTestCase {
         let app = launch(extra: ["-advanced", "YES"])
         firstRun(app, "ind.furn")
         newFurnitureRoom(app, "Kamola Tursunova", "kitchen")
-        measuredRoom(app, "3400", "2600", "2700", openings: false)
         sleep(6)
         placeFromEditor(app, "L"); sleep(4)
         if app.buttons["kt.auto"].exists { app.buttons["kt.auto"].tap(); sleep(5) }

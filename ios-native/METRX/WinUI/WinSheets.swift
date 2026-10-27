@@ -69,16 +69,16 @@ private struct WNNewRoomSheet: View {
                 .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
             T(tr("dw.roomB"), ui(12.5, 400, G.ink2, lh: 1.4))
         } footer: {
-            GBtn(tr("fo.drawRoom"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("dw.roomCreate")
+            GBtn(tr("fr.continue"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("dw.roomCreate")
         }
     }
     private func create() {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty, app.once() else { return }
         // a suggested name is kept as its key, so it follows the language
-        let rid = addWinRoom(pid, suggestedName(n, "dw.roomName"))
         app.sheet = nil
-        openRoom(app, pid, rid)
+        // the shape, sizes, height and openings come next, in the room-shape flow (Rooms/RshScreens.swift)
+        startRoomShape(app, pid, trade: "win", kind: "room", name: suggestedName(n, "dw.roomName"))
     }
 }
 

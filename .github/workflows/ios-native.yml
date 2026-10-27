@@ -138,7 +138,7 @@ jobs:
           - group: report-measure
             tests: Part6Tests Part7Tests EdgeMeasureTests Furniture1Tests Furniture3Tests Furniture8Tests
           - group: furniture
-            tests: Furniture4Tests Furniture5Tests Furniture6Tests Furniture7Tests Modern3DShots
+            tests: Furniture4Tests Furniture5Tests Furniture6Tests Furniture7Tests Modern3DShots RoomShapeTests
     defaults:
       run:
         working-directory: ios-native

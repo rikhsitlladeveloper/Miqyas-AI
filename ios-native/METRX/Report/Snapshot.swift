@@ -151,7 +151,8 @@ private func baseSnapshot(_ p: Project, _ s: AppSettings, pdf: PdfParts?) -> Sna
                       els: it.els, src: it.src, W: it.W, H: it.H, caption: it.caption)
         }
     }
-    return Snap(name: p.name, customer: p.customer, phone: p.phone, address: p.address, location: p.location,
+    // only a builder's report prints the location: furniture and the trades' orders keep it for the maker (room-shapes spec §1)
+    return Snap(name: p.name, customer: p.customer, phone: p.phone, address: p.address, location: p.industry == "build" ? p.location : nil,
                 currency: p.currency, precision: p.precision, unit: s.unit == .cm ? "cm" : s.unit == .mm ? "mm" : "m", lang: l.code, notes: p.reportNotes,
                 builderName: s.builderName, builderPhone: s.builderPhone, pdf: pdf ?? s.pdf, rooms: rooms, estimate: p.estimate, extras: extras,
                 snap: s.angleSnap, industry: p.industry)

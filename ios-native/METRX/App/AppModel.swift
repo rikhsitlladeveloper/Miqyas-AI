@@ -90,6 +90,9 @@ enum Route: Hashable {
     case laserTest
     /// The Bluetooth button with no laser connected, or the Device sheet's "Qidirish": the laser radar (Main/LaserRadar.swift).
     case laserRadar
+    /// Adding a room in any trade (room-shapes spec §2, Rooms/RshScreens.swift): the shape, the walls, the height, the
+    /// openings and the summary of the draft key (RshDrafts).
+    case roomShape(pid: String, key: String)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -192,6 +195,8 @@ enum Sheet: Equatable {
     case wNewRoom(pid: String)
     case wGap(pid: String)
     case wPrices(pid: String?)
+    /// An order's location (room-shapes spec §1): adding or changing it by GPS, and the "Yo‘l" sheet that opens it in a map.
+    case locAdd(pid: String), yol(pid: String)
 }
 
 /// An action the bottom bar's Undo can take back.

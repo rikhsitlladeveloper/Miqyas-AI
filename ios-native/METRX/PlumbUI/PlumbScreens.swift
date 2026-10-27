@@ -108,11 +108,7 @@ struct POrderRow: View {
             .frame(maxWidth: .infinity, alignment: .leading)
             CallButton(p: p)
         }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous))
-        .pressable(0.985, action)
-        .accessibilityElement(children: .combine)
-        .accessibilityAddTraits(.isButton)
+        .orderCard(p, action)
     }
 }
 

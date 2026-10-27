@@ -23,7 +23,13 @@
 	<key>UIViewControllerBasedStatusBarAppearance</key><true/>
 	<key>ITSAppUsesNonExemptEncryption</key><false/>
 	<!-- asked only when the builder taps "Joylashuvni aniqlash" on a project; GPS works without internet -->
-	<key>NSLocationWhenInUseUsageDescription</key><string>METRX saves the project's place so you can find it on a map later. / Loyiha joyini saqlab, keyin xaritada topish uchun.</string>
+	<key>NSLocationWhenInUseUsageDescription</key><string>Buyurtma yoki loyiha joyini saqlab, keyin xaritada yo‘l topish uchun. Faqat siz bosganingizda aniqlanadi. / METRX saves the order's or project's place, only when you tap, so you can find the way there later.</string>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>yandexmaps</string>
+		<string>yandexnavi</string>
+		<string>comgooglemaps</string>
+	</array>
 	<key>NSCameraUsageDescription</key><string>METRX takes photos of walls and openings to draw dimensions on them. / Devor va ochiq joylarni suratga olib, ustiga o‘lcham chizish uchun.</string>
 	<!-- asked only when the builder searches for the laser ("Qidirish") or it is remembered; no background modes -->
 	<key>NSMicrophoneUsageDescription</key><string>O‘lchamni ovoz bilan aytish uchun mikrofon kerak: tugmani bosib turib gapirasiz. Ovoz telefonning o‘zida taniladi va hech qayerga yuborilmaydi. / The microphone hears a size you say while you hold the button; the voice is recognised on the phone and never sent anywhere.</string>

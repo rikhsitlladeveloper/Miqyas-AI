@@ -198,10 +198,7 @@ private struct OrderLine: View {
                 T(nextLine(p), ui(12.5, 700, G.cobalt2), lines: 1)
             }
         }
-        .padding(.horizontal, 14).padding(.vertical, 12)
-        .glassCard(RoundedRectangle(cornerRadius: 20, style: .continuous))
-        .pressable(0.985, action)
-        .accessibilityElement(children: .contain)
+        .orderCard(p, corner: 20, combine: false, action)
     }
 }
 
@@ -270,11 +267,7 @@ struct OrderRow: View {
             }
             }
         }
-        .padding(14)
-        .glassCard(RoundedRectangle(cornerRadius: 24, style: .continuous))
-        .pressable(0.985, action)
-        .accessibilityElement(children: p.sample ? .contain : .combine)
-        .accessibilityAddTraits(.isButton)
+        .orderCard(p, corner: 24, h: 14, v: 14, combine: !p.sample, action)
     }
 }
 

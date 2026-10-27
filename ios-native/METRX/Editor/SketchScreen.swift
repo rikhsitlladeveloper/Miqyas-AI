@@ -6,6 +6,9 @@ struct SketchScreen: View {
     let pid: String
     let wid: String
     let name: String
+    /// In the room-shape flow: the outline in mm goes there instead of making a room; onClose goes back to the shapes.
+    var onShape: (([Pt]) -> Void)? = nil
+    var onClose: (() -> Void)? = nil
 
     @State private var tapMode = false
     @State private var stroke: [Pt] = []          // the live finger path, pad units
@@ -17,6 +20,7 @@ struct SketchScreen: View {
     @State private var warned = false
 
     private func close() {
+        if let onClose { onClose(); return }
         let drawn = !stroke.isEmpty || raw != nil || !taps.isEmpty
         if drawn && !warned {
             warned = true
@@ -47,7 +51,8 @@ struct SketchScreen: View {
             VStack(spacing: 0) {
                 HStack(spacing: 10) {
                     GlassIconButton("x", tr("common.close")) { close() }.accessibilityIdentifier("back")
-                    VStack(alignment: .leading, spacing: 0) { T(tr("sk.title"), ui(20, 800), lines: 1); T(dn(name), ui(12, 400, G.ink2), lines: 1) }
+                    VStack(alignment: .leading, spacing: 0) { T(tr(onShape != nil ? "rsh.skT" : "sk.title"), ui(20, 800), lines: 1)
+                        T(dn(name) + (onShape != nil ? " · " + tr("rsh.skSub") : ""), ui(12, 400, G.ink2), lines: 1) }
                         .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.horizontal, 16).frame(height: 64)
@@ -115,7 +120,7 @@ struct SketchScreen: View {
                 .padding(.horizontal, 16)
                 HStack(spacing: 8) {
                     GBtn(tr("sk.redraw"), kind: .secondary, enabled: raw != nil || !taps.isEmpty) { clear() }
-                    GBtn(tr("nr.create"), enabled: res.map { $0.closed && $0.err == nil } ?? false) { create(res) }.accessibilityIdentifier("sk.create")
+                    GBtn(tr(onShape != nil ? "rsh.ready" : "nr.create"), enabled: res.map { $0.closed && $0.err == nil } ?? false) { create(res) }.accessibilityIdentifier("sk.create")
                 }
                 .padding(16)
             }
@@ -133,6 +138,7 @@ struct SketchScreen: View {
         guard let r = res, r.err == nil, r.closed else { return }
         let mm = Sketch.toMm(r.verts)
         if mm.count < 3 || Geo.selfIntersects(mm) != nil { app.say("sk.cross", kind: .error); return }
+        if let onShape { onShape(mm); return }
         var room = Room(id: uid(), floorId: wid, name: name, created: nowMs())
         room.template = "poly"; room.shape = "poly"; room.dims = Geo.polyDims(mm.count); room.poly = Poly(verts: mm, template: "sketch", snap: AppSettings.shared.angleSnap)
         Store.shared.update(pid) { $0.rooms.append(room) }

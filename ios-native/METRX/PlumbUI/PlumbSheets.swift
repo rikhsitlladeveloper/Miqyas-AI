@@ -104,16 +104,16 @@ private struct PSNewRoomSheet: View {
                    showError: true, focus: $focus, me: .name, submit: .done, onSubmit: create)
                 .onChange(of: name) { _, n in if n.count > NAME_MAX { name = String(n.prefix(NAME_MAX)) } }
         } footer: {
-            GBtn(tr("fo.drawRoom"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("sx.roomCreate")
+            GBtn(tr("fr.continue"), enabled: !name.trimmingCharacters(in: .whitespaces).isEmpty, create).accessibilityIdentifier("sx.roomCreate")
         }
     }
     private func create() {
         let n = name.trimmingCharacters(in: .whitespaces)
         guard !n.isEmpty, app.once() else { return }
         // a suggested name is kept as its key, so it follows the language
-        let rid = addPlumbRoom(pid, kind, suggestedName(n, pKindKey(kind)))
         app.sheet = nil
-        openRoom(app, pid, rid)
+        // the shape, sizes, height and openings come next, in the room-shape flow (Rooms/RshScreens.swift)
+        startRoomShape(app, pid, trade: "plumb", kind: kind, name: suggestedName(n, pKindKey(kind)))
     }
 }
 

@@ -373,6 +373,9 @@ final class OneFix: NSObject, CLLocationManagerDelegate {
         }
     }
 
+    /// Stops a fix that is running; nothing is called back.
+    func cancel() { done = nil; timer?.cancel(); timer = nil }
+
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
         guard done != nil else { return }
         switch manager.authorizationStatus {

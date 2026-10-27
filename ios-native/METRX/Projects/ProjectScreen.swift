@@ -117,7 +117,10 @@ struct ProjectScreen: View {
                             .frame(maxWidth: .infinity, alignment: .leading)
                         if p.isFurniture { CallButton(p: p) }
                         else if !p.phone.isEmpty { RoundIc(icon: "phone", label: tr("pl.call")) { call(p) } }
-                        if p.location != nil { RoundIc(icon: "pin", label: tr("loc.open")) { openMap(p) } }
+                        // a trade's order opens the "Yo‘l" sheet (Yandex, Navigator, Google, copy)
+                        if p.location != nil {
+                            RoundIc(icon: "pin", label: tr(p.industry == "build" ? "loc.open" : "loc.yolA")) { if p.industry == "build" { openMap(p) } else { app.sheet = .yol(pid: p.id) } }
+                        }
                         RoundIc(icon: "more", label: tr("common.menu")) { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
                     }
                     // the simple furniture app shows no stage: with no address either, the line goes
@@ -319,9 +322,12 @@ private struct InfoTab: View {
                 }
                 Hairline()
                 kv(tr("pr.address"), dn(p.address).isEmpty ? "—" : dn(p.address)) { EmptyView() }
-                Hairline()
-                kv(tr("pr.location"), p.location.map { String(format: "%.5f, %.5f", $0.lat, $0.lng) } ?? tr("loc.none")) {
-                    if p.location != nil { GBtn(tr("loc.open"), kind: .secondary, icon: "pin", height: 40, corner: 14, fontSize: 14, fill: false, map) }
+                // a builder's project keeps its location row; the trades' orders have their own card below (room-shapes spec §1)
+                if p.industry == "build" {
+                    Hairline()
+                    kv(tr("pr.location"), p.location.map { String(format: "%.5f, %.5f", $0.lat, $0.lng) } ?? tr("loc.none")) {
+                        if p.location != nil { GBtn(tr("loc.open"), kind: .secondary, icon: "pin", height: 40, corner: 14, fontSize: 14, fill: false, map) }
+                    }
                 }
                 // the simple furniture app has no prices, so no currency either
                 if !simpleOrder(p) {
@@ -333,6 +339,7 @@ private struct InfoTab: View {
             }
             .padding(.horizontal, 12)
             .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
+            if p.industry != "build" { LocInfoCard(app: app, p: p) }
             GBtn(tr("pj.edit"), kind: .secondary, icon: "edit") { app.push(.newProject(editId: p.id)) }.accessibilityIdentifier("pj.edit")
         }
         .padding(.horizontal, 16).padding(.top, 12)
