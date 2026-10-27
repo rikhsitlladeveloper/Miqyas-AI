@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
@@ -284,10 +285,19 @@ private fun rshBack(app: App, d: RshDraft) {
 @Composable
 private fun RProg(cur: Int) {
     val labels = listOf("rsh.p.shape", "rsh.p.walls", "rsh.p.height", "rsh.p.ops", "rsh.p.sum")
+    val lineOn = G.cobalt; val lineOff = G.ink.copy(alpha = .12f)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         labels.forEachIndexed { i, k ->
             val done = i < cur; val on = i == cur
-            Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(if (on) G.cobalt.copy(alpha = .1f) else Color.Transparent).padding(vertical = 3.dp),
+            // the line from the step before (mockup .ps::before): blue once this step is reached
+            Column(Modifier.weight(1f).drawWithContent {
+                drawContent()
+                if (i > 0) {
+                    val y = (3 + 11).dp.toPx(); val gap = 13.dp.toPx(); val w = size.width
+                    drawLine(if (done || on) lineOn else lineOff, androidx.compose.ui.geometry.Offset(-2.dp.toPx() - w / 2 + gap, y),
+                        androidx.compose.ui.geometry.Offset(w / 2 - gap, y), 2.dp.toPx(), androidx.compose.ui.graphics.StrokeCap.Round)
+                }
+            }.clip(RoundedCornerShape(10.dp)).background(if (on) G.cobalt.copy(alpha = .1f) else Color.Transparent).padding(vertical = 3.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Box(Modifier.size(22.dp).clip(CircleShape).background(if (done) G.cobalt else G.solid).border(2.dp, if (done || on) G.cobalt else G.ink.copy(alpha = .12f), CircleShape),
                     contentAlignment = Alignment.Center) {
@@ -425,7 +435,7 @@ private fun WallsStep(d: RshDraft) {
     Page(dn(d.name, app.settings.lang) + " · " + tr("rsh.s.${d.shape}"), sub, null, { rshBack(app, d) }, bar = {
         UxBar(tr(if (isD && d.input.isEmpty()) "rsh.skip" else if (d.ret) "common.save" else "common.next"), null, ::next, null, false, mainEnabled = d.input.isNotEmpty() || isD)
     }) {
-        Dots(n + if (free) 1 else 0, st)
+        // no step dots: "Devor 2 / 4" in the header says it (mockup scrWalls)
         PicBox(if (imeOn) 160.dp else 236.dp, d) {
             PlanPic(g.model, d.mir, d.rot, look, letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize())
         }
@@ -435,16 +445,6 @@ private fun WallsStep(d: RshDraft) {
             onLaser = { mm -> d.heard = null; d.input = fieldText(mm, unit, en); d.fresh = false; d.err = null; d.flash++; app.haptic(Hap.CONFIRM) },
             onVoice = { mm, words -> d.heard = d.input to words; d.input = fieldText(mm, unit, en); d.fresh = false; d.err = null; d.flash++; app.haptic(Hap.CONFIRM) },
             onUnVoice = { d.heard?.let { d.input = it.first }; d.heard = null; app.haptic(Hap.TICK) })
-    }
-}
-
-/** The step dots: one per asked value, the current one long. */
-@Composable
-private fun Dots(n: Int, at: Int) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
-        (0 until n).forEach { i ->
-            Box(Modifier.size(if (i == at) 22.dp else 7.dp, 7.dp).clip(CircleShape).background(when { i == at -> G.cobalt; i < at -> G.cobalt.copy(alpha = .45f); else -> G.ink.copy(alpha = .14f) }))
-        }
     }
 }
 
@@ -723,8 +723,16 @@ private fun ChangeBtn(label: String, onClick: () -> Unit) {
 
 @Composable
 private fun AutoTag() {
+    // a dashed pill, as the derived walls on the plan (mockup .atag)
+    val c = G.ink3.copy(alpha = .7f)
     Text(tr("rsh.auto"), style = ui(11.5f, 800, G.ink3).copy(fontStyle = FontStyle.Normal), maxLines = 1,
-        modifier = Modifier.padding(end = 6.dp).border(1.5.dp, G.ink3.copy(alpha = .7f), RoundedCornerShape(12.dp)).padding(horizontal = 9.dp, vertical = 3.dp))
+        modifier = Modifier.padding(end = 6.dp).drawWithContent {
+            drawContent()
+            val sw = 1.5.dp.toPx(); val r = size.height / 2
+            drawRoundRect(c, androidx.compose.ui.geometry.Offset(sw / 2, sw / 2), androidx.compose.ui.geometry.Size(size.width - sw, size.height - sw),
+                androidx.compose.ui.geometry.CornerRadius(r, r), style = androidx.compose.ui.graphics.drawscope.Stroke(sw,
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))))
+        }.padding(horizontal = 9.dp, vertical = 3.dp))
 }
 
 @Composable
