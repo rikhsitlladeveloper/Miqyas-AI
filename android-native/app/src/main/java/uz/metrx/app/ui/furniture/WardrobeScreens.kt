@@ -153,7 +153,7 @@ internal fun wardHeadSub(f: Furniture, m: Module, ws: Workshop): String {
 internal fun App.curWard(f: Furniture): Module? = f.modules.firstOrNull { it.id == kit.sel && it.type == "wardrobe" } ?: wardOf(f)
 
 /** Changes the wardrobe (the picked box of a piece of several) of furniture [fid] (on the designer's undo list). */
-private fun App.ward(pid: String, fid: String, fn: (Module) -> Module) =
+internal fun App.ward(pid: String, fid: String, fn: (Module) -> Module) =
     kit.change(this, pid, fid) { x ->
         val cur = curWard(x) ?: return@change x
         val room = if (x.roomId == null) null else store.get(pid)?.let { roomOf(it, x) }
@@ -173,7 +173,7 @@ internal fun App.changeSec(pid: String, fid: String, i: Int, fn: (Section) -> Se
     ward(pid, fid) { m -> m.copy(sections = m.sections.mapIndexed { k, s -> if (k == i) uz.metrx.app.furniture.frontsChanged(s, fn(s)) else s }) }
 
 /** A new insert of [kind] in section [i], where it fits best. */
-private fun App.addInsert(pid: String, fid: String, m: Module, i: Int, kind: String) {
+internal fun App.addInsert(pid: String, fid: String, m: Module, i: Int, kind: String) {
     val t = settings.workshop.t
     val s = m.sections.getOrNull(i) ?: return
     val x = Insert(kind, pos = nextPos(kind, s, wardInnerH(m, t), t), h = blockH(Insert(kind)))
@@ -184,7 +184,7 @@ private fun App.addInsert(pid: String, fid: String, m: Module, i: Int, kind: Str
 private fun wardRoomH(room: Room?): Int? = room?.dim("H")?.let { it.v ?: it.pending?.mm }
 
 /** The wall's length, the room's height and what is wrong. */
-private class WardCtx(p: Project, f: Furniture, m: Module, ws: Workshop, snap: Boolean) {
+internal class WardCtx(p: Project, f: Furniture, m: Module, ws: Workshop, snap: Boolean) {
     val room = roomOf(p, f)
     val wallL = room?.let { wallLen(it, snap, m.wall ?: "") }
     val roomH = wardRoomH(room)
@@ -208,8 +208,10 @@ private class WardCtx(p: Project, f: Furniture, m: Module, ws: Workshop, snap: B
  * inserts (unless the doors are shown), doors, problem outlines and the selected section. [edge]: the piece opens by its
  * edge (Handles.kt opensByEdge), so a front without a handle shows no push mark.
  */
-internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, carcass: Color, front: Color, sel: Int, doors: Boolean,
-                               bad: Map<Int, String>, tm: TextMeasurer?, edge: Boolean = false) {
+internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, carcass: Color, front0: Color, sel: Int, doors: Boolean,
+                               bad: Map<Int, String>, tm: TextMeasurer?, edge: Boolean = false, own: (String) -> Color? = { null }, openSecs: Set<Int> = emptySet()) {
+    // the box's own front board, and each section's (Designer C v2)
+    val front = m.front?.let(own) ?: front0
     val t = ws.t
     val z0 = uz.metrx.app.furniture.legsOf(m, ws) + m.elev
     val base = wardBase(m)
@@ -235,7 +237,9 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
         val il = sl + 2f; val ir = sr - 2f
         val open = s.fronts.kind == "open"
         val slide = m.slide != null
-        if (!doors || (open && !slide)) s.inserts.forEach { x ->
+        // Designer C v2: a section opened on its own ("Ichki") shows its inside
+        val dd = doors && i !in openSecs
+        if (!dd || (open && !slide)) s.inserts.forEach { x ->
             val y0 = z0 + base + t + x.pos
             val h = blockH(x)
             when (x.kind) {
@@ -248,7 +252,7 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
                 }
                 else -> {
                     val bt = lay.y(y0 + h); val bh = max(2f, h * lay.s - 1f)
-                    drawRoundRect(if (x.kind == "drawer") front else GAP_FILL, Offset(il + 1.5f, bt), Size(ir - il - 3f, bh), CornerRadius(1.5f))
+                    drawRoundRect(if (x.kind == "drawer") (s.front?.let(own) ?: front) else GAP_FILL, Offset(il + 1.5f, bt), Size(ir - il - 3f, bh), CornerRadius(1.5f))
                     drawRoundRect(onC, Offset(il + 1.5f, bt), Size(ir - il - 3f, bh), CornerRadius(1.5f), style = Stroke(.9f))
                     when (x.kind) {
                         // a drawer (an open section's, or behind the doors) without a handle: the push mark where it would be
@@ -261,14 +265,14 @@ internal fun DrawScope.drawWard(lay: KLay, m: Module, ox: Int, ws: Workshop, car
                 }
             }
         }
-        if (doors && !open && !slide) {
+        if (dd && !open && !slide) {
             val n = frontSizes(s.fronts, uz.metrx.app.furniture.frontW(s), m.h - base, ws).size
             if (n > 0) {
                 val g = max(.8f, ws.gap10 / 10f * lay.s)
                 val ft = top + g; val fb = lay.y(z0 + base) - g
                 // a corner unit's blind part has no door (the other arm closes it)
                 val fw = (sr - sl - s.blind * lay.s - g * (n + 1)) / n
-                val fill = when (s.face) { "mirror" -> MIRROR_C; "glass" -> GLASS_C.copy(alpha = .45f); else -> front }
+                val fill = when (s.face) { "mirror" -> MIRROR_C; "glass" -> GLASS_C.copy(alpha = .45f); else -> s.front?.let(own) ?: front }
                 for (j in 0 until n) {
                     val fx = sl + g + j * (fw + g)
                     drawRect(fill, Offset(fx, ft), Size(fw, fb - ft)); drawRect(onF, Offset(fx, ft), Size(fw, fb - ft), style = Stroke(.8f))
@@ -433,65 +437,12 @@ fun WardThumb(p: Project, f: Furniture, modifier: Modifier) {
 
 /* ---------------- the designer ---------------- */
 
-@Composable
-fun WardrobeScreen(rt: Route.Wardrobe) {
-    val app = LocalApp.current
-    val lang = LocalLang.current
-    val kit = app.kit
-    @Suppress("UNUSED_VARIABLE") val tick = kit.tick
-    val p = app.store.get(rt.pid) ?: return
-    val f = p.furniture.firstOrNull { it.id == rt.fid } ?: return
-    // a bed, a table, a bar counter or a mirror panel has its own short designer
-    if (uz.metrx.app.furniture.isItemPiece(f) && rt.mod == null) { ItemScreen(rt, p, f); return }
-    val m = rt.mod?.let { id -> f.modules.firstOrNull { it.id == id && it.type == "wardrobe" } } ?: app.curWard(f) ?: return
-    val ws = app.settings.workshop; val mats = app.settings.mats
-    val cx = WardCtx(p, f, m, ws, app.settings.angleSnap)
-    val sel = rt.sec.coerceIn(0, max(0, m.sections.lastIndex))
-    fun pickSec(i: Int) = app.setTop(rt.copy(sec = i))
-    Box(Modifier.fillMaxSize().roomGrid()) {
-        // UX upgrades §1: the designer's header and bottom bar (ux/UxDesigner.kt)
-        Column(Modifier.fillMaxSize()) {
-            uz.metrx.app.ui.ux.DesignerTop(p, f, wardHeadSub(f, m, ws))
-            val room = cx.room
-            if (room == null) {
-                Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.weight(1f).padding(24.dp))
-            } else if (rt.d3) Furniture3D(p, room)
-            else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Steps(rt.step) { app.setTop(rt.copy(step = it)) }
-                if (f.modules.count { it.type == "wardrobe" } > 1 || f.type == "stenka") BoxPicker(p, f, m) { app.setTop(rt.copy(sec = 0)) }
-                // the gorka's own options (GorkaViews.kt)
-                if (f.type == "gorka") GorkaCard(p, f)
-                WardDrawing(m, f, cx, ws, mats, rt.step, sel, ::pickSec, if (rt.step != 3) null else { fr ->
-                    if (fr.sec >= 0 && fr.sec != sel) pickSec(fr.sec)
-                    app.ward(p.id, f.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) }; with(uz.metrx.app.ui.ux.QuickOps) { app.quick(p.id, f.id, app.t("ux.q.handle")) }
-                })
-                Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    when (rt.step) {
-                        1 -> PlaceStep(p, f, m, cx, ws)
-                        2 -> SizeStep(p, f, m, ws)
-                        3 -> DoorStep(p, f, m, sel, ws, ::pickSec)
-                        4 -> InsideStep(p, f, m, sel, ws, ::pickSec)
-                        else -> MatStep(p, f, mats)
-                    }
-                }
-                // the last step, the materials: the design too (Look.kt)
-                if (rt.step >= 5) DesignCard(p, f)
-                // with the Check list's drawer rule (its sheet and shelf rules are the designer's own)
-                ChecksCard(f, cx.found + remember(f, ws, mats) { uz.metrx.app.furniture.boardIssues(f, ws, mats).filter { it.key == "bz.ck.drawer" }
-                    .map { uz.metrx.app.furniture.FCheck(it.level, it.key, it.vars, it.mid) } }) { }
-                CostCard(p, f, ws, mats)
-            }
-            uz.metrx.app.ui.ux.DesignerBar(p, f, rt.d3) { app.setTop(rt.copy(d3 = it)) }
-        }
-    }
-}
-
 /**
  * The boxes of a piece of several (a stenka's pieces, a corner wardrobe's arms, a vitrina's halves): which one the
  * steps below change. A stenka's pieces can be added, moved along and taken away.
  */
 @Composable
-private fun BoxPicker(p: Project, f: Furniture, cur: Module, onPick: () -> Unit) {
+internal fun BoxPicker(p: Project, f: Furniture, cur: Module, onPick: () -> Unit) {
     val app = LocalApp.current
     val ws = app.settings.workshop
     val ms = f.modules.filter { it.type == "wardrobe" }
@@ -537,21 +488,6 @@ private fun BoxPicker(p: Project, f: Furniture, cur: Module, onPick: () -> Unit)
     }
 }
 
-@Composable
-private fun Steps(cur: Int, onPick: (Int) -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.ink.copy(alpha = .06f)).padding(4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-        (1..5).forEach { i ->
-            val on = i == cur
-            Column(Modifier.weight(1f).heightIn(min = 48.dp).clip(RoundedCornerShape(12.dp)).background(if (on) G.glass(.95f) else Color.Transparent)
-                .semantics { selected = on }.clickable(role = Role.Tab) { onPick(i) }.padding(vertical = 4.dp, horizontal = 2.dp),
-                horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-                Text("$i", style = ui(12.5f, 800, if (on) G.ink else G.ink2))
-                Text(tr("wd.s$i"), style = ui(10.5f, 700, if (on) G.ink else G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-        }
-    }
-}
-
 /** A value row for the other furniture screens (the item designer). */
 @Composable
 internal fun FValRow(label: String, value: String, onClick: () -> Unit) = ValRow(label, value, onClick)
@@ -573,7 +509,7 @@ private fun SecChips(m: Module, sel: Int, onPick: (Int) -> Unit) {
 }
 
 @Composable
-private fun PlaceStep(p: Project, f: Furniture, m: Module, cx: WardCtx, ws: Workshop) {
+internal fun PlaceStep(p: Project, f: Furniture, m: Module, cx: WardCtx, ws: Workshop) {
     val app = LocalApp.current
     val snap = app.settings.angleSnap
     if (f.roomId == null) { FreeBanner(p, f); return }
@@ -613,7 +549,7 @@ private fun PlaceStep(p: Project, f: Furniture, m: Module, cx: WardCtx, ws: Work
 }
 
 @Composable
-private fun SizeStep(p: Project, f: Furniture, m: Module, ws: Workshop) {
+internal fun SizeStep(p: Project, f: Furniture, m: Module, ws: Workshop) {
     val app = LocalApp.current
     Text(tr("wd.sizes"), style = ui(15.5f, 800))
     ValRow(tr("wd.w"), "${m.w} " + tr("u.mm")) { app.sheet = Sheet.WField(p.id, f.id, "w") }
@@ -679,7 +615,7 @@ private fun SizeStep(p: Project, f: Furniture, m: Module, ws: Workshop) {
 
 /** Sliding doors: how many, what each one is filled with, and their sizes. */
 @Composable
-private fun SlideDoors(p: Project, f: Furniture, m: Module, sl: uz.metrx.app.furniture.Slide, ws: Workshop) {
+internal fun SlideDoors(p: Project, f: Furniture, m: Module, sl: uz.metrx.app.furniture.Slide, ws: Workshop) {
     val app = LocalApp.current
     val n = sl.n.coerceIn(2, 4)
     Stepper(tr("wd.slideN"), n, 2, 4) { v -> app.ward(p.id, f.id) { mm -> mm.copy(slide = sl.copy(n = v)) } }
@@ -702,7 +638,7 @@ private fun SlideDoors(p: Project, f: Furniture, m: Module, sl: uz.metrx.app.fur
 }
 
 @Composable
-private fun DoorStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop, onSec: (Int) -> Unit) {
+internal fun DoorStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop, onSec: (Int) -> Unit) {
     val app = LocalApp.current
     val s = m.sections.getOrNull(sel) ?: return
     // hinged doors on each section, or sliding doors over the whole front (plan 1b-2)
@@ -759,7 +695,7 @@ private fun DoorStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop
 }
 
 @Composable
-private fun InsideStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop, onSec: (Int) -> Unit) {
+internal fun InsideStep(p: Project, f: Furniture, m: Module, sel: Int, ws: Workshop, onSec: (Int) -> Unit) {
     val app = LocalApp.current
     val s = m.sections.getOrNull(sel) ?: return
     Text(tr("wd.inside", "s" to sel + 1), style = ui(15.5f, 800))

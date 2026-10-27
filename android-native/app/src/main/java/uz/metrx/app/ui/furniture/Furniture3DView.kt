@@ -119,7 +119,7 @@ fun rememberDoorMotion(id: String): DoorMotion {
 
 /** The room's scene with this order's furniture in it, each door and drawer as far open as [mo] says; what can be opened. */
 @Composable
-fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion): Pair<Shell3D, Furn3D> {
+fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion, hi: uz.metrx.app.geo.PartHi? = null): Pair<Shell3D, Furn3D> {
     val app = LocalApp.current
     val ws = app.settings.workshop; val mats = app.settings.mats
     val fs = p.furniture.filter { it.roomId == room.id || (it.roomId == null && uz.metrx.app.furniture.FREE_ROOM + it.id == room.id) }
@@ -130,8 +130,9 @@ fun rememberFurnShell(p: Project, room: Room, base: Shell3D, mo: DoorMotion): Pa
     val ceil = room.dim("H").v
     // built once with every door and drawer shut on its own (split): opening one only moves it ([mo] is read by
     // Scene3D's open, not here), so nothing is rebuilt while it moves
-    val fur = remember(base, fs, ws, mats, bare, light, ceil) {
-        furniture3D(fs, base.bases, ws, matRgb(mats), emptySet(), bare = bare, look = matLook(mats),
+    val hiKey = hi?.let { it.key + it.role + it.mods.sorted().joinToString() }
+    val fur = remember(base, fs, ws, mats, bare, light, ceil, hiKey) {
+        furniture3D(fs, base.bases, ws, matRgb(mats), emptySet(), bare = bare, hi = hi, look = matLook(mats),
             mats = mats, light = light, ceil = ceil, decor = !light, split = true)
     }
     val shell = remember(base, fur) { base.plus(fur.parts, fur.edges, fur.fronts, fur.toggles) }
