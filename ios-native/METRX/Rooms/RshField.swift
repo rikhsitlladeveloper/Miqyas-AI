@@ -20,6 +20,8 @@ struct RshSizeField: View {
     let fresh: Bool
     let hint: Int
     let issue: String?
+    /// The field's text and freshness as the draft has them now (keys typed fast arrive before the view is drawn again).
+    let live: () -> (text: String, fresh: Bool)
     let onText: (String) -> Void
     let onNext: () -> Void
     /// A laser or voice value, mm; words: what was heard (nil from the laser).
@@ -51,10 +53,11 @@ struct RshSizeField: View {
             }
             HStack(spacing: 10) {
                 TextField("", text: Binding(get: { text }, set: { v in
+                    let now = live()
                     var clean = String(v.filter { $0.isNumber || (unit != .mm && ($0 == "," || $0 == ".")) }.prefix(unit == .mm ? 5 : 8))
                     // a value put in for the maker is replaced by the first key typed (as selected text would be)
-                    if fresh && !text.isEmpty { clean = rshReplaceFresh(text, clean) }
-                    if clean != text { onText(clean) }
+                    if now.fresh && !now.text.isEmpty { clean = rshReplaceFresh(now.text, clean) }
+                    if clean != now.text { onText(clean) }
                 }), prompt: Text(unit == .mm ? fmtMm(Double(hint)) : Geo.fmtField(hint, unit, rshEn)).foregroundColor(Color(argb: 0xFFA7B0C0)))
                 .font(num(32, 700).font).foregroundColor(fresh ? G.cobalt2 : G.ink)
                 .keyboardType(unit == .mm ? .numberPad : .decimalPad)

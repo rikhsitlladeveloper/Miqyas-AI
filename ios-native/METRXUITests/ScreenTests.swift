@@ -653,6 +653,7 @@ final class Part7Tests: ScreenTestCase {
         app.buttons["add.plan"].tap(); usleep(800_000)
         app.buttons["nr.create"].tap(); sleep(1)
         shapeFlow(app, walls: ["5", "4"], h: nil)
+        noToast(app)    // the "added" toast lies over the tray button
         app.buttons["ed.tray"].tap(); usleep(900_000); shot("172-tray")
         app.buttons["tr.A"].firstMatch.tap(); usleep(900_000); shot("173-reading-on-wall-A")
     }
@@ -1098,7 +1099,7 @@ final class UXTests: ScreenTestCase {
         if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { shot("ux-05-gallery-coach"); app.buttons["ux.coachOk"].tap(); usleep(600_000) }
         shot("ux-11-gallery")
         // the style row: another style (the second chip, on screen) repaints the cards
-        if app.buttons["lk.p.gloss"].waitForExistence(timeout: 2) { app.buttons["lk.p.gloss"].tap(); sleep(3); shot("ux-12-gallery-gloss") }
+        if app.buttons["lk.p.gloss"].waitForExistence(timeout: 2) && app.buttons["lk.p.gloss"].isHittable { app.buttons["lk.p.gloss"].tap(); sleep(3); shot("ux-12-gallery-gloss") }
         // a model's size steps without a room
         tapModel(app, "I")
         for _ in 0..<3 where !app.textFields["fx.value"].exists && app.buttons["fx.next"].exists { app.buttons["fx.next"].tap(); usleep(800_000) }

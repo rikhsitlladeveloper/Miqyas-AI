@@ -372,6 +372,7 @@ private struct WallsStep: View {
             Dots(n: n + (free ? 1 : 0), at: st)
             PicBox(height: kb ? 150 : 220, tools: d) { PlanPic(g: geo.g, look: look, letters: geo.letters) }
             RshSizeField(app: app, d: d, key: "w\(st)\(d.shape)", label: label, help: help, text: d.input, fresh: d.fresh, hint: hint, issue: d.err,
+                         live: { (d.input, d.fresh) },
                          onText: { d.input = $0; d.fresh = false; d.err = nil; d.heard = nil },
                          onNext: { wallsNext(d) },
                          onValue: { mm, words in takeValue(d, mm, words) },
@@ -452,6 +453,7 @@ private struct HeightStep: View {
               bar: RBar(label: tr(d.ret ? "common.save" : "common.next"), enabled: !d.hIn.isEmpty) { heightNext(d) }) {
             PicBox(height: kb ? 150 : 220) { HeightPic(txt: live.map { lenWords($0, unit) } ?? "?").padding(4) }
             RshSizeField(app: app, d: d, key: "h", label: tr("rsh.hT"), help: tr("rsh.hD"), text: d.hIn, fresh: d.hFresh, hint: SHAPE_HEIGHT_DEFAULT, issue: d.hErr,
+                         live: { (d.hIn, d.hFresh) },
                          onText: { d.hIn = $0; d.hFresh = false; d.hErr = nil; d.heard = nil },
                          onNext: { heightNext(d) },
                          onValue: { mm, words in takeValue(d, mm, words) },
@@ -610,6 +612,7 @@ private struct OpNum: View {
             PicBox(height: kb ? 150 : 220) { PlanPic(g: geo.g, look: look, letters: geo.letters) }
             RshSizeField(app: app, d: d, key: "op\(op.kind.id)\(op.wall)\(sub)", label: fieldLabel, help: help, text: op.input, fresh: op.fresh,
                          hint: rshOpHint(d, op), issue: op.err,
+                         live: { (d.op?.input ?? "", d.op?.fresh ?? false) },
                          onText: { t in if var o = d.op { o.input = t; o.fresh = false; o.err = nil; d.op = o }; d.heard = nil },
                          onNext: { opNext(app, d) },
                          onValue: { mm, words in takeValue(d, mm, words) },
