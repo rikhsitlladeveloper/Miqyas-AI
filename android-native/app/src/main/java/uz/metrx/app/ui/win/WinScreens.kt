@@ -83,6 +83,7 @@ import uz.metrx.app.ui.theme.Theme
 import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
+import uz.metrx.app.ui.rooms.startRoomShape
 import uz.metrx.app.ui.tiles.drawTileRoom
 import uz.metrx.app.win.GAP_MAX
 import uz.metrx.app.win.GAP_MIN
@@ -515,13 +516,13 @@ private fun NewRoomSheet(pid: String) {
     fun create() {
         if (name.isBlank() || !app.once()) return
         // a suggested name is kept as its key, so it follows the language
-        val rid = app.addWinRoom(pid, uz.metrx.app.data.suggestedName(name, "dw.roomName", app.settings.lang))
         app.sheet = null
-        app.openRoom(pid, rid)
+        app.startRoomShape(pid, "win", "room", uz.metrx.app.data.suggestedName(name, "dw.roomName", app.settings.lang))
     }
-    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fo.drawRoom"), ::create, enabled = name.isNotBlank()) }) {
+    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fr.continue"), ::create, enabled = name.isNotBlank()) }) {
         GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr("dw.roomName"), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
         Text(tr("dw.roomB"), style = ui(12.5f, 400, G.ink2, 1.4f))
+        Text(tr("rsh.nextNote"), style = ui(13f, 400, G.ink2, 1.4f))
     }
 }
 

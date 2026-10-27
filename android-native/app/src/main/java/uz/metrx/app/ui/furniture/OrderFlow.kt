@@ -86,6 +86,7 @@ import uz.metrx.app.ui.theme.Theme
 import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
+import uz.metrx.app.ui.rooms.startRoomShape
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.temporal.ChronoUnit
@@ -157,11 +158,10 @@ fun App.addFurnRoom(pid: String, type: String, name: String): String {
 /** Opens a room in the editor with wall A waiting for the laser or typing. */
 fun App.openRoom(pid: String, rid: String) { push(Route.Editor(pid, rid)); ops.focus(rid, "A") }
 
-/** Draws the first room of a workspace that has none yet. */
+/** Draws the first room of a workspace that has none yet: its shape, sizes, height and openings (room-shape flow). */
 fun App.drawRoomIn(pid: String, w: Workspace, lang: Lang) {
-    val r = Room(uid(), w.id, floorName(w, lang), created = System.currentTimeMillis())
-    store.update(pid) { it.copy(rooms = it.rooms + r) }
-    openRoom(pid, r.id)
+    store.get(pid)?.rooms?.firstOrNull { it.floorId == w.id }?.let { openRoom(pid, it.id); return }
+    startRoomShape(pid, "into", w.type, floorName(w, lang), wid = w.id)
 }
 
 /* ---------------- New order ---------------- */
@@ -346,17 +346,17 @@ private fun NewRoomSheet(s: Sheet.FNewRoom) {
     fun create() {
         if (name.isBlank() || !app.once()) return
         // a suggested name is kept as its key, so it follows the language
-        val rid = app.addFurnRoom(pid, type, uz.metrx.app.data.suggestedName(name, "fr.$type", app.settings.lang))
-        if (s.fid != null) app.placeAfter = rid to s.fid
+        // the room's shape, sizes, height and openings come next (room-shape flow); the room is made at its end
         app.sheet = null
-        app.openRoom(pid, rid)
+        app.startRoomShape(pid, "furniture", type, uz.metrx.app.data.suggestedName(name, "fr.$type", app.settings.lang), fid = s.fid)
     }
-    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fo.drawRoom"), ::create, enabled = name.isNotBlank()) }) {
+    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fr.continue"), ::create, enabled = name.isNotBlank()) }) {
         Text(tr("fr.type"), style = ui(15f, 700))
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             F_ROOMS.forEach { t -> Chip(tr("fr.$t"), t == type) { type = t; name = nameFor(t) } }
         }
         GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr("fr.$type"), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
+        Text(tr("rsh.nextNote"), style = ui(13f, 400, G.ink2, 1.4f))
     }
 }
 

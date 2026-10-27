@@ -74,9 +74,13 @@ import kotlin.math.hypot
 import kotlin.math.min
 import kotlin.math.roundToInt
 
-/** Drawing a room's outline: one stroke, or corner taps (prototype PAGES.sketch). */
+/**
+ * Drawing a room's outline: one stroke, or corner taps (prototype PAGES.sketch). In the room-shape flow ([onShape]) the
+ * outline is not made into a room here: "Tayyor" hands its corners (mm, clockwise) to the flow, which asks every wall;
+ * [onClose] goes back to the shape cards.
+ */
 @Composable
-fun SketchScreen(rt: Route.Sketch) {
+fun SketchScreen(rt: Route.Sketch, onShape: ((List<Pt>) -> Unit)? = null, onClose: (() -> Unit)? = null) {
     val app = LocalApp.current
     val tm = rememberTextMeasurer()
     var tapMode by remember { mutableStateOf(false) }
@@ -102,6 +106,7 @@ fun SketchScreen(rt: Route.Sketch) {
         if (r.err != null || !r.closed) return
         val mm = sketchToMm(r.verts)
         if (mm.size < 3 || selfIntersects(mm) != null) { app.say("sk.cross", kind = ToastKind.ERROR); return }
+        if (onShape != null) { onShape(mm); return }
         val room = Room(uid(), rt.wid, rt.name, template = "poly", shape = "poly", dims = polyDims(mm.size), poly = Poly(mm, template = "sketch", snap = snap), created = System.currentTimeMillis())
         app.store.update(rt.pid) { it.copy(rooms = it.rooms + room) }
         app.replaceTop(Route.Editor(rt.pid, room.id))
@@ -111,14 +116,16 @@ fun SketchScreen(rt: Route.Sketch) {
     var warned by remember { mutableStateOf(false) }
     val drawn = stroke.isNotEmpty() || raw != null || taps.isNotEmpty()
     fun close() {
-        if (drawn && !warned) { warned = true; app.say("sk.leaveQ", kind = ToastKind.INFO, action = "sk.leave") { if (app.top == rt) app.pop() } } else app.pop()
+        val leave = onClose ?: { if (app.top == rt) app.pop() }
+        if (drawn && !warned) { warned = true; app.say("sk.leaveQ", kind = ToastKind.INFO, action = "sk.leave") { leave() } } else if (onClose != null) onClose() else app.pop()
     }
-    androidx.activity.compose.BackHandler(enabled = drawn && app.sheet == null) { close() }
+    androidx.activity.compose.BackHandler(enabled = (drawn || onClose != null) && app.sheet == null) { close() }
     Column(Modifier.fillMaxSize().roomGrid().statusBarsPadding().navigationBarsPadding()) {
         Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GlassIconButton("x", tr("common.close"), { close() })
             Column(Modifier.weight(1f)) {
-                Text(tr("sk.title"), style = ui(20f, 800)); Text(uz.metrx.app.data.dn(rt.name, app.settings.lang), style = ui(12f, 400, G.ink2))
+                Text(tr(if (onShape != null) "rsh.skT" else "sk.title"), style = ui(20f, 800))
+                Text(uz.metrx.app.data.dn(rt.name, app.settings.lang) + if (onShape != null) " · " + tr("rsh.skSub") else "", style = ui(12f, 400, G.ink2))
             }
         }
         Row(Modifier.padding(horizontal = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -219,7 +226,7 @@ fun SketchScreen(rt: Route.Sketch) {
         }
         Row(Modifier.padding(16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             GBtn(tr("sk.redraw"), ::clear, Btn.SECONDARY, enabled = raw != null || taps.isNotEmpty(), modifier = Modifier.weight(1f))
-            GBtn(tr("nr.create"), ::create, enabled = r != null && r.closed && r.err == null, modifier = Modifier.weight(1f))
+            GBtn(tr(if (onShape != null) "rsh.ready" else "nr.create"), ::create, enabled = r != null && r.closed && r.err == null, modifier = Modifier.weight(1f))
         }
     }
 }

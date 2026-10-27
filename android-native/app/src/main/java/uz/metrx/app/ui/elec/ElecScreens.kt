@@ -114,6 +114,7 @@ import uz.metrx.app.ui.theme.Theme
 import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
+import uz.metrx.app.ui.rooms.startRoomShape
 import uz.metrx.app.ui.tiles.drawTileRoom
 
 /*
@@ -572,16 +573,16 @@ private fun NewRoomSheet(pid: String) {
     fun create() {
         if (name.isBlank() || !app.once()) return
         // a suggested name is kept as its key, so it follows the language
-        val rid = app.addElecRoom(pid, kind, uz.metrx.app.data.suggestedName(name, kindKey(kind), app.settings.lang))
         app.sheet = null
-        app.openRoom(pid, rid)
+        app.startRoomShape(pid, "elec", kind, uz.metrx.app.data.suggestedName(name, kindKey(kind), app.settings.lang))
     }
-    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fo.drawRoom"), ::create, enabled = name.isNotBlank()) }) {
+    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fr.continue"), ::create, enabled = name.isNotBlank()) }) {
         Text(tr("fr.type"), style = ui(15f, 700))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             KINDS.forEach { k -> Chip(tr(kindKey(k)), k == kind) { kind = k; name = nameFor(k) } }
         }
         GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr(kindKey(kind)), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
+        Text(tr("rsh.nextNote"), style = ui(13f, 400, G.ink2, 1.4f))
     }
 }
 

@@ -88,6 +88,7 @@ import uz.metrx.app.ui.theme.Theme
 import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
+import uz.metrx.app.ui.rooms.startRoomShape
 
 /*
  * The tiler's own app (22 Oct 2026, built like the furniture maker's): the Home with new orders, an order's rooms with
@@ -312,9 +313,7 @@ fun App.drawTileRoom(pid: String, w: Workspace, lang: Lang) {
     // a second tap does not add a second room
     store.get(pid)?.rooms?.firstOrNull { it.floorId == w.id }?.let { openRoom(pid, it.id); return }
     if (!once()) return
-    val r = Room(uid(), w.id, floorName(w, lang), created = System.currentTimeMillis())
-    store.update(pid) { it.copy(rooms = it.rooms + r) }
-    openRoom(pid, r.id)
+    startRoomShape(pid, "into", w.type, floorName(w, lang), wid = w.id)
 }
 
 /* ---------------- the next step ---------------- */
@@ -513,16 +512,16 @@ private fun NewRoomSheet(pid: String) {
     fun create() {
         if (name.isBlank() || !app.once()) return
         // a suggested name is kept as its key, so it follows the language
-        val rid = app.addTileRoom(pid, type, uz.metrx.app.data.suggestedName(name, roomKey(type), app.settings.lang))
         app.sheet = null
-        app.openRoom(pid, rid)
+        app.startRoomShape(pid, "tiler", type, uz.metrx.app.data.suggestedName(name, roomKey(type), app.settings.lang))
     }
-    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fo.drawRoom"), ::create, enabled = name.isNotBlank()) }) {
+    GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { GBtn(tr("fr.continue"), ::create, enabled = name.isNotBlank()) }) {
         Text(tr("fr.type"), style = ui(15f, 700))
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             T_ROOMS.forEach { t -> Chip(tr(roomKey(t)), t == type) { type = t; name = nameFor(t) } }
         }
         GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr(roomKey(type)), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
+        Text(tr("rsh.nextNote"), style = ui(13f, 400, G.ink2, 1.4f))
     }
 }
 
