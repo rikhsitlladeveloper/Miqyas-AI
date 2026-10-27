@@ -119,8 +119,7 @@ fun ProjectsList() {
         GlassHeader({ app.openLaser() })
         PageTitle(tr(if (furniture || tiler || elec || plumb || win) "fo.tab" else "tab.projects"), Modifier.padding(start = 20.dp, end = 20.dp, top = 14.dp, bottom = 4.dp))
         if (all.isEmpty()) { ProjectsEmpty { app.push(Route.NewProject()) }; return@Column }
-        // the sample order is never counted (UX upgrades §11)
-        val n = mapOf("active" to ps.count { !it.sample && stageOf(it) != "done" }, "done" to ps.count { !it.sample && stageOf(it) == "done" }, "all" to ps.count { !it.sample })
+        val n = mapOf("active" to ps.count { stageOf(it) != "done" }, "done" to ps.count { stageOf(it) == "done" }, "all" to ps.size)
         val needle = q.trim().lowercase()
         val list = (if (seg == "other") others else ps).filter { p ->
             val inSeg = seg == "all" || seg == "other" || (if (seg == "done") stageOf(p) == "done" else stageOf(p) != "done")

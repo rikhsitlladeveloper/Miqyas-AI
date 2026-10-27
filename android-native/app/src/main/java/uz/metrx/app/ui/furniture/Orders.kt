@@ -84,7 +84,6 @@ import uz.metrx.app.ui.theme.Theme
 import uz.metrx.app.ui.theme.num
 import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
-import uz.metrx.app.ui.ux.deleteSample
 import java.math.BigInteger
 
 /*
@@ -193,17 +192,13 @@ fun FurnitureHome(nav: MainNav) {
             }
             Row(Modifier.padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(tr("fo.recent"), style = ui(17f, 800))
-                // the sample is never counted (UX upgrades §11)
-                val real = orders.count { !it.sample }
-                Text(tr("ux.countN", "n" to real) + if (orders.any { it.sample }) " (" + tr("ux.noSample") + ")" else "", style = ui(12.5f, 500, G.ink3),
+                Text(tr("ux.countN", "n" to orders.size), style = ui(12.5f, 500, G.ink3),
                     modifier = Modifier.weight(1f), maxLines = 1)
                 if (orders.isNotEmpty()) Text(tr("fo.all"), style = ui(13.5f, 700, G.cobalt2),
                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button) { app.selectTab(Tab.PROJECTS) }.padding(horizontal = 6.dp, vertical = 8.dp))
             }
             if (orders.isEmpty()) Text(tr("fo.noOrders"), style = ui(14f, 400, G.ink2, 1.45f))
-            // the sample first while it is there, then the newest
-            (orders.filter { it.sample } + orders.filter { !it.sample }).take(4).forEach { p -> FOrderCard(p) { app.push(Route.Project(p.id)) } }
-            if (s.sampleMade && orders.none { it.sample } && orders.size < 3) Text(tr("ux.sampleGone"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(horizontal = 4.dp))
+            orders.take(4).forEach { p -> FOrderCard(p) { app.push(Route.Project(p.id)) } }
         }
     }
     NewOrderPill(nav::newProject, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = NAV_SPACE + 6.dp))
@@ -224,8 +219,7 @@ fun NewOrderPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
 
 /**
  * An order's card on Home and in Buyurtmalar (UX upgrades §2, §4, §11): the name, the furniture, the 5-step line with
- * "Keyingi: …" and the price (grey and approximate in simple mode); the call button, or for the sample its NAMUNA
- * badge and one-tap delete (with Undo). Advanced adds the stage and install date.
+ * "Keyingi: …" and the price (grey and approximate in simple mode); the call button. Advanced adds the stage and install date.
  */
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
@@ -235,9 +229,6 @@ fun FOrderCard(p: Project, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(24.dp)).pressable(onClick).padding(14.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-            if (p.sample) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                uz.metrx.app.ui.ux.SampleBadge(); Text(tr("ux.sampleNote"), style = ui(11.5f, 500, G.ink3), maxLines = 1)
-            }
             Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Text(dn(p.name, lang), style = ui(15.5f, 700, G.ink, 1.25f), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Pieces(p)
@@ -246,14 +237,9 @@ fun FOrderCard(p: Project, onClick: () -> Unit) {
                 FStageChip(p.stage); InstallChip(p)
             }
             uz.metrx.app.ui.ux.MiniProgress(p)
-            // the sample is not a real customer's: no location
-            if (!p.sample) uz.metrx.app.ui.loc.OrderLocRow(p)
+            uz.metrx.app.ui.loc.OrderLocRow(p)
         }
-        if (p.sample) Column(Modifier.heightIn(min = 56.dp).clip(RoundedCornerShape(16.dp)).background(G.errWash).clickable(role = Role.Button) { app.deleteSample(p.id) }
-            .padding(horizontal = 10.dp, vertical = 8.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp, Alignment.CenterVertically)) {
-            MIcon("trash", G.err, 18.dp, 2f)
-            Text(tr("common.delete"), style = ui(11.5f, 700, G.err), maxLines = 1)
-        } else CallButton(p)
+        CallButton(p)
     }
 }
 @Composable

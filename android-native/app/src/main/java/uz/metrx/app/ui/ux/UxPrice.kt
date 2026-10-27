@@ -68,7 +68,7 @@ fun FPriceScreen(rt: Route.FPrice) {
     val cur = remember(p, s.workshop, s.mats, s.hws, s.pdf, s.builderName) { app.currentQuote(p) }
     val no = cur?.no ?: ((p.quotes.maxOfOrNull { it.no } ?: 0) + 1)
     Column(Modifier.fillMaxSize()) {
-        UxTop(tr("ux.priceT"), { app.pop() }, eyebrow = dn(p.name, lang), sample = p.sample) { ProgressRow(p) }
+        UxTop(tr("ux.priceT"), { app.pop() }, eyebrow = dn(p.name, lang)) { ProgressRow(p) }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
         Column(Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (fs.isEmpty()) {

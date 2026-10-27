@@ -88,9 +88,9 @@ fun Modifier.coachSpot(key: String): Modifier = composed {
     this.onGloballyPositioned { c -> val r = c.boundsInRoot(); if (!r.isEmpty && app.coach[key] != r) app.coach[key] = r }
 }
 
-/** The header: Back, a small line above the title (with the NAMUNA badge), the title on up to 3 lines, [right] buttons, and [below]. */
+/** The header: Back, a small line above the title, the title on up to 3 lines, [right] buttons, and [below]. */
 @Composable
-fun UxTop(title: String, onBack: () -> Unit, eyebrow: String? = null, sample: Boolean = false, right: @Composable RowScope.() -> Unit = {},
+fun UxTop(title: String, onBack: () -> Unit, eyebrow: String? = null, right: @Composable RowScope.() -> Unit = {},
           below: (@Composable ColumnScope.() -> Unit)? = null) {
     val haze = LocalHaze.current
     Column(Modifier.fillMaxWidth().glassBlur(haze, barFill(), 20.dp).background(barFill())
@@ -99,11 +99,8 @@ fun UxTop(title: String, onBack: () -> Unit, eyebrow: String? = null, sample: Bo
         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Box(Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = tr("nt.back"), onClick = onBack)
                 .semantics { contentDescription = "back" }, contentAlignment = Alignment.Center) { MIcon("back", G.ink, 24.dp, 2.2f) }
-            Column(Modifier.weight(1f).padding(top = if (eyebrow != null || sample) 2.dp else 11.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                if (eyebrow != null || sample) Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (sample) SampleBadge()
-                    if (eyebrow != null) Text(eyebrow, style = ui(12.5f, 600, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
+            Column(Modifier.weight(1f).padding(top = if (eyebrow != null) 2.dp else 11.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                if (eyebrow != null) Text(eyebrow, style = ui(12.5f, 600, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 // the order's name wraps and is never cut (§1)
                 Text(title, style = ui(18.5f, 800, G.ink, 1.2f))
             }
@@ -111,13 +108,6 @@ fun UxTop(title: String, onBack: () -> Unit, eyebrow: String? = null, sample: Bo
         }
         if (below != null) Column(Modifier.padding(start = 6.dp), verticalArrangement = Arrangement.spacedBy(8.dp), content = below)
     }
-}
-
-/** The grey "NAMUNA" badge of the sample order (§11). */
-@Composable
-fun SampleBadge() {
-    Text(tr("ux.sample").uppercase(), style = ui(11f, 800, G.amberInk, spacing = .04f), maxLines = 1,
-        modifier = Modifier.clip(RoundedCornerShape(7.dp)).background(G.amberWash).padding(horizontal = 7.dp, vertical = 2.dp))
 }
 
 /** A round 48 dp button of the bars. */

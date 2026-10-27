@@ -61,7 +61,7 @@ fun FOrderScreen(r: Route.Project, p: Project) {
     val act = app.fNextAct(p, ctx)
     val galleryNext = act.label == app.t("ux.a.addFurn") || act.label == app.t("ux.a.more")
     Column(Modifier.fillMaxSize()) {
-        UxTop(dn(p.name, lang), { app.pop() }, eyebrow = tr("ux.order"), sample = p.sample, right = {
+        UxTop(dn(p.name, lang), { app.pop() }, eyebrow = tr("ux.order"), right = {
             uz.metrx.app.ui.furniture.CallButton(p)
             Box(Modifier.size(46.dp).clip(CircleShape).background(G.ink.copy(alpha = .06f)).clickable(role = Role.Button, onClickLabel = tr("common.menu")) {
                 app.sheet = Sheet.ProjectMenu(p.id)

@@ -319,7 +319,7 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     val undos = uz.metrx.app.ui.ux.UndoStack()
     /**
      * An action that can be undone: a toast with "Ortga qaytarish", a tick, and the bottom bar's Undo. [tag] names what
-     * it puts back, so the entry can be forgotten once that changed (the sample made again).
+     * it puts back, so the entry can be forgotten once that changed.
      */
     fun act(text: String, undo: () -> Unit, kind: ToastKind = ToastKind.OK, tag: String? = null) {
         val entry = undos.push(text, tag, undo)

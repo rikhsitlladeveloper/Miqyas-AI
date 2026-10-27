@@ -42,7 +42,7 @@ import java.math.BigInteger
 fun DesignerTop(p: Project, f: Furniture, sub: String) {
     val app = LocalApp.current
     val lang = LocalLang.current
-    UxTop(dn(f.name, lang), { app.pop() }, eyebrow = sub, sample = p.sample, right = {
+    UxTop(dn(f.name, lang), { app.pop() }, eyebrow = sub, right = {
         Box(Modifier.size(46.dp).clip(CircleShape).background(G.ink.copy(alpha = .06f)).clickable(role = Role.Button, onClickLabel = tr("common.menu")) {
             app.sheet = Sheet.FMenu(p.id, f.id)
         }, contentAlignment = Alignment.Center) { MIcon("more", G.ink, 20.dp, 2f) }
