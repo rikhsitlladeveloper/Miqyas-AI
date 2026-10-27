@@ -27,7 +27,8 @@ final class DesignerCTests: XCTestCase {
     }
 
     func testZoomedInTheEdgeMovesInTenMillimetres() {
-        XCTAssertEqual(dzcSnapW(437, DZC_SNAP, fine: true, lo: 150, hi: 1200), 440)
+        XCTAssertEqual(dzcSnapW(432, DZC_SNAP, fine: true, lo: 150, hi: 1200), 430)
+        XCTAssertEqual(dzcSnapW(517, DZC_SNAP, fine: true, lo: 150, hi: 1200), 520)
         // a snap within 15 mm still wins
         XCTAssertEqual(dzcSnapW(456, DZC_SNAP, fine: true, lo: 150, hi: 1200), 450)
         XCTAssertEqual(dzcSnapW(2000, DZC_SNAP, fine: true, lo: 150, hi: 900), 900)
