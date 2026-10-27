@@ -1,5 +1,8 @@
 package uz.metrx.app.ui.editor
 
+import uz.metrx.app.ui.rooms.RshSheetGo
+import uz.metrx.app.ui.rooms.RshSheetSub
+import uz.metrx.app.ui.rooms.RshTypeLabel
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -171,9 +174,9 @@ private fun NewRoomSheet(s: Sheet.NewRoom) {
         app.close()
         app.startRoomShape(p.id, "build", w.type, keptName(), wid = w.id)
     }
-    GlassSheet(tr("nr.title"), { app.close() }, footer = { GBtn(tr("fr.continue"), ::create, enabled = err == null) }) {
-        GField(tr("nr.name"), name, { name = it.take(NAME_MAX) }, tr("smp.living"), error = err, showError = true, imeAction = ImeAction.Done, onIme = ::create)
-        Text(tr("rsh.nextNote"), style = ui(13f, 400, G.ink2, 1.4f))
+    GlassSheet(tr("fo.addRoom"), { app.close() }, footer = { RshSheetGo(err == null, ::create) }) {
+        RshSheetSub(p)
+        GField(tr("fr.name"), name, { name = it.take(NAME_MAX) }, tr("smp.living"), error = err, showError = true, imeAction = ImeAction.Done, onIme = ::create)
     }
 }
 

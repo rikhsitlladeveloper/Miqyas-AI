@@ -304,7 +304,8 @@ private fun DrawScope.drawPlan(m: PlanModel, mir: Boolean, rot: Int, o: PlanLook
     labels.sortedBy { if (it.st == "cur") 0 else 1 }.forEach { l ->
         // out from the wall first, then along it (a pill pushed against the picture's edge cannot go further out)
         val tx = -l.ny; val ty = l.nx
-        val tries = listOf(0f to 0f, 12f to 0f, 24f to 0f, 36f to 0f, 0f to 18f, 0f to -18f, 0f to 36f, 0f to -36f, 12f to 30f, 12f to -30f)
+        // nearest first, so a letter stays by its own wall (an L's "C" was pushed far above its wall)
+        val tries = listOf(0f to 0f, 0f to 18f, 0f to -18f, 12f to 0f, 12f to 18f, 12f to -18f, 0f to 36f, 0f to -36f, 24f to 0f, 36f to 0f, 12f to 30f, 12f to -30f)
         val (x, y) = tries.asSequence().map { (n, t) -> (l.x + l.nx * n + tx * t) to (l.y + l.ny * n + ty * t) }
             .firstOrNull { (x, y) -> placed.none { it.overlaps(pillRect(x, y, l.t, l.st, W, H)) } } ?: (l.x to l.y)
         placed += pillRect(x, y, l.t, l.st, W, H)

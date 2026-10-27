@@ -326,7 +326,7 @@ private fun PickRoomSheet(s: Sheet.FPickRoom) {
                 MIcon(if (w?.type == "kitchen") "kitchen" else "room", G.cobalt, 22.dp, 2f)
                 Column(Modifier.weight(1f)) {
                     Text(w?.let { floorName(it, lang) } ?: dn(r.name, lang), style = ui(15.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(m(r.dim("A").v) + " × " + m(r.dim("B").v) + " " + unitWord(app.settings.furnUnit) + " · h " + m(r.dim("H").v), style = num(12.5f, 500, G.ink2), maxLines = 1)
+                    Text(uz.metrx.app.geo.roomSize(r, app.settings.angleSnap).let { m(it?.first) + " × " + m(it?.second) } + " " + unitWord(app.settings.furnUnit) + " · h " + m(r.dim("H").v), style = num(12.5f, 500, G.ink2), maxLines = 1)
                 }
                 MIcon("chev", G.ink3, 16.dp, 2f)
             }

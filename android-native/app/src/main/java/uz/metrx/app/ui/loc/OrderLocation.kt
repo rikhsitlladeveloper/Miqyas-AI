@@ -186,7 +186,9 @@ fun PinRow(l: Location) {
                 Text(tr("loc.acc", "m" to l.acc), style = ui(11.5f, 800, greenInk), maxLines = 1,
                     modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(G.glass(.85f)).padding(horizontal = 7.dp, vertical = 2.dp))
             }
-            Text(tr("loc.src"), style = ui(12f, 400, G.ink2))
+            // "GPS · 24.10" (mockup pinRow: where and when it was read)
+            val day = remember(l.ts) { if (l.ts > 0) java.text.SimpleDateFormat("dd.MM", java.util.Locale.ROOT).format(java.util.Date(l.ts)) else "" }
+            Text(if (day.isEmpty()) tr("loc.src") else tr("loc.srcD", "d" to day), style = ui(12f, 400, G.ink2))
         }
     }
 }

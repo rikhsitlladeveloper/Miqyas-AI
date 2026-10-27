@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
@@ -201,6 +202,30 @@ private fun App.finishRoom(d: RshDraft) {
     })
 }
 
+/* ---------------- the trades' "Xona qo‘shish" sheet (mockup typeSheet) ---------------- */
+
+/** The sheet's line under its title: "Aziza Nazarova · 1-qadam: tur va nom". */
+@Composable
+fun RshSheetSub(p: uz.metrx.app.data.Project) {
+    val lang = app().settings.lang
+    val who = dn(p.customer, lang).ifBlank { dn(p.name, lang) }
+    Text(if (who.isBlank()) tr("rsh.step1n") else tr("rsh.step1", "c" to who), style = ui(13f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+}
+
+/** "Xona turi", over the trade's room-type chips. */
+@Composable
+fun RshTypeLabel() = Text(tr("rsh.typeL"), style = ui(13f, 700, G.ink2))
+
+/** "Davom etish", with "Keyingi qadam — xona shakli." under it. */
+@Composable
+fun androidx.compose.foundation.layout.ColumnScope.RshSheetGo(enabled: Boolean, onGo: () -> Unit) {
+    uz.metrx.app.ui.components.GBtn(tr("fr.continue"), onGo, enabled = enabled)
+    Text(tr("rsh.nextNote"), style = ui(13f, 400, G.ink2, 1.4f), modifier = Modifier.padding(horizontal = 4.dp))
+}
+
+@Composable
+private fun app() = LocalApp.current
+
 /* ---------------- the screen ---------------- */
 
 @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
@@ -260,10 +285,19 @@ private fun rshBack(app: App, d: RshDraft) {
 @Composable
 private fun RProg(cur: Int) {
     val labels = listOf("rsh.p.shape", "rsh.p.walls", "rsh.p.height", "rsh.p.ops", "rsh.p.sum")
+    val lineOn = G.cobalt; val lineOff = G.ink.copy(alpha = .12f)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         labels.forEachIndexed { i, k ->
             val done = i < cur; val on = i == cur
-            Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).background(if (on) G.cobalt.copy(alpha = .1f) else Color.Transparent).padding(vertical = 3.dp),
+            // the line from the step before (mockup .ps::before): blue once this step is reached
+            Column(Modifier.weight(1f).drawWithContent {
+                drawContent()
+                if (i > 0) {
+                    val y = (3 + 11).dp.toPx(); val gap = 13.dp.toPx(); val w = size.width
+                    drawLine(if (done || on) lineOn else lineOff, androidx.compose.ui.geometry.Offset(-2.dp.toPx() - w / 2 + gap, y),
+                        androidx.compose.ui.geometry.Offset(w / 2 - gap, y), 2.dp.toPx(), androidx.compose.ui.graphics.StrokeCap.Round)
+                }
+            }.clip(RoundedCornerShape(10.dp)).background(if (on) G.cobalt.copy(alpha = .1f) else Color.Transparent).padding(vertical = 3.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 Box(Modifier.size(22.dp).clip(CircleShape).background(if (done) G.cobalt else G.solid).border(2.dp, if (done || on) G.cobalt else G.ink.copy(alpha = .12f), CircleShape),
                     contentAlignment = Alignment.Center) {
@@ -351,9 +385,21 @@ private fun ShapeCard(d: RshDraft, k: String, modifier: Modifier) {
             }
             Text(tr("rsh.s.$k"), style = ui(14f, 800), maxLines = 2, modifier = Modifier.padding(start = 4.dp, top = 8.dp, end = 4.dp))
         }
-        if (sel && k != "free") Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            ToolBtn(MIRROR, tr("rsh.mirror"), Modifier.fillMaxWidth()) { d.mir = !d.mir; app.haptic(Hap.TICK) }
-            ToolBtn(ROTATE, tr("rsh.rotate"), Modifier.fillMaxWidth()) { d.rot = (d.rot + 1) % 4; app.haptic(Hap.TICK) }
+        // side by side as in the mockup; one under the other only when the words don't fit (Russian)
+        if (sel && k != "free") androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            val tm = androidx.compose.ui.text.rememberTextMeasurer()
+            val st = ui(12.5f, 800, G.cobalt2)
+            val m1 = tr("rsh.mirror"); val r1 = tr("rsh.rotate")
+            val dens = androidx.compose.ui.platform.LocalDensity.current
+            // each button: 8 + icon 16 + 5 + words + 8
+            val words = tm.measure(m1, st).size.width + tm.measure(r1, st).size.width
+            val need = with(dens) { words.toDp() } + 80.dp
+            val mir = { d.mir = !d.mir; app.haptic(Hap.TICK) }; val rot = { d.rot = (d.rot + 1) % 4; app.haptic(Hap.TICK) }
+            if (need <= maxWidth) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ToolBtn(MIRROR, m1, Modifier.weight(1f), mir); ToolBtn(ROTATE, r1, Modifier.weight(1f), rot)
+            } else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                ToolBtn(MIRROR, m1, Modifier.fillMaxWidth(), mir); ToolBtn(ROTATE, r1, Modifier.fillMaxWidth(), rot)
+            }
         }
         else Text(if (k == "free") tr(if (sel) "rsh.byFinger" else "rsh.everyWall") else tr("rsh.nAsked", "n" to askCount(k)), style = ui(12f, 500, G.ink2, 1.25f),
             minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.heightIn(min = 40.dp).padding(start = 4.dp, end = 4.dp, top = 4.dp))
@@ -401,7 +447,7 @@ private fun WallsStep(d: RshDraft) {
     Page(dn(d.name, app.settings.lang) + " · " + tr("rsh.s.${d.shape}"), sub, null, { rshBack(app, d) }, bar = {
         UxBar(tr(if (isD && d.input.isEmpty()) "rsh.skip" else if (d.ret) "common.save" else "common.next"), null, ::next, null, false, mainEnabled = d.input.isNotEmpty() || isD)
     }) {
-        Dots(n + if (free) 1 else 0, st)
+        // no step dots: "Devor 2 / 4" in the header says it (mockup scrWalls)
         PicBox(if (imeOn) 160.dp else 236.dp, d) {
             PlanPic(g.model, d.mir, d.rot, look, letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize())
         }
@@ -411,16 +457,6 @@ private fun WallsStep(d: RshDraft) {
             onLaser = { mm -> d.heard = null; d.input = fieldText(mm, unit, en); d.fresh = false; d.err = null; d.flash++; app.haptic(Hap.CONFIRM) },
             onVoice = { mm, words -> d.heard = d.input to words; d.input = fieldText(mm, unit, en); d.fresh = false; d.err = null; d.flash++; app.haptic(Hap.CONFIRM) },
             onUnVoice = { d.heard?.let { d.input = it.first }; d.heard = null; app.haptic(Hap.TICK) })
-    }
-}
-
-/** The step dots: one per asked value, the current one long. */
-@Composable
-private fun Dots(n: Int, at: Int) {
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
-        (0 until n).forEach { i ->
-            Box(Modifier.size(if (i == at) 22.dp else 7.dp, 7.dp).clip(CircleShape).background(when { i == at -> G.cobalt; i < at -> G.cobalt.copy(alpha = .45f); else -> G.ink.copy(alpha = .14f) }))
-        }
     }
 }
 
@@ -583,7 +619,7 @@ private fun OpsList(d: RshDraft) {
         else {
             Sect(tr("rsh.added2"))
             d.ops.toList().forEachIndexed { i, it ->
-                SumRow(tr("rsh.op.${it.kind}") + " · " + tr("rsh.wall", "w" to g.letters.getOrElse(it.wall) { "?" }), opDesc(it, unit, en), small = true) {
+                SumRow(tr("rsh.op.${it.kind}") + " · " + tr("rsh.wall", "w" to g.letters.getOrElse(it.wall) { "?" }), opDesc(it, unit, en), small = true, endMin = 40.dp) {
                     Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button) {
                         val gone = d.ops.removeAt(i)
                         opSay(app, d, app.t("rsh.opDel", "n" to app.t("rsh.op.${gone.kind}"))) { d.ops.add(min(i, d.ops.size), gone) }
@@ -681,13 +717,14 @@ private fun opNext(app: App, d: RshDraft, op: OpEdit) {
 private fun Sect(t: String) = Text(t, style = ui(13f, 800, G.ink2), modifier = Modifier.padding(start = 4.dp, top = 8.dp))
 
 @Composable
-private fun SumRow(label: String, value: String, small: Boolean = false, auto: Boolean = false, end: @Composable () -> Unit) {
+private fun SumRow(label: String, value: String, small: Boolean = false, auto: Boolean = false, endMin: Dp = 108.dp, end: @Composable () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).border(1.dp, G.rim, RoundedCornerShape(16.dp))
         .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(label, style = ui(14f, 500, G.ink2, 1.3f), modifier = Modifier.weight(1f))
         Text(value, style = if (small) ui(12.5f, 700, if (auto) G.ink2 else G.ink, 1.3f) else num(15.5f, 700, if (auto) G.ink2 else G.ink), textAlign = TextAlign.End,
-            modifier = Modifier.weight(1f, fill = false))
-        Box(Modifier.widthIn(min = 108.dp), contentAlignment = Alignment.CenterEnd) { end() }
+            // fills its half and hugs the button, as the mockup's value next to "O‘zgartirish"
+            modifier = Modifier.weight(1f))
+        Box(Modifier.widthIn(min = endMin), contentAlignment = Alignment.CenterEnd) { end() }
     }
 }
 
@@ -699,8 +736,16 @@ private fun ChangeBtn(label: String, onClick: () -> Unit) {
 
 @Composable
 private fun AutoTag() {
+    // a dashed pill, as the derived walls on the plan (mockup .atag)
+    val c = G.ink3.copy(alpha = .7f)
     Text(tr("rsh.auto"), style = ui(11.5f, 800, G.ink3).copy(fontStyle = FontStyle.Normal), maxLines = 1,
-        modifier = Modifier.padding(end = 6.dp).border(1.5.dp, G.ink3.copy(alpha = .7f), RoundedCornerShape(12.dp)).padding(horizontal = 9.dp, vertical = 3.dp))
+        modifier = Modifier.padding(end = 6.dp).drawWithContent {
+            drawContent()
+            val sw = 1.5.dp.toPx(); val r = size.height / 2
+            drawRoundRect(c, androidx.compose.ui.geometry.Offset(sw / 2, sw / 2), androidx.compose.ui.geometry.Size(size.width - sw, size.height - sw),
+                androidx.compose.ui.geometry.CornerRadius(r, r), style = androidx.compose.ui.graphics.drawscope.Stroke(sw,
+                    pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(4.dp.toPx(), 3.dp.toPx()))))
+        }.padding(horizontal = 9.dp, vertical = 3.dp))
 }
 
 @Composable
@@ -720,7 +765,7 @@ private fun SummaryStep(d: RshDraft) {
     val ch = tr("fz.change")
     fun edit(i: Int) { d.ret = true; setStep(app, d, i); go(app, d, "walls") }
     Page(dn(d.name, app.settings.lang), tr("rsh.sumSub"), 4, { rshBack(app, d) }, bar = {
-        UxBar(tr("rsh.open"), "room", { app.finishRoom(d) }, null, false, mainEnabled = g.err == null)
+        UxBar(tr("rsh.open"), null, { app.finishRoom(d) }, null, false, mainEnabled = g.err == null)
     }) {
         PicBox(230.dp, null) {
             PlanPic(g.model, d.mir, d.rot, PlanLook(fmt = lenFmt(app, d), final = true, ops = planOps(d), diagK = if (d.diag != null) rshDiagK(d) else null, diagTxt = d.diag?.let { lenWords(it, unit, en) }),
