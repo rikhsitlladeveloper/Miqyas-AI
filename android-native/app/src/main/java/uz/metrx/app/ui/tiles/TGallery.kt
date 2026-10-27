@@ -158,7 +158,7 @@ fun TGalleryScreen(rt: Route.TGallery) {
             if (room != null) {
                 val f = { mm: Int? -> fmtLen(mm, LenUnit.M, en) }
                 Text(tr("tl.forRoom", "r" to (p.floors.firstOrNull { it.id == room.floorId }?.let { floorName(it, lang) } ?: dn(room.name, lang)),
-                    "a" to f(room.dim("A").v), "b" to f(room.dim("B").v), "h" to f(room.dim("H").v)), style = ui(13.5f, 400, G.ink2, 1.4f))
+                    "a" to f(uz.metrx.app.geo.roomSize(room, app.settings.angleSnap)?.first), "b" to f(uz.metrx.app.geo.roomSize(room, app.settings.angleSnap)?.second), "h" to f(room.dim("H").v)), style = ui(13.5f, 400, G.ink2, 1.4f))
             } else Text(tr("tl.galB"), style = ui(13.5f, 400, G.ink2, 1.4f))
             groups.forEach { (g, ms) ->
                 Row(Modifier.padding(top = 8.dp, start = 2.dp).onGloballyPositioned { tops[g] = it.positionInParent().y.toInt() }, verticalAlignment = Alignment.Bottom,

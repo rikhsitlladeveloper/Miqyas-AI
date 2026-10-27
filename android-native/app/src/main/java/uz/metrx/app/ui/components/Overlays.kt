@@ -130,7 +130,8 @@ fun ToastHost(msg: ToastMsg?, bottomPx: Int? = null, atTop: Boolean = false, onG
     // the toast whose action already ran: a second tap during the exit animation must not run Undo again
     var acted by remember { mutableStateOf<Long?>(null) }
     LaunchedEffect(msg?.id) {
-        if (msg == null) return@LaunchedEffect
+        // cleared by the app (e.g. the room-shape flow moving to its next screen): it slides away now
+        if (msg == null) { visible = false; return@LaunchedEffect }
         shown = msg; visible = true
         // a toast with Undo stays long enough to reach it (about 6 s)
         delay(if (msg.action != null) 6500 else if (msg.kind == ToastKind.ERROR) 5200 else 3400)
