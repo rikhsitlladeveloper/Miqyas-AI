@@ -242,6 +242,7 @@ fun WOrderRow(p: Project, onClick: () -> Unit) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(dn(p.name, lang), style = ui(15f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(winSummary(p.win.items), style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            uz.metrx.app.ui.loc.OrderLocRow(p, Modifier.padding(top = 4.dp))
         }
         CallButton(p)
     }

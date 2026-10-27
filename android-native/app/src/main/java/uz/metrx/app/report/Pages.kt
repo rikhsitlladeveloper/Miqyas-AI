@@ -242,7 +242,8 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
         fun party(k: String, name: String, phone: String) = Cell(listOf(AnnotatedString(t(k)) to lab, AnnotatedString(dn(name, l).ifBlank { "—" } + "\n" + Phone.format(phone)) to v))
         val proj = buildAnnotatedString {
             append(dn(sn.name, l)); if (sn.address.isNotBlank()) append(", " + dn(sn.address, l))
-            sn.location?.let { append("\n"); withStyle(SpanStyle(color = INK3, fontSize = 8.5.sp)) { append(t("pr.location") + ":") }; append(" %.5f, %.5f".format(java.util.Locale.ROOT, it.lat, it.lng)) }
+            // a builder's report only (an older snapshot has no trade: ""); furniture and trades never print it
+            sn.location?.takeIf { sn.industry == "build" || (sn.industry == "" && sn.furniture.isEmpty()) }?.let { append("\n"); withStyle(SpanStyle(color = INK3, fontSize = 8.5.sp)) { append(t("pr.location") + ":") }; append(" %.5f, %.5f".format(java.util.Locale.ROOT, it.lat, it.lng)) }
         }
         table(listOf(
             listOf(party(makerKey, sn.builderName, sn.builderPhone), party("rpt.customer", sn.customer, sn.phone)),

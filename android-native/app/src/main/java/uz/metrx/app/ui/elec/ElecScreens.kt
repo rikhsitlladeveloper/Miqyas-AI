@@ -268,6 +268,7 @@ fun EOrderRow(p: Project, onClick: () -> Unit) {
             val sub = if (p.elec.devs.isEmpty() && p.elec.free.isEmpty()) tr("el.noDevs") else devSummary(p.elec.devs) +
                 if (p.elec.free.isNotEmpty()) " · " + tr("el.freeN", "n" to p.elec.free.size) else ""
             Text(sub, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            uz.metrx.app.ui.loc.OrderLocRow(p, Modifier.padding(top = 4.dp))
         }
         CallButton(p)
     }

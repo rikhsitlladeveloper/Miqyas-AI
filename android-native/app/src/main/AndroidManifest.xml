@@ -33,6 +33,11 @@
         <package android:name="org.telegram.messenger" />
         <package android:name="org.telegram.messenger.web" />
         <package android:name="org.thunderdog.challegram" />
+        <!-- an order's "Yo‘l" sheet opens the pin in these map apps when installed, else their https map (room-shapes spec §1) -->
+        <package android:name="ru.yandex.yandexmaps" />
+        <package android:name="ru.yandex.yandexnavi" />
+        <package android:name="com.google.android.apps.maps" />
+        <intent><action android:name="android.intent.action.VIEW" /><data android:scheme="https" /></intent>
     </queries>
 
     <application
