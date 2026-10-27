@@ -170,7 +170,7 @@ fun FurnitureHome(nav: MainNav) {
     val (debt, nDebt) = owed(orders)
     Box(Modifier.fillMaxSize()) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        GlassHeader(nav::laser)
+        GlassHeader(nav::laser, labeled = true)
         // the "+ Yangi buyurtma" pill floats at the bottom, in thumb reach (UX upgrades mockup), so the list leaves room for it
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 6.dp, bottom = 96.dp + NAV_SPACE).navigationBarsPadding(),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -201,11 +201,11 @@ fun FurnitureHome(nav: MainNav) {
             orders.take(4).forEach { p -> FOrderCard(p) { app.push(Route.Project(p.id)) } }
         }
     }
-    NewOrderPill(nav::newProject, Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = NAV_SPACE + 6.dp))
+    NewOrderPill(nav::newProject, Modifier.align(Alignment.BottomEnd).navigationBarsPadding().padding(end = 16.dp, bottom = NAV_SPACE + 10.dp))
     }
 }
 
-/** "+ Yangi buyurtma" in thumb reach, just above the tab bar (UX upgrades mockup, Home and Orders). */
+/** "+ Yangi buyurtma" in thumb reach at the right, just above the tab bar (UX upgrades mockup, Home and Orders). */
 @Composable
 fun NewOrderPill(onClick: () -> Unit, modifier: Modifier = Modifier) {
     val shape = RoundedCornerShape(28.dp)
@@ -281,7 +281,14 @@ fun FStageChip(stage: String) {
 @Composable
 private fun Pieces(p: Project) {
     val lang = LocalLang.current
-    Text(if (p.furniture.isEmpty()) tr("fo.pieces0") else p.furniture.joinToString(", ") { dn(it.name, lang) }, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+    // one piece: its model and sizes, as the mockup's "Burchakli (L) · 3400 + 2600 mm"; several: their names
+    val one = p.furniture.singleOrNull()
+    val line = when {
+        p.furniture.isEmpty() -> tr("fo.pieces0")
+        one != null -> freeSub(one, lang == uz.metrx.app.core.Lang.EN).ifBlank { dn(one.name, lang) }
+        else -> p.furniture.joinToString(", ") { dn(it.name, lang) }
+    }
+    Text(line, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
 }
 
 /** One order in the Orders list: name, who, the 7 stages as a bar, the stage and install date, what is left; the call button. */

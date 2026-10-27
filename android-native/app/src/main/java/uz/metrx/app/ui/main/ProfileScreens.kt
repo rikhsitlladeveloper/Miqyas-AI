@@ -88,7 +88,7 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             PageTitle(tr("tab.profile"), Modifier.weight(1f).padding(start = 16.dp, top = 6.dp))
-            LaserButton(nav::laser)
+            if (s.furniture) uz.metrx.app.ui.components.LaserChip(nav::laser) else LaserButton(nav::laser)
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(top = 2.dp, bottom = 20.dp + NAV_SPACE).navigationBarsPadding()) {
             // who appears on every quote
@@ -98,7 +98,7 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                     Box(Modifier.size(56.dp).clip(CircleShape).background(G.avatar), contentAlignment = Alignment.Center) { Text(initials, style = ui(20f, 600, Color.White)) }
                     Column(Modifier.weight(1f)) {
                         Text(name.ifEmpty { tr("prof.noName") }, style = ui(17f, 600, G.ink, 1.25f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(if (s.builderPhone.isNotEmpty()) Phone.format(s.builderPhone) else tr("se.notSet"), style = ui(13.5f, 400, G.ink2, 1.25f))
+                        Text((if (s.builderPhone.isNotEmpty()) Phone.format(s.builderPhone) else tr("se.notSet")) + if (s.furniture) " · " + tr("ind.furn") else "", style = ui(13.5f, 400, G.ink2, 1.25f))
                     }
                     Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(G.ink.copy(alpha = .06f)), contentAlignment = Alignment.Center) { MIcon("edit", G.ink, 18.dp, 2f) }
                 }
@@ -107,22 +107,12 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                 }
             }
             ProCard { app.push(Route.Subscription) }
-            // furniture makers: how the workshop builds and prices, and its boards and hardware (furniture plan section 6)
+            // furniture makers (UX upgrades mockup, Profil): one "Sozlamalar" card in the mockup's order: haptics, the size
+            // unit, the voice pack, "Narxlarni ko‘rsatish (Advanced)" (with the workshop and its boards once on), the tips again
             if (s.furniture) {
-                Group(tr("wk.group"))
+                Group(tr("tab.settings"))
                 Card {
-                    // off: the app is just the 3D design; on: prices, order stages, workshop rules, cutting lists
-                    SwitchRow("sliders", tr("adv.title"), s.advanced) { s.setAdvancedOn(!s.advanced); if (!s.advanced) app.dropAdvanced(); app.say(if (s.advanced) "adv.on" else "adv.off") }
-                    if (s.advanced) {
-                        Row1("board", tr("wk.title"), null, sub = tr("wk.titleS")) { app.push(Route.Workshop) }
-                        Row1("layers", tr("wk.mats"), null, sub = tr("wk.matsS", "m" to s.mats.size, "h" to s.hws.size)) { app.push(Route.Materials) }
-                    }
-                }
-                Text(tr("adv.sub"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(start = 28.dp, end = 28.dp, top = 8.dp))
-                // how much the furniture 3D does: by the phone, everything, or light (modern 3D part 1)
-                Card(Modifier.padding(top = 10.dp)) { Row1("cube", tr("q.row"), tr("q.${s.quality}")) { app.sheet = Sheet.Quality3D } }
-                // UX upgrades: the furniture's size unit (§5), the voice pack (§9), the tour and tips again (§11)
-                Card(Modifier.padding(top = 10.dp)) {
+                    HapticRow()
                     Column(Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                             IconTile("ruler")
@@ -141,17 +131,17 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                             }
                         }
                     }
-                    Box(Modifier.padding(horizontal = 12.dp, vertical = 6.dp)) {
-                        val vl = uz.metrx.app.voice.VoicePacks.langOf(s.lang)
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            uz.metrx.app.voice.PackRow(vl)
-                            val ctx = androidx.compose.ui.platform.LocalContext.current
-                            if (!uz.metrx.app.voice.VoicePacks.ready(ctx, vl) && !uz.metrx.app.voice.VoicePacks.progress.containsKey(vl))
-                                uz.metrx.app.ui.components.GBtn(tr("ux.v.load"), { uz.metrx.app.voice.startPack(app, ctx, vl) }, uz.metrx.app.ui.components.Btn.SECONDARY, icon = "save", height = 44.dp, corner = 14.dp, fontSize = 14.5f)
-                        }
+                    VoicePackRow()
+                    // off: the app is just the 3D design; on: prices, order stages, workshop rules, cutting lists
+                    SwitchRow("sliders", tr("ux.adv.t"), s.advanced, sub = tr("ux.adv.s")) { s.setAdvancedOn(!s.advanced); if (!s.advanced) app.dropAdvanced(); app.say(if (s.advanced) "adv.on" else "adv.off") }
+                    if (s.advanced) {
+                        Row1("board", tr("wk.title"), null, sub = tr("wk.titleS")) { app.push(Route.Workshop) }
+                        Row1("layers", tr("wk.mats"), null, sub = tr("wk.matsS", "m" to s.mats.size, "h" to s.hws.size)) { app.push(Route.Materials) }
                     }
-                    Row1("info", tr("ux.hints.t"), null, sub = tr("ux.hints.s")) { with(uz.metrx.app.ui.ux.HelpOps) { app.resetAll() } }
+                    MiniRow("info", tr("ux.hints.t"), tr("ux.hints.s"), tr("ux.hints.b")) { with(uz.metrx.app.ui.ux.HelpOps) { app.resetAll() } }
                 }
+                // how much the furniture 3D does: by the phone, everything, or light (modern 3D part 1)
+                Card(Modifier.padding(top = 10.dp)) { Row1("cube", tr("q.row"), tr("q.${s.quality}")) { app.sheet = Sheet.Quality3D } }
             }
             // tilers: the same switch; on, the quantities, prices, estimate and quotes (off: only the tiles in 3D)
             if (s.tiler) {
@@ -203,17 +193,8 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
             // dark mode: this app's own (the prototype has only the light look)
             Card(Modifier.padding(top = 10.dp)) {
                 SwitchRow("moon", tr("nt.dark"), s.dark) { s.setDarkMode(!s.dark) }
-                // UX upgrades §10: haptics, on by default, no sound
-                Row(Modifier.fillMaxWidth().heightIn(min = 64.dp).switchState(s.haptic).clickable(role = Role.Switch) {
-                    s.setHapticOn(!s.haptic); if (s.haptic) app.haptic(uz.metrx.app.ui.ux.Hap.TICK); app.say(if (s.haptic) "ux.hap.on" else "ux.hap.off", kind = uz.metrx.app.ui.components.ToastKind.INFO)
-                }.padding(start = 12.dp, end = 14.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    IconTile("vib")
-                    Column(Modifier.weight(1f)) {
-                        Text(tr("ux.hap.t"), style = ui(15.5f, 500, G.ink, 1.4f))
-                        Text(tr("ux.hap.s"), style = ui(12.5f, 400, G.ink2, 1.35f))
-                    }
-                    GSwitch(s.haptic)
-                }
+                // UX upgrades §10: haptics, on by default, no sound (furniture makers: in "Sozlamalar" above)
+                if (!s.furniture) HapticRow()
             }
             Group(tr("pf.gMeasure"))
             Card {
@@ -300,10 +281,61 @@ private fun Row1(icon: String, title: String, value: String?, sub: String? = nul
 }
 
 @Composable
-private fun SwitchRow(icon: String, title: String, on: Boolean, onClick: () -> Unit) {
+private fun SwitchRow(icon: String, title: String, on: Boolean, sub: String? = null, onClick: () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).switchState(on).clickable(role = Role.Switch, onClick = onClick).padding(start = 12.dp, end = 14.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        IconTile(icon); Text(title, style = ui(15.5f, 500, G.ink, 1.4f), modifier = Modifier.weight(1f)); GSwitch(on)
+        IconTile(icon)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = ui(15.5f, 500, G.ink, 1.4f))
+            if (sub != null) Text(sub, style = ui(12.5f, 400, G.ink2, 1.35f))
+        }
+        GSwitch(on)
+    }
+}
+
+/** "Tebranish (haptik)" (UX upgrades §10): on by default, no sound. */
+@Composable
+private fun HapticRow() {
+    val app = LocalApp.current
+    val s = app.settings
+    SwitchRow("vib", tr("ux.hap.t"), s.haptic, sub = tr("ux.hap.s")) {
+        s.setHapticOn(!s.haptic); if (s.haptic) app.haptic(uz.metrx.app.ui.ux.Hap.TICK); app.say(if (s.haptic) "ux.hap.on" else "ux.hap.off", kind = uz.metrx.app.ui.components.ToastKind.INFO)
+    }
+}
+
+/** A row with a small button at the end instead of a chevron (the mockup's "Yuklash", "Qaytarish"). */
+@Composable
+private fun MiniRow(icon: String, title: String, sub: String?, button: String?, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        IconTile(icon)
+        Column(Modifier.weight(1f)) {
+            Text(title, style = ui(15.5f, 500, G.ink, 1.4f))
+            if (sub != null) Text(sub, style = ui(12.5f, 400, G.ink2, 1.35f))
+        }
+        if (button != null) Text(button, style = ui(13.5f, 800, G.cobalt2), maxLines = 1, modifier = Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp))
+            .background(G.blueWash).clickable(role = Role.Button, onClick = onClick).padding(horizontal = 14.dp, vertical = 12.dp))
+    }
+}
+
+/** "Ovoz paketi" (UX upgrades §9, mockup Profil): not loaded with "Yuklash", loading with its bar, or ready. */
+@Composable
+private fun VoicePackRow() {
+    val app = LocalApp.current
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    val vl = uz.metrx.app.voice.VoicePacks.langOf(app.settings.lang)
+    val prog = uz.metrx.app.voice.VoicePacks.progress[vl]
+    val ready = uz.metrx.app.voice.VoicePacks.ready(ctx, vl)
+    val sub = when {
+        ready -> tr("ux.v.ok", "l" to tr(if (vl == "ru") "ux.v.ru" else "ux.v.uz"))
+        prog != null -> if (prog >= .9f) tr("ux.v.unzip") else tr("ux.v.loading", "p" to (prog * 100).toInt())
+        else -> tr("ux.v.none")
+    }
+    Column {
+        MiniRow("mic", tr("ux.v.row"), sub, if (!ready && prog == null) tr("ux.v.load") else null) { uz.metrx.app.voice.startPack(app, ctx, vl) }
+        if (prog != null) Box(Modifier.padding(start = 60.dp, end = 14.dp, bottom = 10.dp).fillMaxWidth().height(6.dp).clip(RoundedCornerShape(3.dp)).background(G.ink.copy(alpha = .1f))) {
+            Box(Modifier.fillMaxWidth(prog.coerceIn(.02f, 1f)).height(6.dp).clip(RoundedCornerShape(3.dp)).background(G.cobalt))
+        }
     }
 }
 

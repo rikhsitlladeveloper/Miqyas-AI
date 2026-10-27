@@ -519,7 +519,7 @@ fun KitchenScreen(rt: Route.Kitchen) {
         // UX upgrades §1: Back, the name and the menu on top with the compact progress and the price chip; Undo, 2D/3D
         // and "Narxni ko‘rish" at the bottom, in thumb reach
         Column(Modifier.fillMaxSize()) {
-            uz.metrx.app.ui.ux.DesignerTop(p, f, tr("kt.sub", "n" to f.modules.size, "v" to runMetres(f, en)))
+            uz.metrx.app.ui.ux.DesignerTop(p, f, freeSub(f, en))
             if (room == null || run == null) {
                 Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.weight(1f).padding(24.dp))
             } else if (rt.d3) Furniture3D(p, room)

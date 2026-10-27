@@ -97,10 +97,11 @@ fun UxTop(title: String, onBack: () -> Unit, eyebrow: String? = null, right: @Co
         .drawBehind { drawRect(G.ink.copy(alpha = .08f), Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
         .statusBarsPadding().padding(start = 8.dp, end = 10.dp, top = 6.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            Box(Modifier.size(48.dp).clip(CircleShape).clickable(role = Role.Button, onClickLabel = tr("nt.back"), onClick = onBack)
+            Box(Modifier.size(48.dp).dropShadow(CircleShape, Shadow(16.dp, G.shade.copy(alpha = .12f), offset = DpOffset(0.dp, 5.dp)))
+                .clip(CircleShape).background(G.glass(.78f)).border(1.dp, G.rim, CircleShape).clickable(role = Role.Button, onClickLabel = tr("nt.back"), onClick = onBack)
                 .semantics { contentDescription = "back" }, contentAlignment = Alignment.Center) { MIcon("back", G.ink, 24.dp, 2.2f) }
             Column(Modifier.weight(1f).padding(top = if (eyebrow != null) 2.dp else 11.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                if (eyebrow != null) Text(eyebrow, style = ui(12.5f, 600, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (eyebrow != null) Text(eyebrow, style = ui(12.5f, 600, G.cobalt2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 // the order's name wraps and is never cut (§1)
                 Text(title, style = ui(18.5f, 800, G.ink, 1.2f))
             }
@@ -113,7 +114,7 @@ fun UxTop(title: String, onBack: () -> Unit, eyebrow: String? = null, right: @Co
 /** A round 48 dp button of the bars. */
 @Composable
 fun BarIcon(icon: String, label: String, on: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Box(modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(G.ink.copy(alpha = .06f))
+    Box(modifier.size(56.dp).clip(RoundedCornerShape(18.dp)).background(G.glass(.78f)).border(1.dp, G.rim, RoundedCornerShape(18.dp))
         .clickable(role = Role.Button, onClickLabel = label) { if (on) onClick() }.semantics { contentDescription = label },
         contentAlignment = Alignment.Center) { UxIcon(icon, if (on) G.ink else G.ink3.copy(alpha = .45f), 22.dp, 2.2f) }
 }
@@ -140,7 +141,7 @@ fun UxBar(main: String, mainIcon: String?, onMain: () -> Unit, onUndo: (() -> Un
             seg?.invoke()
             val shape = RoundedCornerShape(18.dp)
             val bg = mainColor ?: G.cobalt
-            Row(Modifier.weight(1f).heightIn(min = 54.dp).let { if (coach != null) it.coachSpot(coach) else it }
+            Row(Modifier.weight(1f).heightIn(min = 56.dp).let { if (coach != null) it.coachSpot(coach) else it }
                 .graphicsLayer { scaleX = pulse.value; scaleY = pulse.value }
                 .dropShadow(shape, Shadow(18.dp, if (mainEnabled) bg.copy(alpha = .3f) else Color.Transparent, offset = DpOffset(0.dp, 8.dp)))
                 .clip(shape).background(bg).graphicsLayer { alpha = if (mainEnabled) 1f else .42f }
@@ -174,36 +175,48 @@ fun Seg2D3D(d3: Boolean, onPick: (Boolean) -> Unit) {
     }
 }
 
-/** The order's progress (§2): ✓ done, the current step blue, "–" for no room; each step opens its place. [compact]: the designer's. */
+/**
+ * The order's progress (§2), as the mockup's .ps: done steps a blue circle with ✓, the current one outlined in blue
+ * on a light blue step, "–" in a dashed circle for no room; the line up to a step is blue once it is reached. Each
+ * step opens its place. [compact]: the designer's.
+ */
 @Composable
 fun ProgressRow(p: Project, compact: Boolean = false) {
     val app = LocalApp.current
     val steps = fSteps(app, p)
-    val d: Dp = if (compact) 20.dp else 26.dp
+    val d: Dp = if (compact) 22.dp else 27.dp
+    val line = G.ink.copy(alpha = .1f)
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         steps.forEachIndexed { i, s ->
-            val (bg, fg) = when (s.state) {
-                StepState.DONE -> G.green to Color.White
-                StepState.CUR -> G.cobalt to Color.White
-                StepState.SKIP -> G.ink.copy(alpha = .08f) to G.ink3
-                StepState.TODO -> G.ink.copy(alpha = .08f) to G.ink2
-            }
-            Column(Modifier.weight(1f).clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button) { app.openStep(p, s.key) }.padding(vertical = if (compact) 2.dp else 4.dp),
+            val reached = s.state != StepState.TODO
+            val nextReached = steps.getOrNull(i + 1)?.let { it.state != StepState.TODO } == true
+            Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).background(if (s.state == StepState.CUR) G.cobalt.copy(alpha = .11f) else Color.Transparent)
+                .clickable(role = Role.Button) { app.openStep(p, s.key) }.padding(vertical = if (compact) 2.dp else 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(if (compact) 2.dp else 4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(Modifier.weight(1f).height(2.dp).background(if (i == 0) Color.Transparent else if (s.state == StepState.DONE || s.state == StepState.CUR) G.cobalt.copy(alpha = .35f) else G.ink.copy(alpha = .1f)))
-                    Box(Modifier.size(d).clip(CircleShape).background(bg)
-                        .let { if (s.state == StepState.CUR) it.border(3.dp, G.cobalt.copy(alpha = .25f), CircleShape) else it }, contentAlignment = Alignment.Center) {
+                    Box(Modifier.weight(1f).height(2.dp).background(if (i == 0) Color.Transparent else if (reached) G.cobalt else line))
+                    val circle = Modifier.size(d).clip(CircleShape)
+                    Box(when (s.state) {
+                        StepState.DONE -> circle.background(G.cobalt)
+                        StepState.CUR -> circle.border(4.dp, G.cobalt.copy(alpha = .2f), CircleShape).padding(2.dp).clip(CircleShape).background(G.solid).border(2.dp, G.cobalt, CircleShape)
+                        StepState.SKIP -> circle.drawBehind {
+                            val w = 2.dp.toPx()
+                            drawCircle(G.ink3, radius = size.minDimension / 2 - w / 2, style = androidx.compose.ui.graphics.drawscope.Stroke(w,
+                                pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(3.dp.toPx(), 3.dp.toPx()))))
+                        }
+                        StepState.TODO -> circle.border(2.dp, line, CircleShape)
+                    }, contentAlignment = Alignment.Center) {
                         when (s.state) {
-                            StepState.DONE -> MIcon("check", fg, if (compact) 11.dp else 14.dp, 3f)
-                            StepState.SKIP -> Text("–", style = ui(if (compact) 11f else 13f, 800, fg))
-                            else -> Text("${i + 1}", style = ui(if (compact) 10.5f else 12.5f, 800, fg))
+                            StepState.DONE -> MIcon("check", Color.White, if (compact) 11.dp else 14.dp, 3f)
+                            StepState.SKIP -> Text("–", style = ui(if (compact) 11f else 13f, 800, G.ink3))
+                            StepState.CUR -> Text("${i + 1}", style = ui(if (compact) 10.5f else 12.5f, 800, G.cobalt2))
+                            StepState.TODO -> Text("${i + 1}", style = ui(if (compact) 10.5f else 12.5f, 800, G.ink3))
                         }
                     }
-                    Box(Modifier.weight(1f).height(2.dp).background(if (i == steps.lastIndex) Color.Transparent else if (s.state == StepState.DONE) G.cobalt.copy(alpha = .35f) else G.ink.copy(alpha = .1f)))
+                    Box(Modifier.weight(1f).height(2.dp).background(if (i == steps.lastIndex) Color.Transparent else if (nextReached) G.cobalt else line))
                 }
-                Text(s.label, style = ui(if (compact) 10.5f else 11.5f, if (s.state == StepState.CUR) 800 else 600,
-                    if (s.state == StepState.CUR) G.cobalt2 else if (s.state == StepState.DONE) G.ink else G.ink3), maxLines = 1, overflow = TextOverflow.Ellipsis,
+                Text(s.label, style = ui(if (compact) 10.5f else 11.5f, if (s.state == StepState.CUR) 800 else 700,
+                    when (s.state) { StepState.CUR -> G.cobalt2; StepState.DONE -> G.ink2; else -> G.ink3 }), maxLines = 1, overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center)
             }
         }
@@ -218,9 +231,10 @@ fun MiniProgress(p: Project, modifier: Modifier = Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(5.dp)) {
         Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp)) {
             steps.forEach { s ->
+                // as the mockup's .mp: done (and no room) blue, the current step light blue
                 Box(Modifier.weight(1f).height(5.dp).clip(RoundedCornerShape(3.dp)).background(when (s.state) {
-                    StepState.DONE, StepState.SKIP -> G.green
-                    StepState.CUR -> G.cobalt
+                    StepState.DONE, StepState.SKIP -> G.cobalt
+                    StepState.CUR -> G.cobalt.copy(alpha = .35f)
                     StepState.TODO -> G.ink.copy(alpha = .12f)
                 }))
             }
@@ -228,7 +242,7 @@ fun MiniProgress(p: Project, modifier: Modifier = Modifier) {
         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // simple mode: the grey "≈ … so‘m (taxminiy)"; Advanced: the exact price (§4)
             val price = app.priceWords(p, short = app.settings.advanced)
-            Text(price ?: "", style = ui(12.5f, if (app.settings.advanced) 700 else 600, if (app.settings.advanced) G.ink else G.ink3, 1.3f), maxLines = 2,
+            Text(price ?: if (p.furniture.isEmpty()) tr("ux.priceLater") else "", style = ui(12.5f, if (app.settings.advanced) 700 else 600, if (app.settings.advanced) G.ink else G.ink3, 1.3f), maxLines = 2,
                 overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
             val next = app.nextStepName(p)
             Text(if (next != null) tr("ux.nextV", "s" to next) else tr("ux.sentDone"), style = ui(12.5f, 700, if (next != null) G.cobalt2 else G.green), maxLines = 1)

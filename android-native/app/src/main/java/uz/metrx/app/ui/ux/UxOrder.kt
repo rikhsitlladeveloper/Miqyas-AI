@@ -152,7 +152,7 @@ private fun InfoPart(p: Project, lang: Lang) {
                     Text(tr("fs.$st"), style = ui(14f, if (cur) 800 else 600, if (i > k) G.ink3 else G.ink))
                 }
             }
-            Text(tr("ux.stagesNote"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(top = 4.dp))
+            Text(tr("ux.adv.stages"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.padding(top = 4.dp))
         }
     }
 }

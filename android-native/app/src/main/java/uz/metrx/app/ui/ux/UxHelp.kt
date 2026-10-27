@@ -128,15 +128,9 @@ private fun TourPicture(i: Int) {
                 }
                 Box(Modifier.size(70.dp).clip(CircleShape).background(Color(0xFF0F172A)), contentAlignment = Alignment.Center) { UxIcon("mic", Color.White, 32.dp, 2.4f) }
             }
-            1 -> Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                listOf(Color(0xFFA67A52), Color(0xFF3F4650), Color(0xFFF6F7F9)).forEach { c ->
-                    Canvas(Modifier.size(78.dp, 96.dp).clip(RoundedCornerShape(12.dp)).background(Color.White)) {
-                        val w = size.width; val h = size.height
-                        drawRect(c, Offset(w * .15f, h * .45f), Size(w * .7f, h * .38f))
-                        drawRect(Color(0xFFEDEAE4), Offset(w * .15f, h * .15f), Size(w * .7f, h * .22f))
-                        drawRect(Color(0xFF0F172A).copy(alpha = .2f), Offset(w * .15f, h * .43f), Size(w * .7f, h * .03f))
-                    }
-                }
+            // the gallery's own card of the L kitchen, drawn by the real 3D (the mockup's iso drawing of it)
+            1 -> uz.metrx.app.furniture.fModel("L")?.let { m ->
+                uz.metrx.app.ui.furniture.ModelPic(m, "", Modifier.fillMaxSize().padding(8.dp).clip(RoundedCornerShape(14.dp)))
             }
             else -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(18.dp)) {
                 Column(Modifier.size(70.dp, 92.dp).clip(RoundedCornerShape(10.dp)).background(Color.White).padding(10.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -196,8 +190,8 @@ private fun Coach() {
 
 /** Profile → "Maslahatlarni qayta ko‘rsatish": the tour and the coach marks come back. */
 fun App.resetUxHelp() {
+    // no toast (the mockup has none): Home opens with the tour at once, and a toast would cover its card
     settings.resetUxHints()
-    say("ux.hints.done", kind = ToastKind.OK)
 }
 
 /** Profile's reset, for callers outside this package. */
