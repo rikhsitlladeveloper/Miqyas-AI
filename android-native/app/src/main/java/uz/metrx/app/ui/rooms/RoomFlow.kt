@@ -385,9 +385,21 @@ private fun ShapeCard(d: RshDraft, k: String, modifier: Modifier) {
             }
             Text(tr("rsh.s.$k"), style = ui(14f, 800), maxLines = 2, modifier = Modifier.padding(start = 4.dp, top = 8.dp, end = 4.dp))
         }
-        if (sel && k != "free") Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            ToolBtn(MIRROR, tr("rsh.mirror"), Modifier.fillMaxWidth()) { d.mir = !d.mir; app.haptic(Hap.TICK) }
-            ToolBtn(ROTATE, tr("rsh.rotate"), Modifier.fillMaxWidth()) { d.rot = (d.rot + 1) % 4; app.haptic(Hap.TICK) }
+        // side by side as in the mockup; one under the other only when the words don't fit (Russian)
+        if (sel && k != "free") androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxWidth().padding(top = 4.dp)) {
+            val tm = androidx.compose.ui.text.rememberTextMeasurer()
+            val st = ui(12.5f, 800, G.cobalt2)
+            val m1 = tr("rsh.mirror"); val r1 = tr("rsh.rotate")
+            val dens = androidx.compose.ui.platform.LocalDensity.current
+            // each button: 8 + icon 16 + 5 + words + 8
+            val words = tm.measure(m1, st).size.width + tm.measure(r1, st).size.width
+            val need = with(dens) { words.toDp() } + 80.dp
+            val mir = { d.mir = !d.mir; app.haptic(Hap.TICK) }; val rot = { d.rot = (d.rot + 1) % 4; app.haptic(Hap.TICK) }
+            if (need <= maxWidth) Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                ToolBtn(MIRROR, m1, Modifier.weight(1f), mir); ToolBtn(ROTATE, r1, Modifier.weight(1f), rot)
+            } else Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                ToolBtn(MIRROR, m1, Modifier.fillMaxWidth(), mir); ToolBtn(ROTATE, r1, Modifier.fillMaxWidth(), rot)
+            }
         }
         else Text(if (k == "free") tr(if (sel) "rsh.byFinger" else "rsh.everyWall") else tr("rsh.nAsked", "n" to askCount(k)), style = ui(12f, 500, G.ink2, 1.25f),
             minLines = 2, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.heightIn(min = 40.dp).padding(start = 4.dp, end = 4.dp, top = 4.dp))
@@ -607,7 +619,7 @@ private fun OpsList(d: RshDraft) {
         else {
             Sect(tr("rsh.added2"))
             d.ops.toList().forEachIndexed { i, it ->
-                SumRow(tr("rsh.op.${it.kind}") + " · " + tr("rsh.wall", "w" to g.letters.getOrElse(it.wall) { "?" }), opDesc(it, unit, en), small = true) {
+                SumRow(tr("rsh.op.${it.kind}") + " · " + tr("rsh.wall", "w" to g.letters.getOrElse(it.wall) { "?" }), opDesc(it, unit, en), small = true, endMin = 40.dp) {
                     Box(Modifier.size(40.dp).clip(RoundedCornerShape(10.dp)).clickable(role = Role.Button) {
                         val gone = d.ops.removeAt(i)
                         opSay(app, d, app.t("rsh.opDel", "n" to app.t("rsh.op.${gone.kind}"))) { d.ops.add(min(i, d.ops.size), gone) }
@@ -705,13 +717,14 @@ private fun opNext(app: App, d: RshDraft, op: OpEdit) {
 private fun Sect(t: String) = Text(t, style = ui(13f, 800, G.ink2), modifier = Modifier.padding(start = 4.dp, top = 8.dp))
 
 @Composable
-private fun SumRow(label: String, value: String, small: Boolean = false, auto: Boolean = false, end: @Composable () -> Unit) {
+private fun SumRow(label: String, value: String, small: Boolean = false, auto: Boolean = false, endMin: Dp = 108.dp, end: @Composable () -> Unit) {
     Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).border(1.dp, G.rim, RoundedCornerShape(16.dp))
         .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(label, style = ui(14f, 500, G.ink2, 1.3f), modifier = Modifier.weight(1f))
         Text(value, style = if (small) ui(12.5f, 700, if (auto) G.ink2 else G.ink, 1.3f) else num(15.5f, 700, if (auto) G.ink2 else G.ink), textAlign = TextAlign.End,
-            modifier = Modifier.weight(1f, fill = false))
-        Box(Modifier.widthIn(min = 108.dp), contentAlignment = Alignment.CenterEnd) { end() }
+            // fills its half and hugs the button, as the mockup's value next to "O‘zgartirish"
+            modifier = Modifier.weight(1f))
+        Box(Modifier.widthIn(min = endMin), contentAlignment = Alignment.CenterEnd) { end() }
     }
 }
 
@@ -752,7 +765,7 @@ private fun SummaryStep(d: RshDraft) {
     val ch = tr("fz.change")
     fun edit(i: Int) { d.ret = true; setStep(app, d, i); go(app, d, "walls") }
     Page(dn(d.name, app.settings.lang), tr("rsh.sumSub"), 4, { rshBack(app, d) }, bar = {
-        UxBar(tr("rsh.open"), "room", { app.finishRoom(d) }, null, false, mainEnabled = g.err == null)
+        UxBar(tr("rsh.open"), null, { app.finishRoom(d) }, null, false, mainEnabled = g.err == null)
     }) {
         PicBox(230.dp, null) {
             PlanPic(g.model, d.mir, d.rot, PlanLook(fmt = lenFmt(app, d), final = true, ops = planOps(d), diagK = if (d.diag != null) rshDiagK(d) else null, diagTxt = d.diag?.let { lenWords(it, unit, en) }),
