@@ -404,7 +404,7 @@ func dzcAlign(_ f: Furniture, _ mid: String, ws: Workshop) -> DzcResult {
     let low = f.modules.filter { ($0.wall ?? "") == key.wall && !isUpper($0) && !dzcSpace($0) }
     guard let b = low.first(where: { cx >= $0.x && cx < $0.x + $0.w }) else { return dzcNo(f, "dzc.noUnder") }
     let dl = b.x - m.x, dr = (b.x + b.w) - (m.x + m.w)
-    if dl == 0 && dr == 0 { return dzcNo(f, "dzc.aligned") }
+    if dl == 0 && dr == 0 { return dzcNo(f, "dzc.alreadyAligned") }
     if dl != 0 {
         guard i > 0, row[i - 1].w + dl >= dzcLowW(row[i - 1]) || dzcGives(row[i - 1]) && row[i - 1].w + dl >= 0 else { return dzcNo(f, "dzc.noAlign") }
         row[i - 1].w += dl
@@ -641,7 +641,7 @@ func dzcRetype(_ m: Module, _ key: String, ws: Workshop) -> Module? {
     if n.type == m.type && n.app != "hood" && m.app != "hood" { n.elev = m.elev; n.h = m.h; n.d = m.d }
     else if !isUpper(n) && !isUpper(m) && n.type != "gap" && m.type != "gap" { n.elev = m.elev; n.d = m.d }
     n.soft = m.soft; n.handles = m.handles; n.front = m.front
-    n.hinge = n.fronts.kind == "door" && n.fronts.n == 1 ? m.hinge : ""
+    n.hinges = n.fronts == m.fronts ? m.hinges : []
     n.noHandle = m.noHandle
     return frontsChanged(m, n)
 }

@@ -466,7 +466,7 @@ enum DzcWOps {
             let to = lv.slot
             dzcWardChange(pid, fid) { dzcSecMove($0, i, to: to) }
             st.sec = to
-            app.say("dzc.secMoved", ["n": i + 1, "v": to + 1], action: "common.undo") { KitOps.shared.undo(pid, fid); Haptic.tick() }
+            app.say("dzc.secMoved", ["n": i + 1, "v": to + 1, "a": to + 1], action: "common.undo") { KitOps.shared.undo(pid, fid); Haptic.tick() }
         }
     }
 
@@ -604,7 +604,7 @@ enum DzcWOps {
         guard let n = dzcSecCopy(c.m, i) else { dzcWarn(app, "dzc.noCopySec"); return }
         dzcWardChange(c.p.id, c.f.id) { dzcSecCopy($0, i) ?? $0 }
         DzcState.shared.sec = i + 1
-        said(app, c, "dzc.secCopied", ["n": n.sections.count, "w": n.sections.first?.w ?? 0])
+        said(app, c, "dzc.secCopiedN", ["n": n.sections.count, "w": n.sections.first?.w ?? 0])
     }
 
     static func step(_ app: AppModel, _ c: DzcWCtx, _ d: Int) {
@@ -734,10 +734,10 @@ private struct DzcWDecor: View {
         let board = dzcBoard(c.f, key), name = dzcFrontName(key), mid = c.m.id
         if many && DzcState.shared.scope == "one" {
             KitOps.shared.change(c.p.id, c.f.id) { withLook(dzcFrontOne($0, [mid], board)) { $0 } }
-            DzcWOps.said(app, c, "dzc.decorOne", ["c": name, "m": tr(boxRole(c.f, c.m))])
+            DzcWOps.said(app, c, "dzc.decorOne", ["c": name, "d": name, "m": tr(boxRole(c.f, c.m))])
         } else {
             KitOps.shared.change(c.p.id, c.f.id) { withLook(dzcFrontAll($0, board)) { $0 } }
-            DzcWOps.said(app, c, "dzc.decorAll", ["c": name])
+            DzcWOps.said(app, c, "dzc.decorAll", ["c": name, "d": name])
         }
     }
 }
@@ -813,15 +813,15 @@ private struct DzcWHinge: View {
         let i = max(0, c.sec)
         let cur = hingeRight(c.m, i) ? "R" : "L"
         DzcOptRow(title: tr("dzc.t.hinge"), sub: tr("dzc.secN", ["n": i + 1]), onBack: onBack) {
-            DzcOpt(label: tr("dzc.hingeL"), glyph: "hg-L", on: cur == "L", id: "dzc.hinge.L") { set("L") }
-            DzcOpt(label: tr("dzc.hingeR"), glyph: "hg-R", on: cur == "R", id: "dzc.hinge.R") { set("R") }
+            DzcOpt(label: tr("dzc.sideL"), glyph: "hg-L", on: cur == "L", id: "dzc.hinge.L") { set("L") }
+            DzcOpt(label: tr("dzc.sideR"), glyph: "hg-R", on: cur == "R", id: "dzc.hinge.R") { set("R") }
         }
     }
     private func set(_ h: String) {
         let i = c.sec
         guard i >= 0 else { return }
         dzcSecChange(c.p.id, c.f.id, i) { s in var n = s; n.hinge = h; return n }
-        DzcWOps.said(app, c, h == "L" ? "dzc.hingedL" : "dzc.hingedR", ["m": tr("dzc.secN", ["n": i + 1])])
+        DzcWOps.said(app, c, h == "L" ? "dzc.hingeL" : "dzc.hingeR", ["m": tr("dzc.secN", ["n": i + 1])])
     }
 }
 

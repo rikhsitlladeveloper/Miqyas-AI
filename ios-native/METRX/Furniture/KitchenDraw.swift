@@ -288,8 +288,8 @@ func drawUnit(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ws: Workshop, _ 
                     c.stroke(rect(fl, t + g, fw, h - 2 * g), with: .color(onF), lineWidth: 0.8)
                 }
                 // the handle on the opening edge: right of a single door, the middle of a pair; without one the push mark
-                // a single door hinged on its right (Module.hinge) has its handle on its left edge
-                let atRight = n == 1 ? m.hinge != "R" : i == 0
+                // the handle on the edge away from the hinge (Module.hinges)
+                let atRight = !kHingeRight(m, i, n)
                 let hx = atRight ? fl + fw - max(2.5, fw * 0.1) : fl + max(2.5, fw * 0.1)
                 let hy = m.type == "wall" ? t + h * 0.82 : t + h * 0.14
                 let len = min(10, h * 0.18)

@@ -742,7 +742,7 @@ enum DzcKOps {
         if lv.overDel {
             KitOps.shared.change(pid, fid) { dzcDelete($0, m.id, ws: ws).f }
             KitOps.shared.sel = nil; st.tool = nil
-            app.say("dzc.deleted", ["m": modName(m), "v": m.w], action: "common.undo") { KitOps.shared.undo(pid, fid); Haptic.tick() }
+            app.say("dzc.deleted", ["m": modName(m), "v": m.w, "w": m.w], action: "common.undo") { KitOps.shared.undo(pid, fid); Haptic.tick() }
         } else if lv.slot != lv.slot0 {
             KitOps.shared.change(pid, fid) { dzcMove($0, m.id, to: lv.slot, ws: ws).f }
             app.say("dzc.moved", ["m": modName(m), "n": lv.slot + 1], action: "common.undo") { KitOps.shared.undo(pid, fid); Haptic.tick() }
@@ -799,7 +799,7 @@ enum DzcKOps {
             var a = [tl("handle")]
             let fr = handleFronts(m).first(where: { $0.key == fk })
             let door = fr.map { !$0.drawer } ?? false
-            if door && m.fronts.kind == "door" && m.fronts.n == 1 { a.append(tl("hinge")) }
+            if door && m.fronts.kind == "door" && m.type != "gap" { a.append(tl("hinge")) }
             if door { a.append(tl("soft")) }
             a.append(tl("selUp"))
             return a
@@ -808,7 +808,7 @@ enum DzcKOps {
         if m.type == "filler" { return [tl("width"), tl("decor"), tl("move"), tl("del", icon: "del", tone: "red")] }
         let hasF = !handleFronts(m).isEmpty
         let doors = m.fronts.kind == "door" && m.type != "gap"
-        let single = doors && m.fronts.n == 1
+        let single = doors
         if isUpper(m) {
             if m.app == "hood" { return [tl("width"), tl("align"), tl("copy"), tl("move"), tl("del", icon: "del", tone: "red")] }
             var a = [tl("type"), tl("width"), tl("height"), tl("align"), tl("decor")]
@@ -870,7 +870,7 @@ enum DzcKOps {
         let ws = c.ws
         change(c) { dzcDelete($0, m.id, ws: ws).f }
         KitOps.shared.sel = nil; DzcState.shared.tool = nil
-        said(app, c, "dzc.deleted", ["m": modName(m), "v": m.w])
+        said(app, c, "dzc.deleted", ["m": modName(m), "v": m.w, "w": m.w])
     }
 
     static func deleteMarked(_ app: AppModel, _ c: DzcKCtx) {
@@ -910,7 +910,7 @@ enum DzcKOps {
         guard let m = c.sel else { return }
         let ws = c.ws
         let r = dzcAlign(c.f, m.id, ws: ws)
-        if !r.ok { if r.why == "dzc.aligned" { app.say(r.why) } else { dzcWarn(app, r.why) }; return }
+        if !r.ok { if r.why == "dzc.alreadyAligned" { app.say(r.why) } else { dzcWarn(app, r.why) }; return }
         change(c) { dzcAlign($0, m.id, ws: ws).f }
         said(app, c, "dzc.alignedTo", ["m": tr("kn." + kindOf(m)), "a": r.w0, "b": r.w1])
     }
@@ -1175,12 +1175,12 @@ private struct DzcKDecor: View {
             let ids = st.ticks
             if ids.isEmpty { dzcWarn(app, "dzc.markFirst"); return }
             DzcKOps.change(c) { withLook(dzcFrontOne($0, ids, board)) { $0 } }
-            DzcKOps.said(app, c, "dzc.decorN", ["c": name, "n": ids.count])
+            DzcKOps.said(app, c, "dzc.decorN", ["c": name, "d": name, "n": ids.count])
             return
         }
         guard let m = c.sel, st.scope != "all" else {
             DzcKOps.change(c) { withLook(dzcFrontAll($0, board)) { $0 } }
-            DzcKOps.said(app, c, "dzc.decorAll", ["c": name])
+            DzcKOps.said(app, c, "dzc.decorAll", ["c": name, "d": name])
             return
         }
         if st.scope == "row" {
@@ -1190,7 +1190,7 @@ private struct DzcKDecor: View {
             return
         }
         DzcKOps.change(c) { withLook(dzcFrontOne($0, [m.id], board)) { $0 } }
-        DzcKOps.said(app, c, "dzc.decorOne", ["c": name, "m": modName(m)])
+        DzcKOps.said(app, c, "dzc.decorOne", ["c": name, "d": name, "m": modName(m)])
     }
 }
 
@@ -1283,22 +1283,46 @@ private struct DzcKSoft: View {
     }
 }
 
-/// Ochilish tomoni: a single door hinged on its left or its right.
+/// Ochilish tomoni: the selected door, or every door of the unit, hinged on its left or its right.
 private struct DzcKHinge: View {
     let app: AppModel
     let c: DzcKCtx
     let onBack: () -> Void
     var body: some View {
-        let cur = c.sel?.hinge == "R" ? "R" : "L"
-        DzcOptRow(title: tr("dzc.t.hinge"), sub: c.sel.map(modName) ?? "", onBack: onBack) {
-            DzcOpt(label: tr("dzc.hingeL"), glyph: "hg-L", on: cur == "L", id: "dzc.hinge.L") { set("L") }
-            DzcOpt(label: tr("dzc.hingeR"), glyph: "hg-R", on: cur == "R", id: "dzc.hinge.R") { set("R") }
+        let j = door()
+        let cur = Self.side(c.sel, j)
+        let sub = Self.what(c.sel, j)
+        DzcOptRow(title: tr("dzc.t.hinge"), sub: sub, onBack: onBack) {
+            DzcOpt(label: tr("dzc.sideL"), glyph: "hg-L", on: cur == "L", id: "dzc.hinge.L") { set("L") }
+            DzcOpt(label: tr("dzc.sideR"), glyph: "hg-R", on: cur == "R", id: "dzc.hinge.R") { set("R") }
         }
+    }
+    /// The side the door (j; -1 every door) hinges on: "L", "R", or "" when the doors differ.
+    private static func side(_ m: Module?, _ j: Int) -> String {
+        guard let m else { return "" }
+        let n = max(1, m.fronts.n)
+        if j >= 0 { return kHingeRight(m, j, n) ? "R" : "L" }
+        let all = (0..<n).map { kHingeRight(m, $0, n) }
+        if all.allSatisfy({ $0 }) { return "R" }
+        if all.allSatisfy({ !$0 }) { return "L" }
+        return ""
+    }
+    private static func what(_ m: Module?, _ j: Int) -> String {
+        guard let m else { return "" }
+        if j < 0 { return tr("dzc.allDoorsOf", ["m": modName(m)]) }
+        let fr = handleFronts(m).first(where: { $0.key == "f\(j)" })
+        return fr.map { frontName(m, $0) } ?? ""
+    }
+    /// The selected door's number, -1 the whole unit.
+    private func door() -> Int {
+        guard let fk = DzcState.shared.front, fk.hasPrefix("f") else { return -1 }
+        return Int(fk.dropFirst()) ?? -1
     }
     private func set(_ h: String) {
         guard let m = c.sel else { return }
-        DzcKOps.change(c) { x in var y = x; y.modules = x.modules.map { u in var n = u; if u.id == m.id { n.hinge = h == "L" ? "" : h }; return n }; return y }
-        DzcKOps.said(app, c, h == "L" ? "dzc.hingedL" : "dzc.hingedR", ["m": modName(m)])
+        let j = door()
+        DzcKOps.change(c) { x in var y = x; y.modules = x.modules.map { $0.id == m.id ? withHinge($0, j, h) : $0 }; return y }
+        DzcKOps.said(app, c, h == "L" ? "dzc.hingeL" : "dzc.hingeR", ["m": modName(m)])
     }
 }
 

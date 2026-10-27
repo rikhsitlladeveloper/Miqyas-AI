@@ -120,9 +120,26 @@ func template(_ kind: String, _ ws: Workshop, _ wall: String, _ w: Int? = nil) -
     }
 }
 
-/// Whether door j of a kitchen unit's n doors hinges on its right: a pair on its outer edges, a single door on its left
-/// unless the unit says right (Module.hinge, Designer C "Ochilish tomoni").
-func unitHingeRight(_ m: Module, _ j: Int, _ n: Int) -> Bool { n == 2 ? j == 1 : n == 1 && m.hinge == "R" }
+/// Whether door j of kitchen unit m's n doors hinges on its right edge, its handle on the left: its own choice
+/// (Module.hinges, Designer C "Ochilish tomoni"), else a single door on the left and a pair on its outer edges
+/// (Android kHingeRight).
+func kHingeRight(_ m: Module, _ j: Int, _ n: Int) -> Bool {
+    let h = j >= 0 && j < m.hinges.count ? m.hinges[j] : ""
+    if h == "R" { return true }
+    if h == "L" { return false }
+    return n == 2 && j == 1
+}
+
+/// m with door j's hinge edge set ("L" or "R"; j -1: every door of it); the usual choice is not written (Android withHinge).
+func withHinge(_ m: Module, _ j: Int, _ side: String) -> Module {
+    let n = max(1, m.fronts.n)
+    let cur = (0..<n).map { $0 < m.hinges.count ? m.hinges[$0] : "" }
+    let next = cur.enumerated().map { k, v in j < 0 || k == j ? side : v }
+    let usual = next.enumerated().allSatisfy { k, v in v.isEmpty || (v == "R") == (n == 2 && k == 1) }
+    var out = m
+    out.hinges = usual ? [] : next
+    return out
+}
 
 /// A kitchen wall unit with glass doors in frames (a vitrina): the doors are bought by the m², not cut (Parts.swift, Hardware.swift).
 func glassDoors(_ m: Module) -> Bool { m.glass && m.type == "wall" && m.fronts.kind == "door" }

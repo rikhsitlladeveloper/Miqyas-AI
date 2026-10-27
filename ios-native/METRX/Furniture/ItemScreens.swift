@@ -437,7 +437,7 @@ struct DzcItemBottom: View {
                     DzcSwatch(rgb: s.rgb, label: dzcFrontName(s.key), wood: s.wood, on: cur == s.key, id: "dzc.sw." + s.key) {
                         let board = dzcBoard(f, s.key)
                         KitOps.shared.change(pid, fid) { withLook(dzcFrontAll($0, board)) { $0 } }
-                        dzcSaid(app, pid, fid, "dzc.decorAll", ["c": dzcFrontName(s.key)])
+                        dzcSaid(app, pid, fid, "dzc.decorAll", ["c": dzcFrontName(s.key), "d": dzcFrontName(s.key)])
                     }
                 }
             }

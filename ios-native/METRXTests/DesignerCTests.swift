@@ -259,14 +259,16 @@ final class DesignerCTests: XCTestCase {
     func testTheNewFieldsAreWrittenOnlyWhenSet() throws {
         let plain = unit("a", 600)
         let s = String(data: try JSONEncoder().encode(plain), encoding: .utf8)!
-        XCTAssertFalse(s.contains("\"front\"")); XCTAssertFalse(s.contains("\"hinge\""))
-        var set = plain
-        set.front = "mdf18"; set.hinge = "R"
+        XCTAssertFalse(s.contains("\"front\"")); XCTAssertFalse(s.contains("\"hinges\""))
+        var set = withHinge(plain, -1, "R")
+        set.front = "mdf18"
         let back = try JSONDecoder().decode(Module.self, from: JSONEncoder().encode(set))
-        XCTAssertEqual(back.front, "mdf18"); XCTAssertEqual(back.hinge, "R")
-        XCTAssertTrue(unitHingeRight(back, 0, 1))
-        XCTAssertFalse(unitHingeRight(plain, 0, 1))
-        XCTAssertTrue(unitHingeRight(plain, 1, 2))
+        XCTAssertEqual(back.front, "mdf18"); XCTAssertEqual(back.hinges, ["R", "R"])
+        XCTAssertTrue(kHingeRight(back, 0, 2)); XCTAssertTrue(kHingeRight(back, 1, 2))
+        XCTAssertFalse(kHingeRight(plain, 0, 2))
+        XCTAssertTrue(kHingeRight(plain, 1, 2))
+        // the usual choice again: nothing written
+        XCTAssertEqual(withHinge(withHinge(plain, 0, "L"), 1, "R").hinges, [])
     }
 
     func testTheKitchensBaseMovesItsUnits() {
