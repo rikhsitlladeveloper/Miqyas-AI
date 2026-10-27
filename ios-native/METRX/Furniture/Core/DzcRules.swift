@@ -632,7 +632,10 @@ func dzcRetype(_ m: Module, _ key: String, ws: Workshop) -> Module? {
         if ![450, 600].contains(m.w) { return nil }
         n = template("dishwasher", ws, wall, m.w)
     case "wdoor1", "wdoor2": n = template("wall", ws, wall, m.w); n.fronts = Fronts("door", key == "wdoor2" ? 2 : 1)
-    case "vitrina", "open", "micro": n = template(key, ws, wall, m.w)
+    case "vitrina", "open": n = template(key, ws, wall, m.w)
+    case "micro":
+        if ![500, 600].contains(m.w) { return nil }
+        n = template("micro", ws, wall, m.w)
     case "hood":
         if ![600, 900].contains(m.w) { return nil }
         n = template("hood", ws, wall, m.w)
