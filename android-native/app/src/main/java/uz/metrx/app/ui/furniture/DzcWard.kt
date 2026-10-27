@@ -129,12 +129,16 @@ internal class WardCtl {
     var canvas = Rect.Zero
     lateinit var app: App
     lateinit var p: Project
-    lateinit var f: Furniture
-    lateinit var m: Module
+    private val fS = mutableStateOf<Furniture?>(null)
+    var f: Furniture get() = fS.value!!; set(v) { fS.value = v }
+    private val mS = mutableStateOf<Module?>(null)
+    var m: Module get() = mS.value!!; set(v) { mS.value = v }
     lateinit var ws: Workshop
     lateinit var st: DzcState
-    lateinit var lay: KLay
-    lateinit var view: DzcView
+    private val layS = mutableStateOf<KLay?>(null)
+    var lay: KLay get() = layS.value!!; set(v) { layS.value = v }
+    private val viewS = mutableStateOf<DzcView?>(null)
+    var view: DzcView get() = viewS.value!!; set(v) { viewS.value = v }
     var density = 1f
 
     fun mmX(p: Offset) = lay.mmX(view.v(p).x)
@@ -201,7 +205,7 @@ private fun WardEditor(rt: Route.Wardrobe, p: Project, f: Furniture, m: Module, 
         val many = f.modules.count { it.type == "wardrobe" } > 1 || f.type == "stenka"
         val topPx = with(d) { (if (many) 100.dp else 56.dp).toPx() }
         val lay = KLay(m.w, outerH(m, ws), 360f, true, m.w, st.z, st.px, st.py)
-        val view = dzcFit(lay.vw, lay.vh, wPx, hPx, topPx, panelH + with(d) { 10.dp.toPx() })
+        val view = dzcFit(lay.vw, lay.vh, wPx, hPx, topPx, max(panelH.toFloat(), with(d) { 172.dp.toPx() }) + with(d) { 10.dp.toPx() })
         c.lay = lay; c.view = view
         if (rt.d3) DzcWard3D(p, room, f, c)
         else {

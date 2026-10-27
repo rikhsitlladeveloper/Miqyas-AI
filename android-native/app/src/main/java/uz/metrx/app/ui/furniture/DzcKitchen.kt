@@ -208,15 +208,21 @@ internal class KitCtl {
     var canvas = Rect.Zero
     lateinit var app: App
     lateinit var p: Project
-    lateinit var f: Furniture
-    lateinit var run: Run
-    lateinit var runs: List<Run>
+    private val fS = mutableStateOf<Furniture?>(null)
+    var f: Furniture get() = fS.value!!; set(v) { fS.value = v }
+    private val runS = mutableStateOf<Run?>(null)
+    var run: Run get() = runS.value!!; set(v) { runS.value = v }
+    private val runsS = mutableStateOf<List<Run>?>(null)
+    var runs: List<Run> get() = runsS.value!!; set(v) { runsS.value = v }
     lateinit var ws: Workshop
     lateinit var st: DzcState
-    lateinit var lay: KLay
-    lateinit var view: DzcView
+    private val layS = mutableStateOf<KLay?>(null)
+    var lay: KLay get() = layS.value!!; set(v) { layS.value = v }
+    private val viewS = mutableStateOf<DzcView?>(null)
+    var view: DzcView get() = viewS.value!!; set(v) { viewS.value = v }
     var density = 1f
-    var room: Room? = null
+    private val roomS = mutableStateOf<Room?>(null)
+    var room: Room? get() = roomS.value; set(v) { roomS.value = v }
 
     fun mmX(p: Offset) = lay.mmX(view.v(p).x)
     fun mmY(p: Offset) = lay.mmY(view.v(p).y)
@@ -314,7 +320,7 @@ private fun KitchenEditor(rt: Route.Kitchen, p: Project, f: Furniture, room: Roo
         val wPx = constraints.maxWidth.toFloat(); val hPx = constraints.maxHeight.toFloat()
         val topPx = with(d) { 100.dp.toPx() }
         val lay = KLay(runLen(f, run), roomH(room), 360f, true, runExt(f, run), st.z, st.px, st.py)
-        val view = dzcFit(lay.vw, lay.vh, wPx, hPx, topPx, panelH + with(d) { 10.dp.toPx() })
+        val view = dzcFit(lay.vw, lay.vh, wPx, hPx, topPx, max(panelH.toFloat(), with(d) { 172.dp.toPx() }) + with(d) { 10.dp.toPx() })
         ctl.lay = lay; ctl.view = view
         if (rt.d3) DzcKitchen3D(p, room, f, st, ctl) { id, fr -> kPick(ctl, id, fr) }
         else {
@@ -540,9 +546,12 @@ private fun androidx.compose.foundation.layout.BoxScope.kBubbles(c: KitCtl, foun
         }
     }
     // the checks in context: a callout with its fix under the module, folded to "!" while working elsewhere
-    if (dr == null && c.tile == null) found.filter { it.level != "ok" && it.mid != null }.distinctBy { it.mid }.forEach { q ->
+    // one callout at a time: the selected module's, else the first problem's; the others "!"
+    val here = found.filter { it.level != "ok" && it.mid != null }.distinctBy { it.mid }.filter { q -> c.f.modules.any { it.id == q.mid && it.wall == c.run.wall } }
+    val openId = if (st.sel == null) here.firstOrNull()?.mid else st.sel?.id
+    if (dr == null && c.tile == null) here.forEach { q ->
         val qm = c.f.modules.firstOrNull { it.id == q.mid && it.wall == c.run.wall } ?: return@forEach
-        val open = !st.cmin && st.strip == null && !st.multi && (st.sel == null || st.sel?.id == qm.id)
+        val open = !st.cmin && st.strip == null && !st.multi && qm.id == openId
         if (!open) Badge(c.sx(qm.x + qm.w) - with(d) { 26.dp.toPx() }, c.sy(qm.elev + qm.h) + with(d) { 2.dp.toPx() }) { st.cmin = false; st.strip = null; st.multi = false }
         else {
             val fix = kFixOf(c, q, qm)

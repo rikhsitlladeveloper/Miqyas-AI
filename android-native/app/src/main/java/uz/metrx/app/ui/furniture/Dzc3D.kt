@@ -80,11 +80,11 @@ fun DzcScene3D(p: Project, room: Room, f: Furniture, hi: Set<String>, open: ((St
     }
     Box(Modifier.fillMaxSize()) {
         Scene3D(shell, cam, Modifier.fillMaxSize(), null, open = mo.amt, onTap = { pos -> onKey(fur.pick(cam, pos.x, pos.y, mo.amt)) }) {
-            Row(Modifier.align(Alignment.TopEnd).padding(top = 48.dp, end = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(Modifier.align(Alignment.TopEnd).padding(top = 104.dp, end = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ShotPill("cube", tr("3d.corner"), Modifier) { cam.preset(false) }
                 ShotPill("room", tr("3d.top"), Modifier) { cam.preset(true) }
             }
-            Text(tr("dzc.tap3d"), style = ui(12f, 600, G.ink2), modifier = Modifier.align(Alignment.TopStart).padding(start = 12.dp, top = 52.dp)
+            Text(tr("dzc.tap3d"), style = ui(12f, 600, G.ink2), modifier = Modifier.align(Alignment.TopStart).padding(start = 12.dp, top = 160.dp)
                 .clip(androidx.compose.foundation.shape.RoundedCornerShape(10.dp)).background(G.sheet(.7f)).padding(horizontal = 10.dp, vertical = 6.dp))
         }
     }

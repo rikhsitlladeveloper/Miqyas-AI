@@ -388,7 +388,8 @@ fun ToolSlider(tools: List<DTool>, onPick: (String) -> Unit) {
 /** The panel the slider and the option rows sit in: glass at the canvas's bottom, its place reported for the delete zone. */
 @Composable
 fun BoxScope.DzcPanel(onBounds: (Rect) -> Unit, onHeight: (Int) -> Unit, content: @Composable () -> Unit) {
-    Column(Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)
+    // the toast sits above the slider, not over it
+    Column(Modifier.align(Alignment.BottomCenter).then(uz.metrx.app.ui.ux.barSpotModifier()).fillMaxWidth().padding(horizontal = 8.dp, vertical = 6.dp)
         .clip(RoundedCornerShape(22.dp)).background(G.sheet(.94f)).border(1.dp, G.rim, RoundedCornerShape(22.dp))
         .onGloballyPositioned { c -> onBounds(c.boundsInRoot()); onHeight(c.size.height) }) { content() }
 }
