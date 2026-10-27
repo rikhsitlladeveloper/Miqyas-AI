@@ -197,6 +197,10 @@ enum Sheet: Equatable {
     case wPrices(pid: String?)
     /// An order's location (room-shapes spec §1): adding or changing it by GPS, and the "Yo‘l" sheet that opens it in a map.
     case locAdd(pid: String), yol(pid: String)
+    /// Designer C: a typed size from the mm bubble (key "w" or "h"; sec a wardrobe's section, -1 the unit), and
+    /// "Batafsil" (tab "k" a kitchen's, "w" a wardrobe's, "i" an item's): the piece's other settings.
+    case dzcNum(pid: String, fid: String, mid: String, key: String, sec: Int)
+    case dzcMore(pid: String, fid: String, tab: String)
 }
 
 /// An action the bottom bar's Undo can take back.

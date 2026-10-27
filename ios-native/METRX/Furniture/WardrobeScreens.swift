@@ -57,6 +57,12 @@ private func changeSec(_ pid: String, _ fid: String, _ i: Int, _ fn: @escaping (
     ward(pid, fid) { m in var n = m; n.sections = m.sections.enumerated().map { k, s in k == i ? frontsChanged(s, fn(s)) : s }; return n }
 }
 
+/// Designer C (DzcWard.swift): the box being designed changed, as the steps change it.
+func dzcWardChange(_ pid: String, _ fid: String, _ fn: @escaping (Module) -> Module) { ward(pid, fid, fn) }
+
+/// Designer C: section i of the box being designed changed.
+func dzcSecChange(_ pid: String, _ fid: String, _ i: Int, _ fn: @escaping (Section) -> Section) { changeSec(pid, fid, i, fn) }
+
 private func sortedByPos(_ xs: [Insert]) -> [Insert] { xs.enumerated().sorted { ($0.element.pos, $0.offset) < ($1.element.pos, $1.offset) }.map(\.element) }
 
 /// A new insert of kind in section i, where it fits best.
@@ -71,7 +77,7 @@ private func addInsert(_ app: AppModel, _ pid: String, _ fid: String, _ m: Modul
 private func wardRoomH(_ room: Room?) -> Int? { room.flatMap { $0.dim("H").v ?? $0.dim("H").pending?.mm } }
 
 /// The wall's length, the room's height and what is wrong.
-private struct WardCtx {
+struct WardCtx {
     let room: Room?
     let wallL: Int?
     let roomH: Int?
@@ -395,63 +401,28 @@ struct WardrobeScreen: View {
     }
 
     @ViewBuilder private func designer(_ p: Project, _ f: Furniture, _ m: Module) -> some View {
-        let kit = KitOps.shared
         let s = AppSettings.shared, ws = s.workshop, mats = s.mats
         let cx = WardCtx(p, f, m, ws, s.angleSnap)
-        let sel = min(max(sec, 0), max(0, m.sections.count - 1))
-        let modId = self.mod
-        let pick = { (i: Int) in app.setTop(.wardrobe(pid: pid, fid: fid, step: step, sec: i, mod: modId)) }
-        let many = f.modules.filter { $0.type == "wardrobe" }.count > 1 || f.type == "stenka"
-            ZStack {
-                RoomGrid().ignoresSafeArea()
-                VStack(spacing: 0) {
-                    // the UX upgrades' bars: the name and the compact progress on top; Undo, 2D/3D and "Narxni ko‘rish" below
-                    DesignerHead(app: app, p: p, f: f, sub: wardHeadSub(f, m, ws))
-                    if let room = cx.room {
-                        if d3 { Furniture3DPane(app: app, p: p, room: room) } else {
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 12) {
-                                Steps(cur: step) { app.setTop(.wardrobe(pid: pid, fid: fid, step: $0, sec: sel, mod: modId)) }
-                                if many { BoxPicker(app: app, p: p, f: f, cur: m) { app.setTop(.wardrobe(pid: pid, fid: fid, step: step, sec: 0, d3: d3, mod: modId)) } }
-                                // the gorka's own options (GorkaViews.swift)
-                                if f.type == "gorka" { GorkaCard(app: app, p: p, f: f) }
-                                WardDrawing(m: m, f: f, cx: cx, ws: ws, mats: mats, step: step, sel: sel, onSec: pick, onFront: frontTap(sel, pick))
-                                VStack(alignment: .leading, spacing: 10) {
-                                    switch step {
-                                    case 1: PlaceStep(app: app, p: p, f: f, m: m, cx: cx)
-                                    case 2: WardSizeStep(app: app, p: p, f: f, m: m)
-                                    case 3: DoorStep(app: app, p: p, f: f, m: m, sel: sel, onSec: pick)
-                                    case 4: InsideStep(app: app, p: p, f: f, m: m, sel: sel, onSec: pick)
-                                    default: MatStep(app: app, p: p, f: f)
-                                    }
-                                }
-                                .padding(14)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                                .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.6))
-                                // the last step, the materials: the design too (Core/PieceLook.swift)
-                                if step >= 5 { DesignCard(app: app, p: p, f: f) }
-                                // with the Check list's drawer rule (its sheet and shelf rules are the designer's own)
-                                ChecksCard(f: f, found: cx.found + drawerRule(f, ws, mats)) { _ in }
-                                CostCard(p: p, f: f)
-                            }
-                            .padding(.horizontal, 16).padding(.bottom, 28)
-                        }
-                        LivePrice(app: app, p: p, f: f)
-                        }
-                        DesignerBar(app: app, p: p, f: f) {
-                            DimSeg(d3: d3) { v in Haptic.tick(); app.setTop(.wardrobe(pid: pid, fid: fid, step: step, sec: sel, d3: v, mod: modId)) }
-                        }
-                    } else {
-                        T(tr("kt.roomLost"), ui(15, 500, G.ink2, lh: 1.45)).padding(24)
-                        Spacer()
-                    }
+        ZStack {
+            RoomGrid().ignoresSafeArea()
+            VStack(spacing: 0) {
+                // the UX upgrades' bars: the name and the compact progress on top; Designer C's drawing, slider and
+                // options; Undo/Redo, 2D/3D and "Narxni ko‘rish" below (the older steps are in "Batafsil")
+                DesignerHead(app: app, p: p, f: f, sub: wardHeadSub(f, m, ws))
+                if let room = cx.room {
+                    DzcWard(app: app, c: DzcWCtx(p: p, f: f, m: m, room: room, cx: cx, ws: ws, mats: mats, d3: d3, step: step, mod: mod))
+                } else {
+                    T(tr("kt.roomLost"), ui(15, 500, G.ink2, lh: 1.45)).padding(24)
+                    Spacer()
                 }
             }
+        }
+        .onAppear { DzcState.shared.enter(f.id) }
     }
 }
 
 /// The Check list's drawer rule for the wardrobe designer (Furniture/Core/FurnChecks.swift boardIssues).
-private func drawerRule(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> [FCheck] {
+func drawerRule(_ f: Furniture, _ ws: Workshop, _ mats: [Mat]) -> [FCheck] {
     boardIssues(f, ws, mats).filter { $0.key == "bz.ck.drawer" }.map { FCheck(level: $0.level, key: $0.key, vars: $0.vars, mid: $0.mid) }
 }
 
@@ -1259,5 +1230,53 @@ private struct WMoreSheet: View {
                 .padding(.bottom, 6)
             }
         }
+    }
+}
+
+/* ---------------- Designer C: "Batafsil" ---------------- */
+
+/// Designer C "Batafsil" for a cabinet: the older steps one tab at a time (sizes, place, doors, inside, materials and
+/// the design), a stenka's boxes, a gorka's options, the checks and the cost.
+struct DzcWardMore: View {
+    let app: AppModel
+    let pid: String, fid: String
+    @State private var tab: String
+    init(app: AppModel, pid: String, fid: String, tab: String) {
+        self.app = app; self.pid = pid; self.fid = fid
+        _tab = State(initialValue: tab)
+    }
+    var body: some View {
+        let _ = KitOps.shared.tick
+        if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }), let m = curWard(f) {
+            let s = AppSettings.shared
+            let cx = WardCtx(p, f, m, s.workshop, s.angleSnap)
+            let sel = min(max(DzcState.shared.sec, 0), max(0, m.sections.count - 1))
+            let onSec = { (i: Int) in DzcState.shared.sec = i }
+            let tabs = Self.tabs(f)
+            GlassSheet(tr("dzc.t.more"), onClose: { app.sheet = nil }) {
+                Seg(items: tabs, cur: tab) { tab = $0 }
+                switch tab {
+                case "size": WardSizeStep(app: app, p: p, f: f, m: m)
+                case "place": PlaceStep(app: app, p: p, f: f, m: m, cx: cx)
+                case "doors": DoorStep(app: app, p: p, f: f, m: m, sel: sel, onSec: onSec)
+                case "inside": InsideStep(app: app, p: p, f: f, m: m, sel: sel, onSec: onSec)
+                case "boxes": BoxPicker(app: app, p: p, f: f, cur: m) {}
+                case "gorka": GorkaCard(app: app, p: p, f: f)
+                default:
+                    MatStep(app: app, p: p, f: f)
+                    DesignCard(app: app, p: p, f: f)
+                }
+                LivePrice(app: app, p: p, f: f)
+                ChecksCard(f: f, found: cx.found + drawerRule(f, s.workshop, s.mats)) { _ in }
+                CostCard(p: p, f: f)
+            }
+        }
+    }
+
+    private static func tabs(_ f: Furniture) -> [(String, String)] {
+        var out: [(String, String)] = [("size", tr("dzc.tab.size")), ("place", tr("dzc.tab.place")), ("doors", tr("dzc.tab.doors")), ("inside", tr("dzc.tab.inside")), ("mats", tr("dzc.tab.mats"))]
+        if f.type == "stenka" || boxes(f).count > 1 { out.append(("boxes", tr("dzc.tab.boxes"))) }
+        if f.type == "gorka" { out.append(("gorka", tr("dzc.tab.gorka"))) }
+        return out
     }
 }

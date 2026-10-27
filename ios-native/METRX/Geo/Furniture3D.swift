@@ -579,7 +579,7 @@ final class FBuilder {
             for (j, (fh, fw)) in fs.enumerated() {
                 let a = x0 + edge + Double(j) * (d(fw) + g)
                 // single doors hinge on the left; pairs on the outer edges
-                let right = fs.count == 2 && j == 1
+                let right = unitHingeRight(m, j, fs.count)
                 // handles near the top of a low door, near the bottom of a wall unit's, at 1 m on a tall one
                 let hv: HPlace = m.type == "wall" ? .bottom : fh > 1200 ? .at(1000 - y0 - edge) : .top
                 let h = d(fh) - (gola ? GOLA_DROP : 0)

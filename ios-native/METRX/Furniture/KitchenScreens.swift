@@ -31,94 +31,21 @@ struct KitchenScreen: View {
             let board: [FCheck] = boardIssues(f, ws, mats).map { FCheck(level: $0.level, key: $0.key, vars: $0.vars, mid: $0.mid) }
             let found = checks(f, runs, ws, room?.openings ?? [], room?.points ?? []) + board
             let bad = badOf(found)
-            let sel = f.modules.first { $0.id == kit.sel && $0.wall == run?.wall }
             ZStack {
                 RoomGrid().ignoresSafeArea()
                 VStack(spacing: 0) {
-                    // the UX upgrades' bars (sections 1, 2, 4): the name and the compact progress on top; Undo, 2D/3D and
-                    // "Narxni ko‘rish" at the bottom
+                    // the UX upgrades' bars (sections 1, 2, 4): the name and the compact progress on top; Designer C's
+                    // drawing, slider and options under it; Undo/Redo, 2D/3D and "Narxni ko‘rish" at the bottom
                     DesignerHead(app: app, p: p, f: f, sub: tr("kt.sub", ["n": f.modules.count, "v": runMetres(f, en)]))
                     if let room, let run {
-                        if d3 { Furniture3DPane(app: app, p: p, room: room) } else {
-                        ScrollView {
-                            VStack(alignment: .leading, spacing: 12) {
-                                ScrollView(.horizontal, showsIndicators: false) {
-                                    HStack(spacing: 8) {
-                                        ForEach(runs, id: \.wall) { r in
-                                            let on = r.wall == run.wall
-                                            T(runName(f, r), ui(14, 700, on ? G.solid : G.ink), lines: 1)
-                                                .padding(.horizontal, 16).frame(minHeight: 40)
-                                                .background(Capsule().fill(on ? G.ink : G.glass(0.6)))
-                                                .overlay(Capsule().strokeBorder(on ? G.ink : G.rim, lineWidth: 1))
-                                                .pressable(0.97) { go(r.wall) }
-                                                .accessibilityAddTraits(on ? .isSelected : [])
-                                                .accessibilityIdentifier("kt.wall." + r.wall)
-                                        }
-                                    }
-                                }
-                                HStack(spacing: 8) {
-                                    FillPill(label: tr("kt.low"), fl: fillOf(f, run, false))
-                                    if run.wall != ISLAND { FillPill(label: tr("kt.up"), fl: fillOf(f, run, true)) }
-                                }
-                                if f.roomId == nil { FreeBanner(app: app, p: p, f: f) }
-                                if run.wall != ISLAND && !measured(room, snap, run.wall) {
-                                    T(tr("kt.noLen", ["w": run.wall]), ui(13, 500, G.amberInk, lh: 1.4))
-                                        .padding(12).frame(maxWidth: .infinity, alignment: .leading)
-                                        .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.amberWash))
-                                }
-                                if run.wall == ISLAND { T(tr("kt.islandNote"), ui(13, 400, G.ink2, lh: 1.4)) }
-                                KElevation(f: f, run: run, room: room, ws: ws, mats: mats, sel: sel?.id, bad: bad,
-                                           onPick: { id in kit.sel = kit.sel == id ? nil : id },
-                                           onSwipe: { step in
-                                               guard runs.count > 1, let i = runs.firstIndex(of: run) else { return }
-                                               go(runs[(i + step + runs.count) % runs.count].wall)
-                                           })
-                                if !f.modules.contains(where: { $0.wall == run.wall }) && run.wall != ISLAND {
-                                    VStack(alignment: .leading, spacing: 10) {
-                                        T(tr("kt.emptyT", ["w": run.wall]), ui(16, 800))
-                                        T(tr("kt.emptyB"), ui(13.5, 400, G.ink2, lh: 1.45))
-                                        GBtn(tr("kt.auto"), icon: "plus") {
-                                            let before = f.modules.count
-                                            let n = kit.change(p.id, f.id) { x in autoFill(x, kRuns(x, room, snap).filter { x.modules.isEmpty || $0.wall == run.wall }, ws, room.openings, room.points) }
-                                            app.say("kt.autoDone", ["n": (n?.modules.count ?? before) - before])
-                                        }
-                                        .accessibilityIdentifier("kt.auto")
-                                    }
-                                    .padding(16)
-                                    .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.6))
-                                } else {
-                                    T(tr("kt.hint"), ui(12.5, 400, G.ink2))
-                                }
-                                HStack(spacing: 8) {
-                                    ForEach([("module", "kt.module"), ("appl", "kt.appl"), ("space", "kt.space")], id: \.0) { g, k in
-                                        GBtn(tr(k), kind: .secondary, icon: g == "module" ? "plus" : nil, height: 46, corner: 16, fontSize: 14.5) {
-                                            app.sheet = .fLibrary(pid: p.id, fid: f.id, wall: run.wall, group: g)
-                                        }
-                                        .accessibilityIdentifier("kt.lib." + g)
-                                    }
-                                }
-                                if let sel { SelCard(app: app, p: p, f: f, m: sel) }
-                                ChecksCard(f: f, found: found) { id in
-                                    if let m = f.modules.first(where: { $0.id == id }) {
-                                        if m.wall != run.wall { app.setTop(.kitchen(pid: p.id, fid: f.id, wall: m.wall)) }
-                                        kit.sel = m.id
-                                    }
-                                }
-                                DesignCard(app: app, p: p, f: f)
-                                ExtrasCard(app: app, p: p, f: f)
-                                CostCard(p: p, f: f)
-                            }
-                            .padding(.horizontal, 16).padding(.bottom, 28)
-                        }
-                        LivePrice(app: app, p: p, f: f)
-                        }
-                        DesignerBar(app: app, p: p, f: f) { DimSeg(d3: d3) { v in Haptic.tick(); app.setTop(.kitchen(pid: pid, fid: fid, wall: wall, d3: v)) } }
+                        DzcKitchen(app: app, c: DzcKCtx(p: p, f: f, room: room, runs: runs, run: run, ws: ws, mats: mats, found: found, bad: bad, d3: d3))
                     } else {
                         T(tr("kt.roomLost"), ui(15, 500, G.ink2, lh: 1.45)).padding(24)
                         Spacer()
                     }
                 }
             }
+            .onAppear { DzcState.shared.enter(f.id) }
         }
     }
 
@@ -1021,5 +948,64 @@ struct FurnitureCard: View {
         .frame(maxWidth: .infinity).frame(height: 205)
         .clipShape(shape)
         .glassCard(shape, shadowBlur: 24, shadowY: 10, shadowAlpha: 0.1)
+    }
+}
+
+/* ---------------- Designer C: "Batafsil" ---------------- */
+
+/// Designer C "Batafsil" for a kitchen: how full each wall is, the design, the extras (worktop, backsplash, legs,
+/// plinth, cornice, LED, end panels), the checks and the cost.
+struct DzcKitchenMore: View {
+    let app: AppModel
+    let pid: String, fid: String
+    var body: some View {
+        let _ = KitOps.shared.tick
+        if let p = Store.shared.get(pid), let f = p.furniture.first(where: { $0.id == fid }) {
+            let s = AppSettings.shared
+            let room = roomOf(p, f)
+            let runs = kRuns(f, room, s.angleSnap)
+            let ws = wsOf(f, s.workshop)
+            let board: [FCheck] = boardIssues(f, ws, s.mats).map { FCheck(level: $0.level, key: $0.key, vars: $0.vars, mid: $0.mid) }
+            let found = checks(f, runs, ws, room?.openings ?? [], room?.points ?? []) + board
+            GlassSheet(tr("dzc.t.more"), onClose: { app.sheet = nil }) {
+                if f.roomId == nil { FreeBanner(app: app, p: p, f: f) }
+                ForEach(runs, id: \.wall) { r in
+                    VStack(alignment: .leading, spacing: 6) {
+                        T(runName(f, r), ui(14, 800))
+                        HStack(spacing: 8) {
+                            FillPill(label: tr("kt.low"), fl: fillOf(f, r, false))
+                            if r.wall != ISLAND { FillPill(label: tr("kt.up"), fl: fillOf(f, r, true)) }
+                        }
+                    }
+                }
+                LivePrice(app: app, p: p, f: f)
+                DesignCard(app: app, p: p, f: f)
+                ExtrasCard(app: app, p: p, f: f)
+                ChecksCard(f: f, found: found) { id in
+                    guard let m = f.modules.first(where: { $0.id == id }) else { return }
+                    app.sheet = nil
+                    KitOps.shared.sel = m.id
+                    app.setTop(.kitchen(pid: p.id, fid: f.id, wall: m.wall))
+                }
+                CostCard(p: p, f: f)
+            }
+        }
+    }
+}
+
+/// Designer C's sheets: a typed size, "Batafsil".
+struct DzcSheet: View {
+    let app: AppModel
+    let sheet: Sheet
+    static func handles(_ s: Sheet) -> Bool {
+        switch s { case .dzcNum, .dzcMore: return true; default: return false }
+    }
+    var body: some View {
+        switch sheet {
+        case .dzcNum(let pid, let fid, let mid, let key, let sec): DzcNumSheet(app: app, pid: pid, fid: fid, mid: mid, key: key, sec: sec)
+        case .dzcMore(let pid, let fid, let tab):
+            if tab == "k" { DzcKitchenMore(app: app, pid: pid, fid: fid) } else { DzcWardMore(app: app, pid: pid, fid: fid, tab: tab) }
+        default: EmptyView()
+        }
     }
 }

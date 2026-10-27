@@ -120,6 +120,10 @@ func template(_ kind: String, _ ws: Workshop, _ wall: String, _ w: Int? = nil) -
     }
 }
 
+/// Whether door j of a kitchen unit's n doors hinges on its right: a pair on its outer edges, a single door on its left
+/// unless the unit says right (Module.hinge, Designer C "Ochilish tomoni").
+func unitHingeRight(_ m: Module, _ j: Int, _ n: Int) -> Bool { n == 2 ? j == 1 : n == 1 && m.hinge == "R" }
+
 /// A kitchen wall unit with glass doors in frames (a vitrina): the doors are bought by the m², not cut (Parts.swift, Hardware.swift).
 func glassDoors(_ m: Module) -> Bool { m.glass && m.type == "wall" && m.fronts.kind == "door" }
 

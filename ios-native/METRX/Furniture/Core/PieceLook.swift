@@ -202,6 +202,8 @@ func isUpperFront(_ f: Furniture, _ m: Module) -> Bool { f.kind == "kitchen" ? i
 
 /// The front board of box m of f: the upper fronts' for isUpperFront, else the fronts'.
 func frontOf(_ f: Furniture, _ m: Module?) -> String {
+    // a box with its own fronts' board (Designer C "Faqat shu")
+    if let own = m?.front, !own.isEmpty { return own }
     if let m, isUpperFront(f, m) { return f.mats.frontUp ?? f.mats.front }
     return f.mats.front
 }

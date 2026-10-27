@@ -217,6 +217,7 @@ struct RootView: View {
             else if TradeSheet.handles(s) { TradeSheet(app: app, sheet: s) }
             else if FurnitureSheet.handles(s) { FurnitureSheet(app: app, sheet: s) }
             else if WorkshopSheet.handles(s) { WorkshopSheet(app: app, sheet: s) }
+            else if DzcSheet.handles(s) { DzcSheet(app: app, sheet: s) }
             else if KitchenSheet.handles(s) { KitchenSheet(app: app, sheet: s) }
             else if WardrobeSheet.handles(s) { WardrobeSheet(app: app, sheet: s) }
             else if PriceSheet.handles(s) { PriceSheet(app: app, sheet: s) }

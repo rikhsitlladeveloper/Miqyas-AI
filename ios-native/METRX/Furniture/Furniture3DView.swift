@@ -212,6 +212,8 @@ struct Furniture3DPane: View {
     let app: AppModel
     let p: Project
     let room: Room
+    /// Designer C: a tap on a front (its key "<unit id>:<front>") selects it; false: the front opens as before.
+    var onPick: ((String) -> Bool)? = nil
     /// Its doors and drawers, opening and shutting.
     @State private var mo = DoorMotion()
     @State private var cam = Cam3D()
@@ -281,7 +283,10 @@ struct Furniture3DPane: View {
     private func toggle(_ fur: Furn3D, _ pt: CGPoint) {
         let (e, d) = cam.ray(pt.x, pt.y)
         // the fronts where they are drawn now
-        if let k = fur.pick(e, d, amt: mo.amt) { mo.toggle(k) }
+        if let k = fur.pick(e, d, amt: mo.amt) {
+            if let onPick, onPick(k) { return }
+            mo.toggle(k)
+        }
     }
 
     /// "Add to report" on the 3D picture: at most 4 views a room, counted in the store (not as this page last drew it);

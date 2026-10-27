@@ -249,7 +249,7 @@ func swingsOf(_ f: Furniture, _ walls: [PlanWall], _ ws0: Workshop) -> [Foot] {
         let n = max(1, m.fronts.n), dw = Double(m.w) / Double(n)
         let a0 = Double(m.x), d = Double(m.d)
         if m.fronts.kind == "door" {
-            for j in 0..<n { out.append(door(fr, a0 + Double(j) * dw, a0 + Double(j + 1) * dw, d, n == 2 && j == 1, m.elev, m.elev + m.h)) }
+            for j in 0..<n { out.append(door(fr, a0 + Double(j) * dw, a0 + Double(j + 1) * dw, d, unitHingeRight(m, j, n), m.elev, m.elev + m.h)) }
         } else if m.fronts.kind == "drawer" {
             out.append(drawer(fr, a0, a0 + Double(m.w), d, m.elev, m.elev + m.h))
         }

@@ -88,7 +88,7 @@ final class Modern3DShots: ScreenTestCase {
     /// The bed's design card (the item designer's 2D page): the headboard "Karetka (tugmali)" and "Yumshoq devor paneli".
     private func m3BedDesign(_ app: XCUIApplication) {
         noToast(app, 7)
-        guard m3Find(app, "seg.p", 10) != nil else { m3Skip("bed", "designer"); return }
+        guard m3Find(app, "dim.2D", 10) != nil else { m3Skip("bed", "designer"); return }
         if let chip = m3Find(app, "lk.ch.tufted", 6), m3Bring(app, chip) { chip.tap(); sleep(2) } else { m3Skip("bed", "tufted") }
         if let panel = m3Find(app, "lk.panel", 4), m3Bring(app, panel) {
             if (panel.value as? String) != "1" { panel.tap(); sleep(2) }

@@ -158,8 +158,10 @@ func drawWallFace(_ c: GraphicsContext, _ lay: KLay, _ room: Room?, _ wall: Stri
 
 private func matRgb(_ mats: [Mat], _ id: String, _ fallback: String) -> Int { rgbOf(mats.first { $0.id == id }?.rgb ?? fallback) }
 
-/// The run's units (lower row under the upper), the worktop, openings, site points, the selection and problems.
-func drawRun(_ c: GraphicsContext, _ lay: KLay, _ f: Furniture, _ run: Run, _ room: Room?, _ ws: Workshop, _ mats: [Mat], _ sel: String?, _ bad: [String: String]) {
+/// The run's units (lower row under the upper), the worktop, openings, site points, the selection and problems. open:
+/// the units drawn with their doors and drawers open, the inside showing (Designer C "Ichki" and "Ichini ko‘rish").
+func drawRun(_ c: GraphicsContext, _ lay: KLay, _ f: Furniture, _ run: Run, _ room: Room?, _ ws: Workshop, _ mats: [Mat], _ sel: String?, _ bad: [String: String],
+             open: Set<String> = []) {
     let x0 = lay.x0, x1 = lay.x(lay.L), yF = lay.yF, yT = lay.y(lay.H)
     let island = run.wall == ISLAND
     if !island { drawWallFace(c, lay, room, run.wall) }
@@ -179,7 +181,11 @@ func drawRun(_ c: GraphicsContext, _ lay: KLay, _ f: Furniture, _ run: Run, _ ro
     let mods = f.modules.enumerated().filter { $0.element.wall == run.wall }
         .sorted { (isUpper($0.element) ? 1 : 0, $0.offset) < (isUpper($1.element) ? 1 : 0, $1.offset) }.map(\.element)
     let g = max(0.8, CGFloat(ws.gap10) / 10 * lay.s)
-    for m in mods { drawUnit(c, lay, m, ws, isUpper(m) ? frontUp : front, carcass, g) }
+    for m in mods {
+        // a unit with its own fronts' board (Designer C "Faqat shu")
+        let own: Int? = m.front.map { matRgb(mats, $0, "#CDBFAE") }
+        drawUnit(c, lay, m, ws, own ?? (isUpper(m) ? frontUp : front), carcass, g, open: open.contains(m.id))
+    }
     // the worktop over the lower row, and over the corner zone it turns into
     var tops = mods.filter { !isUpper($0) && ($0.type == "base" || $0.type == "filler" || $0.app == "dishwasher") }.map { ($0.x, $0.x + $0.w) }
     if run.lowStart > 0 && !tops.isEmpty { tops.append((0, run.lowStart)) }
@@ -219,7 +225,7 @@ func drawRun(_ c: GraphicsContext, _ lay: KLay, _ f: Furniture, _ run: Run, _ ro
     if lay.dims { dims(c, lay, f, run) }
 }
 
-func drawUnit(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ws: Workshop, _ frontRgb: Int, _ carcassRgb: Int, _ g: CGFloat) {
+func drawUnit(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ws: Workshop, _ frontRgb: Int, _ carcassRgb: Int, _ g: CGFloat, open: Bool = false) {
     let l = lay.x(m.x), r = lay.x(m.x + m.w), t = lay.y(m.elev + m.h), b = lay.y(m.elev)
     let w = r - l, h = b - t
     let front = Color(argb: 0xFF00_0000 | UInt32(frontRgb)), carcass = Color(argb: 0xFF00_0000 | UInt32(carcassRgb))
@@ -250,7 +256,22 @@ func drawUnit(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ws: Workshop, _ 
     default:
         c.fill(rect(l, t, w, h), with: .color(carcass))
         let n = frontSizes(m.fronts, m.w, m.h, ws).count
-        if n == 0 {
+        if open && n > 0 && (m.fronts.kind == "door" || m.fronts.kind == "drawer") {
+            // open: the inside (shelves, or the drawers' boxes) and the fronts' outlines dashed
+            c.fill(rect(l, t, w, h), with: .color(OPEN_FILL))
+            if m.fronts.kind == "drawer" {
+                let fh = (h - g * CGFloat(n + 1)) / CGFloat(n)
+                for i in 0..<n {
+                    let ft = t + g + CGFloat(i) * (fh + g)
+                    c.stroke(rect(l + w * 0.08, ft + fh * 0.3, w * 0.84, fh * 0.62), with: .color(onC), lineWidth: 0.9)
+                }
+            } else {
+                let q = m.inserts.filter { $0.kind == "shelf" || $0.kind == "glass" }.reduce(0) { $0 + $1.qty }
+                if q > 0 { for i in 1...q { let y = t + h * CGFloat(i) / CGFloat(q + 1); c.line(onC, CGPoint(x: l + 3, y: y), CGPoint(x: r - 3, y: y), 1) } }
+            }
+            c.stroke(rect(l + g, t + g, w - 2 * g, h - 2 * g), with: .color(onC.opacity(0.7)), style: StrokeStyle(lineWidth: 0.8, dash: DASH))
+            c.stroke(rect(l, t, w, h), with: .color(onC), lineWidth: 1)
+        } else if n == 0 {
             // open: the shelves show
             let q = m.inserts.filter { $0.kind == "shelf" }.reduce(0) { $0 + $1.qty }
             if q > 0 { for i in 1...q { let y = t + h * CGFloat(i) / CGFloat(q + 1); c.line(onC, CGPoint(x: l + 3, y: y), CGPoint(x: r - 3, y: y), 1) } }
@@ -267,7 +288,9 @@ func drawUnit(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ ws: Workshop, _ 
                     c.stroke(rect(fl, t + g, fw, h - 2 * g), with: .color(onF), lineWidth: 0.8)
                 }
                 // the handle on the opening edge: right of a single door, the middle of a pair; without one the push mark
-                let hx = n == 1 || i == 0 ? fl + fw - max(2.5, fw * 0.1) : fl + max(2.5, fw * 0.1)
+                // a single door hinged on its right (Module.hinge) has its handle on its left edge
+                let atRight = n == 1 ? m.hinge != "R" : i == 0
+                let hx = atRight ? fl + fw - max(2.5, fw * 0.1) : fl + max(2.5, fw * 0.1)
                 let hy = m.type == "wall" ? t + h * 0.82 : t + h * 0.14
                 let len = min(10, h * 0.18)
                 if hasHandle(m, "f\(i)") { c.line(onF, CGPoint(x: hx, y: hy - len / 2), CGPoint(x: hx, y: hy + len / 2), 1.4, round: true) }

@@ -37,11 +37,22 @@ struct ItemScreen: View {
     var body: some View {
         let kit = KitOps.shared
         let ws = AppSettings.shared.workshop
+        let _ = kit.tick
         ZStack {
             RoomGrid().ignoresSafeArea()
             VStack(spacing: 0) {
                 DesignerHead(app: app, p: p, f: f, sub: pieceLine(f, ws))
-                if let room = roomOf(p, f) { content(room); DesignerBar(app: app, p: p, f: f) { EmptyView() } } else {
+                if let room = roomOf(p, f) {
+                    content(room)
+                    // Designer C's slider (its tools' options in its place), then Undo/Redo · 2D/3D · "Narxni ko‘rish"
+                    DzcItemBottom(app: app, p: p, f: f)
+                    DesignerBar(app: app, p: p, f: f) {
+                        DzcMiddle(canRedo: kit.canRedo(f.id), d3: d3, onRedo: { kit.redo(p.id, f.id); Haptic.tick() }) { v in
+                            Haptic.tick()
+                            app.setTop(.wardrobe(pid: p.id, fid: f.id, step: 1, sec: 0, d3: v))
+                        }
+                    }
+                } else {
                     T(tr("kt.roomLost"), ui(15, 500, G.ink2, lh: 1.45)).padding(24)
                     Spacer()
                 }
@@ -50,15 +61,6 @@ struct ItemScreen: View {
     }
 
     @ViewBuilder private func content(_ room: Room) -> some View {
-        let pid = p.id, fid = f.id
-        HStack {
-            Seg(items: [("p", tr("it.piece")), ("r", tr("it.inRoom"))], cur: d3 ? "r" : "p") { k in
-                app.setTop(.wardrobe(pid: pid, fid: fid, step: 1, sec: 0, d3: k == "r"))
-            }
-            .frame(maxWidth: 280)
-            Spacer()
-        }
-        .padding(.horizontal, 16).padding(.bottom, 10)
         if d3 { Furniture3DPane(app: app, p: p, room: room) } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 12) {
@@ -356,6 +358,88 @@ struct PieceThumb: View {
                 let piece = key.f, ws = key.ws, mats = key.mats, size = CGSize(width: w, height: h)
                 let pic = await Task.detached(priority: .utility) { piecePicture(pieceScene(piece, ws, mats), size) }.value
                 img = pic
+            }
+        }
+    }
+}
+
+/* ---------------- Designer C: the short designer's slider ---------------- */
+
+/// A bed's, a table's, a bar counter's or a mirror panel's tools (Designer C, the same slider as the cabinets'): its
+/// sizes, the fronts' colour, the handles, where it stands, the boards.
+struct DzcItemBottom: View {
+    let app: AppModel
+    let p: Project
+    let f: Furniture
+    var body: some View {
+        let st = DzcState.shared
+        VStack(spacing: 0) {
+            if let t = st.tool, let m = wardOfF(f) { options(t, m) } else { DzcSlider(tools: tools()) { tap($0) } }
+        }
+        .frame(maxWidth: .infinity)
+        .background { ZStack { Rectangle().fill(.ultraThinMaterial); Rectangle().fill(barTint) } }
+        .overlay(alignment: .top) { Rectangle().fill(G.rim).frame(height: 1) }
+        .bottomBar()
+        .onAppear { DzcState.shared.enter(f.id) }
+    }
+
+    private func tools() -> [DzcTool] {
+        var a = [DzcTool(id: "size", label: tr("dzc.t.size")), DzcTool(id: "decor", label: tr("dzc.t.decor"))]
+        if f.modules.contains(where: { !handleFronts($0).isEmpty }) { a.append(DzcTool(id: "handle", label: tr("dzc.t.handle"))) }
+        a += [DzcTool(id: "place", label: tr("dzc.t.place")), DzcTool(id: "mats", label: tr("dzc.t.mats"))]
+        return a
+    }
+
+    private func tap(_ id: String) {
+        Haptic.tick()
+        switch id {
+        case "place":
+            if let rid = f.roomId { app.push(.fPlace(pid: p.id, fid: f.id, rid: rid)) } else { app.say("dzc.noRoomYet") }
+        case "mats": app.sheet = .fMats(pid: p.id, fid: f.id)
+        default: DzcState.shared.tool = id
+        }
+    }
+
+    private static func keys(_ m: Module) -> [String] {
+        switch m.type {
+        case "bed": return ["mw", "ml", "h", "hb"]
+        case "bunk", "loft": return ["mw", "ml", "h"]
+        case "bar": return ["w", "d", "h", "over"]
+        case "hooks": return ["w", "h", "e"]
+        default: return ["w", "d", "h"]
+        }
+    }
+
+    @ViewBuilder private func options(_ t: String, _ m: Module) -> some View {
+        let back = { DzcState.shared.tool = nil }
+        let pid = p.id, fid = f.id
+        switch t {
+        case "size":
+            DzcOptRow(title: tr("dzc.t.size"), onBack: back) {
+                ForEach(Self.keys(m), id: \.self) { k in
+                    DzcOpt(label: tr(sizeLabel(m, k)) + " · \(itemGet(m, k))", glyph: "size", id: "dzc.it." + k) { app.sheet = .iField(pid: pid, fid: fid, mid: m.id, key: k) }
+                }
+            }
+        case "handle":
+            let cur = handleType(f)
+            DzcOptRow(title: tr("dzc.t.handle"), sub: tr("dzc.wholeP"), onBack: back) {
+                ForEach(["bar", "long", "knob", "push"], id: \.self) { k in
+                    DzcOpt(label: tr("lk.h." + k), glyph: "h-" + k, on: cur == k, id: "dzc.h." + k) {
+                        KitOps.shared.change(pid, fid) { withLook(withHandleType($0, k)) { $0 } }
+                        dzcSaid(app, pid, fid, "dzc.handleAll", ["h": tr("lk.h." + k)])
+                    }
+                }
+            }
+        default:
+            let cur = colourOf(frontOf(f, nil))
+            DzcOptRow(title: tr("dzc.t.decor"), sub: tr("dzc.wholeP"), onBack: back) {
+                ForEach(DZC_FRONTS, id: \.self) { s in
+                    DzcSwatch(rgb: s.rgb, label: dzcFrontName(s.key), wood: s.wood, on: cur == s.key, id: "dzc.sw." + s.key) {
+                        let board = dzcBoard(f, s.key)
+                        KitOps.shared.change(pid, fid) { withLook(dzcFrontAll($0, board)) { $0 } }
+                        dzcSaid(app, pid, fid, "dzc.decorAll", ["c": dzcFrontName(s.key)])
+                    }
+                }
             }
         }
     }

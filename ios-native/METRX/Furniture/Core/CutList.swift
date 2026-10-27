@@ -28,6 +28,8 @@ func partMat(_ f: Furniture, _ m: Module, _ p: FPart) -> String {
     }
     // a kitchen vitrina's back with its accent inside: the look's wood accent too
     if p.key == "fp.back" && vitrinaAccentBack(f, m) { return f.look?.accent ?? f.mats.back }
+    // a box with its own fronts' board (Designer C "Fasad · Faqat shu"): its doors, drawers and panels
+    if p.role == "front", let own = m.front, !own.isEmpty, m.slide == nil { return own }
     return matFor(p.role, f.mats, isUpperFront(f, m) || p.key == "fp.slideUp")
 }
 
