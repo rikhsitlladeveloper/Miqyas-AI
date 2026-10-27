@@ -77,7 +77,7 @@ struct Project: Codable, Equatable, Identifiable {
     /// Furniture orders (Advanced): the customer's PDF shows the three price options, Ekonom, Standart and Premium
     /// (Furniture/Core/PriceTiers.swift); written only when on, as Android leaves it out.
     var tri = false
-    /// The "Namuna — oshxona" sample order (UX upgrades section 11): marked NAMUNA, never counted in totals or reports.
+    /// An older version's "Namuna — oshxona" sample order: read only so it can be deleted (UX/SampleOrder.swift purge).
     var sample = false
     /// Furniture orders: the progress steps passed that the order itself does not show (UX upgrades section 2): "design"
     /// once the designer's main button was used, "price" once the price was looked at; written only when set.

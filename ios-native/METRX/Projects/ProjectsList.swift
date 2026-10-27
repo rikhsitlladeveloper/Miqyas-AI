@@ -58,8 +58,8 @@ struct ProjectsList: View {
                 ProjectsEmpty(app: app)
             } else {
                 // the sample order is never counted (UX upgrades section 11)
-                let real = ps.filter { !$0.sample }
-                let n = ["active": real.filter { stageOf($0) != "done" }.count, "done": real.filter { stageOf($0) == "done" }.count, "all": real.count, "other": others.filter { !$0.sample }.count]
+                let real = ps
+                let n = ["active": real.filter { stageOf($0) != "done" }.count, "done": real.filter { stageOf($0) == "done" }.count, "all": real.count, "other": others.count]
                 let needle = q.trimmingCharacters(in: .whitespaces).lowercased()
                 let list = (seg == "other" ? others : ps).filter { p in
                     let inSeg = seg == "all" || seg == "other" || (seg == "done" ? stageOf(p) == "done" : stageOf(p) != "done")

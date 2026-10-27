@@ -457,7 +457,7 @@ private struct FOrderPage: View {
         let act = mainAction(app, p)
         VStack(spacing: 0) {
             UXTop {
-                UXTopBar(title: dn(p.name), sub: orderSub(p, " · ").isEmpty ? tr("ux.order") : orderSub(p, " · "), badge: p.sample, back: { app.pop() }) {
+                UXTopBar(title: dn(p.name), sub: orderSub(p, " · ").isEmpty ? tr("ux.order") : orderSub(p, " · "), back: { app.pop() }) {
                     CallButton(p: p)
                     GlassIconButton("more", tr("common.menu"), iconSize: 18) { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
                 }

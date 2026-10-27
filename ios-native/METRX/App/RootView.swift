@@ -136,9 +136,7 @@ struct RootView: View {
             }
         }
         .overlayPreferenceValue(CoachKey.self) { marks in CoachLayer(marks: marks) }
-        .onAppear { SampleOrder.ensure() }
-        .onChange(of: AppSettings.shared.industry) { _, _ in SampleOrder.ensure() }
-        .onChange(of: AppSettings.shared.sampleMade) { _, _ in SampleOrder.ensure() }
+        .onAppear { SampleOrder.purge() }
     }
 
     @ViewBuilder private var page: some View {

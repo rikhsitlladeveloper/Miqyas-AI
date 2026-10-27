@@ -96,7 +96,7 @@ struct FurnitureHome: View {
         // the simple app has no stages or install dates: the newest first
         let all = Store.shared.projects.filter(\.isFurniture)
         let orders = s.advanced ? all : all.sorted { $0.created > $1.created }
-        let (debt, nDebt) = owed(orders.filter { !$0.sample })
+        let (debt, nDebt) = owed(orders)
         VStack(spacing: 0) {
             GlassHeader { app.openLaser() }
             ScrollView {
@@ -181,7 +181,6 @@ private struct OrderLine: View {
         let leftPart: String? = { if let l = m.left, l > 0, fStage(p) >= 3 { return tr("fo.leftV", ["v": orderMoneyStr(p, l)]) }; return nil }()
         let sub = AppSettings.shared.advanced ? [dn(p.customer).isEmpty ? nil : dn(p.customer), leftPart].compactMap { $0 }.joined(separator: " · ") : piecesLine(p)
         VStack(alignment: .leading, spacing: 7) {
-            if p.sample { SampleHead(app: app, p: p) }
             HStack(spacing: 12) {
                 VStack(alignment: .leading, spacing: 1) {
                     T(dn(p.name), ui(15, 700), lines: 2)
@@ -199,25 +198,6 @@ private struct OrderLine: View {
             }
         }
         .orderCard(p, corner: 20, combine: false, action)
-    }
-}
-
-/// The sample order's NAMUNA badge, "never counted", and its one-tap delete (Undo in the toast).
-struct SampleHead: View {
-    let app: AppModel
-    let p: Project
-    var body: some View {
-        HStack(spacing: 8) {
-            SampleBadge()
-            T(tr("ux.sampleNote"), ui(11.5, 500, G.ink3), lines: 1).frame(maxWidth: .infinity, alignment: .leading)
-            HStack(spacing: 5) { MIcon("trash", G.err, 15, 2); T(tr("ux.del"), ui(12.5, 700, G.err)) }
-                .padding(.horizontal, 10).frame(minHeight: 36)
-                .background(Capsule().fill(G.errWash))
-                .pressable(0.96) { SampleOrder.delete(app, p.id) }
-                .accessibilityElement(children: .combine)
-                .accessibilityAddTraits(.isButton)
-                .accessibilityIdentifier("ux.sampleDel")
-        }
     }
 }
 
@@ -245,7 +225,6 @@ struct OrderRow: View {
         let k = fStage(p)
         let sub = [dn(p.customer), dn(p.address)].filter { !$0.isEmpty }.joined(separator: " · ")
         VStack(alignment: .leading, spacing: 9) {
-            if p.sample { SampleHead(app: AppModel.shared, p: p) }
             HStack(spacing: 8) { T(dn(p.name), ui(15.5, 700), lines: 2).frame(maxWidth: .infinity, alignment: .leading); FStageChip(stage: p.stage) }
             if !sub.isEmpty { T(sub, ui(12.5, 400, G.ink2), lines: 1) }
             // the progress line, "Keyingi: …" and the price (UX upgrades sections 2 and 4)
@@ -267,7 +246,7 @@ struct OrderRow: View {
             }
             }
         }
-        .orderCard(p, corner: 24, h: 14, v: 14, combine: !p.sample, action)
+        .orderCard(p, corner: 24, h: 14, v: 14, action)
     }
 }
 

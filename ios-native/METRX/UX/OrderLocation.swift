@@ -501,8 +501,7 @@ private struct YolSheet: View {
 
 extension View {
     /// An order's card in a list: this content opens the order; under it the location line ("Joylashuv bor" + Yo‘l, or
-    /// "Joylashuv yo‘q" + Qo‘shish), kept out of the card's own button so its buttons work on their own. The sample
-    /// order is not a real customer's: no location line.
+    /// "Joylashuv yo‘q" + Qo‘shish), kept out of the card's own button so its buttons work on their own.
     func orderCard(_ p: Project, corner: CGFloat = 22, h: CGFloat = 14, v: CGFloat = 12, combine: Bool = true, _ action: @escaping () -> Void) -> some View {
         OrderCardShell(p: p, corner: corner, h: h, v: v, combine: combine, action: action, content: self)
     }
@@ -523,7 +522,7 @@ private struct OrderCardShell<C: View>: View {
                 .pressable(0.985, action)
                 .accessibilityElement(children: combine ? .combine : .contain)
                 .accessibilityAddTraits(.isButton)
-            if !p.sample { OrderLocRow(app: AppModel.shared, p: p) }
+            OrderLocRow(app: AppModel.shared, p: p)
         }
         .padding(.horizontal, h).padding(.vertical, v)
         .glassCard(RoundedRectangle(cornerRadius: corner, style: .continuous))

@@ -128,7 +128,7 @@ struct ProfileScreen: View {
                     }
                     // dark mode: this app's own (the prototype has only the light look)
                     Card { SwitchRow(icon: "moon", title: tr("nt.dark"), on: s.dark) { s.setDarkMode(!s.dark) } }.padding(.top, 10)
-                    // haptics, and the tour, coach marks and sample order back (UX upgrades sections 10 and 11)
+                    // haptics, and the tour and coach marks back (UX upgrades sections 10 and 11)
                     Card {
                         SwitchRow(icon: "device", title: tr("ux.haptic"), on: s.haptics) {
                             s.setHaptics(!s.haptics); if s.haptics { Haptic.tick() }
@@ -136,7 +136,7 @@ struct ProfileScreen: View {
                         }
                         .accessibilityIdentifier("pf.haptic")
                         Row1(icon: "info", title: tr("ux.hints"), value: nil, sub: tr("ux.hintsS")) {
-                            s.resetTour(); SampleOrder.ensure()
+                            s.resetTour()
                             app.selectTab(.home)
                             app.say("ux.hintsDone")
                         }

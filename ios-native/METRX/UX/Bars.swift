@@ -31,19 +31,13 @@ private struct BottomBarHeight: ViewModifier {
 struct UXTopBar<Right: View>: View {
     let title: String
     var sub: String? = nil
-    var badge = false
     let back: () -> Void
     @ViewBuilder var right: Right
     var body: some View {
         HStack(alignment: .center, spacing: 8) {
             GlassIconButton("back", tr("nt.back"), back).accessibilityIdentifier("back")
             VStack(alignment: .leading, spacing: 1) {
-                if sub != nil || badge {
-                    HStack(spacing: 6) {
-                        if badge { SampleBadge() }
-                        if let sub { T(sub, ui(12, 600, G.ink3), lines: 1) }
-                    }
-                }
+                if let sub { T(sub, ui(12, 600, G.ink3), lines: 1) }
                 T(title, ui(18, 800, G.ink, lh: 1.18), lines: 2).fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -56,8 +50,8 @@ struct UXTopBar<Right: View>: View {
 }
 
 extension UXTopBar where Right == EmptyView {
-    init(title: String, sub: String? = nil, badge: Bool = false, back: @escaping () -> Void) {
-        self.init(title: title, sub: sub, badge: badge, back: back, right: { EmptyView() })
+    init(title: String, sub: String? = nil, back: @escaping () -> Void) {
+        self.init(title: title, sub: sub, back: back, right: { EmptyView() })
     }
 }
 
