@@ -210,12 +210,33 @@ class ScreenTestCase: XCTestCase {
         f.tap(); f.typeText(v); usleep(300_000)
     }
 
-    /// Designer C: a tool of the slider (swiped to when it is past the faded edge).
+    /// Designer C: element e scrolled into the screen sideways (the slider and the options rows scroll; XCTest does not
+    /// scroll them by itself): its row dragged at its own height.
+    func dzcBring(_ app: XCUIApplication, _ e: XCUIElement) {
+        let w = app.windows.firstMatch.frame
+        for _ in 0..<8 {
+            let f = e.frame
+            if f.isEmpty || (f.minX >= w.minX + 4 && f.maxX <= w.maxX - 4) { return }
+            let y = (f.midY - w.minY) / w.height
+            let a = app.coordinate(withNormalizedOffset: CGVector(dx: f.maxX > w.maxX ? 0.75 : 0.3, dy: y))
+            let b = app.coordinate(withNormalizedOffset: CGVector(dx: f.maxX > w.maxX ? 0.35 : 0.7, dy: y))
+            a.press(forDuration: 0.05, thenDragTo: b); usleep(600_000)
+        }
+    }
+
+    /// Designer C: a tool of the slider (brought past the faded edge first).
     func dzcTool(_ app: XCUIApplication, _ id: String) {
         let b = app.buttons["dzc.t." + id]
         guard b.waitForExistence(timeout: 4) else { XCTFail("no tool " + id); return }
-        let slider = app.descendants(matching: .any).matching(identifier: "dzc.slider").firstMatch
-        for _ in 0..<4 where !b.isHittable && slider.exists { slider.swipeLeft(); usleep(500_000) }
+        dzcBring(app, b)
+        b.tap(); usleep(700_000)
+    }
+
+    /// Designer C: an option of an options row (or a catalogue tile), brought into the screen first; nothing when absent.
+    func dzcOpt(_ app: XCUIApplication, _ id: String) {
+        let b = app.buttons[id]
+        guard b.waitForExistence(timeout: 2) else { return }
+        dzcBring(app, b)
         b.tap(); usleep(700_000)
     }
 
@@ -886,7 +907,7 @@ final class Furniture4Tests: ScreenTestCase {
         // a tap on a lower unit selects it: the slider changes, the mm bubble and the edge's handle show
         dzcTapEl(app, "dzc.m.low1"); shot("f4-08-selected")
         dzcTool(app, "width"); shot("f4-09-width")
-        if app.buttons["dzc.w.400"].exists { app.buttons["dzc.w.400"].tap(); sleep(1) }
+        if app.buttons["dzc.w.400"].exists { dzcOpt(app, "dzc.w.400"); sleep(1) }
         shot("f4-10-unit-400")
         dzcBack(app)
         // the right edge's handle dragged to the left: a snap width, the neighbour or filler taking the difference
@@ -898,7 +919,7 @@ final class Furniture4Tests: ScreenTestCase {
         }
         sleep(4)
         dzcTool(app, "type"); shot("f4-11b-type")
-        if app.buttons["dzc.ty.drawer3"].exists { app.buttons["dzc.ty.drawer3"].tap(); sleep(1) }
+        if app.buttons["dzc.ty.drawer3"].exists { dzcOpt(app, "dzc.ty.drawer3"); sleep(1) }
         dzcBack(app)
         // the unit's full settings stay one tool away
         dzcTool(app, "setup"); usleep(900_000); shot("f4-11c-unit-sheet")
@@ -907,12 +928,12 @@ final class Furniture4Tests: ScreenTestCase {
         if app.buttons["dzc.desel"].exists { app.buttons["dzc.desel"].tap(); usleep(600_000) }
         // Qo‘shish: the whole catalogue, a tile tapped into the first space it fits
         dzcTool(app, "add"); shot("f4-12-library")
-        if app.buttons["dzc.cat.drawer"].exists { app.buttons["dzc.cat.drawer"].tap(); usleep(600_000) }
-        if app.buttons["dzc.tile.drawers.450"].exists { app.buttons["dzc.tile.drawers.450"].tap(); sleep(1) }
+        if app.buttons["dzc.cat.drawer"].exists { dzcOpt(app, "dzc.cat.drawer"); usleep(600_000) }
+        if app.buttons["dzc.tile.drawers.450"].exists { dzcOpt(app, "dzc.tile.drawers.450"); sleep(1) }
         shot("f4-13-drawers-added")
         sleep(4)
-        if app.buttons["dzc.cat.tech"].exists { app.buttons["dzc.cat.tech"].tap(); usleep(600_000); shot("f4-14-appliances") }
-        if app.buttons["dzc.tile.dishwasher.600"].exists { app.buttons["dzc.tile.dishwasher.600"].tap(); sleep(1) }
+        if app.buttons["dzc.cat.tech"].exists { dzcOpt(app, "dzc.cat.tech"); usleep(600_000); shot("f4-14-appliances") }
+        if app.buttons["dzc.tile.dishwasher.600"].exists { dzcOpt(app, "dzc.tile.dishwasher.600"); sleep(1) }
         sleep(4)
         dzcBack(app)
         app.buttons["kt.undo"].tap(); usleep(800_000); shot("f4-16-undo")
@@ -955,36 +976,36 @@ final class Furniture5Tests: ScreenTestCase {
         shot("f5-02b-designer")
         // Designer C: Bo‘limlar — five sections of the same width
         dzcTool(app, "secs")
-        if app.buttons["dzc.secs.5"].exists { app.buttons["dzc.secs.5"].tap(); usleep(800_000) }
+        if app.buttons["dzc.secs.5"].exists { dzcOpt(app, "dzc.secs.5"); usleep(800_000) }
         shot("f5-03-five-sections")
         dzcBack(app)
         // the second section selected, typed 500 wide (its neighbour takes the difference)
         dzcTapEl(app, "dzc.s1"); shot("f5-04-section")
         dzcTool(app, "width")
         if app.buttons["dzc.w.kbd"].exists {
-            app.buttons["dzc.w.kbd"].tap(); usleep(900_000)
+            dzcOpt(app, "dzc.w.kbd"); usleep(900_000)
             if app.textFields["dzc.num"].exists { typeIn(app, "dzc.num", "500"); shot("f5-04-section-width"); app.buttons["dzc.numOk"].tap(); usleep(900_000) }
         }
         shot("f5-05-sizes")
         dzcBack(app)
         // one door on it, then that door tapped on the drawing: no handle on it (a push latch)
         dzcTool(app, "type")
-        if app.buttons["dzc.sty.d1"].exists { app.buttons["dzc.sty.d1"].tap(); usleep(700_000) }
+        if app.buttons["dzc.sty.d1"].exists { dzcOpt(app, "dzc.sty.d1"); usleep(700_000) }
         shot("f5-06-doors")
         dzcBack(app)
         noToast(app)
         dzcTapEl(app, "dzc.s1"); shot("f5-06a-door")
         if app.buttons["dzc.t.handle"].exists && app.buttons["dzc.selUp"].exists {
             dzcTool(app, "handle")
-            if app.buttons["dzc.h.off"].exists { app.buttons["dzc.h.off"].tap(); usleep(800_000); shot("f5-06b-door-push") }
+            if app.buttons["dzc.h.off"].exists { dzcOpt(app, "dzc.h.off"); usleep(800_000); shot("f5-06b-door-push") }
             dzcBack(app)
             app.buttons["dzc.selUp"].tap(); usleep(600_000)
         }
         // the inside: two drawers, then a shoe rack from "Boshqa…"
         dzcTool(app, "in")
-        if app.buttons["dzc.in.drawer.plus"].exists { app.buttons["dzc.in.drawer.plus"].tap(); sleep(1); app.buttons["dzc.in.drawer.plus"].tap(); sleep(1) }
+        if app.buttons["dzc.in.drawer.plus"].exists { dzcOpt(app, "dzc.in.drawer.plus"); sleep(1); dzcOpt(app, "dzc.in.drawer.plus"); sleep(1) }
         if app.buttons["dzc.in.more"].exists {
-            app.buttons["dzc.in.more"].tap(); usleep(900_000); shot("f5-07-more")
+            dzcOpt(app, "dzc.in.more"); usleep(900_000); shot("f5-07-more")
             if app.buttons["wm.shoe"].exists { app.buttons["wm.shoe"].tap(); sleep(1) }
         }
         shot("f5-08-inside")
