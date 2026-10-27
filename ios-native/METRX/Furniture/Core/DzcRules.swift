@@ -36,7 +36,7 @@ func dzcGives(_ m: Module) -> Bool { dzcSpace(m) || m.type == "filler" }
 func dzcPinned(_ m: Module) -> Bool { m.app.isEmpty && m.fronts.kind == "panel" && (m.type == "base" || m.type == "wall") }
 
 /// An appliance's unit: only its own widths, no 10 mm steps, and it never takes a neighbour's difference.
-func dzcFixedW(_ m: Module) -> Bool { ["dishwasher", "hob", "hood", "oven", "fridgeB", "fridge"].contains(m.app) }
+func dzcFixedW(_ m: Module) -> Bool { ["dishwasher", "hob", "hood", "oven", "fridgeB", "fridge", "micro"].contains(m.app) }
 
 /// The widths unit m may take.
 func dzcWidths(_ m: Module) -> [Int] {
@@ -45,7 +45,9 @@ func dzcWidths(_ m: Module) -> [Int] {
     case "hob": return [450, 600, 900]
     case "hood": return [600, 900]
     case "sink": return [450, 500, 600, 800, 900]
-    case "oven", "fridgeB": return [600]
+    case "oven": return [450, 600]
+    case "fridgeB": return [600]
+    case "micro": return [500, 600]
     case "fridge": return [600, 700, 900]
     default: break
     }
@@ -729,7 +731,7 @@ func dzcKitchenBase(_ f: Furniture, _ kind: String, _ h: Int, ws: Workshop) -> F
 /// The kitchen's base kind: "plinth", "legs" or "metal".
 func dzcKitchenBaseKind(_ f: Furniture) -> String {
     if metalLegs(f) { return "metal" }
-    return f.kx?.plinth == false ? "legs" : "plinth"
+    return f.kx?.plinth == true ? "plinth" : "legs"
 }
 
 /// The legs' heights "Tsokol/oyoq" steps through.
