@@ -179,10 +179,11 @@ fun NewOrderScreen(industry: String = "furniture") {
     var phone by rememberSaveable { mutableStateOf("") }
     var address by rememberSaveable { mutableStateOf("") }
     var tried by rememberSaveable { mutableStateOf(false) }
-    // the "Joylashuv" block (room-shapes spec §1): GPS only, read when tapped; optional, like the address
+    // the "Joylashuv" block (room-shapes spec §1): GPS only, read when tapped; optional, like the address. It listens
+    // quietly while the form is open (permission already given), so the tap is instant; nothing is kept until then
     var locState by remember { mutableStateOf(LocState.NONE) }
     var loc by remember { mutableStateOf<uz.metrx.app.data.Location?>(null) }
-    val gps = uz.metrx.app.ui.loc.rememberGps { l ->
+    val gps = uz.metrx.app.ui.loc.rememberGps(warm = true) { l ->
         if (locState != LocState.LOCATING) return@rememberGps
         if (l != null) { loc = l; locState = LocState.OK; app.haptic(uz.metrx.app.ui.ux.Hap.CONFIRM) }
         else { locState = LocState.FAIL; app.haptic(uz.metrx.app.ui.ux.Hap.WARN) }

@@ -260,9 +260,17 @@ fun NewProjectScreen(editId: String?) {
     fun touch(k: String) { touched.value = touched.value + k }
 
     // the GPS (shared with the trades' new-order form, ui/loc): the permission is asked on the first tap
-    val gps = uz.metrx.app.ui.loc.rememberGps { l -> if (l != null) loc = l else app.say("loc.fail", kind = ToastKind.ERROR) }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    var fails by remember { mutableStateOf(0) }
+    val gps = uz.metrx.app.ui.loc.rememberGps { l -> if (l != null) loc = l else fails++ }
     val locating = gps.locating
     fun locate() = gps.locate()
+    // no fix: a toast; location switched off (and not turned on): its toast opens the phone's location settings
+    androidx.compose.runtime.LaunchedEffect(fails) {
+        if (fails == 0) return@LaunchedEffect
+        if (gps.off) app.say("loc.offT", kind = ToastKind.ERROR, action = "loc.settings") { uz.metrx.app.ui.loc.openLocationSettings(ctx) }
+        else app.say("loc.fail", kind = ToastKind.ERROR)
+    }
 
     fun save() {
         tried = true
@@ -309,7 +317,8 @@ fun NewProjectScreen(editId: String?) {
                 GField(tr("np.address"), address, { address = it }, tr("smp.address"), optional = true, imeAction = ImeAction.Done, onIme = { focus.clearFocus() }, focusRequester = fAddr)
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row { Text(tr("np.location"), style = ui(15f, 700), modifier = Modifier.weight(1f)); Text(tr("common.optional").replaceFirstChar { it.uppercase() }, style = ui(13f, 500, G.ink3)) }
-                    LocationBlock(loc, locating, ::locate) { loc = null }
+                    LocationBlock(loc, gps) { loc = null }
+                    uz.metrx.app.ui.loc.ApproxNote(gps)
                     Text(tr("loc.note"), style = ui(13f, 400, G.ink2))
                 }
                 Row(
@@ -335,7 +344,9 @@ fun NewProjectScreen(editId: String?) {
 private fun keep(old: String, typed: String, lang: uz.metrx.app.core.Lang) = if (dn(old, lang) == typed) old else typed
 
 @Composable
-private fun LocationBlock(loc: Location?, locating: Boolean, onLocate: () -> Unit, onRemove: () -> Unit) {
+private fun LocationBlock(loc: Location?, gps: uz.metrx.app.ui.loc.Gps, onRemove: () -> Unit) {
+    val locating = gps.locating
+    val onLocate = gps::locate
     if (loc == null && !locating) { GBtn(tr("loc.get"), onLocate, Btn.SECONDARY, icon = "pin"); return }
     val shape = RoundedCornerShape(18.dp)
     Column(Modifier.fillMaxWidth().clip(shape).background(G.glass(.6f)).border(1.dp, G.rim, shape)) {
@@ -352,7 +363,13 @@ private fun LocationBlock(loc: Location?, locating: Boolean, onLocate: () -> Uni
         }
         Row(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MIcon("pin", G.ink2, 18.dp, 2f)
-            if (locating) Text(tr("loc.locating"), style = ui(14f, 500, G.ink2))
+            // while locating: the live accuracy ("Aniqlik: ±X m") and "Shu yetarli" once there is a reading
+            val f = gps.live
+            if (locating) {
+                Text(if (f == null) tr("loc.locating") else tr(if (f.cached) "loc.liveC" else "loc.live", "m" to uz.metrx.app.core.LocFix.metres(f.acc)),
+                    style = ui(14f, 500, G.ink2), modifier = Modifier.weight(1f))
+                if (f != null) Text(tr("loc.enough"), style = ui(14f, 700, G.cobalt), modifier = Modifier.heightIn(min = 44.dp).clickable(role = Role.Button) { gps.enough() }.padding(horizontal = 8.dp, vertical = 12.dp))
+            }
             else if (loc != null) {
                 Text("%.5f, %.5f".format(java.util.Locale.ROOT, loc.lat, loc.lng), style = ui(14f, 700))
                 Text(tr("loc.acc", "m" to loc.acc), style = ui(13f, 400, G.ink2))
