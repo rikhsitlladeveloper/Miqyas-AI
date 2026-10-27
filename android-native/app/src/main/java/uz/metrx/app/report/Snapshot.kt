@@ -88,7 +88,7 @@ fun furnSnap(sn: Snap, p: Project, ws: uz.metrx.app.furniture.Workshop, mats: Li
     val fs = p.furniture.filter { it.modules.isNotEmpty() }
     val pr = uz.metrx.app.furniture.priceOf(fs, p.fprice, ws, mats, hws)
     // the upper fronts, worktops and backsplashes each piece chose (Look.kt; "wt38" and "splash6" before 25 Oct 2026)
-    val used = fs.flatMap { listOfNotNull(it.mats.carcass, it.mats.front, it.mats.back, it.mats.frontUp) }.toSet() +
+    val used = fs.flatMap { listOfNotNull(it.mats.carcass, it.mats.front, it.mats.back, it.mats.frontUp) + uz.metrx.app.furniture.ownFronts(it) }.toSet() +
         fs.filter { it.kind == "kitchen" }.map { uz.metrx.app.furniture.worktopOf(it) } +
         fs.filter { (it.kx?.splash ?: 0) > 0 }.map { f -> f.mats.splash ?: "splash6" }
     // the three price options (Advanced, Project.tri) go with the lines, keyed "pt.eko", "pt.std", "pt.pre"

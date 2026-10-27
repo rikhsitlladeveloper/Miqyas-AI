@@ -139,7 +139,21 @@ fun splashOf(f: Furniture, mats: List<Mat>): Mat? = f.mats.splash?.let { id -> m
 fun isUpperFront(f: Furniture, m: Module): Boolean = if (f.kind == "kitchen") isUpper(m) else m.elev >= 1000
 
 /** The front board of box [m] of [f]: the upper fronts' for [isUpperFront], else the fronts'. */
-fun frontOf(f: Furniture, m: Module?): String = if (m != null && isUpperFront(f, m)) f.mats.frontUp ?: f.mats.front else f.mats.front
+fun frontOf(f: Furniture, m: Module?): String = m?.front ?: if (m != null && isUpperFront(f, m)) f.mats.frontUp ?: f.mats.front else f.mats.front
+
+/** The front board of section [i] of box [m]: its own (Designer C v2), else the box's ([frontOf]). */
+fun secFrontOf(f: Furniture, m: Module, i: Int): String = m.sections.getOrNull(i)?.front ?: frontOf(f, m)
+
+/** Every own front board of [f]'s boxes and sections (Designer C v2, "Faqat shu"). */
+fun ownFronts(f: Furniture): Set<String> = f.modules.flatMap { m -> listOfNotNull(m.front) + m.sections.mapNotNull { it.front } }.toSet()
+
+/** [f] with every own front board of its boxes and sections passed through [fn] (a price option's boards). */
+fun mapOwnFronts(f: Furniture, fn: (String) -> String): Furniture =
+    if (ownFronts(f).isEmpty()) f else f.copy(modules = f.modules.map { m -> m.copy(front = m.front?.let(fn), sections = m.sections.map { s -> if (s.front == null) s else s.copy(front = fn(s.front)) }) })
+
+/** [f] with no box or section keeping its own front board: the piece's colour everywhere ("Butun oshxonaga", "Hammasiga", a style). */
+fun clearOwnFronts(f: Furniture): Furniture = if (ownFronts(f).isEmpty()) f
+    else f.copy(modules = f.modules.map { m -> m.copy(front = null, sections = m.sections.map { if (it.front == null) it else it.copy(front = null) }) })
 
 /** Two colours: the upper fronts differ from the lower ones. */
 fun isTwoTone(f: Furniture) = f.mats.frontUp != null && f.mats.frontUp != f.mats.front
@@ -391,6 +405,13 @@ fun lookOf(f: Furniture, m: Module?, part: String, mats: List<Mat> = MAT_PRESETS
     }
     return when (part) {
         "front" -> boardSurface(frontOf(f, m), mats, l, style)
+        // a box's or section's own front board (Designer C v2), by its id
+        else -> if (part.startsWith("board:")) boardSurface(part.removePrefix("board:"), mats, l, style) else lookRest(f, part, mats, l, style, ::metal)
+    }
+}
+
+private fun lookRest(f: Furniture, part: String, mats: List<Mat>, l: Look?, style: String, metal: () -> Surface): Surface {
+    return when (part) {
         "frontUp" -> boardSurface(f.mats.frontUp ?: f.mats.front, mats, l, style)
         "frontLow", "plinth" -> boardSurface(f.mats.front, mats, l, if (part == "plinth") "flat" else style)
         "back" -> boardSurface(f.mats.back, mats, l)

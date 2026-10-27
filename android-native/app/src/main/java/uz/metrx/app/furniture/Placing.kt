@@ -234,7 +234,7 @@ fun swingsOf(f: Furniture, walls: List<PlanWall>, ws0: Workshop): List<Foot> {
         val n = m.fronts.n.coerceAtLeast(1); val dw = m.w.toDouble() / n
         val a0 = m.x.toDouble()
         when (m.fronts.kind) {
-            "door" -> repeat(n) { j -> out += door(fr, a0 + j * dw, a0 + (j + 1) * dw, m.d.toDouble(), n == 2 && j == 1, m.elev, m.elev + m.h) }
+            "door" -> repeat(n) { j -> out += door(fr, a0 + j * dw, a0 + (j + 1) * dw, m.d.toDouble(), kHingeRight(m, j, n), m.elev, m.elev + m.h) }
             "drawer" -> out += drawer(fr, a0, a0 + m.w, m.d.toDouble(), m.elev, m.elev + m.h)
         }
     }

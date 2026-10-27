@@ -125,7 +125,19 @@ data class Module(
     val glass: Boolean = false,
     /** A glass-door wall unit's inside (its back) in the look's wood accent, as the mockup's vitrina. Written only when set. */
     @EncodeDefault(EncodeDefault.Mode.NEVER)
-    val accentIn: Boolean = false
+    val accentIn: Boolean = false,
+    /**
+     * Designer C v2 (27 Oct 2026): the box's own front board ("Fasad · Faqat shu"), cut, priced and drawn so; null: the
+     * piece's ([FMats.front], [FMats.frontUp]). Written only when set.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val front: String? = null,
+    /**
+     * Designer C v2: a kitchen unit's doors' hinge edges, door by door ("L" it opens to the left, its handle on the
+     * right; "R" the other way; "" as usual: a single door on the left, a pair on its outer edges). Written only when set.
+     */
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val hinges: List<String> = emptyList()
 )
 
 /**
@@ -194,7 +206,10 @@ data class Section(val w: Int, val fronts: Fronts = Fronts("door", 2), val inser
                    val noHandle: List<Int> = emptyList(),
                    /** Soft-close hinges on this section's doors; null: as the box ([Module.soft]). */
                    @EncodeDefault(EncodeDefault.Mode.NEVER)
-                   val soft: Boolean? = null)
+                   val soft: Boolean? = null,
+                   /** Designer C v2: this section's own front board ("Fasad · Faqat shu"); null: the box's. Written only when set. */
+                   @EncodeDefault(EncodeDefault.Mode.NEVER)
+                   val front: String? = null)
 
 /** The width the section's doors (or drawers) cover: all of it but a corner unit's blind part. */
 fun frontW(s: Section) = (s.w - s.blind).coerceAtLeast(0)
