@@ -156,6 +156,8 @@ import kotlin.math.min
 class KitOps {
     var tick by mutableIntStateOf(0)
     var sel by mutableStateOf<String?>(null)
+    /** Designer C v2's editor state of each piece (DzcKit.kt). */
+    val dz = HashMap<String, DzcState>()
     private val back = HashMap<String, ArrayList<Furniture>>()
     private val fwd = HashMap<String, ArrayList<Furniture>>()
     fun canUndo(fid: String) = back[fid]?.isNotEmpty() == true
@@ -205,10 +207,14 @@ internal fun lineOn(c: Color) = if (c.luminance() > .4f) Color(0xFF3E4A61) else 
 
 internal fun hex(s: String, fallback: Color = Color(0xFFF5F5F2)) = runCatching { Color(android.graphics.Color.parseColor(s)) }.getOrDefault(fallback)
 
+/** A board's colour in the drawings: the workshop's list, else the presets (a decor board), else [fb]. */
+internal fun boardColor(mats: List<Mat>, id: String?, fb: String = "#CDBFAE"): Color =
+    hex((mats.firstOrNull { it.id == id } ?: uz.metrx.app.furniture.MAT_PRESETS.firstOrNull { it.id == id })?.rgb ?: fb)
+
 @Composable
 internal fun modName(m: Module) = tr("kn." + kindOf(m)) + " " + m.w
 
-private fun App.modName(m: Module) = t("kn." + kindOf(m)) + " " + m.w
+internal fun App.modName(m: Module) = t("kn." + kindOf(m)) + " " + m.w
 
 /** "720 × 560 · 2 eshik · Polkalar 1". */
 @Composable
@@ -243,16 +249,24 @@ private val OPEN_FILL get() = pc(0xFFE2E6EC, 0xFF283044)
 /** A vitrina's glass in the wall drawing, inside its door's frame. */
 private val GLASS_2D get() = pc(0xFFD6E6EC, 0xFF3A4A5C)
 
-/** Where a run sits in a viewBox [vw] wide: [L] × [H] mm, with room for sizes under it when [dims]. */
-internal class KLay(val L: Int, val H: Int, val vw: Float, val dims: Boolean, ext: Int = L) {
+/**
+ * Where a run sits in a viewBox [vw] wide: [L] × [H] mm, with room for sizes under it when [dims]. Designer C v2's
+ * canvas zooms by [z] about the viewBox's origin and pans by [px], [py] (viewBox units), so lines and text stay their
+ * size while the drawing grows; [vh] is the viewBox's height unzoomed.
+ */
+internal class KLay(val L: Int, val H: Int, val vw: Float, val dims: Boolean, ext: Int = L, z: Float = 1f, px: Float = 0f, py: Float = 0f) {
     val padX = if (dims) 18f else 6f
     val top = if (dims) 28f else 8f
     /** Units past the wall's end still show (in red), so the drawing takes the longer of the two. */
     val span = max(L, ext)
-    val s = min((vw - 2 * padX) / span, (if (dims) 230f else 118f) / H)
-    val x0 = padX + ((vw - 2 * padX) - span * s) / 2f
-    val yF = top + H * s
-    val vh = yF + if (dims) 56f else 10f
+    private val s0 = min((vw - 2 * padX) / span, (if (dims) 230f else 118f) / H)
+    val s = s0 * z
+    val x0 = px + z * (padX + ((vw - 2 * padX) - span * s0) / 2f)
+    val yF = py + z * (top + H * s0)
+    val vh = top + H * s0 + if (dims) 56f else 10f
+    /** The millimetres along and up at viewBox point [vx], [vy]. */
+    fun mmX(vx: Float) = (vx - x0) / s
+    fun mmY(vy: Float) = (yF - vy) / s
     fun x(mm: Int) = x0 + mm * s
     fun y(mm: Int) = yF - mm * s
 }
@@ -304,7 +318,8 @@ internal fun DrawScope.drawRun(
     val wtCol = hex(mats.firstOrNull { it.id == uz.metrx.app.furniture.worktopOf(f) }?.rgb ?: "#4B4F58", Color(0xFF4B4F58))
     val mods = f.modules.filter { it.wall == run.wall }.sortedBy { if (isUpper(it)) 1 else 0 }
     val g = max(.8f, ws.gap10 / 10f * lay.s)
-    mods.forEach { m -> drawUnit(lay, m, ws, if (isUpper(m)) frontUp else front, carcass, g) }
+    // a unit's own front board (Designer C v2), else its row's
+    mods.forEach { m -> drawUnit(lay, m, ws, m.front?.let { boardColor(mats, it) } ?: if (isUpper(m)) frontUp else front, carcass, g) }
     // the worktop over the lower row, and over the corner zone it turns into
     val wt = worktopTop(ws)
     val tops = mods.filter { !isUpper(it) && (it.type == "base" || it.type == "filler" || it.app == "dishwasher") }.map { it.x to it.x + it.w }.toMutableList()
@@ -342,7 +357,7 @@ internal fun DrawScope.drawRun(
     if (lay.dims && tm != null) dims(lay, f, run, ws, tm)
 }
 
-private fun DrawScope.drawUnit(lay: KLay, m: Module, ws: Workshop, front: Color, carcass: Color, g: Float) {
+internal fun DrawScope.drawUnit(lay: KLay, m: Module, ws: Workshop, front: Color, carcass: Color, g: Float) {
     val l = lay.x(m.x); val r = lay.x(m.x + m.w); val t = lay.y(m.elev + m.h); val b = lay.y(m.elev)
     val w = r - l; val h = b - t
     // lines on a board follow the board, not the theme: dark on light boards, light on dark ones
@@ -392,7 +407,7 @@ private fun DrawScope.drawUnit(lay: KLay, m: Module, ws: Workshop, front: Color,
                     }
                     drawRect(onF, Offset(fl, t + g), Size(fw, h - 2 * g), style = Stroke(.8f))
                     // the handle on the opening edge: right of a single door, the middle of a pair; without one the push mark
-                    val hx = if (n == 1 || i == 0) fl + fw - max(2.5f, fw * .1f) else fl + max(2.5f, fw * .1f)
+                    val hx = if (!uz.metrx.app.furniture.kHingeRight(m, i, n)) fl + fw - max(2.5f, fw * .1f) else fl + max(2.5f, fw * .1f)
                     val hy = if (m.type == "wall") t + h * .82f else t + h * .14f
                     val len = min(10f, h * .18f)
                     if (uz.metrx.app.furniture.hasHandle(m, "f$i")) drawLine(onF, Offset(hx, hy - len / 2), Offset(hx, hy + len / 2), 1.4f, StrokeCap.Round)
@@ -416,7 +431,7 @@ private fun DrawScope.drawUnit(lay: KLay, m: Module, ws: Workshop, front: Color,
 }
 
 /** What shows the appliance: the tap over a sink, the hob's line, an oven's or a microwave's glass. */
-private fun DrawScope.appliance(lay: KLay, m: Module, ws: Workshop) {
+internal fun DrawScope.appliance(lay: KLay, m: Module, ws: Workshop) {
     val l = lay.x(m.x); val r = lay.x(m.x + m.w); val cx = (l + r) / 2
     val wt = lay.y(worktopTop(ws))
     when (m.app) {
@@ -489,96 +504,11 @@ fun KitchenThumb(p: Project, f: Furniture, modifier: Modifier) {
     }
 }
 
-/* ---------------- the designer ---------------- */
-
-@Composable
-fun KitchenScreen(rt: Route.Kitchen) {
-    val app = LocalApp.current
-    val lang = LocalLang.current
-    val kit = app.kit
-    @Suppress("UNUSED_VARIABLE") val tick = kit.tick
-    val p = app.store.get(rt.pid) ?: return
-    val f = p.furniture.firstOrNull { it.id == rt.fid } ?: return
-    val snap = app.settings.angleSnap
-    val room = roomOf(p, f)
-    val runs = kRuns(f, room, snap)
-    val run = runs.firstOrNull { it.wall == rt.wall } ?: runs.firstOrNull()
-    val ws = wsOf(f, app.settings.workshop); val mats = app.settings.mats
-    val en = lang == Lang.EN
-    // the designer's checks and the board rules of the order's Check list (a part bigger than the sheet, a drawer, a long shelf)
-    val found = checks(f, runs, ws, room?.openings ?: emptyList(), room?.points ?: emptyList()) +
-        remember(f, ws, mats) { uz.metrx.app.furniture.boardIssues(f, ws, mats).map { FCheck(it.level, it.key, it.vars, it.mid) } }
-    val bad = HashMap<String, String>().apply { found.forEach { c -> c.mid?.let { id -> if (c.level == "err" || (c.level == "warn" && this[id] != "err")) this[id] = c.level } } }
-    val sel = f.modules.firstOrNull { it.id == kit.sel && it.wall == run?.wall }
-    fun go(step: Int) {
-        if (runs.size < 2 || run == null) return
-        val i = runs.indexOf(run)
-        app.setTop(rt.copy(wall = runs[(i + step + runs.size) % runs.size].wall)); kit.sel = null
-    }
-    Box(Modifier.fillMaxSize().roomGrid()) {
-        // UX upgrades §1: Back, the name and the menu on top with the compact progress and the price chip; Undo, 2D/3D
-        // and "Narxni ko‘rish" at the bottom, in thumb reach
-        Column(Modifier.fillMaxSize()) {
-            uz.metrx.app.ui.ux.DesignerTop(p, f, freeSub(f, en))
-            if (room == null || run == null) {
-                Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.weight(1f).padding(24.dp))
-            } else if (rt.d3) Furniture3D(p, room)
-            else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    runs.forEach { r ->
-                        val on = r.wall == run.wall
-                        Text(runName(f, r), style = ui(14f, 700, if (on) G.solid else G.ink), maxLines = 1,
-                            modifier = Modifier.heightIn(min = 40.dp).clip(CircleShape).background(if (on) G.ink else G.idle(.6f)).border(1.dp, if (on) G.ink else G.idleRim, CircleShape)
-                                .semantics { selected = on }.clickable(role = Role.Tab) { app.setTop(rt.copy(wall = r.wall)); kit.sel = null }
-                                .padding(horizontal = 16.dp, vertical = 10.dp))
-                    }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    FillPill(tr("kt.low"), fillOf(f, run, false), Modifier.weight(1f))
-                    if (run.wall != ISLAND) FillPill(tr("kt.up"), fillOf(f, run, true), Modifier.weight(1f))
-                }
-                if (f.roomId == null) FreeBanner(p, f)
-                if (run.wall != ISLAND && !measured(room, snap, run.wall))
-                    Text(tr("kt.noLen", "w" to run.wall), style = ui(13f, 500, G.amberInk, 1.4f),
-                        modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.amberWash).padding(12.dp))
-                if (run.wall == ISLAND) Text(tr("kt.islandNote"), style = ui(13f, 400, G.ink2, 1.4f))
-                Elevation(f, run, room, ws, mats, sel?.id, bad, onPick = { id -> kit.sel = if (kit.sel == id) null else id }, onSwipe = ::go)
-                val empty = f.modules.none { it.wall == run.wall }
-                if (empty && run.wall != ISLAND) Column(
-                    Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Text(tr("kt.emptyT", "w" to run.wall), style = ui(16f, 800))
-                    Text(tr("kt.emptyB"), style = ui(13.5f, 400, G.ink2, 1.45f))
-                    GBtn(tr("kt.auto"), {
-                        val before = f.modules.size
-                        // a new kitchen fills on every wall at once; later only the empty wall shown
-                        val n = kit.change(app, p.id, f.id) { x -> autoFill(x, kRuns(x, room, snap).filter { x.modules.isEmpty() || it.wall == run.wall }, ws, room.openings, room.points) }
-                        app.say("kt.autoDone", "n" to ((n?.modules?.size ?: before) - before))
-                    }, icon = "plus")
-                } else Text(tr("kt.hint"), style = ui(12.5f, 400, G.ink2))
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    listOf("module" to "kt.module", "appl" to "kt.appl", "space" to "kt.space").forEach { (g, k) ->
-                        GBtn(tr(k), { app.sheet = Sheet.FLibrary(p.id, f.id, run.wall, g) }, Btn.SECONDARY, icon = if (g == "module") "plus" else null,
-                            height = 46.dp, corner = 16.dp, fontSize = 14.5f, modifier = Modifier.weight(1f))
-                    }
-                }
-                // the auto kitchen for this room: six styles built for its walls, water and gas (AutoKitchen.kt)
-                if (f.roomId != null && f.free == null) GBtn(tr("ak.title"), { app.push(Route.AutoKitchen(p.id, f.roomId, f.id)) }, Btn.SECONDARY, icon = "kitchen",
-                    height = 46.dp, corner = 16.dp, fontSize = 14.5f)
-                if (sel != null) SelCard(p, f, sel, run)
-                ChecksCard(f, found) { id -> f.modules.firstOrNull { it.id == id }?.let { m -> if (m.wall != run.wall) app.setTop(rt.copy(wall = m.wall)); kit.sel = m.id } }
-                DesignCard(p, f)
-                ExtrasCard(p, f)
-                CostCard(p, f, ws, mats)
-            }
-            uz.metrx.app.ui.ux.DesignerBar(p, f, rt.d3) { app.setTop(rt.copy(d3 = it)) }
-        }
-    }
-}
+/* ---------------- the designer: DzcKitchen.kt (Designer C v2) ---------------- */
 
 /** The kitchen's extras (plan 1b-1): worktop corners and cut-outs, backsplash, plinth, cornice, LED, end panels. */
 @Composable
-private fun ExtrasCard(p: Project, f: Furniture) {
+internal fun ExtrasCard(p: Project, f: Furniture) {
     val app = LocalApp.current
     val en = LocalLang.current == Lang.EN
     val x = f.kx ?: uz.metrx.app.furniture.KExtras()
@@ -641,7 +571,7 @@ private fun LegsSheet(s: Sheet.KLegs) {
 }
 
 @Composable
-private fun FillPill(label: String, fl: uz.metrx.app.furniture.Fill, modifier: Modifier) {
+internal fun FillPill(label: String, fl: uz.metrx.app.furniture.Fill, modifier: Modifier) {
     val left = fl.left
     val (txt, c) = when {
         left == null -> "${fl.used}" to G.ink2
@@ -655,77 +585,6 @@ private fun FillPill(label: String, fl: uz.metrx.app.furniture.Fill, modifier: M
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(if (fl.avail != null) "${fl.used} / ${fl.avail}" else "${fl.used}", style = num(15f, 700), maxLines = 1)
             if (fl.avail != null) Text(txt, style = ui(12f, 700, c), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(bottom = 1.dp))
-        }
-    }
-}
-
-@Composable
-private fun Elevation(f: Furniture, run: Run, room: Room, ws: Workshop, mats: List<Mat>, sel: String?, bad: Map<String, String>, onPick: (String) -> Unit, onSwipe: (Int) -> Unit) {
-    val tm = rememberTextMeasurer()
-    val lay = KLay(runLen(f, run), roomH(room), 360f, true, runExt(f, run))
-    val mods = f.modules.filter { it.wall == run.wall }
-    Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(G.glass(.55f)).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {
-        Canvas(Modifier.fillMaxWidth().aspectRatio(lay.vw / lay.vh).pointerInput(f, run) {
-            awaitEachGesture {
-                val down = awaitFirstDown()
-                val k = size.width / lay.vw
-                val start = down.position
-                var swiped = false
-                while (true) {
-                    val ev = awaitPointerEvent()
-                    val ch = ev.changes.firstOrNull { it.id == down.id } ?: break
-                    if (!ch.pressed) break
-                    val d = ch.position - start
-                    if (!swiped && abs(d.x) >= 48.dp.toPx() && abs(d.x) >= 1.5f * abs(d.y)) { swiped = true; onSwipe(if (d.x < 0) 1 else -1) }
-                }
-                if (!swiped) {
-                    val px = start.x / k; val py = start.y / k
-                    // the upper row first (it is drawn over tall units), then the lower row with its plinth
-                    val hit = mods.sortedByDescending { if (isUpper(it)) 1 else 0 }.firstOrNull { m ->
-                        px in lay.x(m.x)..lay.x(m.x + m.w) && py in lay.y(m.elev + m.h)..(if (!isUpper(m) && m.elev < 300) lay.yF else lay.y(m.elev))
-                    }
-                    if (hit != null) onPick(hit.id)
-                }
-            }
-        }) {
-            val k = size.width / lay.vw
-            withTransform({ scale(k, k, pivot = Offset.Zero) }) { drawRun(lay, f, run, room, ws, mats, sel, bad, tm) }
-        }
-    }
-}
-
-@Composable
-private fun SelCard(p: Project, f: Furniture, m: Module, run: Run) {
-    val app = LocalApp.current
-    val kit = app.kit
-    val row = f.modules.filter { it.wall == m.wall && isUpper(it) == isUpper(m) }
-    val i = row.indexOfFirst { it.id == m.id }
-    fun move(step: Int) {
-        val other = row.getOrNull(i + step) ?: return
-        kit.change(app, p.id, f.id) { x ->
-            val a = x.modules.indexOfFirst { it.id == m.id }; val b = x.modules.indexOfFirst { it.id == other.id }
-            x.copy(modules = x.modules.toMutableList().also { l -> val t = l[a]; l[a] = l[b]; l[b] = t })
-        }
-    }
-    Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.7f)).border(2.dp, G.cobalt.copy(alpha = .55f), RoundedCornerShape(22.dp)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Column(Modifier.weight(1f)) {
-                Text(modName(m), style = ui(16f, 800), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(modSub(m), style = ui(12.5f, 400, G.ink2), maxLines = 2)
-            }
-            Box(Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button) {
-                val name = app.modName(m)
-                kit.change(app, p.id, f.id) { x -> x.copy(modules = x.modules.filter { it.id != m.id }) }
-                kit.sel = null
-                app.say("kt.deleted", "m" to name, action = "common.undo", onAction = { kit.undo(app, p.id, f.id) })
-            }, contentAlignment = Alignment.Center) { MIcon("trash", G.err, 20.dp, 2f) }
-        }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            // long words ("O‘ngga", "Вправо") take a second line rather than being cut
-            GBtn(tr("kt.left"), { move(-1) }, Btn.SECONDARY, icon = "back", enabled = i > 0, height = 48.dp, corner = 14.dp, fontSize = 13f, modifier = Modifier.weight(1f), maxLines = 2)
-            GBtn(tr("kt.right"), { move(1) }, Btn.SECONDARY, icon = "chev", enabled = i < row.lastIndex, height = 48.dp, corner = 14.dp, fontSize = 13f, modifier = Modifier.weight(1f), maxLines = 2)
-            GBtn(tr("kt.setup"), { app.sheet = Sheet.FModule(p.id, f.id, m.id) }, icon = "sliders", height = 44.dp, corner = 14.dp, fontSize = 14f, modifier = Modifier.weight(1.2f))
         }
     }
 }
@@ -791,6 +650,9 @@ internal fun CostCard(p: Project, f: Furniture, ws: Workshop, mats: List<Mat>) {
 /* ---------------- sheets ---------------- */
 
 @Composable
+private fun app0() = LocalApp.current
+
+@Composable
 fun KitchenSheet(s: Sheet): Boolean = when (s) {
     is Sheet.FMenu -> { FMenuSheet(s); true }
     is Sheet.FRename -> { FRenameSheet(s); true }
@@ -798,6 +660,8 @@ fun KitchenSheet(s: Sheet): Boolean = when (s) {
     is Sheet.KLegs -> { LegsSheet(s); true }
     is Sheet.FLibrary -> { LibrarySheet(s); true }
     is Sheet.Share3D -> { Share3DSheet(s); true }
+    is Sheet.DzcNum -> { if (app0().store.get(s.pid)?.furniture?.firstOrNull { it.id == s.fid }?.kind == "kitchen") KitNumSheet(s) else WardNumSheet(s); true }
+    is Sheet.DzcMore -> { DzcMoreSheet(s); true }
     else -> false
 }
 

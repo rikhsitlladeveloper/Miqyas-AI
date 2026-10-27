@@ -67,8 +67,8 @@ fun tierPiece(f: Furniture, tier: String): Furniture {
         )
         // knobs and the Gola profile become the usual bar handle
         if (handleType(g) == "gola" || handleType(g) == "knob") g = withHandleType(g, "bar")
-        g
-    } else {
+        mapOwnFronts(g, ::ekoFront)
+    } else mapOwnFronts(run {
         // the stone: a stone worktop keeps its decor; a wood or plain one becomes onyx, the dark plain one dark stone
         val top = worktopOf(f)
         val decor = when (worktopKind(top)) { "stone", "slim" -> worktopDecor(top); "wood" -> "onyx"; else -> if (top == "wt38") "dark" else "onyx" }
@@ -82,7 +82,7 @@ fun tierPiece(f: Furniture, tier: String): Furniture {
             // Blum-type soft close on every door
             modules = f.modules.map { m -> m.copy(soft = true, sections = m.sections.map { it.copy(soft = null) }) }
         )
-    }
+    }) { preFront(it, gloss) }
 }
 
 /** The artificial stone backsplash of a decor (Decors.kt spStone*). */

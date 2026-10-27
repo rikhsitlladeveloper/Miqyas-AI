@@ -5,6 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -78,7 +79,7 @@ import uz.metrx.app.ui.theme.ui
  */
 
 /** Changes box [mid] of piece [fid] (on the designer's undo list), its outer size following its options. */
-private fun App.item(p: Project, f: Furniture, mid: String, fn: (Module) -> Module) {
+internal fun App.item(p: Project, f: Furniture, mid: String, fn: (Module) -> Module) {
     val ws = settings.workshop
     kit.change(this, p.id, f.id) { x ->
         val room = if (x.roomId == null) null else roomOf(p, x)
@@ -88,7 +89,7 @@ private fun App.item(p: Project, f: Furniture, mid: String, fn: (Module) -> Modu
 }
 
 /** A size's label in the item designer. */
-private fun sizeLabel(m: Module, key: String) = when (key) {
+internal fun sizeLabel(m: Module, key: String) = when (key) {
     "w" -> if (m.type == "mirror") "fz.mirW" else "wd.w"
     "h" -> when (m.type) { "mirror" -> "fz.mirH"; "bed" -> "fb.h"; else -> "fz.wH" }
     "d" -> if (m.type == "bar") "fb.barD" else "wd.d"
@@ -96,55 +97,133 @@ private fun sizeLabel(m: Module, key: String) = when (key) {
     else -> "fb.$key"
 }
 
+/**
+ * The short designer (Designer C v2: the same slider, Undo and 2D/3D): the piece drawn, its tools underneath (sizes,
+ * type, handles, colour, inside, where, materials, more).
+ */
 @Composable
 fun ItemScreen(rt: Route.Wardrobe, p: Project, f: Furniture) {
     val app = LocalApp.current
-    val lang = LocalLang.current
-    val kit = app.kit
     val m = wardOfF(f) ?: return
     val ws = app.settings.workshop; val mats = app.settings.mats
     val room = roomOf(p, f)
+    val st = app.dzc(f.id)
     Box(Modifier.fillMaxSize().roomGrid()) {
-        // UX upgrades §1: the designer's header and bottom bar (ux/UxDesigner.kt); 2D is the piece, 3D the piece in its room
         Column(Modifier.fillMaxSize()) {
             uz.metrx.app.ui.ux.DesignerTop(p, f, pieceLine(f, ws))
             if (room == null) {
                 Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.weight(1f).padding(24.dp))
-            } else if (rt.d3) Furniture3D(p, room)
-            else Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 28.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                var bare by remember { mutableStateOf(false) }
-                val scene = remember(f, ws, mats, bare) { pieceScene(f, ws, mats, bare) }
-                Box(Modifier.fillMaxWidth().aspectRatio(1f / .8f).clip(RoundedCornerShape(22.dp)).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {
-                    PieceView(scene, null, null, Modifier.fillMaxSize())
-                    // a bed's drawers, a loft's cabinet: hide the fronts to see inside
-                    if (f.modules.any { m -> m.sections.any { it.fronts.kind != "open" } || m.opt?.bed == "drawers" }) InsidePill(bare, Modifier.align(Alignment.TopStart).padding(10.dp)) { bare = !bare }
-                    Text(tr("fx.drag"), style = ui(11f, 600, G.ink3), modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp))
-                }
-                Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    ItemOptions(p, f, m)
-                }
-                Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    if (f.roomId == null) FreeBanner(p, f)
-                    else {
-                        Text(tr("it.where"), style = ui(15.5f, 800))
-                        Text(tr(if (uz.metrx.app.furniture.canStandFree(f)) "it.whereFree" else "it.whereWall"), style = ui(12.5f, 400, G.ink2, 1.4f))
-                        GBtn(tr("fz.move"), { app.push(Route.FPlace(p.id, f.id, room.id)) }, Btn.SECONDARY, icon = "room", height = 44.dp, corner = 14.dp, fontSize = 14f)
+            } else Box(Modifier.weight(1f).fillMaxWidth()) {
+                var panelH by remember { mutableStateOf(0) }
+                val d = LocalDensity.current
+                if (rt.d3) DzcScene3D(p, room, f, emptySet(), null, st.inside, 100.dp) { }
+                else {
+                    val scene = remember(f, ws, mats, st.inside) { pieceScene(f, ws, mats, st.inside) }
+                    Box(Modifier.fillMaxSize().padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = with(d) { panelH.toDp() } + 16.dp)) {
+                        PieceView(scene, null, null, Modifier.fillMaxSize())
+                        Text(tr("fx.drag"), style = ui(11f, 600, G.ink3), modifier = Modifier.align(Alignment.BottomEnd).padding(10.dp))
                     }
                 }
-                Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.6f)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MatStep(p, f, mats)
+                DzcPanel({ }, { panelH = it }) {
+                    val k = st.strip
+                    if (k != null) ItemToolOptions(p, f, m, k) { st.strip = null }
+                    else ToolSlider(itemTools(app, f, m, st)) { key -> itemTool(app, p, f, m, st, key) }
                 }
-                DesignCard(p, f)
-                CostCard(p, f, ws, mats)
             }
             uz.metrx.app.ui.ux.DesignerBar(p, f, rt.d3) { app.setTop(rt.copy(d3 = it)) }
         }
     }
 }
 
+/** The sizes the piece's main box is typed by. */
+private fun itemSizes(m: Module): List<String> = when (m.type) {
+    "bed" -> listOf("mw", "ml", "h", "hb")
+    "bunk", "loft" -> listOf("mw", "ml", "h")
+    "bar" -> listOf("w", "d", "h", "over")
+    "hooks" -> listOf("w", "h", "e", "mirW", "mirH")
+    else -> listOf("w", "d", "h")
+}
+
+private fun itemTools(app: App, f: Furniture, m: Module, st: DzcState): List<DTool> {
+    fun t(k: String, icon: String, on: Boolean = false) = DTool(k, app.t("dzc.tool.$k"), icon, on = on)
+    val big = (m.opt?.seats ?: 0) > 0
+    val drawers = uz.metrx.app.furniture.handleFronts(m).isNotEmpty()
+    val inside = f.modules.any { b -> b.sections.any { it.fronts.kind != "open" } || b.opt?.bed == "drawers" }
+    return listOfNotNull(if (!big) t("size", "ruler") else null, if (!big && m.type != "mirror") t("type", "grid") else null, if (drawers) t("handle", "handle") else null,
+        t("decor", "palette"), if (inside) t("see", "eye", st.inside) else null, if (f.roomId != null) t("place", "room") else null, t("mats", "layers"), t("more", "sliders"))
+}
+
+private fun itemTool(app: App, p: Project, f: Furniture, m: Module, st: DzcState, k: String) {
+    when (k) {
+        "see" -> { st.inside = !st.inside; app.haptic(uz.metrx.app.ui.ux.Hap.TICK) }
+        "place" -> f.roomId?.let { app.push(Route.FPlace(p.id, f.id, it)) }
+        "mats" -> app.sheet = Sheet.FMats(p.id, f.id)
+        "more" -> app.sheet = Sheet.DzcMore(p.id, f.id, "item")
+        else -> st.strip = k
+    }
+}
+
+@Composable
+private fun ItemToolOptions(p: Project, f: Furniture, m: Module, k: String, back: () -> Unit) {
+    val app = LocalApp.current
+    val o = m.opt ?: Opt()
+    fun opt(fn: (Opt) -> Opt) { app.item(p, f, m.id) { it.copy(opt = fn(it.opt ?: Opt())) }; app.dzcDone(p.id, f.id, app.t("ux.q.changed", "n" to dn(f.name, app.settings.lang))) }
+    when (k) {
+        "size" -> OptRow(tr("dzc.tool.size"), pieceLine(f, app.settings.workshop), back) {
+            itemSizes(m).forEach { key -> OptChip(tr(sizeLabel(m, key)) + " " + (if (key in setOf("mirW", "mirH") && itemGet(m, key) == 0) tr("fb.none") else "${itemGet(m, key)}"), false) {
+                app.sheet = Sheet.IField(p.id, f.id, m.id, key) } }
+        }
+        "type" -> OptRow(tr("dzc.tool.type"), "", back) {
+            when (m.type) {
+                "bed" -> BED_KINDS.forEach { b -> OptChip(tr("fb.bt.$b"), o.bed == b) { opt { it.copy(bed = b) } } }
+                "bunk", "loft" -> {
+                    listOf("L", "R").forEach { l -> OptChip(tr("fb.lad.$l"), o.ladder == l) { opt { it.copy(ladder = l) } } }
+                    if (m.type == "loft") UNDER_KINDS.forEach { u -> OptChip(tr("fb.und.$u"), o.under == u) { if (u != o.under) app.kit.change(app, p.id, f.id) { x -> withUnder(x, u, app.settings.workshop) } } }
+                }
+                "table" -> {
+                    LEG_KINDS.forEach { l -> OptChip(tr("fb.lg.$l"), o.legs == l) { opt { it.copy(legs = l) } } }
+                    listOf("ldsp", "wt").forEach { t -> OptChip(tr("fb.tp.$t"), o.top == t) { opt { it.copy(top = t) } } }
+                    OptChip(tr("fb.rc"), o.round) { opt { it.copy(round = !it.round) } }
+                }
+                "bar" -> {
+                    listOf("ldsp", "wt").forEach { t -> OptChip(tr("fb.tp.$t"), o.top == t) { opt { it.copy(top = t) } } }
+                    OptChip(tr("fb.shelves"), o.shelves) { opt { it.copy(shelves = !it.shelves) } }
+                    OptChip(tr("fb.foot"), o.foot) { opt { it.copy(foot = !it.foot) } }
+                }
+                "hooks" -> {
+                    OptStepper(tr("fb.hooks"), o.hooks, 0, 10) { v -> opt { it.copy(hooks = v) } }
+                    OptChip(tr("fb.shelf"), o.shelf) { opt { it.copy(shelf = !it.shelf) } }
+                }
+                else -> OptNote(tr("dzc.partsNote"))
+            }
+        }
+        "handle" -> OptRow(tr("dzc.tool.handle"), "", back) {
+            OptChip(tr("hd.all"), false) { app.item(p, f, m.id) { uz.metrx.app.furniture.allHandles(it, true) } }
+            OptChip(tr("dzc.h.push"), false) { app.item(p, f, m.id) { uz.metrx.app.furniture.allHandles(it, false) } }
+            uz.metrx.app.furniture.handleFronts(m).forEach { fr ->
+                val on = uz.metrx.app.furniture.hasHandle(m, fr.key)
+                OptChip(frontName(m, fr) + " · " + tr(if (on) "hd.yes" else "hd.no"), on) { app.item(p, f, m.id) { uz.metrx.app.furniture.toggleHandle(it, fr.key) } }
+            }
+        }
+        "decor" -> {
+            val l = f.look
+            val finish = l?.finish?.ifEmpty { null } ?: if (f.mats.front.startsWith("ag_")) "gloss" else "matte"
+            val cur = uz.metrx.app.furniture.colourOf(f.mats.front)
+            OptRow(tr("dzc.tool.decor"), tr("dzc.wholeW"), back) {
+                FRONT_KEYS.forEach { (key, rgb, _) -> OptChip(frontName(app, key), cur == key, swatch = hex(rgb)) {
+                    val b = uz.metrx.app.furniture.boardFor(key, finish, l?.style ?: "flat")
+                    app.kit.change(app, p.id, f.id) { x -> uz.metrx.app.furniture.clearOwnFronts(uz.metrx.app.furniture.withLook(x) { it }).let { y -> y.copy(mats = y.mats.copy(front = b)) } }
+                    app.dzcDone(p.id, f.id, app.t("dzc.decorAllW", "d" to frontName(app, key)))
+                } }
+            }
+        }
+        else -> back()
+    }
+}
+
 /** The options of the piece's main box, by what it is. */
 @Composable
-private fun ItemOptions(p: Project, f: Furniture, m: Module) {
+internal fun ItemOptions(p: Project, f: Furniture, m: Module) {
     val app = LocalApp.current
     val o = m.opt ?: Opt()
     fun opt(fn: (Opt) -> Opt) = app.item(p, f, m.id) { it.copy(opt = fn(it.opt ?: Opt())) }

@@ -311,7 +311,9 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
         val colors = mapOf("carcass" to rgb(f.mats.carcass), "front" to rgb(f.mats.front), "frontUp" to rgb(upId), "back" to rgb(f.mats.back), "top" to rgb(topId),
             "mirror" to MIRROR, "glass" to GLASS_P, "splash" to rgb(splId), "plinth" to rgb(f.mats.front),
             "metal" to METAL, "dark" to DARK, "handle" to HANDLE, "white" to WHITE,
-            "clear" to CLEAR, "mattress" to MATTRESS, "lamel" to LAMEL, "led" to LED, "hi" to HI)
+            "clear" to CLEAR, "mattress" to MATTRESS, "lamel" to LAMEL, "led" to LED, "hi" to HI) +
+            // the boxes' and sections' own front boards (Designer C v2)
+            uz.metrx.app.furniture.ownFronts(f).associate { "fm:$it" to rgb(it) }
         // the design's look of each surface (mockup mats()): from the piece's design with the workshop's materials,
         // else from the materials' looks by id; the rest fixed
         val l = f.look
@@ -335,7 +337,8 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
         }
         // lacobel (a sliding door's painted glass) in the lower fronts' colour, white under a wood decor (modern 3D part 5)
         val lacobel = if (mats != null) lookOf(f, null, "frontLow", ms).let { s -> if (s.tex == null) Looks.lacobel.copy(rgb = rgbOf(s.rgb)) else Looks.lacobel.copy(rgb = 0xEDEAE4) } else Looks.lacobel
-        val looks = design + mapOf("glass" to Looks.lacobel, "lacobel" to lacobel, "fglass" to Looks.flutedGlass,
+        val ownLooks = uz.metrx.app.furniture.ownFronts(f).associate { id -> "fm:$id" to (if (mats != null) sf("board:$id") else matLook(id)) }
+        val looks = design + ownLooks + mapOf("glass" to Looks.lacobel, "lacobel" to lacobel, "fglass" to Looks.flutedGlass,
             "rail" to Looks.chrome, "ledOff" to Looks.ledOff, "shelfGlass" to Looks.shelfGlass, "sheen0" to Looks.sheen(.06f), "sheen1" to Looks.sheen(.035f),
             "metal" to Looks.steel, "dark" to Looks.blackGlass, "white" to Looks.enamel, "mattress" to Looks.mattress, "lamel" to Looks.lamel,
             "led" to Looks.led, "hi" to Looks.hi, "ovenWin" to Looks.ovenWindow, "display" to Looks.display, "ring" to Looks.hobRing,
@@ -379,7 +382,7 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             B.wall = m.wall
             B.mod = m.label.ifEmpty { m.id }; B.sec = ""
             // a two-tone piece's upper boxes take the upper fronts' board
-            B.fr = if (isUpperFront(f, m)) "frontUp" else "front"
+            B.fr = m.front?.let { "fm:$it" } ?: if (isUpperFront(f, m)) "frontUp" else "front"
             // the gorka's and the big table's own (Gorka3D.kt): the TV panel and the table drawn there alone, a gorka's lights and dishes over its boxes
             val gx = guest3D(f, mm, fws, decor)
             if (gx != null && gx.own) gx.boxes.forEach { B.xbox(b, it) }
@@ -561,7 +564,7 @@ internal class Builder3(
         val inMod = "$piece|$mod" in h.mods || (sec.isNotEmpty() && "$piece|$mod/$sec" in h.mods)
         val dBox = h.key == "fp.dSide" || h.key == "fp.dFront" || h.key == "fp.dBottom"
         val named = h.key !in TAGGED || k == h.key || (dBox && k == "fp.dBox")
-        val rr = if (r == "frontUp") "front" else r
+        val rr = if (r == "frontUp" || r.startsWith("fm:")) "front" else r
         return if (inMod && named && (h.role == rr || dBox)) p("hi") else p(show)
     }
     fun p(k: String): Part {
@@ -895,8 +898,8 @@ internal class Builder3(
                     val fh = fh0 - cut
                     val n = fs.size
                     val a = x0 + edge + j * (fw + g)
-                    // single doors hinge on the left; pairs on the outer edges
-                    val right = n == 2 && j == 1
+                    // single doors hinge on the left, pairs on the outer edges, unless the unit says otherwise (Designer C v2)
+                    val right = uz.metrx.app.furniture.kHingeRight(m, j, n)
                     // handles near the top of a low door, near the bottom of a wall unit's, at 1 m on a tall one
                     val hy = when { m.type == "wall" -> 90.0; fh > 1200 -> (1000 - y0).coerceIn(minOf(150.0, fh / 2.0), maxOf(fh / 2.0, fh - 150.0)); else -> fh - 90.0 }
                     val pos = when { m.type == "wall" -> "bottom"; fh > 1200 -> "mid"; else -> "top" }
@@ -1183,6 +1186,9 @@ internal class Builder3(
             }
             sec = "${i + 1}"
             if (s.knee) { acc = a1; return@forEachIndexed }
+            // a section's own front board (Designer C v2): its doors and open drawers in it
+            val frBox = fr
+            s.front?.let { fr = "fm:$it" }
             val iw = wardInner(m, secs, i, t)
             val il = if (i == 0) a0 + sl else a0 + t / 2.0
             // the back sits in grooves between the sides (or dividers), the bottom and the top
@@ -1242,6 +1248,7 @@ internal class Builder3(
                     toggle(deps, false) { ledIn(w, il, iw.toDouble(), ly, di, floor, false, tops) }
                 } else ledIn(w, il, iw.toDouble(), ly, di, floor, always || deps.any { how(it) > .02 }, tops)
             }
+            fr = frBox
             acc = a1
         }
         sec = ""

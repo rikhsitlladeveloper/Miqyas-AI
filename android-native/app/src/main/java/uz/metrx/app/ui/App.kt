@@ -201,6 +201,9 @@ sealed interface Sheet {
     data class FModule(val pid: String, val fid: String, val mid: String) : Sheet
     data class KLegs(val pid: String, val fid: String) : Sheet
     data class FLibrary(val pid: String, val fid: String, val wall: String, val group: String) : Sheet
+    /** Designer C v2: the bubble's typed size ([field] "w" or "h") of module [mid] (a wardrobe: of section [sec]); more settings of a piece ([what]). */
+    data class DzcNum(val pid: String, val fid: String, val mid: String, val field: String, val sec: Int = -1) : Sheet
+    data class DzcMore(val pid: String, val fid: String, val what: String) : Sheet
     /** The wardrobe designer: one size ([key] w, h, d, x or secW of section [sec]), an insert, more inserts; materials of any furniture. */
     data class WField(val pid: String, val fid: String, val key: String, val sec: Int = 0) : Sheet
     data class WInsert(val pid: String, val fid: String, val sec: Int, val idx: Int) : Sheet

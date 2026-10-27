@@ -25,7 +25,15 @@ fun accentPart(m: Module, key: String) = (m.type == "bunk" || m.type == "loft") 
 fun partMat(f: Furniture, m: Module, p: FPart): String =
     if (accentPart(m, p.key)) f.look?.accent?.takeIf { it.isNotEmpty() } ?: f.mats.front
     else if (p.key == "fp.back" && vitrinaAccentBack(f, m)) f.look!!.accent
+    // a box's or section's own front board (Designer C v2); a sliding door's filling over its split rail stays the upper fronts'
+    else if (p.role == "front" && p.key != "fp.slideUp" && ownFront(m, p.mod) != null) ownFront(m, p.mod)!!
     else matFor(p.role, f.mats, isUpperFront(f, m) || p.key == "fp.slideUp")
+
+/** The own front board of box [m] for a part named for [mod] ("id" the box, "id/2" its second section), null: none. */
+fun ownFront(m: Module, mod: String): String? {
+    val i = mod.substringAfterLast('/', "").toIntOrNull()
+    return (if (i != null) m.sections.getOrNull(i - 1)?.front else null) ?: m.front
+}
 
 /**
  * Whether kitchen vitrina [m] of [f] ([glassDoors]) has its back of the look's wood accent board (founder, 26 Oct 2026):

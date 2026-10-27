@@ -129,6 +129,22 @@ fun kindOf(m: Module): String = when {
     else -> m.type
 }
 
+/**
+ * Whether door [j] of kitchen unit [m]'s [n] doors hinges on its right edge, its handle on the left: its own choice
+ * ([Module.hinges], Designer C v2), else a single door on the left and a pair on its outer edges.
+ */
+fun kHingeRight(m: Module, j: Int, n: Int = m.fronts.n): Boolean = when (m.hinges.getOrNull(j)) { "R" -> true; "L" -> false; else -> n == 2 && j == 1 }
+
+/** [m] with door [j]'s hinge edge set ("L"/"R"); [j] -1: every door of it. */
+fun withHinge(m: Module, j: Int, side: String): Module {
+    val n = m.fronts.n.coerceAtLeast(1)
+    val cur = List(n) { m.hinges.getOrElse(it) { "" } }
+    val next = cur.mapIndexed { k, v -> if (j < 0 || k == j) side else v }
+    // back to the usual choice: nothing written
+    val usual = next.withIndex().all { (k, v) -> v.isEmpty() || (v == "R") == (n == 2 && k == 1) }
+    return m.copy(hinges = if (usual) emptyList() else next)
+}
+
 /** A kitchen wall unit with glass doors in frames (a vitrina): the doors are bought by the m², not cut (Parts.kt, Hardware.kt). */
 fun glassDoors(m: Module) = m.glass && m.type == "wall" && m.fronts.kind == "door"
 
