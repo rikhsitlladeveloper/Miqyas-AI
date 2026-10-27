@@ -24,6 +24,9 @@
 	<key>ITSAppUsesNonExemptEncryption</key><false/>
 	<!-- asked only when the builder taps "Joylashuvni aniqlash" on a project; GPS works without internet -->
 	<key>NSLocationWhenInUseUsageDescription</key><string>Buyurtma yoki loyiha joyini saqlab, keyin xaritada yo‘l topish uchun. Faqat siz bosganingizda aniqlanadi. / METRX saves the order's or project's place, only when you tap, so you can find the way there later.</string>
+	<!-- asked once on a tap when "Precise Location" is off for METRX (Gps in UX/OrderLocation.swift) -->
+	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
+	<dict><key>OrderPlace</key><string>Mijoz uyining aniq joyini saqlash uchun aniq joylashuv kerak — taxminiy joy bir necha km xato bo‘ladi. / Precise location saves the exact place of the client’s home; an approximate one can be kilometres off.</string></dict>
 	<key>LSApplicationQueriesSchemes</key>
 	<array>
 		<string>yandexmaps</string>

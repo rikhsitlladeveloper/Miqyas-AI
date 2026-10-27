@@ -1,5 +1,6 @@
 import SwiftUI
 import UIKit
+import CoreLocation
 
 /*
  * An order's location, for every trade (room-shapes build spec §1, approved 26 Oct 2026; Android ui/loc/OrderLocation.kt
@@ -75,27 +76,210 @@ func openInMap(_ a: MapLinks.App, _ l: Location, done: @escaping (Bool) -> Void)
 
 /* ---------------- GPS ---------------- */
 
-/// Reading the GPS from a screen: the permission is asked on the first tap (Projects/ProjectsList.swift OneFix); locating
-/// while it runs. A refusal or no fix in 15 s answers nil.
+/// How a tap on "Joylashuvni aniqlash" ended: a fix, none in 30 s, Location Services off, or METRX not allowed.
+enum GpsEnd: Equatable { case ok(Location), fail, off, denied }
+
+/// Opens METRX's page in the iPhone Settings (iOS has no "turn location on" dialog for apps).
+func openAppSettings() {
+    guard let u = URL(string: UIApplication.openSettingsURLString) else { return }
+    UIApplication.shared.open(u)
+}
+
+/// Reading the location from a screen (founder decisions, 27 Oct 2026; rules in UX/GpsRules.swift): CoreLocation at its
+/// best accuracy, updates kept coming, the best reading shown at once ("Aniqlik: ±X m") and improved for up to 30 s, done
+/// by itself at ±20 m, "Shu yetarli" (enough()) saves the best one at any time. The permission is asked only on the
+/// first tap; a precise-location refusal asks for full accuracy once (Info.plist NSLocationTemporaryUsageDescription-
+/// Dictionary "OrderPlace"). warm() starts updates quietly on a screen that may be tapped when METRX is already allowed,
+/// so the tap is instant; nothing is saved without a tap, and stop() ends it when the screen goes.
 @Observable
 final class Gps {
     private(set) var locating = false
-    @ObservationIgnored private var fix: OneFix? = nil
+    /// The best reading so far while locating; nil before the first.
+    private(set) var best: GpsSample? = nil
+    /// iOS gives METRX only an approximate place ("Aniq joylashuv o‘chiq — taxminiy").
+    private(set) var reduced = false
+    @ObservationIgnored private var eng: GpsEngine? = nil
+    @ObservationIgnored private var done: ((GpsEnd) -> Void)? = nil
+    @ObservationIgnored private var startedAt: Double? = nil
+    @ObservationIgnored private var timer: DispatchWorkItem? = nil
+    @ObservationIgnored private var warming = false
+    @ObservationIgnored private var warmBest: GpsSample? = nil
+    /// iOS's full-accuracy question is on screen.
+    @ObservationIgnored private var asking = false
 
-    func locate(_ done: @escaping (Location?) -> Void) {
+    private func engine() -> GpsEngine {
+        if let e = eng { return e }
+        let e = GpsEngine()
+        e.onSample = { [weak self] l in self?.got(l) }
+        e.onAuth = { [weak self] in self?.authChanged() }
+        e.onDenied = { [weak self] in self?.finish(.denied) }
+        eng = e
+        return e
+    }
+
+    private static func now() -> Double { Date().timeIntervalSince1970 }
+
+    /// Starts updates quietly when METRX is already allowed (never asks); the readings only make a later tap instant.
+    func warm() {
+        guard !warming, !locating else { return }
+        let e = engine()
+        guard e.authorized else { return }
+        warming = true
+        e.start()
+    }
+
+    /// The screen went: stops a search (nothing called back) and the warm-up.
+    func stop() {
+        cancel()
+        warming = false; warmBest = nil
+        eng?.stop()
+    }
+
+    func locate(_ cb: @escaping (GpsEnd) -> Void) {
         if locating { return }
-        locating = true
-        let f = OneFix()
-        fix = f
-        f.get { [weak self] l in
-            guard let self, self.fix === f else { return }
-            self.fix = nil; self.locating = false
-            done(l)
+        let e = engine()
+        let st = e.m.authorizationStatus
+        if st == .denied || st == .restricted {
+            // .denied is also what an app sees when Location Services are off for the whole phone; asked off the main
+            // thread, as Apple asks
+            DispatchQueue.global(qos: .userInitiated).async {
+                let on = CLLocationManager.locationServicesEnabled()
+                DispatchQueue.main.async { cb(on ? .denied : .off) }
+            }
+            return
+        }
+        locating = true; done = cb; reduced = false; startedAt = nil; asking = false
+        // the first value: the warm-up's best, or the phone's last fix when it is recent and accurate (labelled)
+        let t = Gps.now()
+        var b: GpsSample? = nil
+        if let w = warmBest, GpsRules.fresh(w, now: t) { b = w }
+        if let c = e.m.location.map({ GpsSample($0, cached: true) }), GpsRules.cacheUsable(c, now: t) { b = GpsRules.pick(b, c, now: t) }
+        best = b
+        if st == .notDetermined {
+            // the first use: iOS asks now, authChanged() goes on
+            e.m.requestWhenInUseAuthorization()
+            return
+        }
+        askPrecise()
+    }
+
+    /// "Shu yetarli": saves the best reading so far.
+    func enough() {
+        guard locating, let b = best else { return }
+        finish(.ok(b.loc))
+    }
+
+    /// Stops a search that is running; nothing is called back. A warm-up goes on.
+    func cancel() {
+        guard locating else { return }
+        locating = false; done = nil; startedAt = nil
+        timer?.cancel(); timer = nil
+        best = nil
+        if !warming { eng?.stop() }
+    }
+
+    private func authChanged() {
+        guard let e = eng, !asking else { return }
+        if locating && startedAt == nil && e.m.authorizationStatus != .notDetermined {
+            if e.authorized { askPrecise() } else { finish(.denied) }
+            return
+        }
+        if warming && !locating && !e.authorized { warming = false; e.stop() }
+    }
+
+    /// A precise-location refusal: iOS asks once for this search; still approximate, the search goes on and says so.
+    private func askPrecise() {
+        guard let e = eng else { return }
+        if e.m.accuracyAuthorization == .reducedAccuracy {
+            asking = true
+            e.m.requestTemporaryFullAccuracyAuthorization(withPurposeKey: "OrderPlace") { [weak self] _ in
+                DispatchQueue.main.async { self?.asking = false; self?.go() }
+            }
+            return
+        }
+        go()
+    }
+
+    private func go() {
+        guard locating, startedAt == nil, let e = eng else { return }
+        reduced = e.m.accuracyAuthorization == .reducedAccuracy
+        startedAt = Gps.now()
+        let t = DispatchWorkItem { [weak self] in self?.check() }
+        timer = t
+        DispatchQueue.main.asyncAfter(deadline: .now() + GpsRules.maxS + 0.05, execute: t)
+        e.start()
+        check()
+    }
+
+    private func got(_ l: CLLocation) {
+        let s = GpsSample(l)
+        let t = Gps.now()
+        if warming { warmBest = GpsRules.pick(warmBest, s, now: t) }
+        guard locating else { return }
+        best = GpsRules.pick(best, s, now: t)
+        check()
+    }
+
+    private func check() {
+        guard locating, let s = startedAt else { return }
+        switch GpsRules.next(best: best, elapsed: Gps.now() - s, reduced: reduced) {
+        case .wait: break
+        case .fail: finish(.fail)
+        case .stop: if let b = best { finish(.ok(b.loc)) } else { finish(.fail) }
         }
     }
 
-    /// Stops a fix that is running; nothing is called back.
-    func cancel() { fix?.cancel(); fix = nil; locating = false }
+    private func finish(_ r: GpsEnd) {
+        guard locating, let cb = done else { return }
+        locating = false; done = nil; startedAt = nil
+        timer?.cancel(); timer = nil
+        // the warm-up only serves the first tap: a saved fix (or a failure) ends the updates
+        warming = false; warmBest = nil
+        eng?.stop()
+        cb(r)
+    }
+}
+
+extension GpsSample {
+    init(_ l: CLLocation, cached: Bool = false) {
+        self.init(lat: l.coordinate.latitude, lng: l.coordinate.longitude, acc: l.horizontalAccuracy,
+                  at: l.timestamp.timeIntervalSince1970, cached: cached)
+    }
+}
+
+/// CoreLocation's side of Gps: the manager and its delegate (on the main thread, where Gps makes it).
+private final class GpsEngine: NSObject, CLLocationManagerDelegate {
+    let m = CLLocationManager()
+    var onSample: ((CLLocation) -> Void)?
+    var onAuth: (() -> Void)?
+    var onDenied: (() -> Void)?
+    private var running = false
+
+    override init() {
+        super.init()
+        m.delegate = self
+        // GPS, Wi-Fi and cell together, every reading
+        m.desiredAccuracy = kCLLocationAccuracyBest
+        m.distanceFilter = kCLDistanceFilterNone
+        m.pausesLocationUpdatesAutomatically = false
+    }
+
+    var authorized: Bool {
+        let s = m.authorizationStatus
+        return s == .authorizedWhenInUse || s == .authorizedAlways
+    }
+
+    func start() { if !running { running = true; m.startUpdatingLocation() } }
+    func stop() { if running { running = false; m.stopUpdatingLocation() } }
+
+    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) { onAuth?() }
+    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
+        for l in locations { onSample?(l) }
+    }
+    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
+        // kCLErrorLocationUnknown and the like pass: updates go on and the 30 s decide
+        if (error as? CLError)?.code == .denied { onDenied?() }
+    }
 }
 
 /* ---------------- small parts ---------------- */
@@ -105,6 +289,7 @@ private let GPS_IC = "M5 12a7 7 0 1 0 14 0a7 7 0 1 0 -14 0z M9.5 12a2.5 2.5 0 1 
 private let WARN_IC = "M12 3.5l9 16H3z M12 10v4M12 17h.01"
 
 private var greenInk: Color { Theme.shared.dark ? G.green : Color(argb: 0xFF15803D) }
+private var warnInk: Color { Theme.shared.dark ? Color(argb: 0xFFFBBF24) : Color(argb: 0xFFD97706) }
 
 /// The pin with its coordinates, "±N m" and where it came from (mockup pinRow).
 struct PinRow: View {
@@ -139,23 +324,72 @@ private func pinDay(_ ts: Ms) -> String {
     return f.string(from: Date(timeIntervalSince1970: Double(ts) / 1000))
 }
 
-/// "Joylashuv aniqlanmoqda…" with a spinner and "Bekor".
+/// "Joylashuv aniqlanmoqda…" with a spinner and "Bekor"; once there is a reading, "Aniqlik: ±X m" while it gets better
+/// (the phone's last fix labelled as such), "Shu yetarli" to save it now, and the approximate-location note.
 struct WaitRow: View {
+    let gps: Gps
     let onCancel: () -> Void
     var body: some View {
-        HStack(spacing: 10) {
-            ProgressView().tint(G.cobalt).frame(width: 40, height: 40)
-            VStack(alignment: .leading, spacing: 2) {
-                T(tr("loc.wait"), ui(14.5, 700))
-                T(tr("loc.waitS"), ui(12, 400, G.ink2))
+        let b = gps.best
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                ProgressView().tint(G.cobalt).frame(width: 40, height: 40)
+                VStack(alignment: .leading, spacing: 2) {
+                    if let b {
+                        // "Aniqlik: ±X m", or "Oxirgi joylashuv · ±X m · aniqlashtirilmoqda" for the phone's last fix
+                        T(tr(b.cached ? "loc.liveC" : "loc.live", ["m": b.loc.acc]), ui(14.5, 700), lines: 2).accessibilityIdentifier("loc.live")
+                        T(tr(b.cached ? "loc.waitS" : "loc.better"), ui(12, 400, G.ink2))
+                    } else {
+                        T(tr("loc.wait"), ui(14.5, 700))
+                        T(tr("loc.waitS"), ui(12, 400, G.ink2))
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+                T(tr("loc.cancel"), ui(14, 700, G.cobalt2)).padding(.horizontal, 12).frame(minHeight: 44)
+                    .pressable(0.97, onCancel)
+                    .accessibilityIdentifier("loc.cancel")
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
-            T(tr("loc.cancel"), ui(14, 700, G.cobalt2)).padding(.horizontal, 12).frame(minHeight: 44)
-                .pressable(0.97, onCancel)
-                .accessibilityIdentifier("loc.cancel")
+            if gps.reduced { ApproxNote() }
+            if b != nil {
+                Btn2(label: tr("loc.enough"), icon: "check", id: "loc.enough") { Haptic.tick(); gps.enough() }
+            }
         }
         .padding(.leading, 12).padding(.trailing, 6).padding(.vertical, 8)
         .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.blueWash))
+    }
+}
+
+/// "Aniq joylashuv o‘chiq — taxminiy": iOS gives METRX only an approximate place.
+struct ApproxNote: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            PathIcon(WARN_IC, warnInk, 16, 2)
+            T(tr("loc.approx"), ui(12.5, 600, G.ink2), lines: 2).frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("loc.approx")
+    }
+}
+
+/// Location Services off for the phone, or METRX not allowed: iOS has no dialog to turn it on from an app, so the
+/// message says where and "Sozlamalarni ochish" opens METRX's page in Settings.
+struct OffRow: View {
+    let off: Bool
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                PathIcon(WARN_IC, G.err, 22, 2)
+                VStack(alignment: .leading, spacing: 2) {
+                    T(tr(off ? "loc.offT" : "loc.deniedT"), ui(14.5, 700))
+                    T(tr(off ? "loc.offB" : "loc.deniedB"), ui(12.5, 400, G.ink2, lh: 1.4))
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .accessibilityElement(children: .combine)
+            Btn2(label: tr("loc.settings"), icon: "sliders", id: "loc.settings") { Haptic.tick(); openAppSettings() }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.errWash))
     }
 }
 
@@ -261,8 +495,9 @@ struct YolButton: View {
 
 /* ---------------- the new-order form ---------------- */
 
-/// The form's location state: none, locating, ok, fail or skip (mockup locBlock).
-enum LocState { case none, locating, ok, fail, skip }
+/// The form's location state: none, locating, ok, fail or skip (mockup locBlock); off: Location Services are off, denied:
+/// METRX is not allowed (both answered with "Sozlamalarni ochish").
+enum LocState { case none, locating, ok, fail, skip, off, denied }
 
 /// The "Joylashuv" block under the address of the new-order form, shared by every trade. state and loc live in the
 /// form; gps reads the fix (the form sets ok or fail when it answers).
@@ -272,12 +507,20 @@ struct LocFormBlock: View {
     @Binding var loc: Location?
     let gps: Gps
 
+    /// The saved fix came while iOS gave METRX only an approximate place.
+    @State private var approx = false
+
     private func locate() {
         Haptic.tick()
         state = .locating
-        gps.locate { l in
+        gps.locate { end in
             guard state == .locating else { return }
-            if let l { loc = l; state = .ok; Haptic.confirm() } else { state = .fail; Haptic.warn() }
+            switch end {
+            case .ok(let l): loc = l; approx = gps.reduced; state = .ok; Haptic.confirm()
+            case .fail: state = .fail; Haptic.warn()
+            case .off: state = .off; Haptic.warn()
+            case .denied: state = .denied; Haptic.warn()
+            }
         }
     }
 
@@ -290,10 +533,12 @@ struct LocFormBlock: View {
             }
             switch state {
             case .locating:
-                WaitRow { gps.cancel(); state = .none }
+                // "Bekor" while updating a saved fix keeps that fix
+                WaitRow(gps: gps) { gps.cancel(); state = loc != nil ? .ok : .none }
             case .ok:
                 if let l = loc {
                     PinRow(l: l)
+                    if approx { ApproxNote() }
                     HStack(spacing: 8) {
                         Btn2(label: tr("loc.again"), gps: true, id: "loc.again", action: locate)
                         Btn2(label: tr("loc.remove"), icon: "trash", danger: true, id: "loc.remove") {
@@ -305,6 +550,10 @@ struct LocFormBlock: View {
                 }
             case .fail:
                 FailRow()
+                HStack(spacing: 8) { Btn2(label: tr("loc.retry"), gps: true, id: "loc.retry", action: locate) }
+                Later { Haptic.tick(); state = .skip }
+            case .off, .denied:
+                OffRow(off: state == .off)
                 HStack(spacing: 8) { Btn2(label: tr("loc.retry"), gps: true, id: "loc.retry", action: locate) }
                 Later { Haptic.tick(); state = .skip }
             case .skip:
@@ -414,25 +663,26 @@ private struct LocAddSheet: View {
     let app: AppModel
     let pid: String
     @State private var gps = Gps()
-    @State private var failed = false
+    /// How the last tap ended when it did not save: .fail, .off or .denied.
+    @State private var failed: GpsEnd? = nil
 
     private func locate() {
-        Haptic.tick(); failed = false
-        gps.locate { l in
-            if let l { app.sheet = nil; Haptic.confirm(); setOrderLocation(app, pid, l) }
-            else { failed = true; Haptic.warn() }
+        Haptic.tick(); failed = nil
+        gps.locate { end in
+            if case .ok(let l) = end { app.sheet = nil; Haptic.confirm(); setOrderLocation(app, pid, l) }
+            else { failed = end; Haptic.warn() }
         }
     }
 
     var body: some View {
         if let p = Store.shared.get(pid) {
             let sub = [whoOf(p), dn(p.address)].filter { !$0.isEmpty }.joined(separator: " · ")
-            GlassSheet(tr(p.location != nil ? "loc.changeT" : "loc.addT"), onClose: { gps.cancel(); app.sheet = nil }) {
+            GlassSheet(tr(p.location != nil ? "loc.changeT" : "loc.addT"), onClose: { gps.stop(); app.sheet = nil }) {
                 if !sub.isEmpty { T(sub, ui(13, 400, G.ink2), lines: 2) }
                 if gps.locating {
-                    WaitRow { gps.cancel() }
-                } else if failed {
-                    FailRow()
+                    WaitRow(gps: gps) { gps.cancel() }
+                } else if let f = failed {
+                    if f == .fail { FailRow() } else { OffRow(off: f == .off) }
                     HStack(spacing: 8) { Btn2(label: tr("loc.retry"), gps: true, id: "loc.retry", action: locate) }
                 } else {
                     if let l = p.location { PinRow(l: l) }
@@ -445,7 +695,9 @@ private struct LocAddSheet: View {
                     }
                 }
             }
-            .onDisappear { gps.cancel() }
+            // updates start quietly when METRX is already allowed, so the tap is instant; nothing is saved without it
+            .onAppear { gps.warm() }
+            .onDisappear { gps.stop() }
         }
     }
 }

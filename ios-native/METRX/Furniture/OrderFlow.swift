@@ -161,17 +161,21 @@ struct NewOrderScreen: View {
             }
         }
         .onAppear {
+            // the location's updates start quietly when METRX is already allowed, so "Joylashuvni aniqlash" is instant;
+            // nothing is saved without the tap, and the first use still asks only on the tap
+            if locState != .ok { gps.warm() }
             guard !loaded else { return }
             loaded = true
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.35) { focus = .who }
         }
+        .onDisappear { gps.stop() }
     }
 
     private func create(_ ok: Bool) {
         tried = true
         guard ok, app.once() else { return }
         focus = nil
-        gps.cancel()
+        gps.stop()
         // named after the customer; "Oshxona — Akmal" once they say what they need (renameOrder)
         let name = who.trimmingCharacters(in: .whitespaces)
         var p = newProject(name, name, Phone.digits(phone), address.trimmingCharacters(in: .whitespaces), locState == .ok ? loc : nil,
