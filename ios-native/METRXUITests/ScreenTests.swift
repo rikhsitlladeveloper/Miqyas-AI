@@ -979,12 +979,14 @@ final class Furniture5Tests: ScreenTestCase {
         if app.buttons["dzc.secs.5"].exists { dzcOpt(app, "dzc.secs.5"); usleep(800_000) }
         shot("f5-03-five-sections")
         dzcBack(app)
-        // the second section selected, typed 500 wide (its neighbour takes the difference)
+        // the second section selected, typed 400 wide (its neighbour takes the difference)
         dzcTapEl(app, "dzc.s1"); shot("f5-04-section")
         dzcTool(app, "width")
         if app.buttons["dzc.w.kbd"].exists {
             dzcOpt(app, "dzc.w.kbd"); usleep(900_000)
-            if app.textFields["dzc.num"].exists { typeIn(app, "dzc.num", "500"); shot("f5-04-section-width"); app.buttons["dzc.numOk"].tap(); usleep(900_000) }
+            // five sections of 300 in 1500: its neighbour gives down to 150, so 450 at most
+            if app.textFields["dzc.num"].exists { typeIn(app, "dzc.num", "400"); shot("f5-04-section-width"); app.buttons["dzc.numOk"].tap(); usleep(900_000) }
+            if app.buttons["sheet.close"].exists { app.buttons["sheet.close"].tap(); usleep(800_000) }
         }
         shot("f5-05-sizes")
         dzcBack(app)
@@ -1020,7 +1022,7 @@ final class Furniture5Tests: ScreenTestCase {
             app.buttons["wd.mat.front"].tap(); usleep(900_000)
             if app.buttons["fmat.front.mdf18"].exists { app.buttons["fmat.front.mdf18"].tap(); usleep(700_000) }
         }
-        app.buttons["sheet.close"].tap(); usleep(900_000); shot("f5-11-mdf-fronts")
+        if app.buttons["sheet.close"].exists { app.buttons["sheet.close"].tap(); usleep(900_000) }; shot("f5-11-mdf-fronts")
         noToast(app)
         app.buttons["back"].tap(); sleep(1); shot("f5-12-order-rooms")
         XCTAssertTrue(app.buttons["ptab.rooms"].waitForExistence(timeout: 4))
