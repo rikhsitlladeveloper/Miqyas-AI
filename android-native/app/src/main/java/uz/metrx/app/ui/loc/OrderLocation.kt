@@ -1,21 +1,30 @@
 package uz.metrx.app.ui.loc
 
 import android.Manifest
-import android.annotation.SuppressLint
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.location.LocationListener
-import android.location.LocationManager
+import android.app.Activity
+import android.content.IntentSender
 import android.net.Uri
 import android.os.Build
-import android.os.CancellationSignal
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.google.android.gms.common.api.ResolvableApiException
+import com.google.android.gms.location.LocationServices
+import com.google.android.gms.location.LocationSettingsRequest
+import uz.metrx.app.core.Fix
+import uz.metrx.app.core.LocFix
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -71,98 +80,211 @@ import uz.metrx.app.ui.ux.Hap
 
 /*
  * An order's location, for every trade (room-shapes build spec §1, approved 26 Oct 2026): GPS only, read when the
- * maker taps "Joylashuvni aniqlash" (no link pasting); the new-order form's block, the cards' chip with "Yo‘l" or
+ * maker taps "Joylashuvni aniqlash" (no link pasting; how it is read: the GPS section below, fixed 27 Oct 2026); the new-order form's block, the cards' chip with "Yo‘l" or
  * "+ Qo‘shish", the Ma’lumot tab's card and the sheets. The location is never printed in a PDF (report/Snapshot.kt).
  */
 
 /* ---------------- GPS ---------------- */
 
 /**
- * One GPS fix (GPS works without internet). Calls back with null when location is off or the phone can't get a fix
- * within 15 s (then the last known one, if any). Returns a function that cancels it without calling back.
+ * Reading the location from a screen (GPS fix, 27 Oct 2026). [locate] asks for the permission on the first tap (precise
+ * and approximate together), shows the system "Turn on location" dialog when location is off, then listens to Google's
+ * fused provider (or GPS and network side by side without Google Play services) for up to 30 s: [live] is the best
+ * reading so far ("Aniqlik: ±X m"), the search stops by itself at ±20 m, [enough] keeps the current one ("Shu yetarli"),
+ * and after 30 s the best one is kept; only with no reading at all does it call back with null. A recent, accurate last
+ * known location is the first value ([Fix.cached]), always replaced by a live one.
+ *
+ * [warmUp] starts listening quietly when the screen opens, if the permission was already given, so the tap is instant;
+ * nothing is kept unless the maker taps. [off]: location was off and stays off; [approx]: only approximate location
+ * is allowed (Android 12+).
  */
-@SuppressLint("MissingPermission")
-fun currentLocation(context: Context, done: (Location?) -> Unit): () -> Unit {
-    val lm = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-    val provider = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER).firstOrNull { runCatching { lm.isProviderEnabled(it) }.getOrDefault(false) }
-    if (provider == null) { done(null); return {} }
-    val main = Handler(Looper.getMainLooper())
-    val signal = CancellationSignal()
-    var finished = false
-    var listener: LocationListener? = null
-    lateinit var timeout: Runnable
-    fun finish(l: android.location.Location?) {
-        if (finished) return; finished = true
-        main.removeCallbacks(timeout)
-        listener?.let { runCatching { lm.removeUpdates(it) } }
-        done(l?.let { Location(it.latitude, it.longitude, maxOf(1, it.accuracy.toInt()), System.currentTimeMillis()) })
-    }
-    timeout = Runnable { finish(runCatching { lm.getLastKnownLocation(provider) }.getOrNull()) }
-    main.postDelayed(timeout, 15000)
-    runCatching {
-        if (Build.VERSION.SDK_INT >= 30) lm.getCurrentLocation(provider, signal, ContextCompat.getMainExecutor(context)) { finish(it) }
-        else {
-            // all four methods, as older Androids call them all
-            val li = object : LocationListener {
-                override fun onLocationChanged(location: android.location.Location) = finish(location)
-                @Deprecated("Deprecated in Java") override fun onStatusChanged(provider: String?, status: Int, extras: android.os.Bundle?) {}
-                override fun onProviderEnabled(provider: String) {}
-                override fun onProviderDisabled(provider: String) = finish(null)
-            }
-            listener = li
-            @Suppress("DEPRECATION") lm.requestSingleUpdate(provider, li, Looper.getMainLooper())
-        }
-    }.onFailure { finish(null) }
-    return {
-        if (!finished) {
-            finished = true
-            main.removeCallbacks(timeout)
-            runCatching { signal.cancel() }
-            listener?.let { runCatching { lm.removeUpdates(it) } }
-        }
-    }
-}
-
-/** Reading the GPS from a screen: asks for the permission on the first tap; [locating] while it runs. */
 class Gps internal constructor(private val context: Context) {
     var locating by mutableStateOf(false)
         private set
+    /** The best reading so far while [locating] (null before the first). */
+    var live by mutableStateOf<Fix?>(null)
+        private set
+    /** The last search ended because location is switched off ("Sozlamalarni ochish"). */
+    var off by mutableStateOf(false)
+        private set
+    /** Only approximate location is allowed (Android 12+): readings are ±1–3 km. */
+    var approx by mutableStateOf(false)
+        private set
     internal var ask: () -> Unit = {}
+    internal var askPrecise: () -> Unit = {}
+    internal var resolve: (IntentSender) -> Unit = {}
     internal var result: (Location?) -> Unit = {}
-    private var stop: (() -> Unit)? = null
 
-    private fun allowed() = ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED ||
-        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    private val main = Handler(Looper.getMainLooper())
+    private var source: LocSource? = null
+    /** The best reading since listening began (warm-up included). */
+    private var seen: Fix? = null
+    /** When the search began (the tap, or the end of the settings check); null while only warming up. */
+    private var from: Long? = null
+    /** Bumped by every stop, so late answers of the settings check are ignored. */
+    private var gen = 0
+    private val tick = Runnable { evaluate() }
+    private val warmStop = Runnable { if (!locating) stopListening() }
 
-    /** Starts a fix; the permission is asked first when it was not given yet (a refusal calls back with null). */
+    private fun now() = SystemClock.elapsedRealtime()
+    private fun granted(p: String) = ContextCompat.checkSelfPermission(context, p) == PackageManager.PERMISSION_GRANTED
+    private fun fine() = granted(Manifest.permission.ACCESS_FINE_LOCATION)
+    private fun allowed() = fine() || granted(Manifest.permission.ACCESS_COARSE_LOCATION)
+    /** Approximate only: Android 12+ lets the maker allow just that. */
+    internal fun checkApprox() { approx = Build.VERSION.SDK_INT >= 31 && allowed() && !fine() }
+
+    /** Listens quietly (permission given and location on); stops by itself after [WARM_MS] or when the screen closes. */
+    fun warmUp() {
+        if (source != null || !allowed() || !locationOn(context)) return
+        listen()
+        main.removeCallbacks(warmStop); main.postDelayed(warmStop, WARM_MS)
+    }
+
+    /** Starts a search; the permission is asked first when it was not given yet (a refusal calls back with null). */
     fun locate() {
         if (locating) return
-        locating = true
-        if (allowed()) start() else ask()
+        locating = true; off = false; live = null
+        if (allowed()) { checkApprox(); checkSettings() } else ask()
     }
 
-    internal fun start() {
-        locating = true
-        stop = currentLocation(context) { l -> stop = null; locating = false; result(l) }
+    /** The permission dialog's answer while locating. */
+    internal fun permission(any: Boolean) {
+        if (!locating) return
+        checkApprox()
+        if (any) checkSettings() else finish(null)
     }
 
-    internal fun refused() { locating = false; result(null) }
+    /** Location must be on: Google's settings check shows the "Turn on location" dialog when it can. */
+    private fun checkSettings() {
+        val g = gen
+        // location on: search at once (Google's check would also fail on its "Location Accuracy" switch and ask on
+        // every tap); off: Google's dialog, or without Google Play services the message with "Sozlamalarni ochish"
+        if (locationOn(context)) { search(); return }
+        if (!hasPlayServices(context)) { turnedOff(); return }
+        runCatching {
+            LocationServices.getSettingsClient(context).checkLocationSettings(LocationSettingsRequest.Builder().addLocationRequest(highAccuracyRequest()).build())
+                .addOnSuccessListener { if (g == gen && locating) search() }
+                .addOnFailureListener { e ->
+                    if (g != gen || !locating) return@addOnFailureListener
+                    when {
+                        locationOn(context) -> search()
+                        e is ResolvableApiException -> runCatching { resolve(e.resolution.intentSender) }.onFailure { resolved(false) }
+                        else -> turnedOff()
+                    }
+                }
+        }.onFailure { if (locationOn(context)) search() else turnedOff() }
+    }
 
-    /** Stops a fix that is running; nothing is called back. */
-    fun cancel() { stop?.invoke(); stop = null; locating = false }
+    /** The "Turn on location" dialog's answer: accepted, search at once; refused, search anyway if location is on. */
+    internal fun resolved(ok: Boolean) {
+        if (!locating) return
+        if (ok || locationOn(context)) search() else turnedOff()
+    }
+
+    private fun turnedOff() { off = true; finish(null) }
+
+    private fun search() {
+        from = now()
+        main.removeCallbacks(warmStop)
+        seen = seen?.takeIf { usable(it) }
+        if (source == null) listen()
+        live = seen
+        evaluate()
+    }
+
+    /** A reading still worth showing: a cached one under the cache rules, a live one younger than the same 2 min. */
+    private fun usable(f: Fix) = if (f.cached) LocFix.freshEnough(f, now()) else now() - f.atMs < LocFix.CACHE_AGE_MS
+
+    private fun listen() {
+        val s: LocSource = if (hasPlayServices(context)) FusedSource(context) else PlatformSource(context)
+        source = s
+        s.start(::onFix) {
+            if (source !== s) return@start
+            // the fused provider failed: the phone's own providers; they failed too: no readings (30 s, then null)
+            if (s is FusedSource) { val p = PlatformSource(context); source = p; p.start(::onFix) { if (source === p) source = null } }
+            else source = null
+        }
+    }
+
+    private fun onFix(f: Fix) {
+        if (!usable(f)) return
+        seen = LocFix.better(seen?.takeIf { usable(it) }, f)
+        if (locating && from != null) { live = seen; evaluate() }
+    }
+
+    private fun evaluate() {
+        val start = from ?: return
+        if (!locating) return
+        main.removeCallbacks(tick)
+        when (LocFix.step(seen, now() - start, precise = fine())) {
+            LocFix.Step.DONE -> finish(seen)
+            LocFix.Step.FAIL -> finish(null)
+            LocFix.Step.WAIT -> main.postDelayed(tick, 500L)
+        }
+    }
+
+    /** "Shu yetarli": keeps the current reading. */
+    fun enough() { if (locating && from != null) seen?.let { finish(it) } }
+
+    private fun finish(f: Fix?) {
+        stop()
+        result(f?.let { Location(it.lat, it.lng, LocFix.metres(it.acc), System.currentTimeMillis()) })
+    }
+
+    private fun stop() {
+        locating = false; from = null; live = null; gen++
+        main.removeCallbacks(tick)
+        stopListening()
+    }
+
+    private fun stopListening() { main.removeCallbacks(warmStop); source?.stop(); source = null; seen = null }
+
+    /** Stops a search (and the warm-up) that is running; nothing is called back. */
+    fun cancel() = stop()
+
+    /** Back from the app settings: the permission may have changed. */
+    internal fun resumed() { if (approx) checkApprox() }
+
+    /** "Qayta so‘rash": asks for precise location again (approximate only). */
+    fun askAgain() = askPrecise()
+
+    private companion object { const val WARM_MS = 180_000L }
 }
 
+/** Opens the phone's location settings (location switched off). */
+fun openLocationSettings(ctx: Context) {
+    runCatching { ctx.startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }.onFailure { runCatching { ctx.startActivity(Intent(Settings.ACTION_SETTINGS)) } }
+}
+
+/** Opens METRX's page in the phone's settings (permissions). */
+fun openAppSettings(ctx: Context) {
+    runCatching { ctx.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", ctx.packageName, null))) }
+}
+
+/**
+ * The screen's [Gps]: [warm] starts listening quietly when the screen opens (permission already given), and everything
+ * stops when it closes.
+ */
 @Composable
-fun rememberGps(onResult: (Location?) -> Unit): Gps {
+fun rememberGps(warm: Boolean = false, onResult: (Location?) -> Unit): Gps {
     val ctx = LocalContext.current
     val gps = remember { Gps(ctx) }
     val cb by rememberUpdatedState(onResult)
     gps.result = { cb(it) }
-    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res ->
-        if (res.values.any { it }) gps.start() else gps.refused()
+    val perms = arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { res -> gps.permission(res.values.any { it }) }
+    val again = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { gps.checkApprox() }
+    val turnOn = rememberLauncherForActivityResult(ActivityResultContracts.StartIntentSenderForResult()) { r -> gps.resolved(r.resultCode == Activity.RESULT_OK) }
+    gps.ask = { launcher.launch(perms) }
+    gps.askPrecise = { again.launch(perms) }
+    gps.resolve = { s -> turnOn.launch(IntentSenderRequest.Builder(s).build()) }
+    val life = LocalLifecycleOwner.current
+    DisposableEffect(gps, life) {
+        val obs = LifecycleEventObserver { _, e -> if (e == Lifecycle.Event.ON_RESUME) gps.resumed() }
+        life.lifecycle.addObserver(obs)
+        if (warm) gps.warmUp()
+        onDispose { life.lifecycle.removeObserver(obs); gps.cancel() }
     }
-    gps.ask = { launcher.launch(arrayOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)) }
-    DisposableEffect(gps) { onDispose { gps.cancel() } }
     return gps
 }
 
@@ -193,30 +315,73 @@ fun PinRow(l: Location) {
     }
 }
 
-/** "Joylashuv aniqlanmoqda…" with a spinner and "Bekor". */
+/**
+ * "Joylashuv aniqlanmoqda…" with a spinner and "Bekor"; once there is a reading, its live "Aniqlik: ±X m" (the last
+ * known location labelled as such) and "Shu yetarli", which keeps it.
+ */
 @Composable
-fun WaitRow(onCancel: () -> Unit) {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.blueWash).padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), color = G.cobalt, strokeWidth = 2.6.dp) }
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(tr("loc.wait"), style = ui(14.5f, 700))
-            Text(tr("loc.waitS"), style = ui(12f, 400, G.ink2))
+fun WaitRow(gps: Gps, onCancel: () -> Unit) {
+    val f = gps.live
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.blueWash).padding(start = 12.dp, end = 6.dp, top = 8.dp, bottom = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) { CircularProgressIndicator(Modifier.size(24.dp), color = G.cobalt, strokeWidth = 2.6.dp) }
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(tr("loc.wait"), style = ui(14.5f, 700))
+                if (f == null) Text(tr("loc.waitS"), style = ui(12f, 400, G.ink2))
+                else Text(tr(if (f.cached) "loc.liveC" else "loc.live", "m" to LocFix.metres(f.acc)), style = ui(12.5f, 700, if (f.cached) G.ink2 else G.cobalt2))
+            }
+            Text(tr("loc.cancel"), style = ui(14f, 700, G.cobalt2), modifier = Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp))
+                .clickable(role = Role.Button, onClick = onCancel).padding(horizontal = 12.dp, vertical = 12.dp))
         }
-        Text(tr("loc.cancel"), style = ui(14f, 700, G.cobalt2), modifier = Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp))
-            .clickable(role = Role.Button, onClick = onCancel).padding(horizontal = 12.dp, vertical = 12.dp))
+        if (f != null) SmallBtn(tr("loc.enough"), "check", Modifier.fillMaxWidth().padding(end = 6.dp), G.cobalt2) { gps.enough() }
     }
 }
 
-/** "Joylashuvni aniqlab bo‘lmadi" with the hint about the permission and GPS. */
+/**
+ * "Joylashuvni aniqlab bo‘lmadi" with the hint about the permission and GPS; when location is switched off
+ * ([Gps.off]), "Joylashuv o‘chiq" with "Sozlamalarni ochish".
+ */
 @Composable
-fun FailRow() {
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.errWash).padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        PathIcon(WARN, G.err, 22.dp, 2f)
-        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            Text(tr("loc.failT"), style = ui(14.5f, 700))
-            Text(tr("loc.failB"), style = ui(12.5f, 400, G.ink2, 1.4f))
+fun FailRow(gps: Gps? = null) {
+    val off = gps?.off == true
+    val ctx = LocalContext.current
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.errWash).padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+            PathIcon(WARN, G.err, 22.dp, 2f)
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(tr(if (off) "loc.offT" else "loc.failT"), style = ui(14.5f, 700))
+                Text(tr(if (off) "loc.offB" else "loc.failB"), style = ui(12.5f, 400, G.ink2, 1.4f))
+            }
         }
+        if (off) SmallBtn(tr("loc.settings"), "sliders", Modifier.fillMaxWidth()) { openLocationSettings(ctx) }
+    }
+}
+
+/** "Aniq joylashuv o‘chiq — taxminiy (±1–3 km)" with "Qayta so‘rash" and "Sozlamalarni ochish" (approximate only, Android 12+). */
+@Composable
+fun ApproxNote(gps: Gps) {
+    if (!gps.approx) return
+    val ctx = LocalContext.current
+    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.amberWash).padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            PathIcon(WARN, G.amberInk, 18.dp, 2f)
+            Text(tr("loc.approx"), style = ui(12.5f, 600, G.amberInk, 1.35f), modifier = Modifier.weight(1f))
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            SmallBtn(tr("loc.askAgain"), null, Modifier.weight(1f)) { gps.askAgain() }
+            SmallBtn(tr("loc.settings"), null, Modifier.weight(1f)) { openAppSettings(ctx) }
+        }
+    }
+}
+
+/** A small white button inside a coloured row ("Shu yetarli", "Sozlamalarni ochish", "Qayta so‘rash"). */
+@Composable
+private fun SmallBtn(label: String, icon: String?, modifier: Modifier = Modifier, fg: Color = G.ink, onClick: () -> Unit) {
+    Row(modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp)).background(G.glass(.85f)).clickable(role = Role.Button, onClick = onClick)
+        .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
+        if (icon != null) MIcon(icon, fg, 18.dp, 2.2f)
+        Text(label, style = ui(14f, 700, fg), maxLines = 2, textAlign = TextAlign.Center)
     }
 }
 
@@ -293,7 +458,7 @@ fun LocFormBlock(state: String, loc: Location?, gps: Gps, onState: (String) -> U
             Text(tr("loc.optPdf"), style = ui(12f, 500, G.ink3), modifier = Modifier.weight(1f), textAlign = TextAlign.End, maxLines = 2)
         }
         when (state) {
-            LocState.LOCATING -> WaitRow { gps.cancel(); onState(LocState.NONE) }
+            LocState.LOCATING -> WaitRow(gps) { gps.cancel(); onState(LocState.NONE) }
             LocState.OK -> if (loc != null) {
                 PinRow(loc)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -306,7 +471,7 @@ fun LocFormBlock(state: String, loc: Location?, gps: Gps, onState: (String) -> U
                 }
             }
             LocState.FAIL -> {
-                FailRow()
+                FailRow(gps)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Btn2(tr("loc.retry"), ::locate, gps = true) }
                 Later { onState(LocState.SKIP) }
             }
@@ -321,6 +486,7 @@ fun LocFormBlock(state: String, loc: Location?, gps: Gps, onState: (String) -> U
                 Later { app.haptic(Hap.TICK); onState(LocState.SKIP); onLoc(null) }
             }
         }
+        if (state != LocState.SKIP) ApproxNote(gps)
     }
 }
 
@@ -396,7 +562,8 @@ private fun LocAddSheet(pid: String) {
     val lang = LocalLang.current
     val p = app.store.get(pid) ?: run { app.sheet = null; return }
     var failed by remember { mutableStateOf(false) }
-    val gps = rememberGps { l ->
+    // listens quietly from the moment the sheet opens (permission already given), so the tap is instant
+    val gps = rememberGps(warm = true) { l ->
         if (l != null) { app.sheet = null; app.haptic(Hap.CONFIRM); app.setOrderLocation(pid, l) }
         else { failed = true; app.haptic(Hap.WARN) }
     }
@@ -405,9 +572,9 @@ private fun LocAddSheet(pid: String) {
         if (sub.isNotEmpty()) Text(sub, style = ui(13f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
         fun locate() { app.haptic(Hap.TICK); failed = false; gps.locate() }
         when {
-            gps.locating -> WaitRow { gps.cancel() }
+            gps.locating -> WaitRow(gps) { gps.cancel() }
             failed -> {
-                FailRow()
+                FailRow(gps)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { Btn2(tr("loc.retry"), ::locate, gps = true) }
             }
             else -> {
@@ -420,6 +587,7 @@ private fun LocAddSheet(pid: String) {
                 }
             }
         }
+        ApproxNote(gps)
     }
 }
 

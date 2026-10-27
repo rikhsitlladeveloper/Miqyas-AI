@@ -92,6 +92,9 @@ dependencies {
     // 16 KB aligned on every ABI (Vosk itself asks for 5.18.1)
     implementation("com.alphacephei:vosk-android:0.3.75")
     implementation("net.java.dev.jna:jna:5.19.1@aar")
+    // an order's location (GPS fix, 27 Oct 2026): Google's fused provider (GPS + Wi-Fi + cell) and the "Turn on
+    // location" dialog; without Google Play services the app falls back to the phone's own GPS and network providers
+    implementation("com.google.android.gms:play-services-location:21.4.0")
     debugImplementation("androidx.compose.ui:ui-tooling")
     implementation("androidx.compose.ui:ui-tooling-preview")
     testImplementation("junit:junit:4.13.2")
