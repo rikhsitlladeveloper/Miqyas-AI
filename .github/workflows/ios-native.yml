@@ -134,11 +134,11 @@ jobs:
           # grouped by their last measured times, about 10-12 minutes of tests each; a new screen-test class
           # (METRXUITests/ScreenTests.swift) runs only once it is added to one of these lists
           - group: builder
-            tests: Part1Tests Part2Tests Part3Tests Part4Tests Part5Tests Furniture2Tests UXTests
+            tests: Part1Tests Part2Tests Part3Tests Part4Tests Part5Tests Furniture2Tests UXTests Furniture7Tests
           - group: report-measure
-            tests: Part6Tests Part7Tests EdgeMeasureTests Furniture1Tests Furniture3Tests Furniture8Tests
+            tests: Part6Tests Part7Tests EdgeMeasureTests Furniture1Tests Furniture3Tests Furniture8Tests RoomShapeTests
           - group: furniture
-            tests: Furniture4Tests Furniture5Tests Furniture6Tests Furniture7Tests Modern3DShots RoomShapeTests
+            tests: Furniture4Tests Furniture5Tests Furniture6Tests Modern3DShots
     defaults:
       run:
         working-directory: ios-native
