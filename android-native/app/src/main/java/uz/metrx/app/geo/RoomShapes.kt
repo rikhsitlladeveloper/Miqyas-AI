@@ -136,7 +136,7 @@ enum class ShapeErrorCode {
     WALL_NEGATIVE,
     /** The walls cross each other. */
     WALLS_CROSS,
-    /** The diagonal ([ShapeError.value]) does not match the walls: they give [ShapeError.limit] (± max(30 mm, 2 %)). */
+    /** The diagonal ([ShapeError.value]) does not match the walls: they give [ShapeError.limit] (± 20 mm, the editor's SK_TOL; the founder's change to the mockup's max(30 mm, 2 %)). */
     DIAG_MISMATCH,
     /** An opening's field is empty; or a free shape has no sketch yet. */
     EMPTY,
