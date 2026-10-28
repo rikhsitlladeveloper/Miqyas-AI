@@ -173,7 +173,9 @@ enum Geo {
             if f.type == "column" { return a + colSides(f) }
             return f.sill == 0 ? a + 2 * Int64(f.d) : a
         }
-        guard let H else { return Areas(floor: floorF, perim: perimF, gross: nil, open: nil, net: nil) }
+        // inner walls (room-editor mockup v3) stand on the floor, and both their faces are wall
+        let iw = iwAreas(r, H ?? 2700)
+        guard let H else { return Areas(floor: floorF - iw.floor, perim: perimF, gross: nil, open: nil, net: nil) }
         let extra = fx.reduce(Int64(0)) { a, f in
             if f.type == "column" { return a + colSides(f) * Int64(H) }
             // a niche the room's height no longer reaches has nothing inside (and never a negative area)
@@ -181,10 +183,10 @@ enum Geo {
             if nh == 0 { return a }
             return a + 2 * Int64(f.d) * nh + (f.sill > 0 ? Int64(f.w) * Int64(f.d) : 0) + (Int64(f.sill) + nh < Int64(H) ? Int64(f.w) * Int64(f.d) : 0)
         }
-        let gross = perim * Int64(H) + extra
+        let gross = perim * Int64(H) + extra + iw.wall
         // a balcony block takes its door and its window part (Opening.area)
         let open = r.openings.reduce(Int64(0)) { $0 + $1.area }
-        return Areas(floor: floorF, perim: perimF, gross: gross, open: open, net: gross - open)
+        return Areas(floor: floorF - iw.floor, perim: perimF, gross: gross, open: open, net: gross - open)
     }
 
     /// What is wrong with a column or niche f in room r: off the wall's end, too deep or sticking out too far. Nil when it fits.

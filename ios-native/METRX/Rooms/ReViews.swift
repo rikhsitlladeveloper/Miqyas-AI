@@ -80,9 +80,15 @@ struct ReTileRow: View {
     let tap: (String) -> Void
     let drag: (String, CGPoint) -> Void
     let drop: (String, CGPoint?) -> Void
+    /// "Devor qo‘shish" first in the row (room-editor mockup v3 tilesRow), opening the ready pieces' window.
+    var lead: (() -> Void)? = nil
     var body: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 4) {
+                if let lead {
+                    ReIwTile(tap: lead)
+                    Rectangle().fill(G.ink.opacity(0.1)).frame(width: 1, height: 44).padding(.horizontal, 3)
+                }
                 ForEach(Array(groups.enumerated()), id: \.offset) { gi, gr in
                     if gi > 0 { Rectangle().fill(G.ink.opacity(0.1)).frame(width: 1, height: 44).padding(.horizontal, 3) }
                     ForEach(Array(gr.enumerated()), id: \.element) { ti, k in
@@ -141,7 +147,7 @@ struct ReWallChips: View {
                 let on = w.id == sel, h = w.id == hl
                 let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
                 VStack(spacing: 1) {
-                    T(w.id, ui(13, 800, on || h ? .white : armed ? G.cobalt2 : G.ink), lines: 1)
+                    T(reWL(w.id), ui(13, 800, on || h ? .white : armed ? G.cobalt2 : G.ink), lines: 1)
                     T(reLen(w.len), num(9.5, 700, on || h ? .white.opacity(0.85) : G.ink3), lines: 1).minimumScaleFactor(0.7)
                 }
                 .frame(maxWidth: .infinity, minHeight: 36)
@@ -219,7 +225,7 @@ struct RePickWindow: View {
     @ViewBuilder private func styleBody(_ p: RePk, _ g: ReRoomGeo) -> some View {
         let last = p.mode == "new" ? st.last[p.kind] : nil
         let list = reStylesLastFirst(p.kind, last?.style)
-        head(p, tr("re.styT", ["n": reKindName(p.kind), "w": p.wall]), tr(p.mode == "new" ? "re.styS" : "re.styR"))
+        head(p, tr("re.styT", ["n": reKindName(p.kind), "w": reWL(p.wall)]), tr(p.mode == "new" ? "re.styS" : "re.styR"))
         if let l = last {
             VStack(spacing: 1) {
                 HStack(spacing: 8) {
@@ -272,7 +278,7 @@ struct RePickWindow: View {
         let lastStep = i == steps.count - 1
         let ch = reChips(p.kind, p.style, f, g.H)
         let cur = p.v[f]
-        head(p, reKindName(p.kind) + " · " + reStyleName(p.kind, p.style), tr("re.stepOf", ["w": p.wall, "i": i + 1, "n": steps.count]))
+        head(p, reKindName(p.kind) + " · " + reStyleName(p.kind, p.style), tr("re.stepOf", ["w": reWL(p.wall), "i": i + 1, "n": steps.count]))
         ReSizeArt(it: it, field: f, roomH: g.H, bad: err != nil, fmt: reLen)
             .frame(height: kb ? 100 : 176)
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(RD.elev))
@@ -532,7 +538,7 @@ struct ReListSheet: View {
                                     ReBadge(kind: it.kind, size: 30)
                                     VStack(alignment: .leading, spacing: 1) {
                                         T(reItemName(it), ui(13.5, 800), lines: 1)
-                                        T(tr("re.wallX", ["w": it.wall]) + " · " + reSizeLine(it) + " · " + reLen(d.l) + " | " + reLen(d.r), num(12, 500, G.ink2), lines: 2)
+                                        T(tr("re.wallX", ["w": reWL(it.wall)]) + " · " + reSizeLine(it) + " · " + reLen(d.l) + " | " + reLen(d.r), num(12, 500, G.ink2), lines: 2)
                                         if let e = iss[it.id] { T(e, ui(12, 700, RD.issue), lines: 2) }
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)

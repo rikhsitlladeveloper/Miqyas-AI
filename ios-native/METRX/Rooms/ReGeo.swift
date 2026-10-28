@@ -17,27 +17,53 @@ struct ReWall: Equatable {
     let len: Int
     let t: Int
     let auto: Bool
+    /// An inner wall's face (room-editor mockup v3): id is its key "<piece>:<n>", label its letter after the outer
+    /// walls, look the side it faces, h its height (a half wall's).
+    var label = ""
+    var inner = false
+    var look: Pt? = nil
+    var h = 0
 }
 
-/// The room's plan: its walls in order, its corners and its height.
+/// The room's plan: its walls in order (the outer ones, then the inner walls' faces), its corners and its height.
 struct ReRoomGeo: Equatable {
     let walls: [ReWall]
     let poly: [Pt]
     let H: Int
+    /// The inner walls' bodies (room-editor mockup v3): to draw them, hit them and stand furniture clear of them.
+    var bodies: [ReBody] = []
+    /// The outer walls (the room's shape), without the inner faces.
+    var outer: [ReWall] { walls.filter { !$0.inner } }
+    /// What a wall is called: its letter ("A", or "E" for an inner face).
+    func label(_ id: String) -> String { wall(id).map { $0.label.isEmpty ? $0.id : $0.label } ?? id }
+    /// A wall's height: an inner face its own (a half wall), else the room's.
+    func hOf(_ id: String) -> Int { wall(id).map { $0.h > 0 ? $0.h : H } ?? H }
     func wall(_ id: String) -> ReWall? { walls.first { $0.id == id } }
     func index(_ id: String) -> Int? { walls.firstIndex { $0.id == id } }
     var lens: [String: Int] { Dictionary(walls.map { ($0.id, $0.len) }, uniquingKeysWith: { a, _ in a }) }
     func len(_ id: String) -> Int { wall(id)?.len ?? 0 }
     /// The walls before and after wall id (its corners' neighbours).
-    func prev(_ id: String) -> String { guard let i = index(id), !walls.isEmpty else { return "?" }; return walls[(i - 1 + walls.count) % walls.count].id }
-    func next(_ id: String) -> String { guard let i = index(id), !walls.isEmpty else { return "?" }; return walls[(i + 1) % walls.count].id }
+    func prev(_ id: String) -> String { let o = outer; guard let i = o.firstIndex(where: { $0.id == id }), !o.isEmpty else { return "—" }; return o[(i - 1 + o.count) % o.count].id }
+    func next(_ id: String) -> String { let o = outer; guard let i = o.firstIndex(where: { $0.id == id }), !o.isEmpty else { return "—" }; return o[(i + 1) % o.count].id }
     /// The floor area, mm², and the perimeter, mm.
     var area: Double {
         var s = 0.0
         for i in poly.indices { let p = poly[i], q = poly[(i + 1) % poly.count]; s += p.x * q.y - q.x * p.y }
         return abs(s) / 2
     }
-    var perimeter: Int { walls.reduce(0) { $0 + $1.len } }
+    var perimeter: Int { outer.reduce(0) { $0 + $1.len } }
+}
+
+/// An inner wall piece as drawn: its id and kind, its body rectangles, an arch's passage (its two ends) and its height.
+struct ReBody: Equatable {
+    let pid: String
+    let k: String
+    let R: [[Pt]]
+    var gap: [Pt]? = nil
+    var th = 100
+    var n = Pt(x: 0, y: 1)
+    var h = 0
+    var oph = 0
 }
 
 /// The room's height, mm (2 700 until measured).
@@ -52,7 +78,7 @@ func reGeo(_ r: Room, _ snap: Bool = AppSettings.shared.angleSnap) -> ReRoomGeo 
             let l = w.len ?? kround(hypot(w.p1.x - w.p0.x, w.p1.y - w.p0.y))
             return ReWall(id: w.id, a: w.p0, b: w.p1, len: l, t: r.thickOf(w.id), auto: w.derived || r.dim(w.id).v == nil)
         }
-        return ReRoomGeo(walls: walls, poly: g.verts, H: H)
+        return reWithFaces(r, ReRoomGeo(walls: walls, poly: g.verts, H: H))
     }
     let a = r.dim("A"), b = r.dim("B")
     let la = a.v ?? a.pending?.mm, lb = b.v ?? b.pending?.mm
@@ -65,7 +91,52 @@ func reGeo(_ r: Room, _ snap: Bool = AppSettings.shared.angleSnap) -> ReRoomGeo 
         let side = (i + rot) % 4
         return ReWall(id: id, a: c[side], b: c[(side + 1) % 4], len: i % 2 == 0 ? L : W, t: r.thickOf(id), auto: i >= 2)
     }
-    return ReRoomGeo(walls: walls, poly: c, H: H)
+    return reWithFaces(r, ReRoomGeo(walls: walls, poly: c, H: H))
+}
+
+/// g with the inner walls' faces after its outer walls (room-editor mockup v3): lettered on from the outer walls, by
+/// piece in the order added, each piece's front, back, then its wing's faces.
+func reWithFaces(_ r: Room, _ g: ReRoomGeo) -> ReRoomGeo {
+    guard !r.inner.isEmpty else { return g }
+    let faces = iwFaces(r)
+    let n = g.walls.count
+    let letters = Geo.polyWallIds(n + faces.count)
+    var walls = g.walls
+    for (j, f) in faces.enumerated() {
+        let L = kround(hypot(f.face.b.x - f.face.a.x, f.face.b.y - f.face.a.y))
+        let lab = n + j < letters.count ? letters[n + j] : "W" + String(j + 1)
+        ReLabels.set(f.key, lab)
+        walls.append(ReWall(id: f.key, a: f.face.a, b: f.face.b, len: L, t: f.th, auto: false, label: lab, inner: true, look: f.face.look,
+                            h: f.face.h == g.H ? 0 : f.face.h))
+    }
+    let bodies = r.inner.map { p -> ReBody in
+        let G = iwGeo(p, g.H)
+        return ReBody(pid: p.id, k: p.k, R: G.R, gap: G.gap.map { [$0.0, $0.1] }, th: p.th, n: G.n, h: G.H, oph: p.op?.h ?? 0)
+    }
+    return ReRoomGeo(walls: walls, poly: g.poly, H: g.H, bodies: bodies)
+}
+
+/// The letters of the inner faces last drawn, by face key (a piece id is unique, so rooms never clash): what the
+/// texts call a wall, with no room at hand.
+enum ReLabels {
+    private static var map: [String: String] = [:]
+    private static let lock = NSLock()
+    static func set(_ key: String, _ v: String) { lock.lock(); map[key] = v; lock.unlock() }
+    static func get(_ key: String) -> String? { lock.lock(); defer { lock.unlock() }; return map[key] }
+}
+
+/// What a wall is called in words: an outer wall its letter, an inner face the letter it was given.
+func reWL(_ id: String) -> String { iwPieceOf(id) == nil ? id : (ReLabels.get(id) ?? id) }
+
+/// Wall A's start, along and into the room (for moving the inner walls with a turn or a mirror).
+func reWallAFrame(_ g: ReRoomGeo) -> (a: Pt, u: Pt, n: Pt)? {
+    guard let w = g.outer.first, g.poly.count >= 3 else { return nil }
+    let L = max(1e-6, hypot(w.b.x - w.a.x, w.b.y - w.a.y))
+    let u = Pt(x: (w.b.x - w.a.x) / L, y: (w.b.y - w.a.y) / L)
+    var n = Pt(x: -u.y, y: u.x)
+    let probe = Pt(x: (w.a.x + w.b.x) / 2 + n.x * 20, y: (w.a.y + w.b.y) / 2 + n.y * 20)
+    if !iwInside(probe, g.poly) { n = Pt(x: -n.x, y: -n.y) }
+    return (w.a, u, n)
 }
 
 /* ---------------- the items in and out of the room ---------------- */
@@ -148,12 +219,16 @@ func reSetHeight(_ r: inout Room, _ v: Int) { r.dims["H"] = Dim(v: v, src: "manu
 
 /// "Burish": the plan turned 90° (dir 1 clockwise, -1 the other way). A rectangle turns Room.rot; a drawn room its corners.
 func reTurn(_ r: inout Room, _ dir: Int) {
-    if !r.isPoly { r.rot = (((r.rot + (dir > 0 ? 1 : 3)) % 4) + 4) % 4; return }
-    guard var p = r.poly else { return }
-    let v = p.verts.map { dir > 0 ? Pt(x: -$0.y, y: $0.x) : Pt(x: $0.y, y: -$0.x) }
-    let mx = v.map(\.x).min() ?? 0, my = v.map(\.y).min() ?? 0
-    p.verts = v.map { Pt(x: $0.x - mx, y: $0.y - my) }
-    r.poly = p
+    // the inner walls turn with the room: they keep their place against wall A
+    let f0 = reWallAFrame(reGeo(r))
+    if !r.isPoly { r.rot = (((r.rot + (dir > 0 ? 1 : 3)) % 4) + 4) % 4 }
+    else if var p = r.poly {
+        let v = p.verts.map { dir > 0 ? Pt(x: -$0.y, y: $0.x) : Pt(x: $0.y, y: -$0.x) }
+        let mx = v.map(\.x).min() ?? 0, my = v.map(\.y).min() ?? 0
+        p.verts = v.map { Pt(x: $0.x - mx, y: $0.y - my) }
+        r.poly = p
+    }
+    if !r.inner.isEmpty, let a = f0, let b = reWallAFrame(reGeo(r)) { iwRemap(&r, from: a, to: b) }
 }
 
 /// "Ko‘zgu": the room mirrored. The walk is reversed so it stays clockwise: new wall j is old wall (n − j) % n run the
@@ -164,6 +239,13 @@ func reMirror(_ r: inout Room) {
     let ids = r.isPoly ? Geo.polyWallIds(n) : ["A", "B", "C", "D"]
     guard ids.count == n else { return }
     let g = reGeo(r)
+    let f0 = reWallAFrame(g), endA = g.outer.first?.b
+    defer {
+        // the inner walls are mirrored with the room: what was wall A's end is its start now, measured the other way
+        if !r.inner.isEmpty, let a = f0, let e = endA, let b = reWallAFrame(reGeo(r)) {
+            iwRemap(&r, from: (e, Pt(x: -a.u.x, y: -a.u.y), a.n), to: b)
+        }
+    }
     func newId(_ old: String) -> String { guard let k = ids.firstIndex(of: old) else { return old }; return ids[(n - k) % n] }
     if r.isPoly, var p = r.poly {
         let q = p.verts.map { Pt(x: -$0.x, y: $0.y) }
@@ -184,6 +266,7 @@ func reMirror(_ r: inout Room) {
     for (k, v) in r.thick { th[newId(k)] = v }
     r.thick = th
     r.openings = r.openings.map { o in
+        if iwPieceOf(o.wall) != nil { return o }
         var x = o
         let L = g.len(o.wall)
         x.wall = newId(o.wall); x.off = max(0, L - o.off - o.w)
@@ -191,6 +274,7 @@ func reMirror(_ r: inout Room) {
         return x
     }
     r.points = r.points.map { p in
+        if iwPieceOf(p.wall) != nil { return p }
         var x = p
         let L = g.len(p.wall)
         x.wall = newId(p.wall); x.off = max(0, L - p.off)
@@ -214,6 +298,9 @@ func reChangeShape(_ r: inout Room, _ k: RoomShape) -> Int? {
     var x = made.room
     x.openings = r.openings; x.points = r.points; x.features = r.features
     x.wallColor = r.wallColor; x.floorColor = r.floorColor; x.views = r.views; x.template = made.room.template
+    // the inner walls stay where they still stand inside the new shape
+    let poly = reGeo(x).poly
+    x.inner = r.inner.filter { iwInside(Pt(x: Double($0.x), y: Double($0.y)), poly) }
     if let t = r.dims["T"] { x.dims["T"] = t }
     let before = r.openings.count + r.points.count
     reClampItems(&x)
@@ -230,9 +317,10 @@ func reShapeOf(_ r: Room) -> String {
 
 /// The angle at wall id's start corner, degrees (inside the room), from the plan.
 func reCornerAngle(_ g: ReRoomGeo, _ id: String) -> Int {
-    guard let i = g.index(id), g.walls.count >= 3 else { return 90 }
-    let n = g.walls.count
-    let a = g.walls[(i - 1 + n) % n], b = g.walls[i]
+    let o = g.outer
+    guard let i = o.firstIndex(where: { $0.id == id }), o.count >= 3 else { return 90 }
+    let n = o.count
+    let a = o[(i - 1 + n) % n], b = o[i]
     let u = (a.b.x - a.a.x, a.b.y - a.a.y), v = (b.b.x - b.a.x, b.b.y - b.a.y)
     let cr = u.0 * v.1 - u.1 * v.0, dt = u.0 * v.0 + u.1 * v.1
     let turn = atan2(cr, dt) * 180 / Double.pi

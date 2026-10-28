@@ -60,6 +60,8 @@ final class RshDraft {
     /// room the shape makes (its own wall letters); they go into the room as they are.
     var wOps: [Opening] = []
     var wPts: [SitePoint] = []
+    /// The openings step's inner walls (room-editor mockup v3); the items on their faces are in wOps / wPts.
+    var wInner: [InnerWall] = []
     /// A step opened from the summary: its button reads "Saqlash" and goes back there.
     var ret = false
     /// +1 for each laser or voice value (the field's green flash); the voice's words and the value it replaced.
@@ -230,7 +232,8 @@ func rshRoom(_ base: Room, _ d: RshDraft) -> Room {
                            created: base.created, diagonal: d.diag, openings: d.ops, angleSnap: AppSettings.shared.angleSnap)
     guard var room = made?.room else { return base }
     // the openings step's items, already on the room's own walls
-    if !d.wOps.isEmpty || !d.wPts.isEmpty {
+    if !d.wOps.isEmpty || !d.wPts.isEmpty || !d.wInner.isEmpty {
+        room.inner += d.wInner
         room.openings += d.wOps
         room.points += d.wPts
         reClampItems(&room)

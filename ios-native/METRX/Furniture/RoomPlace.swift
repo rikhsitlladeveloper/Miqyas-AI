@@ -135,7 +135,7 @@ struct PlacePlan: View {
         }
         let sides = f.walls.filter { $0 != ISLAND }.count
         let cornerLike = f.kind == "kitchen" || CORNER_TYPES.contains(f.type)
-        let mode: PDrag = cornerLike && sides > 1 ? .corner : canStandFree(f) ? .free : .slide
+        let mode: PDrag = cornerLike && sides > 1 ? .corner : canStandFree(f) || (canBeFree(f) && f.pose != nil) ? .free : .slide
         switch mode {
         case .corner:
             // an L goes into the corner nearest the finger; a U takes the wall nearest it as its back wall

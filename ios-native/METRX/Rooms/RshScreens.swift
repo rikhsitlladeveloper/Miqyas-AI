@@ -782,12 +782,17 @@ private struct SummaryStep: View {
             Sect(tr("rsh.hTitle"))
             SumRow(label: tr("rsh.hT"), value: lenWords(d.height, unit) + " " + u) { ChangeBtn(label: ch, id: "rsh.changeH") { d.ret = true; go(d, "height") } }
             Sect(tr("rsh.opsShort"))
+            if !d.wInner.isEmpty {
+                SumRow(label: tr("iw.sum", ["n": d.wInner.count]), value: d.wInner.map { iwName($0.k) }.joined(separator: ", "), small: true) {
+                    ChangeBtn(label: ch) { d.ret = false; go(d, "ops") }
+                }
+            }
             let work = reItems(rshWorkRoom(d))
             if work.isEmpty {
                 SumRow(label: tr("rsh.opsShort"), value: tr("rsh.none"), small: true, auto: true) { ChangeBtn(label: tr("rsh.add")) { d.ret = false; go(d, "ops") } }
             } else {
                 ForEach(work, id: \.id) { it in
-                    SumRow(label: reKindName(it.kind) + " · " + it.wall, value: reStyleName(it.kind, it.style) + " · " + reSizeLine(it), small: true) {
+                    SumRow(label: reKindName(it.kind) + " · " + reWL(it.wall), value: reStyleName(it.kind, it.style) + " · " + reSizeLine(it), small: true) {
                         ChangeBtn(label: ch) { d.ret = false; go(d, "ops") }
                     }
                 }

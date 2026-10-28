@@ -125,6 +125,17 @@ struct FGalleryScreen: View {
                                 .pressable(0.98) { app.push(.roomEd(pid: p.id, rid: room.id)) }
                                 .accessibilityElement(children: .combine).accessibilityAddTraits(.isButton)
                                 .accessibilityIdentifier("re.editRoom")
+                                // "Mebel joylash": the room's pieces against a wall or free (room-editor mockup v3)
+                                HStack(spacing: 8) {
+                                    PathIcon("M4 11h16v6H4zM6 17v2M18 17v2M6 11V8h12v3", G.cobalt2, 20, 2)
+                                    T(tr("fp.placeT"), ui(14.5, 700, G.cobalt2)).frame(maxWidth: .infinity, alignment: .leading)
+                                    MIcon("chev", G.ink3, 16, 2)
+                                }
+                                .padding(.horizontal, 12).frame(minHeight: 48)
+                                .dashedGlass(16)
+                                .pressable(0.98) { app.push(.fArrange(pid: p.id, rid: room.id)) }
+                                .accessibilityElement(children: .combine).accessibilityAddTraits(.isButton)
+                                .accessibilityIdentifier("fp.open")
                                 // a measured kitchen: built for it, six styles to pick from (Joylan ideas, 26 Oct 2026)
                                 if first == "kitchen" && measuredRoom(room, s.angleSnap) { AutoKitchenEntry(app: app, pid: p.id, rid: room.id) }
                             } else {

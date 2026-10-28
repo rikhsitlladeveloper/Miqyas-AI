@@ -301,6 +301,7 @@ struct FPlaceScreen: View {
     @State private var start = 0            // a one-wall kitchen's distance from the corner
     @State private var pose: Pose? = nil    // dragged off the walls: a desk, the island
     @State private var holding = false      // a finger holds the piece on the plan: the page does not scroll
+    @State private var wher = ""            // a new piece: "wall" or "free", asked once (room-editor mockup v3 fpHtml)
     @State private var memo = BaseMemo()
     @FocusState private var focus: PF?
 
@@ -360,7 +361,8 @@ struct FPlaceScreen: View {
                 let f = fitted ?? base
                 let on = placeWalls(f, ids, first)
                 // a free-standing piece where it was dragged is not held to a wall's length
-                let fp: Furniture = { var x = f; x.pose = canStandFree(f) ? pose : nil; return x }()
+                // any cabinet-engine piece can stand free once asked (room-editor mockup v3)
+                let fp: Furniture = { var x = f; x.pose = canBeFree(f) ? pose : nil; return x }()
                 // the room's depth in front of a wall, once every wall is measured (a piece deeper than that goes through the wall opposite)
                 let deep: (String) -> Int? = { id in FPlaceDepth.of(wl, id) }
                 let issues = fitIssues(fp, on, len, roomH, ws, off: offMm, start: start, deep: deep)
@@ -376,6 +378,18 @@ struct FPlaceScreen: View {
                 let roomName = p.floors.first { $0.id == room.floorId }.map { floorName($0) } ?? dn(room.name)
                 let clash = on.first { taken.contains($0) }
                 FPage(eyebrow: dn(f.name) + " → " + roomName, title: tr("fz.toRoom"), back: { app.pop() }) {
+                    // a new piece: against a wall, or in the middle of the room (free) — asked once, changeable later
+                    if existing == nil && canBeFree(f) && !canStandFree(f) {
+                        FWhereCard(cur: wher.isEmpty ? (pose == nil ? "" : "free") : wher) { k in
+                            wher = k
+                            if k == "wall" { pose = nil; return }
+                            let geo = fpGeo(room, snap)
+                            let c = iwRoomCentre(geo.g)
+                            if let pc = fpPiece(placed(f, on, room.id, room.floorId, off: offMm, len: len, ws: ws), pw, ws) {
+                                pose = fpPoseAt(pc, pw, first, c: PlanPt(c.x, c.y), ang: fpAngle(pc))
+                            }
+                        }
+                    }
                     PlacePlan(room: room, walls: pw, g: g, others: others, ws: ws, red: !warns.isEmpty || !issues.isEmpty, label: tr("fz.planLabel"),
                               onSlide: { w, x in
                                   if w != first { first = w; reset() }
@@ -385,7 +399,7 @@ struct FPlaceScreen: View {
                               onPose: { pose = $0 }, onIsland: { pose = $0 }, onHold: { holding = $0 })
                     T(tr("fz.dragHint"), ui(12.5, 400, G.ink2, lh: 1.4))
                     // a desk or the island turns, 15° a tap, about its middle
-                    if canStandFree(f) || f.walls.contains(ISLAND) {
+                    if canStandFree(f) || f.walls.contains(ISLAND) || (canBeFree(f) && pose != nil) {
                         HStack(spacing: 8) {
                             ForEach([(-15, "fz.turnL"), (15, "fz.turnR")], id: \.0) { d, k in
                                 GBtn(tr(k), kind: .secondary, icon: d < 0 ? "undo" : "redo", height: 44, corner: 14, fontSize: 14) {
@@ -487,4 +501,52 @@ struct FPlaceScreen: View {
     }
 
     private func reset() { fitted = nil; keep = false }
+}
+
+/// "Qayerga qo‘yamiz?" (room-editor mockup v3 fpHtml): against the nearest free wall, sliding along it, or in the
+/// middle of the room, free to move and turn. A card on the page, so the rest stays at hand.
+struct FWhereCard: View {
+    let cur: String
+    let pick: (String) -> Void
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            T(tr("fp.w.q"), ui(15, 700))
+            T(tr("fp.w.s"), ui(12.5, 400, G.ink2, lh: 1.35))
+            HStack(spacing: 8) {
+                one("wall", tr("fp.w.wall"), tr("fp.w.wallS"))
+                one("free", tr("fp.w.free"), tr("fp.w.freeS"))
+            }
+        }
+        .padding(12)
+        .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(G.glass(0.7)))
+        .overlay(RoundedRectangle(cornerRadius: 18, style: .continuous).strokeBorder(G.rim, lineWidth: 1))
+    }
+    private func one(_ k: String, _ t: String, _ s: String) -> some View {
+        let on = cur == k
+        let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
+        return VStack(alignment: .leading, spacing: 4) {
+            Canvas { ctx, sz in
+                let fr = CGRect(x: 8, y: 6, width: sz.width - 16, height: sz.height - 12)
+                ctx.box(fr, stroke: G.ink.opacity(0.25), 1, rx: 3)
+                let wood = Color(argb: 0xFFD8B48A)
+                if k == "wall" {
+                    ctx.line(RD.wallc, CGPoint(x: fr.minX, y: fr.minY), CGPoint(x: fr.maxX, y: fr.minY), 4)
+                    ctx.box(CGRect(x: fr.midX - 22, y: fr.minY + 2, width: 44, height: 16), fill: wood, stroke: Color(argb: 0xFF8A6238), 1, rx: 2)
+                } else {
+                    var c = ctx
+                    c.translateBy(x: fr.midX, y: fr.midY); c.rotate(by: .degrees(-18))
+                    c.box(CGRect(x: -22, y: -10, width: 44, height: 20), fill: wood, stroke: Color(argb: 0xFF8A6238), 1, rx: 2)
+                    ctx.stroke(Path(ellipseIn: CGRect(x: fr.midX - 4, y: fr.minY + 6, width: 8, height: 8)), with: .color(G.cobalt), lineWidth: 1.6)
+                }
+            }
+            .frame(height: 60)
+            T(t, ui(13, 800, on ? G.cobalt2 : G.ink), lines: 2)
+            T(s, ui(11, 500, G.ink2, lh: 1.25), lines: 3)
+        }
+        .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+        .background(shape.fill(on ? G.cobalt.opacity(0.1) : G.solid))
+        .overlay(shape.strokeBorder(on ? G.cobalt : G.rim, lineWidth: on ? 2 : 1))
+        .pressable(0.97, label: t) { Haptic.tick(); pick(k) }
+        .accessibilityIdentifier("fp.w." + k)
+    }
 }

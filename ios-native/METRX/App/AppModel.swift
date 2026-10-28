@@ -95,6 +95,8 @@ enum Route: Hashable {
     case roomShape(pid: String, key: String)
     /// The one room editor of every trade (room-editor mockup v2, Rooms/ReEditor.swift).
     case roomEd(pid: String, rid: String)
+    /// "Mebel joylash": the room's pieces from above, against a wall or free (room-editor mockup v3, Furniture/FArrange.swift).
+    case fArrange(pid: String, rid: String)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -275,7 +277,7 @@ final class AppModel {
                 case .newProject(let e): return e == nil || store.get(e) != nil
                 case .space(let pid, let wid): return store.get(pid)?.floors.contains { $0.id == wid } == true
                 case .note(let pid, let wid, let iid): return store.get(pid)?.floors.first { $0.id == wid }?.items.contains { $0.id == iid } == true
-                case .editor(let pid, let rid, _), .wallView(let pid, let rid, _), .roomEd(let pid, let rid): return store.get(pid)?.rooms.contains { $0.id == rid } == true
+                case .editor(let pid, let rid, _), .wallView(let pid, let rid, _), .roomEd(let pid, let rid), .fArrange(let pid, let rid): return store.get(pid)?.rooms.contains { $0.id == rid } == true
                 case .sketch(let pid, let wid, _): return store.get(pid)?.floors.contains { $0.id == wid } == true
                 case .markup(let pid, let iid):
                     return pid.map { store.get($0)?.floors.contains { w in w.items.contains { $0.id == iid } } == true } ?? AppSettings.shared.shots.contains { $0.id == iid }

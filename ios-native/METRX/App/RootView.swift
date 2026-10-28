@@ -198,6 +198,7 @@ struct RootView: View {
         case .laserRadar: LaserRadarScreen(app: app)
         case .roomShape(let pid, let key): RoomShapeScreen(app: app, pid: pid, key: key)
         case .roomEd(let pid, let rid): ReEditorScreen(app: app, pid: pid, rid: rid)
+        case .fArrange(let pid, let rid): FArrangeScreen(app: app, pid: pid, rid: rid)
         }
     }
 

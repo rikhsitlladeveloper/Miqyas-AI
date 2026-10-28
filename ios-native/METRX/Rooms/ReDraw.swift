@@ -78,6 +78,9 @@ struct ReFrame {
     let L: CGFloat
     let tp: CGFloat
     let fl: Bool
+    /// An inner wall's face (room-editor mockup v3): n is the side it faces, its body behind it.
+    var inner = false
+    var label = ""
     func at(_ t: CGFloat, _ off: CGFloat, _ k: CGFloat) -> CGPoint { a + u * (t * k) + n * off }
 }
 
@@ -99,10 +102,15 @@ func reFrames(_ g: ReRoomGeo, _ m: ReMap) -> [ReFrame] {
         let u = unitV(a, b)
         var n = CGPoint(x: -u.y, y: u.x)
         let L = (b - a).len
-        let probe = mid(a, b) + n * max(2, L * 0.02)
-        if !rePip(probe, poly) { n = -n }
+        if let lk = w.look {
+            // an inner face looks away from its piece (the map only scales and moves, so directions stay)
+            n = CGPoint(x: CGFloat(lk.x), y: CGFloat(lk.y))
+        } else {
+            let probe = mid(a, b) + n * max(2, L * 0.02)
+            if !rePip(probe, poly) { n = -n }
+        }
         let fl = (u.x * n.y - u.y * n.x) < 0
-        return ReFrame(id: w.id, a: a, b: b, u: u, n: n, L: L, tp: max(3, CGFloat(w.t) * m.k), fl: fl)
+        return ReFrame(id: w.id, a: a, b: b, u: u, n: n, L: L, tp: max(3, CGFloat(w.t) * m.k), fl: fl, inner: w.inner, label: w.label.isEmpty ? w.id : w.label)
     }
 }
 
@@ -224,11 +232,19 @@ struct RePlanLook {
     var areaTxt: String? = nil
     var small = false
     var issues: Set<String> = []
+    /// Inner walls (room-editor mockup v3): the selected piece, a new one (dashed), the pieces and walls a dragged
+    /// piece touches (green: "p<id>", "o<wall>"), the selected piece's gap lines.
+    var selPiece: String? = nil
+    var newPiece: String? = nil
+    var glow: Set<String> = []
+    var gaps: [IwGap] = []
 }
 
 /// Draws the plan of g with items on the screen mapping m; returns nothing (hits come from rePlanHits).
 func reDrawPlan(_ ctx: GraphicsContext, _ size: CGSize, _ g: ReRoomGeo, _ items: [ReItem], _ m: ReMap, _ look: RePlanLook, lenTxt: (Int) -> String) {
-    let fr = reFrames(g, m)
+    let all = reFrames(g, m)
+    // the band is the outer walls; inner faces are drawn as their pieces' bodies
+    let fr = all.filter { !$0.inner }
     let n = fr.count
     guard n >= 3 else { return }
     let poly = g.poly.map { m.p($0) }
@@ -249,13 +265,22 @@ func reDrawPlan(_ ctx: GraphicsContext, _ size: CGSize, _ g: ReRoomGeo, _ items:
         ctx.poly([fr[i].a, fr[i].b, outer[(i + 1) % n], outer[i]], fill: RD.blue.opacity(0.55), stroke: RD.blue, 2)
     }
     for f in fr { ctx.line(RD.ink2, f.a, f.b, 1.4) }
-    if look.arm { for f in fr { ctx.line(RD.blue, f.a, f.b, 3.5, dash: [2, 6], round: true) } }
-    if let h = look.hl, let f = fr.first(where: { $0.id == h }) {
+    for f in fr where look.glow.contains("o" + f.id) {
+        ctx.line(RD.green.opacity(0.3), f.a, f.b, 16, round: true)
+        ctx.line(RD.green, f.a, f.b, 4, round: true)
+    }
+    reDrawBodies(ctx, g, m, look)
+    if let sw = look.selWall, let f = all.first(where: { $0.id == sw && $0.inner }) {
+        ctx.line(RD.blue.opacity(0.35), f.a, f.b, 12, round: true)
+        ctx.line(RD.blue, f.a, f.b, 3.5, round: true)
+    }
+    if look.arm { for f in all { ctx.line(RD.blue, f.a, f.b, 3.5, dash: [2, 6], round: true) } }
+    if let h = look.hl, let f = all.first(where: { $0.id == h }) {
         ctx.line(RD.green.opacity(0.3), f.a, f.b, 20, round: true)
         ctx.line(RD.green, f.a, f.b, 5, round: true)
     }
-    for it in items { if let f = fr.first(where: { $0.id == it.wall }) { reDrawPlanItem(ctx, it, f, m.k, look, ghost: false) } }
-    if let gh = look.ghost, let f = fr.first(where: { $0.id == gh.wall }) {
+    for it in items { if let f = all.first(where: { $0.id == it.wall }) { reDrawPlanItem(ctx, it, f, m.k, look, ghost: false) } }
+    if let gh = look.ghost, let f = all.first(where: { $0.id == gh.wall }) {
         var c = ctx
         c.opacity = 0.62
         reDrawPlanItem(c, gh, f, m.k, look, ghost: true)
@@ -276,6 +301,60 @@ func reDrawPlan(_ ctx: GraphicsContext, _ size: CGSize, _ g: ReRoomGeo, _ items:
         let t = look.showLen ? f.id + " · " + lenTxt(g.walls[i].len) : f.id
         ctx.pill(t, c, cur: f.id == look.selWall || f.id == look.hl, bounds: size)
     }
+    // an inner face's letter in front of it, when its piece or the face is in use
+    for f in all where f.inner {
+        let pid = iwPieceOf(f.id)
+        let on = f.id == look.selWall || f.id == look.hl
+        guard on || look.arm || (pid != nil && pid == look.selPiece) || look.ghost?.wall == f.id else { continue }
+        ctx.pill(f.label, mid(f.a, f.b) + f.n * 13, cur: on, bounds: size)
+    }
+    for gp in look.gaps {
+        let a = m.p(gp.a), b = m.p(gp.b)
+        let L = (b - a).len
+        guard gp.gap > 1, L >= 6 else { continue }
+        let u = (b - a) / L, q = CGPoint(x: -u.y * 5, y: u.x * 5)
+        ctx.line(RD.blue, a, b, 1.3, dash: [4, 3])
+        ctx.line(RD.blue, a + q, a - q, 1.3); ctx.line(RD.blue, b + q, b - q, 1.3)
+    }
+}
+
+/// The inner walls' bodies on the plan (mockup innerPlan): a full wall dark, a half wall lighter, an arch's passage as
+/// two thin lines; the selected piece blue (a new one dashed), one with a problem red, one a dragged piece touches green.
+func reDrawBodies(_ ctx: GraphicsContext, _ g: ReRoomGeo, _ m: ReMap, _ look: RePlanLook) {
+    for b in g.bodies {
+        let polys = b.R.map { $0.map { m.p($0) } }
+        let on = b.pid == look.selPiece
+        if look.glow.contains("p" + b.pid) { for q in polys { ctx.poly(q, fill: RD.green.opacity(0.35), stroke: RD.green, 5) } }
+        for q in polys { ctx.poly(q, fill: b.k == "half" ? RD.wallc.opacity(0.45) : RD.wallc.opacity(0.88), stroke: RD.wallc, 1) }
+        if let gp = b.gap, gp.count == 2 {
+            let t = CGFloat(b.th) / 2 * m.k, n = CGPoint(x: CGFloat(b.n.x), y: CGFloat(b.n.y))
+            let a0 = m.p(gp[0]), a1 = m.p(gp[1])
+            ctx.line(RD.wallc, a0 + n * t, a1 + n * t, 1.2, dash: [3, 3])
+            ctx.line(RD.wallc, a0 - n * t, a1 - n * t, 1.2, dash: [3, 3])
+        }
+        if on {
+            for q in polys {
+                if b.pid == look.newPiece { ctx.poly(q, stroke: RD.blue, 2.2, dash: [5, 4]) } else { ctx.poly(q, stroke: RD.blue, 2.4) }
+            }
+        } else if look.issues.contains(b.pid) {
+            for q in polys { ctx.poly(q, fill: RD.issue.opacity(0.25), stroke: RD.issue, 2) }
+        }
+    }
+}
+
+/// The piece under p on the plan (inside a body, or within 9 points of one).
+func reHitBody(_ g: ReRoomGeo, _ m: ReMap, _ p: CGPoint) -> String? {
+    var best: (d: CGFloat, id: String)? = nil
+    for b in g.bodies {
+        var d = CGFloat.infinity
+        for R in b.R {
+            let q = R.map { m.p($0) }
+            if rePip(p, q) { d = 0; break }
+            for i in q.indices { d = min(d, reSegD(p, q[i], q[(i + 1) % q.count]).d) }
+        }
+        if d < 9 && (best == nil || d < best!.d) { best = (d, b.pid) }
+    }
+    return best?.id
 }
 
 /// One item on the plan (mockup itemPlan).

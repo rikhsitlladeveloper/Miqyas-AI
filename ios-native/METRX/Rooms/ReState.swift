@@ -9,7 +9,8 @@ import Observation
  */
 
 /// What is selected: a wall or an item (door, window, point) by id.
-enum ReSel: Equatable { case wall(String), item(String) }
+/// What is selected: a wall (or an inner face, by its key), an item, or an inner wall piece (room-editor mockup v3).
+enum ReSel: Equatable { case wall(String), item(String), piece(String) }
 
 /// Where the room comes from and goes back to: the room-shape draft (the openings step) or the saved project (the
 /// editor). industry: the order's trade (the icon row's order, the main button).
@@ -120,15 +121,23 @@ final class ReState: RshFieldHost {
     var canvas: CGRect = .zero
     var tile0: CGRect = .zero
 
+    /// Inner walls (room-editor mockup v3): the "Devor qo‘shish" window open, the piece just added (dashed until it
+    /// is moved), what a dragged piece touches ("o<wall>", "p<piece>").
+    var iwWin = false
+    var newPiece: String? = nil
+    var iwGlow: Set<String> = []
+
     func cam(_ v: String) -> ReCam { cams[v] ?? ReCam() }
     var selItem: String? { if case .item(let id)? = sel { return id }; return nil }
     var selWall: String? { if case .wall(let id)? = sel { return id }; return nil }
+    var selPiece: String? { if case .piece(let id)? = sel { return id }; return nil }
 
     /// The room shown: the drag's preview, else the saved one.
     func shown(_ h: ReHost) -> Room? { preview ?? h.room() }
 
     func reset() {
         sel = nil; arm = nil; pk = nil; preview = nil; live = nil; tileKind = nil; ghost = nil; mag = nil; strip = nil; kp = nil; list = false
+        iwWin = false; newPiece = nil; iwGlow = []
     }
 }
 
@@ -168,7 +177,7 @@ func reCardLine(_ k: String, _ st: ReStyle, _ roomH: Int) -> String {
 
 /// What is wrong with a size, in words.
 func reErrText(_ e: ReErr, wall: String) -> String {
-    var vars: [String: Any] = ["w": wall]
+    var vars: [String: Any] = ["w": reWL(wall)]
     for (k, v) in e.vars { vars[k] = reLen(v) }
     vars["u"] = unitWord(reUnit)
     // the Android texts' names for the same values (its text wins in the shared strings)
@@ -179,7 +188,9 @@ func reErrText(_ e: ReErr, wall: String) -> String {
 
 /// A Tekshiruv problem in words.
 func reIssueText(_ q: ReIssue) -> String {
-    var vars: [String: Any] = ["w": q.wall, "a": q.kinds.first.map(reKindName) ?? "", "b": q.kinds.count > 1 ? reKindName(q.kinds[1]).lowercased() : ""]
+    // an inner wall in a door's swing or doorway (room-editor mockup v3 iwIssues)
+    if q.code.hasPrefix("iw.") { return tr("iw.i." + q.code.dropFirst(3), ["n": iwName(q.kinds.first ?? "straight"), "w": reWL(q.wall)]) }
+    var vars: [String: Any] = ["w": reWL(q.wall), "a": q.kinds.first.map(reKindName) ?? "", "b": q.kinds.count > 1 ? reKindName(q.kinds[1]).lowercased() : ""]
     for (k, v) in q.vars { vars[k] = reLen(v) }
     vars["u"] = unitWord(reUnit)
     // the Android texts' names for the same words and values
@@ -242,6 +253,7 @@ extension ReState {
         switch sel {
         case .item(let id)?: if reFind(r, id) == nil { sel = nil }
         case .wall(let id)?: if g.wall(id) == nil { sel = nil }
+        case .piece(let id)?: if !r.inner.contains(where: { $0.id == id }) { sel = nil }
         default: break
         }
         if g.wall(fw) == nil { fw = g.walls.first?.id ?? "A" }
@@ -250,6 +262,7 @@ extension ReState {
     /* selection */
 
     func select(_ id: String, _ h: ReHost) {
+        if let r = h.room(), r.inner.contains(where: { $0.id == id }) { selectPiece(id, h); return }
         guard let r = h.room(), let it = reFind(r, id) else { return }
         sel = .item(id); arm = nil; fw = it.wall
         if let s = strip, !reToolIds(self, h).contains(s) { strip = nil }
@@ -422,7 +435,7 @@ extension ReState {
         pk = nil
         let d = reDists(it, L)
         if p.mode == "new" {
-            let msg = tr("re.m.placed", ["n": reItemName(it), "w": it.wall, "l": reLen(d.l), "r": reLen(d.r)]) + (moved ? " · " + tr("re.m.moved") : "")
+            let msg = tr("re.m.placed", ["n": reItemName(it), "w": reWL(it.wall), "l": reLen(d.l), "r": reLen(d.r)]) + (moved ? " · " + tr("re.m.moved") : "")
             let id = it.id
             if commit(app, h, msg, { rePut(&$0, it); return nil }) {
                 sel = .item(id); fw = it.wall; strip = nil
@@ -452,7 +465,7 @@ extension ReState {
                 cp.dist = d
                 if d >= 0 && d + cp.w <= L && !reItems(r).contains(where: { reOverlap(cp, $0) }) { ok = d }
             }
-            guard let ok else { warn(app, tr("re.m.noCopy", ["w": it.wall])); return }
+            guard let ok else { warn(app, tr("re.m.noCopy", ["w": reWL(it.wall)])); return }
             cp.dist = ok
         } else { cp.dist = it.dist + 250 <= L ? it.dist + 250 : max(0, it.dist - 250) }
         let nid = cp.id
@@ -526,10 +539,11 @@ extension ReState {
     /* the room itself (the editor) */
 
     func setWallLen(_ id: String, _ v: Int, _ app: AppModel, _ h: ReHost, laser: Bool = false) {
-        guard let r = h.room() else { return }
+        // an inner face's length follows its piece (the piece's Uzunlik)
+        guard let r = h.room(), iwPieceOf(id) == nil else { return }
         let old = reGeo(r).len(id)
-        if v == old { app.toast = ToastMsg(text: tr("re.m.same", ["w": id, "v": reLen(v)]), kind: .info); return }
-        let msg = (laser ? tr("re.m.laser") + " · " : "") + tr("re.m.len", ["w": id, "a": reLen(old), "b": reLen(v)]) + (reWallBig(v) ? " · " + tr("re.big") : "")
+        if v == old { app.toast = ToastMsg(text: tr("re.m.same", ["w": reWL(id), "v": reLen(v)]), kind: .info); return }
+        let msg = (laser ? tr("re.m.laser") + " · " : "") + tr("re.m.len", ["w": reWL(id), "a": reLen(old), "b": reLen(v)]) + (reWallBig(v) ? " · " + tr("re.big") : "")
         commit(app, h, msg) { room in
             switch reSetWallLen(&room, id, v) {
             case "auto"?: return tr("re.m.auto")
@@ -544,7 +558,7 @@ extension ReState {
         guard let id = selWall, let r = h.room() else { return }
         let old = r.thickOf(id)
         if old == v { return }
-        commit(app, h, tr("re.m.thick", ["w": id, "a": "\(old)", "b": "\(v)"])) { reSetThick(&$0, id, v); return nil }
+        commit(app, h, tr("re.m.thick", ["w": reWL(id), "a": "\(old)", "b": "\(v)"])) { reSetThick(&$0, id, v); return nil }
     }
 
     func setRoomH(_ v: Int, _ app: AppModel, _ h: ReHost) {
@@ -580,8 +594,19 @@ extension ReState {
 func reToolIds(_ st: ReState, _ h: ReHost) -> [String] {
     guard let r = h.room() else { return [] }
     switch st.sel {
-    case nil: return ["add", "shape", "rh", "rot", "dims", "checks", "v3d", "more"]
-    case .wall?: return ["len", "laser", "addDoor", "addWin", "pt", "thick", "corner"]
+    case nil: return ["add", "inner", "shape", "rh", "rot", "dims", "checks", "v3d", "more"]
+    case .wall(let w)?:
+        // an inner wall's face: its doors, windows and points, the piece's thickness, or the whole piece
+        if iwPieceOf(w) != nil { return ["addDoor", "addWin", "pt", "iwTh", "iwOf"] }
+        return ["len", "laser", "addDoor", "addWin", "pt", "thick", "corner"]
+    case .piece(let id)?:
+        guard let p = r.inner.first(where: { $0.id == id }) else { return [] }
+        var t = ["iwLen"]
+        if p.k != "col" { t.append("iwTh") }
+        if p.k == "half" { t.append("iwH") }
+        if p.k == "arch" { t.append("iwOp") }
+        if p.k == "col" { t.append("iwShape") } else { t += ["iwRot", "iwFace"] }
+        return t + ["iwCopy", "iwDel"]
     case .item(let id)?:
         guard let it = reFind(r, id) else { return [] }
         if it.isOpening {

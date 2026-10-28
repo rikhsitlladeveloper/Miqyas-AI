@@ -259,6 +259,13 @@ private func rectRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
         }
     }
     for x in room.points { pointModel(b, gi, x, L, W, X) }
+    // the inner walls: the plan's wall A runs along x from X(0), the room on +z
+    if !room.inner.isEmpty, let fa = reWallAFrame(reGeo(room)) {
+        innerShell(b, room, gi, H, wallRgb) { q in
+            let dx = q.x - fa.a.x, dy = q.y - fa.a.y
+            return (X((dx * fa.u.x + dy * fa.u.y) / 1000), (dx * fa.n.x + dy * fa.n.y) / 1000)
+        }
+    }
     if gi == 0 {
         b.bases["A"] = WallBasis(ox: X(0), oz: 0, ux: 1, uz: 0, nx: 0, nz: 1, len: L); b.bases["B"] = WallBasis(ox: X(L), oz: 0, ux: 0, uz: 1, nx: -1, nz: 0, len: W)
         b.bases["C"] = WallBasis(ox: X(L), oz: W, ux: -1, uz: 0, nx: 0, nz: -1, len: L); b.bases["D"] = WallBasis(ox: X(0), oz: W, ux: 0, uz: -1, nx: 1, nz: 0, len: W)
@@ -453,6 +460,8 @@ private func polyRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
         if gi == 0 { let o = pt(a); b.bases[w.id] = WallBasis(ox: o.0, oz: o.1, ux: u.0, uz: u.1, nx: -q.0, nz: -q.1, len: len) }
         if single { let md = at(len / 2); b.labels.append(Label3(text: w.id, p: V3(X(md.0 + q.0 * T / 2), H + 0.25, Z(md.1 + q.1 * T / 2)))) }
     }
+    // the inner walls stand in the same plan millimetres as the walls
+    if !room.inner.isEmpty { innerShell(b, room, gi, H, wallRgb) { q in pt((q.x / 1000, q.y / 1000)) } }
     let fl = b.part(gi, nil, .floor, rgbOf(room.floorColor))
     let fp = ip.map(pt)
     fl.faces.append(Face3(n: V3(0, 1, 0), pts: fp.map { V3($0.0, 0.001, $0.1) }, tris: earClip(fp)))
@@ -558,3 +567,42 @@ func rgbOf(_ hex: String) -> Int { Int(hex.replacingOccurrences(of: "#", with: "
 /// The swatches of the 3D page (prototype wc and fc).
 let WALL_COLORS = ["#ECE8E1", "#D9D4CB", "#D6E0EC", "#E6D3B3"]
 let FLOOR_COLORS = ["#C49A6C", "#8A6343", "#B9BDC2", "#A7A39C"]
+
+
+/* Inner walls (room-editor mockup v3): each piece a prism over its body at its height, an arch's lintel over the
+   passage, and the doors, windows and points on its faces as thin panels standing out of the face. map: plan mm to
+   the scene's (x, z). */
+private func innerShell(_ b: Builder3, _ room: Room, _ gi: Int, _ H: Double, _ rgb: Int, _ toXZ: @escaping (Pt) -> P2) {
+    let rh = Int((H * 1000).rounded())
+    let faces = iwFaces(room)
+    for p in room.inner {
+        let G = iwGeo(p, rh)
+        let part = b.part(gi, nil, .wall, rgb), e = b.edgesOf(gi, "iw:" + p.id)
+        let top = Double(G.H) / 1000
+        for R in G.R { prism(part, e, R.map(toXZ), 0, top) }
+        if let gp = G.gap, let op = p.op, Double(op.h) / 1000 < top {
+            let t = Double(p.th) / 2
+            func o(_ q: Pt, _ k: Double) -> Pt { Pt(x: q.x + G.n.x * k, y: q.y + G.n.y * k) }
+            prism(part, e, [o(gp.0, t), o(gp.1, t), o(gp.1, -t), o(gp.0, -t)].map(toXZ), Double(op.h) / 1000, top)
+        }
+    }
+    for f in faces {
+        let a = f.face.a, bb = f.face.b, lk = f.face.look
+        let L = max(1e-6, hypot(bb.x - a.x, bb.y - a.y))
+        let u = Pt(x: (bb.x - a.x) / L, y: (bb.y - a.y) / L)
+        func at(_ d: Double, _ k: Double) -> P2 { toXZ(Pt(x: a.x + u.x * d + lk.x * k, y: a.y + u.y * d + lk.y * k)) }
+        for o in room.openings where o.wall == f.key {
+            for hl in o.holes {
+                let d0 = Double(hl.off), d1 = Double(hl.off + hl.w)
+                let m = hl.door ? b.part(gi, nil, .opening, 0xD9C3A5) : b.part(gi, nil, .glass, GLASS, 0.5)
+                prism(m, nil, [at(d0, 0), at(d1, 0), at(d1, 12), at(d0, 12)], Double(hl.sill) / 1000, Double(hl.sill + hl.h) / 1000)
+            }
+        }
+        for x in room.points where x.wall == f.key {
+            let sz = pointSize(x), c = Double(x.off), y = Double(x.h) / 1000, sh = Double(sz.h) / 2000, sw = Double(sz.w) / 2
+            let dep = ptDepth(x.t) * 1000
+            let m = b.part(gi, nil, .opening, PT_RGB[x.t] ?? 0x64748B)
+            prism(m, nil, [at(c - sw, 0), at(c + sw, 0), at(c + sw, dep), at(c - sw, dep)], y - sh, y + sh)
+        }
+    }
+}

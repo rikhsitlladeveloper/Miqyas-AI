@@ -32,7 +32,7 @@ func reFrontOf(_ g: ReRoomGeo, _ id: String, _ size: CGSize, small: Bool, cam: R
     let lay = ReLayout.plan(g, CGSize(width: 400, height: 400), ops: true, cam: ReCam())
     let fl = lay.frame(id)?.fl ?? false
     let box = small ? CGRect(origin: .zero, size: size) : CGRect(x: 0, y: 46, width: size.width, height: max(40, size.height - 46 - 54))
-    return ReFront.of(w, fl: fl, rh: g.H, box: box, small: small, cam: cam)
+    return ReFront.of(w, fl: fl, rh: g.hOf(id), box: box, small: small, cam: cam)
 }
 
 /// The drawing: plan, front or 3D of the host's room, with its touches.
@@ -52,7 +52,7 @@ struct ReCanvas: View {
             if let r = st.shown(h) {
                 let g = reGeo(r)
                 let items = reItems(r)
-                let iss = Set(reIssues(items, lens: g.lens, roomH: g.H).map(\.id))
+                let iss = Set(reRoomIssues(r, g).map(\.id))
                 let view = ops ? "plan" : st.view
                 ZStack(alignment: .topLeading) {
                     if view == "3d" {
@@ -62,7 +62,7 @@ struct ReCanvas: View {
                     } else if view == "front", let fv = reFrontOf(g, st.fw, size, small: false, cam: st.cam("front")) {
                         Canvas { ctx, sz in
                             reDrawFront(ctx, sz, fv, items, sel: st.selItem, wallSel: st.selWall == st.fw, ghost: st.ghost, left: g.prev(st.fw), right: g.next(st.fw),
-                                        caption: tr("re.frontCap", ["w": st.fw, "l": reLen(g.len(st.fw)), "h": reLen(g.H)]), issues: iss, small: false)
+                                        caption: tr("re.frontCap", ["w": reWL(st.fw), "l": reLen(g.len(st.fw)), "h": reLen(g.hOf(st.fw))]), issues: iss, small: false)
                         }
                         DzcTouch(act: frontActs(fv, g, size))
                         ReFrontBubbles(app: app, st: st, h: h, fv: fv, g: g, small: false)
@@ -72,6 +72,7 @@ struct ReCanvas: View {
                         Canvas { ctx, sz in reDrawPlan(ctx, sz, g, items, lay.map, lk, lenTxt: reLen) }
                         DzcTouch(act: planActs(lay))
                         RePlanBubbles(app: app, st: st, h: h, lay: lay, items: items, ghost: st.ghost)
+                        ReIwBubbles(app: app, st: st, h: h, lay: lay)
                     }
                 }
                 .clipped()
@@ -92,6 +93,8 @@ struct ReCanvas: View {
         look.mag = st.mag; look.small = ops; look.issues = iss
         look.showLen = st.dimLen; look.chain = !ops && st.dimChain
         look.areaTxt = !ops && st.dimArea ? reAreaLine(g) : nil
+        look.selPiece = st.selPiece; look.newPiece = st.newPiece; look.glow = st.iwGlow
+        if let id = st.selPiece, let r = st.shown(h), let p = r.inner.first(where: { $0.id == id }) { look.gaps = Array(iwSides(r, g.outer, p).values) }
         return look
     }
 
@@ -103,20 +106,31 @@ struct ReCanvas: View {
         a.panBegan = { p in
             guard let r = h.room() else { return }
             if ops, let id = reHitItem(hits(lay, r), p) { beginSlide(id, lay, p, r) }
+            // an inner wall: dragged at once in the openings step, or when already selected in the editor
+            else if let pid = reHitBody(lay.g, lay.map, p), ops || st.selPiece == pid { st.iwDragBegin(pid, lay.map.mm(p), h) }
             else if !ops { st.live = ReLive(mode: "pan", cam0: st.cam("plan")) }
         }
         a.panMoved = { p, t in
             guard let lv = st.live else { return }
+            if lv.mode == "iw" { st.iwDragMove(lay.map.mm(p)); return }
             if lv.mode == "slide" { slide(lay, p) }
             else if lv.mode == "pan" { var c = lv.cam0; c.dx += t.width; c.dy += t.height; st.cams["plan"] = c }
         }
         a.panEnded = { cancel in endLive(cancel) }
         a.longBegan = { p in
-            guard let r = h.room(), let id = reHitItem(hits(lay, r), p) else { return }
+            guard let r = h.room() else { return }
+            guard let id = reHitItem(hits(lay, r), p) else {
+                // a held inner wall is lifted (the editor: 0,4 s, like the items)
+                if let pid = reHitBody(lay.g, lay.map, p) { st.iwDragBegin(pid, lay.map.mm(p), h); st.live?.longPress = true }
+                return
+            }
             beginSlide(id, lay, p, r)
             st.live?.longPress = true
         }
-        a.longMoved = { p, _ in if st.live?.mode == "slide" { slide(lay, p) } }
+        a.longMoved = { p, _ in
+            if st.live?.mode == "iw" { st.iwDragMove(lay.map.mm(p)) }
+            else if st.live?.mode == "slide" { slide(lay, p) }
+        }
         a.longEnded = { _, cancel in endLive(cancel) }
         a.pinch = { state, scale, c in pinch(state, scale, c, "plan") }
         return a
@@ -140,7 +154,8 @@ struct ReCanvas: View {
             return
         }
         if let id = reHitItem(hits(lay, r), p) { st.select(id, h); return }
-        if let w = reNearWall(lay.frames, p, 24) { st.selectWall(w.id, h, toggle: ops); return }
+        if let pid = reHitBody(lay.g, lay.map, p) { st.iwTap(pid, lay.map.mm(p), h); return }
+        if let w = reNearWall(lay.frames.filter { !$0.inner }, p, 24) { st.selectWall(w.id, h, toggle: ops); return }
         st.deselect()
     }
 
@@ -168,6 +183,7 @@ struct ReCanvas: View {
     /// The drag ended: the slide or the edge is kept with its message and Undo; a cancelled one goes back.
     private func endLive(_ cancel: Bool) {
         guard let lv = st.live else { return }
+        if lv.mode == "iw" { st.iwDragEnd(cancel, app, h); return }
         st.live = nil
         let pv = st.preview
         st.preview = nil
@@ -296,6 +312,7 @@ struct ReCanvas: View {
                 return
             }
             guard let hit else { st.deselect(); return }
+            if hit.hasPrefix("p:") { st.selectPiece(String(hit.dropFirst(2)), h); return }
             if hit.hasPrefix("i:") { st.select(String(hit.dropFirst(2)), h) } else { st.selectWall(String(hit.dropFirst(2)), h) }
         }
         a.panBegan = { _ in st.live = ReLive(mode: "pan", cam0: st.cam("3d")) }

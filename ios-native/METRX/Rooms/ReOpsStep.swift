@@ -17,6 +17,7 @@ func rshWorkRoom(_ d: RshDraft) -> Room {
     let vs = (0..<rshAsks(d).count).map { d.vals[$0] }
     var r = shapeToRoom(spec, vs, height: d.height, id: "rsh-" + d.key, floorId: "", name: d.name, diagonal: d.diag,
                         angleSnap: AppSettings.shared.angleSnap)?.room ?? Room(id: "rsh-" + d.key, floorId: "", name: d.name)
+    r.inner = d.wInner
     r.openings = d.wOps
     r.points = d.wPts
     reClampItems(&r)
@@ -26,7 +27,7 @@ func rshWorkRoom(_ d: RshDraft) -> Room {
 /// The openings step's room: read from the draft, the items written back to it.
 func rshWorkHost(_ d: RshDraft) -> ReHost {
     let industry = Store.shared.get(d.pid)?.industry ?? "build"
-    return ReHost(pid: d.pid, industry: industry, room: { rshWorkRoom(d) }, put: { r in d.wOps = r.openings; d.wPts = r.points })
+    return ReHost(pid: d.pid, industry: industry, room: { rshWorkRoom(d) }, put: { r in d.wOps = r.openings; d.wPts = r.points; d.wInner = r.inner })
 }
 
 /// The draft's items as the summary's plan draws them (doors, windows, water, sewer and gas on the shape's walls).
@@ -155,7 +156,8 @@ struct ReOpsStep: View {
                     .padding(.horizontal, 14).padding(.top, 6)
                     ReTileRow(st: st, groups: reGroups(h.industry), tap: { st.tileTap($0, app, h) },
                               drag: { k, p in st.dragTile(k, p, h, ops: true, pan: st.pan) },
-                              drop: { k, p in st.dropTile(k, p, app, h) })
+                              drop: { k, p in st.dropTile(k, p, app, h) },
+                              lead: { st.deselect(); st.iwWin = true })
                 }
                 .background(Rectangle().fill(G.sheet(0.97)).ignoresSafeArea(edges: .bottom))
                 .overlay(alignment: .top) { Rectangle().fill(G.rim).frame(height: 1) }
@@ -174,12 +176,13 @@ struct ReOpsStep: View {
             }
             coach(st, g, items)
             if let k = st.tileKind {
-                let line = st.ghost.map { gh in tr("re.dragTo", ["w": gh.wall]) + " · " + reLen(reDists(gh, g.len(gh.wall)).l) + " | " + reLen(reDists(gh, g.len(gh.wall)).r) } ?? tr("re.dragNear")
+                let line = st.ghost.map { gh in tr("re.dragTo", ["w": reWL(gh.wall)]) + " · " + reLen(reDists(gh, g.len(gh.wall)).l) + " | " + reLen(reDists(gh, g.len(gh.wall)).r) } ?? tr("re.dragNear")
                 ReDragChip(kind: k, line: line, ok: st.ghost != nil)
                     .position(x: st.tilePt.x, y: st.tilePt.y - 56)
             }
             ReListSheet(st: st, h: h)
             RePickWindow(app: app, st: st, h: h)
+            ReIwWindow(app: app, st: st, h: h)
             ReKpOverlay(app: app, st: st)
         }
         .coordinateSpace(name: "re")
@@ -248,12 +251,14 @@ struct ReOpsCard: View {
         Group {
             if st.pk == nil, let id = st.selItem, let it = items.first(where: { $0.id == id }) {
                 itemCard(it)
+            } else if st.pk == nil, let id = st.selPiece, let r = st.shown(h), let p = r.inner.first(where: { $0.id == id }) {
+                ReIwCard(app: app, st: st, h: h, g: g, p: p, issue: reRoomIssues(r, g).first { $0.id == id }.map(reIssueText))
             } else if let k = st.arm {
                 oneLine(AnyView(ReBadge(kind: k, size: 32)), tr("re.armT", ["n": reKindName(k)]), tr("re.armS")) { st.arm = nil }
             } else if let w = st.selWall, st.pk == nil {
                 let n = items.filter { $0.wall == w }.count
                 oneLine(AnyView(PathIcon(SD_ROOM_IC, .white, 18, 2).frame(width: 32, height: 32).background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(G.cobalt))),
-                        tr("re.wallCard", ["w": w, "l": reLen(g.len(w)), "v": reLen(g.len(w)), "n": n]), tr("re.wallCardS")) { st.deselect() }
+                        tr("re.wallCard", ["w": reWL(w), "l": reLen(g.len(w)), "v": reLen(g.len(w)), "n": n]), tr("re.wallCardS")) { st.deselect() }
             }
         }
         .background(shape.fill(G.solid))
@@ -313,7 +318,7 @@ struct ReOpsCard: View {
                 HStack(spacing: 6) {
                     T(g.prev(it.wall) + " ←", ui(12, 700, G.ink2), lines: 1)
                     distChip(reLen(d.l), "re.cdl") { kp(it, "dl", L) }
-                    T(tr("re.wallX", ["w": it.wall]) + " · " + reLen(L), ui(11.5, 700, G.ink3), align: .center, lines: 1).frame(maxWidth: .infinity)
+                    T(tr("re.wallX", ["w": reWL(it.wall)]) + " · " + reLen(L), ui(11.5, 700, G.ink3), align: .center, lines: 1).frame(maxWidth: .infinity)
                     distChip(reLen(d.r), "re.cdr") { kp(it, "dr", L) }
                     T("→ " + g.next(it.wall), ui(12, 700, G.ink2), lines: 1)
                 }

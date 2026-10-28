@@ -382,6 +382,10 @@ struct Room: Codable, Equatable, Identifiable {
     /// Each wall's own thickness, mm, by wall id (room-editor mockup v2 "Qalinlik"; Android Room.thick); a wall not in
     /// it has T (200).
     var thick: [String: Int] = [:]
+    /// Inner walls from ready pieces (room-editor mockup v3, Rooms/ReInner.swift): the measured outer shape stays, these
+    /// stand inside; each piece's faces act as walls (doors, windows and points on them keep the face key "<id>:<n>" as
+    /// their wall).
+    var inner: [InnerWall] = []
 
     func dim(_ k: String) -> Dim { dims[k] ?? Dim() }
     /// Wall id's thickness, mm.
@@ -396,11 +400,11 @@ struct Room: Codable, Equatable, Identifiable {
         dims = c.v(.dims, ["A": Dim(), "B": Dim(), "H": Dim(), "T": Dim(v: 200, src: "default")])
         openings = c.v(.openings, []); poly = c.v(.poly, nil); rot = c.v(.rot, 0); views = c.v(.views, [])
         wallColor = c.v(.wallColor, "#ECE8E1"); floorColor = c.v(.floorColor, "#C49A6C"); created = c.v(.created, 0)
-        points = c.v(.points, []); features = c.v(.features, []); thick = c.v(.thick, [:])
+        points = c.v(.points, []); features = c.v(.features, []); thick = c.v(.thick, [:]); inner = c.v(.inner, [])
     }
     // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
     enum CodingKeys: String, CodingKey {
-        case id, floorId, name, template, shape, dims, openings, poly, rot, views, wallColor, floorColor, created, points, features, thick
+        case id, floorId, name, template, shape, dims, openings, poly, rot, views, wallColor, floorColor, created, points, features, thick, inner
     }
     /// The synthesized form, with thick written only when set (a room without it saves as before).
     func encode(to e: Encoder) throws {
@@ -411,6 +415,57 @@ struct Room: Codable, Equatable, Identifiable {
         try c.encode(views, forKey: .views); try c.encode(wallColor, forKey: .wallColor); try c.encode(floorColor, forKey: .floorColor)
         try c.encode(created, forKey: .created); try c.encode(points, forKey: .points); try c.encode(features, forKey: .features)
         if !thick.isEmpty { try c.encode(thick, forKey: .thick) }
+        if !inner.isEmpty { try c.encode(inner, forKey: .inner) }
+    }
+}
+
+/// An inner wall piece (room-editor mockup v3 IWK): k straight, L, T, half (a low wall), col (a column) or arch (a wall
+/// with a passage). x, y its middle in the room's plan mm; ang 0 / 90 / 180 / 270 its direction; len along it (a
+/// column's side or diameter); len2 the L's or T's wing; th its thickness; h a half wall's height (0: the room's);
+/// round a round column; op an arch's passage (w × h, in its middle).
+struct InnerWall: Codable, Equatable, Identifiable {
+    var id: String
+    var k: String
+    var x: Int
+    var y: Int
+    var ang = 0
+    var len: Int
+    var len2 = 0
+    var th = 100
+    var h = 0
+    var round = false
+    var op: InnerOp? = nil
+    init(id: String, k: String, x: Int, y: Int, ang: Int = 0, len: Int, len2: Int = 0, th: Int = 100, h: Int = 0, round: Bool = false, op: InnerOp? = nil) {
+        self.id = id; self.k = k; self.x = x; self.y = y; self.ang = ang; self.len = len; self.len2 = len2; self.th = th; self.h = h
+        self.round = round; self.op = op
+    }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        id = try c.decode(String.self, forKey: .id); k = c.v(.k, "straight"); x = c.v(.x, 0); y = c.v(.y, 0); ang = c.v(.ang, 0)
+        len = c.v(.len, 2000); len2 = c.v(.len2, 0); th = c.v(.th, 100); h = c.v(.h, 0); round = c.v(.round, false); op = c.v(.op, nil)
+    }
+    // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
+    enum CodingKeys: String, CodingKey { case id, k, x, y, ang, len, len2, th, h, round, op }
+    /// The fields a piece kind does not use are left out (as the mockup's pieces).
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id); try c.encode(k, forKey: .k); try c.encode(x, forKey: .x); try c.encode(y, forKey: .y)
+        try c.encode(ang, forKey: .ang); try c.encode(len, forKey: .len); try c.encode(th, forKey: .th)
+        if len2 != 0 { try c.encode(len2, forKey: .len2) }
+        if h != 0 { try c.encode(h, forKey: .h) }
+        if round { try c.encode(round, forKey: .round) }
+        try c.encodeIfPresent(op, forKey: .op)
+    }
+}
+
+/// An arch's passage: its width and height, mm.
+struct InnerOp: Codable, Equatable {
+    var w: Int
+    var h: Int
+    init(w: Int, h: Int) { self.w = w; self.h = h }
+    init(from d: Decoder) throws {
+        let c = try d.container(keyedBy: CodingKeys.self)
+        w = c.v(.w, 900); h = c.v(.h, 2100)
     }
 }
 
