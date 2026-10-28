@@ -1,0 +1,8 @@
+/* The permission questions iOS shows (Info.plist keys), in this language. */
+"NSLocationWhenInUseUsageDescription" = "METRX saves the place of an order or project so you can find the way there later. It reads your location only while the new order or project form is open, and it stays on the phone.";
+"NSCameraUsageDescription" = "METRX takes photos of walls and openings to draw dimensions on them.";
+"NSMicrophoneUsageDescription" = "The microphone hears a size you say while you hold the button. Your voice is recognised on the phone and never sent anywhere.";
+"NSBluetoothAlwaysUsageDescription" = "METRX uses Bluetooth to read distances from your laser meter.";
+"NSPhotoLibraryUsageDescription" = "METRX opens a photo from your library to draw dimensions on it.";
+"NSPhotoLibraryAddUsageDescription" = "METRX saves the photo with its dimensions to your library when you choose Save Image.";
+"OrderPlace" = "Precise location saves the exact place of the client’s home; an approximate one can be kilometres off.";

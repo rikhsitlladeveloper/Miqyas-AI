@@ -3,6 +3,9 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleDevelopmentRegion</key><string>uz</string>
+	<!-- the permission questions are in uz, ru and en (uz.lproj, ru.lproj, en.lproj InfoPlist.strings); uz Cyrillic reads uz -->
+	<key>CFBundleLocalizations</key>
+	<array><string>uz</string><string>ru</string><string>en</string></array>
 	<key>CFBundleDisplayName</key><string>METRX</string>
 	<key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
@@ -22,8 +25,10 @@
 	<key>UIStatusBarStyle</key><string>UIStatusBarStyleLightContent</string>
 	<key>UIViewControllerBasedStatusBarAppearance</key><true/>
 	<key>ITSAppUsesNonExemptEncryption</key><false/>
-	<!-- asked only when the builder taps "Joylashuvni aniqlash" on a project; GPS works without internet -->
-	<key>NSLocationWhenInUseUsageDescription</key><string>Buyurtma yoki loyiha joyini saqlab, keyin xaritada yo‘l topish uchun. Faqat siz bosganingizda aniqlanadi. / METRX saves the order's or project's place, only when you tap, so you can find the way there later.</string>
+	<!-- asked when the builder taps "Joylashuvni aniqlash" on a new order or project; once allowed, that form also reads the
+	     place quietly while it is open (UX/OrderLocation.swift warm()), so the tap is quick; GPS works without internet.
+	     The texts the phone shows are in the .lproj InfoPlist.strings; these are the fallback. -->
+	<key>NSLocationWhenInUseUsageDescription</key><string>Buyurtma yoki loyiha joyini saqlab, keyin xaritada yo‘l topish uchun. Joylashuv faqat yangi buyurtma yoki loyiha sahifasi ochiq turganda olinadi va telefonda qoladi. / METRX saves the place of an order or project so you can find the way there later. It reads your location only while the new order or project form is open, and it stays on the phone.</string>
 	<!-- asked once on a tap when "Precise Location" is off for METRX (Gps in UX/OrderLocation.swift) -->
 	<key>NSLocationTemporaryUsageDescriptionDictionary</key>
 	<dict><key>OrderPlace</key><string>Mijoz uyining aniq joyini saqlash uchun aniq joylashuv kerak — taxminiy joy bir necha km xato bo‘ladi. / Precise location saves the exact place of the client’s home; an approximate one can be kilometres off.</string></dict>
@@ -34,10 +39,12 @@
 		<string>comgooglemaps</string>
 	</array>
 	<key>NSCameraUsageDescription</key><string>METRX takes photos of walls and openings to draw dimensions on them. / Devor va ochiq joylarni suratga olib, ustiga o‘lcham chizish uchun.</string>
-	<!-- asked only when the builder searches for the laser ("Qidirish") or it is remembered; no background modes -->
+	<!-- asked the first time the builder holds the mic button under a size field (UX/VoiceUI.swift); offline recognition -->
 	<key>NSMicrophoneUsageDescription</key><string>O‘lchamni ovoz bilan aytish uchun mikrofon kerak: tugmani bosib turib gapirasiz. Ovoz telefonning o‘zida taniladi va hech qayerga yuborilmaydi. / The microphone hears a size you say while you hold the button; the voice is recognised on the phone and never sent anywhere.</string>
+	<!-- asked when the builder opens the laser radar ("Qidirish") or a remembered laser is tried; no background modes -->
 	<key>NSBluetoothAlwaysUsageDescription</key><string>METRX lazer o‘lchagichdan masofani olish uchun Bluetooth’dan foydalanadi. / METRX uses Bluetooth to read distances from your laser meter.</string>
-	<key>NSBluetoothPeripheralUsageDescription</key><string>METRX lazer o‘lchagichdan masofani olish uchun Bluetooth’dan foydalanadi. / METRX uses Bluetooth to read distances from your laser meter.</string>
+	<!-- the share sheet's "Save Image" for a marked-up photo (Markup/MarkupScreen.swift shareShot) -->
+	<key>NSPhotoLibraryAddUsageDescription</key><string>O‘lcham chizilgan suratni galereyangizga saqlash uchun. / METRX saves the photo with its dimensions to your library when you choose Save Image.</string>
 	<key>NSPhotoLibraryUsageDescription</key><string>METRX opens a photo from your library to draw dimensions on it. / Galereyadagi suratni ochib, ustiga o‘lcham chizish uchun.</string>
 	<key>UIAppFonts</key>
 	<array>

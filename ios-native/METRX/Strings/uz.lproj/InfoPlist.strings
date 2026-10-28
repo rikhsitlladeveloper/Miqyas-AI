@@ -1,0 +1,8 @@
+/* The permission questions iOS shows (Info.plist keys), in this language. */
+"NSLocationWhenInUseUsageDescription" = "Buyurtma yoki loyiha joyini saqlab, keyin xaritada yo‘l topish uchun. Joylashuv faqat yangi buyurtma yoki loyiha sahifasi ochiq turganda olinadi va telefonda qoladi.";
+"NSCameraUsageDescription" = "Devor va ochiq joylarni suratga olib, ustiga o‘lcham chizish uchun.";
+"NSMicrophoneUsageDescription" = "O‘lchamni ovoz bilan aytish uchun mikrofon kerak: tugmani bosib turib gapirasiz. Ovoz telefonning o‘zida taniladi va hech qayerga yuborilmaydi.";
+"NSBluetoothAlwaysUsageDescription" = "METRX lazer o‘lchagichdan masofani olish uchun Bluetooth’dan foydalanadi.";
+"NSPhotoLibraryUsageDescription" = "Galereyadagi suratni ochib, ustiga o‘lcham chizish uchun.";
+"NSPhotoLibraryAddUsageDescription" = "O‘lcham chizilgan suratni galereyangizga saqlash uchun.";
+"OrderPlace" = "Mijoz uyining aniq joyini saqlash uchun aniq joylashuv kerak — taxminiy joy bir necha km xato bo‘ladi.";

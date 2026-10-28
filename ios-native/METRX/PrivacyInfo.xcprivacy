@@ -5,7 +5,9 @@
   settings stay on the phone, so nothing is collected and nothing tracks. The required-reason APIs it calls:
   - UserDefaults (Core/Settings.swift, Data/Store.swift): the app's own settings, read and written by this app only (CA92.1).
   - ProcessInfo.systemUptime (Laser/LaserLog.swift): times between the laser's Bluetooth events inside the app (35F9.1).
-  It reads no file dates and no free disk space.
+  - File dates and sizes (Furniture/CardCache.swift contentModificationDate, Furniture/Client3DShare.swift
+    attributesOfItem): of files this app made in its own container, never shown off the phone (C617.1).
+  It reads no free disk space.
 -->
 <plist version="1.0">
 <dict>
@@ -31,6 +33,14 @@
 			<key>NSPrivacyAccessedAPITypeReasons</key>
 			<array>
 				<string>35F9.1</string>
+			</array>
+		</dict>
+		<dict>
+			<key>NSPrivacyAccessedAPIType</key>
+			<string>NSPrivacyAccessedAPICategoryFileTimestamp</string>
+			<key>NSPrivacyAccessedAPITypeReasons</key>
+			<array>
+				<string>C617.1</string>
 			</array>
 		</dict>
 	</array>

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /*
  * Profile (prototype profile.js "status first, short groups") and its "More settings" page and the settings sheets.
@@ -160,6 +161,15 @@ struct ProfileScreen: View {
                     .glassCard(RoundedRectangle(cornerRadius: 14, style: .continuous), fill: G.glass(0.55))
                     .pressable(0.99) { app.push(.settingsMore) }
                     .padding(.horizontal, 16).padding(.top, 14)
+                    // the privacy policy on the METRX site (App Store guideline 5.1.1; Android ProfileScreens PRIVACY_URL)
+                    HStack(spacing: 10) {
+                        MIcon("lock", G.ink, 18, 2); T(tr("prof.privacy"), ui(15, 600)).frame(maxWidth: .infinity, alignment: .leading); MIcon("chev", G.ink2, 18, 2)
+                    }
+                    .padding(.horizontal, 14).frame(height: 52)
+                    .glassCard(RoundedRectangle(cornerRadius: 14, style: .continuous), fill: G.glass(0.55))
+                    .pressable(0.99) { if let u = URL(string: PRIVACY_URL) { UIApplication.shared.open(u) } }
+                    .accessibilityIdentifier("pf.privacy")
+                    .padding(.horizontal, 16).padding(.top, 10)
                     HStack(alignment: .top, spacing: 8) { MIcon("device", G.ink2, 16, 2); T(tr("prof.onPhone"), ui(12.5, 400, G.ink2, lh: 1.4)) }
                         .padding(.horizontal, 18).padding(.top, 12)
                     VersionLine(app: app).padding(.horizontal, 18).padding(.top, 4)
@@ -174,6 +184,9 @@ struct ProfileScreen: View {
 
 /// "METRX 1.0 (1)": seven taps turn test mode on (the laser test page in the Device sheet and the radar), kept in
 /// the settings.
+/// The privacy policy page (the same one the stores link to).
+let PRIVACY_URL = "https://metrx-site.pages.dev/privacy"
+
 private struct VersionLine: View {
     let app: AppModel
     @State private var taps = 0
