@@ -447,7 +447,7 @@ struct ReEditorScreen: View {
             }
         case "more":
             DzcOptRow(title: tr("re.t.more"), sub: tr("re.moreSub"), onBack: back) {
-                ReOpt(label: tr("re.oldEd"), icon: RE_IC["more"], id: "re.old") { app.push(.editor(pid: pid, rid: rid, mode: "plan")) }
+                ReOpt(label: tr("re.oldEd"), icon: RE_IC["more"], id: "re.old") { st.reset(); app.replaceTop(.editor(pid: pid, rid: rid, mode: "plan")) }
                 ReOpt(label: tr("re.feat"), icon: RE_IC["shape"], id: "re.o.feat") { app.sheet = .featureForm(pid: pid, rid: rid, fid: nil, type: "column") }
                 ReOpt(label: tr("re.tray"), icon: RE_IC["laser"], id: "re.o.tray") { app.sheet = .tray(pid: pid, rid: rid) }
                 ReOpt(label: tr("re.info"), icon: RE_IC["type"], id: "re.o.info") { app.sheet = .roomInfo(pid: pid, rid: rid) }
