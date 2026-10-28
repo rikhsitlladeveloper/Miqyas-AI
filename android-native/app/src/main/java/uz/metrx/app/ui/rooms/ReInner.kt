@@ -101,7 +101,7 @@ fun App.iwSize(r: Room, p: InnerWall): String {
     val u = " " + t("u.mm")
     if (p.k == "col") return mm(p.len) + " × " + mm(p.len) + u + " · " + t(if (p.round) "iw.rd" else "iw.sq")
     var s = mm(p.len) + (if (p.len2 > 0 && (p.k == "L" || p.k == "T")) " + " + mm(p.len2) else "") + " × " + p.th + " × " + mm(pieceH(p, roomH(r))) + u
-    if (p.k == "arch") s += " · " + t("iw.pass", "a" to mm(p.opW), "b" to mm(p.opH))
+    if (p.k == "arch") s += " · " + t("iw.pass", "w" to mm(p.opW), "h" to mm(p.opH))
     return s
 }
 
@@ -111,7 +111,7 @@ fun App.iwCardLine(k: String, rh: Int): String {
     return when (k) {
         "col" -> mm(D.len) + " × " + mm(D.len) + " · " + t("iw.d.col")
         "half" -> mm(D.len) + " × 100 · h " + mm(D.h) + " · " + t("iw.d.half")
-        "arch" -> mm(D.len) + " × 100 · " + t("iw.pass", "a" to mm(D.opW), "b" to mm(min(D.opH, rh - 100)))
+        "arch" -> mm(D.len) + " × 100 · " + t("iw.pass", "w" to mm(D.opW), "h" to mm(min(D.opH, rh - 100)))
         else -> mm(D.len) + (if (D.len2 > 0) " + " + mm(D.len2) else "") + " × 100 · " + t("iw.toCeil")
     }
 }

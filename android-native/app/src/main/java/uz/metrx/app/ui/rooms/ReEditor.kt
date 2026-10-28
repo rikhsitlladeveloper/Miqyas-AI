@@ -408,7 +408,7 @@ private fun Options(s: ReSession, k: String, geo: ReGeo, scope: kotlinx.coroutin
                 THRESHOLDS.forEach { v -> OptChip("$v mm", oo.thr == v) { if (oo.thr != v) app.setOp(s, app.t("re.thrCh", "v" to v)) { it.copy(thr = v) } } }
             } }
         "move" -> { val wall = o?.wall ?: p?.wall ?: return; val L = app.wallL(r, wall); val d = if (o != null) distsOf(o, L) else distsOf(p!!, L)
-            row(tr("re.t.move"), tr("re.moveSub", "a" to mm(d.left), "b" to mm(d.right))) {
+            row(tr("re.t.move"), tr("re.moveSub", "l" to mm(d.left), "r" to mm(d.right))) {
                 IconChip("100", "left") { app.moveSel(s, "-100") }; IconChip("10", "left") { app.moveSel(s, "-10") }
                 IconChip("10", "right") { app.moveSel(s, "10") }; IconChip("100", "right") { app.moveSel(s, "100") }
                 Box(Modifier.width(1.dp).height(34.dp).background(G.ink.copy(alpha = .1f)))

@@ -712,7 +712,7 @@ fun DrawScope.pkDraw(kind: String, style: String, v: Map<String, Int>, f: String
         drawRect(RP.elev, Offset(8 * u, Z(rh.toDouble())), Size(W - 16 * u, Z(0.0) - Z(rh.toDouble())))
         drawRect(G.ink3, Offset(8 * u, Z(rh.toDouble())), Size(W - 16 * u, Z(0.0) - Z(rh.toDouble())), style = Stroke(1.2f * u))
         ln(Offset(8 * u, Z(rh.toDouble())), Offset(W - 8 * u, Z(rh.toDouble())), G.ink3, 1.2f * u, floatArrayOf(5 * u, 4 * u))
-        tm.measure("$ceilWord ${mm(rh)}", txtStyle(10.5f, G.ink3, FontWeight.Bold)).let { drawText(it, topLeft = Offset(14 * u, Z(rh.toDouble()) - 6 * u - it.size.height)) }
+        tm.measure(if ("{v}" in ceilWord) ceilWord.replace("{v}", mm(rh)) else "$ceilWord ${mm(rh)}", txtStyle(10.5f, G.ink3, FontWeight.Bold)).let { drawText(it, topLeft = Offset(14 * u, Z(rh.toDouble()) - 6 * u - it.size.height)) }
         ln(Offset(4 * u, Z(0.0)), Offset(W - 4 * u, Z(0.0)), G.ink2, 2f * u)
     }
     val pe = { a: Offset, b: Offset -> ln(a, b, G.cobalt, 4.5f * u, cap = StrokeCap.Round) }
