@@ -451,11 +451,13 @@ private fun WallView(p: Project, c: PCtx, wid: String, fs: List<PlFix>, pts: Lis
 /* ---------------- under the picture ---------------- */
 
 /** The pipes' colours in this room, the underfloor loops' too. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun Legend(kinds: Set<String>, loops: Boolean) {
     val ks = listOf("cold", "hot", "drain", "hs", "hr").filter { it in kinds }
     if (ks.isEmpty() && !loops) return
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    // wraps, so every colour is seen (in Russian the row ran past the screen's edge)
+    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ks.forEach { k ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 Box(Modifier.size(width = 16.dp, height = if (k == "drain") 6.dp else 4.dp).clip(RoundedCornerShape(2.dp)).background(rgbC(kindRgb(k))))
