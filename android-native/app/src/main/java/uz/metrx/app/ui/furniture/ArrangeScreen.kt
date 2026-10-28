@@ -179,7 +179,8 @@ fun FArrangeScreen(rt: Route.FArrange) {
     val len = { id: String -> wallLen(room, snap, id) }
 
     fun save(list: List<Furniture>, msg: String, warn: Boolean = false) {
-        val before = saved
+        // as saved now (a finger's drag calls this from a gesture started earlier)
+        val before = app.store.get(p.id)?.furniture?.filter { it.roomId == room.id } ?: saved
         if (list == before) { st.live = null; return }
         st.past.add(before to msg); if (st.past.size > 40) st.past.removeAt(0); st.future.clear()
         app.store.update(p.id) { pr -> pr.copy(furniture = withRoom(pr.furniture, room.id, list)) }
