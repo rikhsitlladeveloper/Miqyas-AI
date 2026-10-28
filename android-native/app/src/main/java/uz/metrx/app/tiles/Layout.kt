@@ -149,8 +149,10 @@ class TWall(val id: String, val p0: V2, val t: V2, val nIn: V2, val len: Double)
  * A measured room as the tiles see it: its walls, its floor outline (plan mm), its height, its tray and bath, and
  * where the plan's corner is in the 3D scene ([dx], [dz] metres).
  */
-class TRoomGeo(val room: Room, val walls: List<TWall>, val floor: List<V2>, val H: Double, val fixes: List<TFix>, val dx: Double, val dz: Double, val rect: Boolean) {
-    fun wall(id: String) = walls.firstOrNull { it.id == id }
+class TRoomGeo(val room: Room, val walls: List<TWall>, val floor: List<V2>, val H: Double, val fixes: List<TFix>, val dx: Double, val dz: Double, val rect: Boolean,
+               /** The inner walls' faces (geo/InnerWalls.kt): tiled like walls, each up to its own height [innerH]. */
+               val inner: List<TWall> = emptyList(), val innerH: Map<String, Double> = emptyMap()) {
+    fun wall(id: String) = walls.firstOrNull { it.id == id } ?: inner.firstOrNull { it.id == id }
     fun scene(q: V2, y: Double = 0.0) = V3(q.x / 1000 + dx, y, q.y / 1000 + dz)
     fun wallFrame(w: TWall, depth: Double = 0.0): Frame {
         val o = scene(w.p0 + w.nIn * depth)
@@ -169,7 +171,10 @@ fun roomGeo(r: Room, snap: Boolean, fixes: List<TFix>, dx: Double = 0.0, dz: Dou
         TWall(w.id, p0, t, V2(-t.y, t.x), l)
     }
     if (ws.size < 3 || ws.any { it.len <= 0 }) return null
-    return TRoomGeo(r, ws, ws.map { it.p0 }, H.toDouble(), fixes, dx, dz, !r.isPoly)
+    val fs = uz.metrx.app.geo.innerFaces(r, snap)
+    val inner = fs.map { f -> val p0 = V2(f.a.x, f.a.y); val d = V2(f.b.x - f.a.x, f.b.y - f.a.y); val l = hypot(d.x, d.y)
+        TWall(f.id, p0, if (l > 0) d * (1 / l) else V2(1.0, 0.0), V2(f.look.x, f.look.y), l) }
+    return TRoomGeo(r, ws, ws.map { it.p0 }, H.toDouble(), fixes, dx, dz, !r.isPoly, inner, fs.associate { it.id to it.h.toDouble() })
 }
 
 /** A tray's or bath's place on the plan: its four corners. */
@@ -229,9 +234,11 @@ fun surfacesOf(l: TileLayout, g: TRoomGeo): List<Surf> {
             continue
         }
         val w = g.wall(s.id) ?: continue
-        val (lo, hi) = zoneOf(s, g.H)
+        // an inner face up to its own height (a half wall), an arch's passage left out
+        val (lo, hi) = zoneOf(s, g.innerH[w.id] ?: g.H)
         if (hi - lo < 1) continue
         val holes = ArrayList<List<V2>>()
+        uz.metrx.app.geo.archGap(r, w.id)?.let { (t0, t1, h) -> holes += rect(t0, -1.0, t1, h.toDouble()) }
         r.openings.filter { it.wall == w.id }.forEach { o ->
             // a balcony block (room editor v2): the door part from the floor, the window part level with its top
             if (o.balcony) {

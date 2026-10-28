@@ -146,7 +146,7 @@ fun BoxScope.PickWindow(s: ReSession) {
     val app = LocalApp.current
     val pk = s.pk ?: return
     val r = s.room ?: return
-    val rh = roomH(r)
+    val rh = app.wallH(r, pk.wall)
     val L = app.wallL(r, pk.wall)
     Box(Modifier.fillMaxSize().background(Color(0x6B0F172A)).clickable(remember { MutableInteractionSource() }, null) {
         // outside the card: "Bekor" while picking a style; nothing in the size steps (a typed number is not lost)
@@ -343,7 +343,7 @@ fun BoxScope.KeypadOverlay(s: ReSession) {
                 }
                 val v = k.v.toIntOrNull()
                 val amb = k.big && bigWall(v)
-                Text(k.err ?: if (amb) app.t("re.bigWallS", "v" to mm(v!!)) else k.note ?: app.t("re.kpRange", "a" to mm(k.lo), "b" to mm(k.hi)),
+                Text(k.err ?: if (amb) app.t("re.bigWallS", "v" to mm(v!!)) else k.note ?: app.t("re.kpRange", "a" to mm(k.lo), "b" to mm(k.hi), "u" to app.t("u.mm")),
                     style = ui(12f, if (k.err != null || amb || k.note != null) 800 else 600, when { k.err != null -> G.err; amb -> G.amberInk; k.note != null -> G.green; else -> G.ink2 }), maxLines = 2)
             }
             Text(tr("dzc.done"), style = ui(15f, 800, Color.White), modifier = Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(14.dp)).background(G.cobalt)

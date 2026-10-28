@@ -57,18 +57,28 @@ import kotlin.math.roundToInt
  * it loses nothing.
  */
 
-/** What is selected: a wall (by id) or an item (an opening's or a point's id). */
+/** What is selected: a wall (by id: an outer wall or an inner face), an item (an opening's or a point's id) or an inner wall (its piece). */
 sealed interface ReSel {
     data class Wall(val id: String) : ReSel
     data class Item(val id: String) : ReSel
+    data class Piece(val id: String) : ReSel
 }
 
-/** A wall as the canvases take it: its id, ends (plan mm, clockwise) and length. */
-data class RW(val id: String, val a: Pt, val b: Pt, val L: Int)
+/**
+ * A wall as the canvases take it: its id, ends (plan mm, clockwise) and length; an inner wall's face has [face] (its
+ * piece, side and height).
+ */
+data class RW(val id: String, val a: Pt, val b: Pt, val L: Int, val face: uz.metrx.app.geo.InFace? = null) {
+    val inner get() = face != null
+}
 
+/** The outer walls (the room's outline). */
 fun reWalls(r: Room, snap: Boolean): List<RW> = walls(r, snap).map { w ->
     RW(w.id, w.p0, w.p1, w.len ?: hypot(w.p1.x - w.p0.x, w.p1.y - w.p0.y).roundToInt())
 }
+
+/** The outer walls, then the inner walls' faces (lettered after them). */
+fun reAll(r: Room, snap: Boolean): List<RW> = reWalls(r, snap) + uz.metrx.app.geo.innerFaces(r, snap).map { f -> RW(f.id, Pt(f.a.x, f.a.y), Pt(f.b.x, f.b.y), f.len, f) }
 
 /**
  * The style window and the size steps for one item: [mode] "new" (a ghost on the wall), "retype" (Turi) or "resize"
@@ -135,10 +145,18 @@ class ReSession(val key: String, val trade: String, val inFlow: Boolean, val pid
 
     fun save(r: Room) = write(r)
 
+    /** The piece being dragged and what it snapped to (the walls glowing green), while a finger holds it. */
+    var iwMag by mutableStateOf<uz.metrx.app.geo.IwSnap?>(null)
+    /** The "Devor qo‘shish" window is open. */
+    var iwWin by mutableStateOf(false)
+    /** The piece just added (shown as a ghost until it is moved or another is picked). */
+    var ghostId by mutableStateOf<String?>(null)
+
     /** A change: [f] makes the new room (null or the same room: nothing happened); a toast with "Ortga qaytarish". */
     fun commit(app: App, msg: String, warn: Boolean = false, f: (Room) -> Room?): Boolean {
         val r0 = room ?: return false
-        val r1 = f(r0) ?: return false
+        // items on inner faces keep their face by key (letters move when a piece goes or the shape changes)
+        val r1 = f(r0)?.let { uz.metrx.app.geo.syncFaces(it, app.settings.angleSnap) } ?: return false
         if (r1 == r0) return false
         past.add(r0 to msg); if (past.size > 40) past.removeAt(0)
         future.clear()
@@ -152,7 +170,7 @@ class ReSession(val key: String, val trade: String, val inFlow: Boolean, val pid
 
     /** A slide or an edge drag that started from [snap] ends: one undo step for the whole drag. */
     fun endLive(app: App, snap: Room, msg: String) {
-        val r1 = live ?: return
+        val r1 = live?.let { uz.metrx.app.geo.syncFaces(it, app.settings.angleSnap) } ?: return
         live = null
         if (r1 == snap) { write(snap); return }
         past.add(snap to msg); future.clear()
@@ -180,10 +198,12 @@ class ReSession(val key: String, val trade: String, val inFlow: Boolean, val pid
         val r = room ?: return
         when (val s = sel) {
             is ReSel.Item -> if (r.openings.none { it.id == s.id } && r.points.none { it.id == s.id }) sel = null
-            is ReSel.Wall -> if (walls(r).none { it.id == s.id }) sel = null
+            is ReSel.Wall -> if (uz.metrx.app.geo.allWalls(r).none { it.id == s.id }) sel = null
+            is ReSel.Piece -> if (r.inner.none { it.id == s.id }) sel = null
             null -> {}
         }
-        if (walls(r).none { it.id == fw }) fw = walls(r).firstOrNull()?.id ?: "A"
+        if (uz.metrx.app.geo.allWalls(r).none { it.id == fw }) fw = walls(r).firstOrNull()?.id ?: "A"
+        if (ghostId != null && r.inner.none { it.id == ghostId }) ghostId = null
     }
 
     fun op(id: String?) = room?.openings?.firstOrNull { it.id == id }
@@ -191,6 +211,17 @@ class ReSession(val key: String, val trade: String, val inFlow: Boolean, val pid
     val selOp: Opening? get() = (sel as? ReSel.Item)?.let { op(it.id) }
     val selPt: SitePoint? get() = (sel as? ReSel.Item)?.let { pt(it.id) }
     val selWall: String? get() = (sel as? ReSel.Wall)?.id
+    /** The selected inner wall: the piece itself, or the piece of the selected inner face. */
+    val selPiece: uz.metrx.app.data.InnerWall? get() {
+        val r = room ?: return null
+        return when (val s = sel) {
+            is ReSel.Piece -> r.inner.firstOrNull { it.id == s.id }
+            is ReSel.Wall -> uz.metrx.app.geo.innerFaces(r).firstOrNull { it.id == s.id }?.let { f -> r.inner.firstOrNull { it.id == f.pid } }
+            else -> null
+        }
+    }
+    /** Only the piece is selected (not one of its faces). */
+    val selPieceOnly: uz.metrx.app.data.InnerWall? get() = (sel as? ReSel.Piece)?.let { s -> room?.inner?.firstOrNull { it.id == s.id } }
 }
 
 /** The sessions in progress by key (a room flow's draft key, or "ed:<pid>:<rid>" for the editor). */
@@ -205,21 +236,29 @@ object ReSessions {
 
 fun App.reSnap() = settings.angleSnap
 
-/** Wall [id]'s length, mm. */
-fun App.wallL(r: Room, id: String): Int = reWalls(r, reSnap()).firstOrNull { it.id == id }?.L ?: 0
+/** Wall [id]'s length, mm (an outer wall or an inner face). */
+fun App.wallL(r: Room, id: String): Int = reAll(r, reSnap()).firstOrNull { it.id == id }?.L ?: 0
 
-/** The walls' lengths by id. */
-fun App.wallLens(r: Room): Map<String, Int> = reWalls(r, reSnap()).associate { it.id to it.L }
+/** The walls' lengths by id (the inner faces too). */
+fun App.wallLens(r: Room): Map<String, Int> = reAll(r, reSnap()).associate { it.id to it.L }
 
 fun roomH(r: Room) = r.dim("H").v ?: 2700
 
-/** The room's problems (Tekshiruv). */
-fun App.issuesOf(r: Room): List<ReIssue> = roomIssues(wallLens(r), roomH(r), r.openings, r.points)
+/** A wall's height: an inner face its piece's (a half wall 1 100), an outer wall the room's. */
+fun App.wallH(r: Room, id: String): Int = uz.metrx.app.geo.wallHOf(r, id, reSnap())
+
+/** Whether wall [id] is an inner face. */
+fun App.isInner(r: Room, id: String): Boolean = uz.metrx.app.geo.isInnerWall(r, id, reSnap())
+
+/** The room's problems (Tekshiruv): the items' rules, then the inner walls in a door's way. */
+fun App.issuesOf(r: Room): List<ReIssue> = roomIssues(wallLens(r), roomH(r), r.openings, r.points,
+    uz.metrx.app.geo.innerFaces(r, reSnap()).associate { it.id to it.h }) + uz.metrx.app.geo.iwIssues(r, reSnap())
 
 /** An issue in words. */
 fun App.issueText(q: ReIssue): String {
     val a = q.args.mapValues { (k, v) -> when {
         v is Int -> mm(v)
+        k == "k" && (q.key == "iw.i.swing" || q.key == "iw.i.block") -> t("iw.k.$v")
         k == "k" || k == "o" || k == "a" -> kindName(v.toString())
         k == "b" -> kindLow(v.toString())
         else -> v
@@ -229,8 +268,9 @@ fun App.issueText(q: ReIssue): String {
     return t(q.key, *b.map { it.key to it.value }.toTypedArray())
 }
 
-/** The neighbour walls of [id] (the corner each distance goes to). */
+/** The neighbour walls of [id] (the corner each distance goes to); an inner face ends in the room ("uchi"). */
 fun App.neighbours(r: Room, id: String): Pair<String, String> {
+    if (isInner(r, id)) return t("iw.end") to t("iw.end")
     val ws = reWalls(r, reSnap()); val i = ws.indexOfFirst { it.id == id }; val n = ws.size
     if (i < 0 || n == 0) return "?" to "?"
     return ws[(i - 1 + n) % n].id to ws[(i + 1) % n].id
@@ -247,7 +287,7 @@ fun App.sizeLine(p: SitePoint): String = (if (p.t == "rad" || p.t == "ac") t("re
 
 /** The style window's "Yana shu · 800 × 2 100" and the cards' size lines. */
 fun App.valsLine(kind: String, style: String, v: Map<String, Int>): String = when {
-    isOpenKind(kind) && style == "balcony" -> t("re.balLine", "a" to mm(v["dw"] ?: 0), "b" to mm(v["ww"] ?: 0))
+    isOpenKind(kind) && style == "balcony" -> t("re.balLine", "d" to mm(v["dw"] ?: 0), "w" to mm(v["ww"] ?: 0))
     isOpenKind(kind) -> mm(v["w"] ?: 0) + " × " + mm(v["h"] ?: 0)
     else -> (v["pw"]?.let { t("re.widthV", "v" to mm(it)) + " · " } ?: "") + "h " + mm(v["ph"] ?: 0)
 }
@@ -256,7 +296,7 @@ fun App.valsLine(kind: String, style: String, v: Map<String, Int>): String = whe
 
 /** A new [kind] on wall [wall] centred [center] mm from its start, sized to fit the wall and the room's height. */
 fun App.mkItem(r: Room, kind: String, wall: String, center: Double): Any {
-    val L = wallL(r, wall); val rh = roomH(r)
+    val L = wallL(r, wall); val rh = wallH(r, wall)
     if (isOpenKind(kind)) {
         var w = if (kind == "door") 800 else 1500; var h = if (kind == "door") 2100 else 1500; val sill = if (kind == "door") 0 else 900
         w = minOf(w, L / 10 * 10)
@@ -320,7 +360,7 @@ fun App.pkStyle(s: ReSession, id: String) {
     val r = s.room ?: return
     val orig = pk.base
     val same = pk.mode != "new" && ((orig is Opening && styleId(orig) == id) || (orig is SitePoint && styleId(orig) == id))
-    var v = if (same) (if (orig is Opening) valsOf(orig) else valsOf(orig as SitePoint)) else stdVals(pk.kind, styleOf(pk.kind, id), roomH(r))
+    var v = if (same) (if (orig is Opening) valsOf(orig) else valsOf(orig as SitePoint)) else stdVals(pk.kind, styleOf(pk.kind, id), wallH(r, pk.wall))
     if (pk.ph0 != null && v["ph"] != null) v = v + ("ph" to pk.ph0)
     s.pk = pk.copy(style = id, v = v, phase = "size", step = 0, note = null, again = false)
     haptic(Hap.TICK)
@@ -340,7 +380,7 @@ fun App.pkFinish(s: ReSession) {
     val r = s.room ?: return
     val st = pk.style ?: return
     val L = wallL(r, pk.wall)
-    checkAll(pk.kind, st, pk.v, L, roomH(r))?.let { (i, _) -> s.pk = pk.copy(phase = "size", step = i, note = null); haptic(Hap.WARN); return }
+    checkAll(pk.kind, st, pk.v, L, wallH(r, pk.wall))?.let { (i, _) -> s.pk = pk.copy(phase = "size", step = i, note = null); haptic(Hap.WARN); return }
     s.last[pk.kind] = st to pk.v
     s.pk = null
     val built = pkBuild(s, pk)
@@ -402,7 +442,7 @@ fun App.setW(s: ReSession, v: Int) {
 fun App.setH(s: ReSession, v: Int) {
     val o = s.selOp ?: return; val r = s.room ?: return
     if (v == o.h) return
-    if (z0Of(o) + v > roomH(r)) { warn(t("re.overCeil", "a" to mm(z0Of(o) + v), "b" to mm(roomH(r)))); return }
+    if (z0Of(o) + v > wallH(r, o.wall)) { warn(t("re.overCeil", "a" to mm(z0Of(o) + v), "b" to mm(wallH(r, o.wall)))); return }
     if (o.balcony && v < o.wh + 100) { warn(t("re.e.balDoor", "m" to mm(o.wh + 100))); return }
     setOp(s, t("re.chH", "n" to kindName(o.type), "a" to mm(o.h), "b" to mm(v))) { it.copy(h = v) }
 }
@@ -410,14 +450,14 @@ fun App.setH(s: ReSession, v: Int) {
 fun App.setSill(s: ReSession, v: Int) {
     val o = s.selOp ?: return; val r = s.room ?: return
     if (v == o.sill) return
-    if (v + o.h > roomH(r)) { warn(t("re.overCeil", "a" to mm(v + o.h), "b" to mm(roomH(r)))); return }
+    if (v + o.h > wallH(r, o.wall)) { warn(t("re.overCeil", "a" to mm(v + o.h), "b" to mm(wallH(r, o.wall)))); return }
     setOp(s, t("re.chSill", "a" to mm(o.sill), "b" to mm(v))) { it.copy(sill = v) }
 }
 
 fun App.setPh(s: ReSession, v: Int) {
     val p = s.selPt ?: return; val r = s.room ?: return
     if (v == p.h) return
-    if (v > roomH(r)) { warn(t("re.ceilShort")); return }
+    if (v > wallH(r, p.wall)) { warn(t("re.ceilShort")); return }
     setPt(s, t("re.chH", "n" to kindName(p.t), "a" to mm(p.h), "b" to mm(v))) { it.copy(h = v) }
 }
 
@@ -533,8 +573,11 @@ fun App.changeShape(s: ReSession, k: String) {
     val cur = r.poly?.template?.removePrefix("rsh.") ?: if (r.isPoly) "" else "rect"
     if (cur == k) return
     val made = shapeToRoom(ShapeSpec(sh), emptyList(), roomH(r), r.id, r.floorId, r.name, r.created, angleSnap = reSnap())?.room ?: return
-    val n = clampItems(made.copy(views = r.views, wallColor = r.wallColor, floorColor = r.floorColor, features = emptyList(),
-        openings = r.openings, points = r.points, thick = r.thick))
+    // the inner walls stay (those whose middle is still inside the new shape); their items keep their faces
+    val P = uz.metrx.app.geo.outline(made, reSnap())
+    val inner = r.inner.filter { uz.metrx.app.geo.pip(uz.metrx.app.geo.V2(it.x.toDouble(), it.y.toDouble()), P) }
+    val n = clampItems(uz.metrx.app.geo.syncFaces(made.copy(views = r.views, wallColor = r.wallColor, floorColor = r.floorColor, features = emptyList(),
+        openings = r.openings, points = r.points, thick = r.thick, inner = inner), reSnap()))
     val lost = r.openings.size + r.points.size - n.openings.size - n.points.size
     s.commit(this, t("re.shapeCh", "a" to t(shapeKey(cur)), "b" to t("rsh.s.$k")) + if (lost > 0) " · " + t("re.lost", "n" to lost) else "") { n }
 }

@@ -85,14 +85,14 @@ fun App.openKp(s: ReSession, field: String) {
             Kp(t(if (o != null) "re.kpDistOp" else "re.kpDistPt", "n" to kindName(o?.type ?: p!!.t), "w" to nb), cur, 0, hi) { v ->
                 setDist(s, if (field == "dl") v else hi - v, t("re.distSet", "n" to kindName(o?.type ?: p!!.t), "w" to nb, "v" to mm(v))) } }
         "w" -> { if (o == null) return; Kp(t("re.kpW", "n" to kindName(o.type)), o.w, 300, wallL(r, o.wall)) { setW(s, it) } }
-        "h" -> { if (o == null) return; Kp(t("re.kpH", "n" to kindName(o.type)), o.h, 300, roomH(r) - z0Of(o)) { setH(s, it) } }
-        "sill" -> { if (o == null) return; Kp(t("re.kpSill"), o.sill, 0, roomH(r) - o.h) { setSill(s, it) } }
-        "ph" -> { if (p == null) return; Kp(t("re.kpPh", "n" to kindName(p.t)), p.h, 0, roomH(r)) { setPh(s, it) } }
+        "h" -> { if (o == null) return; Kp(t("re.kpH", "n" to kindName(o.type)), o.h, 300, wallH(r, o.wall) - z0Of(o)) { setH(s, it) } }
+        "sill" -> { if (o == null) return; Kp(t("re.kpSill"), o.sill, 0, wallH(r, o.wall) - o.h) { setSill(s, it) } }
+        "ph" -> { if (p == null) return; Kp(t("re.kpPh", "n" to kindName(p.t)), p.h, 0, wallH(r, p.wall)) { setPh(s, it) } }
         "wl" -> { val id = s.selWall ?: return; Kp(t("re.kpWall", "w" to id), wallL(r, id), WALL_MIN, WALL_MAX, big = true) { setWallLen(s, id, it) } }
         "thick" -> { val id = s.selWall ?: return; Kp(t("re.kpThick", "w" to id), thickOf(r, id), 50, 1000) { setThick(s, id, it) } }
         "rh" -> Kp(t("re.kpRh"), roomH(r), 2000, 6000) { setRoomH(s, it) }
         "diag" -> { val id = s.selWall ?: return; diagKp(s, r, id) ?: return }
-        else -> return
+        else -> iwKp(s, field) ?: return
     }
 }
 
@@ -151,16 +151,16 @@ fun ReCanvas(s: ReSession, geo: ReGeo, modifier: Modifier, top: Float = 0f, avoi
         when (view) {
             "front" -> {
                 val L = app.wallL(r, s.fw)
-                val ff = frontFit(s.fw, L, roomH(r), Rect(0f, top, W, H - 54 * u), false, zoom.z, zoom.ox, zoom.oy, u)
+                val ff = frontFit(s.fw, L, app.wallH(r, s.fw), Rect(0f, top, W, H - 54 * u), false, zoom.z, zoom.ox, zoom.oy, u)
                 geo.ff = ff; geo.frecs = frontRecs(r, ff, u); geo.fit = null
                 val nb = app.neighbours(r, s.fw)
-                val cap = app.t("re.frontCap", "w" to s.fw, "l" to mm(L), "h" to mm(roomH(r)))
+                val cap = app.t("re.frontCap", "w" to app.wLab(r, s.fw), "l" to mm(L), "h" to mm(app.wallH(r, s.fw)))
                 Canvas(Modifier.fillMaxSize()) { drawFront(r, ff, selItem, s.selWall == s.fw, if (ghostWall == s.fw) ghost else null, bad, nb, cap, tm, u) }
                 if (pills && s.pk == null && s.ghost == null) FrontPills(s, r, ff, u)
             }
             "3d" -> {
                 geo.fit = null; geo.ff = null
-                Canvas(Modifier.fillMaxSize()) { drawIso(r, ws, top, zoom, selItem, s.selWall, bad, tm, u, geo.hits) }
+                Canvas(Modifier.fillMaxSize()) { drawIso(r, ws, top, zoom, selItem, s.selWall, bad, tm, u, geo.hits, (s.sel as? ReSel.Piece)?.id) }
             }
             else -> {
                 val box = Rect(0f, top, W, H)
@@ -177,7 +177,16 @@ fun ReCanvas(s: ReSession, geo: ReGeo, modifier: Modifier, top: Float = 0f, avoi
                             val lim = H - avoid - 34 * u
                             pan = if (yb > lim) min(0f, max(lim - yb, (top + lim) / 2 - yc)) else 0f
                         }
-                    } else if (sel == null) pan = 0f
+                    } else if (s.selPieceOnly != null && avoid > 0 && s.live == null) {
+                        // a selected inner wall too stays above the card
+                        val f0 = planFit(r, ws, box, 26 * u, padX)
+                        val pts = f0?.let { f -> uz.metrx.app.geo.pieceGeo(s.selPieceOnly!!, roomH(r)).R.flatten().map { f.M(uz.metrx.app.data.Pt(it.x, it.y)) } }
+                        if (pts != null && pts.isNotEmpty()) {
+                            val yb = pts.maxOf { it.y } + 30 * u; val yc = (pts.minOf { it.y } + pts.maxOf { it.y }) / 2
+                            val lim = H - avoid - 34 * u
+                            pan = if (yb > lim) min(0f, max(lim - yb, (top + lim) / 2 - yc)) else 0f
+                        }
+                    } else if (sel == null && s.selPieceOnly == null) pan = 0f
                 }
                 val fit = if (s.inFlow) planFit(r, ws, box, 26 * u, padX, 1f, 0f, pan) else planFit(r, ws, Rect(0f, top, W, H - 6 * u), 36 * u, 62 * u, zoom.z, zoom.ox, zoom.oy)
                 geo.fit = fit; geo.ff = null
@@ -185,12 +194,15 @@ fun ReCanvas(s: ReSession, geo: ReGeo, modifier: Modifier, top: Float = 0f, avoi
                     geo.recs = (r.openings + r.points).mapNotNull { planRec(fit, it, small, u) }
                     val magMid = s.mag?.takeIf { it.second == "mid" }?.let { m -> r.openings.firstOrNull { it.id == m.first }?.wall ?: r.points.firstOrNull { it.id == m.first }?.wall ?: ghostWall }
                     val look = PlanLook2(selItem = selItem, selWall = s.selWall, hl = ghostWall, arm = s.arm != null, ghost = ghost, magMid = magMid, lens = s.dLen,
-                        chain = !s.inFlow && s.dChain, areaText = if (!s.inFlow && s.dArea) app.areaLine(r) else null, small = small, bad = bad)
+                        chain = !s.inFlow && s.dChain, areaText = if (!s.inFlow && s.dArea) app.areaLine(r) else null, small = small, bad = bad,
+                        selPiece = (s.sel as? ReSel.Piece)?.id, ghostPiece = s.ghostId, magWalls = s.iwMag?.outer?.toSet() ?: emptySet(), magPieces = s.iwMag?.pieces?.toSet() ?: emptySet())
                     val lens = app.wallLens(r)
                     Canvas(Modifier.fillMaxSize()) { drawPlanV2(r, fit, look, tm, u) { id -> mm(lens[id] ?: 0) } }
                     if (pills) {
                         val target = if (s.ghost?.it != null) s.ghost?.it else if (s.pk == null) selItem?.let { id -> r.openings.firstOrNull { it.id == id } ?: r.points.firstOrNull { it.id == id } } else null
                         if (target != null) PlanPills(s, r, fit, target, live = s.ghost == null, u = u)
+                        val pc = s.selPieceOnly
+                        if (pc != null && s.pk == null && s.ghost == null) IwPills(s, r, fit, pc, u)
                     }
                 }
             }
@@ -274,13 +286,14 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gestures
     awaitEachGesture {
         val down = awaitFirstDown(requireUnconsumed = false)
         val u = density
-        if (s.pk != null || s.kp != null) return@awaitEachGesture
+        if (s.pk != null || s.kp != null || s.iwWin) return@awaitEachGesture
         val p0 = down.position
         val zoom = s.zooms[geo.view]!!
         val zx0 = zoom.ox; val zy0 = zoom.oy
         val flow = s.inFlow
         // what is under the finger
-        var mode = "tap"; var itemId: String? = null; var edge: String? = null
+        var mode = "tap"; var itemId: String? = null; var edge: String? = null; var pieceId: String? = null
+        var iwR0: uz.metrx.app.data.Pt? = null; var iwBase: uz.metrx.app.data.InnerWall? = null; var iwStr = false
         val snap = s.room
         if (s.arm == null) when (geo.view) {
             "front" -> { val ff = geo.ff
@@ -288,9 +301,13 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gestures
                 if (ff != null && so != null && so.wall == ff.wall) edge = frontHandles(so, ff).minByOrNull { hypot(it.c.x - p0.x, it.c.y - p0.y) }?.takeIf { hypot(it.c.x - p0.x, it.c.y - p0.y) < 19 * u }?.e
                 if (edge != null) { mode = "edge"; app.haptic(Hap.TICK) }
                 else hitFront(geo.frecs, p0, u)?.let { itemId = it; mode = if (flow) "pressD" else "press" } }
-            "plan" -> geo.fit?.let { hitPlan(geo.recs, p0, u)?.let { itemId = it; mode = if (flow) "pressD" else "press" } }
+            "plan" -> geo.fit?.let { fit ->
+                hitPlan(geo.recs, p0, u)?.let { itemId = it; mode = if (flow) "pressD" else "press" }
+                // an inner wall: in the openings step (or already selected) it moves at once, in the editor after a 0.4 s hold
+                if (itemId == null) snap?.let { hitPiece(it, fit, p0, u) }?.let { pieceId = it; mode = if (flow || (s.sel as? ReSel.Piece)?.id == it) "iwD" else "iwPress" }
+            }
         }
-        if (mode == "press") ring(p0)
+        if (mode == "press" || mode == "iwPress") ring(p0)
         var grab = 0.0; var hgrab = 0.0
         var changed = false
         fun startSlide(p: Offset) {
@@ -324,6 +341,24 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gestures
             s.live = withItem(base, id) { x -> when (x) { is Opening -> x.copy(off = m.v); is SitePoint -> x.copy(off = m.v, h = nh ?: x.h); else -> x } }
             changed = true
         }
+        fun startIw(p: Offset) {
+            val id = pieceId ?: return; val fit = geo.fit ?: return; val base = snap ?: return
+            mode = "iw"; ring(null)
+            s.sel = ReSel.Piece(id); s.arm = null
+            if (!flow && s.strip != null) s.strip = null
+            iwR0 = fit.MI(p); iwBase = base.inner.firstOrNull { it.id == id }
+            app.haptic(Hap.TICK)
+        }
+        fun doIw(p: Offset) {
+            val fit = geo.fit ?: return; val base = snap ?: return; val b = iwBase ?: return; val r0 = iwR0 ?: return
+            val q = fit.MI(p)
+            val P = uz.metrx.app.geo.outline(base, app.reSnap())
+            val nx = (b.x + (q.x - r0.x)).coerceIn(P.minOf { it.x }, P.maxOf { it.x }); val ny = (b.y + (q.y - r0.y)).coerceIn(P.minOf { it.y }, P.maxOf { it.y })
+            val res = uz.metrx.app.geo.iwSnap(base, b.copy(x = Math.round(nx).toInt(), y = Math.round(ny).toInt()), app.reSnap())
+            s.iwMag = res; iwStr = res.str
+            s.live = base.copy(inner = base.inner.map { if (it.id == b.id) res.p else it })
+            changed = true
+        }
         fun doEdge(p: Offset) {
             val ff = geo.ff ?: return; val base = snap ?: return; val o = base.openings.firstOrNull { it.id == s.selOp?.id } ?: return
             val L = ff.L; val rh = ff.rh; val t = ff.T(p.x); val hz = ff.Hh(p.y)
@@ -344,17 +379,17 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gestures
         }
         var pinch: Triple<Float, Offset, Float>? = null
         while (true) {
-            val ev = if (mode == "press") withTimeoutOrNull(LIFT - (currentEvent.changes.firstOrNull()?.uptimeMillis?.minus(down.uptimeMillis) ?: 0L).coerceIn(0, LIFT)) { awaitPointerEvent() }
+            val ev = if (mode == "press" || mode == "iwPress") withTimeoutOrNull(LIFT - (currentEvent.changes.firstOrNull()?.uptimeMillis?.minus(down.uptimeMillis) ?: 0L).coerceIn(0, LIFT)) { awaitPointerEvent() }
                      else awaitPointerEvent()
             if (ev == null) { // held 0.4 s: lifted
-                if (mode == "press") startSlide(p0)
+                if (mode == "press") startSlide(p0) else if (mode == "iwPress") startIw(p0)
                 continue
             }
             val pressed = ev.changes.filter { it.pressed }
             if (pressed.isEmpty()) break
             if (!flow && pressed.size >= 2) {
                 // two fingers: zoom (a slide in progress goes back)
-                if (mode == "slide" || mode == "edge") { s.live = null; s.mag = null; changed = false }
+                if (mode == "slide" || mode == "edge" || mode == "iw") { s.live = null; s.mag = null; s.iwMag = null; changed = false }
                 ring(null)
                 val a = pressed[0].position; val b = pressed[1].position
                 val dd = max(10f, hypot(a.x - b.x, a.y - b.y)); val m = Offset((a.x + b.x) / 2, (a.y + b.y) / 2)
@@ -371,13 +406,26 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gestures
                 "edge" -> { doEdge(p); c.consume() }
                 "slide" -> { slide(p); c.consume() }
                 "pressD" -> if (hyp > 5 * u) { startSlide(p); slide(p); c.consume() }
-                "press" -> if (hyp > 8 * u) { ring(null); mode = "pan" }
+                "iw" -> { doIw(p); c.consume() }
+                "iwD" -> if (hyp > 5 * u) { startIw(p); doIw(p); c.consume() }
+                "press", "iwPress" -> if (hyp > 8 * u) { ring(null); mode = "pan" }
                 "tap" -> if (hyp > 8 * u) mode = if (flow) "none" else "pan"
             }
             if (mode == "pan") { zoom.ox = zx0 + (p.x - p0.x); zoom.oy = zy0 + (p.y - p0.y); c.consume() }
         }
         ring(null)
         when (mode) {
+            "iw" -> {
+                val base = snap ?: return@awaitEachGesture
+                s.iwMag = null
+                val r1 = s.live
+                if (!changed || r1 == null) { s.live = null; return@awaitEachGesture }
+                val p1 = r1.inner.firstOrNull { it.id == pieceId } ?: run { s.live = null; return@awaitEachGesture }
+                s.live = app.clampItems(uz.metrx.app.geo.syncFaces(r1, app.reSnap()))
+                s.ghostId = null
+                s.endLive(app, base, app.t("iw.moved", "n" to app.iwName(p1.k), "v" to (mm(p1.len) + if (p1.len2 > 0 && (p1.k == "L" || p1.k == "T")) " + " + mm(p1.len2) else "")) +
+                    if (iwStr) " · " + app.t("iw.str") else "")
+            }
             "slide", "edge" -> {
                 val base = snap ?: return@awaitEachGesture
                 s.mag = null
@@ -390,7 +438,7 @@ private suspend fun androidx.compose.ui.input.pointer.PointerInputScope.gestures
                     app.t("re.moved", "n" to app.kindName(o?.type ?: pt!!.t), "a" to mm(dd.left), "b" to mm(dd.right)) + (pt?.let { " · h " + mm(it.h) } ?: "") }
                 s.endLive(app, base, msg)
             }
-            "tap", "press", "pressD" -> {
+            "tap", "press", "pressD", "iwPress", "iwD" -> {
                 val now = System.currentTimeMillis()
                 if (!flow && now - lastTap < 320 && hypot(p0.x - lastTapAt.x, p0.y - lastTapAt.y) < 26 * u) { zoom.reset(); lastTap = 0L; return@awaitEachGesture }
                 lastTap = now; lastTapAt = p0
@@ -407,7 +455,7 @@ private fun tap(app: App, s: ReSession, geo: ReGeo, p: Offset, u: Float) {
         "3d" -> {
             val h = hitIso(geo.hits, p)
             if (arm != null) { if (h != null && h.wall) app.placeAt(s, arm, h.id, app.wallL(r, h.id) / 2.0, "tap") else app.say("re.tapWallT", kind = uz.metrx.app.ui.components.ToastKind.ERROR); return }
-            if (h == null) deselect(s) else if (h.wall) selectWall(app, s, h.id) else selectItem(app, s, h.id)
+            if (h == null) deselect(s) else if (h.wall) selectWall(app, s, h.id) else if (h.id.startsWith("piece:")) selectPiece(app, s, h.id.removePrefix("piece:")) else selectItem(app, s, h.id)
         }
         "front" -> {
             val ff = geo.ff ?: return
@@ -429,6 +477,11 @@ private fun tap(app: App, s: ReSession, geo: ReGeo, p: Offset, u: Float) {
                 app.haptic(Hap.WARN); app.say("re.tapWall", kind = uz.metrx.app.ui.components.ToastKind.ERROR); return
             }
             hitPlan(geo.recs, p, u)?.let { selectItem(app, s, it); return }
+            // an inner wall: the first tap the piece, a second its nearest face
+            hitPiece(r, fit, p, u)?.let { id ->
+                if ((s.sel as? ReSel.Piece)?.id == id) faceAt(fit, r, id, p)?.let { selectWall(app, s, it); return }
+                selectPiece(app, s, id); return
+            }
             nearWall(fit, p, 24 * u)?.let { selectWall(app, s, it.first.id); return }
             deselect(s)
         }

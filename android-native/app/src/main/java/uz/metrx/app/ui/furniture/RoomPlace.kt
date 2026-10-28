@@ -82,9 +82,10 @@ internal fun PlacePlan(room: Room, walls: List<PlanWall>, g: Furniture, others: 
     val slide by rememberUpdatedState(onSlide); val corner by rememberUpdatedState(onCorner)
     val pose by rememberUpdatedState(onPose); val isle by rememberUpdatedState(onIsland)
     var size by remember { mutableStateOf(IntSize.Zero) }
-    // the plan fitted into the box with room for the wall letters
-    val x0 = walls.minOf { it.p0.x }; val y0 = walls.minOf { it.p0.y }
-    val spanX = (walls.maxOf { it.p0.x } - x0).coerceAtLeast(1.0); val spanY = (walls.maxOf { it.p0.y } - y0).coerceAtLeast(1.0)
+    // the plan fitted into the box with room for the wall letters (the outline: the outer walls; inner walls' faces drawn on it)
+    val outer = walls.filter { !it.inner }
+    val x0 = outer.minOf { it.p0.x }; val y0 = outer.minOf { it.p0.y }
+    val spanX = (outer.maxOf { it.p0.x } - x0).coerceAtLeast(1.0); val spanY = (outer.maxOf { it.p0.y } - y0).coerceAtLeast(1.0)
     fun k(): Double = min((size.width - 130.0) / spanX, (size.height - 130.0) / spanY).coerceAtLeast(1e-6)
     fun ox(): Double = (size.width - spanX * k()) / 2
     fun oy(): Double = (size.height - spanY * k()) / 2
@@ -104,13 +105,14 @@ internal fun PlacePlan(room: Room, walls: List<PlanWall>, g: Furniture, others: 
                     isle(poseOf(walls, p.ref, Frame(q - fr.u * gr.ga - fr.n * gr.gn, fr.u, fr.n)))
                     return
                 }
-                val mode = when { (f.kind == "kitchen" || f.type in uz.metrx.app.furniture.CORNER_TYPES) && f.walls.count { it != ISLAND } > 1 -> Drag.CORNER; canStandFree(f) -> Drag.FREE; else -> Drag.SLIDE }
+                val mode = when { (f.kind == "kitchen" || f.type in uz.metrx.app.furniture.CORNER_TYPES) && f.walls.count { it != ISLAND } > 1 -> Drag.CORNER
+                    canStandFree(f) || (f.pose != null && uz.metrx.app.furniture.canBeFree(f)) -> Drag.FREE; else -> Drag.SLIDE }
                 when (mode) {
                     Drag.CORNER -> {
                         // an L goes into the corner nearest the finger; a U takes the wall nearest it as its back wall
-                        val n = walls.size
-                        if (f.walls.count { it != ISLAND } == 2) walls.minByOrNull { d2(it.p1, q) }?.let { corner(it.id) }
-                        else walls.indices.minByOrNull { walls[it].dist(q) }?.let { corner(walls[(it - 1 + n) % n].id) }
+                        val n = outer.size
+                        if (f.walls.count { it != ISLAND } == 2) outer.minByOrNull { d2(it.p1, q) }?.let { corner(it.id) }
+                        else outer.indices.minByOrNull { outer[it].dist(q) }?.let { corner(outer[(it - 1 + n) % n].id) }
                     }
                     Drag.SLIDE -> {
                         val w = walls.minByOrNull { it.dist(q) } ?: return
@@ -149,9 +151,14 @@ internal fun PlacePlan(room: Room, walls: List<PlanWall>, g: Furniture, others: 
             drawPath(pp, c, style = Stroke(if (me) 2.5f else 1.5f, pathEffect = if (ft.floor) null else PathEffect.dashPathEffect(floatArrayOf(7f, 5f))))
             if (me && ft.floor) drawLine(c, pts[2], pts[3], 5f)
         }
-        val path = Path().apply { walls.forEachIndexed { i, w -> val a = scr(w.p0); if (i == 0) moveTo(a.x, a.y) else lineTo(a.x, a.y) }; close() }
+        val path = Path().apply { outer.forEachIndexed { i, w -> val a = scr(w.p0); if (i == 0) moveTo(a.x, a.y) else lineTo(a.x, a.y) }; close() }
         drawRect(Color(0xFFEFF3FA))
         drawPath(path, Color(0xFFFFFFFF))
+        // the inner walls' bodies
+        room.inner.forEach { pc -> uz.metrx.app.geo.pieceGeo(pc, room.dim("H").v ?: 2700).R.forEach { q ->
+            val pp = Path().apply { q.forEachIndexed { i, v -> val o = scr(PlanPt(v.x, v.y)); if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) }; close() }
+            drawPath(pp, Color(0xFF3F475C).copy(alpha = if (pc.k == "half") .45f else .8f))
+        } }
         // the other furniture, grey; wall units (they hang) only outlined
         theirs.forEach { foot(it, Color(0xFF94A3B8), false) }
         // doors with their swing, windows in light blue
@@ -169,7 +176,7 @@ internal fun PlacePlan(room: Room, walls: List<PlanWall>, g: Furniture, others: 
         }
         drawPath(path, Color(0xFF0F172A), style = Stroke(5f))
         val style = TextStyle(fontSize = 12.sp, color = Color(0xFF475569))
-        walls.forEach { w ->
+        outer.forEach { w ->
             val lab = tm.measure(w.id, style)
             val c = scr(w.at(w.len / 2, 0.0)); val m = Offset(c.x - (w.n.x * 30).toFloat(), c.y - (w.n.y * 30).toFloat())
             drawText(lab, topLeft = Offset(m.x - lab.size.width / 2f, m.y - lab.size.height / 2f))

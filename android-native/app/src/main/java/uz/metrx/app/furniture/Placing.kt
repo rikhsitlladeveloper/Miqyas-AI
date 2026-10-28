@@ -23,15 +23,15 @@ data class PlanPt(val x: Double, val y: Double) {
     infix fun dot(o: PlanPt) = x * o.x + y * o.y
 }
 
-/** A wall on the plan: from [p0] to [p1], [u] along it, [n] into the room, [len] mm. */
-class PlanWall(val id: String, val p0: PlanPt, val p1: PlanPt, val u: PlanPt, val n: PlanPt, val len: Double) {
+/** A wall on the plan: from [p0] to [p1], [u] along it, [n] into the room, [len] mm; [inner] an inner wall's face (geo/InnerWalls.kt). */
+class PlanWall(val id: String, val p0: PlanPt, val p1: PlanPt, val u: PlanPt, val n: PlanPt, val len: Double, val inner: Boolean = false) {
     fun at(a: Double, d: Double) = p0 + u * a + n * d
     fun along(q: PlanPt) = (q - p0) dot u
     /** How far [q] is from the wall itself (not its line). */
     fun dist(q: PlanPt): Double { val c = at(along(q).coerceIn(0.0, len), 0.0); return hypot(q.x - c.x, q.y - c.y) }
 }
 
-/** The room's walls on the plan, each with its into-the-room side. */
+/** The room's walls on the plan, each with its into-the-room side; then its inner walls' faces (facing their own side). */
 fun planWalls(r: Room, snap: Boolean): List<PlanWall> {
     val ws = walls(r, snap)
     val poly = ws.map { PlanPt(it.p0.x, it.p0.y) }
@@ -41,8 +41,15 @@ fun planWalls(r: Room, snap: Boolean): List<PlanWall> {
         val u = PlanPt((p1.x - p0.x) / l, (p1.y - p0.y) / l)
         val n = PlanPt(-u.y, u.x).let { if (inside(poly, p0 + u * (l / 2) + it * 20.0)) it else it * -1.0 }
         PlanWall(w.id, p0, p1, u, n, l)
+    } + uz.metrx.app.geo.innerFaces(r, snap).map { f ->
+        val p0 = PlanPt(f.a.x, f.a.y); val p1 = PlanPt(f.b.x, f.b.y)
+        val l = hypot(p1.x - p0.x, p1.y - p0.y).coerceAtLeast(1.0)
+        PlanWall(f.id, p0, p1, PlanPt((p1.x - p0.x) / l, (p1.y - p0.y) / l), PlanPt(f.look.x, f.look.y), l, true)
     }
 }
+
+/** The room's outline from its walls on the plan (the outer ones). */
+fun outlineOf(walls: List<PlanWall>) = walls.filter { !it.inner }.map { it.p0 }
 
 /** Whether [q] is inside the polygon [poly]. */
 fun inside(poly: List<PlanPt>, q: PlanPt): Boolean {
@@ -271,8 +278,9 @@ fun overlaps(a: List<PlanPt>, b: List<PlanPt>, eps: Double = 5.0): Boolean {
 fun placeWarnings(f: Furniture, others: List<Furniture>, room: Room, walls: List<PlanWall>, ws: Workshop): List<FitIssue> {
     val mine = footsOf(f, walls, ws)
     val out = ArrayList<FitIssue>()
-    val poly = walls.map { it.p0 }
-    if (mine.any { ft -> ft.wall == null && ft.pts.any { q -> !inside(poly, q) && walls.minOf { it.dist(q) } > 5 } })
+    val poly = outlineOf(walls)
+    val outer = walls.filter { !it.inner }
+    if (mine.any { ft -> ft.wall == null && ft.pts.any { q -> !inside(poly, q) && outer.minOf { it.dist(q) } > 5 } })
         out += FitIssue("fz.outside", mapOf("n" to f.name))
     others.forEach { o ->
         val theirs = footsOf(o, walls, ws)
@@ -285,7 +293,7 @@ fun placeWarnings(f: Furniture, others: List<Furniture>, room: Room, walls: List
         val theirs = footsOf(o, walls, ws)
         if (hits(mySw, theirs + theirs.map(::frontBand)) || hits(swingsOf(o, walls, ws), mine + mine.map(::frontBand))) out += FitIssue("fz.doorsHit", mapOf("n" to o.name))
     }
-    if (mySw.any { ft -> ft.pts.any { q -> !inside(poly, q) && walls.minOf { it.dist(q) } > 5 } }) out += FitIssue("fz.doorRoom", mapOf("n" to f.name))
+    if (mySw.any { ft -> ft.pts.any { q -> !inside(poly, q) && outer.minOf { it.dist(q) } > 5 } }) out += FitIssue("fz.doorRoom", mapOf("n" to f.name))
     room.openings.forEach { op ->
         val w = walls.firstOrNull { it.id == op.wall } ?: return@forEach
         val a0 = op.off.toDouble(); val a1 = (op.off + op.w).toDouble()

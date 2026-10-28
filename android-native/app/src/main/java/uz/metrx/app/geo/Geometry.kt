@@ -121,7 +121,8 @@ fun walls(r: Room, angleSnap: Boolean = true): List<Wall> {
     )
 }
 
-fun wallLen(r: Room, id: String, snap: Boolean = true) = walls(r, snap).firstOrNull { it.id == id }?.len
+/** A wall's length: an outer wall's, or an inner face's (geo/InnerWalls.kt). */
+fun wallLen(r: Room, id: String, snap: Boolean = true) = walls(r, snap).firstOrNull { it.id == id }?.len ?: if (r.inner.isEmpty()) null else innerFaces(r, snap).firstOrNull { it.id == id }?.len
 fun wallCorner(r: Room, id: String, snap: Boolean = true) = walls(r, snap).firstOrNull { it.id == id }?.corner ?: 1
 
 /** The measurements the builder takes, in order (prototype hmDimKeys): the non-derived walls, then the height. */
@@ -165,8 +166,10 @@ fun areas(r: Room, snap: Boolean = true): Areas? {
         val len = ws.firstOrNull { it.id == f.wall }?.len
         return ((if (f.off <= 0) -1 else 1) + (if (len != null && f.off + f.w >= len) -1 else 1)).toLong() * f.d
     }
-    val perimF = perim + fx.sumOf { if (it.type == "column") colSides(it) else if (it.sill == 0) 2L * it.d else 0L }
-    if (H == null) return Areas(floorF, perimF, null, null, null)
+    // inner walls (geo/InnerWalls.kt): the floor under them goes, their faces add to the walls (both sides), their doors twice
+    val ia = innerAreas(r, snap)
+    val perimF = perim + fx.sumOf { if (it.type == "column") colSides(it) else if (it.sill == 0) 2L * it.d else 0L } + ia.len
+    if (H == null) return Areas(floorF - ia.floor, perimF, null, null, null)
     val extra = fx.sumOf { f ->
         if (f.type == "column") colSides(f) * H
         else {
@@ -176,9 +179,9 @@ fun areas(r: Room, snap: Boolean = true): Areas? {
             else 2L * f.d * nh + (if (f.sill > 0) f.w.toLong() * f.d else 0L) + (if (f.sill + nh < H) f.w.toLong() * f.d else 0L)
         }
     }
-    val gross = perim * H + extra
-    val open = r.openings.sumOf { it.area }
-    return Areas(floorF, perimF, gross, open, gross - open)
+    val gross = perim * H + extra + ia.gross
+    val open = r.openings.sumOf { it.area } + ia.open / 2
+    return Areas(floorF - ia.floor, perimF, gross, open, gross - open)
 }
 
 /** What is wrong with a column or niche [f] in room [r]: off the wall's end, too deep or sticking out too far. Null when it fits. */
@@ -212,6 +215,8 @@ data class Issue(val field: String, val key: String, val vars: Map<String, Any?>
 /** The first problem with [o] in room [r], or null. [kindName] is the localised "Eshik"/"Deraza". */
 fun openingIssue(r: Room, o: Opening, kindName: String, unit: LenUnit, english: Boolean, snap: Boolean = true): Issue? {
     val w = walls(r, snap).firstOrNull { it.id == o.wall }
+    // a door or window on an inner wall's face: the room editor's own checks (InnerWalls.kt, RoomKit.kt) have it
+    if (w == null && o.fk.isNotEmpty()) return null
     val L = w?.len ?: return Issue("wall", "op.needWall", mapOf("w" to if (w?.derived == true) w.dimKey else o.wall))
     if (o.off + o.w > L) return Issue("w", "op.exceeds", mapOf("o" to kindName, "x" to fmtLen(o.off + o.w - L, LenUnit.M, english)))
     val H = r.dim("H").v

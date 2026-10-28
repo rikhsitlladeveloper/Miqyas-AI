@@ -306,18 +306,22 @@ data class ReIssue(val id: String, val key: String, val args: Map<String, Any> =
  * a point on an opening, a socket, switch or panel closer than 600 mm to water on the same wall, a gas meter or boiler
  * closer than 500 mm to electrics. [lens]: each wall's length by id; [rh] the room's height.
  */
-fun roomIssues(lens: Map<String, Int>, rh: Int, ops: List<Opening>, pts: List<SitePoint>): List<ReIssue> {
+fun roomIssues(lens: Map<String, Int>, rh: Int, ops: List<Opening>, pts: List<SitePoint>, wh: Map<String, Int> = emptyMap()): List<ReIssue> {
     val out = ArrayList<ReIssue>()
+    // an inner face ([wh]) has its own height: a half wall's is lower than the ceiling ("devordan baland")
     for (o in ops) {
         val L = lens[o.wall] ?: continue
         if (o.off < 0 || o.off + o.w > L) out += ReIssue(o.id, "re.i.out", mapOf("k" to o.type, "w" to o.wall))
-        val top = topOf(o)
-        if (top > rh) out += ReIssue(o.id, "re.i.ceil", mapOf("k" to o.type, "t" to top, "r" to rh))
+        val top = topOf(o); val h = wh[o.wall]
+        if (h != null) { if (top > h) out += ReIssue(o.id, "iw.i.ceil", mapOf("k" to o.type, "t" to top, "r" to h)) }
+        else if (top > rh) out += ReIssue(o.id, "re.i.ceil", mapOf("k" to o.type, "t" to top, "r" to rh))
     }
     for (p in pts) {
         val L = lens[p.wall] ?: continue
         if (p.off < 0 || p.off > L) out += ReIssue(p.id, "re.i.out", mapOf("k" to p.t, "w" to p.wall))
-        if (p.h > rh) out += ReIssue(p.id, "re.i.ceilP", mapOf("k" to p.t))
+        val h = wh[p.wall]
+        if (h != null) { if (p.h > h) out += ReIssue(p.id, "iw.i.ceilP", mapOf("k" to p.t)) }
+        else if (p.h > rh) out += ReIssue(p.id, "re.i.ceilP", mapOf("k" to p.t))
     }
     for (i in ops.indices) for (j in i + 1 until ops.size) {
         val a = ops[i]; val b = ops[j]
@@ -371,12 +375,23 @@ fun mirrorRoom(r: Room, snap: Boolean = true): Room {
         out = out.copy(dims = dims, poly = poly.copy(verts = nv, diags = diags))
     }
     fun wl(w: String) = map[w] ?: w
-    return out.copy(
-        openings = r.openings.map { o -> val L = lens[o.wall] ?: return@map o; o.copy(wall = wl(o.wall), off = (L - o.off - o.w).coerceAtLeast(0), sw = mirrorSwing(o.sw)) },
-        points = r.points.map { p -> val L = lens[p.wall] ?: return@map p; p.copy(wall = wl(p.wall), off = (L - p.off).coerceAtLeast(0)) },
+    // the inner walls: the outline's mirror maps the old plan onto the new one (box to box)
+    val (pieces, iops, ipts) = if (r.inner.isEmpty()) Triple(r.inner, r.openings, r.points) else {
+        val o0 = ws.map { it.p0 }; val o1 = walls(out.copy(inner = emptyList()), snap).map { it.p0 }
+        val flipX = r.rot % 2 == 0
+        val x0 = o0.minOf { it.x }; val x1 = o0.maxOf { it.x }; val y0 = o0.minOf { it.y }; val y1 = o0.maxOf { it.y }
+        val nx0 = o1.minOf { it.x }; val ny0 = o1.minOf { it.y }
+        mirrorInner(r, { p -> if (flipX) V2(nx0 + (x1 - p.x), ny0 + (p.y - y0)) else V2(nx0 + (p.x - x0), ny0 + (y1 - p.y)) },
+            { v -> if (flipX) V2(-v.x, v.y) else V2(v.x, -v.y) })
+    }
+    val faceOps = iops.filter { it.fk.isNotEmpty() }.associateBy { it.id }; val facePts = ipts.filter { it.fk.isNotEmpty() }.associateBy { it.id }
+    return syncFaces(out.copy(
+        openings = r.openings.map { o -> faceOps[o.id] ?: run { val L = lens[o.wall] ?: return@map o; o.copy(wall = wl(o.wall), off = (L - o.off - o.w).coerceAtLeast(0), sw = mirrorSwing(o.sw)) } },
+        points = r.points.map { p -> facePts[p.id] ?: run { val L = lens[p.wall] ?: return@map p; p.copy(wall = wl(p.wall), off = (L - p.off).coerceAtLeast(0)) } },
         features = r.features.map { f -> val L = lens[f.wall] ?: return@map f; f.copy(wall = wl(f.wall), off = (L - f.off - f.w).coerceAtLeast(0)) },
-        thick = r.thick.mapKeys { wl(it.key) }
-    )
+        thick = r.thick.mapKeys { wl(it.key) },
+        inner = pieces
+    ), snap)
 }
 
 /** A hinge side seen in a mirror: left ↔ right. */

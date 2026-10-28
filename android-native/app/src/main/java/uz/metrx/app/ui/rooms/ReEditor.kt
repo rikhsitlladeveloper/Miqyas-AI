@@ -92,7 +92,12 @@ fun App.edSession(pid: String, rid: String): ReSession {
     val key = "ed:$pid:$rid"
     return ReSessions.get(key) ?: ReSession(key, store.get(pid)?.let { tradeOf(it) } ?: "build", false, pid, rid,
         { store.get(pid)?.rooms?.firstOrNull { it.id == rid } },
-        { r -> store.update(pid) { p -> p.copy(rooms = p.rooms.map { if (it.id == rid) r else it }) } }).also { ReSessions.put(it) }
+        { r -> store.update(pid) { p ->
+            // furniture against an inner wall follows its face when the letters move (a piece deleted, the shape changed)
+            val old = p.rooms.firstOrNull { it.id == rid }
+            p.copy(rooms = p.rooms.map { if (it.id == rid) r else it },
+                furniture = if (old != null && (old.inner.isNotEmpty() || r.inner.isNotEmpty())) uz.metrx.app.furniture.refaced(p.furniture, old, r, settings.angleSnap) else p.furniture)
+        } }).also { ReSessions.put(it) }
 }
 
 @Composable
@@ -100,10 +105,20 @@ private fun tools(s: ReSession): List<ETool> {
     val app = LocalApp.current
     val r = s.room ?: return emptyList()
     val o = s.selOp; val p = s.selPt
+    val pc = s.selPieceOnly
     return when {
-        s.sel == null -> listOf(ETool("add", tr("re.t.add"), "plus"), ETool("shape", tr("re.t.shape"), "shape"), ETool("rh", tr("re.t.rh"), "height"),
+        s.sel == null -> listOf(ETool("add", tr("re.t.add"), "plus"), ETool("inner", tr("iw.add"), "iw"), ETool("shape", tr("re.t.shape"), "shape"), ETool("rh", tr("re.t.rh"), "height"),
             ETool("rot", tr("re.t.rot"), "rotate"), ETool("dims", tr("re.t.dims"), "ruler"), ETool("checks", tr("re.t.checks"), "warn", badge = app.issuesOf(r).size),
-            ETool("v3d", "3D", "cube", on = s.view == "3d"), ETool("more", tr("re.t.more"), "list"))
+            ETool("v3d", "3D", "cube", on = s.view == "3d")) + (if (s.trade == "furniture") listOf(ETool("fplace", tr("fp.pl.title"), "sofa")) else emptyList()) + ETool("more", tr("re.t.more"), "list")
+        // an inner wall: Uzunlik, Qalinlik, Balandlik (a half wall), O‘tish (an arch), Shakli (a column) or 90° burish and Yuzalar, Nusxa, O‘chirish
+        pc != null -> listOfNotNull(ETool("iwLen", tr(if (pc.k == "col") "iw.t.size" else "re.t.len"), "ruler"),
+            if (pc.k != "col") ETool("iwTh", tr("iw.th"), "thick") else null, if (pc.k == "half") ETool("iwH", tr("re.t.rh"), "height") else null,
+            if (pc.k == "arch") ETool("iwOp", tr("iw.t.op"), "width") else null, if (pc.k == "col") ETool("iwShape", tr("iw.shape"), "shape") else null,
+            if (pc.k != "col") ETool("iwRot", tr("iw.t.rot90"), "rotate") else null, if (pc.k != "col") ETool("iwFace", tr("iw.faces"), "room") else null,
+            ETool("iwCopy", tr("re.t.copy"), "copy"), ETool("iwDel", tr("re.t.del"), "trash", red = true))
+        // an inner wall's face: like a wall, its thickness is the piece's; "Butun devor" selects the piece
+        s.selWall != null && app.isInner(r, s.selWall!!) -> listOf(ETool("addDoor", tr("re.k.door"), "door", kind = "door"), ETool("addWin", tr("re.k.window"), "window", kind = "window"),
+            ETool("pt", tr("re.t.pt"), "point"), ETool("iwTh", tr("iw.th"), "thick"), ETool("iwOf", tr("iw.whole"), "iw"))
         s.selWall != null -> listOf(ETool("len", tr("re.t.len"), "ruler"), ETool("laser", tr("re.laser"), "laser"), ETool("addDoor", tr("re.k.door"), "door", kind = "door"),
             ETool("addWin", tr("re.k.window"), "window", kind = "window"), ETool("pt", tr("re.t.pt"), "point"), ETool("thick", tr("re.t.thick"), "thick"), ETool("corner", tr("re.t.corner"), "corner"))
         o != null -> listOfNotNull(ETool("w", tr("re.f.w"), "width"), ETool("h", tr("re.t.h"), "height"),
@@ -187,6 +202,7 @@ fun RoomEditorScreen(pid: String, rid: String) {
     BackHandler {
         when {
             s.kp != null -> s.kp = null
+            s.iwWin -> s.iwWin = false
             s.pk != null -> s.pk = null
             s.strip != null -> s.strip = null
             s.sel != null || s.arm != null -> deselect(s)
@@ -212,8 +228,8 @@ fun RoomEditorScreen(pid: String, rid: String) {
                 ReCanvas(s, geo, Modifier.fillMaxSize(), top = capH + 12 * d.density, overlay = {
                     val z = s.zooms[s.view]!!
                     if (z.moved) ZoomPill(z.z, if (s.view == "front") 56.dp else 10.dp) { z.reset() }
-                    if (s.view == "front") Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        reWalls(r, app.reSnap()).forEach { w ->
+                    if (s.view == "front") Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 8.dp).horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                        reAll(r, app.reSnap()).forEach { w ->
                             val on = w.id == s.fw
                             Text(w.id, style = ui(13f, 800, if (on) Color.White else G.ink), textAlign = TextAlign.Center, modifier = Modifier.widthIn(min = 44.dp).heightIn(min = 40.dp)
                                 .clip(RoundedCornerShape(13.dp)).background(if (on) G.cobalt else G.solid).border(1.dp, G.rim, RoundedCornerShape(13.dp))
@@ -249,6 +265,7 @@ fun RoomEditorScreen(pid: String, rid: String) {
         }
         GhostTag(s, rootOrigin)
         PickWindow(s)
+        IwWindow(s)
         KeypadOverlay(s)
     }
 }
@@ -259,12 +276,14 @@ private fun Caption(s: ReSession, modifier: Modifier) {
     val app = LocalApp.current
     val r = s.room ?: return
     if (s.arm != null) { Box(modifier); return }
-    val o = s.selOp; val p = s.selPt; val w = s.selWall
+    val o = s.selOp; val p = s.selPt; val w = s.selWall; val pc = s.selPieceOnly
     val (b, sub) = when {
+        pc != null -> (app.iwName(pc.k) + if (s.ghostId == pc.id) " · " + app.t("iw.new") else "") to app.iwSize(r, pc)
+        w != null && app.isInner(r, w) -> tr("re.wallCap", "w" to app.wLab(r, w), "l" to mm(app.wallL(r, w))) to tr("re.wallCapSub", "t" to (s.selPiece?.th ?: 100), "n" to (r.openings.count { it.wall == w } + r.points.count { it.wall == w }))
         o != null -> { val d = distsOf(o, app.wallL(r, o.wall)); (app.kindName(o.type) + " · " + app.styleName(o.type, styleId(o))) to
             (app.sizeLine(o) + " · " + o.wall + " · " + mm(d.left) + " | " + mm(d.right)) }
         p != null -> { val d = distsOf(p, app.wallL(r, p.wall)); (app.kindName(p.t) + " · " + app.styleName(p.t, styleId(p))) to (app.sizeLine(p) + " · " + p.wall + " · " + mm(d.left) + " | " + mm(d.right)) }
-        w != null -> tr("re.wallCap", "w" to w, "v" to mm(app.wallL(r, w))) to tr("re.wallCapSub", "t" to thickOf(r, w), "n" to (r.openings.count { it.wall == w } + r.points.count { it.wall == w }))
+        w != null -> tr("re.wallCap", "w" to w, "l" to mm(app.wallL(r, w))) to tr("re.wallCapSub", "t" to thickOf(r, w), "n" to (r.openings.count { it.wall == w } + r.points.count { it.wall == w }))
         else -> uz.metrx.app.data.dn(r.name, app.settings.lang) to (app.t(shapeKey(shapeIdOf(r))) + " · " + app.areaLine(r).substringBefore(" ·") + " · h " + mm(roomH(r)))
     }
     Row(modifier.heightIn(min = 34.dp).clip(RoundedCornerShape(18.dp)).background(G.solid).border(1.dp, G.rim, RoundedCornerShape(18.dp))
@@ -285,6 +304,13 @@ private fun onTool(app: App, s: ReSession, k: String, scope: kotlinx.coroutines.
         "addDoor", "addWin" -> { val w = s.selWall ?: return; app.placeAt(s, if (k == "addDoor") "door" else "window", w, app.wallL(r, w) / 2.0, "chip") }
         "copy" -> app.dupSel(s)
         "del" -> app.delSel(s)
+        "inner" -> { s.iwWin = true; s.arm = null }
+        "fplace" -> s.rid?.let { app.push(Route.FArrange(s.pid, it)) }
+        "iwLen" -> app.openKp(s, "iwLen")
+        "iwRot" -> app.iwRotate(s)
+        "iwCopy" -> app.iwCopy(s)
+        "iwDel" -> app.iwDel(s)
+        "iwOf" -> s.selPiece?.let { selectPiece(app, s, it.id) }
         "type", "ptype" -> app.pkOpenFor(s, "retype")
         else -> { s.strip = k; s.arm = null }
     }
@@ -298,7 +324,8 @@ private fun Options(s: ReSession, k: String, geo: ReGeo, scope: kotlinx.coroutin
     val back = { s.strip = null; s.arm = null }
     fun row(title: String, sub: String, content: @Composable RowScope.() -> Unit) = @Composable { OptRow(title, sub, back, key = k, content = content) }
     val content: @Composable () -> Unit = when (k) {
-        "add" -> { { IconOpts(tr("re.t.add"), tr("re.iconsSub"), back) { IconRow(s, geo, modifier = Modifier.weight(1f)) } } }
+        "add" -> { { IconOpts(tr("re.t.add"), tr("re.iconsSub"), back) { IconRow(s, geo, modifier = Modifier.weight(1f), iw = true) } } }
+        "iwTh", "iwH", "iwOp", "iwShape", "iwFace" -> { { PieceOptions(s, k, back) } }
         "pt" -> { { IconOpts(tr("re.t.pt"), tr("re.ptSub", "w" to (w ?: "")), back) { IconRow(s, geo, only = POINT_KINDS, modifier = Modifier.weight(1f)) } } }
         "shape" -> row(tr("re.t.shape"), tr("re.shapeNow", "n" to app.t(shapeKey(shapeIdOf(r))))) {
             SHAPES.forEach { sh ->

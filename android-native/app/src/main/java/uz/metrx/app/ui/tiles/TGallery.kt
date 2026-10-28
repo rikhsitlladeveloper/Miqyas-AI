@@ -206,7 +206,8 @@ private fun ModelCard(m: TModel, modifier: Modifier, wide: Boolean, onClick: () 
 fun defaultSurfs(l: TileLayout, r: Room?, p: Project, snap: Boolean): List<TSurf> {
     if (r == null) return emptyList()
     val m = tModel(l.model)
-    val ws = walls(r, snap)
+    // the outer walls, then the inner walls' faces (both sides are tiled)
+    val ws = uz.metrx.app.geo.allWalls(r, snap)
     return when (m?.surf ?: if (l.place == "floor") "floor" else "walls") {
         "floor" -> listOf(TSurf("floor"))
         "apron" -> listOf(TSurf(ws.first().id, "band", APRON_H0, APRON_H1))
@@ -469,7 +470,7 @@ private fun SurfStep(p: Project, r: Room, d: TileLayout, snap: Boolean, set: ((T
     fun change(s: TSurf) = set { l -> l.copy(surfs = l.surfs.map { if (it.id == s.id) s else it }) }
     Ask(tr("tl.s.surf"), tr("tl.s.surfH")) {
         Check(tr("tl.pk.floor"), null, d.surfs.any { it.id == "floor" }) { toggle("floor") { TSurf("floor") } }
-        walls(r, snap).forEach { w ->
+        uz.metrx.app.geo.allWalls(r, snap).forEach { w ->
             val s = d.surfs.firstOrNull { it.id == w.id }
             Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).padding(bottom = if (s != null) 10.dp else 0.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Check(tr("tl.wallN", "w" to w.id), w.len?.let { fmtLen(it, LenUnit.M, en) + " " + tr("u.m") }, s != null) { toggle(w.id) { TSurf(w.id) } }

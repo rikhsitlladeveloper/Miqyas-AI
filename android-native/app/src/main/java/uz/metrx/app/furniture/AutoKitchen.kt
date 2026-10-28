@@ -62,8 +62,10 @@ fun akSite(room: Room, len: (String) -> Int?, snap: Boolean = true): AkSite {
         val dx = w.p1.x - w.p0.x; val dy = w.p1.y - w.p0.y; val d = hypot(dx, dy).takeIf { it > 1e-6 } ?: return@mapNotNull null
         AkWall(w.id, l, w.p0.x, w.p0.y, dx / d, dy / d)
     }
-    fun open(t: String) = room.openings.filter { it.type == t }.map { AkOpen(it.wall, it.off, it.off + it.w, it.sill, it.sill + it.h) }
-    val pts = room.points
+    // the generator lines a kitchen up along the outer walls: what is on an inner wall's face is not its
+    val known = ws.map { it.id }.toSet()
+    fun open(t: String) = room.openings.filter { it.type == t && it.wall in known }.map { AkOpen(it.wall, it.off, it.off + it.w, it.sill, it.sill + it.h) }
+    val pts = room.points.filter { it.wall in known }
     val water = (pts.firstOrNull { it.t == "cold" } ?: pts.firstOrNull { it.t == "sewer" } ?: pts.firstOrNull { it.t == "hot" })?.let { AkPoint(it.wall, it.off) }
     val gas = pts.firstOrNull { it.t == "gas" }?.let { AkPoint(it.wall, it.off) }
     return AkSite(ws, open("window"), open("door"), water, gas, room.id, room.floorId)

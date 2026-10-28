@@ -192,11 +192,12 @@ internal fun roomOf(p: Project, f: Furniture): Room? = if (f.roomId == null) uz.
 
 /** A wall's length for the kitchen: confirmed, else the reading or the drawing's estimate (the designer says so). */
 internal fun wallLen(r: Room, snap: Boolean, id: String): Int? {
-    val w = walls(r, snap).firstOrNull { it.id == id } ?: return null
+    // an inner wall's face has its length from the piece
+    val w = walls(r, snap).firstOrNull { it.id == id } ?: return uz.metrx.app.geo.wallLen(r, id, snap)
     return w.len ?: wallFrame(r, w, r.openings.filter { it.wall == w.id }).L
 }
 
-internal fun measured(r: Room, snap: Boolean, id: String) = walls(r, snap).firstOrNull { it.id == id }?.len != null
+internal fun measured(r: Room, snap: Boolean, id: String) = (walls(r, snap).firstOrNull { it.id == id }?.len ?: uz.metrx.app.geo.wallLen(r, id, snap)) != null
 
 internal fun kRuns(f: Furniture, r: Room?, snap: Boolean): List<Run> = runsOf(f) { id -> uz.metrx.app.furniture.freeLen(f, id) ?: r?.let { wallLen(it, snap, id) } }
 

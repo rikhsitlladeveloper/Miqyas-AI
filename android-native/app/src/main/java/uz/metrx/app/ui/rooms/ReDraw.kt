@@ -104,12 +104,20 @@ private fun DrawScope.arc(from: Offset, to: Offset, c: Offset, rad: Float, col: 
 
 /* ---------------- the plan ---------------- */
 
-/** One wall on the screen: its ends, along [u], inward normal [n], its length (px and mm), its thickness (px). */
-class Frame(val id: String, val a: Offset, val b: Offset, val u: Offset, val n: Offset, val lpx: Float, val L: Int, val tp: Float)
+/**
+ * One wall on the screen: its ends, along [u], inward normal [n], its length (px and mm), its thickness (px); an inner
+ * wall's face is [inner] (its [n] is the side it faces, its thickness is behind it).
+ */
+class Frame(val id: String, val a: Offset, val b: Offset, val u: Offset, val n: Offset, val lpx: Float, val L: Int, val tp: Float, val inner: Boolean = false)
 
-/** The plan fitted in a box: [k] px per mm, the walls as [frames], the inside [poly] and the walls' outside [outer]. */
-class PlanFit(val k: Float, val frames: List<Frame>, val poly: List<Offset>, val outer: List<Offset>) {
-    fun frame(id: String) = frames.firstOrNull { it.id == id }
+/**
+ * The plan fitted in a box: [k] px per mm, the outer walls as [frames], the inner walls' faces as [inner], the inside
+ * [poly] and the walls' outside [outer]; [M] a plan point (mm) to px and [MI] back.
+ */
+class PlanFit(val k: Float, val frames: List<Frame>, val poly: List<Offset>, val outer: List<Offset>, val inner: List<Frame> = emptyList(),
+              val M: (Pt) -> Offset = { Offset.Zero }, val MI: (Offset) -> Pt = { Pt(0.0, 0.0) }) {
+    fun frame(id: String) = frames.firstOrNull { it.id == id } ?: inner.firstOrNull { it.id == id }
+    val all: List<Frame> get() = frames + inner
     /** The point [t] mm along wall [f], [off] px inward. */
     fun at(f: Frame, t: Double, off: Float) = Offset(f.a.x + f.u.x * (t * k).toFloat() + f.n.x * off, f.a.y + f.u.y * (t * k).toFloat() + f.n.y * off)
 }
@@ -149,7 +157,16 @@ fun planFit(r: Room, ws: List<RW>, box: Rect, pad: Float, padX: Float, z: Float 
     val oo = frames.map { f -> Offset(f.a.x - f.n.x * f.tp, f.a.y - f.n.y * f.tp) }
     val nfr = frames.size
     val outer = frames.indices.map { i -> val j = (i - 1 + nfr) % nfr; lineX(oo[j], frames[j].u, oo[i], frames[i].u) }
-    return PlanFit(k, frames, poly, outer)
+    // the inner walls' faces: each faces its own side, the piece's thickness behind it
+    val inner = uz.metrx.app.geo.innerFaces(r).map { fc ->
+        val a = M(Pt(fc.a.x, fc.a.y)); val b = M(Pt(fc.b.x, fc.b.y))
+        val dx = b.x - a.x; val dy = b.y - a.y; val l = max(hypot(dx, dy), 1e-3f)
+        val q = M(Pt(fc.a.x + fc.look.x * 100, fc.a.y + fc.look.y * 100)); val nl = max(hypot(q.x - a.x, q.y - a.y), 1e-3f)
+        Frame(fc.id, a, b, Offset(dx / l, dy / l), Offset((q.x - a.x) / nl, (q.y - a.y) / nl), l, fc.len, max(2f, fc.th * k), true)
+    }
+    val inv = (4 - ((r.rot % 4) + 4) % 4) % 4
+    val MI = { o: Offset -> val qx = ((o.x - ox) / z - x0) / s; val qy = ((o.y - oy) / z - y0) / s; turn(Pt(qx, qy), inv) }
+    return PlanFit(k, frames, poly, outer, inner, M, MI)
 }
 
 /** What a tap can hit on the plan: an opening's two faces and middle, a point's marker. */
@@ -180,12 +197,16 @@ fun hitPlan(recs: List<ItemRec>, p: Offset, u: Float): String? {
     return best?.second
 }
 
-/** The wall near [p] (px) within [maxd] px — from inside, or from outside past its thickness — and how far along it, mm. */
+/**
+ * The wall near [p] (px) within [maxd] px — from inside, or from outside past its thickness — and how far along it,
+ * mm. An inner wall's face only from its own side (the other side is its other face).
+ */
 fun nearWall(fit: PlanFit, p: Offset, maxd: Float): Pair<Frame, Double>? {
     var best: Triple<Float, Frame, Float>? = null
-    for (f in fit.frames) {
+    for (f in fit.all) {
         val (d0, t) = segD(p, f.a, f.b)
         val side = (p.x - f.a.x) * f.n.x + (p.y - f.a.y) * f.n.y
+        if (f.inner && side < -f.tp * .5f) continue
         val d = if (side < 0) max(0f, d0 - f.tp) else d0
         if (d < maxd && (best == null || d < best.first)) best = Triple(d, f, t)
     }
@@ -196,7 +217,11 @@ fun nearWall(fit: PlanFit, p: Offset, maxd: Float): Pair<Frame, Double>? {
 class PlanLook2(
     val selItem: String? = null, val selWall: String? = null, val hl: String? = null, val arm: Boolean = false, val ghost: Any? = null,
     val magMid: String? = null, val lens: Boolean = true, val chain: Boolean = false, val areaText: String? = null, val small: Boolean = true,
-    val bad: Set<String> = emptySet(), val dimGhost: Boolean = false
+    val bad: Set<String> = emptySet(), val dimGhost: Boolean = false,
+    /** Inner walls: the selected piece, the one just added (a ghost), what a dragged piece snapped to (green). */
+    val selPiece: String? = null, val ghostPiece: String? = null, val magWalls: Set<String> = emptySet(), val magPieces: Set<String> = emptySet(),
+    /** The face letters are not drawn (the furniture plan). */
+    val faceLabels: Boolean = true
 )
 
 private fun txtStyle(sz: Float, col: Color, w: FontWeight = FontWeight.ExtraBold) = TextStyle(fontFamily = Jakarta, fontSize = sz.sp, fontWeight = w, color = col)
@@ -230,7 +255,14 @@ fun DrawScope.drawPlanV2(r: Room, fit: PlanFit, look: PlanLook2, tm: TextMeasure
         drawPath(polyPath(q), G.cobalt.copy(alpha = .55f)); drawPath(polyPath(q), G.cobalt, style = Stroke(2f * u))
     } }
     fr.forEach { ln(it.a, it.b, G.ink2, 1.4f * u) }
-    if (look.arm) fr.forEach { ln(it.a, it.b, G.cobalt, 3.5f * u, floatArrayOf(2 * u, 6 * u), StrokeCap.Round) }
+    // the outer walls a dragged piece touches glow green
+    look.magWalls.forEach { id -> fit.frames.firstOrNull { it.id == id }?.let { f -> ln(f.a, f.b, RP.green.copy(alpha = .35f), 16f * u, cap = StrokeCap.Round); ln(f.a, f.b, RP.green, 4f * u, cap = StrokeCap.Round) } }
+    drawInnerPlan(r, fit, look, u)
+    look.selWall?.let { id -> fit.inner.firstOrNull { it.id == id }?.let { f ->
+        val q = listOf(f.a, f.b, f.b - f.n * f.tp, f.a - f.n * f.tp)
+        drawPath(polyPath(q), G.cobalt.copy(alpha = .55f)); drawPath(polyPath(q), G.cobalt, style = Stroke(2f * u))
+    } }
+    if (look.arm) (fr + fit.inner).forEach { ln(it.a, it.b, G.cobalt, 3.5f * u, floatArrayOf(2 * u, 6 * u), StrokeCap.Round) }
     look.hl?.let { id -> fit.frame(id)?.let { f -> ln(f.a, f.b, RP.green.copy(alpha = .3f), 20f * u, cap = StrokeCap.Round); ln(f.a, f.b, RP.green, 5f * u, cap = StrokeCap.Round) } }
     if (look.areaText != null) {
         val ce = Offset(fit.poly.sumOf { it.x.toDouble() }.toFloat() / fit.poly.size, fit.poly.sumOf { it.y.toDouble() }.toFloat() / fit.poly.size)
@@ -246,6 +278,58 @@ fun DrawScope.drawPlanV2(r: Room, fit: PlanFit, look: PlanLook2, tm: TextMeasure
         val m = mid(f.a, f.b) - f.n * off
         labelPill(tm, m.x, m.y, if (look.lens) f.id + " · " + lenOf(f.id) else f.id, f.id == look.selWall || f.id == look.hl, u)
     }
+    // an inner face's letter on its own side (with its length when it is the one selected)
+    if (look.faceLabels) fit.inner.forEach { f ->
+        if (f.lpx < 18 * u) return@forEach
+        val cur = f.id == look.selWall || f.id == look.hl
+        val m = mid(f.a, f.b) + f.n * (11 * u)
+        labelPill(tm, m.x, m.y, if (cur) f.id + " · " + lenOf(f.id) else f.id, cur, u)
+    }
+}
+
+/** The inner walls on the plan: their bodies (a half wall lighter), an arch's passage, the selected one, the ghost, the problems. */
+fun DrawScope.drawInnerPlan(r: Room, fit: PlanFit, look: PlanLook2, u: Float) {
+    if (r.inner.isEmpty()) return
+    val rh = roomH(r)
+    r.inner.forEach { p ->
+        val g = uz.metrx.app.geo.pieceGeo(p, rh)
+        val polys = g.R.map { q -> q.map { fit.M(Pt(it.x, it.y)) } }
+        val on = look.selPiece == p.id
+        val ghost = look.ghostPiece == p.id
+        if (p.id in look.magPieces) polys.forEach { drawPath(polyPath(it), RP.green.copy(alpha = .35f)); drawPath(polyPath(it), RP.green, style = Stroke(4f * u)) }
+        polys.forEach { q ->
+            drawPath(polyPath(q), RP.wallc.copy(alpha = (if (p.k == "half") .5f else .82f) * (if (ghost) .7f else 1f)))
+            drawPath(polyPath(q), G.ink2, style = Stroke(1.2f * u))
+        }
+        g.gap?.let { (g0, g1) ->
+            val t = p.th / 2.0
+            listOf(t, -t).forEach { o -> ln(fit.M(Pt(g0.x + g.n.x * o, g0.y + g.n.y * o)), fit.M(Pt(g1.x + g.n.x * o, g1.y + g.n.y * o)), G.ink3, 1.4f * u, floatArrayOf(5 * u, 4 * u)) }
+        }
+        if (on) polys.forEach { drawPath(polyPath(it), G.cobalt.copy(alpha = .25f)); drawPath(polyPath(it), G.cobalt, style = Stroke(2.6f * u)) }
+        else if (ghost) polys.forEach { drawPath(polyPath(it), G.cobalt, style = Stroke(2f * u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(5 * u, 4 * u)))) }
+        else if (p.id in look.bad) polys.forEach { drawPath(polyPath(it), RP.issue, style = Stroke(2.2f * u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4 * u, 3 * u)))) }
+    }
+}
+
+/** The inner wall under [p] (px): inside one of its parts or within 9 px of it. */
+fun hitPiece(r: Room, fit: PlanFit, p: Offset, u: Float): String? {
+    var best: Pair<Float, String>? = null
+    val rh = roomH(r)
+    r.inner.forEach { pc ->
+        var d = Float.MAX_VALUE
+        uz.metrx.app.geo.pieceGeo(pc, rh).R.forEach { q0 ->
+            val q = q0.map { fit.M(Pt(it.x, it.y)) }
+            if (pip(p, q)) d = 0f else for (i in q.indices) d = min(d, segD(p, q[i], q[(i + 1) % q.size]).first)
+        }
+        if (d < 9 * u && (best == null || d < best!!.first)) best = d to pc.id
+    }
+    return best?.second
+}
+
+/** The face of piece [pid] nearest [p] (a second tap on a selected piece selects that face). */
+fun faceAt(fit: PlanFit, r: Room, pid: String, p: Offset): String? {
+    val ids = uz.metrx.app.geo.innerFaces(r).filter { it.pid == pid }.map { it.id }.toSet()
+    return fit.inner.filter { it.id in ids }.minByOrNull { segD(p, it.a, it.b).first }?.id
 }
 
 private fun DrawScope.chainDim(r: Room, fit: PlanFit, f: Frame, tm: TextMeasurer, u: Float) {
@@ -387,6 +471,13 @@ fun DrawScope.drawFront(r: Room, ff: FrontFit, selItem: String?, selWall: Boolea
     val xa = min(ff.X(0.0), ff.X(ff.L.toDouble())); val xb = max(ff.X(0.0), ff.X(ff.L.toDouble())); val yt = ff.Z(ff.rh.toDouble()); val yf = ff.Z(0.0)
     drawRect(RP.elev, Offset(xa, yt), Size(xb - xa, yf - yt))
     drawRect(if (selWall) G.cobalt else G.ink3, Offset(xa, yt), Size(xb - xa, yf - yt), style = Stroke((if (selWall) 2.6f else 1.2f) * u))
+    // an arch wall's face: its passage, from the floor
+    uz.metrx.app.geo.archGap(r, ff.wall)?.let { (t0, t1, h) ->
+        val x0 = min(ff.X(t0), ff.X(t1)); val x1 = max(ff.X(t0), ff.X(t1)); val ya = ff.Z(h.toDouble())
+        val rr = min((x1 - x0) / 2, (yf - ya) * .3f)
+        val pth = Path().apply { moveTo(x0, yf); lineTo(x0, ya + rr); arcTo(Rect(x0, ya, x1, ya + 2 * rr), 180f, 180f, false); lineTo(x1, yf); close() }
+        drawPath(pth, RP.paper); drawPath(pth, G.ink2, style = Stroke(1.4f * u, pathEffect = PathEffect.dashPathEffect(floatArrayOf(5 * u, 4 * u))))
+    }
     ln(Offset(xa - 10 * u, yf), Offset(xb + 10 * u, yf), G.ink2, 2f * u)
     val ls = txtStyle(10.5f, G.ink3, FontWeight.Bold)
     tm.measure("‹ " + nb.first, ls).let { drawText(it, topLeft = Offset(xa + 3 * u, yt - 5 * u - it.size.height)) }
@@ -664,7 +755,7 @@ fun DrawScope.pkDraw(kind: String, style: String, v: Map<String, Int>, f: String
 class IsoHit(val id: String, val wall: Boolean, val poly: List<Offset>)
 
 /** The room in simple isometric 3D (the mockup's isoSvg): back walls full height with their items, front walls low. */
-fun DrawScope.drawIso(r: Room, ws: List<RW>, top: Float, z: Zoom, selItem: String?, selWall: String?, bad: Set<String>, tm: TextMeasurer, u: Float, hits: MutableList<IsoHit>) {
+fun DrawScope.drawIso(r: Room, ws: List<RW>, top: Float, z: Zoom, selItem: String?, selWall: String?, bad: Set<String>, tm: TextMeasurer, u: Float, hits: MutableList<IsoHit>, selPiece: String? = null) {
     hits.clear()
     val W = size.width; val H = size.height; val rh = roomH(r).toDouble()
     val P3 = ws.map { turn(it.a, r.rot) }
@@ -722,6 +813,60 @@ fun DrawScope.drawIso(r: Room, ws: List<RW>, top: Float, z: Zoom, selItem: Strin
     }
     val order = walls.sortedBy { it.d }
     order.forEach { if (it.back) wall3(it, rh, true) }
+    // the inner walls, far ones first: each part's sides towards the eye, the items on them, its top
+    if (r.inner.isNotEmpty()) {
+        val faces = uz.metrx.app.geo.innerFaces(r)
+        fun T(v: uz.metrx.app.geo.V2) = turn(Pt(v.x, v.y), r.rot)
+        r.inner.map { it to uz.metrx.app.geo.pieceGeo(it, rh.toInt()) }.sortedBy { (_, g) -> val c = T(g.c); c.x + c.y }.forEach { (p, g) ->
+            val hh = g.H.toDouble()
+            val selP = selPiece == p.id
+            g.R.forEach { q0 ->
+                val q = q0.map { T(it) }
+                val cx = q.sumOf { it.x } / q.size; val cy = q.sumOf { it.y } / q.size
+                val sides = q.indices.mapNotNull { i ->
+                    val a = q[i]; val b = q[(i + 1) % q.size]
+                    val dx = b.x - a.x; val dy = b.y - a.y; val l = hypot(dx, dy); if (l < 1e-6) return@mapNotNull null
+                    var nx = dy / l; var ny = -dx / l
+                    if (((a.x + b.x) / 2 - cx) * nx + ((a.y + b.y) / 2 - cy) * ny < 0) { nx = -nx; ny = -ny }
+                    if (nx + ny <= .05) null else Triple(a, b, Pt(nx, ny))
+                }.sortedBy { (a, b, _) -> a.x + b.x + a.y + b.y }
+                sides.forEach { (a, b, nn) ->
+                    val face = listOf(S2(a.x, a.y, 0.0), S2(b.x, b.y, 0.0), S2(b.x, b.y, hh), S2(a.x, a.y, hh))
+                    // the face lying on this side, if it is one of the piece's walls
+                    val fc = faces.firstOrNull { f -> f.pid == p.id && run { val fa = T(f.a); val fb = T(f.b); val ux = (b.x - a.x); val uy = (b.y - a.y); val l = hypot(ux, uy)
+                        abs((fa.x - a.x) * uy - (fa.y - a.y) * ux) / l < 2 && abs((fb.x - a.x) * uy - (fb.y - a.y) * ux) / l < 2 && (f.look.let { lk -> val tl = T(lk); tl.x * nn.x + tl.y * nn.y > .5 }) } }
+                    poly(face, if (abs(nn.x) > abs(nn.y)) RP.isoWall2 else RP.isoWall, selP || (fc != null && selWall == fc.id), p.id in bad)
+                    hits += IsoHit(fc?.id ?: "piece:" + p.id, fc != null, face)
+                    if (fc != null) {
+                        val fa = T(fc.a); val fb = T(fc.b); val fl = max(hypot(fb.x - fa.x, fb.y - fa.y), 1e-6)
+                        val fu = Pt((fb.x - fa.x) / fl, (fb.y - fa.y) / fl)
+                        fun atF(t: Double, zz: Double) = S2(fa.x + fu.x * t + nn.x * 4, fa.y + fu.y * t + nn.y * 4, zz)
+                        r.openings.filter { it.wall == fc.id }.forEach { o ->
+                            val z0 = z0Of(o).toDouble(); val z1 = topOf(o).toDouble()
+                            val qq = listOf(atF(o.off.toDouble(), z0), atF((o.off + o.w).toDouble(), z0), atF((o.off + o.w).toDouble(), z1), atF(o.off.toDouble(), z1))
+                            poly(qq, if (o.type == "door" && styleId(o) != "glass") RP.doorf else Color(0x8038BDF8), selItem == o.id, o.id in bad); hits += IsoHit(o.id, false, qq)
+                        }
+                        r.points.filter { it.wall == fc.id }.forEach { pt ->
+                            val q1 = 110.0
+                            val qq = listOf(atF(pt.off - q1, pt.h - q1), atF(pt.off + q1, pt.h - q1), atF(pt.off + q1, pt.h + q1), atF(pt.off - q1, pt.h + q1))
+                            poly(qq, kindColor(pt.t), selItem == pt.id, pt.id in bad); hits += IsoHit(pt.id, false, qq)
+                        }
+                    }
+                }
+                val top = q.map { S2(it.x, it.y, hh) }
+                poly(top, RP.isoCap, selP, p.id in bad); hits += IsoHit("piece:" + p.id, false, top)
+            }
+            // an arch's lintel over its passage
+            g.gap?.let { (g0, g1) ->
+                val t = p.th / 2.0; val a = T(g0); val b = T(g1); val n2 = T(g.n)
+                val lt = listOf(S2(a.x + n2.x * t, a.y + n2.y * t, hh), S2(b.x + n2.x * t, b.y + n2.y * t, hh), S2(b.x - n2.x * t, b.y - n2.y * t, hh), S2(a.x - n2.x * t, a.y - n2.y * t, hh))
+                poly(lt, RP.isoCap, selP)
+                val fr0 = if (n2.x + n2.y > 0) t else -t
+                val fq = listOf(S2(a.x + n2.x * fr0, a.y + n2.y * fr0, p.opH.toDouble()), S2(b.x + n2.x * fr0, b.y + n2.y * fr0, p.opH.toDouble()), S2(b.x + n2.x * fr0, b.y + n2.y * fr0, hh), S2(a.x + n2.x * fr0, a.y + n2.y * fr0, hh))
+                poly(fq, RP.isoWall, selP)
+            }
+        }
+    }
     order.forEach { if (!it.back) wall3(it, 280.0, false) }
 }
 

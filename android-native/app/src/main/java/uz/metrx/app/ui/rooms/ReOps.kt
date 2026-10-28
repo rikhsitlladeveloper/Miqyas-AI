@@ -108,11 +108,13 @@ fun reducedMotion(): Boolean {
  * onto the plan. [only] a single group (the editor's Nuqta tool).
  */
 @Composable
-fun IconRow(s: ReSession, geo: ReGeo, only: List<String>? = null, modifier: Modifier = Modifier) {
+fun IconRow(s: ReSession, geo: ReGeo, only: List<String>? = null, modifier: Modifier = Modifier, iw: Boolean = false) {
     val app = LocalApp.current
     val groups = if (only != null) listOf(only) else kindGroups(s.trade)
     Row(modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 8.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(4.dp),
         verticalAlignment = Alignment.CenterVertically) {
+        // "Devor qo‘shish" leads the row (the inner walls' window)
+        if (iw) { IwTile(s); Box(Modifier.width(1.dp).height(44.dp).background(G.ink.copy(alpha = .1f))) }
         groups.forEachIndexed { gi, g ->
             if (gi > 0) Box(Modifier.width(1.dp).height(44.dp).background(G.ink.copy(alpha = .1f)))
             g.forEach { k -> IconTile(s, geo, k, app) }
@@ -202,7 +204,7 @@ fun BoxScope.GhostTag(s: ReSession, rootOrigin: Offset) {
 /* ---------------- the floating card ---------------- */
 
 @Composable
-private fun FcBtn(label: String, icon: String, red: Boolean = false, modifier: Modifier, onClick: () -> Unit) {
+internal fun FcBtn(label: String, icon: String, red: Boolean = false, modifier: Modifier, onClick: () -> Unit) {
     Row(modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(12.dp)).background(if (red) G.err.copy(alpha = .1f) else G.cobalt.copy(alpha = .11f))
         .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally)) {
@@ -212,13 +214,13 @@ private fun FcBtn(label: String, icon: String, red: Boolean = false, modifier: M
 }
 
 @Composable
-private fun RoundX(icon: String, label: String, onClick: () -> Unit) {
+internal fun RoundX(icon: String, label: String, onClick: () -> Unit) {
     Box(Modifier.size(38.dp).clip(CircleShape).background(chipBg).border(1.dp, G.rim, CircleShape).semantics { contentDescription = label }
         .clickable(role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) { ReIcon(icon, G.ink2, 17.dp) }
 }
 
 @Composable
-private fun DistChip(v: Int, onClick: () -> Unit) {
+internal fun DistChip(v: Int, onClick: () -> Unit) {
     Text(mm(v), style = num(13f, 800, G.ink), modifier = Modifier.heightIn(min = 34.dp).clip(RoundedCornerShape(12.dp)).background(chipBg).border(1.dp, G.rim, RoundedCornerShape(12.dp))
         .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp))
 }
@@ -231,6 +233,7 @@ fun FloatCard(s: ReSession, modifier: Modifier) {
     val o = s.selOp; val p = s.selPt
     val shape = RoundedCornerShape(22.dp)
     val base = modifier.fillMaxWidth().shadow(18.dp, shape).clip(shape).background(G.solid).border(1.dp, G.rim, shape)
+    s.selPieceOnly?.let { PieceCard(s, it, base); return }
     if (o != null || p != null) {
         val kind = o?.type ?: p!!.t; val wall = o?.wall ?: p!!.wall
         val L = app.wallL(r, wall)
@@ -295,12 +298,15 @@ fun FloatCard(s: ReSession, modifier: Modifier) {
     }
     val w = s.selWall ?: return
     val cnt = r.openings.count { it.wall == w } + r.points.count { it.wall == w }
+    val pc = if (app.isInner(r, w)) s.selPiece else null
     Row(base.padding(start = 8.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(G.cobalt), contentAlignment = Alignment.Center) { ReIcon("room", Color.White, 18.dp) }
+        Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(if (pc != null) RP.wallc else G.cobalt), contentAlignment = Alignment.Center) { ReIcon(if (pc != null) "iw" else "room", Color.White, 18.dp) }
         Column(Modifier.weight(1f)) {
-            Text(tr("re.wallCard", "w" to w, "v" to mm(app.wallL(r, w)), "n" to cnt), style = ui(14f, 800), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(tr("re.wallCard", "w" to app.wLab(r, w), "l" to mm(app.wallL(r, w)), "n" to cnt), style = ui(14f, 800), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(tr("re.wallCardSub"), style = ui(12f, 500, G.ink2, 1.3f))
         }
+        // an inner face: back to its whole piece
+        if (pc != null) RoundX("iw", tr("iw.whole")) { selectPiece(app, s, pc.id) }
         RoundX("close", tr("re.desel")) { deselect(s) }
     }
 }
@@ -324,7 +330,7 @@ private fun MiniFrontCanvas(s: ReSession, geo: ReGeo, r: uz.metrx.app.data.Room,
     val tm = rememberTextMeasurer()
     androidx.compose.foundation.layout.BoxWithConstraints(Modifier.fillMaxSize().onGloballyPositioned { geo.bounds = it.boundsInRoot() }) {
         val W = constraints.maxWidth.toFloat(); val H = constraints.maxHeight.toFloat()
-        val ff = frontFit(wall, app.wallL(r, wall), roomH(r), Rect(0f, 0f, W, H), true, u = u)
+        val ff = frontFit(wall, app.wallL(r, wall), app.wallH(r, wall), Rect(0f, 0f, W, H), true, u = u)
         geo.ff = ff; geo.frecs = frontRecs(r, ff, u); geo.view = "front"
         Box(Modifier.fillMaxSize().pointerInput(Unit) { miniGestures(app, s, geo) })
         val bad = app.issuesOf(r).map { it.id }.toSet()
@@ -533,7 +539,7 @@ fun ReOpsStep(d: RshDraft, onBack: () -> Unit, onDone: () -> Unit) {
             })
             Column(Modifier.weight(1f).padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(RP.paper).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {
-                    ReCanvas(s, geo, Modifier.fillMaxSize(), avoid = if (s.selOp != null || s.selPt != null) cardH + 6 * u else 0f)
+                    ReCanvas(s, geo, Modifier.fillMaxSize(), avoid = if (s.selOp != null || s.selPt != null || s.selPieceOnly != null) cardH + 6 * u else 0f)
                     val n = r.openings.size + r.points.size
                     if (n > 0 && s.pk == null) Row(Modifier.align(Alignment.TopEnd).padding(10.dp).heightIn(min = 32.dp).clip(RoundedCornerShape(16.dp)).background(G.solid)
                         .border(1.dp, G.rim, RoundedCornerShape(16.dp)).clickable(role = Role.Button) { s.listOpen = true }.padding(horizontal = 12.dp),
@@ -548,7 +554,7 @@ fun ReOpsStep(d: RshDraft, onBack: () -> Unit, onDone: () -> Unit) {
                 Row(Modifier.padding(start = 14.dp, end = 12.dp, top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(tr("re.iconsT"), style = ui(12.5f, 800)); Text(tr("re.iconsSub"), style = ui(11.5f, 600, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Box(Modifier.onGloballyPositioned { c -> if (firstTile == null) { val p = c.positionInRoot(); firstTile = Offset(p.x + 8 * u + 37 * u, p.y + 4 * u + 33 * u) } }) { IconRow(s, geo) }
+                Box(Modifier.onGloballyPositioned { c -> if (firstTile == null) { val p = c.positionInRoot(); firstTile = Offset(p.x + 8 * u + 78 * u + 9 * u + 37 * u, p.y + 4 * u + 33 * u) } }) { IconRow(s, geo, iw = true) }
             }
             UxBar(tr(if (r.openings.isNotEmpty() || r.points.isNotEmpty()) "rsh.ready" else "rsh.skip"), null, { s.sel = null; onDone() }, { s.undo(app) }, s.canUndo, { s.redo(app) }, s.canRedo)
             }
@@ -562,6 +568,7 @@ fun ReOpsStep(d: RshDraft, onBack: () -> Unit, onDone: () -> Unit) {
         GhostTag(s, rootOrigin)
         ListSheet(s)
         PickWindow(s)
+        IwWindow(s)
         KeypadOverlay(s)
     }
 }
@@ -570,7 +577,7 @@ fun ReOpsStep(d: RshDraft, onBack: () -> Unit, onDone: () -> Unit) {
 @Composable
 fun WallChips(s: ReSession, r: uz.metrx.app.data.Room) {
     val app = LocalApp.current
-    val ws = reWalls(r, app.reSnap())
+    val ws = reAll(r, app.reSnap())
     val hl = (s.ghost?.it as? Opening)?.wall ?: (s.ghost?.it as? SitePoint)?.wall ?: s.pk?.takeIf { it.mode == "new" }?.wall
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
         Text(tr("re.wallW"), style = ui(11.5f, 700, G.ink2), modifier = Modifier.padding(horizontal = 2.dp))

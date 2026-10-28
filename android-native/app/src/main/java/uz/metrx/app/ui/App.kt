@@ -51,6 +51,8 @@ sealed interface Route {
     data class FSteps(val pid: String, val model: String, val fid: String? = null, val vals: String? = null, val tpl: String? = null) : Route
     data class FWhere(val pid: String, val model: String, val vals: String) : Route
     data class FPlace(val pid: String, val fid: String?, val rid: String, val model: String? = null, val vals: String? = null) : Route
+    /** "Mebel joylash": the room's furniture on its plan, against the walls or free (28 Oct 2026); [sel] the piece selected first. */
+    data class FArrange(val pid: String, val rid: String, val sel: String? = null) : Route
     /** A furniture order's design style, the preset new pieces start with (furniture/Look.kt); [fromNew]: a new order's first step, the gallery next. */
     data class FStyle(val pid: String, val fromNew: Boolean = false) : Route
     /** "Oshxona yasash", the auto kitchen in measured room [rid] (furniture/AutoKitchen.kt); [fid] the kitchen it replaces (from the designer), null: a new one. */
@@ -384,6 +386,7 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.FStyle -> store.get(r.pid) != null
                     is Route.AutoKitchen -> store.get(r.pid)?.rooms?.any { it.id == r.rid } == true
                     is Route.FPlace -> store.get(r.pid)?.let { p -> (r.fid == null || p.furniture.any { it.id == r.fid }) && p.rooms.any { it.id == r.rid } } == true
+                    is Route.FArrange -> store.get(r.pid)?.rooms?.any { it.id == r.rid } == true
                     is Route.TGallery -> store.get(r.pid)?.let { p -> r.rid == null || p.rooms.any { it.id == r.rid } } == true
                     is Route.TSteps -> store.get(r.pid)?.let { p -> r.lid == null || p.tiles.any { it.id == r.lid } } == true
                     is Route.TView -> store.get(r.pid)?.let { p -> if (r.rid != null) p.rooms.any { it.id == r.rid } else p.tiles.any { it.id == r.lid } } == true

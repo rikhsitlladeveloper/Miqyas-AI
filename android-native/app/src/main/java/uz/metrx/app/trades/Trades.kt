@@ -78,7 +78,9 @@ fun tileArea(r: Room, t: TradeSet, snap: Boolean = true): Double {
         val H = r.dim("H").v ?: t.wallH
         val hh = min(t.wallH, H)
         val open = r.openings.sumOf { o -> o.w.toDouble() * max(0, min(o.sill + o.h, hh) - o.sill).toDouble() }
-        mm2 += a.perim.toDouble() * hh - open
+        // inner walls: both faces up to the line (a half wall only up to its top), their doors through both sides
+        val ia = uz.metrx.app.geo.innerAreas(r, snap, hh)
+        mm2 += (a.perim - ia.len).toDouble() * hh - open + ia.gross - ia.open / 2.0
     }
     return mm2 / 1e6
 }

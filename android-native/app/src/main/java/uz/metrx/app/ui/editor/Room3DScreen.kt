@@ -113,7 +113,7 @@ fun Room3DScreen(r0: Route.Editor) {
             }
             return@Column
         }
-        val base = remember(r.dims, r.openings, r.poly, r.points, r.features, r.wallColor, r.floorColor, snap) { buildShell(listOf(r), true, snap) }
+        val base = remember(r.dims, r.openings, r.poly, r.points, r.features, r.wallColor, r.floorColor, r.inner, snap) { buildShell(listOf(r), true, snap) }
         // a furniture order's furniture stands in its room; a tap opens a door or a drawer
         val mo = uz.metrx.app.ui.furniture.rememberDoorMotion(r.id)
         val (shell, fur) = if (p.isFurniture) uz.metrx.app.ui.furniture.rememberFurnShell(p, r, base, mo)

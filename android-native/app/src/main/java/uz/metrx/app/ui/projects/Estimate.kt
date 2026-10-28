@@ -111,13 +111,16 @@ private val RULE get() = G.rim
 private val SUG_UNITS = listOf("@u.m2", "@u.l", "@u.bag", "@u.l", "@u.m2", "@u.m2")
 private val UNITS = listOf("u.pcs", "u.m2", "u.m", "u.kg", "u.l", "u.bag", "u.can", "u.set")
 
-/** The project's net wall and floor areas in mm², from the rooms that have them (prototype gsAreas). */
-data class PjAreas(val w: Long, val f: Long, val nw: Int, val nf: Int)
+/**
+ * The project's net wall and floor areas in mm², from the rooms that have them (prototype gsAreas); [iw] the inner walls
+ * (partitions) themselves, one side less their doors, for bricks or boards (geo/InnerWalls.kt).
+ */
+data class PjAreas(val w: Long, val f: Long, val nw: Int, val nf: Int, val iw: Long = 0)
 
 fun pjAreas(p: Project, snap: Boolean): PjAreas {
-    var w = 0L; var f = 0L; var nw = 0; var nf = 0
-    p.rooms.forEach { r -> areas(r, snap)?.let { a -> f += a.floor; nf++; a.net?.let { w += it; nw++ } } }
-    return PjAreas(w, f, nw, nf)
+    var w = 0L; var f = 0L; var nw = 0; var nf = 0; var iw = 0L
+    p.rooms.forEach { r -> areas(r, snap)?.let { a -> f += a.floor; nf++; a.net?.let { w += it; nw++ } }; if (r.dim("H").v != null) iw += uz.metrx.app.geo.innerAreas(r, snap).part }
+    return PjAreas(w, f, nw, nf, iw)
 }
 
 fun money(v: BigInteger, p: Project, l: Lang, withCur: Boolean = false) = moneyStr(v, p.precision, l == Lang.EN) + if (withCur) " " + curSuffix(p.currency, l) else ""
@@ -523,12 +526,14 @@ fun RowSheet(s0: Sheet.Row) {
                     imeAction = androidx.compose.ui.text.input.ImeAction.Done, focusRequester = priceFocus, modifier = Modifier.weight(1f))
             }
             val ga = pjAreas(p, app.settings.angleSnap)
-            if (f("eunit") == "@u.m2" && (ga.nw > 0 || ga.nf > 0)) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            if (f("eunit") == "@u.m2" && (ga.nw > 0 || ga.nf > 0 || ga.iw > 0)) Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Text(tr("gs.fromRoom"), style = ui(15f, 700))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     fun area(mm2: Long) = BigDecimal(mm2).divide(BigDecimal(1_000_000)).setScale(2, RoundingMode.HALF_UP).stripTrailingZeros().toPlainString().replace('.', if (en) '.' else ',')
                     if (ga.nw > 0) FromChip(tr("gs.wall") + " " + fmtArea(ga.w, en)) { set("eqty", area(ga.w)); touched = touched + "eqty" }
                     if (ga.nf > 0) FromChip(tr("gs.floor") + " " + fmtArea(ga.f, en)) { set("eqty", area(ga.f)); touched = touched + "eqty" }
+                    // the partitions (inner walls), one side: their bricks or boards
+                    if (ga.iw > 0) FromChip(tr("iw.est") + " " + fmtArea(ga.iw, en)) { set("eqty", area(ga.iw)); touched = touched + "eqty" }
                     ReserveChip(reserve) { set("ereserve", if (reserve) "" else "1") }
                 }
             }
