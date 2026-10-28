@@ -130,7 +130,7 @@ private fun along(c: PCtx, pieces: List<Triple<TWall, Double, Double>>, z: Doubl
  * or in the floor; [dia] the trunk's diameter.
  */
 fun supplyRun(c: PCtx, kind: String, ts: List<APt>, src: Src?, exits: List<Opening>, run: String, link: Double, dia: Int): PRun {
-    val per = Perim(c.g.walls)
+    val per = Perim(c.g.walls, c.g.inner)
     val z = runZ(kind, run); val ins = inset(kind, run)
     val path = Path()
     var trunk = 0.0; var chase = 0.0; var corners = 0; var dips = 0
@@ -165,11 +165,12 @@ fun supplyRun(c: PCtx, kind: String, ts: List<APt>, src: Src?, exits: List<Openi
         val pcs = walk(per, e, e - ccw, false); corners += max(0, pcs.size - 1)
         val (l, ch, d) = along(c, pcs, z, z0, ins, path, dip); trunk += l; chase += ch; dips += d
     }
-    // each outlet: straight up or down the wall from the run
+    // each outlet: straight up or down the wall from the run; one on an inner partition first across to it and along it
     var drops = 0.0
     ts.forEach { t ->
         val w = c.wall(t.wall) ?: return@forEach
         val q = w.at(t.off.toDouble(), ins)
+        per.spur(w.id, t.off.toDouble())?.let { sp -> path.jump(sp.at, z, null); path.to(sp.end, z, null); path.to(q, z, w.id); drops += sp.len }
         path.jump(q, z, w.id); path.to(q, t.h.toDouble(), w.id)
         drops += abs(t.h - z)
     }
@@ -204,8 +205,10 @@ fun minSlope(dia: Int) = if (dia >= 100) MIN_110 else MIN_50
 fun drainOf(pt: APt, c: PCtx, rc: PCtx?, rs: PlRiser?, link: Double): PDrain {
     val dia = drainD(pt.d)
     val ins = inset("drain", "")
-    val per = Perim(c.g.walls)
+    val per = Perim(c.g.walls, c.g.inner)
     val sp = per.s(pt.wall, pt.off.toDouble())
+    // an outlet on an inner partition: along it and across to the outer wall first, on the floor
+    val spur = per.spur(pt.wall, pt.off.toDouble())
     // the legs: in this room to the riser or the door; then (after the pipe between the doors) in the riser's room
     class Leg(val ctx: PCtx, val per: Perim, val pieces: List<Triple<TWall, Double, Double>>, val len: Double, val pre: Double)
     val legs = ArrayList<Leg>()
@@ -222,19 +225,20 @@ fun drainOf(pt: APt, c: PCtx, rc: PCtx?, rs: PlRiser?, link: Double): PDrain {
             val (cw, d) = shorter(rp.P, a, b); legs += Leg(rc, rp, walk(rp, a, b, cw), d, between)
         }
     }
-    val horiz = legs.sumOf { it.len } + between
+    val horiz = legs.sumOf { it.len } + between + (spur?.len ?: 0.0)
     val want = slopeFor(dia)
     val z0 = if (horiz <= 0) pt.h.toDouble() else max(min(pt.h.toDouble(), DRAIN_IN.toDouble()), min(pt.h.toDouble(), DRAIN_IN + want * horiz / 1000))
     val slope = if (horiz <= 0) want.toDouble() else max(0.0, (z0 - DRAIN_IN) / horiz * 1000)
     val vertical = max(0.0, pt.h - z0)
     val runs = ArrayList<PRun>()
-    var s = 0.0
+    var s = spur?.len ?: 0.0
     legs.forEachIndexed { i, leg ->
         s += leg.pre
         val path = Path()
         val st = ArrayList<Pair<Double, Double>>()
         val withDrop = i == 0 && leg.ctx.id == c.id
-        if (withDrop) c.wall(pt.wall)?.let { w -> val q = w.at(pt.off.toDouble(), ins); path.jump(q, pt.h.toDouble(), w.id); path.to(q, z0, w.id) }
+        if (withDrop) c.wall(pt.wall)?.let { w -> val q = w.at(pt.off.toDouble(), ins); path.jump(q, pt.h.toDouble(), w.id); path.to(q, z0, w.id)
+            spur?.let { sp -> path.to(sp.end, z0 - slope * abs(pt.off - (sp.end - w.p0).dot(w.t)) / 1000, null); path.to(sp.at, z0 - slope * sp.len / 1000, null) } }
         else leg.pieces.firstOrNull()?.let { (w, a, _) -> path.jump(w.at(a, ins), z0 - slope * s / 1000, w.id) }
         leg.pieces.forEach { (w, a, b) ->
             val za = z0 - slope * s / 1000; val zb = z0 - slope * (s + abs(b - a)) / 1000
@@ -242,7 +246,7 @@ fun drainOf(pt: APt, c: PCtx, rc: PCtx?, rs: PlRiser?, link: Double): PDrain {
             val s0 = leg.per.s(w.id, min(a, b)); st += s0 to s0 + abs(b - a)
             s += abs(b - a)
         }
-        val v = if (withDrop) vertical else 0.0
+        val v = if (withDrop) vertical + (spur?.len ?: 0.0) else 0.0
         runs += PRun("drain", leg.ctx.id, path.segs, leg.len + v, leg.len, v, 0.0, max(0, leg.pieces.size - 1), 0, dia, 1, st, pt.id)
     }
     if (legs.none { it.ctx.id == c.id } && vertical > 0) c.wall(pt.wall)?.let { w ->
@@ -274,8 +278,8 @@ fun loopOf(c: PCtx, fs: List<PlFix>, mc: PCtx?, mf: APt?): PLoop {
         mc.id == c.id -> { val q = planOf(c, mf.wall, mf.off) ?: centre(c); val m = centre(c); 2 * (hypot(q.x - m.x, q.y - m.y) + mf.h) }
         else -> {
             val x = exitDoor(mc, c)
-            val per = Perim(mc.g.walls)
-            val d = if (x == null) 0.0 else shorter(per.P, per.s(mf.wall, mf.off.toDouble()), per.s(x.wall, x.off + x.w / 2.0)).second
+            val per = Perim(mc.g.walls, mc.g.inner)
+            val d = if (x == null) 0.0 else shorter(per.P, per.s(mf.wall, mf.off.toDouble()), per.s(x.wall, x.off + x.w / 2.0)).second + (per.spur(mf.wall, mf.off.toDouble())?.len ?: 0.0)
             2 * (d + c.pr.link + mf.h)
         }
     }
