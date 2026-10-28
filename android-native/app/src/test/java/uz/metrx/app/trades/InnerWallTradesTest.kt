@@ -86,4 +86,38 @@ class InnerWallTradesTest {
         val dr = { c: uz.metrx.app.plumb.PlumbCalc -> c.routes.drains.single() }
         assertTrue(dr(inner).horiz > 900)
     }
+
+    /** A 3 000 × 2 400 bathroom, 2 700 high, with a partition 1 200 long from wall A into the room (one free end). */
+    private fun tiled(free: Boolean): Pair<uz.metrx.app.tiles.TRoomGeo, Room> {
+        val r = Room("t", "w", "Hammom", dims = mapOf("A" to Dim(3000, "manual"), "B" to Dim(2400, "manual"), "H" to Dim(2700, "manual"), "T" to Dim(200, "default")),
+            inner = listOf(if (free) InnerWall("p", "straight", 1500, 600, 90, 1200) else InnerWall("p", "straight", 1500, 1200, 90, 2400)))
+        return uz.metrx.app.tiles.roomGeo(r, true, emptyList())!! to r
+    }
+
+    @Test fun noFloorTilesUnderAPartition() {
+        val (g, r) = tiled(false)
+        val l = uz.metrx.app.tiles.TileLayout("f", a = 300, b = 300, roomId = "t", surfs = listOf(uz.metrx.app.tiles.TSurf("floor")))
+        val c = uz.metrx.app.tiles.countLaid(l, uz.metrx.app.tiles.layRoom(l, g, null))
+        val bare = uz.metrx.app.tiles.roomGeo(r.copy(inner = emptyList()), true, emptyList())!!
+        val c0 = uz.metrx.app.tiles.countLaid(l, uz.metrx.app.tiles.layRoom(l, bare, null))
+        // less the partition's 2,4 × 0,1 m
+        assertEquals(c0.m2 - .24, c.m2, .02)
+    }
+
+    @Test fun skirtingWaterproofingAndProfilesTakeThePartitionsFaces() {
+        val (g, _) = tiled(true)
+        val fl = uz.metrx.app.tiles.TileLayout("f", roomId = "t", surfs = listOf(uz.metrx.app.tiles.TSurf("floor")), skirt = 80)
+        val faces = g.inner.map { it.id }
+        val runs = uz.metrx.app.tiles.skirtRuns(fl, g, listOf(fl))
+        // the outer walls' 10,8 m and both faces of the 1,2 m partition
+        assertEquals(10800.0 + 2 * 1200, runs.sumOf { it.len }, 2.0)
+        assertTrue(runs.any { it.wall in faces })
+        val wp = uz.metrx.app.tiles.wpM2(uz.metrx.app.tiles.TileRoom("t", wp = true), g)
+        assertEquals(7.2 - .12 + (10.8 + 2.4) * .2, wp, .01)
+        // walls tiled with profiles: a free end of the partition has two outside edges, its whole height
+        val wl = uz.metrx.app.tiles.TileLayout("w", roomId = "t", surfs = faces.map { uz.metrx.app.tiles.TSurf(it) }, profiles = true)
+        assertEquals(2 * 2700.0, uz.metrx.app.tiles.profileMm(wl, g), 1.0)
+        // wall to wall: no free end
+        assertEquals(0.0, uz.metrx.app.tiles.profileMm(wl, tiled(false).first), 1.0)
+    }
 }

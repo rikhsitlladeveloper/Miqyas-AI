@@ -228,7 +228,8 @@ private fun innerModel(b: Builder, room: Room, gi: Int, single: Boolean, snap: B
                 prism(m, null, listOf(q(f.a + f.u * (c - s2)), q(f.a + f.u * (c + s2)), q(f.a + f.u * (c + s2) + f.look * dep), q(f.a + f.u * (c - s2) + f.look * dep)), y - sh, y + sh)
             }
             if (gi == 0) b.bases[f.id] = WallBasis(o0.first, o0.second, dx / l, dz / l, nx / nl, nz / nl, l)
-            if (single) { val md = q((f.a + f.b) * .5 + f.look * 60.0); b.labels += Label(f.id, V3(md.first, f.h / 1000.0 + .2, md.second)) }
+            // a face's letter stands out on its own side, so a thin partition's two letters do not cover each other
+            if (single) { val md = q((f.a + f.b) * .5 + f.look * 280.0); b.labels += Label(f.id, V3(md.first, f.h / 1000.0 + .2, md.second)) }
         }
     }
 }
