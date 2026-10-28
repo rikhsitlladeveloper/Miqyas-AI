@@ -138,7 +138,9 @@ fun errText(app: App, d: RshDraft, e: ShapeError): String {
 fun rshTmpRoom(d: RshDraft, snap: Boolean, app: App): Room? {
     val base = shapeToRoom(specOf(d), valsList(d, d.vals), d.height, "rsh-" + d.key, d.wid ?: "rsh", d.name, 0, d.diag, emptyList(), snap)?.room ?: return d.tmp
     val old = d.tmp ?: return base
-    return app.clampItems(base.copy(openings = old.openings, points = old.points, thick = old.thick))
+    val P = uz.metrx.app.geo.outline(base, snap)
+    val inner = old.inner.filter { uz.metrx.app.geo.pip(uz.metrx.app.geo.V2(it.x.toDouble(), it.y.toDouble()), P) }
+    return app.clampItems(uz.metrx.app.geo.syncFaces(base.copy(openings = old.openings, points = old.points, thick = old.thick, inner = inner), snap))
 }
 
 /** The room the flow made, into the trade's fresh [base] room (its id, workspace, name and date kept). */

@@ -290,5 +290,30 @@ fun slideOn(walls: List<PlanWall>, cur: String, q: PlanPt, grab: Double, w: Doub
 }
 
 
+/**
+ * The room's furniture after its inner walls changed from [old] to [new]: a piece against an inner face follows the
+ * face's new letter (its key stays); a cabinet whose face is gone stands free where it was (the mockup's syncFaces).
+ */
+fun refaced(fs: List<Furniture>, old: Room, new: Room, snap: Boolean = true): List<Furniture> {
+    if (old.inner.isEmpty() && new.inner.isEmpty()) return fs
+    val was = uz.metrx.app.geo.innerFaces(old, snap).associate { it.id to it.key }
+    val now = uz.metrx.app.geo.innerFaces(new, snap).associate { it.key to it.id }
+    val map = was.mapValues { (_, k) -> now[k] }
+    if (map.all { (a, b) -> a == b }) return fs
+    val ow = planWalls(old, snap)
+    val ref = uz.metrx.app.geo.walls(old, snap).firstOrNull()?.id ?: "A"
+    return fs.map { f ->
+        if (f.roomId != old.id) return@map f
+        val used = (f.walls + f.modules.mapNotNull { it.wall } + listOfNotNull(f.pose?.ref)).filter { it in map }
+        if (used.isEmpty()) return@map f
+        // its face gone: a cabinet stays where it stood, free (measured from the first outer wall); a kitchen keeps its letters (the checks say so)
+        val gone = used.any { map[it] == null }
+        if (gone && f.kind != "wardrobe") return@map f
+        val pose = if (gone) poseFrame(f, ow)?.let { poseOf(ow.filter { !it.inner }, ref, it) } ?: return@map f else f.pose?.let { it.copy(ref = map[it.ref] ?: it.ref) }
+        fun m(w: String) = if (w in map) map[w] ?: ref else w
+        f.copy(walls = f.walls.map(::m), modules = f.modules.map { md -> md.wall?.let { md.copy(wall = m(it)) } ?: md }, pose = pose)
+    }
+}
+
 /** How far apart two angles are, degrees (0–180). */
 fun angDiff(a: Int, b: Int): Int { val d = abs(((a - b) % 360 + 360) % 360); return min(d, 360 - d) }

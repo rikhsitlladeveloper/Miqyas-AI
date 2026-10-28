@@ -204,7 +204,7 @@ fun TViewScreen(rt: Route.TView) {
 private fun Room3D(p: Project, r: Room, snap: Boolean) {
     val app = LocalApp.current
     val ctx = LocalContext.current
-    val base = remember(r.dims, r.openings, r.poly, r.points, r.features, r.wallColor, r.floorColor, snap) { buildShell(listOf(r), true, snap) }
+    val base = remember(r.dims, r.openings, r.poly, r.points, r.features, r.wallColor, r.floorColor, r.inner, snap) { buildShell(listOf(r), true, snap) }
     val shell = rememberTileShell(p, r, base, snap)
     val cam = remember(r.id) { Cam3D() }
     val shot = remember { Shot3D() }

@@ -186,7 +186,7 @@ private fun App.makeRoom(d: RshDraft): String? {
         }
     }
     // the doors, windows and points placed in the openings step go into the room as they are (same wall letters)
-    store.update(d.pid) { pr -> pr.copy(rooms = pr.rooms.map { if (it.id == rid) rshRoom(it, d, settings.angleSnap).let { nr -> d.tmp?.let { t -> nr.copy(openings = t.openings, points = t.points, thick = t.thick) } ?: nr } else it }) }
+    store.update(d.pid) { pr -> pr.copy(rooms = pr.rooms.map { if (it.id == rid) rshRoom(it, d, settings.angleSnap).let { nr -> d.tmp?.let { t -> nr.copy(openings = t.openings, points = t.points, thick = t.thick, inner = t.inner) } ?: nr } else it }) }
     if (d.fid != null) placeAfter = rid to d.fid
     settings.keepRoomH(d.height)
     return rid
@@ -798,7 +798,7 @@ private fun SummaryStep(d: RshDraft) {
         PicBox(230.dp, null) {
             val tmp = d.tmp
             // with doors, windows or points the room editor's own plan shows them all; else the shape's
-            if (tmp != null && (tmp.openings.isNotEmpty() || tmp.points.isNotEmpty())) RoomPlanStatic(tmp, Modifier.fillMaxSize())
+            if (tmp != null && (tmp.openings.isNotEmpty() || tmp.points.isNotEmpty() || tmp.inner.isNotEmpty())) RoomPlanStatic(tmp, Modifier.fillMaxSize())
             else PlanPic(g.model, d.mir, d.rot, PlanLook(fmt = lenFmt(app, d), final = true, ops = planOps(d), diagK = if (d.diag != null) rshDiagK(d) else null, diagTxt = d.diag?.let { lenWords(it, unit, en) }),
                 g.letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize())
         }
@@ -824,6 +824,11 @@ private fun SummaryStep(d: RshDraft) {
         if (d.shape == "free") SumRow(tr("rsh.diagT"), d.diag?.let { lenWords(it, unit, en) + " " + u } ?: tr("rsh.noDiag")) { ChangeBtn(ch) { edit(asks.size) } }
         Sect(tr("rsh.hTitle"))
         SumRow(tr("rsh.hT"), lenWords(d.height, unit, en) + " " + u) { ChangeBtn(ch) { d.ret = true; go(app, d, "height") } }
+        // inner walls (28.10): how many, by name; added in the openings step
+        Sect(tr("iw.sumT"))
+        val inn = d.tmp?.inner.orEmpty()
+        SumRow(tr("iw.summary", "n" to inn.size), if (inn.isEmpty()) tr("rsh.none") else inn.joinToString(", ") { app.iwName(it.k) }, small = true, auto = inn.isEmpty()) {
+            ChangeBtn(if (inn.isEmpty()) tr("rsh.add") else ch) { d.ret = false; go(app, d, "ops") } }
         Sect(tr("rsh.opsShort"))
         val tmp = d.tmp
         val items: List<Any> = (tmp?.openings ?: emptyList<Any>()) + (tmp?.points ?: emptyList())

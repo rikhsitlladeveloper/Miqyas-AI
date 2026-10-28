@@ -383,6 +383,15 @@ fun iwCopyOf(r: Room, p: InnerWall, snap: Boolean = true, id: String = "w" + uid
 /** The faces' indices of piece [pid] among all walls (outer first). */
 fun pieceFaceIds(r: Room, pid: String, snap: Boolean = true): List<String> = innerFaces(r, snap).filter { it.pid == pid }.map { it.id }
 
+/** An arch wall's passage on face [wall]: from [t0] to [t1] mm along it, [h] high; null for any other wall. */
+fun archGap(r: Room, wall: String, snap: Boolean = true): Triple<Double, Double, Int>? {
+    if (r.inner.none { it.k == "arch" }) return null
+    val f = innerFaces(r, snap).firstOrNull { it.id == wall } ?: return null
+    val p = r.inner.firstOrNull { it.id == f.pid && it.k == "arch" } ?: return null
+    val w = min(p.opW.toDouble(), p.len - 200.0).coerceAtLeast(0.0); val L = f.len.toDouble()
+    return Triple((L - w) / 2, (L + w) / 2, p.opH)
+}
+
 /* ---------------- doors' room, the Tekshiruv ---------------- */
 
 /** The room a door needs: [id] the door, on [wall]; [sw] a leaf swings there; [pid] the piece it is in (inner faces); [poly] the zone. */

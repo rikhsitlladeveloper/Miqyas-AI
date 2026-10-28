@@ -169,6 +169,70 @@ internal fun pieces(a0: Double, a1: Double, ops: List<DoubleArray>, H: Double): 
     return out
 }
 
+/**
+ * The inner walls (geo/InnerWalls.kt) in a room's 3D: each part of a piece a prism to its height, cut where a door or a
+ * window on one of its faces goes through it; an arch's lintel over its passage; the items on the faces; each face's
+ * wall basis (furniture stands against it) and letter. [P] takes a plan point (mm) to the scene's x, z (m).
+ */
+private fun innerModel(b: Builder, room: Room, gi: Int, single: Boolean, snap: Boolean, P: (Double, Double) -> Pair<Double, Double>, bare: Set<String>) {
+    if (room.inner.isEmpty()) return
+    val rhMm = room.dim("H").v ?: 2700
+    val faces = innerFaces(room, snap)
+    val wallRgb = rgbOf(room.wallColor)
+    room.inner.forEach { p ->
+        val g = pieceGeo(p, rhMm); val H = g.H / 1000.0
+        val part = b.part(gi, "iw", Role.WALL, wallRgb); val e = b.edgesOf(gi, "iw:" + p.id)
+        val mine = faces.filter { it.pid == p.id }
+        fun q(v: V2) = P(v.x, v.y)
+        g.R.forEach { R ->
+            if (R.size != 4) { prism(part, e, R.map { q(it) }, 0.0, H); return@forEach }
+            // the part's long side from R[0] to R[1], its other side R[3] → R[2]
+            val a = R[0]; val ax = R[1] - R[0]; val len = ax.len(); val u = ax * (1 / max(len, 1e-9)); val wv = R[3] - R[0]
+            val ops = ArrayList<DoubleArray>()
+            mine.forEach { f ->
+                // a face along this part: both its ends on one of the long sides
+                val fa = f.a - a; val fb = f.b - a
+                val da = abs(fa.x * u.y - fa.y * u.x); val db = abs(fb.x * u.y - fb.y * u.x); val side = wv.len()
+                val on = (da < 2 && db < 2) || (abs(da - side) < 2 && abs(db - side) < 2)
+                if (!on) return@forEach
+                room.openings.filter { it.fk == f.key }.forEach { o ->
+                    val s0 = (f.a + f.u * o.off.toDouble() - a) dot u; val s1 = (f.a + f.u * (o.off + o.w).toDouble() - a) dot u
+                    val lo = min(s0, s1) / 1000.0; val hi = max(s0, s1) / 1000.0
+                    ops += doubleArrayOf(lo, hi, z0Of(o) / 1000.0, (topOf(o) - z0Of(o)) / 1000.0, if (o.type == "door") 1.0 else 0.0, if (o.id in bare) 1.0 else 0.0)
+                }
+            }
+            pieces(0.0, len / 1000.0, ops, H).forEach { pc ->
+                val s0 = pc[0] * 1000; val s1 = pc[1] * 1000
+                if (s1 - s0 < .1) return@forEach
+                prism(part, e, listOf(q(a + u * s0), q(a + u * s1), q(a + u * s1 + wv), q(a + u * s0 + wv)), pc[2], pc[3])
+            }
+            // the glass of a window through it
+            ops.filter { it[4] == 0.0 && it[5] != 1.0 }.forEach { o ->
+                val gl = b.part(gi, null, Role.GLASS, GLASS, .5f)
+                val m0 = wv * .48; val m1 = wv * .52
+                prism(gl, null, listOf(q(a + u * (o[0] * 1000) + m0), q(a + u * (o[1] * 1000) + m0), q(a + u * (o[1] * 1000) + m1), q(a + u * (o[0] * 1000) + m1)), o[2], o[2] + o[3])
+            }
+        }
+        g.gap?.let { (g0, g1) ->
+            val t = p.th / 2.0
+            prism(part, e, listOf(q(g0 + g.n * t), q(g1 + g.n * t), q(g1 + g.n * -t), q(g0 + g.n * -t)), p.opH / 1000.0, H)
+        }
+        mine.forEach { f ->
+            val o0 = q(f.a); val o1 = q(f.b); val dx = o1.first - o0.first; val dz = o1.second - o0.second; val l = max(hypot(dx, dz), 1e-9)
+            val n0 = q(f.a + f.look * 1000.0); val nx = n0.first - o0.first; val nz = n0.second - o0.second; val nl = max(hypot(nx, nz), 1e-9)
+            // the points on it, standing out of the face
+            room.points.filter { it.fk == f.key }.forEach { x ->
+                val (wmm, hmm) = uz.metrx.app.data.pointSize(x); val s2 = wmm / 2.0; val sh = hmm / 2000.0
+                val dep = ptDepth(x.t) * 1000; val c = x.off.toDouble(); val y = x.h / 1000.0
+                val m = b.part(gi, null, Role.OPENING, PT_RGB[x.t] ?: 0x64748B)
+                prism(m, null, listOf(q(f.a + f.u * (c - s2)), q(f.a + f.u * (c + s2)), q(f.a + f.u * (c + s2) + f.look * dep), q(f.a + f.u * (c - s2) + f.look * dep)), y - sh, y + sh)
+            }
+            if (gi == 0) b.bases[f.id] = WallBasis(o0.first, o0.second, dx / l, dz / l, nx / nl, nz / nl, l)
+            if (single) { val md = q((f.a + f.b) * .5 + f.look * 60.0); b.labels += Label(f.id, V3(md.first, f.h / 1000.0 + .2, md.second)) }
+        }
+    }
+}
+
 /** A rectangular room at x offset [ox] (prototype build3D, one room). Returns its extent along x. */
 private fun rectRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolean, name: String, bare: Set<String> = emptySet()): DoubleArray {
     val L = room.dim("A").v!! / 1000.0; val W = room.dim("B").v!! / 1000.0; val H = room.dim("H").v!! / 1000.0
@@ -226,6 +290,7 @@ private fun rectRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
         }
     }
     room.points.forEach { pointModel(b, gi, it, L, W, ::X) }
+    innerModel(b, room, gi, single, true, { x, y -> X(x / 1000.0) to y / 1000.0 }, bare)
     if (gi == 0) {
         b.bases["A"] = WallBasis(X(0.0), 0.0, 1.0, 0.0, 0.0, 1.0, L); b.bases["B"] = WallBasis(X(L), 0.0, 0.0, 1.0, -1.0, 0.0, W)
         b.bases["C"] = WallBasis(X(L), W, -1.0, 0.0, 0.0, -1.0, L); b.bases["D"] = WallBasis(X(0.0), W, 0.0, -1.0, 1.0, 0.0, W)
@@ -400,6 +465,7 @@ private fun polyRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
         if (gi == 0) { val o = pt(a); b.bases[w.id] = WallBasis(o.first, o.second, u.first, u.second, -q.first, -q.second, len) }
         if (single) { val md = at(len / 2); b.labels += Label(w.id, V3(X(md.first + q.first * T / 2), H + .25, Z(md.second + q.second * T / 2))) }
     }
+    innerModel(b, room, gi, single, snap, { x, y -> X(x / 1000.0) to Z(y / 1000.0) }, bare)
     val fl = b.part(gi, null, Role.FLOOR, rgbOf(room.floorColor))
     val fp = ip.map { pt(it) }
     fl.faces += Face(V3(0.0, 1.0, 0.0), fp.map { V3(it.first, .001, it.second) }, earClip(fp))
