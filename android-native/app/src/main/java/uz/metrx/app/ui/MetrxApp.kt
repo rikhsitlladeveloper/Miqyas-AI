@@ -238,6 +238,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.FStyle -> uz.metrx.app.ui.furniture.FStyleScreen(route)
                                     is Route.AutoKitchen -> uz.metrx.app.ui.furniture.AutoKitchenScreen(route)
                                     is Route.FPlace -> uz.metrx.app.ui.furniture.FPlaceScreen(route)
+                                    is Route.FArrange -> uz.metrx.app.ui.furniture.FArrangeScreen(route)
                                     is Route.TGallery -> uz.metrx.app.ui.tiles.TGalleryScreen(route)
                                     is Route.TSteps -> uz.metrx.app.ui.tiles.TStepsScreen(route)
                                     is Route.TView -> uz.metrx.app.ui.tiles.TViewScreen(route)

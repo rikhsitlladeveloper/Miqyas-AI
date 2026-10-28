@@ -109,7 +109,7 @@ private fun tools(s: ReSession): List<ETool> {
     return when {
         s.sel == null -> listOf(ETool("add", tr("re.t.add"), "plus"), ETool("inner", tr("iw.add"), "iw"), ETool("shape", tr("re.t.shape"), "shape"), ETool("rh", tr("re.t.rh"), "height"),
             ETool("rot", tr("re.t.rot"), "rotate"), ETool("dims", tr("re.t.dims"), "ruler"), ETool("checks", tr("re.t.checks"), "warn", badge = app.issuesOf(r).size),
-            ETool("v3d", "3D", "cube", on = s.view == "3d"), ETool("more", tr("re.t.more"), "list"))
+            ETool("v3d", "3D", "cube", on = s.view == "3d")) + (if (s.trade == "furniture") listOf(ETool("fplace", tr("fp.pl.title"), "sofa")) else emptyList()) + ETool("more", tr("re.t.more"), "list")
         // an inner wall: Uzunlik, Qalinlik, Balandlik (a half wall), O‘tish (an arch), Shakli (a column) or 90° burish and Yuzalar, Nusxa, O‘chirish
         pc != null -> listOfNotNull(ETool("iwLen", tr(if (pc.k == "col") "iw.t.size" else "re.t.len"), "ruler"),
             if (pc.k != "col") ETool("iwTh", tr("iw.th"), "thick") else null, if (pc.k == "half") ETool("iwH", tr("re.t.rh"), "height") else null,
@@ -304,6 +304,7 @@ private fun onTool(app: App, s: ReSession, k: String, scope: kotlinx.coroutines.
         "copy" -> app.dupSel(s)
         "del" -> app.delSel(s)
         "inner" -> { s.iwWin = true; s.arm = null }
+        "fplace" -> s.rid?.let { app.push(Route.FArrange(s.pid, it)) }
         "iwLen" -> app.openKp(s, "iwLen")
         "iwRot" -> app.iwRotate(s)
         "iwCopy" -> app.iwCopy(s)

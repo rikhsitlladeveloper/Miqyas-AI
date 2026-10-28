@@ -197,6 +197,14 @@ fun FGalleryScreen(rt: Route.FGallery) {
                     Text(tr("re.editRoom"), style = ui(14.5f, 700, G.cobalt2), modifier = Modifier.weight(1f))
                     MIcon("chev", G.cobalt2, 16.dp, 2f)
                 }
+                // "Mebel joylash": the room's furniture on its plan, against the walls or free (28 Oct 2026)
+                val inRoom = p.furniture.count { it.roomId == room.id }
+                if (inRoom > 0) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).clickable(role = Role.Button) { app.push(Route.FArrange(p.id, room.id)) }
+                    .padding(horizontal = 12.dp, vertical = 10.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    uz.metrx.app.ui.rooms.ReIcon("sofa", G.cobalt, 22.dp)
+                    Text(tr("fp.pl.title") + " · " + tr("fp.pl.sub", "n" to inRoom), style = ui(14.5f, 700, G.cobalt2), modifier = Modifier.weight(1f))
+                    MIcon("chev", G.cobalt2, 16.dp, 2f)
+                }
                 val f = { mm: Int? -> fmtLen(mm, app.settings.furnUnit, en) }
                 Text(tr("ux.g.forRoom", "u" to unitWord(app.settings.furnUnit), "r" to (p.floors.firstOrNull { it.id == room.floorId }?.let { floorName(it, lang) } ?: dn(room.name, lang)),
                     "a" to f(uz.metrx.app.geo.roomSize(room, app.settings.angleSnap)?.first), "b" to f(uz.metrx.app.geo.roomSize(room, app.settings.angleSnap)?.second), "h" to f(room.dim("H").v)), style = ui(13.5f, 400, G.ink2, 1.4f))
