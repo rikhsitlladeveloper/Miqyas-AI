@@ -248,7 +248,8 @@ struct AutoKitchenScreen: View {
             let R = akRoomOf(room, snap)
             let key = st.ensure(R, room, s.workshop, snap: snap)
             let en = s.lang == .en
-            let sub = tr("ak.sub", ["r": roomTitle(p, room), "a": Geo.fmtLen(Geo.roomSize(room, AppSettings.shared.angleSnap)?.0, AppSettings.shared.unit, en), "b": Geo.fmtLen(Geo.roomSize(room, AppSettings.shared.angleSnap)?.1, AppSettings.shared.unit, en)])
+            let sub = tr("ak.sub", ["r": roomTitle(p, room), "a": Geo.fmtLen(Geo.roomSize(room, AppSettings.shared.angleSnap)?.0, AppSettings.shared.unit, en), "b": Geo.fmtLen(Geo.roomSize(room, AppSettings.shared.angleSnap)?.1, AppSettings.shared.unit, en),
+                                     "u": tr(unitKey(AppSettings.shared.unit))])
             VStack(spacing: 0) {
                 HStack(spacing: 6) {
                     GlassIconButton("back", tr("nt.back")) { app.pop() }.padding(.leading, 6).accessibilityIdentifier("back")
