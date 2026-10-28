@@ -453,7 +453,7 @@ private fun WallsStep(d: RshDraft) {
     val help = if (isD) tr("rsh.diagD") else askHelp(d, asks[st], letters)
     val sub = if (isD) tr("rsh.diagSub") else tr(if (d.shape == "bay") "rsh.sizeN" else "rsh.wallN", "i" to st + 1, "n" to n)
     val imeOn = WindowInsets.isImeVisible
-    val liveTxt = parseLen(d.input, unit)?.let { lenWords(it, unit, en) }
+    val liveTxt = parseLen(d.input, unit)?.takeIf { it <= WALL_MAX }?.let { lenWords(it, unit, en) }
     val look = PlanLook(fmt = lenFmt(app, d), cur = if (isD) null else st, done = vals.keys, liveTxt = if (isD) null else liveTxt, pad = 26f, rp = if (free) 0f else 100f,
         diagK = if (isD) rshDiagK(d) else null, diagCur = isD, diagTxt = if (isD) (liveTxt ?: "?") else null,
         dimTxt = vals.mapValues { lenWords(it.value, unit, en) }, dimWords = tr("rsh.dimW") to tr("rsh.dimD"))

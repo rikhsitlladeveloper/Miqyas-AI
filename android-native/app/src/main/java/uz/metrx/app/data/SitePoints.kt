@@ -25,6 +25,12 @@ fun pointSize(x: SitePoint): Pair<Int, Int> = when (x.t) {
     "cold", "hot", "gas" -> 32 to 32
     "sewer" -> x.d.coerceAtLeast(40).let { it to it }
     "meter" -> x.d.coerceAtLeast(100) to x.mh.coerceAtLeast(100)
+    // room editor v2's kinds: a radiator or an air conditioner as wide as typed, a heater, a panel, a vent grille
+    "rad" -> (if (x.pw > 0) x.pw else 640) to (if (x.style == "towel") 800 else 500)
+    "ac" -> (if (x.pw > 0) x.pw else 800) to 290
+    "boiler" -> 350 to 600
+    "panel" -> 300 to 400
+    "vent" -> 150 to 150
     else -> 40 to 40
 }
 
