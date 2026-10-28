@@ -146,7 +146,7 @@ func reItemName(_ it: ReItem) -> String { reKindName(it.kind) + " · " + reStyle
 /// "800 × 2 100 · tokcha 900", "eshik 700 × 2 100 + deraza 1 200 × 1 400", "eni 640 · h 600" (mockup sizeLine).
 func reSizeLine(_ it: ReItem) -> String {
     if it.isOpening {
-        if it.isBalcony { return tr("re.szBal", ["dw": reLen(it.dw), "h": reLen(it.h), "ww": reLen(it.w - it.dw), "wh": reLen(it.wh)]) }
+        if it.isBalcony { return tr("re.szBal", ["dw": reLen(it.dw), "h": reLen(it.h), "ww": reLen(it.w - it.dw), "wh": reLen(it.wh), "a": reLen(it.dw), "b": reLen(it.h), "c": reLen(it.w - it.dw), "d": reLen(it.wh)]) }
         var s = reLen(it.w) + " × " + reLen(it.h)
         if it.kind == "window" { s += it.style == "pano" ? " · " + tr("re.fromFloor") : " · " + tr("re.sill", ["v": reLen(it.sill)]) }
         return s
@@ -158,7 +158,7 @@ func reSizeLine(_ it: ReItem) -> String {
 func reCardLine(_ k: String, _ st: ReStyle, _ roomH: Int) -> String {
     let v = reStd(k, st.id, roomH)
     var s: String
-    if (k == "door" || k == "window") && st.id == "balcony" { s = tr("re.balLine", ["d": reLen(v["dw"] ?? 0), "w": reLen(v["ww"] ?? 0)]) }
+    if (k == "door" || k == "window") && st.id == "balcony" { s = tr("re.balLine", ["d": reLen(v["dw"] ?? 0), "w": reLen(v["ww"] ?? 0), "a": reLen(v["dw"] ?? 0), "b": reLen(v["ww"] ?? 0)]) }
     else if k == "door" || k == "window" { s = reLen(v["w"] ?? 0) + " × " + (st.v["h"] == RE_CEIL ? tr("re.toCeil") : reLen(v["h"] ?? 0)) }
     else { s = (v["pw"].map { tr("re.pwV", ["v": reLen($0)]) + " · " } ?? "") + tr("re.phV", ["v": reLen(v["ph"] ?? 0)]) }
     if k == "window", let sl = v["sill"] { s += " · " + tr("re.sill", ["v": reLen(sl)]) }
@@ -171,6 +171,9 @@ func reErrText(_ e: ReErr, wall: String) -> String {
     var vars: [String: Any] = ["w": wall]
     for (k, v) in e.vars { vars[k] = reLen(v) }
     vars["u"] = unitWord(reUnit)
+    // the Android texts' names for the same values (its text wins in the shared strings)
+    if let v = vars["v"] { vars["x"] = v }
+    if let c = vars["c"] { vars["r"] = c }
     return tr("re.e." + e.code, vars)
 }
 
@@ -179,6 +182,9 @@ func reIssueText(_ q: ReIssue) -> String {
     var vars: [String: Any] = ["w": q.wall, "a": q.kinds.first.map(reKindName) ?? "", "b": q.kinds.count > 1 ? reKindName(q.kinds[1]).lowercased() : ""]
     for (k, v) in q.vars { vars[k] = reLen(v) }
     vars["u"] = unitWord(reUnit)
+    // the Android texts' names for the same words and values
+    vars["k"] = vars["a"]; vars["o"] = vars["b"]
+    if let c = vars["c"] { vars["r"] = c }
     return tr("re.i." + q.code, vars)
 }
 
@@ -487,20 +493,20 @@ extension ReState {
         let name = reKindName(it.kind)
         switch key {
         case "w":
-            if v > L { warn(app, tr("re.e.wide", ["w": it.wall, "v": reLen(v), "l": reLen(L), "u": unitWord(reUnit)])); return }
+            if v > L { warn(app, reErrText(ReErr(code: "wide", vars: ["v": v, "l": L]), wall: it.wall)); return }
             if it.isBalcony && v < it.dw + 300 { warn(app, tr("re.e.balMin", ["v": reLen(it.dw + 300), "u": unitWord(reUnit)])); return }
             let c = it.dist + it.w / 2
             it.w = v; it.dist = reClamp(reR10(c - v / 2), 0, max(0, L - v))
         case "h":
-            if it.z0 + v > g.H { warn(app, tr("re.e.ceil", ["v": reLen(it.z0 + v), "c": reLen(g.H), "u": unitWord(reUnit)])); return }
-            if it.isBalcony && v < it.wh + 100 { warn(app, tr("re.e.balDoor", ["m": reLen(it.wh + 100), "u": unitWord(reUnit)])); return }
+            if it.z0 + v > g.H { warn(app, reErrText(ReErr(code: "ceil", vars: ["v": it.z0 + v, "c": g.H]), wall: it.wall)); return }
+            if it.isBalcony && v < it.wh + 100 { warn(app, reErrText(ReErr(code: "balDoor", vars: ["m": it.wh + 100]), wall: it.wall)); return }
             it.h = v
         case "sill":
-            if v + it.h > g.H { warn(app, tr("re.e.ceil", ["v": reLen(v + it.h), "c": reLen(g.H), "u": unitWord(reUnit)])); return }
+            if v + it.h > g.H { warn(app, reErrText(ReErr(code: "ceil", vars: ["v": v + it.h, "c": g.H]), wall: it.wall)); return }
             it.sill = v
         case "thr": it.thr = v
         case "ph":
-            if v > g.H { warn(app, tr("re.e.ceil", ["v": reLen(v), "c": reLen(g.H), "u": unitWord(reUnit)])); return }
+            if v > g.H { warn(app, reErrText(ReErr(code: "ceil", vars: ["v": v, "c": g.H]), wall: it.wall)); return }
             it.ph = v
         case "sw": it.sw = s
         default: return

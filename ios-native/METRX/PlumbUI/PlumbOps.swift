@@ -73,9 +73,9 @@ func takeInPlumbPoints(_ pid: String, _ rid: String) {
     if got.isEmpty && fixes.isEmpty { return }
     Store.shared.update(pid) { pr in
         var er = pr.plumb.room(rid)
-        er.seen = pUniq(er.seen + got.compactMap(\.from) + fixes.map(\.from))
+        er.seen = pUniq(er.seen + got.compactMap(\.from) + fixes.map { $0.from })
         pr.plumb.points += got
-        pr.plumb.fixes += fixes.map(\.fix)
+        pr.plumb.fixes += fixes.map { $0.fix }
         pr.plumb.rooms = pr.plumb.rooms.filter { $0.roomId != rid } + [er]
     }
 }

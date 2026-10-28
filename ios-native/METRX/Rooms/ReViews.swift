@@ -334,7 +334,7 @@ func reStylesLastFirst(_ kind: String, _ lastStyle: String?) -> [ReStyle] {
 
 /// "Yana shu · 800 × 2 100": the last sizes in a line.
 func reAgainLine(_ k: String, _ style: String, _ v: ReVals) -> String {
-    if (k == "door" || k == "window") && style == "balcony" { return tr("re.balLine", ["d": reLen(v["dw"] ?? 0), "w": reLen(v["ww"] ?? 0)]) }
+    if (k == "door" || k == "window") && style == "balcony" { return tr("re.balLine", ["d": reLen(v["dw"] ?? 0), "w": reLen(v["ww"] ?? 0), "a": reLen(v["dw"] ?? 0), "b": reLen(v["ww"] ?? 0)]) }
     if k == "door" || k == "window" { return reLen(v["w"] ?? 0) + " × " + reLen(v["h"] ?? 0) }
     return (v["pw"].map { tr("re.pwV", ["v": reLen($0)]) + " · " } ?? "") + tr("re.phV", ["v": reLen(v["ph"] ?? 0)])
 }

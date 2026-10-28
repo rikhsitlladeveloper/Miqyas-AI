@@ -249,7 +249,7 @@ struct ReOpsCard: View {
             } else if let w = st.selWall, st.pk == nil {
                 let n = items.filter { $0.wall == w }.count
                 oneLine(AnyView(PathIcon(SD_ROOM_IC, .white, 18, 2).frame(width: 32, height: 32).background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(G.cobalt))),
-                        tr("re.wallCard", ["w": w, "l": reLen(g.len(w)), "n": n]), tr("re.wallCardS")) { st.deselect() }
+                        tr("re.wallCard", ["w": w, "l": reLen(g.len(w)), "v": reLen(g.len(w)), "n": n]), tr("re.wallCardS")) { st.deselect() }
             }
         }
         .background(shape.fill(G.solid))

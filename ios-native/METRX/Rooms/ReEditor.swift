@@ -289,7 +289,7 @@ struct ReEditorScreen: View {
         if st.arm == nil {
             if let w = st.selWall {
                 let n = items.filter { $0.wall == w }.count
-                capRow(tr("re.wallCap", ["w": w, "l": reLen(g.len(w))]), tr("re.wallCapS", ["t": "\(r.thickOf(w))", "n": n]), x: { st.deselect() }, shape)
+                capRow(tr("re.wallCap", ["w": w, "l": reLen(g.len(w)), "v": reLen(g.len(w))]), tr("re.wallCapS", ["t": "\(r.thickOf(w))", "n": n]), x: { st.deselect() }, shape)
             } else if let id = st.selItem, let it = items.first(where: { $0.id == id }) {
                 let d = reDists(it, g.len(it.wall))
                 capRow(reItemName(it), reSizeLine(it) + " · " + it.wall + " · " + reLen(d.l) + " | " + reLen(d.r), x: { st.deselect() }, shape)
@@ -464,7 +464,7 @@ struct ReEditorScreen: View {
                     ReOpt(label: reLenU(L), on: true, id: "re.o.lenNow") {}
                     ForEach([10, 100], id: \.self) { s in ReOpt(label: "+\(s)", id: "re.o.len+\(s)") { st.setWallLen(w, L + s, app, h) } }
                     ReOpt(label: tr("re.type2"), icon: RE_IC["kbd"], id: "re.o.lenKp") {
-                        st.openKp(tr("re.wallLen", ["w": w]), cur: L, lo: SHAPE_WALL_MIN, hi: SHAPE_WALL_MAX, big: true) { st.setWallLen(w, $0, app, h) }
+                        st.openKp(tr("re.wallLen", ["w": w, "v": reLenU(L)]), cur: L, lo: SHAPE_WALL_MIN, hi: SHAPE_WALL_MAX, big: true) { st.setWallLen(w, $0, app, h) }
                     }
                 }
             }
@@ -525,7 +525,7 @@ struct ReEditorScreen: View {
         case "move":
             if let it {
                 let d = reDists(it, g.len(it.wall))
-                DzcOptRow(title: tr("re.t.move"), sub: tr("re.moveSub", ["l": reLen(d.l), "r": reLen(d.r)]), onBack: back) {
+                DzcOptRow(title: tr("re.t.move"), sub: tr("re.moveSub", ["l": reLen(d.l), "r": reLen(d.r), "a": reLen(d.l), "b": reLen(d.r)]), onBack: back) {
                     ReOpt(label: "100", icon: DZC_ICON["left"], id: "re.o.mv-100") { st.moveSel("-100", app, h) }
                     ReOpt(label: "10", icon: DZC_ICON["left"], id: "re.o.mv-10") { st.moveSel("-10", app, h) }
                     ReOpt(label: "10", icon: DZC_ICON["right"], id: "re.o.mv10") { st.moveSel("10", app, h) }
