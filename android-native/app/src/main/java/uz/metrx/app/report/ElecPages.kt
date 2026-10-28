@@ -101,7 +101,7 @@ internal fun Doc.elecPages(e: ElecOrder) {
             drawRect(FRAME, Offset(PX + .5f, top + .5f), Size(CW - 1f, ph - 1f), style = Stroke(.75f))
         }
         y += ph; after(8f)
-        val ws = c.g.walls.filter { w -> ds.any { it.wall == w.id } || (calc.routes.panel?.let { it.roomId == c.id && it.wall == w.id } == true) }
+        val ws = (c.g.walls + c.g.inner).filter { w -> ds.any { it.wall == w.id } || (calc.routes.panel?.let { it.roomId == c.id && it.wall == w.id } == true) }
         val bw = (CW - 10f) / 2; val bh = 150f
         ws.chunked(2).forEach { two ->
             val caps = two.map { w -> measure(t("tl.wallN", "w" to w.id) + " · " + len(w.len.toInt()) + " " + mUnit(), ui(9f, 600)) }
