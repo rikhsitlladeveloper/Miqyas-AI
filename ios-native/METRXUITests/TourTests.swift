@@ -313,7 +313,9 @@ class TourBase: ScreenTestCase {
         type(f, who)
         // a builder's project: the customer too
         if app.buttons["np.save"].exists && app.textFields.count > 1 { type(app.textFields.element(boundBy: 1), "Ali Valiyev") }
-        // "Joylashuv": the GPS (the simulator's location is set by the workflow)
+        // "Joylashuv": the GPS (the simulator's location is set by the workflow); the keyboard goes first, the button
+        // was under it (the tap went to a key)
+        for _ in 0..<2 where app.keyboards.count > 0 { app.swipeDown(); usleep(700_000) }
         if tap("loc.get", 2, wait: 1.5) || tap("np.locate", 1, wait: 1.5) {
             S(name + "-location-asked")
             sleep(4)

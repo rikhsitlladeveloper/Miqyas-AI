@@ -338,7 +338,10 @@ private struct DzcKCallouts: View {
         let here = c.issues.filter { ck in ck.mid != nil && c.f.modules.first { $0.id == ck.mid }?.wall == c.run.wall }
         let sel = KitOps.shared.sel
         let open = st.live == nil && !st.callMin && st.tool == nil && !st.multi
-        let full = Array(here.filter { open && (sel == nil || sel == $0.mid) }.prefix(2))
+        let two = Array(here.filter { open && (sel == nil || sel == $0.mid) }.prefix(2))
+        // two callouts only when they do not cover each other (the second was 8 pt under the first); else the first,
+        // the other stays a "!"
+        let full = two.count == 2 && !dzcApart(two, c, map, size) ? [two[0]] : two
         if st.live == nil && !c.d3 {
             ForEach(Array(here.enumerated()), id: \.offset) { i, ck in
                 if let m = c.f.modules.first(where: { $0.id == ck.mid }) {
@@ -357,6 +360,15 @@ private struct DzcKCallouts: View {
             }
         }
     }
+}
+
+/// Whether the two checks' callouts (250 wide, about 100 high) stand clear of each other.
+private func dzcApart(_ two: [FCheck], _ c: DzcKCtx, _ map: DzcMap, _ size: CGSize) -> Bool {
+    let ms = two.compactMap { ck in c.f.modules.first { $0.id == ck.mid } }
+    guard ms.count == 2 else { return true }
+    let x = ms.map { min(size.width - 130, max(130, map.sx($0.x + $0.w / 2))) }
+    let y = ms.enumerated().map { dzcCalloutY($0.element, map, size, $0.offset) }
+    return abs(x[0] - x[1]) > min(250, size.width - 24) + 8 || abs(y[0] - y[1]) > 110
 }
 
 private func dzcCalloutY(_ m: Module, _ map: DzcMap, _ size: CGSize, _ i: Int) -> CGFloat {
