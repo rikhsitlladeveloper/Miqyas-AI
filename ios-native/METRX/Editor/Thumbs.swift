@@ -37,7 +37,7 @@ struct RoomThumb: View {
             else { ctx.stroke(path, with: .color(Color(argb: 0xFF5F6B82)), style: StrokeStyle(lineWidth: 1.5, dash: [4, 3])) }
             // doors and windows as gaps in the wall (rectangle rooms)
             if !r.isPoly && solid {
-                for o in r.openings {
+                for o in r.openings.flatMap({ $0.drawnParts }) {
                     guard let i = ["A", "B", "C", "D"].firstIndex(of: o.wall) else { continue }
                     let a = pts[i], b = pts[(i + 1) % 4], d = b - a
                     if d.len == 0 { continue }

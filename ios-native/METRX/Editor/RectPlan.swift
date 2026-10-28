@@ -156,7 +156,7 @@ func drawRectPlan(_ ctx: GraphicsContext, _ lay: RectLayout, _ r: Room, _ sel: S
     if let w = lay.walls.first(where: { $0.id == sel }) { ctx.fill(bandPath(w, tw, 0), with: .color(PC.cob)) }
 
     // doors and windows across the wall
-    for o in r.openings { let bad = issueOf(o); drawOpening(ctx, lay, o, bad ? PC.red : o.id == selOp ? PC.cob : PC.ink, bad) }
+    for o0 in r.openings { let bad = issueOf(o0); for o in o0.drawnParts { drawOpening(ctx, lay, o, bad ? PC.red : o.id == selOp ? PC.cob : PC.ink, bad) } }
     // columns stand inside against the wall, hatched like walls; niches are cut into the wall (dashed when above the floor)
     for f in r.features { drawFeature(ctx, lay, f) }
     // furniture orders: sockets, switches and pipes, just inside their wall (furniture plan section 5)

@@ -276,7 +276,7 @@ private func drawPoly(_ ctx: GraphicsContext, _ lay: PolyLayout, _ r: Room, _ g:
     if let i = si { ctx.fill(band(i), with: .color(PC.cob)) }
     // doors and windows along their wall, placed in proportion
     if mode == "plan" {
-        for o in r.openings {
+        for o in r.openings.flatMap({ $0.drawnParts }) {
             guard let i = g.walls.firstIndex(where: { $0.id == o.wall }) else { continue }
             let a = lay.inner[i], b = lay.inner[(i + 1) % n], u = norm(b - a), nn = lay.normals[i]
             let drawn = (b - a).len, real = g.walls[i].len ?? max(1, Int(drawn / lay.s)), kk = drawn / CGFloat(max(1, real))

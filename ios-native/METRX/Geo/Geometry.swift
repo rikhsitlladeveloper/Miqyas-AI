@@ -204,7 +204,7 @@ enum Geo {
 
     /// One wall's areas (prototype wvWallStats).
     static func wallStats(_ len: Int?, _ H: Int?, _ ops: [Opening]) -> WallStats {
-        let open = ops.reduce(Int64(0)) { $0 + Int64($1.w) * Int64($1.h) }
+        let open = ops.reduce(Int64(0)) { $0 + $1.area }
         guard let len, let H else { return WallStats(gross: nil, open: open, net: nil) }
         let g = Int64(len) * Int64(H)
         return WallStats(gross: g, open: open, net: g - open)

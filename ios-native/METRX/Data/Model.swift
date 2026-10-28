@@ -293,6 +293,17 @@ struct Opening: Codable, Equatable, Identifiable {
     var balcony: Bool { style == "balcony" && dw > 0 }
     /// The wall it takes away, mm²: a balcony block's door part plus its window part.
     var area: Int64 { balcony ? Int64(dw) * Int64(h) + Int64(max(0, w - dw)) * Int64(min(wh, h)) : Int64(w) * Int64(h) }
+    /// A balcony block drawn as its door and its window (the plans that know only doors and windows), else itself; the
+    /// parts keep its id, so a tap still selects the block.
+    var drawnParts: [Opening] {
+        guard balcony else { return [self] }
+        var d = self
+        d.type = "door"; d.w = dw; d.style = ""; d.dw = 0; d.wh = 0
+        var w = self
+        w.type = "window"; w.off = off + dw; w.w = max(0, self.w - dw); w.h = min(wh, h); w.sill = max(0, h - min(wh, h))
+        w.style = ""; w.dw = 0; w.wh = 0
+        return [d, w]
+    }
     /// The holes it makes in its wall (along it from the wall's start corner): a balcony block's door part (at the start)
     /// and window part (level with the door's top), else itself.
     var holes: [(off: Int, w: Int, sill: Int, h: Int, door: Bool)] {
