@@ -106,7 +106,7 @@ private fun StartOrderSheet(s: Sheet.StartOrder) {
     GlassSheet(tr("sd.title"), ::later) {
         val who = dn(p.customer, lang).ifBlank { dn(p.name, lang) }
         Text(tr("sd.sub", "c" to who, "t" to tr("sd.tr.$tr0")), style = ui(13f, 500, G.ink2, 1.35f))
-        StartCard("room", tr("sd.room"), tr("sd.a.$tr0"), tr(if (tr0 == "elec" || tr0 == "plumb") "sd.nx.roomPts" else "sd.nx.room")) { app.startRoomPath(p.id) }
+        StartCard("room", tr("sd.room"), tr("sd.a.$tr0"), tr(when (tr0) { "elec", "plumb" -> "sd.nx.roomPts"; "build", "win" -> "sd.nx.roomN"; else -> "sd.nx.room" })) { app.startRoomPath(p.id) }
         StartCard(when (tr0) { "build" -> "doc"; "elec", "plumb" -> "list"; "tiler" -> "tile"; "win" -> "window"; else -> "sofa" },
             tr("sd.b.$tr0"), tr("sd.bd.$tr0"), tr("sd.bn.$tr0")) { app.startOtherPath(p.id) }
         Text(tr("sd.later"), style = ui(15f, 700, G.ink2).copy(textDecoration = TextDecoration.Underline), textAlign = TextAlign.Center,

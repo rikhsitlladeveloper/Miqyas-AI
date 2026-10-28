@@ -26,6 +26,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -639,7 +640,8 @@ private fun Summary(steps: List<uz.metrx.app.furniture.SizeStep>, texts: List<St
             Row(Modifier.fillMaxWidth().heightIn(min = 54.dp).clip(RoundedCornerShape(14.dp)).background(G.glass(.7f)).clickable(role = Role.Button) { onChange(i) }
                 .padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(tr(s.label), style = ui(14.5f, 600), modifier = Modifier.weight(1f))
-                Text(texts[i], style = num(17f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
+                // the value and "O‘zgartirish" at the row's end, lined up row under row (a second weight left a gap after them)
+                Text(texts[i], style = num(17f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.widthIn(max = 180.dp))
                 Text(tr("fz.change"), style = ui(12.5f, 700, G.cobalt2))
             }
         }

@@ -175,7 +175,12 @@ fun fIssues(room: Room, fs: List<Furniture>, walls: List<PlanWall>, ws: Workshop
         if (red.containsKey(f.id)) return@forEach
         val segs = planSegs(room, walls, feet, f.id, snap)
         val out = ArrayList<FYel>()
-        feet[f.id].orEmpty().filter { it.floor }.forEach { ft -> out += passages(ft.pts, segs) }
+        // a piece of several feet (a kitchen's runs): a run's end against its own other run is no passage
+        val own = feet[f.id].orEmpty().filter { it.floor }
+        own.forEach { ft ->
+            val mine = if (own.size > 1) ArrayList(segs).also { l -> own.filter { it !== ft }.forEach { o -> polySegs(o.pts.map { q -> q.v() }, "f:" + f.id, l) } } else segs
+            out += passages(ft.pts, mine)
+        }
         if (out.isNotEmpty()) yel[f.id] = out
     }
     return FChecks(red, yel)

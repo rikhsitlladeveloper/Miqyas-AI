@@ -370,13 +370,13 @@ private fun Options(s: ReSession, k: String, geo: ReGeo, scope: kotlinx.coroutin
         "len" -> { val id = w ?: return; val L = app.wallL(r, id)
             if (app.wallEditable(r, id)) row(tr("re.t.len"), tr("re.lenSub", "w" to id, "v" to mm(L))) {
                 listOf(-100, -10).forEach { dv -> OptChip((if (dv < 0) "−" else "+") + kotlin.math.abs(dv), false) { app.setWallLen(s, id, L + dv) } }
-                Text(mm(L) + " mm", style = ui(13.5f, 800, G.cobalt2), modifier = Modifier.padding(horizontal = 10.dp))
+                Text(mm(L) + " " + tr("u.mm"), style = ui(13.5f, 800, G.cobalt2), modifier = Modifier.padding(horizontal = 10.dp))
                 listOf(10, 100).forEach { dv -> OptChip("+$dv", false) { app.setWallLen(s, id, L + dv) } }
                 IconChip(tr("re.type"), "kbd") { app.openKp(s, "wl") }
             } else row(tr("re.t.len"), tr("re.lenAuto", "w" to id, "v" to mm(L))) { OptNote(tr("re.lenAutoNote")) } }
         "thick" -> { val id = w ?: return
             row(tr("re.t.thick"), tr("re.thickSub", "w" to id, "v" to thickOf(r, id))) {
-                THICKS.forEach { v -> OptChip("$v mm", thickOf(r, id) == v) { app.setThick(s, id, v) } }
+                THICKS.forEach { v -> OptChip("$v " + tr("u.mm"), thickOf(r, id) == v) { app.setThick(s, id, v) } }
                 IconChip(tr("re.type"), "kbd") { app.openKp(s, "thick") }
             } }
         "corner" -> { val id = w ?: return; val ws = reWalls(r, app.reSnap()); val i = ws.indexOfFirst { it.id == id }; val n = ws.size
@@ -405,10 +405,10 @@ private fun Options(s: ReSession, k: String, geo: ReGeo, scope: kotlinx.coroutin
             if (oo.type == "window") row(tr("re.f.sill"), tr("re.sillSub", "v" to mm(oo.sill))) {
                 SILLS.forEach { v -> OptChip(mm(v), oo.sill == v) { app.setSill(s, v) } }; IconChip(tr("re.type"), "kbd") { app.openKp(s, "sill") }
             } else row(tr("re.thrT"), tr("re.thrSub", "v" to oo.thr)) {
-                THRESHOLDS.forEach { v -> OptChip("$v mm", oo.thr == v) { if (oo.thr != v) app.setOp(s, app.t("re.thrCh", "v" to v)) { it.copy(thr = v) } } }
+                THRESHOLDS.forEach { v -> OptChip("$v " + tr("u.mm"), oo.thr == v) { if (oo.thr != v) app.setOp(s, app.t("re.thrCh", "v" to v)) { it.copy(thr = v) } } }
             } }
         "move" -> { val wall = o?.wall ?: p?.wall ?: return; val L = app.wallL(r, wall); val d = if (o != null) distsOf(o, L) else distsOf(p!!, L)
-            row(tr("re.t.move"), tr("re.moveSub", "a" to mm(d.left), "b" to mm(d.right))) {
+            row(tr("re.t.move"), tr("re.moveSub", "l" to mm(d.left), "r" to mm(d.right))) {
                 IconChip("100", "left") { app.moveSel(s, "-100") }; IconChip("10", "left") { app.moveSel(s, "-10") }
                 IconChip("10", "right") { app.moveSel(s, "10") }; IconChip("100", "right") { app.moveSel(s, "100") }
                 Box(Modifier.width(1.dp).height(34.dp).background(G.ink.copy(alpha = .1f)))

@@ -186,9 +186,11 @@ private fun wardRoomH(room: Room?): Int? = room?.dim("H")?.let { it.v ?: it.pend
 /** The wall's length, the room's height and what is wrong. */
 internal class WardCtx(p: Project, f: Furniture, m: Module, ws: Workshop, snap: Boolean) {
     val room = roomOf(p, f)
-    val wallL = room?.let { wallLen(it, snap, m.wall ?: "") }
+    // a piece standing free in the room is on no wall: no wall length, and the wall's windows, doors and sockets are not in its way
+    private val free = uz.metrx.app.furniture.isFree(f)
+    val wallL = if (free) null else room?.let { wallLen(it, snap, m.wall ?: "") }
     val roomH = wardRoomH(room)
-    val found = wardrobeChecks(m, wallL, roomH, ws, room?.openings ?: emptyList(), room?.points ?: emptyList()).let { c ->
+    val found = wardrobeChecks(m, wallL, roomH, ws, if (free) emptyList() else room?.openings ?: emptyList(), if (free) emptyList() else room?.points ?: emptyList()).let { c ->
         // a piece of several boxes (a stenka) is checked as a whole too: its run along the wall, not only the box picked
         val w0 = f.walls.firstOrNull()
         val runL = if (room != null && w0 != null && f.type !in uz.metrx.app.furniture.CORNER_TYPES && uz.metrx.app.furniture.boxes(f).size > 1) wallLen(room, snap, w0) else null

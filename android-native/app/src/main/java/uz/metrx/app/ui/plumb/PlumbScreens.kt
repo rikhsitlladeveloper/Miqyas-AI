@@ -657,8 +657,8 @@ private fun FixSheet(s: Sheet.PFix) {
         vOff == null || vW == null || vH.any { it == null } -> tr("tl.fixErr")
         // a radiator of two sections at least (and no wider than its wall)
         old.t == "rad" && (vW < 2 * uz.metrx.app.plumb.SEC_MM || (wl != null && vW > wl)) -> tr("sx.radMin", "a" to 2 * uz.metrx.app.plumb.SEC_MM)
-        wl != null && vOff > wl -> tr("pt.offBig")
-        vH.any { it!! > c.H } -> tr("pt.hBig")
+        wl != null && vOff > wl -> tr("pt.offBig", "v" to uz.metrx.app.geo.fmtLen(Math.round(wl).toInt(), unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
+        vH.any { it!! > c.H } -> tr("pt.hBig", "v" to uz.metrx.app.geo.fmtLen(c.H, unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
         else -> null
     }
     fun save() {
@@ -752,8 +752,8 @@ private fun PointSheet(s: Sheet.PPoint) {
     val wl = c.wall(wall)?.len
     val err = when {
         vOff == null || vH == null -> tr("tl.fixErr")
-        wl != null && vOff > wl -> tr("pt.offBig")
-        vH > c.H -> tr("pt.hBig")
+        wl != null && vOff > wl -> tr("pt.offBig", "v" to uz.metrx.app.geo.fmtLen(Math.round(wl).toInt(), unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
+        vH > c.H -> tr("pt.hBig", "v" to uz.metrx.app.geo.fmtLen(c.H, unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
         else -> null
     }
     GlassSheet(tr("sx.o.${old.t}"), { app.sheet = null }, footer = {

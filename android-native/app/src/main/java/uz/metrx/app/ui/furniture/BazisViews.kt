@@ -270,7 +270,10 @@ internal fun orderIssues(app: App, p: Project): List<OrderIssue> {
         val skip = setOf("wc.sheet", "wc.shelfWide", "wc.wide", "wc.high")
         val found = if (f.kind == "kitchen") uz.metrx.app.furniture.checks(f, kRuns(f, room, snap), fws, room.openings, room.points)
             else f.modules.filter { it.type == "wardrobe" }.flatMap { m ->
-                uz.metrx.app.furniture.wardrobeChecks(m, if (f.roomId != null) m.wall?.let(len) else null, if (f.roomId != null) roomH else null, fws, room.openings, room.points) }
+                // standing free it is on no wall (its overlaps are the placing warnings above)
+                val free = uz.metrx.app.furniture.isFree(f)
+                uz.metrx.app.furniture.wardrobeChecks(m, if (f.roomId != null && !free) m.wall?.let(len) else null, if (f.roomId != null) roomH else null, fws,
+                    if (free) emptyList() else room.openings, if (free) emptyList() else room.points) }
         found.filter { (it.level == "err" || it.level == "warn") && it.key !in skip }.forEach { out += OrderIssue(f.id, it.level, it.key, it.vars, it.mid) }
         out
     }

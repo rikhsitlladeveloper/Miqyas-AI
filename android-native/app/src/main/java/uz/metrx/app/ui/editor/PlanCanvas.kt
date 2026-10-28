@@ -306,8 +306,36 @@ fun DrawScope.drawReportPlan(r0: Room, unit: LenUnit, english: Boolean, label: S
         // the report's plan draws the outer walls' items (an inner wall's are on its own pages' 3D)
         val r = uz.metrx.app.geo.outerItems(r0, snap)
         if (r.isPoly) drawReportPoly(r, unit, english, label, tm, snap, labelMode, m2)
-        else { val lay = RectLayout(r); drawRectPlan(lay, r, null, null, unit, english, label, { false }, tm, report = true, m2 = m2, labelMode = labelMode); lay.VH }
+        else {
+            val lay = RectLayout(r)
+            // the inner walls first, so the room's label stays on top: room mm (A along x, D back to A's start along y) to the drawing
+            val wa = lay.wall("A"); val wd = lay.wall("D"); val ux = unitV(wa.a, wa.b); val uy = unitV(wd.b, wd.a)
+            drawReportInner(r) { x, y -> wa.a + ux * (x * lay.s).toFloat() + uy * (y * lay.s).toFloat() }
+            drawRectPlan(lay, r, null, null, unit, english, label, { false }, tm, report = true, m2 = m2, labelMode = labelMode); lay.VH
+        }
     }
+
+/** The room's inner walls on the report's plan, hatched like the outer walls (a half wall plain), an arch's passage dashed; [at] maps room mm to the drawing. */
+internal fun DrawScope.drawReportInner(r: Room, at: (Double, Double) -> Offset) {
+    if (r.inner.isEmpty()) return
+    val rh = uz.metrx.app.geo.roomHOf(r)
+    r.inner.forEach { p ->
+        val g = uz.metrx.app.geo.pieceGeo(p, rh)
+        g.R.forEach { q ->
+            val path = Path().apply { q.forEachIndexed { i, v -> val o = at(v.x, v.y); if (i == 0) moveTo(o.x, o.y) else lineTo(o.x, o.y) }; close() }
+            drawPath(path, PLAN_W)
+            if (p.k != "half") clipPath(path) {
+                val bx = path.getBounds(); var x = bx.left - bx.height
+                while (x < bx.right + bx.height) { drawLine(INK, Offset(x, bx.bottom), Offset(x + bx.height, bx.top), 1.1f); x += 4f * 1.4142f }
+            }
+            drawPath(path, INK, style = Stroke(1.2f))
+        }
+        g.gap?.let { (g0, g1) ->
+            val t = p.th / 2.0
+            listOf(t, -t).forEach { o -> drawLine(INK, at(g0.x + g.n.x * o, g0.y + g.n.y * o), at(g1.x + g.n.x * o, g1.y + g.n.y * o), 1f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 3f))) }
+        }
+    }
+}
 
 /** The height of a room's plan drawing in the 360-wide units. */
 fun reportPlanHeight(r: Room, snap: Boolean): Float = if (r.isPoly) reportPolyHeight(r, snap) else RectLayout(r).VH

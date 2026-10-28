@@ -378,13 +378,15 @@ private fun PlaceCanvas(app: App, pid: String, st: ArrState, room: Room, walls: 
         }
         // the labels of narrow passages
         val seen = ArrayList<Offset>()
-        chk.yel.values.flatten().forEach { y ->
+        // with a piece selected its blue gap pills and its card say the gaps: the amber tags (which would sit on the pills) wait, their lines stay
+        if (sel == null) chk.yel.values.flatten().forEach { y ->
             val a = M(y.p0); val b = M(y.p1); val l = max(hypot(b.x - a.x, b.y - a.y), 1f)
             // beside its dimension line (up, or left of an upright one), clear of the blue distance pills on it
             var qx = -(b.y - a.y) / l; var qy = (b.x - a.x) / l
             if (qy > .01f || (abs(qy) <= .01f && qx > 0)) { qx = -qx; qy = -qy }
             val m = Offset((a.x + b.x) / 2 + qx * 20 * u, (a.y + b.y) / 2 + qy * 20 * u)
-            if (seen.any { hypot(it.x - m.x, it.y - m.y) < 24 * u }) return@forEach
+            // a tag is about 100 dp wide and 24 high: one that would overlap a tag already drawn is left out (its line stays)
+            if (seen.any { abs(it.x - m.x) < 100 * u && abs(it.y - m.y) < 24 * u }) return@forEach
             seen += m
             AmberTag(app.t("fp.pl.pass", "v" to mm(y.gap)), m.x, m.y)
         }
@@ -569,7 +571,8 @@ private fun PlaceCard(app: App, st: ArrState, f: Furniture, chk: FChecks, walls:
                       onTurn: () -> Unit, onCopy: () -> Unit, onDel: () -> Unit, onStick: () -> Unit, onFreeIt: () -> Unit, onSize: () -> Unit) {
     val lang = LocalLang.current
     val shape = RoundedCornerShape(22.dp)
-    val base = Modifier.fillMaxWidth().shadow(18.dp, shape).clip(shape).background(G.solid).border(1.dp, G.rim, shape)
+    // the card tells the toast where it is, so a toast (with its Undo) sits above it and not over its buttons
+    val base = Modifier.fillMaxWidth().then(uz.metrx.app.ui.ux.barSpotModifier()).shadow(18.dp, shape).clip(shape).background(G.solid).border(1.dp, G.rim, shape)
     val b = bodyFrame(f, st.island, walls, ws)?.first
     val red = chk.red[f.id]; val yel = chk.yel[f.id]
     val free = isFree(f) || st.island

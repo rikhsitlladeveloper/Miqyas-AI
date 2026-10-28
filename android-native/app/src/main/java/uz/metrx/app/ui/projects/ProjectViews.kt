@@ -132,7 +132,8 @@ fun NoteLine(text: String, modifier: Modifier = Modifier) {
 @Composable
 fun Plans2D(p: Project, lang: Lang) {
     val app = LocalApp.current
-    val unit = app.settings.unit; val en = lang == Lang.EN; val snap = app.settings.angleSnap
+    // a furniture order in the furniture maker’s own unit (mm by default), as its rooms are measured
+    val unit = if (p.isFurniture) app.settings.furnUnit else app.settings.unit; val en = lang == Lang.EN; val snap = app.settings.angleSnap
     val maxDim = p.rooms.maxOfOrNull { max(it.dim("A").v ?: 4000, it.dim("B").v ?: 3000) } ?: 4000
     val sc = 120f / maxDim
     Column {
