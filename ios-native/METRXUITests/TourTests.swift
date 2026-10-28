@@ -553,11 +553,11 @@ final class TourAppTests: TourBase {
         }
         // dark mode
         tap("tab.profile", 2)
-        if hit(labelled(tr("nt.dark"), 3)) {
+        if hit(labelled(["uz": "Tungi rejim", "uzc": "Тунги режим", "ru": "Тёмная тема", "en": "Dark mode"][lang] ?? "Tungi rejim", 3)) {
             S("profile-dark"); tap("tab.home", 2); S("home-dark")
             if tap("laser", 2) { S("device-sheet-dark"); closeSheets() }
             tap("tab.projects", 2); S("projects-dark")
-            tap("tab.profile", 2); hit(labelled(tr("nt.dark"), 3)); usleep(600_000)
+            tap("tab.profile", 2); hit(labelled(["uz": "Tungi rejim", "uzc": "Тунги режим", "ru": "Тёмная тема", "en": "Dark mode"][lang] ?? "Tungi rejim", 3)); usleep(600_000)
         }
         // seven taps on the version line: test mode, then the Device sheet's "Lazer sinovi"
         for _ in 0..<8 { app.swipeUp(); usleep(200_000) }
@@ -567,7 +567,7 @@ final class TourAppTests: TourBase {
             tap("tab.home", 2)
             if tap("laser", 3) {
                 S("device-sheet-test-row")
-                if tapText("lt.title", 3, wait: 1.5) { scrollShots("laser-test", 3); back() } else { skip("laser-test-row") }
+                if tap("lt.row", 3, wait: 1.5) { scrollShots("laser-test", 3); back() } else { skip("laser-test-row") }
                 closeSheets()
             }
         } else { skip("version-line") }
