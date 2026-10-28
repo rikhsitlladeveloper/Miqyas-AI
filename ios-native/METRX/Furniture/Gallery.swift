@@ -397,6 +397,7 @@ struct FStepsScreen: View {
                     .padding(.trailing, 12).frame(minHeight: 64)
                     .background(barTint.ignoresSafeArea(edges: .top))
                     .overlay(alignment: .bottom) { Rectangle().fill(G.rim).frame(height: 1) }
+                    ScrollViewReader { proxy in
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
                             // where we are: a dot a size, the last one the summary
@@ -411,7 +412,7 @@ struct FStepsScreen: View {
                                 PieceView(scene: scene, hi: hi, label: label)
                                 T(tr("fx.drag"), ui(11, 600, G.ink3)).padding(10).allowsHitTesting(false)
                             }
-                            .aspectRatio(typing && at < n ? 2.1 : 1 / 0.92, contentMode: .fit)
+                            .aspectRatio(typing && at < n ? 2.5 : 1 / 0.92, contentMode: .fit)
                             .clipShape(RoundedRectangle(cornerRadius: 22, style: .continuous))
                             .overlay(RoundedRectangle(cornerRadius: 22, style: .continuous).strokeBorder(G.rim, lineWidth: 1))
                             if at < n && steps[at].pics { picsAsk(m, steps) }
@@ -422,6 +423,10 @@ struct FStepsScreen: View {
                         .padding(.horizontal, 16).padding(.top, 10).padding(.bottom, 120)
                     }
                     .scrollDismissesKeyboard(.interactively)
+                    // with the keyboard up the laser and mic row went under "Keyingi": it is scrolled up above the bar
+                    .onChange(of: typing) { _, on in if on { toolsUp(proxy) } }
+                    .onChange(of: at) { _, _ in if typing { toolsUp(proxy) } }
+                    }
                 }
                 FloatingFooter {
                     if at < n {
@@ -542,6 +547,13 @@ struct FStepsScreen: View {
         } else if at > 0 { at -= 1 } else { app.pop() }
     }
 
+    /// The size step's laser, mic and laser line scrolled above the "Keyingi" bar once the keyboard is up.
+    private func toolsUp(_ proxy: ScrollViewProxy) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
+            withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo("fx.tools", anchor: UnitPoint(x: 0.5, y: 0.7)) }
+        }
+    }
+
     @ViewBuilder private func ask(_ steps: [SizeStep], _ unit: LenUnit, _ uw: String) -> some View {
         let i = at
         let s = steps[i]
@@ -593,6 +605,7 @@ struct FStepsScreen: View {
                 T(laser == "busy" ? tr("fx.busy") : laser ?? tr(on ? "fx.laserOn" : "fx.laserOff"), ui(12.5, 600, G.ink2, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(.horizontal, 4).frame(minHeight: 32)
+            .id("fx.tools")
         }
     }
 

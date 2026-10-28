@@ -224,6 +224,48 @@ struct MiniPlan: View {
     }
 }
 
+/// Whether point c is inside polygon v.
+private func ptInPoly(_ c: (Double, Double), _ v: [(Double, Double)]) -> Bool {
+    var inside = false
+    var j = v.count - 1
+    for i in v.indices {
+        let pa = v[i], pb = v[j]
+        if (pa.1 > c.1) != (pb.1 > c.1) && c.0 < (pb.0 - pa.0) * (c.1 - pa.1) / (pb.1 - pa.1) + pa.0 { inside.toggle() }
+        j = i
+    }
+    return inside
+}
+
+/// The distance from c to the nearest side of v.
+private func edgeGap(_ c: (Double, Double), _ v: [(Double, Double)]) -> Double {
+    var d = Double.greatestFiniteMagnitude
+    for i in v.indices {
+        let a = v[i], b = v[(i + 1) % v.count]
+        let dx = b.0 - a.0, dy = b.1 - a.1
+        let l2 = dx * dx + dy * dy
+        let t = l2 < 1e-12 ? 0 : max(0, min(1, ((c.0 - a.0) * dx + (c.1 - a.1) * dy) / l2))
+        let px = a.0 + t * dx - c.0, py = a.1 + t * dy - c.1
+        d = min(d, (px * px + py * py).squareRoot())
+    }
+    return d
+}
+
+/// The inside point (of a 24 × 24 grid over v's box) farthest from every side, and that distance.
+private func roomiestPt(_ v: [(Double, Double)]) -> ((Double, Double), Double) {
+    let xs = v.map(\.0), ys = v.map(\.1)
+    let x0 = xs.min() ?? 0, x1 = xs.max() ?? 0, y0 = ys.min() ?? 0, y1 = ys.max() ?? 0
+    var best = (v[0], -1.0)
+    for i in 0..<24 {
+        for j in 0..<24 {
+            let p = (x0 + (x1 - x0) * (Double(i) + 0.5) / 24, y0 + (y1 - y0) * (Double(j) + 0.5) / 24)
+            guard ptInPoly(p, v) else { continue }
+            let g = edgeGap(p, v)
+            if g > best.1 { best = (p, g) }
+        }
+    }
+    return best
+}
+
 /// Where a drawn room's name goes: the centroid, or the middle of the widest run across it (prototype skLabelPt).
 func labelPt(_ v: [(Double, Double)]) -> (Double, Double) {
     var a = 0.0, cx = 0.0, cy = 0.0
@@ -235,6 +277,12 @@ func labelPt(_ v: [(Double, Double)]) -> (Double, Double) {
         let pa = v[i], pb = v[j]
         if (pa.1 > c.1) != (pb.1 > c.1) && c.0 < (pb.0 - pa.0) * (c.1 - pa.1) / (pb.1 - pa.1) + pa.0 { inside.toggle() }
         j = i
+    }
+    // an L or U room's centroid lies inside but close to the inner corner, so the name sat on the walls: the point
+    // farthest from every wall (a 24 × 24 search) when the centroid has much less room than that
+    if v.count > 4 {
+        let best = roomiestPt(v)
+        if best.1 > 0 && (!inside || edgeGap(c, v) < 0.7 * best.1) { return best.0 }
     }
     if inside { return c }
     let y = c.1

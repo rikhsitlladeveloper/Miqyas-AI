@@ -239,7 +239,8 @@ struct Furniture3DPane: View {
     /// A picture is being taken: a second tap does nothing.
     @State private var taking = false
     var body: some View {
-        Group { content }
+        // one column whatever holds it: in the designers' ZStack the picture and its buttons were laid over each other
+        VStack(spacing: 0) { content }
             // the doors are the room's: another room starts all shut; leaving the page stops the run
             .onChange(of: room.id) { _, _ in mo.reset() }
             .onDisappear { mo.stop() }

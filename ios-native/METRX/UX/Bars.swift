@@ -153,7 +153,7 @@ struct DesignerHead: View {
             }
             HStack(spacing: 8) {
                 OrderProgress(app: app, p: p, compact: true)
-                if let t = priceLine(p) {
+                if let t = priceLine(p, short: true) {
                     T(t, AppSettings.shared.advanced ? num(12.5, 800) : ui(12, 700, G.ink3), lines: 1)
                         .minimumScaleFactor(0.7)
                         .padding(.horizontal, 10).frame(minHeight: 30)

@@ -61,14 +61,16 @@ func orderPrice(_ p: Project) -> Decimal? {
 }
 
 /// "≈ 12 345 000 so‘m (taxminiy)" in the simple app (rounded to the thousand), the exact price in Advanced.
-func priceLine(_ p: Project) -> String? {
+/// short: just "≈ 12 345 000 so‘m" (the designer's narrow head, where "(taxminiy)" was cut off).
+func priceLine(_ p: Project, short: Bool = false) -> String? {
     guard let v = orderPrice(p) else { return nil }
     let en = AppSettings.shared.lang == .en
     if AppSettings.shared.advanced { return tr("ux.exact", ["v": Money.str(v, p.precision, en) + " " + Money.cur(p.currency)]) }
     var r = v / 1000
     var out = Decimal()
     NSDecimalRound(&out, &r, 0, .plain)
-    return tr("ux.approx", ["v": Money.str(out * 1000, 0, en) + " " + Money.cur(p.currency)])
+    let v1k = Money.str(out * 1000, 0, en) + " " + Money.cur(p.currency)
+    return short ? "≈ " + v1k : tr("ux.approx", ["v": v1k])
 }
 
 /// The price as a line: grey and approximate in the simple app, nothing before there is furniture.
@@ -161,8 +163,9 @@ struct OrderProgress: View {
     var compact = false
     var body: some View {
         let st = orderSteps(p)
-        HStack(spacing: compact ? 4 : 6) {
+        HStack(spacing: compact ? 2 : 4) {
             ForEach(Array(st.enumerated()), id: \.offset) { i, s in
+                if i > 0 { Spacer(minLength: 0) }
                 let col: Color = s.state == .cur ? G.cobalt : s.state == .done ? G.green : G.ink3
                 HStack(spacing: 4) {
                     ZStack {
@@ -171,10 +174,15 @@ struct OrderProgress: View {
                         else { T(s.state == .skip ? "–" : "\(i + 1)", ui(compact ? 10 : 11.5, 800, s.state == .cur ? .white : G.ink3)) }
                     }
                     .frame(width: compact ? 18 : 22, height: compact ? 18 : 22)
-                    T(s.label, ui(compact ? 11 : 12.5, s.state == .cur ? 800 : 600, s.state == .todo || s.state == .skip ? G.ink3 : col), lines: 1)
-                        .minimumScaleFactor(0.75)
+                    // the designer's narrow head: the current step's name only (the others were cut to "Di…")
+                    if !compact || s.state == .cur {
+                        T(s.label, ui(compact ? 11 : 12.5, s.state == .cur ? 800 : 600, s.state == .todo || s.state == .skip ? G.ink3 : col), lines: 1)
+                            .minimumScaleFactor(0.6)
+                    }
                 }
-                .padding(.horizontal, compact ? 4 : 6).frame(maxWidth: .infinity, minHeight: compact ? 32 : 40)
+                // each step as wide as its name (equal widths cut "Yuborish" to "Yubo…" while "Xona" had room)
+                .padding(.horizontal, compact ? 4 : 6).frame(minHeight: compact ? 32 : 40)
+                .layoutPriority(s.state == .cur ? 1 : 0)
                 .background(Capsule().fill(s.state == .cur ? G.cobalt.opacity(0.1) : .clear))
                 .contentShape(Rectangle())
                 .onTapGesture { goStep(app, p, s.key) }

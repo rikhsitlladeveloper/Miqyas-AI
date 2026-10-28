@@ -50,7 +50,9 @@ struct GBtn: View {
         let fg: Color = kind == .secondary ? G.ink : .white
         HStack(spacing: 8) {
             if let icon { MIcon(icon, fg, 18, 2.2) }
+            // a long label in a half-width button (Russian, "Taklifni chiqarish") gets a bit smaller before it is cut
             T(label, ui(fontSize, 700, fg), align: .center, lines: lines)
+                .minimumScaleFactor(0.78)
         }
         .padding(.horizontal, height < 50 ? 12 : 16).padding(.vertical, lines > 1 ? 4 : 0)
         .frame(maxWidth: fill ? .infinity : nil, minHeight: height)

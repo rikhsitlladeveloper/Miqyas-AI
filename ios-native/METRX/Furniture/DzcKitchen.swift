@@ -1152,8 +1152,9 @@ private struct DzcKTileView: View {
                 }
             }
         VStack(spacing: 2) {
-            if let d = DZC_GLYPH[t.kind] { DzcIcon(d: d, color: G.ink, size: 30, box: 30, stroke: 1.6) }
-            T(dzcTileName(t), ui(11, 700), align: .center, lines: 1)
+            if let d = DZC_GLYPH[t.kind] { DzcIcon(d: d, color: G.ink, size: 26, box: 26, stroke: 1.6) }
+            // two short lines, not "Tortmali mo…"
+            T(dzcTileName(t), ui(10.5, 700, lh: 1.1), align: .center, lines: 2).minimumScaleFactor(0.85)
             T("\(t.w)" + (t.upper ? " · " + tr("dzc.up") : ""), num(10.5, 600, G.ink2), lines: 1)
         }
         .frame(width: 78, height: 78)
