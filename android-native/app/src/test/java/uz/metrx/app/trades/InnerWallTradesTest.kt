@@ -87,6 +87,15 @@ class InnerWallTradesTest {
         assertTrue(dr(inner).horiz > 900)
     }
 
+    @Test fun aDoorInAPartitionTakesThePartitionsThickness() {
+        val it = uz.metrx.app.win.WinItem("w1", "dint", roomId = "r", opening = "di", w = 760, h = 2060)
+        val q = p.copy(win = uz.metrx.app.win.WinOrder(items = listOf(it)))
+        assertEquals(100, uz.metrx.app.win.wallT(q, it))
+        val c = uz.metrx.app.win.ctxOf(q, "r", true)!!
+        assertEquals(100, uz.metrx.app.win.placed(c, it)!!.T)
+        assertEquals(200, c.tOf("C"))
+    }
+
     @Test fun aTypedBathroomIsNotFlaggedForItsUsualDistanceToTheRiser() {
         val k = uz.metrx.app.plumb.pkitOf("bt.bath")!!
         val f = uz.metrx.app.plumb.freeOf(k, k.opts, "f", "Hammom", 2500, 2000, 2700)

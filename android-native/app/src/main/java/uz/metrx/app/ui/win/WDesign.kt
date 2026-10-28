@@ -130,7 +130,7 @@ fun WDesignScreen(rt: Route.WDesign) {
     LaunchedEffect(p.rooms) { app.refitWin(p.id) }
     val c = remember(p.rooms, it0) { if (it0.inRoom) ctxOf(p, it0.roomId!!, snap) else freeCtx(it0) }
     val pl = remember(c, it0) { c?.let { placed(it, it0) } }
-    val T = c?.T ?: it0.freeT
+    val T = pl?.T ?: c?.T ?: it0.freeT
     val R = revealOf(T, frameDepth(it0))
     val floor = pl?.doorOpening ?: (it0.isDoor || it0.kind == "balc")
     val calc = rememberWCalc(p)

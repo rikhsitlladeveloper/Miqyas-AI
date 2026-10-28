@@ -131,7 +131,7 @@ fun winParts(c: WCtx, pls: List<Placed>, dx: Double, dz: Double): List<Part> {
         val w = pl.w
         fun at(a: Double, d: Double, z: Double): V3 { val q = w.at(pl.a0 + a, d); return V3(q.x / 1000 + dx, (pl.z0 + z) / 1000, q.y / 1000 + dz) }
         val n = V3(w.nIn.x, 0.0, w.nIn.y); val tt = V3(w.t.x, 0.0, w.t.y); val up = V3(0.0, 1.0, 0.0)
-        for (b in productBoxes(pl.it, c.T, pl.doorOpening)) {
+        for (b in productBoxes(pl.it, pl.T, pl.doorOpening)) {
             if (b.a1 - b.a0 < .5 || b.d1 - b.d0 < .5 || b.z1 - b.z0 < .5) continue
             val f = ps.of(w.id, b.rgb, b.op).faces
             f += Face(n, listOf(at(b.a0, b.d1, b.z0), at(b.a1, b.d1, b.z0), at(b.a1, b.d1, b.z1), at(b.a0, b.d1, b.z1)))

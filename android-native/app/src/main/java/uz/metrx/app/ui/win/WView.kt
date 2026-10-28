@@ -174,7 +174,7 @@ fun WViewScreen(rt: Route.WView) {
                     MIcon("plus", G.cobalt2, 20.dp, 2.2f); Text(tr("dw.addItem"), style = ui(15f, 700, G.cobalt2), maxLines = 1)
                 }
                 if (app.settings.advanced) {
-                    val list = itemsIn(p, c).map { it to revealOf(c.T, frameDepth(it)) }
+                    val list = itemsIn(p, c).map { it to revealOf(c.tOf(c.opening(it.opening)?.wall), frameDepth(it)) }
                     if (list.isNotEmpty()) WCountCard(tr("dw.roomCount"), countItems(list), list.sumOf { (it, r) -> itemCost(it, r, app.settings.trade.win) })
                 }
             }
