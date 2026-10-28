@@ -143,6 +143,8 @@ class Gps internal constructor(private val context: Context) {
     /** Starts a search; the permission is asked first when it was not given yet (a refusal calls back with null). */
     fun locate() {
         if (locating) return
+        // a second try while location is still off: when no dialog can be shown, the settings open (not a dead tap)
+        retryOff = off
         locating = true; off = false; live = null
         if (allowed()) { checkApprox(); checkSettings() } else ask()
     }
@@ -160,7 +162,7 @@ class Gps internal constructor(private val context: Context) {
         // location on: search at once (Google's check would also fail on its "Location Accuracy" switch and ask on
         // every tap); off: Google's dialog, or without Google Play services the message with "Sozlamalarni ochish"
         if (locationOn(context)) { search(); return }
-        if (!hasPlayServices(context)) { turnedOff(); return }
+        if (!hasPlayServices(context)) { if (retryOff) openSettings(); turnedOff(); return }
         runCatching {
             LocationServices.getSettingsClient(context).checkLocationSettings(LocationSettingsRequest.Builder().addLocationRequest(highAccuracyRequest()).build())
                 .addOnSuccessListener { if (g == gen && locating) search() }
@@ -168,8 +170,8 @@ class Gps internal constructor(private val context: Context) {
                     if (g != gen || !locating) return@addOnFailureListener
                     when {
                         locationOn(context) -> search()
-                        e is ResolvableApiException -> runCatching { resolve(e.resolution.intentSender) }.onFailure { resolved(false) }
-                        else -> turnedOff()
+                        e is ResolvableApiException -> { askedAt = now(); runCatching { resolve(e.resolution.intentSender) }.onFailure { resolved(false) } }
+                        else -> { if (retryOff) openSettings(); turnedOff() }
                     }
                 }
         }.onFailure { if (locationOn(context)) search() else turnedOff() }
@@ -178,8 +180,17 @@ class Gps internal constructor(private val context: Context) {
     /** The "Turn on location" dialog's answer: accepted, search at once; refused, search anyway if location is on. */
     internal fun resolved(ok: Boolean) {
         if (!locating) return
-        if (ok || locationOn(context)) search() else turnedOff()
+        if (ok || locationOn(context)) { search(); return }
+        // answered "no" faster than anyone can read it: Google did not show its dialog this time (it holds it back
+        // right after a "No thanks"), so the tap looked dead. The phone's location settings open instead.
+        if (now() - askedAt < QUICK_NO_MS) openSettings()
+        turnedOff()
     }
+
+    /** When Google's "Turn on location" dialog was last asked for (its quick refusal means it was not shown). */
+    private var askedAt = 0L
+    private var retryOff = false
+    internal var openSettings: () -> Unit = { openLocationSettings(context) }
 
     private fun turnedOff() { off = true; finish(null) }
 
@@ -248,7 +259,7 @@ class Gps internal constructor(private val context: Context) {
     /** "Qayta so‘rash": asks for precise location again (approximate only). */
     fun askAgain() = askPrecise()
 
-    private companion object { const val WARM_MS = 180_000L }
+    private companion object { const val WARM_MS = 180_000L; const val QUICK_NO_MS = 700L }
 }
 
 /** Opens the phone's location settings (location switched off). */
