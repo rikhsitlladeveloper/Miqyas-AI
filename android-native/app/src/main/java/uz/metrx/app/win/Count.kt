@@ -61,7 +61,15 @@ data class WCount(
 }
 
 /** The wall's thickness a product stands in: its room's (200 when not typed), its own without a room. */
-fun wallT(p: Project, it: WinItem): Int = if (!it.inRoom) it.freeT else p.rooms.firstOrNull { r -> r.id == it.roomId }?.dim("T")?.v ?: 200
+fun wallT(p: Project, it: WinItem): Int {
+    if (!it.inRoom) return it.freeT
+    val r = p.rooms.firstOrNull { r -> r.id == it.roomId } ?: return 200
+    val t = r.dim("T").v ?: 200
+    // an opening in an inner partition: the partition's thickness
+    if (r.inner.isEmpty()) return t
+    val wall = r.openings.firstOrNull { o -> o.id == it.opening }?.wall ?: return t
+    return uz.metrx.app.geo.innerFaces(r).firstOrNull { f -> f.id == wall }?.th ?: t
+}
 
 /** The parts of products [list] (each with its reveal's depth), [qty] pieces each. */
 fun countItems(list: List<Pair<WinItem, Int>>): WCount {

@@ -261,7 +261,8 @@ private fun Group(text: String) = Text(text, style = ui(13f, 500, G.ink2), modif
 
 @Composable
 private fun Card(modifier: Modifier = Modifier, content: @Composable () -> Unit) {
-    Column(modifier.padding(horizontal = 20.dp).fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f))) { content() }
+    // 16 dp from the screen edges, as the name card above and the rows below (they were 4 dp apart)
+    Column(modifier.padding(horizontal = 16.dp).fillMaxWidth().glassCard(RoundedCornerShape(22.dp), fill = G.glass(.55f))) { content() }
 }
 
 @Composable

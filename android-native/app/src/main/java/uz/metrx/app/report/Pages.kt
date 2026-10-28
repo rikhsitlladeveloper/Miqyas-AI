@@ -149,8 +149,13 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
             drawText(sm, topLeft = Offset(PX + CW - sm.size.width, PY + h1.size.height))
             drawLine(INK, Offset(PX, PY + rh + 8f + .75f), Offset(PX + CW, PY + rh + 8f + .75f), 1.5f)
         }
-        y = PY + rh + 8f + 1.5f; pend = 12f
+        y = PY + rh + 8f + 1.5f; pend = 12f; pageTop = y
     }
+
+    /** Where the current page's content starts (under its header). */
+    private var pageTop = 0f
+    /** A new page, unless this one holds no more than a line or two (a footnote carried over): no page for a footnote alone. */
+    fun newPageUnlessNearTop(slack: Float = 60f) { if (pages.isEmpty() || y > pageTop + slack) newPage() }
 
     fun ensure(h: Float) { if (!fits(h)) newPage() }
 
@@ -510,7 +515,9 @@ fun reportPages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, im
     d.figurePages()
     d.notesPages()
     // the first page holding only the parties has room for the rest
-    if (roomsOn || d.pages.size > 1) d.newPage()
+    // (only before the views or the estimate: the notes and the signatures alone carry on where the page is)
+    val bigNext = (sn.pdf.views && rooms.any { it.room.views.isNotEmpty() }) || sn.pdf.estimate
+    if (bigNext && ((roomsOn && rooms.isNotEmpty()) || d.pages.size > 1)) d.newPage()
     if (sn.pdf.views) d.views()
     if (sn.pdf.estimate) d.estimate(sn.estimate)
     if (sn.notes.isNotBlank()) { d.h2(d.t("rpt.notes")); d.para(AnnotatedString(sn.notes), d.ui(10f), 10f, 10f) }

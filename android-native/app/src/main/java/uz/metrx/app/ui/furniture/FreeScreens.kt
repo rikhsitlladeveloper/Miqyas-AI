@@ -453,7 +453,9 @@ fun FPlaceScreen(rt: Route.FPlace) {
                 },
                 onCorner = { w -> if (w != first) { first = w; setPose(null); reset() } },
                 onPose = { setPose(it) }, onIsland = { setPose(it) })
-            Text(tr("fz.dragHint"), style = ui(12.5f, 400, G.ink2, 1.4f))
+            // a piece standing free: dragged anywhere, and the wall chips below stick it back to a wall (none of them is "on")
+            val freeNow = ward && pose != null
+            Text(tr(if (freeNow) "fz.dragHintFree" else "fz.dragHint"), style = ui(12.5f, 400, G.ink2, 1.4f))
             // a desk or the island turns, 15° a tap, about its middle
             val turnable = uz.metrx.app.furniture.canStandFree(f) || (pose != null && uz.metrx.app.furniture.canBeFree(f)) || ISLAND in f.walls
             if (turnable) Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -470,9 +472,9 @@ fun FPlaceScreen(rt: Route.FPlace) {
             if (warns.isNotEmpty()) Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.amberWash).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 warns.forEach { i -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MIcon("alert", G.amberInk, 16.dp, 2f); Text(issueText(app, i, lang), style = ui(13f, 600, G.amberInk, 1.35f)) } }
             }
-            Text(tr(if (ward) "fz.wallQ" else "fz.first"), style = ui(15f, 700))
+            Text(tr(if (freeNow) "fz.wallQFree" else if (ward) "fz.wallQ" else "fz.first"), style = ui(15f, 700))
             androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                (if (single) wlAll else wl).forEach { w -> Chip(tr("kt.wallN", "w" to w.id) + (len(w.id)?.let { " · " + fmtLen(it, unit, en) + " " + unitWord(unit) } ?: ""), w.id == first) { if (w.id != first) { first = w.id; start = 0; setPose(null); reset() } } }
+                (if (single) wlAll else wl).forEach { w -> Chip(tr("kt.wallN", "w" to w.id) + (len(w.id)?.let { " · " + fmtLen(it, unit, en) + " " + unitWord(unit) } ?: ""), w.id == first && !freeNow) { if (w.id != first || freeNow) { first = w.id; start = 0; setPose(null); reset() } } }
             }
             if (!ward && on.count { it != ISLAND } > 1) Text(tr("fz.nextWalls", "w" to on.drop(1).filter { it != ISLAND }.joinToString(", ")), style = ui(13f, 400, G.ink2, 1.4f))
             // a kitchen for a measured room takes its walls whole

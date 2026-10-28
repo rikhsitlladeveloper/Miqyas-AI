@@ -33,7 +33,8 @@ const val GAS_MM = 500
  */
 class ECtx(val id: String, val room: Room, val g: TRoomGeo, val kind: String, val er: ElecRoom, val free: ElecFree? = null) {
     val H get() = g.H.toInt()
-    val doors get() = room.openings.filter { it.type == "door" }
+    /** The doors in its outer walls: a door in an inner partition (geo/InnerWalls.kt) is inside the room, so cables never come in by it. */
+    val doors get() = room.openings.filter { o -> o.type == "door" && g.walls.any { it.id == o.wall } }
     val entry: Opening? get() = doors.firstOrNull { it.id == er.door } ?: doors.firstOrNull()
     fun wall(id: String?) = id?.let { g.wall(it) }
     /** Water and gas points on the walls. */

@@ -264,7 +264,10 @@ fun App.issueText(q: ReIssue): String {
         else -> v
     } }
     // "Rozetka deraza ustida": the second kind lower-case in the middle of the sentence
-    val b = if (q.key == "re.i.onOp") a + ("o" to kindLow(q.args["o"].toString())) else a
+    val b = if (q.key == "re.i.onOp") a + ("o" to kindLow(q.args["o"].toString()))
+        // the piece's name, as the iPhone hands it ({n})
+        else if (q.key == "iw.i.swing" || q.key == "iw.i.block") a + ("n" to t("iw.k.${q.args["k"]}"))
+        else a
     return t(q.key, *b.map { it.key to it.value }.toTypedArray())
 }
 
@@ -279,7 +282,7 @@ fun App.neighbours(r: Room, id: String): Pair<String, String> {
 /** An item's size line: "800 × 2 100", "1 500 × 1 500 · tokcha 900", "eshik 700 × 2 100 + deraza 1 200 × 1 400", "h 300". */
 fun App.sizeLine(o: Opening): String {
     val st = styleId(o)
-    if (st == "balcony") return t("re.szBal", "a" to mm(o.dw), "b" to mm(o.h), "c" to mm(o.w - o.dw), "d" to mm(o.wh))
+    if (st == "balcony") return t("re.szBal", "dw" to mm(o.dw), "h" to mm(o.h), "ww" to mm(o.w - o.dw), "wh" to mm(o.wh))
     return mm(o.w) + " × " + mm(o.h) + if (o.type == "window") (if (st == "pano") " · " + t("re.fromFloor") else " · " + t("re.sillV", "v" to mm(o.sill))) else ""
 }
 
@@ -443,7 +446,7 @@ fun App.setH(s: ReSession, v: Int) {
     val o = s.selOp ?: return; val r = s.room ?: return
     if (v == o.h) return
     if (z0Of(o) + v > wallH(r, o.wall)) { warn(t("re.overCeil", "a" to mm(z0Of(o) + v), "b" to mm(wallH(r, o.wall)))); return }
-    if (o.balcony && v < o.wh + 100) { warn(t("re.e.balDoor", "m" to mm(o.wh + 100))); return }
+    if (o.balcony && v < o.wh + 100) { warn(t("re.e.balDoor", "m" to mm(o.wh + 100), "u" to t("u.mm"))); return }
     setOp(s, t("re.chH", "n" to kindName(o.type), "a" to mm(o.h), "b" to mm(v))) { it.copy(h = v) }
 }
 

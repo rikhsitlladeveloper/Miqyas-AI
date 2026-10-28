@@ -115,7 +115,22 @@ fun styleId(o: Opening): String = o.style.ifEmpty { if (o.type == "door") "singl
 fun styleId(p: SitePoint): String = p.style.ifEmpty { STYLES[p.t]?.first()?.id ?: "" }
 
 /** A style's standard sizes in a room [rh] mm high (a panoramic window goes up to the ceiling). */
-fun stdVals(kind: String, st: Style, rh: Int): Map<String, Int> = if (st.ceil) st.std + ("h" to rh) else st.std
+fun stdVals(kind: String, st: Style, rh: Int): Map<String, Int> {
+    // the everyday door and window start with Profile → "Eshik va deraza o‘lchamlari" (OpeningDefaults), the others as styled
+    val own = when {
+        kind == "door" && st.id == "single" -> OpeningDefaults.door?.let { (w, h) -> mapOf("w" to w, "h" to h) }
+        kind == "window" && st.id == "double" -> OpeningDefaults.window?.let { (w, h, s) -> mapOf("w" to w, "h" to h, "sill" to s) }
+        else -> null
+    }
+    val std = if (own != null) st.std + own else st.std
+    return if (st.ceil) std + ("h" to rh) else std
+}
+
+/** The Profile's default door (w, h) and window (w, h, sill) sizes, mm; null (the styles' own) until the settings load. */
+object OpeningDefaults {
+    @Volatile var door: Pair<Int, Int>? = null
+    @Volatile var window: Triple<Int, Int, Int>? = null
+}
 
 /** The point kinds' usual heights (to the centre, mm): the chips of the Balandligi step and the slide's snaps. */
 val POINT_HS: Map<String, List<Int>> = mapOf(

@@ -318,6 +318,7 @@ private fun diagTap(app: uz.metrx.app.ui.App, pid: String, r: Room, lay: PolyLay
 /** A drawn room's plan for the report; returns its height in the 360-wide units. */
 internal fun DrawScope.drawReportPoly(r: Room, unit: LenUnit, en: Boolean, label: String, tm: TextMeasurer, snap: Boolean, labelMode: String = "both", m2: String = "m²"): Float {
     val g = polyGeo(r, snap); val lay = PolyLayout(g.verts, r.dim("T").v ?: 200)
+    Theme.onPaper { drawReportInner(r) { x, y -> lay.p(Pt(x, y)) } }
     Theme.onPaper { drawPoly(lay, r, g, "plan", null, null, unit, en, label, tm, null, report = true, snap = snap, m2 = m2, labelMode = labelMode) }
     return lay.VH
 }

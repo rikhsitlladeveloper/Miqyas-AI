@@ -102,7 +102,7 @@ internal fun shareScene(p: Project, fid: String?): Pair<Room, List<Furniture>>? 
 }
 
 /** A file name from the order's name: no spaces or awkward characters. */
-private fun safeName(s: String) = s.replace(Regex("[\\s,№./\\\\:*?\"<>|]+"), "_").trim('_').ifEmpty { "METRX" }
+private fun safeName(s: String) = s.replace(Regex("[\\s,№./\\\\:*?\"<>|—–]+"), "_").trim('_').ifEmpty { "METRX" }
 
 /** Builds the client's files in the order's report language. */
 internal fun client3D(app: App, p: Project, room: Room, fs: List<Furniture>, price: Boolean, dims: Boolean, phone: Boolean): Client3DFiles {

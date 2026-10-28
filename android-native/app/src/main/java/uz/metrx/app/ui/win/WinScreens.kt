@@ -524,7 +524,7 @@ private fun NewRoomSheet(pid: String) {
         app.startRoomShape(pid, "win", "room", uz.metrx.app.data.suggestedName(name, "dw.roomName", app.settings.lang))
     }
     GlassSheet(tr("fo.addRoom"), { app.sheet = null }, footer = { RshSheetGo(name.isNotBlank(), ::create) }) {
-        RshSheetSub(p)
+        RshSheetSub(p, typed = false)
         GField(tr("fr.name"), name, { name = it.take(uz.metrx.app.ui.editor.NAME_MAX) }, tr("dw.roomName"), error = if (name.isBlank()) tr("nr.nameReq") else null, showError = true, imeAction = ImeAction.Done, onIme = ::create)
         Text(tr("dw.roomB"), style = ui(12.5f, 400, G.ink2, 1.4f))
     }

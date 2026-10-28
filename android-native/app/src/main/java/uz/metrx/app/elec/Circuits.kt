@@ -59,12 +59,34 @@ fun circuitsOf(p: Project, cs: List<ECtx>): List<Circuit> {
 
 /* ---------------- the walls as one loop ---------------- */
 
-/** A room's walls end to end: a point on them as one length round the room from wall 1's start corner. */
-class Perim(private val ws: List<TWall>) {
-    constructor(c: ECtx) : this(c.g.walls)
+/**
+ * A room's walls end to end: a point on them as one length round the room from wall 1's start corner. A point on an
+ * inner partition's face ([inner], geo/InnerWalls.kt) is reached from the loop where the partition meets it: see [spur].
+ */
+class Perim(private val ws: List<TWall>, private val inner: List<TWall> = emptyList()) {
+    constructor(c: ECtx) : this(c.g.walls, c.g.inner)
     private val st = DoubleArray(ws.size).also { a -> var s = 0.0; ws.forEachIndexed { i, w -> a[i] = s; s += w.len } }
     val P = ws.sumOf { it.len }
-    fun s(wall: String, a: Double): Double { val i = ws.indexOfFirst { it.id == wall }.coerceAtLeast(0); return st[i] + a.coerceIn(0.0, ws[i].len) }
+    fun s(wall: String, a: Double): Double {
+        val i = ws.indexOfFirst { it.id == wall }
+        if (i < 0) spur(wall, a)?.let { return it.s }
+        val j = i.coerceAtLeast(0); return st[j] + a.coerceIn(0.0, ws[j].len)
+    }
+    /**
+     * The way from the loop to the point [a] along inner face [wall]: from the outer wall nearest the face's nearer end
+     * ([s] round the loop, [at] on the plan) across to that end ([end]) and along the face to the point; [len] in all.
+     * Null for an outer wall.
+     */
+    fun spur(wall: String, a: Double): Spur? {
+        if (ws.isEmpty() || ws.any { it.id == wall }) return null
+        val w = inner.firstOrNull { it.id == wall } ?: return null
+        val x = a.coerceIn(0.0, w.len)
+        return listOf(0.0, w.len).map { ea ->
+            val p = w.at(ea)
+            val (ow, oa, od) = nearestWall(ws, p)
+            Spur(st[ws.indexOf(ow)] + oa, od + abs(x - ea), ow.at(oa), p, w.at(x))
+        }.minBy { it.len }
+    }
     private fun idx(s: Double): Int { var i = ws.size - 1; while (i > 0 && st[i] > s) i--; return i }
     /** The pieces (wall, from, to along it) of the way [d] mm on from [s0], clockwise. */
     fun pieces(s0: Double, d: Double): List<Triple<TWall, Double, Double>> {
@@ -81,6 +103,9 @@ class Perim(private val ws: List<TWall>) {
         return out
     }
 }
+
+/** A way off the loop to a point on an inner partition's face: [s] where it leaves the loop, [len] mm, from [at] across to the face's end [end] and along to [to] (plan mm). */
+class Spur(val s: Double, val len: Double, val at: V2, val end: V2, val to: V2)
 
 /**
  * The shortest way round the walls from [e] that reaches every point [ts] (lengths round the room): clockwise as far
@@ -230,7 +255,10 @@ fun roomRun(c: ECtx, cc: Circuit, ds: List<ElecDev>, pn: ElecPanel?, exits: List
         val (_, dh) = devSize(d)
         // a device under the run is reached from above, one over it (an LED strip at the ceiling) from below
         val edge = if (d.h + dh / 2.0 <= zone) d.h + dh / 2.0 else d.h - dh / 2.0
-        drops[d.id] = abs(zone - edge)
+        // one on an inner partition: first across from the outer wall and along the partition at the run's height (chased with its drop)
+        val sp = per.spur(w.id, d.off.toDouble())
+        if (sp != null) { segs += Seg(sp.at, z, sp.end, z, null); segs += Seg(sp.end, z, inw(w, d.off.toDouble()), z, w.id) }
+        drops[d.id] = abs(zone - edge) + (sp?.len ?: 0.0)
         segs += Seg(inw(w, d.off.toDouble()), z, inw(w, d.off.toDouble()), edge, w.id)
     }
     if (ds.isEmpty() && exits.isEmpty()) tails = 0.0

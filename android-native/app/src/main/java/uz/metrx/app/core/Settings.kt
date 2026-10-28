@@ -114,8 +114,15 @@ class Settings(context: Context) {
     var winW by mutableIntStateOf(p.getInt("winW", 1200)); private set
     var winH by mutableIntStateOf(p.getInt("winH", 1500)); private set
     var winSill by mutableIntStateOf(p.getInt("winSill", 900)); private set
+    /** The room editor's everyday door and window start with these sizes (geo.OpeningDefaults). */
+    private fun shareDefaults() {
+        uz.metrx.app.geo.OpeningDefaults.door = doorW to doorH
+        uz.metrx.app.geo.OpeningDefaults.window = Triple(winW, winH, winSill)
+    }
+    init { shareDefaults() }
     fun setDefaults(dw: Int, dh: Int, ww: Int, wh: Int, ws: Int) {
         doorW = dw; doorH = dh; winW = ww; winH = wh; winSill = ws
+        shareDefaults()
         p.edit().putInt("doorW", dw).putInt("doorH", dh).putInt("winW", ww).putInt("winH", wh).putInt("winSill", ws).apply()
     }
     /** What the PDF shows (Profile → PDF tarkibi); applies to new reports and quotes. */

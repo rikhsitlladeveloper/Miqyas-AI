@@ -93,13 +93,14 @@ fun Modifier.coachSpot(key: String): Modifier = composed {
 fun UxTop(title: String, onBack: () -> Unit, eyebrow: String? = null, right: @Composable RowScope.() -> Unit = {},
           below: (@Composable ColumnScope.() -> Unit)? = null) {
     val haze = LocalHaze.current
+    val backLbl = tr("nt.back")
     Column(Modifier.fillMaxWidth().glassBlur(haze, barFill(), 20.dp).background(barFill())
         .drawBehind { drawRect(G.ink.copy(alpha = .08f), Offset(0f, size.height - 1.dp.toPx()), Size(size.width, 1.dp.toPx())) }
         .statusBarsPadding().padding(start = 8.dp, end = 10.dp, top = 6.dp, bottom = 10.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(verticalAlignment = Alignment.Top, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             Box(Modifier.size(48.dp).dropShadow(CircleShape, Shadow(16.dp, G.shade.copy(alpha = .12f), offset = DpOffset(0.dp, 5.dp)))
-                .clip(CircleShape).background(G.glass(.78f)).border(1.dp, G.rim, CircleShape).clickable(role = Role.Button, onClickLabel = tr("nt.back"), onClick = onBack)
-                .semantics { contentDescription = "back" }, contentAlignment = Alignment.Center) { MIcon("back", G.ink, 24.dp, 2.2f) }
+                .clip(CircleShape).background(G.glass(.78f)).border(1.dp, G.rim, CircleShape).clickable(role = Role.Button, onClickLabel = backLbl, onClick = onBack)
+                .semantics { contentDescription = backLbl }, contentAlignment = Alignment.Center) { MIcon("back", G.ink, 24.dp, 2.2f) }
             Column(Modifier.weight(1f).padding(top = if (eyebrow != null) 2.dp else 11.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (eyebrow != null) Text(eyebrow, style = ui(12.5f, 600, G.cobalt2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 // the order's name wraps and is never cut (§1)

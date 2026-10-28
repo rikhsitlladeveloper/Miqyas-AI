@@ -211,10 +211,12 @@ private fun App.finishRoom(d: RshDraft) {
 
 /** The sheet's line under its title: "Aziza Nazarova · 1-qadam: tur va nom". */
 @Composable
-fun RshSheetSub(p: uz.metrx.app.data.Project) {
+fun RshSheetSub(p: uz.metrx.app.data.Project, typed: Boolean = true) {
     val lang = app().settings.lang
     val who = dn(p.customer, lang).ifBlank { dn(p.name, lang) }
-    Text(if (who.isBlank()) tr("rsh.step1n") else tr("rsh.step1", "c" to who), style = ui(13f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+    // the builder's and the windows' sheets ask only the name (no room-type chips)
+    val n = if (typed) "" else "N"
+    Text(if (who.isBlank()) tr("rsh.step1n$n") else tr("rsh.step1$n", "c" to who), style = ui(13f, 400, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
 }
 
 /** "Xona turi", over the trade's room-type chips. */
