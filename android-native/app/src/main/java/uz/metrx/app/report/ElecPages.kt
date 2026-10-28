@@ -91,7 +91,7 @@ internal fun Doc.elecPages(e: ElecOrder) {
         val ds = devsIn(p, c)
         val runs = calc.routes.inRoom(c.id)
         if (ds.isEmpty() && runs.isEmpty() || !drawn(c)) return@forEach
-        newPage()
+        newPageUnlessNearTop()
         h2(t("el.r.room", "r" to (names[c.id] ?: "")))
         space(0f)
         val ph = 250f; val top = y

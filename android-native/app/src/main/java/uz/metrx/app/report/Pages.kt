@@ -149,8 +149,13 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
             drawText(sm, topLeft = Offset(PX + CW - sm.size.width, PY + h1.size.height))
             drawLine(INK, Offset(PX, PY + rh + 8f + .75f), Offset(PX + CW, PY + rh + 8f + .75f), 1.5f)
         }
-        y = PY + rh + 8f + 1.5f; pend = 12f
+        y = PY + rh + 8f + 1.5f; pend = 12f; pageTop = y
     }
+
+    /** Where the current page's content starts (under its header). */
+    private var pageTop = 0f
+    /** A new page, unless this one holds no more than a line or two (a footnote carried over): no page for a footnote alone. */
+    fun newPageUnlessNearTop(slack: Float = 60f) { if (pages.isEmpty() || y > pageTop + slack) newPage() }
 
     fun ensure(h: Float) { if (!fits(h)) newPage() }
 

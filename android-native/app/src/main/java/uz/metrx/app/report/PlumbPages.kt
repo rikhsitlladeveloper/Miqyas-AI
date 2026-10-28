@@ -134,7 +134,7 @@ internal fun Doc.plumbPages(e: PlumbOrder) {
         val runs = runsIn(calc.routes, c.id)
         val loop = calc.routes.loops.firstOrNull { it.roomId == c.id }
         if (fs.isEmpty() && pts.isEmpty() && runs.isEmpty() && loop == null || !drawn(c)) return@forEach
-        newPage()
+        newPageUnlessNearTop()
         h2(t("sx.r.roomT", "r" to (names[c.id] ?: "")))
         space(0f)
         val ph = 250f; val top = y

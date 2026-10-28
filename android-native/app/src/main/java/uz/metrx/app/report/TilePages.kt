@@ -54,7 +54,7 @@ internal fun Doc.tilePages(ls: List<TileLayout>, troom: List<TileRoom>) {
         val g = roomGeo(r, sn.snap, troom.firstOrNull { it.roomId == r.id }?.fixes ?: emptyList()) ?: return@forEach
         val fl = floorLayout(ls, r.id)
         val laid = mine.map { it to layRoom(it, g, fl) }
-        newPage()
+        newPageUnlessNearTop()
         h2(t("tl.r.room", "r" to (names[r.id] ?: dn(r.name, l))))
         // the plan, fitted in the page's width
         val xs = g.floor.map { it.x }; val ys = g.floor.map { it.y }
