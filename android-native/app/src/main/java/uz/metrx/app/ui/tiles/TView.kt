@@ -401,7 +401,7 @@ private fun Extras(p: Project, r: Room, ls: List<TileLayout>) {
             val on = floors.any { it.skirt > 0 }
             Sw(tr("tl.skirt"), tr("tl.skirtS"), on) { all(floors) { it.copy(skirt = if (on) 0 else 100) } }
             if (on) FlowRow(Modifier.padding(horizontal = 14.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                listOf(80, 100, 120).forEach { h -> Chip("$h mm", floors.first().skirt == h) { all(floors) { it.copy(skirt = h) } } }
+                listOf(80, 100, 120).forEach { h -> Chip("$h " + tr("u.mm"), floors.first().skirt == h) { all(floors) { it.copy(skirt = h) } } }
             }
         }
         if (wallsL.isNotEmpty()) {

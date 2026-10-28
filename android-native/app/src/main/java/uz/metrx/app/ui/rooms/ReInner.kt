@@ -421,7 +421,7 @@ fun PieceOptions(s: ReSession, k: String, back: () -> Unit) {
     val nm = app.iwName(p.k)
     when (k) {
         "iwTh" -> OptRow(tr("iw.th"), tr("iw.thSub", "n" to nm, "v" to p.th), back, key = k) {
-            IW_TH.forEach { v -> OptChip("$v mm", p.th == v) { app.iwSetTh(s, v) } }
+            IW_TH.forEach { v -> OptChip("$v " + tr("u.mm"), p.th == v) { app.iwSetTh(s, v) } }
             OptChip(tr("re.type"), false) { app.openKp(s, "iwTh") }
         }
         "iwH" -> OptRow(tr("re.t.rh"), tr("iw.hSub", "n" to nm, "v" to mm(pieceH(p, roomH(r)))), back, key = k) {
