@@ -89,7 +89,9 @@ class RoomShapesTest {
     @Test fun rangeIsCheckedFirst() {
         val s = ShapeSpec(RoomShape.RECT)
         assertEquals(ShapeErrorCode.OUT_OF_RANGE, stepError(s, listOf(299), 0)!!.code)
-        assertEquals(ShapeErrorCode.OUT_OF_RANGE, stepError(s, listOf(3400, 20_001), 1)!!.code)
+        // walls go up to 999 999 mm since the room editor v2 (founder 27 Oct 2026)
+        assertNull(stepError(s, listOf(3400, 20_001), 1))
+        assertEquals(ShapeErrorCode.OUT_OF_RANGE, stepError(s, listOf(3400, 1_000_000), 1)!!.code)
         assertEquals(ShapeErrorCode.OUT_OF_RANGE, stepError(s, listOf(null), 0)!!.code)
         assertNull(stepError(s, listOf(3400, 2600), 1))
         assertNull(heightError(2700)); assertNotNull(heightError(1999)); assertNotNull(heightError(6001)); assertNotNull(heightError(null))

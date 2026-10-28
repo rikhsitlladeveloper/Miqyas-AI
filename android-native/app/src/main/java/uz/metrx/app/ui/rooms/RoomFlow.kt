@@ -48,6 +48,9 @@ import uz.metrx.app.data.Room
 import uz.metrx.app.data.dn
 import uz.metrx.app.data.uid
 import uz.metrx.app.geo.LenUnit
+import uz.metrx.app.geo.WALL_MAX
+import uz.metrx.app.geo.WALL_MIN
+import uz.metrx.app.geo.bigWall
 import uz.metrx.app.ui.App
 import uz.metrx.app.ui.LocalApp
 import uz.metrx.app.ui.Route
@@ -143,8 +146,6 @@ fun opFields(kind: String): List<Triple<String, String, Int>> = when (kind) {
 }
 
 /** The lengths a wall may be, mm (build spec "Limits"). */
-const val WALL_MIN = 300
-const val WALL_MAX = 20_000
 const val H_MIN = 2000
 const val H_MAX = 6000
 
@@ -459,6 +460,20 @@ private fun WallsStep(d: RshDraft) {
             onLaser = { mm -> d.heard = null; d.input = fieldText(mm, unit, en); d.fresh = false; d.err = null; d.flash++; app.haptic(Hap.CONFIRM) },
             onVoice = { mm, words -> d.heard = d.input to words; d.input = fieldText(mm, unit, en); d.fresh = false; d.err = null; d.flash++; app.haptic(Hap.CONFIRM) },
             onUnVoice = { d.heard?.let { d.input = it.first }; d.heard = null; app.haptic(Hap.TICK) })
+        // above 30 m: a yellow note, "Keyingi" still works (founder 27 Oct)
+        if (!isD && d.err == null && bigWall(parseLen(d.input, unit))) BigWallNote(parseLen(d.input, unit)!!)
+    }
+}
+
+/** "Katta devor — to‘g‘rimi? 45 000 mm = 45,0 m." under a wall typed longer than 30 m; it never blocks. */
+@Composable
+fun BigWallNote(mm: Int) {
+    val en = LocalApp.current.english()
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.amberWash).padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+        MIcon("alert", G.amberInk, 19.dp, 2f)
+        Text(tr("re.bigWall", "v" to lenWords(mm, LenUnit.MM, en), "m" to String.format(java.util.Locale.ROOT, "%.1f", mm / 1000.0).replace('.', if (en) '.' else ',')),
+            style = ui(12.5f, 600, G.ink, 1.35f), modifier = Modifier.weight(1f))
     }
 }
 

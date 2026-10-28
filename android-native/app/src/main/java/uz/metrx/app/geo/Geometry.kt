@@ -22,8 +22,8 @@ import kotlin.math.sin
  */
 
 /** Limits of a typed dimension, mm (prototype DIM_MAX); a room is at most 6 m high. */
-val DIM_MAX = mapOf("A" to 100_000, "B" to 100_000, "H" to 6_000, "T" to 2_000)
-fun dimMax(k: String) = DIM_MAX[k] ?: 100_000
+val DIM_MAX = mapOf("A" to WALL_MAX, "B" to WALL_MAX, "H" to 6_000, "T" to 2_000)
+fun dimMax(k: String) = DIM_MAX[k] ?: WALL_MAX
 
 /** The least a room's measurement may be, mm: a rectangle's side 0,5 m, the height 1,8 m (a drawn room's walls may be short). */
 fun dimMin(k: String, poly: Boolean) = when { k == "H" -> 1_800; !poly && (k == "A" || k == "B") -> 500; else -> 0 }
@@ -177,7 +177,7 @@ fun areas(r: Room, snap: Boolean = true): Areas? {
         }
     }
     val gross = perim * H + extra
-    val open = r.openings.sumOf { it.w.toLong() * it.h }
+    val open = r.openings.sumOf { it.area }
     return Areas(floorF, perimF, gross, open, gross - open)
 }
 
@@ -199,7 +199,7 @@ data class WallStats(val gross: Long?, val open: Long, val net: Long?)
 
 /** One wall's areas (prototype wvWallStats). */
 fun wallStats(len: Int?, H: Int?, ops: List<Opening>): WallStats {
-    val open = ops.sumOf { it.w.toLong() * it.h }
+    val open = ops.sumOf { it.area }
     if (len == null || H == null) return WallStats(null, open, null)
     val g = len.toLong() * H
     return WallStats(g, open, g - open)

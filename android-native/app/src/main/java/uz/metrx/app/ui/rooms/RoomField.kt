@@ -121,7 +121,7 @@ fun SizeField(key: Any, label: String, help: String, text: String, fresh: Boolea
             Box(Modifier.weight(1f)) {
                 if (text.isEmpty()) Text(if (unit == LenUnit.MM) fmtMm(hint.toDouble()) else fmtField(hint, unit, en), style = num(32f, 600, Color(0xFFA7B0C0)))
                 BasicTextField(tfv, { v ->
-                    val clean = v.text.filter { it.isDigit() || (unit != LenUnit.MM && (it == ',' || it == '.')) }.take(if (unit == LenUnit.MM) 5 else 8)
+                    val clean = v.text.filter { it.isDigit() || (unit != LenUnit.MM && (it == ',' || it == '.')) }.take(if (unit == LenUnit.MM) 6 else 8)
                     tfv = v.copy(text = clean, selection = if (clean == v.text) v.selection else TextRange(clean.length))
                     if (clean != text) onText(clean)
                 }, Modifier.fillMaxWidth().focusRequester(fr).semantics { contentDescription = label }, textStyle = num(32f, 700, G.ink), singleLine = true,

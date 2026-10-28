@@ -165,8 +165,32 @@ data class Opening(
     val wall: String,                    // A, B, C, D (or a polygon wall letter)
     val w: Int, val h: Int, val off: Int, val sill: Int = 0,
     val offDrag: Boolean = false,        // position set by dragging: approximate until saved from its sheet
-    val sillDrag: Boolean = false
-) { val approx get() = offDrag || sillDrag }
+    val sillDrag: Boolean = false,
+    /**
+     * The style (room editor v2, geo/RoomKit.kt STYLES): a door's single, double, slide, arch, glass, balcony or fold; a
+     * window's single, double, triple, fort, pano or balcony. "" an older opening (a door single, a window double).
+     * A balcony block (door or window style "balcony") is one opening from the floor: [w] in all, [h] the door's height
+     * (the window's top is level with it), [dw] the door part's width and [wh] the window's height; its [sill] stays 0.
+     */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val style: String = "",
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val dw: Int = 0,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val wh: Int = 0,
+    /** A door's threshold, mm (0, 20, 40). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val thr: Int = 0,
+    /** How it opens, seen from inside: a door's inL, inR, outL, outR; a window's L, R or T (fortochka). "" the usual. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val sw: String = ""
+) {
+    val approx get() = offDrag || sillDrag
+    /** A balcony block: a door and a window side by side. */
+    val balcony get() = style == "balcony" && dw > 0
+    /** The wall it takes away, mm²: a balcony block's door part plus its window part. */
+    val area: Long get() = if (balcony) dw.toLong() * h + (w - dw).coerceAtLeast(0).toLong() * wh.coerceAtMost(h) else w.toLong() * h
+}
 
 /**
  * Something on a wall the furniture must keep clear of: [t] socket, switch, cold, hot, sewer, gas or meter. [off] from
@@ -174,7 +198,13 @@ data class Opening(
  * [mh] the meter's height; [src] "manual" or "sim" (the laser).
  */
 @Serializable
-data class SitePoint(val id: String, val t: String, val wall: String, val off: Int, val h: Int, val d: Int = 0, val mh: Int = 0, val src: String = "manual")
+data class SitePoint(val id: String, val t: String, val wall: String, val off: Int, val h: Int, val d: Int = 0, val mh: Int = 0, val src: String = "manual",
+    /** The style (room editor v2, geo/RoomKit.kt STYLES: a socket's one, two, three, usb or power...); "" the first one. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val style: String = "",
+    /** A radiator's or an air conditioner's width, mm (0: not given). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val pw: Int = 0)
 
 /**
  * A column against a wall or a niche into it (room editor "Ustun / nisha"): [type] column or niche; [off] from the
@@ -223,7 +253,10 @@ data class Room(
     /** Furniture orders: sockets, switches, pipes and the gas meter on the walls (furniture plan section 5). */
     val points: List<SitePoint> = emptyList(),
     /** Columns and niches (room editor). */
-    val features: List<Feature> = emptyList()
+    val features: List<Feature> = emptyList(),
+    /** Each wall's own thickness, mm, by wall id (room editor v2 "Qalinlik"); a wall not in it has T (200). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val thick: Map<String, Int> = emptyMap()
 ) {
     fun dim(k: String) = dims[k] ?: Dim()
     val isPoly get() = shape == "poly" && (poly?.verts?.size ?: 0) >= 3
