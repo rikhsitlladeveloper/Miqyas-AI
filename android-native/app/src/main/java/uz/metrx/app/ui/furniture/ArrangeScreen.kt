@@ -578,7 +578,7 @@ private fun PlaceCard(app: App, st: ArrState, f: Furniture, chk: FChecks, walls:
         free -> app.t("fp.pl.free", "a" to (b?.ang ?: 0))
         else -> app.t("fp.pl.along", "w" to (f.walls.firstOrNull { it != ISLAND } ?: uz.metrx.app.furniture.wardOfF(f)?.wall ?: ""))
     }
-    val size = b?.let { mm(it.w.roundToInt()) + " × " + mm(it.d.roundToInt()) + " mm" } ?: ""
+    val size = b?.let { mm(it.w.roundToInt()) + " × " + mm(it.d.roundToInt()) + " " + app.t("u.mm") } ?: ""
     val badge = @Composable { Box(Modifier.size(34.dp).clip(RoundedCornerShape(10.dp)).background(Color(0xFFB7895B)), contentAlignment = Alignment.Center) { ReIcon("sofa", Color.White, 19.dp) } }
     if (st.cardMin) {
         Row(base.padding(start = 8.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {

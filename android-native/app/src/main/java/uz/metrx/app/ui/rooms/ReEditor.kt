@@ -277,12 +277,12 @@ private fun Caption(s: ReSession, modifier: Modifier) {
     if (s.arm != null) { Box(modifier); return }
     val o = s.selOp; val p = s.selPt; val w = s.selWall; val pc = s.selPieceOnly
     val (b, sub) = when {
-        pc != null -> (app.iwName(pc.k) + if (s.ghostId == pc.id) " · " + app.t("iw.new") else "") to (app.iwSize(r, pc) + " mm")
-        w != null && app.isInner(r, w) -> tr("re.wallCap", "w" to app.wLab(r, w), "v" to mm(app.wallL(r, w))) to tr("re.wallCapSub", "t" to (s.selPiece?.th ?: 100), "n" to (r.openings.count { it.wall == w } + r.points.count { it.wall == w }))
+        pc != null -> (app.iwName(pc.k) + if (s.ghostId == pc.id) " · " + app.t("iw.new") else "") to app.iwSize(r, pc)
+        w != null && app.isInner(r, w) -> tr("re.wallCap", "w" to app.wLab(r, w), "l" to mm(app.wallL(r, w))) to tr("re.wallCapSub", "t" to (s.selPiece?.th ?: 100), "n" to (r.openings.count { it.wall == w } + r.points.count { it.wall == w }))
         o != null -> { val d = distsOf(o, app.wallL(r, o.wall)); (app.kindName(o.type) + " · " + app.styleName(o.type, styleId(o))) to
             (app.sizeLine(o) + " · " + o.wall + " · " + mm(d.left) + " | " + mm(d.right)) }
         p != null -> { val d = distsOf(p, app.wallL(r, p.wall)); (app.kindName(p.t) + " · " + app.styleName(p.t, styleId(p))) to (app.sizeLine(p) + " · " + p.wall + " · " + mm(d.left) + " | " + mm(d.right)) }
-        w != null -> tr("re.wallCap", "w" to w, "v" to mm(app.wallL(r, w))) to tr("re.wallCapSub", "t" to thickOf(r, w), "n" to (r.openings.count { it.wall == w } + r.points.count { it.wall == w }))
+        w != null -> tr("re.wallCap", "w" to w, "l" to mm(app.wallL(r, w))) to tr("re.wallCapSub", "t" to thickOf(r, w), "n" to (r.openings.count { it.wall == w } + r.points.count { it.wall == w }))
         else -> uz.metrx.app.data.dn(r.name, app.settings.lang) to (app.t(shapeKey(shapeIdOf(r))) + " · " + app.areaLine(r).substringBefore(" ·") + " · h " + mm(roomH(r)))
     }
     Row(modifier.heightIn(min = 34.dp).clip(RoundedCornerShape(18.dp)).background(G.solid).border(1.dp, G.rim, RoundedCornerShape(18.dp))

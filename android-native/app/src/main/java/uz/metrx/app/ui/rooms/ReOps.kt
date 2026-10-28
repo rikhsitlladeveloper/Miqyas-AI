@@ -302,7 +302,7 @@ fun FloatCard(s: ReSession, modifier: Modifier) {
     Row(base.padding(start = 8.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.size(32.dp).clip(RoundedCornerShape(10.dp)).background(if (pc != null) RP.wallc else G.cobalt), contentAlignment = Alignment.Center) { ReIcon(if (pc != null) "iw" else "room", Color.White, 18.dp) }
         Column(Modifier.weight(1f)) {
-            Text(tr("re.wallCard", "w" to app.wLab(r, w), "v" to mm(app.wallL(r, w)), "n" to cnt), style = ui(14f, 800), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(tr("re.wallCard", "w" to app.wLab(r, w), "l" to mm(app.wallL(r, w)), "n" to cnt), style = ui(14f, 800), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(tr("re.wallCardSub"), style = ui(12f, 500, G.ink2, 1.3f))
         }
         // an inner face: back to its whole piece

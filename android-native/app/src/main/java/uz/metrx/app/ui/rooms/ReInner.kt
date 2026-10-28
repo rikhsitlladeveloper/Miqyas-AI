@@ -96,10 +96,11 @@ fun App.iwName(k: String) = t("iw.k.$k")
 /** "Devor E (ichki)": an inner face's letter with its tag; an outer wall's letter as it is. */
 fun App.wLab(r: Room, id: String) = if (isInner(r, id)) id + " " + t("iw.tag") else id
 
-/** "2 000 × 100 × 2 700", "2 000 + 1 200 × 100 × 2 700", "400 × 400 · kvadrat", "… · o‘tish 900 × 2 100". */
+/** "2 000 × 100 × 2 700 mm", "2 000 + 1 200 × 100 × 2 700 mm", "400 × 400 mm · kvadrat", "… · o‘tish 900 × 2 100". */
 fun App.iwSize(r: Room, p: InnerWall): String {
-    if (p.k == "col") return mm(p.len) + " × " + mm(p.len) + " · " + t(if (p.round) "iw.rd" else "iw.sq")
-    var s = mm(p.len) + (if (p.len2 > 0 && (p.k == "L" || p.k == "T")) " + " + mm(p.len2) else "") + " × " + p.th + " × " + mm(pieceH(p, roomH(r)))
+    val u = " " + t("u.mm")
+    if (p.k == "col") return mm(p.len) + " × " + mm(p.len) + u + " · " + t(if (p.round) "iw.rd" else "iw.sq")
+    var s = mm(p.len) + (if (p.len2 > 0 && (p.k == "L" || p.k == "T")) " + " + mm(p.len2) else "") + " × " + p.th + " × " + mm(pieceH(p, roomH(r))) + u
     if (p.k == "arch") s += " · " + t("iw.pass", "a" to mm(p.opW), "b" to mm(p.opH))
     return s
 }
@@ -360,7 +361,7 @@ fun PieceCard(s: ReSession, p: InnerWall, base: Modifier) {
             badge()
             Column(Modifier.weight(1f)) {
                 Text(nm, style = ui(14f, 800), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(app.iwSize(r, p) + " mm", style = num(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(app.iwSize(r, p), style = num(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             RoundX("up", tr("re.cardOpen")) { s.cardMin = false; app.haptic(Hap.TICK) }
             RoundX("close", tr("re.desel")) { deselect(s) }
@@ -372,7 +373,7 @@ fun PieceCard(s: ReSession, p: InnerWall, base: Modifier) {
             badge()
             Column(Modifier.weight(1f)) {
                 Text(nm, style = ui(14f, 800), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(app.iwSize(r, p) + " mm", style = num(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(app.iwSize(r, p), style = num(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             RoundX("down", tr("re.cardMin")) { s.cardMin = true; app.haptic(Hap.TICK) }
             RoundX("close", tr("re.desel")) { deselect(s) }
@@ -427,7 +428,7 @@ fun PieceOptions(s: ReSession, k: String, back: () -> Unit) {
             IW_HH.forEach { v -> OptChip(mm(v), pieceH(p, roomH(r)) == v) { app.iwSetH(s, v) } }
             OptChip(tr("re.type"), false) { app.openKp(s, "iwH") }
         }
-        "iwOp" -> OptRow(tr("iw.opT"), mm(p.opW) + " × " + mm(p.opH) + " mm", back, key = k) {
+        "iwOp" -> OptRow(tr("iw.opT"), mm(p.opW) + " × " + mm(p.opH) + " " + tr("u.mm"), back, key = k) {
             IW_OPW.forEach { v -> OptChip(mm(v), p.opW == v) { app.iwSetOpW(s, v) } }
             OptChip(tr("iw.opWk"), false) { app.openKp(s, "iwOpW") }
             OptChip(tr("iw.opHk", "v" to mm(p.opH)), false) { app.openKp(s, "iwOpH") }

@@ -827,7 +827,7 @@ private fun SummaryStep(d: RshDraft) {
         // inner walls (28.10): how many, by name; added in the openings step
         Sect(tr("iw.sumT"))
         val inn = d.tmp?.inner.orEmpty()
-        SumRow(tr("iw.summary", "n" to inn.size), if (inn.isEmpty()) tr("rsh.none") else inn.joinToString(", ") { app.iwName(it.k) }, small = true, auto = inn.isEmpty()) {
+        SumRow(tr("iw.summary", "n" to inn.size) + if (inn.isEmpty()) "" else "\n" + inn.joinToString(", ") { app.iwName(it.k) }, if (inn.isEmpty()) tr("rsh.none") else "", small = true, auto = inn.isEmpty()) {
             ChangeBtn(if (inn.isEmpty()) tr("rsh.add") else ch) { d.ret = false; go(app, d, "ops") } }
         Sect(tr("rsh.opsShort"))
         val tmp = d.tmp
