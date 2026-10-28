@@ -211,6 +211,8 @@ private fun MeasureSheet(s: Sheet.Measure) {
         // a wrong value says why as it is typed (Save stays off without a word otherwise)
         NumField(title, v, { v = it }, app.unitName(), err, v.isNotEmpty() || touched, onBlur = { touched = true }, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
         if (s.k == "H" && ((parsed as? Parsed.Ok)?.value ?: 0) > uz.metrx.app.geo.H_TALL) Text(tr("ms.tall"), style = ui(13f, 500, G.amberInk, 1.35f))
+        // a wall above 30 m: the yellow note, saving still works (room editor v2)
+        if (s.k != "H" && s.k != "T" && !s.k.startsWith("X")) (parsed as? Parsed.Ok)?.value?.toInt()?.takeIf { uz.metrx.app.geo.bigWall(it) }?.let { uz.metrx.app.ui.rooms.BigWallNote(it) }
         Text(tr("ms.hint", "ex" to fmtLen(4255, unit, en)), style = ui(13f, 400, G.ink2))
         Text(tr("ms.current", "v" to if (d.v != null) fmtLen(d.v, unit, en, true) + " " + app.unitName() + " (" + tr(srcKey(d.src)) + ")" else tr("ms.none")), style = ui(13f, 400, G.ink2))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MIcon("info", G.ink2, 17.dp, 2f); Text(tr("ms.manualNote"), style = ui(13f, 400, G.ink2, 1.4f)) }

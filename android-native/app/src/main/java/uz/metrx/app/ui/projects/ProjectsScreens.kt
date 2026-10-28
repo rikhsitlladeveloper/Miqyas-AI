@@ -284,6 +284,7 @@ fun NewProjectScreen(editId: String?) {
                 .let { if (app.settings.furniture) it.copy(industry = "furniture") else if (uz.metrx.app.trades.isTrade(app.settings.industry)) it.copy(industry = app.settings.industry!!) else it }
             app.store.add(p)
             app.replaceTop(Route.Project(p.id))
+            app.sheet = uz.metrx.app.ui.Sheet.StartOrder(p.id)
             app.say("np.created", "n" to name.trim())
         }
     }

@@ -232,7 +232,13 @@ fun surfacesOf(l: TileLayout, g: TRoomGeo): List<Surf> {
         val (lo, hi) = zoneOf(s, g.H)
         if (hi - lo < 1) continue
         val holes = ArrayList<List<V2>>()
-        r.openings.filter { it.wall == w.id }.forEach { o -> holes += rect(o.off.toDouble(), o.sill.toDouble(), (o.off + o.w).toDouble(), (o.sill + o.h).toDouble()) }
+        r.openings.filter { it.wall == w.id }.forEach { o ->
+            // a balcony block (room editor v2): the door part from the floor, the window part level with its top
+            if (o.balcony) {
+                holes += rect(o.off.toDouble(), 0.0, (o.off + o.dw).toDouble(), o.h.toDouble())
+                holes += rect((o.off + o.dw).toDouble(), (o.h - o.wh).toDouble(), (o.off + o.w).toDouble(), o.h.toDouble())
+            } else holes += rect(o.off.toDouble(), o.sill.toDouble(), (o.off + o.w).toDouble(), (o.sill + o.h).toDouble())
+        }
         g.fixes.forEach { f -> coverOn(g, w, f)?.let { (a, b) -> holes += rect(a, -1.0, b, f.h.toDouble()) } }
         val frame = g.wallFrame(w)
         if (g.rect) r.features.filter { it.wall == w.id }.forEach { f ->

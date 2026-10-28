@@ -153,7 +153,7 @@ data class ShapeError(val code: ShapeErrorCode, val wall: Int? = null, val value
 
 /** Walls (and the bay's sizes, the diagonal, door and window widths) are 300–20 000 mm. */
 const val SHAPE_WALL_MIN = 300
-const val SHAPE_WALL_MAX = 20_000
+const val SHAPE_WALL_MAX = 999_999
 /** The room's height is 2 000–6 000 mm, 2 700 the first time. */
 const val SHAPE_HEIGHT_MIN = 2_000
 const val SHAPE_HEIGHT_MAX = 6_000

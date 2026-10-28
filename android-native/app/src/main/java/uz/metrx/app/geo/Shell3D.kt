@@ -241,8 +241,9 @@ private fun rectRoom(b: Builder, room: Room, gi: Int, ox: Double, single: Boolea
 }
 
 /* Furniture orders' site points: small boxes on the wall's inside face, in the colours of the plan (furniture plan section 5). */
-private val PT_RGB = mapOf("socket" to 0xF1F5F9, "switch" to 0xE2E8F0, "cold" to 0x2563EB, "hot" to 0xDC2626, "sewer" to 0x64748B, "gas" to 0xEAB308, "meter" to 0xCA8A04)
-private fun ptDepth(t: String) = when (t) { "socket", "switch" -> .012; "meter" -> .12; else -> .05 }
+private val PT_RGB = mapOf("socket" to 0xF1F5F9, "switch" to 0xE2E8F0, "cold" to 0x2563EB, "hot" to 0xDC2626, "sewer" to 0x64748B, "gas" to 0xEAB308, "meter" to 0xCA8A04,
+    "rad" to 0xF1F5F9, "ac" to 0xF8FAFC, "boiler" to 0xF8FAFC, "panel" to 0xE2E8F0, "vent" to 0xCBD5E1)
+private fun ptDepth(t: String) = when (t) { "socket", "switch", "vent" -> .012; "meter", "panel" -> .12; "rad" -> .08; "ac" -> .2; "boiler" -> .3; else -> .05 }
 
 /** A site point in a rectangular room: centred [off] along its wall and [h] up, standing out of the wall's inside face. */
 private fun pointModel(b: Builder, gi: Int, x: uz.metrx.app.data.SitePoint, L: Double, W: Double, X: (Double) -> Double) {

@@ -97,7 +97,7 @@ private fun FurnPart(p: Project, lang: Lang, r: Route.Project, addCard: Boolean)
                 Text(tr("ux.empty.b"), style = ui(14f, 400, G.ink2, 1.45f), textAlign = TextAlign.Center)
                 UxIcon("down", G.cobalt, 26.dp, 2.4f)
             }
-            InfoRow("room", tr("ux.noRoom.t"), tr("ux.noRoom.b")) { app.sheet = Sheet.FNewRoom(p.id) }
+            uz.metrx.app.ui.rooms.StartPaths(p)
         }
         return
     }
