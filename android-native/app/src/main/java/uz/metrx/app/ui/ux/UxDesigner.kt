@@ -69,7 +69,8 @@ private fun PieceChip(p: Project, f: Furniture) {
     val price = if (solo) remember(p, s.workshop, s.mats, s.hws) { app.orderPrice(p) } else pr.lines.firstOrNull { it.key == f.id }?.amount ?: pr.price
     if (price.signum() <= 0) return
     val text = if (s.advanced) {
-        val cost = remember(f, s.workshop, s.mats, s.hws) { uz.metrx.app.furniture.costOf(listOf(f), uz.metrx.app.furniture.wsOf(f, s.workshop), s.mats, s.hws, order = false).total }
+        // the only piece: its cost with the order's delivery and fitting, as the price beside it
+        val cost = remember(f, solo, s.workshop, s.mats, s.hws) { uz.metrx.app.furniture.costOf(listOf(f), uz.metrx.app.furniture.wsOf(f, s.workshop), s.mats, s.hws, order = solo).total }
         app.moneyText(p, price) + " · " + tr("fp.cost") + " " + app.moneyText(p, cost)
     } else tr("ux.approx", "v" to app.moneyText(p, price.add(BigInteger.valueOf(500)).divide(BigInteger.valueOf(1000)).multiply(BigInteger.valueOf(1000))))
     Row(Modifier.clip(RoundedCornerShape(12.dp)).background(if (s.advanced) G.blueWash else G.ink.copy(alpha = .05f))

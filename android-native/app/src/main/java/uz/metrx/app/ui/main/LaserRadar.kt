@@ -433,7 +433,9 @@ fun LaserRadarScreen() {
     BackHandler(othersOpen) { othersOpen = false }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val radarSize = minOf(maxWidth * .84f, maxHeight * .40f, 310.dp)
+        // a short screen (720 × 1280): the radar gets smaller so the words under it stay clear of the card at the bottom
+        // (the card takes at most 46 % of the height; the bar, the words and the gaps about 190 dp)
+        val radarSize = minOf(maxWidth * .84f, maxHeight * .40f, 310.dp, (maxHeight * .54f - 190.dp).coerceAtLeast(130.dp))
         Column(Modifier.fillMaxWidth().statusBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
             Row(Modifier.fillMaxWidth().height(64.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 GlassIconButton("back", tr("nt.back"), { app.pop() })
