@@ -297,7 +297,12 @@ class ScreenTestCase: XCTestCase {
         guard e.waitForExistence(timeout: 4) else { XCTFail("no " + id); return }
         e.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).tap(); usleep(800_000)
         // the gesture hint the first time a unit is selected
-        if app.buttons["dzc.teachSkip"].waitForExistence(timeout: 1.5) { shot("dzc-hint"); app.buttons["dzc.teachSkip"].tap(); usleep(600_000) }
+        // (it can go by itself: tapped at once, and only while it is still there)
+        let skip = app.buttons["dzc.teachSkip"]
+        if skip.waitForExistence(timeout: 1.5) {
+            if skip.exists { skip.tap() }
+            usleep(600_000)
+        }
     }
 
     /// Designer C: an options row back to the slider.

@@ -138,7 +138,10 @@ jobs:
           - group: report-measure
             tests: Part6Tests Part7Tests EdgeMeasureTests Furniture1Tests Furniture3Tests Furniture8Tests RoomShapeTests Furniture7Tests
           - group: furniture
-            tests: Furniture4Tests Furniture5Tests Furniture6Tests Modern3DShots
+            tests: Furniture4Tests Furniture5Tests Furniture6Tests
+          # the modern 3D shots alone: with the furniture tests they passed the 35-minute limit
+          - group: m3d
+            tests: Modern3DShots
     defaults:
       run:
         working-directory: ios-native
