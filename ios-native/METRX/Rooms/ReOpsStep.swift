@@ -141,7 +141,7 @@ struct ReOpsStep: View {
                     }
                     .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 8)
                     ReOpsCard(app: app, st: st, h: h, g: g, items: items)
-                        .padding(.horizontal, 10).padding(.bottom, 6)
+                        .padding(.horizontal, 10).padding(.bottom, 52)
                 }
                 .frame(maxHeight: .infinity)
                 // the icon row
@@ -201,7 +201,7 @@ struct ReOpsStep: View {
         let yc = it.isOpening ? (hit.p0.y + hit.p1.y + hit.q0.y + hit.q1.y) / 4 : hit.c.y
         // the card covers the plan's lower part (with the wall chips under it)
         let cardH: CGFloat = st.cardMin ? 60 : 250
-        let lim = st.canvas.height + 44 - cardH - 34
+        let lim = st.canvas.height - cardH - 12
         var pan: CGFloat = 0
         if yb > lim { pan = (min(0, max(lim - yb, lim / 2 - yc))).rounded() }
         DispatchQueue.main.async { if st.pan != pan { st.pan = pan } }
