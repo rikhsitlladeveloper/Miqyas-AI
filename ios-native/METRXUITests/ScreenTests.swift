@@ -83,10 +83,27 @@ class ScreenTestCase: XCTestCase {
             app.buttons["re.editRoom"].tap(); sleep(1)
         }
         guard app.buttons["re.t.more"].waitForExistence(timeout: 4) else { return }
-        app.buttons["re.t.more"].tap(); usleep(700_000)
+        reTool(app, "more")
         XCTAssertTrue(app.buttons["re.old"].waitForExistence(timeout: 3))
         app.buttons["re.old"].tap(); sleep(1)
         if app.buttons["tip.ok"].waitForExistence(timeout: 2) { app.buttons["tip.ok"].tap(); usleep(700_000) }
+    }
+
+    /// Taps the room editor's tool id ("re.t.<id>"), scrolling the slider until it is on the screen (the last ones
+    /// start past its right edge).
+    func reTool(_ app: XCUIApplication, _ id: String) {
+        let b = app.buttons["re.t." + id]
+        XCTAssertTrue(b.waitForExistence(timeout: 4))
+        // a drag along the tools' row, from the right to the left, at the tool's own height
+        var n = 0
+        while !b.isHittable && n < 4 {
+            let y = b.frame.midY
+            let from = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.width * 0.85, dy: y))
+            let to = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.width * 0.15, dy: y))
+            from.press(forDuration: 0.05, thenDragTo: to)
+            usleep(600_000); n += 1
+        }
+        b.tap(); usleep(700_000)
     }
 
     /// A project with one workspace, opened at the workspace page (for the editor tests).
@@ -149,8 +166,9 @@ class ScreenTestCase: XCTestCase {
         for v in vals.dropFirst() { flowType(app, v) }
         if kind == "window" { app.buttons["rsh.next"].tap(); usleep(800_000) }
         usleep(600_000)
-        // the floating card of the item just placed: put away, so the next icon's chips are free
+        // the floating card of the item just placed: put away, so the next icon's chips are free; its toast goes first
         if app.buttons["re.desel"].waitForExistence(timeout: 2) { app.buttons["re.desel"].tap(); usleep(500_000) }
+        noToast(app)
     }
 
     /// The room-shape flow from its shape screen to the editor (room-shapes spec §2): the shape (the rectangle unless

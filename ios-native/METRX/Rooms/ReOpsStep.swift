@@ -138,6 +138,8 @@ struct ReOpsStep: View {
                         ReWallChips(g: g, sel: st.selWall, hl: st.ghost?.wall ?? (st.pk?.mode == "new" ? st.pk?.wall : nil), armed: st.arm != nil) { w in
                             if let k = st.arm { st.placeAt(k, wall: w, centre: g.len(w) / 2, how: "chip", app, h) } else { st.selectWall(w, h, toggle: true) }
                         }
+                        // the chips are tapped right after an icon: toasts stay above them
+                        .bottomBar()
                     }
                     .padding(.horizontal, 12).padding(.top, 10).padding(.bottom, 8)
                     ReOpsCard(app: app, st: st, h: h, g: g, items: items)
@@ -157,6 +159,8 @@ struct ReOpsStep: View {
                 }
                 .background(Rectangle().fill(G.sheet(0.97)).ignoresSafeArea(edges: .bottom))
                 .overlay(alignment: .top) { Rectangle().fill(G.rim).frame(height: 1) }
+                // toasts rise above the icon row too (UX upgrades section 3), so they never cover an icon
+                .bottomBar()
                 // undo, redo, Tayyor
                 HStack(spacing: 8) {
                     histBtn("undo", on: !st.past.isEmpty, id: "re.undo") { st.undo(app, h) }

@@ -460,7 +460,8 @@ struct ReCoach: View {
             .position(caption)
         }
         .allowsHitTesting(false)
-        .accessibilityIdentifier("re.coach")
+        // a picture over the whole page: not an element of its own, or nothing under it could be tapped by VoiceOver or the tests
+        .accessibilityHidden(true)
     }
 
     /// Where the ghost and the hand are at t (0–1 of a turn): the ghost's centre and scale, its opacity, the hand's

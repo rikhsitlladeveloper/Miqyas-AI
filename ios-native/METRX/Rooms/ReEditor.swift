@@ -342,6 +342,8 @@ struct ReEditorScreen: View {
         }
         .background(Rectangle().fill(G.sheet(0.97)))
         .overlay(alignment: .top) { Rectangle().fill(G.rim).frame(height: 1) }
+        // toasts rise above the tools too, so they never cover one
+        .bottomBar()
     }
 
     private func toolsTitle(_ st: ReState, _ g: ReRoomGeo, _ items: [ReItem]) -> String {
