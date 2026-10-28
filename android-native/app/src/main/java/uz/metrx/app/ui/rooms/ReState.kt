@@ -264,7 +264,10 @@ fun App.issueText(q: ReIssue): String {
         else -> v
     } }
     // "Rozetka deraza ustida": the second kind lower-case in the middle of the sentence
-    val b = if (q.key == "re.i.onOp") a + ("o" to kindLow(q.args["o"].toString())) else a
+    val b = if (q.key == "re.i.onOp") a + ("o" to kindLow(q.args["o"].toString()))
+        // the piece's name, as the iPhone hands it ({n})
+        else if (q.key == "iw.i.swing" || q.key == "iw.i.block") a + ("n" to t("iw.k.${q.args["k"]}"))
+        else a
     return t(q.key, *b.map { it.key to it.value }.toTypedArray())
 }
 

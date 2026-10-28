@@ -453,6 +453,12 @@ fun iwIssues(r: Room, snap: Boolean = true): List<ReIssue> {
             if (R.any { sat(it, z.poly) }) { seen += z.id; out += ReIssue(p.id, if (z.sw) "iw.i.swing" else "iw.i.block", mapOf("k" to p.k, "w" to z.wall)) }
         }
     }
+    // a door, window or point put over an arch wall's passage (there is no wall there)
+    innerFaces(r, snap).forEach { f ->
+        val (t0, t1, gh) = archGap(r, f.id, snap) ?: return@forEach
+        r.openings.filter { it.wall == f.id && it.off < t1 - 1 && it.off + it.w > t0 + 1 && z0Of(it) < gh }.forEach { o -> out += ReIssue(o.id, "iw.i.gap", mapOf("k" to o.type, "w" to f.id)) }
+        r.points.filter { it.wall == f.id && it.off > t0 && it.off < t1 && it.h < gh }.forEach { q -> out += ReIssue(q.id, "iw.i.gap", mapOf("k" to q.t, "w" to f.id)) }
+    }
     return out
 }
 

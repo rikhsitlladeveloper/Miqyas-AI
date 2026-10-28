@@ -96,6 +96,14 @@ class InnerWallTradesTest {
         assertEquals(200, c.tOf("C"))
     }
 
+    @Test fun aDoorOverAnArchsPassageIsFlagged() {
+        val arch = InnerWall("a", "arch", 2000, 1500, 0, 2400, op = uz.metrx.app.data.IwOp(900, 2100))
+        fun room(off: Int) = Room("x", "w", "Xona", dims = dims, inner = listOf(arch), openings = listOf(Opening("d", "door", "E", 800, 2100, off).copy(fk = "a:0")))
+        // the passage runs 750…1 650 along the 2 400 face
+        assertTrue(uz.metrx.app.geo.iwIssues(room(200)).any { it.key == "iw.i.gap" && it.id == "d" })
+        assertTrue(uz.metrx.app.geo.iwIssues(room(1650)).none { it.key == "iw.i.gap" })
+    }
+
     @Test fun aTypedBathroomIsNotFlaggedForItsUsualDistanceToTheRiser() {
         val k = uz.metrx.app.plumb.pkitOf("bt.bath")!!
         val f = uz.metrx.app.plumb.freeOf(k, k.opts, "f", "Hammom", 2500, 2000, 2700)
