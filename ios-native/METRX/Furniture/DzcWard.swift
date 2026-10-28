@@ -39,7 +39,7 @@ struct DzcWard: View {
             DzcWBoxBar(app: app, c: c)
             ZStack(alignment: .top) {
                 if c.d3 {
-                    Furniture3DPane(app: app, p: c.p, room: c.room, onPick: { key in DzcWOps.pick3D(c, key) })
+                    Furniture3DPane(app: app, p: c.p, room: c.room, onPick: { keys in DzcWOps.pick3D(c, keys) }, hiKeys: DzcWOps.hiKeys3D(c))
                 } else {
                     DzcWardCanvas(app: app, c: c)
                 }
@@ -186,19 +186,19 @@ private struct DzcWBubble: View {
             let live = lv?.kind == "resize"
             let starts = DzcWOps.starts(m)
             let s = m.sections[i]
-            let bx = min(size.width - 50, max(50, map.sx(starts[i] + s.w / 2)))
+            // kept inside the drawing however near its edge the section is (DzcPin)
+            let bx = map.sx(starts[i] + s.w / 2)
             let pid = c.p.id, fid = c.f.id, mid = m.id
-            DzcBubble(text: (live && lv?.maxHit == true ? tr("dzc.max") + " " : "") + "\(s.w) mm", live: live, kbd: !live, warn: live && lv?.maxHit == true, id: "dzc.bubble") {
-                app.sheet = .dzcNum(pid: pid, fid: fid, mid: mid, key: "w", sec: i)
+            DzcPin(x: bx, y: map.sy(-150)) {
+                DzcBubble(text: (live && lv?.maxHit == true ? tr("dzc.max") + " " : "") + "\(s.w) mm", live: live, kbd: !live, warn: live && lv?.maxHit == true, id: "dzc.bubble") {
+                    app.sheet = .dzcNum(pid: pid, fid: fid, mid: mid, key: "w", sec: i)
+                }
             }
-            .position(x: bx, y: map.sy(-150))
             if live, let j = lv?.takerSec, j >= 0, j < m.sections.count {
-                T(tr("dzc.secN", ["n": j + 1]) + " \(lv?.tw0 ?? 0) → \(lv?.tw1 ?? 0)", num(12, 800, G.amberInk), lines: 1)
-                    .padding(.horizontal, 9).frame(minHeight: 26)
-                    .background(Capsule().fill(G.amberWash))
-                    .overlay(Capsule().strokeBorder(G.amberInk.opacity(0.5), lineWidth: 1))
-                    .position(x: min(size.width - 60, max(60, map.sx(starts[j] + m.sections[j].w / 2))), y: map.sy(outerH(m, c.ws) / 2))
-                    .allowsHitTesting(false)
+                DzcPin(x: map.sx(starts[j] + m.sections[j].w / 2), y: map.sy(outerH(m, c.ws) / 2)) {
+                    DzcAmberLabel(text: tr("dzc.secN", ["n": j + 1]) + " \(lv?.tw0 ?? 0) → \(lv?.tw1 ?? 0)", left: lv?.tleft == true)
+                }
+                .allowsHitTesting(false)
             }
         }
     }
@@ -401,6 +401,8 @@ enum DzcWOps {
                 lv.w = nw
                 lv.preview = with(c.f, r.m)
                 lv.takerSec = r.taker; lv.tw0 = c.m.sections[max(0, r.taker)].w; lv.tw1 = r.w1
+                // the section on the left gives only when the one on the right cannot (the last one has none there)
+                lv.tleft = r.taker < i && i + 1 < c.m.sections.count
             }
             st.live = lv
         case "pan":
@@ -486,21 +488,61 @@ enum DzcWOps {
     }
 
     /// A tap in the 3D on "<box id>:s<i>:<front>": that box and section, a second tap its front, a third opens it.
-    static func pick3D(_ c: DzcWCtx, _ key: String) -> Bool {
+    /// A tap in the 3D (its hits, the nearest first): on a section's door or drawer "<box id>:s<i>:…" the section is
+    /// selected, a second tap the door, a third opens it; on a section's carcass "<box id>:s<i>:body" the section; on a
+    /// sliding door "<box id>:slide<j>" the section behind it, a second tap slides it. Another box of the piece is
+    /// selected first. Marking (Belgilash): the section is ticked or unticked.
+    static func pick3D(_ c: DzcWCtx, _ keys: [String]) -> Bool {
+        guard let key = keys.first else { return false }
         let parts = key.split(separator: ":").map(String.init)
         guard parts.count >= 2, let b = c.f.modules.first(where: { $0.id == parts[0] && $0.type == "wardrobe" }) else { return false }
         let st = DzcState.shared
         let sk = parts[1]
-        guard sk.hasPrefix("s"), let i = Int(sk.dropFirst()) else { return false }
-        let fk = parts.dropFirst().joined(separator: ":")
+        // a sliding door: the section behind it (the ray goes on to its carcass)
+        let slide = sk.hasPrefix("slide")
+        var i: Int
+        if slide {
+            let behind = keys.dropFirst().first { $0.hasPrefix(b.id + ":s") && isBodyPick($0) }
+            let si = behind.flatMap { k -> Int? in
+                let p = k.split(separator: ":")
+                return p.count >= 2 ? Int(p[1].dropFirst()) : nil
+            }
+            i = si ?? max(0, st.sec)
+        } else {
+            guard sk.hasPrefix("s"), let n = Int(sk.dropFirst()) else { return false }
+            i = n
+        }
+        i = min(max(0, i), max(0, b.sections.count - 1))
         if b.id != c.m.id { KitOps.shared.sel = b.id; KitOps.shared.tick += 1; st.sec = i; st.front = nil; return true }
+        if st.multi {
+            let t = "s\(i)"
+            if st.ticks.contains(t) { st.ticks.remove(t) } else { st.ticks.insert(t) }
+            Haptic.tick()
+            return true
+        }
+        let body = isBodyPick(key)
+        let fk = parts.dropFirst().joined(separator: ":")
         if st.sec == i {
+            // its sliding door again: it slides; its carcass again: the whole section
+            if slide { return false }
+            if body { if st.front != nil { st.front = nil; st.tool = nil }; return true }
             if st.front == fk { return false }
             st.front = fk
             return true
         }
         select(c, i)
         return true
+    }
+
+    /// What the 3D outlines in amber: the selected section, or its selected door; the marked sections; nothing selected
+    /// (the box being designed), the whole box.
+    static func hiKeys3D(_ c: DzcWCtx) -> [String] {
+        let st = DzcState.shared, id = c.m.id
+        if st.multi { return st.ticks.sorted().map { id + ":" + $0 + ":body" } }
+        let i = c.sec
+        if i < 0 { return [] }
+        if let fk = st.front { return [id + ":" + fk] }
+        return [id + ":s\(i):body"]
     }
 
     /* ---------------- the tools ---------------- */
@@ -751,7 +793,9 @@ private struct DzcWHandle: View {
         let st = DzcState.shared
         let has = c.sec >= 0 && !st.multi
         let whole = (!has && !st.multi) || st.scope == "all"
-        DzcOptRow(title: tr("dzc.t.handle"), sub: whole ? tr("dzc.wholeP") : tr("dzc.typeWhole"), scopes: has ? [("one", tr("dzc.sc.one")), ("all", tr("dzc.sc.all"))] : [], onBack: onBack) {
+        // what the options change follows the scope: "Faqat shu" this door or this section, "Hammasiga" the whole piece
+        let sub = whole ? tr("dzc.wholeP") : st.multi ? tr("dzc.nMarkedS", ["n": st.ticks.count]) : dzcOnlySub(c.m, st.front, tr("dzc.onlyS"))
+        DzcOptRow(title: tr("dzc.t.handle"), sub: sub, scopes: has ? [("one", tr("dzc.sc.one")), ("all", tr("dzc.sc.all"))] : [], onBack: onBack) {
             if whole {
                 let cur = handleType(c.f)
                 ForEach(["bar", "long", "knob", "push"], id: \.self) { k in

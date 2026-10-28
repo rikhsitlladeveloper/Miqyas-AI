@@ -167,6 +167,8 @@ struct DzcResult {
     var w0 = 0
     var w1 = 0
     var newId: String? = nil
+    /// The taker is on the unit's left (nothing on its right could give).
+    var left = false
 }
 
 private func dzcNo(_ f: Furniture, _ why: String, _ vars: [String: Int] = [:]) -> DzcResult {
@@ -185,29 +187,52 @@ func dzcNearestGive(_ row: [Module], _ i: Int) -> Int {
     return best
 }
 
-/// The neighbour that takes the difference when there is no filler or space: the right one, else the left one.
-private func dzcNeighbour(_ row: [Module], _ i: Int) -> Int? {
-    for j in [i + 1, i - 1] where j >= 0 && j < row.count && !dzcFixedW(row[j]) && !dzcGives(row[j]) { return j }
+/// A unit next to index i that may take a difference: not a filler or space, not an appliance.
+private func dzcCanNeighbour(_ row: [Module], _ j: Int) -> Bool {
+    j >= 0 && j < row.count && !dzcFixedW(row[j]) && !dzcGives(row[j])
+}
+
+/// Who takes the difference d (mm; more than 0 growing) when unit i of row is resized by its right edge: j the row
+/// index, -1 the row's free end; left: it came from the left of the unit.
+struct DzcAbsorb: Equatable {
+    let j: Int
+    let left: Bool
+}
+
+/// Whoever takes the right edge's difference d for unit i of row (tail: the row's free end, nil an island's, no limit):
+/// the right side first (the nearest filler or empty space there, growing the row's free end, the unit just right of
+/// it, shrinking the free end that grows), and only when nothing on the right can, the left side (the nearest filler
+/// or space there, the unit just left of it). nil: nobody can.
+func dzcAbsorber(_ row: [Module], _ i: Int, _ d: Int, tail: Int?) -> DzcAbsorb? {
+    if d == 0 || i < 0 || i >= row.count { return nil }
+    func can(_ j: Int) -> Bool { dzcGives(row[j]) ? row[j].w - d >= 0 : row[j].w - d >= DZC_MIN_W }
+    // the right side
+    if let g = (i + 1..<row.count).first(where: { dzcGives(row[$0]) }), can(g) { return DzcAbsorb(j: g, left: false) }
+    if d > 0, tail == nil || tail! >= d { return DzcAbsorb(j: -1, left: false) }
+    if dzcCanNeighbour(row, i + 1), can(i + 1) { return DzcAbsorb(j: i + 1, left: false) }
+    if d < 0 { return DzcAbsorb(j: -1, left: false) }
+    // nothing there can: the left side
+    if let g = (0..<i).reversed().first(where: { dzcGives(row[$0]) }), can(g) { return DzcAbsorb(j: g, left: true) }
+    if dzcCanNeighbour(row, i - 1), can(i - 1) { return DzcAbsorb(j: i - 1, left: true) }
     return nil
 }
 
-/// The widest unit mid can get: the nearest filler or space given up whole, else the row's free end or the neighbour
-/// down to DZC_MIN_W (an island's row: no limit, 2400).
+/// The widest unit mid can get: what the one who can give most has (the nearest filler or space on each side given up
+/// whole, the row's free end, a neighbour down to DZC_MIN_W; an island's row: no limit, 2400).
 func dzcMaxW(_ f: Furniture, _ mid: String, avail: Int?) -> Int {
     guard let m = f.modules.first(where: { $0.id == mid }) else { return 0 }
     let row = dzcRowMods(f, dzcRowKey(m))
     guard let i = row.firstIndex(where: { $0.id == mid }) else { return m.w }
-    let g = dzcNearestGive(row, i)
-    if g >= 0 { return m.w + row[g].w }
     var best = m.w
+    if let g = (i + 1..<row.count).first(where: { dzcGives(row[$0]) }) { best = max(best, m.w + row[g].w) }
+    if let g = (0..<i).reversed().first(where: { dzcGives(row[$0]) }) { best = max(best, m.w + row[g].w) }
     if let t = dzcTail(row, avail) { best = max(best, m.w + max(0, t)) } else { best = max(best, 2400) }
-    if let j = dzcNeighbour(row, i) { best = max(best, m.w + row[j].w - DZC_MIN_W) }
+    for j in [i + 1, i - 1] where dzcCanNeighbour(row, j) { best = max(best, m.w + row[j].w - DZC_MIN_W) }
     return best
 }
 
-/// Unit mid nw wide (Designer C "Kenglik"): the nearest filler or empty space takes the difference, else (growing) the
-/// row's free end, else the neighbour (right, then left), else (shrinking) the free end grows. A filler left 150 mm or
-/// wider becomes an empty space; one left at 0 goes.
+/// Unit mid nw wide (Designer C "Kenglik", its right edge dragged or the width typed): the difference is taken as
+/// dzcAbsorber says, the right side first. A filler left 150 mm or wider becomes an empty space; one left at 0 goes.
 func dzcResize(_ f: Furniture, _ mid: String, _ nw: Int, avail: Int?, ws: Workshop) -> DzcResult {
     guard let m = f.modules.first(where: { $0.id == mid }) else { return dzcNo(f, "dzc.gone") }
     let key = dzcRowKey(m)
@@ -218,22 +243,16 @@ func dzcResize(_ f: Furniture, _ mid: String, _ nw: Int, avail: Int?, ws: Worksh
     if nw < dzcLowW(m) { return dzcNo(f, "dzc.minW", ["v": dzcLowW(m)]) }
     var r = DzcResult(f: f)
     let tail = dzcTail(row, avail)
-    let g = dzcNearestGive(row, i)
-    if g >= 0 {
-        let a = row[g]
-        if a.w - d < 0 { return dzcNo(f, "dzc.maxW", ["v": m.w + a.w]) }
-        r.taker = a.id; r.w0 = a.w; r.w1 = a.w - d
-        row[g].w -= d
-    } else if d > 0, tail == nil || tail! >= d {
-        r.taker = tail == nil ? nil : ""; r.w0 = tail ?? 0; r.w1 = (tail ?? 0) - d
-    } else if let j = dzcNeighbour(row, i) {
-        if row[j].w - d < DZC_MIN_W { return dzcNo(f, "dzc.maxW", ["v": m.w + row[j].w - DZC_MIN_W]) }
-        r.taker = row[j].id; r.w0 = row[j].w; r.w1 = row[j].w - d
-        row[j].w -= d
-    } else if d < 0 {
+    guard let ab = dzcAbsorber(row, i, d, tail: tail) else {
+        let mx = dzcMaxW(f, mid, avail: avail)
+        return mx > m.w ? dzcNo(f, "dzc.maxW", ["v": mx]) : dzcNo(f, "dzc.noTaker")
+    }
+    r.left = ab.left
+    if ab.j < 0 {
         r.taker = tail == nil ? nil : ""; r.w0 = tail ?? 0; r.w1 = (tail ?? 0) - d
     } else {
-        return dzcNo(f, "dzc.noTaker")
+        r.taker = row[ab.j].id; r.w0 = row[ab.j].w; r.w1 = row[ab.j].w - d
+        row[ab.j].w -= d
     }
     row[i].w = nw
     r.f = dzcWithRow(f, key, dzcTidy(row, ws))
@@ -257,6 +276,14 @@ func dzcDelete(_ f: Furniture, _ mid: String, ws: Workshop) -> DzcResult {
         x += n.w
     }
     return r
+}
+
+/// The "+" space unit m leaves when deleted from f, mm: its own width, or more when it joins a space beside it (the
+/// delete toast's number).
+func dzcGapLeft(_ f: Furniture, _ m: Module, _ ws: Workshop) -> Int {
+    let r = dzcDelete(f, m.id, ws: ws)
+    guard let id = r.newId, let g = r.f.modules.first(where: { $0.id == id }) else { return m.w }
+    return g.w
 }
 
 /// Empty space gid closed (Designer C "Yopish ↔"): the units after it move up; the row's last filler or space (before a
@@ -807,19 +834,27 @@ func dzcFix(_ f: Furniture, _ c: FCheck, _ runs: [Run], _ openings: [Opening], w
 func dzcSecMax(_ m: Module, _ i: Int) -> Int {
     let n = m.sections.count
     guard n > 1, i >= 0, i < n else { return m.w }
-    let j = i + 1 < n ? i + 1 : i - 1
-    return m.sections[i].w + m.sections[j].w - DZC_SEC_MIN
+    let side = [i + 1, i - 1].filter { $0 >= 0 && $0 < n }.map { m.sections[$0].w }.max() ?? DZC_SEC_MIN
+    return m.sections[i].w + side - DZC_SEC_MIN
 }
 
-/// Section i of m nw wide (Designer C: its right edge dragged, or "Kenglik"): the neighbour (right, the last
-/// section's left one) takes the difference; both keep their widths from then on (locked).
+/// Which section takes the difference d when section i's right edge moves: the one on its right, and only when it
+/// cannot (it would get narrower than DZC_SEC_MIN, or there is none) the one on its left; nil: neither can.
+func dzcSecTaker(_ m: Module, _ i: Int, _ d: Int) -> Int? {
+    let n = m.sections.count
+    for j in [i + 1, i - 1] where j >= 0 && j < n && m.sections[j].w - d >= DZC_SEC_MIN { return j }
+    return nil
+}
+
+/// Section i of m nw wide (Designer C: its right edge dragged, or "Kenglik"): the neighbour dzcSecTaker says takes the
+/// difference (the right one first); both keep their widths from then on (locked).
 func dzcSecResize(_ m: Module, _ i: Int, _ nw: Int) -> (m: Module, ok: Bool, taker: Int, w1: Int) {
     let n = m.sections.count
     guard n > 1, i >= 0, i < n else { return (m, false, -1, 0) }
-    let j = i + 1 < n ? i + 1 : i - 1
+    let j0 = i + 1 < n ? i + 1 : i - 1
     let d = nw - m.sections[i].w
-    if d == 0 { return (m, true, j, m.sections[j].w) }
-    if nw < DZC_SEC_MIN || m.sections[j].w - d < DZC_SEC_MIN { return (m, false, j, m.sections[j].w) }
+    if d == 0 { return (m, true, j0, m.sections[j0].w) }
+    guard nw >= DZC_SEC_MIN, let j = dzcSecTaker(m, i, d) else { return (m, false, j0, m.sections[j0].w) }
     var out = m
     out.sections[i].w = nw; out.sections[i].lock = true
     out.sections[j].w -= d; out.sections[j].lock = true

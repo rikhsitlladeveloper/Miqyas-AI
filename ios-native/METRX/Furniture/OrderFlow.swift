@@ -213,6 +213,18 @@ struct FRoomsTab: View {
                     .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
             }
             ForEach(p.floors) { w in roomCard(w, snap, amounts) }
+            // delivery and installation, once an order: with it the pieces' amounts add up to the order's price above
+            if let d = amounts["deliver"], d > 0 {
+                HStack(spacing: 10) {
+                    MIcon("coin", G.ink3, 18, 2)
+                    T(tr("fd.deliver"), ui(14.5, 700), lines: 1).frame(maxWidth: .infinity, alignment: .leading)
+                    T(shortStr(p, d), num(14, 700))
+                }
+                .padding(.horizontal, 12).padding(.vertical, 10)
+                .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.glass(0.75)))
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("fo.deliver")
+            }
             // the fronts' board and the handles of every piece in one tap
             SwapButton(app: app, p: p)
             if !p.rooms.isEmpty {

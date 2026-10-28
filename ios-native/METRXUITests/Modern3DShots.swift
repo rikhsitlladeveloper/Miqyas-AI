@@ -38,7 +38,13 @@ final class Modern3DShots: ScreenTestCase {
             // all shut again, then a tap on the middle of the picture slides the door there
             if self.m3Tap(app, "f3.close", 4) {
                 sleep(3)
-                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap(); sleep(4)
+                // a first tap selects in the designer, a later one slides the door (three at most, until one is open)
+                let close = app.descendants(matching: .any)["f3.close"].firstMatch
+                for _ in 0..<3 {
+                    app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap(); sleep(2)
+                    guard close.exists, let v = close.value as? String, v == "0" else { break }
+                }
+                sleep(2)
                 self.shot("m3d-kupe-door")
             }
         })

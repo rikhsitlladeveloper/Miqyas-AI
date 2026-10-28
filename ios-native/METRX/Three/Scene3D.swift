@@ -21,6 +21,19 @@ func uiColor(_ rgb: Int, _ a: Double = 1) -> UIColor {
 
 private func f3(_ v: V3) -> SIMD3<Float> { SIMD3(Float(v.x), Float(v.y), Float(v.z)) }
 
+/// The sideways and upward offsets (a, b) of a point 1 m along the view whose picture is screen point (x, y), given
+/// where that point (p0) and the points step further sideways (ps) and up (pu) appear: the 2 × 2 linear map between
+/// them inverted (nil when it is degenerate). Pure, so it is unit-tested.
+func rayOffsetsFrom(_ x: Double, _ y: Double, _ p0: CGPoint, _ ps: CGPoint, _ pu: CGPoint, _ step: Double) -> (Double, Double)? {
+    let m00 = Double(ps.x - p0.x), m10 = Double(ps.y - p0.y)
+    let m01 = Double(pu.x - p0.x), m11 = Double(pu.y - p0.y)
+    let det = m00 * m11 - m01 * m10
+    if abs(det) < 1e-9 { return nil }
+    let dx = x - Double(p0.x), dy = y - Double(p0.y)
+    let i = (dx * m11 - dy * m01) / det, j = (m00 * dy - m10 * dx) / det
+    return (i * step, j * step)
+}
+
 /// Where the camera is and where it may go. One per 3D picture.
 @Observable
 final class Cam3D {
@@ -63,7 +76,7 @@ final class Cam3D {
     /// A new scene: the camera starts over unless only colours changed (the prototype starts over on every rebuild).
     func load(_ s: Shell3D) {
         // a tiler's tiles changing is not a new room: the camera stays
-        let key = [s.L, s.W, s.H, Double(s.parts.filter { !$0.tile }.count)]
+        let key = [s.L, s.W, s.H, Double(s.parts.filter { !$0.tile && !$0.sel }.count)]
         if key == shellKey { return }
         shellKey = key
         stop(); focus = nil
@@ -153,9 +166,22 @@ final class Cam3D {
     func ray(_ x: CGFloat, _ y: CGFloat) -> (V3, V3) {
         let e = eye(), f = (tgt - e).unit
         let s = f.cross(V3(0, 1, 0)).unit, u = s.cross(f)
+        // once on screen: the 3D view's own projection inverted, so a tap meets what is drawn under the finger whatever
+        // field of view and aspect RealityKit gives the camera (iOS 17 has no vertical-FOV setting). A point at 1 m
+        // along the view goes to the screen linearly in its sideways and upward offsets (a pinhole camera, no roll).
+        if let o = rayOffsets(x, y, e, f, s, u) { return (e, (f + s * o.0 + u * o.1).unit) }
         let k = tan(FOV_HALF)
         let nx = 2 * Double(x) / Double(max(1, w)) - 1, ny = 1 - 2 * Double(y) / Double(max(1, h))
         return (e, (f + s * (nx * k * aspect) + u * (ny * k)).unit)
+    }
+
+    /// Screen point (x, y) as offsets along s and u of a point 1 m along the view f from the eye e, through the view's
+    /// own projection (nil before it is on screen).
+    private func rayOffsets(_ x: CGFloat, _ y: CGFloat, _ e: V3, _ f: V3, _ s: V3, _ u: V3) -> (Double, Double)? {
+        guard let pj = projector, w > 0, h > 0 else { return nil }
+        let step = 0.1
+        guard let p0 = pj(e + f), let ps = pj(e + f + s * step), let pu = pj(e + f + u * step) else { return nil }
+        return rayOffsetsFrom(Double(x), Double(y), p0, ps, pu, step)
     }
 
     /// Where a point appears in the picture, in points; nil behind the camera.
@@ -567,9 +593,11 @@ final class Scene3DCoordinator: NSObject, UIGestureRecognizerDelegate {
     private func addEdges(_ edges: [Edges3]) -> [ModelEntity] {
         var out: [ModelEntity] = []
         for ed in edges where !ed.segs.isEmpty {
-            let soft = lit && ed.wall.hasPrefix("furn ")
+            // Designer C's selection: a solid amber outline, a little thicker than a wall's
+            let sel = ed.wall == "furn sel"
+            let soft = lit && ed.wall.hasPrefix("furn ") && !sel
             let slab = ed.rgb == SLAB_LINE
-            let w = soft ? 0.0045 : 0.012
+            let w = sel ? 0.014 : soft ? 0.0045 : 0.012
             let rgb = soft && !slab ? 0x1B2230 : ed.rgb
             let op: Double = !soft ? 1 : slab ? 0.5 : tier == .low ? 0.16 : 0.13
             var pos: [SIMD3<Float>] = [], idx: [UInt32] = []

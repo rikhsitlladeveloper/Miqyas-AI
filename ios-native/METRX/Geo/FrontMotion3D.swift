@@ -118,11 +118,8 @@ extension Furn3D {
     }
 
     /// The door or drawer a ray meets first, with the fronts as open as amt says (where they are drawn now).
-    func pick(_ e: V3, _ d: V3, amt: (String) -> Double) -> String? {
-        var best: (String, Double)? = nil
-        for pk in picksAt(amt) {
-            if let t = pk.box.hit(e, d), best == nil || t < best!.1 { best = (pk.key, t) }
-        }
-        return best?.0
-    }
+    func pick(_ e: V3, _ d: V3, amt: (String) -> Double) -> String? { rayPicks(picksAt(amt), e, d).first }
+
+    /// Every door, drawer and carcass a ray meets, the nearest first, with the fronts as open as amt says.
+    func picksAlong(_ e: V3, _ d: V3, amt: (String) -> Double) -> [String] { rayPicks(picksAt(amt), e, d) }
 }

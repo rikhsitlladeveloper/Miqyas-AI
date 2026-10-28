@@ -76,7 +76,8 @@ struct Room3DScreen: View {
                         label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
                         onTap: fur.map { f in { pt in
                             let (e, d) = cam.ray(pt.x, pt.y)
-                            if let k = f.1.pick(e, d, amt: mo.amt) { mo.toggle(k) }
+                            // a carcass only keeps the tap from the fronts behind it: nothing opens
+                            if let k = f.1.pick(e, d, amt: mo.amt), !isBodyPick(k) { mo.toggle(k) }
                         } }, motion: fur == nil ? nil : mo) {
                     // a furniture order's room: hide every door to see inside
                     if fur != nil {

@@ -150,12 +150,16 @@ final class AppStoreShots: ScreenTestCase {
             self.save("04b-wardrobe-closed")
             // a tap on the right-hand door slides it over the left one (Modern3DShots' kupe-door): where find3D found
             // the wardrobe, else the middle of the picture as before
+            // in the designer a first tap selects (the section behind the door) and the next one slides it: tapped until
+            // "Yopish" counts an open front (its accessibility value), three taps at most
+            let at: XCUICoordinate
             if let b = self.box3D {
-                app.coordinate(withNormalizedOffset: .zero)
-                    .withOffset(CGVector(dx: b.minX + b.width * 0.78, dy: b.minY + b.height * 0.45)).tap()
+                at = app.coordinate(withNormalizedOffset: .zero)
+                    .withOffset(CGVector(dx: b.minX + b.width * 0.78, dy: b.minY + b.height * 0.45))
             } else {
-                app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42)).tap()
+                at = app.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.42))
             }
+            self.tapUntilOpen(app, at)
             sleep(4); self.waitStill(8)
         })
         if !piece(app, "gorka", "living", "05-gorka-3d") {
@@ -494,6 +498,18 @@ final class AppStoreShots: ScreenTestCase {
             usleep(300_000)
         } while Date() < end
         return nil
+    }
+
+    /// Taps a door in the designer's 3D at `at` until a front is open ("f3.close" says how many are), at most three
+    /// times: the first tap selects, a later one opens; with no counter to read, one tap as before.
+    private func tapUntilOpen(_ app: XCUIApplication, _ at: XCUICoordinate) {
+        let close = app.descendants(matching: .any)["f3.close"].firstMatch
+        for _ in 0..<3 {
+            at.tap()
+            sleep(2)
+            guard close.exists, let v = close.value as? String else { return }
+            if v != "0" && !v.isEmpty { return }
+        }
     }
 
     /// Taps the element id once it is there and in sight.

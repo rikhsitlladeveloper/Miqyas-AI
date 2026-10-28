@@ -106,6 +106,8 @@ final class Gps {
     @ObservationIgnored private var warmBest: GpsSample? = nil
     /// iOS's full-accuracy question is on screen.
     @ObservationIgnored private var asking = false
+    /// Counts the taps: a services check that answers after a cancel and a new tap is dropped.
+    @ObservationIgnored private var tries = 0
 
     private func engine() -> GpsEngine {
         if let e = eng { return e }
@@ -137,18 +139,27 @@ final class Gps {
 
     func locate(_ cb: @escaping (GpsEnd) -> Void) {
         if locating { return }
+        // every tap answers, the first one too: whether Location Services are on is asked first (off the main thread,
+        // as Apple asks), so with them off a first use that would wait for a permission iOS never shows says so at once
+        locating = true; done = cb; startedAt = nil; best = nil
+        tries += 1
+        let n = tries
+        DispatchQueue.global(qos: .userInitiated).async {
+            let on = CLLocationManager.locationServicesEnabled()
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.locating, self.tries == n, self.startedAt == nil else { return }
+                if !on { self.finish(.off); return }
+                self.begin()
+            }
+        }
+    }
+
+    /// Location Services are on: METRX's permission, then the search.
+    private func begin() {
         let e = engine()
         let st = e.m.authorizationStatus
-        if st == .denied || st == .restricted {
-            // .denied is also what an app sees when Location Services are off for the whole phone; asked off the main
-            // thread, as Apple asks
-            DispatchQueue.global(qos: .userInitiated).async {
-                let on = CLLocationManager.locationServicesEnabled()
-                DispatchQueue.main.async { cb(on ? .denied : .off) }
-            }
-            return
-        }
-        locating = true; done = cb; reduced = false; startedAt = nil; asking = false
+        if st == .denied || st == .restricted { finish(.denied); return }
+        reduced = false; startedAt = nil; asking = false
         // the first value: the warm-up's best, or the phone's last fix when it is recent and accurate (labelled)
         let t = Gps.now()
         var b: GpsSample? = nil
@@ -510,16 +521,22 @@ struct LocFormBlock: View {
     /// The saved fix came while iOS gave METRX only an approximate place.
     @State private var approx = false
 
+    /// "Qayta aniqlash" did not get a new fix (no fix, location off, not allowed): the saved one stays, with why.
+    @State private var again: GpsEnd? = nil
+
     private func locate() {
         Haptic.tick()
-        state = .locating
+        state = .locating; again = nil
         gps.locate { end in
             guard state == .locating else { return }
+            if case .ok(let l) = end { loc = l; approx = gps.reduced; state = .ok; Haptic.confirm(); return }
+            Haptic.warn()
+            // a fix already on the form is kept (location switched off since is no reason to lose it)
+            if loc != nil { again = end; state = .ok; return }
             switch end {
-            case .ok(let l): loc = l; approx = gps.reduced; state = .ok; Haptic.confirm()
-            case .fail: state = .fail; Haptic.warn()
-            case .off: state = .off; Haptic.warn()
-            case .denied: state = .denied; Haptic.warn()
+            case .off: state = .off
+            case .denied: state = .denied
+            default: state = .fail
             }
         }
     }
@@ -537,13 +554,15 @@ struct LocFormBlock: View {
                 WaitRow(gps: gps) { gps.cancel(); state = loc != nil ? .ok : .none }
             case .ok:
                 if let l = loc {
+                    // the last "Qayta aniqlash" failed: why, above the fix that stays
+                    if let a = again { if a == .fail { FailRow() } else { OffRow(off: a == .off) } }
                     PinRow(l: l)
                     if approx { ApproxNote() }
                     HStack(spacing: 8) {
                         Btn2(label: tr("loc.again"), gps: true, id: "loc.again", action: locate)
                         Btn2(label: tr("loc.remove"), icon: "trash", danger: true, id: "loc.remove") {
                             let prev = l
-                            loc = nil; state = .none
+                            loc = nil; again = nil; state = .none
                             app.say("loc.removed", kind: .info, action: "common.undo") { loc = prev; state = .ok }
                         }
                     }

@@ -45,6 +45,8 @@ final class Part3 {
     /// How it looks in the lit 3D (Geo/Look.swift); nil: worked out from its role and colour (roleLook).
     let look: Look?
     var faces: [Face3] = []
+    /// Designer C's amber selection (Geo/Furniture3D.swift selection3D): not furniture, the camera ignores it.
+    var sel = false
     init(_ group: Int, _ wall: String?, _ role: Role3, _ rgb: Int, _ op: Double, tile: Bool = false, slab: Bool = false, look: Look? = nil) {
         self.group = group; self.wall = wall; self.role = role; self.rgb = rgb; self.op = op; self.tile = tile; self.slab = slab; self.look = look
     }

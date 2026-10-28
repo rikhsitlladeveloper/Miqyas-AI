@@ -120,6 +120,18 @@ func furnShell(_ p: Project, _ room: Room, _ base: Shell3D, _ snap: Bool, cache:
     return (base.plus(fur.parts, fur.edges, fronts: fur.fronts), fur, key)
 }
 
+/// What of keys (Designer C's selection) is outlined: a front open now (or hidden by "See inside") by its unit's
+/// carcass, a wardrobe's section's front by the section, a sliding door by the whole box ("<box id>:*").
+func selKeys(_ keys: [String], _ open: Set<String>, inside: Bool) -> [String] {
+    keys.map { k in
+        if isBodyPick(k) || k.hasSuffix(":*") || !(inside || open.contains(k)) { return k }
+        guard let i = k.lastIndex(of: ":") else { return k }
+        let pre = String(k[..<i]), last = k[k.index(after: i)...]
+        if pre.contains(":") { return pre + ":body" }
+        return pre + (last.hasPrefix("slide") ? ":*" : ":body")
+    }
+}
+
 /// The "See inside" pill over a 3D picture: hides every door and drawer front, a second tap brings them back.
 struct InsidePill: View {
     let on: Bool
@@ -212,8 +224,12 @@ struct Furniture3DPane: View {
     let app: AppModel
     let p: Project
     let room: Room
-    /// Designer C: a tap on a front (its key "<unit id>:<front>") selects it; false: the front opens as before.
-    var onPick: ((String) -> Bool)? = nil
+    /// Designer C: a tap's hits, the nearest first (a front "<unit id>:<front>", a carcass "<unit id>:body" or a wardrobe
+    /// section's "<box id>:s<i>:body"), select what was tapped; false: the front tapped opens as before.
+    var onPick: (([String]) -> Bool)? = nil
+    /// Designer C: what is selected, outlined in amber (Furn3D.boxesOf keys: a carcass, a section, a front; a front
+    /// open now is outlined by its unit's carcass instead).
+    var hiKeys: [String] = []
     /// Its doors and drawers, opening and shutting.
     @State private var mo = DoorMotion()
     @State private var cam = Cam3D()
@@ -240,10 +256,17 @@ struct Furniture3DPane: View {
             // a room-less corner piece with its corner on the left (made-up walls D, A) is seen from the right
             let left = free && p.furniture.contains { FREE_ROOM + $0.id == room.id && $0.walls.first == "D" && $0.layout != "U" }
             let base = cache.base(room, snap, bare: free, theta: left ? Double.pi / 2 - 0.75 : nil)
-            let (built, fur, key) = furnShell(p, room, base, snap, cache: cache, inside: mo.bare)
+            let (built0, fur, key0) = furnShell(p, room, base, snap, cache: cache, inside: mo.bare)
+            // Designer C's selection in amber (only the scene's furniture is built again for it, not the furniture)
+            // (not in a picture taken for the report)
+            let hi = taking ? [] : selKeys(hiKeys, mo.target, inside: mo.bare)
+            let boxes = fur.boxesOf(hi)
+            let sel = boxes.isEmpty ? nil : selection3D(boxes)
+            let built = sel.map { built0.plus([$0.0], [$0.1]) } ?? built0
+            let key = sel == nil ? key0 : key0 + "|sel:" + hi.joined(separator: ",")
             // a room-less piece: the camera starts on the piece, filling the picture between the pill and the hint (a measured
             // room keeps its room framing)
-            let shell = free ? built.framing(cache.pieceFrameOf(key, fur)) : built
+            let shell = free ? built.framing(cache.pieceFrameOf(key0, fur)) : built
             Scene3D(shell: shell, key: key, baseKey: cache.key, cam: cam, shot: shot, points: shell.labels.map(\.p), label: { AnyView(Lbl3D(text: shell.labels[$0].text)) },
                     onTap: { pt in toggle(fur, pt) }, motion: mo) {
                 InsidePill(on: mo.bare) { mo.bare.toggle() }
@@ -256,7 +279,8 @@ struct Furniture3DPane: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topTrailing)
                         .padding(.top, 10).padding(.trailing, 10)
                 }
-                T(tr(mo.bare ? "bz.insideHint" : "f3.hint"), ui(12.5, 600, G.ink2)).padding(.horizontal, 10).padding(.vertical, 6)
+                // a designer: the first tap selects (a unit, then its door), a third opens it
+                T(tr(mo.bare ? "bz.insideHint" : onPick != nil ? "dzc.tap3d" : "f3.hint"), ui(12.5, 600, G.ink2)).padding(.horizontal, 10).padding(.vertical, 6)
                     .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(G.sheet(0.7)))
                     .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
                     .padding(12)
@@ -266,6 +290,8 @@ struct Furniture3DPane: View {
                 HStack(spacing: 10) {
                     GBtn(tr("f3.openAll"), kind: .secondary, enabled: !mo.bare, height: 44, corner: 12, fontSize: 14) { mo.openAll(fur.keys) }.accessibilityIdentifier("f3.openAll")
                     GBtn(tr("f3.close"), kind: .secondary, enabled: !mo.target.isEmpty, height: 44, corner: 12, fontSize: 14) { mo.closeAll() }.accessibilityIdentifier("f3.close")
+                        // how many fronts are open (the screenshot tests tap a door until one is)
+                        .accessibilityValue(String(mo.target.count))
                 }
                 HStack(spacing: 10) {
                     ForEach([("3d.top", true), ("3d.corner", false)], id: \.0) { k, top in
@@ -282,11 +308,12 @@ struct Furniture3DPane: View {
 
     private func toggle(_ fur: Furn3D, _ pt: CGPoint) {
         let (e, d) = cam.ray(pt.x, pt.y)
-        // the fronts where they are drawn now
-        if let k = fur.pick(e, d, amt: mo.amt) {
-            if let onPick, onPick(k) { return }
-            mo.toggle(k)
-        }
+        // the fronts where they are drawn now, the carcasses hiding what stands behind them
+        let hits = fur.picksAlong(e, d, amt: mo.amt)
+        guard let k = hits.first else { return }
+        if let onPick, onPick(hits) { return }
+        // a carcass has nothing to open
+        if !isBodyPick(k) { mo.toggle(k) }
     }
 
     /// "Add to report" on the 3D picture: at most 4 views a room, counted in the store (not as this page last drew it);
@@ -299,6 +326,12 @@ struct Furniture3DPane: View {
         if !app.once() { return }
         if full() { app.say("3d.max", kind: .error); return }
         taking = true
+        // a selection's amber goes first: the picture is taken once the scene is drawn without it
+        let wait = hiKeys.isEmpty ? 0 : 0.45
+        DispatchQueue.main.asyncAfter(deadline: .now() + wait) { take(pid, rid, full) }
+    }
+
+    private func take(_ pid: String, _ rid: String, _ full: @escaping () -> Bool) {
         shot.take { img in
             DispatchQueue.main.async {
                 taking = false

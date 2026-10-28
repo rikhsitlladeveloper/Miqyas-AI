@@ -55,7 +55,7 @@ struct DzcKitchen: View {
             DzcWallBar(app: app, c: c)
             ZStack(alignment: .top) {
                 if c.d3 {
-                    Furniture3DPane(app: app, p: c.p, room: c.room, onPick: { key in DzcKOps.pick3D(c, key) })
+                    Furniture3DPane(app: app, p: c.p, room: c.room, onPick: { keys in DzcKOps.pick3D(c, keys) }, hiKeys: DzcKOps.hiKeys3D(c))
                 } else {
                     DzcKitchenCanvas(app: app, c: c)
                     if !c.f.modules.contains(where: { $0.wall == c.run.wall }) && c.run.wall != ISLAND { DzcEmptyWall(app: app, c: c) }
@@ -249,28 +249,29 @@ private struct DzcKBubbles: View {
         if let m = f.modules.first(where: { $0.id == KitOps.shared.sel && $0.wall == c.run.wall }), !st.multi, st.front == nil, st.live?.kind != "move", !dzcSpace(m) {
             let lv = st.live
             let live = lv?.kind == "resize" && lv?.mid == m.id
-            let bx = min(size.width - 50, max(50, map.sx(m.x + m.w / 2)))
+            // kept inside the drawing however near its edge the unit is (DzcPin)
+            let bx = map.sx(m.x + m.w / 2)
             let by = isUpper(m) ? map.sy(m.elev + m.h) - 20 : map.sy(-150)
             let label = (live && lv?.maxHit == true ? tr("dzc.max") + " " : "") + "\(m.w) mm"
             let pid = c.p.id, fid = c.f.id, mid = m.id
-            DzcBubble(text: label, live: live, kbd: !live, warn: live && lv?.maxHit == true, id: "dzc.bubble") {
-                app.sheet = .dzcNum(pid: pid, fid: fid, mid: mid, key: "w", sec: -1)
+            DzcPin(x: bx, y: by) {
+                DzcBubble(text: label, live: live, kbd: !live, warn: live && lv?.maxHit == true, id: "dzc.bubble") {
+                    app.sheet = .dzcNum(pid: pid, fid: fid, mid: mid, key: "w", sec: -1)
+                }
             }
-            .position(x: bx, y: by)
             if m.type == "wall" && m.app != "hood" {
                 let hl = lv?.kind == "height" && lv?.mid == m.id
-                DzcBubble(text: "h \(m.h)", live: hl, kbd: false, small: true, id: "dzc.bubbleH") {
-                    app.sheet = .dzcNum(pid: pid, fid: fid, mid: mid, key: "h", sec: -1)
+                DzcPin(x: bx, y: map.sy(m.elev) + 26) {
+                    DzcBubble(text: "h \(m.h)", live: hl, kbd: false, small: true, id: "dzc.bubbleH") {
+                        app.sheet = .dzcNum(pid: pid, fid: fid, mid: mid, key: "h", sec: -1)
+                    }
                 }
-                .position(x: bx, y: map.sy(m.elev) + 26)
             }
             if live, let t = lv?.taker, let tm = f.modules.first(where: { $0.id == t }) {
-                T(tr("kn." + kindOf(tm)) + " \(lv?.tw0 ?? 0) → \(max(0, lv?.tw1 ?? 0))", num(12, 800, G.amberInk), lines: 1)
-                    .padding(.horizontal, 9).frame(minHeight: 26)
-                    .background(Capsule().fill(G.amberWash))
-                    .overlay(Capsule().strokeBorder(G.amberInk.opacity(0.5), lineWidth: 1))
-                    .position(x: min(size.width - 60, max(60, map.sx(tm.x + tm.w / 2))), y: isUpper(tm) ? map.sy(tm.elev + tm.h / 2) : map.sy(450))
-                    .allowsHitTesting(false)
+                DzcPin(x: map.sx(tm.x + tm.w / 2), y: isUpper(tm) ? map.sy(tm.elev + tm.h / 2) : map.sy(450)) {
+                    DzcAmberLabel(text: tr("kn." + kindOf(tm)) + " \(lv?.tw0 ?? 0) → \(max(0, lv?.tw1 ?? 0))", left: lv?.tleft == true)
+                }
+                .allowsHitTesting(false)
             }
         }
     }
@@ -714,7 +715,7 @@ enum DzcKOps {
                 if r.ok {
                     lv.w = nw
                     lv.preview = pack(r.f, c.runs)
-                    lv.taker = r.taker; lv.tw0 = r.w0; lv.tw1 = r.w1
+                    lv.taker = r.taker; lv.tw0 = r.w0; lv.tw1 = r.w1; lv.tleft = r.left
                 }
             }
             st.live = lv
@@ -791,7 +792,7 @@ enum DzcKOps {
         if lv.overDel {
             KitOps.shared.change(pid, fid) { dzcDelete($0, m.id, ws: ws).f }
             KitOps.shared.sel = nil; st.tool = nil
-            app.say("dzc.deleted", ["m": modName(m), "v": m.w, "w": m.w], action: "common.undo") { KitOps.shared.undo(pid, fid); Haptic.tick() }
+            app.say("dzc.deleted", ["m": modName(m), "v": dzcGapLeft(c.f, m, ws), "w": m.w], action: "common.undo") { KitOps.shared.undo(pid, fid); Haptic.tick() }
         } else if lv.slot != lv.slot0 {
             KitOps.shared.change(pid, fid) { dzcMove($0, m.id, to: lv.slot, ws: ws).f }
             app.say("dzc.moved", ["m": modName(m), "n": lv.slot + 1], action: "common.undo") { KitOps.shared.undo(pid, fid); Haptic.tick() }
@@ -813,13 +814,23 @@ enum DzcKOps {
         }
     }
 
-    /// A tap in the 3D on front key "<unit id>:<front>": its unit selected, a second tap its front, a third opens it.
-    static func pick3D(_ c: DzcKCtx, _ key: String) -> Bool {
-        guard let colon = key.firstIndex(of: ":") else { return false }
+    /// A tap in the 3D (its hits, the nearest first): on a front "<unit id>:<front>" its unit is selected, a second tap
+    /// its front, a third opens it; on a unit's carcass "<unit id>:body" (an open shelf, a filler) the unit. Marking
+    /// (Belgilash): the unit is ticked or unticked.
+    static func pick3D(_ c: DzcKCtx, _ keys: [String]) -> Bool {
+        guard let key = keys.first, let colon = key.firstIndex(of: ":") else { return false }
         let mid = String(key[..<colon]), fk = String(key[key.index(after: colon)...])
         guard let m = c.f.modules.first(where: { $0.id == mid }) else { return false }
         let st = DzcState.shared, kit = KitOps.shared
+        if st.multi {
+            if st.ticks.contains(m.id) { st.ticks.remove(m.id) } else { st.ticks.insert(m.id) }
+            Haptic.tick()
+            return true
+        }
+        let body = isBodyPick(key)
         if kit.sel == mid {
+            // its carcass again: back to the whole unit
+            if body { if st.front != nil { st.front = nil; st.tool = nil }; return true }
             if st.front == fk { return false }
             st.front = fk; st.scope = "one"
             if let t = st.tool, !tools(c, m).map(\.id).contains(t) { st.tool = nil }
@@ -827,6 +838,15 @@ enum DzcKOps {
         }
         select(c, m)
         return true
+    }
+
+    /// What the 3D outlines in amber: the selected unit, or its selected front; the marked units.
+    static func hiKeys3D(_ c: DzcKCtx) -> [String] {
+        let st = DzcState.shared
+        if st.multi { return st.ticks.sorted().map { $0 + ":body" } }
+        guard let m = c.sel else { return [] }
+        if let fk = st.front { return [m.id + ":" + fk] }
+        return [m.id + ":body"]
     }
 
     /* ---------------- the tools ---------------- */
@@ -919,7 +939,7 @@ enum DzcKOps {
         let ws = c.ws
         change(c) { dzcDelete($0, m.id, ws: ws).f }
         KitOps.shared.sel = nil; DzcState.shared.tool = nil
-        said(app, c, "dzc.deleted", ["m": modName(m), "v": m.w, "w": m.w])
+        said(app, c, "dzc.deleted", ["m": modName(m), "v": dzcGapLeft(c.f, m, ws), "w": m.w])
     }
 
     static func deleteMarked(_ app: AppModel, _ c: DzcKCtx) {
@@ -940,7 +960,8 @@ enum DzcKOps {
         change(c) { dzcCloseGap($0, m.id, avail: avail, ws: ws).f }
         KitOps.shared.sel = nil; DzcState.shared.tool = nil
         if let t = r.taker { said(app, c, "dzc.closedTo", ["t": dzcTakerName(c.f, t), "a": r.w0, "b": r.w1]) }
-        else { said(app, c, "dzc.closed", ["v": m.w]) }
+        // a new filler or space at the row's end, or (an island) the row just shorter
+        else if r.newId != nil { said(app, c, "dzc.closed", ["v": m.w]) } else { said(app, c, "dzc.closed0") }
     }
 
     static func copy(_ app: AppModel, _ c: DzcKCtx) {
@@ -1254,7 +1275,8 @@ private struct DzcKHandle: View {
         let sel = c.sel
         let scopes: [(String, String)] = sel != nil && !st.multi ? [("one", tr("dzc.sc.one")), ("all", tr("dzc.sc.all"))] : []
         let whole = (sel == nil && !st.multi) || st.scope == "all"
-        let sub = whole ? tr("dzc.wholeK") : st.multi ? tr("dzc.nMarked", ["n": st.ticks.count]) : tr("dzc.typeWhole")
+        // what the options change follows the scope: "Faqat shu" this front or this unit, "Hammasiga" the whole kitchen
+        let sub = whole ? tr("dzc.wholeK") : st.multi ? tr("dzc.nMarked", ["n": st.ticks.count]) : dzcOnlySub(sel, st.front, tr("dzc.onlyM"))
         DzcOptRow(title: tr("dzc.t.handle"), sub: sub, scopes: scopes, onBack: onBack) {
             if whole {
                 let cur = handleType(c.f)

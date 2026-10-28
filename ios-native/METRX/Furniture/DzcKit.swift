@@ -32,6 +32,8 @@ struct DzcLive {
     var w = 0
     var taker: String? = nil
     var takerSec = -1
+    /// The taker is on the left (nothing on the right could give).
+    var tleft = false
     var tw0 = 0
     var tw1 = 0
     var cands: [Int] = []
@@ -353,6 +355,26 @@ struct DzcTool: Identifiable {
     var on = false
 }
 
+/// The biggest size from mx down to mn (in steps of step) at which every word of label fits on a line (fits(word,
+/// size)); mn when none does. Pure, so it is unit-tested.
+func dzcLabelSize(_ label: String, _ mx: CGFloat, _ mn: CGFloat, _ step: CGFloat, _ fits: (String, CGFloat) -> Bool) -> CGFloat {
+    let words = label.split(whereSeparator: { $0 == " " || $0 == "\n" }).map(String.init)
+    var s = mx
+    while s >= mn - 0.001 {
+        if words.allSatisfy({ fits($0, s) }) { return s }
+        s -= step
+    }
+    return mn
+}
+
+/// The size of a tool's label (11 pt at most, 8.5 at least) whose longest word fits the tool's 62 pt on one line.
+func dzcToolLabelSize(_ label: String) -> CGFloat {
+    dzcLabelSize(label, 11, 8.5, 0.5) { w, s in
+        let f = ui(s, 700).uiFont
+        return (w as NSString).size(withAttributes: [.font: f]).width <= 61
+    }
+}
+
 /// One tool: the icon over its label (two lines at most), at least 56 pt tall.
 private struct DzcToolButton: View {
     let t: DzcTool
@@ -372,7 +394,9 @@ private struct DzcToolButton: View {
                         .offset(x: 6, y: -5)
                 }
             }
-            T(t.label, ui(11, 700, fg, lh: 1.1), align: .center, lines: 2)
+            // broken only between words, never inside one ("Qo‘shimch / a"): a little smaller when a word is too long
+            let fs = dzcToolLabelSize(t.label)
+            T(t.label, ui(fs, 700, fg, lh: 1.1), align: .center, lines: 2)
                 .fixedSize(horizontal: false, vertical: true)
         }
         .padding(.horizontal, 4).padding(.vertical, 5)
@@ -636,6 +660,57 @@ struct DzcCaption: View {
     }
 }
 
+/// Its view centred at (x, y) of the drawing but kept wholly inside it, pad from each edge (a unit at the screen's edge
+/// still shows its mm bubble and the amber label whole); a view wider than the drawing is given its width.
+struct DzcPin: Layout {
+    let x: CGFloat
+    let y: CGFloat
+    var pad: CGFloat = 6
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        proposal.replacingUnspecifiedDimensions()
+    }
+
+    func placeSubviews(in b: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        for s in subviews {
+            let maxW = max(1, b.width - 2 * pad)
+            var sz = s.sizeThatFits(.unspecified)
+            if sz.width > maxW { sz = s.sizeThatFits(ProposedViewSize(width: maxW, height: nil)) }
+            let w = min(sz.width, maxW), h = sz.height
+            let c = dzcClampCentre(x, y, CGSize(width: w, height: h), b.size, pad)
+            s.place(at: CGPoint(x: b.minX + c.x, y: b.minY + c.y), anchor: .center, proposal: ProposedViewSize(width: w, height: h))
+        }
+    }
+}
+
+/// The centre a box of size sz wants at (x, y), moved so the box stays inside area, pad from its edges (centred when
+/// it does not fit). Pure, so it is unit-tested.
+func dzcClampCentre(_ x: CGFloat, _ y: CGFloat, _ sz: CGSize, _ area: CGSize, _ pad: CGFloat) -> CGPoint {
+    func clamp(_ v: CGFloat, _ half: CGFloat, _ len: CGFloat) -> CGFloat {
+        let lo = half + pad, hi = len - half - pad
+        return lo > hi ? len / 2 : min(max(v, lo), hi)
+    }
+    return CGPoint(x: clamp(x, sz.width / 2, area.width), y: clamp(y, sz.height / 2, area.height))
+}
+
+/// The amber label of whoever takes a dragged width's difference ("Tortmali 600 → 450"); from the left, a second line
+/// saying the right side had no room.
+struct DzcAmberLabel: View {
+    let text: String
+    var left = false
+    var body: some View {
+        VStack(spacing: 1) {
+            T(text, num(12, 800, G.amberInk), lines: 1)
+            if left { T(tr("dzc.fromLeft"), ui(11, 700, G.amberInk), align: .center, lines: 2) }
+        }
+        .padding(.horizontal, 10).padding(.vertical, 4).frame(minHeight: 26)
+        .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(G.amberWash))
+        .overlay(RoundedRectangle(cornerRadius: 13, style: .continuous).strokeBorder(G.amberInk.opacity(0.5), lineWidth: 1))
+        .accessibilityElement(children: .combine)
+        .accessibilityIdentifier("dzc.taker")
+    }
+}
+
 /// "120% · sig‘dirish": back to the fitted view.
 struct DzcZoomPill: View {
     let pct: Int
@@ -658,9 +733,13 @@ struct DzcZoomPill: View {
 /// The animated hint shown once (and again by "?"): drag the edge for the width, hold to move, two fingers to zoom;
 /// about 3 s each, skippable.
 struct DzcTeach: View {
+    /// A bed's, a table's (the short designer's): tap a tool below, one finger turns the 3D, two fingers zoom.
+    var item = false
     let onSkip: () -> Void
     var body: some View {
         let t0 = DzcState.shared.teachT0
+        let item = self.item
+        let keys = item ? ["dzc.teachI1", "dzc.teachI2", "dzc.teach3"] : ["dzc.teach1", "dzc.teach2", "dzc.teach3"]
         ZStack {
             Rectangle().fill(G.scrim.opacity(0.35)).ignoresSafeArea()
                 .onTapGesture { onSkip() }
@@ -670,9 +749,11 @@ struct DzcTeach: View {
                     let phase = min(2, Int(t / 3))
                     let u = CGFloat(t.truncatingRemainder(dividingBy: 3) / 3)
                     VStack(spacing: 8) {
-                        Canvas { ctx, size in Self.draw(ctx, size, phase, u) }
+                        Canvas { ctx, size in
+                            if item && phase < 2 { Self.drawItem(ctx, size, phase, u) } else { Self.draw(ctx, size, phase, u) }
+                        }
                             .frame(width: 260, height: 118)
-                        T(tr(["dzc.teach1", "dzc.teach2", "dzc.teach3"][phase]), ui(15, 800), align: .center)
+                        T(tr(keys[phase]), ui(15, 800), align: .center)
                         HStack(spacing: 6) {
                             ForEach(0..<3, id: \.self) { i in
                                 Capsule().fill(i <= phase ? G.cobalt : G.ink.opacity(0.15)).frame(width: i == phase ? 22 : 8, height: 8)
@@ -691,6 +772,45 @@ struct DzcTeach: View {
         }
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("dzc.teach")
+    }
+
+    /// The short designer's first two steps: a finger taps a tool of the row below; a finger drags the piece round.
+    private static func drawItem(_ c: GraphicsContext, _ size: CGSize, _ phase: Int, _ u: CGFloat) {
+        let ink = G.ink.opacity(0.75), blue = G.cobalt
+        func finger(_ p: CGPoint, _ down: Bool) {
+            let r: CGFloat = down ? 10 : 12
+            c.fill(Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r)), with: .color(G.cobalt.opacity(down ? 0.4 : 0.28)))
+            c.stroke(Path(ellipseIn: CGRect(x: p.x - r, y: p.y - r, width: 2 * r, height: 2 * r)), with: .color(blue), lineWidth: 2)
+        }
+        if phase == 0 {
+            // the tool row; the second tool lights up as it is tapped
+            let on = u > 0.45
+            for i in 0..<4 {
+                let r = Path(roundedRect: CGRect(x: 28 + CGFloat(i) * 52, y: 62, width: 44, height: 40), cornerRadius: 8)
+                let hit = i == 1 && on
+                c.fill(r, with: .color(hit ? G.cobalt.opacity(0.18) : G.ink.opacity(0.06)))
+                c.stroke(r, with: .color(hit ? blue : ink), lineWidth: hit ? 2.4 : 1.2)
+            }
+            let y = u < 0.45 ? 30 + 50 * (u / 0.45) : 80
+            finger(CGPoint(x: 102, y: y), u > 0.4 && u < 0.6)
+            return
+        }
+        // a box turning about its middle while the finger drags sideways
+        let a = (u - 0.5) * 1.2
+        let w: CGFloat = 70 * max(0.25, abs(cos(a))), d: CGFloat = 40 * abs(sin(a))
+        let x0 = size.width / 2 - (w + d) / 2
+        let front = Path(CGRect(x: x0, y: 34, width: w, height: 60))
+        c.fill(front, with: .color(G.cobalt.opacity(0.12)))
+        c.stroke(front, with: .color(blue), lineWidth: 2.4)
+        if d > 1 {
+            var side = Path()
+            side.move(to: CGPoint(x: x0 + w, y: 34)); side.addLine(to: CGPoint(x: x0 + w + d, y: 26))
+            side.addLine(to: CGPoint(x: x0 + w + d, y: 86)); side.addLine(to: CGPoint(x: x0 + w, y: 94)); side.closeSubpath()
+            c.fill(side, with: .color(G.ink.opacity(0.06)))
+            c.stroke(side, with: .color(ink), lineWidth: 1.4)
+        }
+        c.line(ink, CGPoint(x: 16, y: 104), CGPoint(x: size.width - 16, y: 104), 1.4)
+        finger(CGPoint(x: 70 + 120 * u, y: 64), true)
     }
 
     private static func draw(_ c: GraphicsContext, _ size: CGSize, _ phase: Int, _ u: CGFloat) {
@@ -799,6 +919,13 @@ func dzcWarn(_ app: AppModel, _ key: String, _ vars: [String: Any] = [:]) {
     app.say(key, vars, kind: .error)
 }
 
+/// An options row's "Faqat shu" line: "faqat <the front>" with a front selected (frontName), else whole (this unit or
+/// this section).
+func dzcOnlySub(_ m: Module?, _ front: String?, _ whole: String) -> String {
+    guard let m, let fk = front, let fr = handleFronts(m).first(where: { $0.key == fk }) else { return whole }
+    return tr("dzc.onlyF", ["f": frontName(m, fr)])
+}
+
 /// The name a taker of the difference goes by in a toast: a unit's name, or "the row's free end".
 func dzcTakerName(_ f: Furniture, _ id: String?) -> String {
     guard let id else { return "" }
@@ -819,7 +946,9 @@ func dzcCommitW(_ app: AppModel, _ p: Project, _ f: Furniture, _ mid: String, _ 
     KitOps.shared.change(p.id, f.id) { x in dzcResize(x, mid, nw, avail: avail, ws: ws).f }
     let name = tr("kn." + kindOf(m))
     if let t = r.taker {
-        dzcSaid(app, p.id, f.id, "dzc.wTook", ["m": name, "a": m.w, "b": nw, "t": dzcTakerName(f, t), "c": r.w0, "d": max(0, r.w1)])
+        // from the left only when the right had no room: the toast says so
+        let who = dzcTakerName(f, t) + (r.left ? " (" + tr("dzc.fromLeft") + ")" : "")
+        dzcSaid(app, p.id, f.id, "dzc.wTook", ["m": name, "a": m.w, "b": nw, "t": who, "c": r.w0, "d": max(0, r.w1)])
     } else {
         dzcSaid(app, p.id, f.id, "dzc.wDone", ["m": name, "a": m.w, "b": nw])
     }

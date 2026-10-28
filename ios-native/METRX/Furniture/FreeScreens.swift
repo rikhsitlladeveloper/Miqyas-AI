@@ -131,7 +131,9 @@ func freeSub(_ f: Furniture, _ en: Bool) -> String {
         return [name, sizes].compactMap { $0 }.joined(separator: " · ")
     }
     let fs = f.free
-    let run = fs.map { freeRunMm(f.layout, $0.sides, $0.island) } ?? runMm(f)
+    // the running metres are the units' (what the designer and the price count, runMm); the typed sides' only before
+    // there are units
+    let run = !f.modules.isEmpty ? runMm(f) : fs.map { freeRunMm(f.layout, $0.sides, $0.island) } ?? 0
     let t = (max(0, run) + 50) / 100
     let sizes = fs.map { ($0.sides + ($0.island > 0 ? [$0.island] : [])).map { m($0) }.joined(separator: " + ") + U_L }
     return [tr(f.model.isEmpty ? "kt.l" + f.layout : "fz.m." + f.model), sizes, "\(t / 10)\(en ? "." : ",")\(t % 10) " + tr("kt.pm")].compactMap { $0 }.joined(separator: " · ")

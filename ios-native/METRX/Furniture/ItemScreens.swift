@@ -41,9 +41,14 @@ struct ItemScreen: View {
         ZStack {
             RoomGrid().ignoresSafeArea()
             VStack(spacing: 0) {
-                DesignerHead(app: app, p: p, f: f, sub: pieceLine(f, ws))
+                // "?" plays the hint again: tap a tool, turn the 3D, zoom (as the cabinets' designers)
+                DesignerHead(app: app, p: p, f: f, sub: pieceLine(f, ws), onHelp: { DzcState.shared.startTeach() })
                 if let room = roomOf(p, f) {
-                    content(room)
+                    ZStack(alignment: .top) {
+                        VStack(spacing: 0) { content(room) }
+                        if DzcState.shared.teachOn { DzcTeach(item: true) { DzcState.shared.teachOn = false } }
+                    }
+                    .frame(maxHeight: .infinity)
                     // Designer C's slider (its tools' options in its place), then Undo/Redo · 2D/3D · "Narxni ko‘rish"
                     DzcItemBottom(app: app, p: p, f: f)
                     DesignerBar(app: app, p: p, f: f) {

@@ -31,8 +31,43 @@ struct Obb {
     }
 }
 
-/// Something a tap opens: a door or a drawer (key), where it is now.
+/// Something a tap opens: a door or a drawer (key), where it is now; or a unit's carcass, "<unit id>:body" (a
+/// wardrobe's section "<box id>:s<i>:body"), which a tap selects in a designer and which hides what stands behind it.
 struct Pick { let key: String; let box: Obb }
+
+/// The key's last part is "body": a unit's (or a section's) carcass, nothing to open.
+func isBodyPick(_ k: String) -> Bool { k.hasSuffix(":body") }
+
+/// Every pick a ray from e along d meets, the nearest first. A carcass counts as a few millimetres further than it is,
+/// so a front on its face wins over the carcass it closes.
+func rayPicks(_ picks: [Pick], _ e: V3, _ d: V3) -> [String] {
+    var hits: [(String, Double)] = []
+    for pk in picks {
+        guard let t0 = pk.box.hit(e, d) else { continue }
+        let t = isBodyPick(pk.key) ? t0 + 0.004 : t0
+        hits.append((pk.key, t))
+    }
+    return hits.sorted { $0.1 < $1.1 }.map { $0.0 }
+}
+
+/// The amber of what is selected in the designers' 3D.
+let SEL3D_RGB = 0xF59E0B
+
+/// A see-through amber shell a little bigger than each box, with an amber outline: what is selected in the 3D.
+func selection3D(_ boxes: [Obb]) -> (Part3, Edges3) {
+    let look = Look(rgb: SEL3D_RGB, roughness: 0.6, emissive: 0.35, alpha: 0.3)
+    let p = Part3(0, nil, .furn, SEL3D_RGB, 0.3, look: look)
+    p.sel = true
+    let e = Edges3(0, "furn sel", rgb: SEL3D_RGB)
+    let g = 0.008
+    for x in boxes {
+        let ua = x.a.unit * g, ub = x.b.unit * g, uc = x.c.unit * g
+        let y = Obb(o: x.o - ua - ub - uc, a: x.a + ua * 2, b: x.b + ub * 2, c: x.c + uc * 2)
+        obbFaces(p, y)
+        obbEdges(e, y)
+    }
+    return (p, e)
+}
 
 struct Furn3D {
     let parts: [Part3], edges: [Edges3], picks: [Pick], keys: [String]
@@ -40,11 +75,24 @@ struct Furn3D {
     /// (Geo/FrontMotion3D.swift; parts, edges and picks are then the rest, which stays put); else empty.
     var fronts: [Front3D] = []
 
-    /// The door or drawer a ray meets first.
-    func pick(_ e: V3, _ d: V3) -> String? {
-        var best: (String, Double)? = nil
-        for pk in picks { if let t = pk.box.hit(e, d), best == nil || t < best!.1 { best = (pk.key, t) } }
-        return best?.0
+    /// The door, drawer or carcass a ray meets first.
+    func pick(_ e: V3, _ d: V3) -> String? { rayPicks(picks, e, d).first }
+
+    /// The boxes of keys, the fronts shut: a key ending in ":*" stands for every carcass whose key starts with what is
+    /// before the star ("<box id>:*": all its sections).
+    func boxesOf(_ keys: [String]) -> [Obb] {
+        var all = picks
+        for fr in fronts { all += fr.picks }
+        var out: [Obb] = []
+        for k in keys {
+            if k.hasSuffix(":*") {
+                let pre = String(k.dropLast())
+                out += all.filter { $0.key.hasPrefix(pre) && isBodyPick($0.key) }.map(\.box)
+            } else if let pk = all.first(where: { $0.key == k }) {
+                out.append(pk.box)
+            }
+        }
+        return out
     }
 }
 
@@ -187,6 +235,8 @@ func furniture3D(_ fs: [Furniture], _ bases: [String: WallBasis], _ ws: Workshop
             } else if ITEM_MODS.contains(m.type) { B.item(b, mm) }
             else { B.kitchenUnit(b, m) }
             if let gx, !gx.own { B.guestBoxes(b, gx.boxes) }
+            // the carcass a tap selects (and which keeps a tap from reaching the fronts behind it)
+            st.picks += bodyPicks(b, mm, fws)
         }
         // the worktop over the lower row of each wall (and over the corner it turns into)
         if f.kind == "kitchen" {
@@ -891,4 +941,38 @@ final class FBuilder {
         let o = w.at(a / 1000, y / 1000, n0 / 1000)
         st.picks.append(Pick(key: key, box: Obb(o: o, a: w.dir(dw / 1000, 0), b: V3(0, dh / 1000, 0), c: w.dir(0, KUPE_PD / 1000))))
     }
+}
+
+/// The carcass boxes of unit m on frame w (m.x already in that frame), for a tap: a wardrobe's box one a section
+/// ("<id>:s<i>:body"), any other unit one ("<id>:body"), from the floor (a hung or wall unit from its bottom) to its
+/// top, as deep as it is. An empty space has none (nothing is drawn there).
+func bodyPicks(_ w: WallBasis, _ m: Module, _ ws: Workshop) -> [Pick] {
+    if dzcSpace(m) || m.w <= 0 { return [] }
+    func box(_ a0: Int, _ a1: Int, _ y0: Int, _ y1: Int, _ dd: Int) -> Obb? {
+        if a1 - a0 < 1 || y1 - y0 < 1 || dd < 1 { return nil }
+        return Obb(o: w.at(Double(a0) / 1000, Double(y0) / 1000, 0), a: w.dir(Double(a1 - a0) / 1000, 0),
+                   b: V3(0, Double(y1 - y0) / 1000, 0), c: w.dir(0, Double(dd) / 1000))
+    }
+    // a filler is a strip at the row's front: as deep as the row, to its face
+    let fillD = (isUpper(m) ? K_WALL_D : K_BASE_D) + ws.t
+    let dd = m.type == "filler" ? max(m.d, fillD) : m.d
+    if m.type == "wardrobe" {
+        let z0 = legsOf(m, ws) + m.elev, top = z0 + m.h
+        let y0 = hung(m) ? z0 : 0
+        if m.sections.isEmpty { return box(m.x, m.x + m.w, y0, top, dd).map { [Pick(key: m.id + ":body", box: $0)] } ?? [] }
+        var out: [Pick] = []
+        var a = m.x
+        for (i, s) in m.sections.enumerated() {
+            if let x = box(a, a + s.w, y0, top, dd) { out.append(Pick(key: m.id + ":s\(i):body", box: x)) }
+            a += s.w
+        }
+        return out
+    }
+    // a kitchen's base unit up to the worktop over it (a tap on the worktop picks the unit under it); no deeper than
+    // the carcass, so its doors in front are still hit first
+    let low = !isUpper(m) && !hung(m) && m.elev < 300
+    let base = low && !ITEM_MODS.contains(m.type) && m.type != "tall" && m.type != "filler" && m.type != "gap"
+    let y0 = low ? 0 : m.elev
+    let y1 = base ? max(m.elev + m.h, worktopTop(ws)) : m.elev + m.h
+    return box(m.x, m.x + m.w, y0, y1, dd).map { [Pick(key: m.id + ":body", box: $0)] } ?? []
 }

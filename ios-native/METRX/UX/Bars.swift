@@ -135,10 +135,19 @@ struct DesignerHead: View {
     let p: Project
     let f: Furniture
     let sub: String
+    /// "?": the gestures' hint again (the short designer of a bed or a table; the cabinets have theirs by the walls).
+    var onHelp: (() -> Void)? = nil
     var body: some View {
         let kit = KitOps.shared
         UXTop {
             UXTopBar(title: dn(f.name), sub: sub, back: { app.pop() }) {
+                if let onHelp {
+                    T("?", ui(17, 800, G.cobalt2), align: .center)
+                        .frame(width: 40, height: 40)
+                        .background(Circle().fill(G.cobalt.opacity(0.1)))
+                        .pressable(0.95, label: tr("dzc.help"), onHelp)
+                        .accessibilityIdentifier("dzc.help")
+                }
                 GlassIconButton("redo", tr("common.redo"), tint: kit.canRedo(f.id) ? G.ink : G.ink3.opacity(0.5)) { kit.redo(p.id, f.id); Haptic.tick() }
                 GlassIconButton("more", tr("common.menu")) { app.sheet = .fMenu(pid: p.id, fid: f.id) }.accessibilityIdentifier("kt.menu")
             }
