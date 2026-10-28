@@ -511,10 +511,13 @@ internal fun bodyPicks(b: WallBasis, m: Module, ws: Workshop): List<Pick> {
         var a = x0
         return m.sections.mapIndexedNotNull { i, s -> box("${m.id}:s$i:body", a, a + s.w, m.elev.toDouble(), yt, m.d.toDouble()).also { a += s.w } }
     }
+    // a base unit stands on its plinth: its box from the floor up to the worktop over it (a tap on the worktop picks
+    // the unit under it); no deeper than the carcass, so its doors in front of it are still hit first
+    val low = !isUpper(m) && m.type != "tall" && m.elev < 300
     val n1 = if (m.type == "filler") (if (isUpper(m)) K_WALL_D else K_BASE_D) + 18.0 else m.d.toDouble()
-    // a base unit stands on its plinth: its box from the floor
-    val y0 = if (!isUpper(m) && m.elev < 300) 0.0 else m.elev.toDouble()
-    return listOfNotNull(box("${m.id}:body", x0, x0 + m.w, y0, (m.elev + m.h).toDouble(), n1))
+    val y0 = if (low) 0.0 else m.elev.toDouble()
+    val y1 = if (low && m.type != "filler") max(m.elev + m.h, worktopTop(ws)).toDouble() else (m.elev + m.h).toDouble()
+    return listOfNotNull(box("${m.id}:body", x0, x0 + m.w, y0, y1, n1))
 }
 
 /** A front's own frame: its corner [o] at the hinge side and the bottom, unit directions across it [e], up it, out of it [tn]. */
