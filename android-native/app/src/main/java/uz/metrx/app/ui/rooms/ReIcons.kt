@@ -1,0 +1,90 @@
+package uz.metrx.app.ui.rooms
+
+/* Generated from design/room-editor/mockup.html (the I and IT icons): 24 × 24 stroke paths. */
+
+/** The mockup's tool icons by name. */
+val RE_ICONS: Map<String, String> = mapOf(
+    "back" to "M15 5l-7 7 7 7",
+    "chev" to "M9 5l7 7-7 7",
+    "down" to "M6 9l6 6 6-6",
+    "up" to "M6 15l6-6 6 6",
+    "undo" to "M9 14L4 9l5-5 M4 9h10.5a5.5 5.5 0 010 11H11",
+    "redo" to "M15 14l5-5-5-5 M20 9H9.5a5.5 5.5 0 000 11H13",
+    "chk" to "M5 12.5l4.5 4.5L19 7",
+    "plus" to "M12 5v14M5 12h14",
+    "trash" to "M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13",
+    "close" to "M6 6l12 12M18 6L6 18",
+    "vib" to "M10 4h4a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-4a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2z M4.5 9v6M19.5 9v6M2 11v2M22 11v2",
+    "bt" to "M7 7l10 10-5 5V2l5 5L7 17",
+    "mic" to "M12 3h0a3 3 0 0 1 3 3v5a3 3 0 0 1 -3 3h-0a3 3 0 0 1 -3 -3v-5a3 3 0 0 1 3 -3z M5 11a7 7 0 0014 0M12 18v3",
+    "pin" to "M12 21s-7-6.2-7-11.5a7 7 0 0114 0C19 14.8 12 21 12 21z M9.5 9.5a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0",
+    "gps" to "M5 12a7 7 0 1 0 14 0a7 7 0 1 0 -14 0 M9.5 12a2.5 2.5 0 1 0 5 0a2.5 2.5 0 1 0 -5 0 M12 2v3M12 19v3M2 12h3M19 12h3",
+    "link" to "M10 14a4 4 0 005.7 0l3-3a4 4 0 00-5.7-5.7l-1 1 M14 10a4 4 0 00-5.7 0l-3 3a4 4 0 005.7 5.7l1-1",
+    "warn" to "M12 3.5l9 16H3z M12 10v4M12 17h.01",
+    "info" to "M3 12a9 9 0 1 0 18 0a9 9 0 1 0 -18 0 M12 11v5M12 8h.01",
+    "hand" to "M8 13V5.5a1.5 1.5 0 013 0V11m0-1.5V4a1.5 1.5 0 013 0v6m0-4.5a1.5 1.5 0 013 0V12m0-4a1.5 1.5 0 013 0v6.5A7.5 7.5 0 0112.5 22h-.7a6 6 0 01-5-2.7L4.2 15a1.6 1.6 0 012.5-2z",
+    "cube" to "M12 3l8 4.5v9L12 21l-8-4.5v-9z M12 12l8-4.5M12 12v9M12 12L4 7.5",
+    "ruler" to "M3 17L17 3l4 4L7 21z M7 13l2 2M10 10l2 2M13 7l2 2",
+    "height" to "M12 3v18M8 7l4-4 4 4M8 17l4 4 4-4",
+    "rotate" to "M20 12a8 8 0 11-2.3-5.6 M20 4v5h-5",
+    "rotL" to "M4 12a8 8 0 102.3-5.6 M4 4v5h5",
+    "mirror" to "M12 3v18 M9 7L3.5 17H9zM15 7l5.5 10H15z",
+    "shape" to "M4 4h10v6h6v10H4z",
+    "grid" to "M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2z M4 10h16M4 15h16",
+    "move" to "M3 12h18M7 8l-4 4 4 4M17 8l4 4-4 4",
+    "width" to "M4 5v14M20 5v14M7 12h10 M10 9l-3 3 3 3M14 9l3 3-3 3",
+    "copy" to "M10 8h8a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2z M16 8V5a1 1 0 00-1-1H5a1 1 0 00-1 1v10a1 1 0 001 1h3",
+    "hinge" to "M6 3h12a1 1 0 0 1 1 1v16a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1v-16a1 1 0 0 1 1 -1z M19 3L7 12l12 9",
+    "kbd" to "M5 6h14a2 2 0 0 1 2 2v8a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-8a2 2 0 0 1 2 -2z M7 10h.01M11 10h.01M15 10h.01M7 14h10",
+    "bksp" to "M9 5h11v14H9l-6-7z M12.5 9.5l5 5M17.5 9.5l-5 5",
+    "left" to "M15 5l-7 7 7 7",
+    "right" to "M9 5l7 7-7 7",
+    "thick" to "M4 6h16M4 18h16 M12 8.5v7M9.5 11L12 8.5 14.5 11M9.5 13l2.5 2.5 2.5-2.5",
+    "corner" to "M5 19V5h14 M5 12a7 7 0 017-7",
+    "laser" to "M4.5 8h7a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-7a2 2 0 0 1 -2 -2v-4a2 2 0 0 1 2 -2z M13.5 12h4 M20 9v6M18.5 12h3",
+    "point" to "M9 10a3 3 0 1 0 6 0a3 3 0 1 0 -6 0 M12 21s-7-6-7-11a7 7 0 0114 0c0 5-7 11-7 11z",
+    "sill" to "M6 3h12a1 1 0 0 1 1 1v8a1 1 0 0 1 -1 1h-12a1 1 0 0 1 -1 -1v-8a1 1 0 0 1 1 -1z M3 15.5h18 M12 15.5v5M10 18.5l2 2 2-2",
+    "room" to "M4 4h16v16H4zM4 12h7v8",
+    "sofa" to "M5 11V8a2 2 0 012-2h10a2 2 0 012 2v3 M3 12a2 2 0 014 0v2h10v-2a2 2 0 014 0v6H3z M6 18v2M18 18v2",
+    "list" to "M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01",
+    "tile" to "M4 3h6a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1z M14 3h6a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1z M4 13h6a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1z M14 13h6a1 1 0 0 1 1 1v6a1 1 0 0 1 -1 1h-6a1 1 0 0 1 -1 -1v-6a1 1 0 0 1 1 -1z",
+    "doc" to "M6 3h9l4 4v14H6z M15 3v4h4M9 12h6M9 16h6",
+    "eye" to "M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z M9 12a3 3 0 1 0 6 0a3 3 0 1 0 -6 0",
+    "fit" to "M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5",
+    "phone" to "M5 4h4l2 5-3 2a11 11 0 005 5l2-3 5 2v4a2 2 0 01-2 2A17 17 0 013 6a2 2 0 012-2"
+)
+
+/** Each wall item kind's icon and colour (ARGB). */
+val KIND_ICONS: Map<String, String> = mapOf(
+    "door" to "M7 3h10a1 1 0 0 1 1 1v16a1 1 0 0 1 -1 1h-10a1 1 0 0 1 -1 -1v-16a1 1 0 0 1 1 -1z M15 12h.01 M3 21h18",
+    "window" to "M5 4h14a1 1 0 0 1 1 1v11a1 1 0 0 1 -1 1h-14a1 1 0 0 1 -1 -1v-11a1 1 0 0 1 1 -1z M12 4v13M4 10.5h16 M3 20.5h18",
+    "cold" to "M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z",
+    "hot" to "M12 3s6 6.5 6 11a6 6 0 01-12 0c0-4.5 6-11 6-11z M9.5 13c1-1 2-1 3 0s2 1 3 0M9.5 16c1-1 2-1 3 0s2 1 3 0",
+    "sewer" to "M4 12a8 8 0 1 0 16 0a8 8 0 1 0 -16 0 M7 9.5h10M6 12h12M7 14.5h10",
+    "gas" to "M3 16h18M3 20h18 M12 3c2 2.4 3.4 4.2 3.4 6.1a3.4 3.4 0 01-6.8 0c0-1.2.6-2.1 1.3-2.8.1 1.1.7 1.7 1.4 1.7 0-1.8.3-3.2.7-5z",
+    "meter" to "M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2z M8 11a4 4 0 1 0 8 0a4 4 0 1 0 -8 0 M12 11l2-2M8 17h8",
+    "boiler" to "M9 2.5h6a2 2 0 0 1 2 2v15a2 2 0 0 1 -2 2h-6a2 2 0 0 1 -2 -2v-15a2 2 0 0 1 2 -2z M12 9c1.4 1.6 2.2 2.8 2.2 4a2.2 2.2 0 01-4.4 0c0-.8.4-1.4.9-1.9.1.7.5 1.1.9 1.1 0-1.2.2-2.1.4-3.2z M9.5 18.5h5",
+    "socket" to "M8 4h8a4 4 0 0 1 4 4v8a4 4 0 0 1 -4 4h-8a4 4 0 0 1 -4 -4v-8a4 4 0 0 1 4 -4z M7.5 12a4.5 4.5 0 1 0 9 0a4.5 4.5 0 1 0 -9 0 M10.3 12h.01M13.7 12h.01",
+    "switch" to "M8 3.5h8a3 3 0 0 1 3 3v11a3 3 0 0 1 -3 3h-8a3 3 0 0 1 -3 -3v-11a3 3 0 0 1 3 -3z M10.5 7h3a1.5 1.5 0 0 1 1.5 1.5v7a1.5 1.5 0 0 1 -1.5 1.5h-3a1.5 1.5 0 0 1 -1.5 -1.5v-7a1.5 1.5 0 0 1 1.5 -1.5z M9 12h6",
+    "rad" to "M5 5v14M9 5v14M13 5v14M17 5v14 M3 8h18M3 16h18",
+    "ac" to "M5 5h14a2 2 0 0 1 2 2v4a2 2 0 0 1 -2 2h-14a2 2 0 0 1 -2 -2v-4a2 2 0 0 1 2 -2z M6 10h12 M8 16v3M12 16v4M16 16v3",
+    "vent" to "M6 4h12a2 2 0 0 1 2 2v12a2 2 0 0 1 -2 2h-12a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2z M7 12a5 5 0 1 0 10 0a5 5 0 1 0 -10 0 M12 7v10M7 12h10",
+    "panel" to "M6.5 3h11a1.5 1.5 0 0 1 1.5 1.5v15a1.5 1.5 0 0 1 -1.5 1.5h-11a1.5 1.5 0 0 1 -1.5 -1.5v-15a1.5 1.5 0 0 1 1.5 -1.5z M13 6.5l-3 5.5h4l-3 5.5"
+)
+
+val KIND_COLORS: Map<String, Long> = mapOf(
+    "door" to 0xFF92400EL,
+    "window" to 0xFF0284C7L,
+    "cold" to 0xFF0EA5E9L,
+    "hot" to 0xFFEF4444L,
+    "sewer" to 0xFF78716CL,
+    "gas" to 0xFFF59E0BL,
+    "meter" to 0xFFD97706L,
+    "boiler" to 0xFFEA580CL,
+    "socket" to 0xFF6366F1L,
+    "switch" to 0xFF8B5CF6L,
+    "rad" to 0xFFE11D48L,
+    "ac" to 0xFF06B6D4L,
+    "vent" to 0xFF64748BL,
+    "panel" to 0xFFCA8A04L
+)

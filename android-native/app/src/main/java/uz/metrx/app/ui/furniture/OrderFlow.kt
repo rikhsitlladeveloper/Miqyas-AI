@@ -214,8 +214,8 @@ fun NewOrderScreen(industry: String = "furniture") {
         val p = newProject(name, name, Phone.digits(phone), address.trim(), if (locState == LocState.OK) loc else null, app.settings.currency, app.settings.reportLang.code).copy(industry = industry, autoName = industry == "furniture")
         app.store.add(p)
         app.replaceTop(Route.Project(p.id))
-        // a tiler picks the layout first (tiles/Tiles.kt), a furniture maker the design style and then the furniture (Look.kt)
-        app.push(if (industry == "tiler") Route.TGallery(p.id, fromNew = true) else if (industry == "elec") Route.EGallery(p.id, fromNew = true) else if (industry == "plumb") Route.PGallery(p.id, fromNew = true) else if (industry == "win") Route.WGallery(p.id, fromNew = true) else Route.FGallery(p.id, fromNew = true))
+        // room editor v2: "Nimadan boshlaymiz?" — the room first, or the trade's room-less way (rooms/StartSheet.kt)
+        app.sheet = Sheet.StartOrder(p.id)
         app.say("np.created", "n" to name)
     }
 

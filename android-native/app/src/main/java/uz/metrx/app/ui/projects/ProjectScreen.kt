@@ -113,6 +113,8 @@ fun ProjectScreen(r: Route.Project) {
             if (p.isElec) uz.metrx.app.ui.elec.ENextStep(p)
             if (p.isPlumb) uz.metrx.app.ui.plumb.PNextStep(p)
             if (p.isWin) uz.metrx.app.ui.win.WNextStep(p)
+            // no room yet: both ways stay as buttons (room editor v2 start dialog)
+            if (tab == "rooms" && p.rooms.isEmpty()) uz.metrx.app.ui.rooms.StartPaths(p, Modifier.padding(start = 16.dp, end = 16.dp, top = 12.dp))
             when (tab) {
                 "info" -> { if (p.isFurniture) uz.metrx.app.ui.furniture.FurnitureInfo(p); InfoTab(p, lang) }
                 "price" -> uz.metrx.app.ui.furniture.FPriceTab(p)

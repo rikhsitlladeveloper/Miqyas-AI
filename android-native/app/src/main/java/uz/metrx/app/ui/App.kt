@@ -116,6 +116,8 @@ sealed interface Route {
 
 /** Bottom sheets. One at a time, like the prototype's U.sheet. */
 sealed interface Sheet {
+    /** Room editor v2: "Nimadan boshlaymiz?" after a new order (rooms/StartSheet.kt). */
+    data class StartOrder(val pid: String) : Sheet
     data object Language : Sheet
     data object Device : Sheet
     data object Currency : Sheet
