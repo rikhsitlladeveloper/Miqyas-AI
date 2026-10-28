@@ -211,7 +211,8 @@ fun snapOff(off: Int, w: Int, L: Int?): Int {
     return o.coerceIn(0, mx)
 }
 
-private fun hitTest(lay: RectLayout, r: Room, p: Offset): PlanHit? {
+private fun hitTest(lay: RectLayout, r0: Room, p: Offset): PlanHit? {
+    val r = uz.metrx.app.geo.outerItems(r0)
     // doors and windows first: their band reaches 150 mm past each side and 30 px into the room
     for (o in r.openings) {
         val w = lay.wall(o.wall); val u = unitV(w.a, w.b)
@@ -243,8 +244,9 @@ private fun pillCenter(lay: RectLayout, w: SideWall): Offset {
     return mid + w.n * (lay.tw + 42f)
 }
 
-private fun DrawScope.drawRectPlan(lay: RectLayout, r: Room, sel: String?, selOp: String?, unit: LenUnit, english: Boolean, label: String,
+private fun DrawScope.drawRectPlan(lay: RectLayout, r0: Room, sel: String?, selOp: String?, unit: LenUnit, english: Boolean, label: String,
                                    issueOf: (Opening) -> Boolean, tm: TextMeasurer, report: Boolean = false, m2: String = "m²", labelMode: String = PlanLabel.mode) {
+    val r = uz.metrx.app.geo.outerItems(r0)
     val tw = lay.tw; val inn = lay.inner
     val outer = Rect(inn.left - tw, inn.top - tw, inn.right + tw, inn.bottom + tw)
     // selected wall: a pale band with a blue edge, padded 5
@@ -299,8 +301,10 @@ private fun DrawScope.drawRectPlan(lay: RectLayout, r: Room, sel: String?, selOp
  * own room label (Snap.roomLabel), so changing it in Profile later leaves an issued quote as it was; [m2] "m²" in the
  * report's language.
  */
-fun DrawScope.drawReportPlan(r: Room, unit: LenUnit, english: Boolean, label: String, tm: TextMeasurer, snap: Boolean, labelMode: String = "both", m2: String = "m²"): Float =
+fun DrawScope.drawReportPlan(r0: Room, unit: LenUnit, english: Boolean, label: String, tm: TextMeasurer, snap: Boolean, labelMode: String = "both", m2: String = "m²"): Float =
     Theme.onPaper {
+        // the report's plan draws the outer walls' items (an inner wall's are on its own pages' 3D)
+        val r = uz.metrx.app.geo.outerItems(r0, snap)
         if (r.isPoly) drawReportPoly(r, unit, english, label, tm, snap, labelMode, m2)
         else { val lay = RectLayout(r); drawRectPlan(lay, r, null, null, unit, english, label, { false }, tm, report = true, m2 = m2, labelMode = labelMode); lay.VH }
     }

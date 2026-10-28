@@ -472,6 +472,13 @@ fun innerAreas(r: Room, snap: Boolean = true, upTo: Int? = null): InnerAreas {
     return InnerAreas(floor.roundToInt().toLong(), len.roundToInt().toLong(), gross.roundToInt().toLong(), (2 * open).roundToInt().toLong(), max(0.0, part).roundToInt().toLong())
 }
 
+/** [r] with only the items on its outer walls, for the older drawings and tools that know only those (a rectangle's A–D). */
+fun outerItems(r: Room, snap: Boolean = true): Room {
+    if (r.openings.none { it.fk.isNotEmpty() } && r.points.none { it.fk.isNotEmpty() }) return r
+    val ids = walls(r, snap).map { it.id }.toSet()
+    return r.copy(openings = r.openings.filter { it.wall in ids }, points = r.points.filter { it.wall in ids })
+}
+
 /** The points on inner faces (sockets, taps…), counted by the trades like the outer walls' ones. */
 fun innerPoints(r: Room, snap: Boolean = true): List<SitePoint> { val keys = innerFaces(r, snap).map { it.key }.toSet(); return r.points.filter { it.fk in keys } }
 fun innerOpenings(r: Room, snap: Boolean = true): List<Opening> { val keys = innerFaces(r, snap).map { it.key }.toSet(); return r.openings.filter { it.fk in keys } }
