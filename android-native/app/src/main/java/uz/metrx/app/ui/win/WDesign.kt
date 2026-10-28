@@ -279,9 +279,9 @@ private fun SashCard(it: WinItem, ci: Int, ri: Int, onSel: (Int, Int) -> Unit, u
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // too narrow (low) to split: it says why instead of making a sash with no room for its glass
             GBtn(tr("dw.addV"), { if (uz.metrx.app.win.canSplitCol(it, ci)) upd { w -> splitCol(w, ci) } else app.say("dw.tooNarrow", "n" to 2 * uz.metrx.app.win.SPLIT_MIN, kind = uz.metrx.app.ui.components.ToastKind.ERROR) },
-                Btn.SECONDARY, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.weight(1f), maxLines = 2)
+                Btn.SECONDARY, height = 46.dp, corner = 14.dp, fontSize = 13f, modifier = Modifier.weight(1f), maxLines = 2)
             GBtn(tr("dw.addH"), { if (uz.metrx.app.win.canSplitRow(it, ci, ri)) upd { w -> splitRow(w, ci, ri) } else app.say("dw.tooLow", "n" to 2 * uz.metrx.app.win.SPLIT_MIN, kind = uz.metrx.app.ui.components.ToastKind.ERROR) },
-                Btn.SECONDARY, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.weight(1f), maxLines = 2)
+                Btn.SECONDARY, height = 46.dp, corner = 14.dp, fontSize = 13f, modifier = Modifier.weight(1f), maxLines = 2)
         }
         GBtn(tr("dw.merge"), { upd { w -> mergeAt(w, ci, ri) }; onSel(0, 0) }, Btn.SECONDARY, enabled = ss.size > 1, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.fillMaxWidth(), maxLines = 1)
     }
