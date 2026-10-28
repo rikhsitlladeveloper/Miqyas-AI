@@ -72,14 +72,14 @@ fun DzcScene3D(p: Project, room: Room, f: Furniture, hi: Set<String>, open: ((St
     val left = free && p.furniture.any { uz.metrx.app.furniture.FREE_ROOM + it.id == room.id && it.walls.firstOrNull() == "D" && it.layout != "U" }
     val base = remember(room.dims, room.openings, room.poly, room.points, room.wallColor, room.floorColor, snap, left) {
         buildShell(listOf(room), true, snap).let { if (free) it.floorOnly(if (left) Math.PI / 2 - .75 else it.theta) else it } }
-    val h = if (hi.isEmpty()) null else PartHi("dzc", "front", hi)
+    val h = if (hi.isEmpty()) null else PartHi("dzc", uz.metrx.app.geo.HI_FRONT_BACK, hi)
     val (shell, fur) = rememberFurnShell(p, room, base, mo, h)
     val cam = remember(room.id) { Cam3D() }
     LaunchedEffect(inside, open, fur) {
         if (inside) mo.openAll(fur.keys) else if (open != null) mo.openAll(fur.keys.filter(open)) else mo.closeAll()
     }
     Box(Modifier.fillMaxSize()) {
-        Scene3D(shell, cam, Modifier.fillMaxSize(), null, open = mo.amt, onTap = { pos -> onKey(fur.pick(cam, pos.x, pos.y, mo.amt)) }) {
+        Scene3D(shell, cam, Modifier.fillMaxSize(), null, open = mo.amt, onTap = { pos -> onKey(fur.pickKey(cam, pos.x, pos.y, mo.amt)) }) {
             Row(Modifier.align(Alignment.TopEnd).padding(top = 104.dp, end = 10.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 ShotPill("cube", tr("3d.corner"), Modifier) { cam.preset(false) }
                 ShotPill("room", tr("3d.top"), Modifier) { cam.preset(true) }

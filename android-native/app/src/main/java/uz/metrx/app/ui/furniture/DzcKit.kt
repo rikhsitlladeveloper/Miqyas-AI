@@ -29,8 +29,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicText
-import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -62,6 +61,7 @@ import androidx.compose.foundation.gestures.calculateCentroid
 import androidx.compose.foundation.gestures.calculateZoom
 import androidx.compose.ui.input.pointer.positionChange
 import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
@@ -358,12 +358,43 @@ private fun ToolBtn(t: DTool, onClick: () -> Unit) {
         contentAlignment = Alignment.TopCenter) {
         Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(3.dp)) {
             DzIcon(t.icon, fg, 23.dp, 1.9f)
-            BasicText(t.label, style = ui(11.5f, 700, fg, 1.1f).copy(textAlign = TextAlign.Center), maxLines = 2,
-                autoSize = TextAutoSize.StepBased(minFontSize = 8.5.sp, maxFontSize = 11.5.sp, stepSize = .5.sp))
+            ToolLabel(t.label, fg)
         }
         if (t.badge != null) Box(Modifier.align(Alignment.TopEnd).padding(end = 10.dp).size(18.dp).clip(CircleShape).background(if (t.badge > 0) G.err else G.green),
             contentAlignment = Alignment.Center) { Text(if (t.badge > 0) "${t.badge}" else "✓", style = ui(10.5f, 800, Color.White)) }
     }
+}
+
+/**
+ * A tool's name under its icon: one or two lines broken only between words, never inside one ("Qo‘shimch / a"): the
+ * biggest size from 11.5 down to 9 sp at which its longest word fits the tool's width on one line ([labelSize]).
+ */
+@Composable
+private fun ToolLabel(label: String, fg: Color) {
+    val tm = rememberTextMeasurer()
+    val d = LocalDensity.current
+    // the tool is 70 dp wide less its 2 dp padding each side
+    val avail = with(d) { 66.dp.toPx() }
+    val base = ui(11.5f, 700, fg, 1.1f).copy(textAlign = TextAlign.Center)
+    val size = remember(label, avail, d.fontScale) {
+        labelSize(label, 11.5f, 9f, .5f) { word, sp -> tm.measure(word, base.copy(fontSize = sp.sp), maxLines = 1, softWrap = false).size.width <= avail }
+    }
+    Text(label, style = base.copy(fontSize = size.sp, lineHeight = (size * 1.1f).sp), maxLines = 2, overflow = TextOverflow.Ellipsis,
+        modifier = Modifier.widthIn(max = 66.dp))
+}
+
+/**
+ * The biggest font size from [max] down to [min] (in [step]s) at which every word of [label] fits on one line
+ * ([fits] word at that size); [min] if none does.
+ */
+fun labelSize(label: String, max: Float, min: Float, step: Float, fits: (String, Float) -> Boolean): Float {
+    val words = label.split(' ').filter { it.isNotBlank() }
+    var s = max
+    while (s >= min - 1e-3f) {
+        if (words.all { fits(it, s) }) return s
+        s -= step
+    }
+    return min
 }
 
 /** A row that scrolls sideways, its cut edge faded while more is past it. */
@@ -492,21 +523,39 @@ fun BoxScope.DzcCaption(title: String, sub: String, onClose: (() -> Unit)?, up: 
     }
 }
 
-/** A small pill at [x], [y] (px, its middle and top): the live width, a height, the absorbing neighbour's change. */
+/**
+ * A small pill at [x], [y] (px, its middle and top): the live width, a height, the absorbing neighbour's change, with
+ * a [note] over it. Always kept inside the canvas ([bubbleLeft]): near an edge it slides in rather than being cut off.
+ */
 @Composable
-fun BoxScope.Bubble(text: String, x: Float, y: Float, live: Boolean = false, amber: Boolean = false, warn: Boolean = false, onClick: (() -> Unit)? = null) {
+fun BoxScope.Bubble(text: String, x: Float, y: Float, live: Boolean = false, amber: Boolean = false, warn: Boolean = false, note: String? = null, onClick: (() -> Unit)? = null) {
     val d = LocalDensity.current
-    var w by remember { mutableIntStateOf(0) }
+    val pad = with(d) { 6.dp.roundToPx() }
     val bg = when { warn -> G.err; amber -> Color(0xFFF59E0B); live -> G.cobalt; else -> G.solid }
     val fg = if (live || amber || warn) Color.White else G.ink
-    Row(Modifier.offset { IntOffset((x - w / 2f).roundToInt(), y.roundToInt()) }.onGloballyPositioned { w = it.size.width }
+    Row(Modifier.layout { mes, cs ->
+            val pl = mes.measure(cs.copy(minWidth = 0, minHeight = 0, maxWidth = if (cs.hasBoundedWidth) max(0, cs.maxWidth - 2 * pad) else cs.maxWidth))
+            val left = if (cs.hasBoundedWidth) bubbleLeft(x, pl.width, cs.maxWidth, pad) else (x - pl.width / 2f).roundToInt()
+            val top = if (cs.hasBoundedHeight) y.roundToInt().coerceIn(pad, max(pad, cs.maxHeight - pl.height - pad)) else y.roundToInt()
+            layout(pl.width, pl.height) { pl.place(left, top) }
+        }
         .heightIn(min = if (onClick != null) 40.dp else 28.dp).clip(RoundedCornerShape(20.dp)).background(bg).border(1.dp, if (live || amber || warn) Color.Transparent else G.cobalt, RoundedCornerShape(20.dp))
         .let { if (onClick != null) it.clickable(role = Role.Button, onClick = onClick) else it }.padding(horizontal = 10.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(text, style = num(13.5f, 800, fg), maxLines = 1)
+        if (note != null) Column {
+            Text(note, style = ui(11f, 700, fg.copy(alpha = .9f)), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text, style = num(13.5f, 800, fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        else Text(text, style = num(13.5f, 800, fg), maxLines = 1, overflow = TextOverflow.Ellipsis)
         if (onClick != null && !live) DzIcon("kbd", G.cobalt2, 16.dp, 1.8f)
     }
-    @Suppress("UNUSED_VARIABLE") val unused = d
+}
+
+/** A bubble [w] px wide centred on [x], slid in to stay [pad] px inside a canvas [maxW] px wide (its left edge, px). */
+fun bubbleLeft(x: Float, w: Int, maxW: Int, pad: Int): Int {
+    val hi = maxW - w - pad
+    if (hi < pad) return ((maxW - w) / 2).coerceAtLeast(0)
+    return (x - w / 2f).roundToInt().coerceIn(pad, hi)
 }
 
 /** A check's callout under its module: the problem, a one-tap fix, fold it to its "!" badge. */
@@ -545,7 +594,7 @@ fun BoxScope.ZoomPill(z: Float, bottom: Dp, onFit: () -> Unit) {
     Row(Modifier.align(Alignment.BottomStart).padding(start = 14.dp, bottom = bottom).heightIn(min = 40.dp).clip(RoundedCornerShape(20.dp)).background(G.solid)
         .border(1.dp, G.rim, RoundedCornerShape(20.dp)).clickable(role = Role.Button, onClick = onFit).padding(horizontal = 12.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        DzIcon("fit", G.ink, 16.dp); Text("${(z * 100).roundToInt()}% · " + tr("dzc.fit"), style = ui(12.5f, 700), maxLines = 1)
+        DzIcon("fit", G.ink, 16.dp); Text(tr("dzc.fit", "v" to (z * 100).roundToInt()), style = ui(12.5f, 700), maxLines = 1)
     }
 }
 
@@ -568,15 +617,33 @@ fun BoxScope.PressRing(at: Offset?) {
 /** The coach key of the editor's hint: shown once, "Maslahatlarni qayta ko‘rsatish" brings it back. */
 const val DZC_HINT = "dzc.teach"
 
-/** About 3 s, skippable: drag the edge → hold to move → pinch, a finger drawn doing each. */
+/** How long each of the hint's three steps plays (ms): about 3 s, so that it can be read and followed. */
+const val TEACH_STEP_MS = 3000
+
+/**
+ * The hint's step after [step] of [n] (a tap on the card, or a step's time up); null: it is over.
+ */
+fun nextTeachStep(step: Int, n: Int = 3): Int? = if (step + 1 < n) step + 1 else null
+
+/**
+ * About 3 s a step, three steps, skippable ("O‘tkazib yuborish"), a tap on it goes on to the next; "?" plays it again.
+ * The editors ([item] false): drag the edge → hold to move → pinch; the short designers (beds, tables…): the tools →
+ * turn it in 3D → pinch. A finger is drawn doing each.
+ */
 @Composable
-fun BoxScope.TeachHint(onDone: () -> Unit) {
+fun BoxScope.TeachHint(item: Boolean = false, onDone: () -> Unit) {
+    var step by remember { mutableIntStateOf(0) }
     val t = remember { Animatable(0f) }
-    LaunchedEffect(Unit) { t.animateTo(3f, tween(3300, easing = LinearEasing)); kotlinx.coroutines.delay(500); onDone() }
-    val step = t.value.toInt().coerceIn(0, 2)
-    val k = t.value - step
+    fun next() { val n = nextTeachStep(step); if (n == null) onDone() else step = n }
+    LaunchedEffect(step) {
+        t.snapTo(0f); t.animateTo(1f, tween(TEACH_STEP_MS, easing = LinearEasing))
+        if (step == 2) kotlinx.coroutines.delay(400)
+        next()
+    }
+    // the motion plays in the first three quarters of the step, then holds so the end can be seen
+    val k = (t.value / .75f).coerceAtMost(1f)
     val ink = G.ink; val cob = G.cobalt
-    Box(Modifier.fillMaxSize().background(Color(0x33000000)).clickable(remember { MutableInteractionSource() }, null) { onDone() }, contentAlignment = Alignment.Center) {
+    Box(Modifier.fillMaxSize().background(Color(0x33000000)).clickable(remember { MutableInteractionSource() }, null) { next() }, contentAlignment = Alignment.Center) {
         Column(Modifier.padding(24.dp).widthIn(max = 340.dp).fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(G.solid).padding(16.dp),
             horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Canvas(Modifier.fillMaxWidth().height(120.dp)) {
@@ -584,18 +651,40 @@ fun BoxScope.TeachHint(onDone: () -> Unit) {
                 val fy = h * .86f
                 drawLine(ink.copy(alpha = .3f), Offset(w * .06f, fy), Offset(w * .94f, fy), 2f)
                 val finger = { c: Offset -> drawCircle(Color(0xFFF2C6A0), 13.dp.toPx(), c); drawCircle(ink.copy(alpha = .35f), 13.dp.toPx(), c, style = Stroke(1.5f)) }
-                when (step) {
-                    0 -> {
+                when {
+                    item && step == 0 -> {
+                        // a tap on a tool of the slider: it lights up
+                        val bw = w * .16f; val y0 = h * .3f
+                        for (j in 0 until 4) {
+                            val x = w * .14f + j * (bw + w * .04f)
+                            val on = j == 1 && k > .5f
+                            drawRoundRect(if (on) cob.copy(alpha = .18f) else ink.copy(alpha = .06f), Offset(x, y0), Size(bw, h * .42f), androidx.compose.ui.geometry.CornerRadius(12f))
+                            drawRoundRect(if (on) cob else ink.copy(alpha = .25f), Offset(x + bw * .3f, y0 + h * .08f), Size(bw * .4f, h * .14f), androidx.compose.ui.geometry.CornerRadius(4f))
+                        }
+                        val fx = w * .14f + (bw + w * .04f) + bw / 2
+                        finger(Offset(fx, y0 + h * .3f + (if (k < .5f) 10f * (1 - k * 2) else 0f)))
+                    }
+                    item && step == 1 -> {
+                        // one finger across: the piece turns
+                        val a = (k - .5f) * 1.2f
+                        val cx = w / 2; val top = h * .3f; val bw = w * .28f
+                        val sx = kotlin.math.cos(a.toDouble()).toFloat()
+                        drawRect(cob.copy(alpha = .15f), Offset(cx - bw * sx / 2, top), Size(bw * kotlin.math.abs(sx), fy - top))
+                        drawRect(cob, Offset(cx - bw * sx / 2, top), Size(bw * kotlin.math.abs(sx), fy - top), style = Stroke(3f))
+                        drawRect(cob.copy(alpha = .3f), Offset(cx + bw * sx / 2, top - 10f), Size(bw * .25f * kotlin.math.abs(kotlin.math.sin(a.toDouble()).toFloat()) + 4f, fy - top))
+                        finger(Offset(w * (.25f + .5f * k), h * .55f))
+                    }
+                    step == 0 -> {
                         // the edge dragged left: 600 → 450
                         val x0 = w * .2f; val wid = w * (.46f - .12f * k); val top = h * .28f
                         drawRect(cob.copy(alpha = .15f), Offset(x0, top), Size(wid, fy - top)); drawRect(cob, Offset(x0, top), Size(wid, fy - top), style = Stroke(3f))
                         drawRoundRect(cob, Offset(x0 + wid - 6f, (top + fy) / 2 - 22f), Size(12f, 44f), androidx.compose.ui.geometry.CornerRadius(6f))
                         finger(Offset(x0 + wid + 8f, (top + fy) / 2 + 18f))
                     }
-                    1 -> {
+                    step == 1 -> {
                         // held, then carried right; the other slides
                         val top = h * .28f; val bw = w * .26f
-                        drawRect(ink.copy(alpha = .12f), Offset(w * .14f + bw * (if (k > .5f) 1.05f else 0f) * 0f, top), Size(bw, fy - top))
+                        drawRect(ink.copy(alpha = .12f), Offset(w * .14f, top), Size(bw, fy - top))
                         val lift = if (k < .4f) 0f else 10f
                         val gx = w * .44f + (w * .2f) * ((k - .4f).coerceAtLeast(0f) / .6f)
                         drawRect(cob.copy(alpha = .18f), Offset(gx, top - lift), Size(bw, fy - top)); drawRect(cob, Offset(gx, top - lift), Size(bw, fy - top), style = Stroke(3f))
@@ -612,7 +701,7 @@ fun BoxScope.TeachHint(onDone: () -> Unit) {
                     }
                 }
             }
-            Text(tr(listOf("dzc.teach1", "dzc.teach2", "dzc.teach3")[step]), style = ui(16f, 800, G.ink, 1.25f), textAlign = TextAlign.Center)
+            Text(tr((if (item) listOf("dzc.teachI1", "dzc.teachI2", "dzc.teach3") else listOf("dzc.teach1", "dzc.teach2", "dzc.teach3"))[step]), style = ui(16f, 800, G.ink, 1.25f), textAlign = TextAlign.Center)
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 (0..2).forEach { i -> Box(Modifier.size(if (i == step) 18.dp else 7.dp, 7.dp).clip(CircleShape).background(if (i == step) G.cobalt else G.ink.copy(alpha = .15f))) }
             }

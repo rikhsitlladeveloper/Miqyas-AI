@@ -61,25 +61,55 @@ fun absorber(row: List<Slot>, i: Int, secs: Boolean = false, grow: Boolean = tru
     return -1
 }
 
-/** The widest slot [i] can get. */
-fun maxW(row: List<Slot>, i: Int, secs: Boolean = false): Int = absorber(row, i, secs).let { a -> row[i].w + if (a < 0) 0 else capOf(row[a]) }
+/**
+ * Who takes the difference when slot [i]'s edge on [side] (+1 its right edge, -1 its left) is dragged: the edge moves
+ * that way, so the room comes from (or goes to) that side: the nearest gap, filler or free end there first, then the
+ * neighbour there. Only when nothing on that side can give does the other side's [absorber] take it ([AbsSide.back]).
+ */
+data class AbsSide(val i: Int, val back: Boolean)
 
-/** A resize's outcome: the row, who took the difference and its width before and after; [why] "min", "max" or "none" when it cannot. */
-data class Resized(val row: List<Slot>, val ok: Boolean, val aid: String? = null, val aw0: Int = 0, val aw1: Int = 0, val why: String = "", val limit: Int = 0)
+fun absorberSide(row: List<Slot>, i: Int, side: Int, grow: Boolean = true): AbsSide {
+    val js = if (side > 0) (i + 1 until row.size) else (i - 1 downTo 0)
+    // growing, a slot gives only what it has (the free end at 0 gives nothing); shrinking, any space takes it back
+    js.firstOrNull { j -> row[j].space() && (if (grow) row[j].w > 0 else true) }?.let { return AbsSide(it, false) }
+    val n = i + side
+    if (n in row.indices && canAbsorb(row[n]) && row[n].kind != SK.END && (!grow || capOf(row[n]) > 0)) return AbsSide(n, false)
+    // nothing on that side: the other side's nearest space, then its neighbour
+    val os = if (side > 0) (i - 1 downTo 0) else (i + 1 until row.size)
+    os.firstOrNull { j -> row[j].space() && (if (grow) row[j].w > 0 else true) }?.let { return AbsSide(it, true) }
+    val o = i - side
+    if (o in row.indices && canAbsorb(row[o]) && row[o].kind != SK.END && (!grow || capOf(row[o]) > 0)) return AbsSide(o, true)
+    return AbsSide(-1, false)
+}
 
-/** Slot [i] made [nw] wide, the difference taken by its [absorber]; a gap or filler left at 0 goes away. */
-fun resize(row: List<Slot>, i: Int, nw: Int, secs: Boolean = false): Resized {
+/** The widest slot [i] can get ([side]: dragged by that edge, 0 by number or a chip). */
+fun maxW(row: List<Slot>, i: Int, secs: Boolean = false, side: Int = 0): Int =
+    (if (side != 0 && !secs) absorberSide(row, i, side).i else absorber(row, i, secs)).let { a -> row[i].w + if (a < 0) 0 else capOf(row[a]) }
+
+/**
+ * A resize's outcome: the row, who took the difference and its width before and after; [why] "min", "max" or "none"
+ * when it cannot; [back] the room came from the other side than the edge dragged (nothing there could give).
+ */
+data class Resized(val row: List<Slot>, val ok: Boolean, val aid: String? = null, val aw0: Int = 0, val aw1: Int = 0, val why: String = "", val limit: Int = 0,
+                   val back: Boolean = false)
+
+/**
+ * Slot [i] made [nw] wide, the difference taken by its [absorber] (dragged by an edge, [side] +1 right or -1 left: by
+ * [absorberSide]); a gap or filler left at 0 goes away.
+ */
+fun resize(row: List<Slot>, i: Int, nw: Int, secs: Boolean = false, side: Int = 0): Resized {
     val s = row[i]
     val d = nw - s.w
     if (d == 0) return Resized(row, true)
     if (nw < max(minOf(s), if (s.kind == SK.FILLER) 10 else 0)) return Resized(row, false, why = "min", limit = max(minOf(s), 10))
-    val a = absorber(row, i, secs, d > 0)
+    val ab = if (side != 0 && !secs) absorberSide(row, i, side, d > 0) else AbsSide(absorber(row, i, secs, d > 0), false)
+    val a = ab.i
     if (a < 0) return Resized(row, false, why = "none")
     val am = row[a]
     if (am.w - d < minOf(am)) return Resized(row, false, why = "max", limit = s.w + capOf(am))
     val out = row.toMutableList()
     out[i] = s.copy(w = nw); out[a] = am.copy(w = am.w - d)
-    return Resized(tidy(out), true, am.id, am.w, am.w - d)
+    return Resized(tidy(out), true, am.id, am.w, am.w - d, back = ab.back)
 }
 
 /** The widths offered for slot [i] up to [mx]: its allowed ones (or the snaps), and [mx] itself when any width will do. */
@@ -120,6 +150,13 @@ fun tidy(row: List<Slot>): List<Slot> {
 
 /** Slot [i] deleted: a gap of its width stays (the "+" to add another). */
 fun deleteToGap(row: List<Slot>, i: Int): List<Slot> = tidy(row.toMutableList().also { it[i] = it[i].copy(kind = SK.GAP, allowed = null, min = 0) })
+
+/**
+ * The width of the "+" gap a delete left in [out] ([deleteToGap]'s row) where slot [id] was at [i]: its own, or the gap
+ * it merged into beside it; [w] if neither is found.
+ */
+fun gapLeft(out: List<Slot>, id: String, i: Int, w: Int): Int =
+    out.firstOrNull { it.id == id && it.kind == SK.GAP }?.w ?: out.getOrNull(i - 1)?.takeIf { it.kind == SK.GAP }?.w ?: w
 
 /** A row edit's outcome: the row, the new slot's id, its width, who gave room ("id" to the mm), why not ([why] a strings key's tail). */
 data class Planned(val row: List<Slot>, val ok: Boolean, val id: String? = null, val w: Int = 0, val took: List<Pair<String, Int>> = emptyList(),

@@ -77,7 +77,12 @@ class Furn3D(val parts: List<Part>, val edges: List<Edges>, val picks: List<Pick
               */
              val fronts: List<Front3D> = emptyList(),
              /** Built with split: what is drawn one way while a door is open and another while shut (a wardrobe's LED). */
-             val toggles: List<Toggle3D> = emptyList())
+             val toggles: List<Toggle3D> = emptyList(),
+             /**
+              * Each module's whole box ("mid:body"; a wardrobe's per section, "mid:s2:body"), so that a tap on a carcass, an
+              * open shelf or a filler picks its module, and nothing hidden behind it is picked through it (designer 3D).
+              */
+             val bodies: List<Pick> = emptyList())
 
 /**
  * A handle on a front, in the front's own frame (mm from its corner at the hinge side and the bottom): the middle
@@ -259,6 +264,9 @@ fun poseBasis(w: WallBasis, p: uz.metrx.app.furniture.Pose, len: Double): WallBa
  */
 class PartHi(val key: String, val role: String, val mods: Set<String>)
 
+/** A [PartHi.role] lighting a module's fronts and its back board. */
+const val HI_FRONT_BACK = "front+back"
+
 /** The part names the 3D knows its boards by; the others light up every board of their role in their module. */
 private val TAGGED = setOf("fp.side", "fp.top", "fp.bottom", "fp.divider", "fp.shelf", "fp.back", "fp.door", "fp.dFace", "fp.rail", "fp.plinth",
     "fp.panel", "fp.filler", "fp.slidePanel", "fp.slideUp", "fp.dSide", "fp.dFront", "fp.dBottom", "fp.endLow", "fp.endUp")
@@ -301,6 +309,7 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
     val fronts = LinkedHashMap<String, FrontCap>(); val toggles = ArrayList<ToggleCap>()
     val parts = LinkedHashMap<Pair<String?, Any>, Part>(); val edges = LinkedHashMap<String?, Edges>()
     val picks = ArrayList<Pick>(); val keys = ArrayList<String>(); val spots = LinkedHashMap<String, HandleSpot>()
+    val bodies = ArrayList<Pick>()
     val matLook = look ?: { id: String -> Looks.board(rgb(id)) }
     val rich = look != null && !boxes
     fs.forEach { f ->
@@ -399,6 +408,7 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             // a bathroom vanity carries its basin and tap on top
             if (f.type == "sinkV" && m.type == "wardrobe") B.basin(b, mm)
             if (gx != null && !gx.own) gx.boxes.forEach { B.xbox(b, it) }
+            bodies += bodyPicks(b, mm, fws)
         }
         B.fr = "front"
         // the worktop over the lower row of each wall (and over the corner it turns into)
@@ -480,7 +490,31 @@ fun furniture3D(fs: List<Furniture>, bases: Map<String, WallBasis>, ws: Workshop
             }
         }
     }
-    return Furn3D(parts.values.toList(), edges.values.toList(), picks, keys, spots, fronts.values.map { it.done() }, toggles.map { it.done() })
+    return Furn3D(parts.values.toList(), edges.values.toList(), picks, keys, spots, fronts.values.map { it.done() }, toggles.map { it.done() }, bodies)
+}
+
+/**
+ * The tap boxes of module [m]'s body on its wall frame [b]: the whole box from the wall to its fronts (a filler from the
+ * wall to its strip), a wardrobe's one per section; an empty gap ("Bo‘sh joy") has none, it is only air.
+ */
+internal fun bodyPicks(b: WallBasis, m: Module, ws: Workshop): List<Pick> {
+    if (uz.metrx.app.furniture.slotKind(m) == uz.metrx.app.furniture.SK.GAP && m.type == "gap") return emptyList()
+    fun box(key: String, a0: Double, a1: Double, y0: Double, y1: Double, n1: Double): Pick? {
+        if (a1 - a0 < 1 || y1 - y0 < 1 || n1 < 1) return null
+        return Pick(key, Obb(b.at(a0 / 1000, y0 / 1000, 0.0), b.dir((a1 - a0) / 1000, 0.0), V3(0.0, (y1 - y0) / 1000, 0.0), b.dir(0.0, n1 / 1000)))
+    }
+    val x0 = m.x.toDouble()
+    if (m.type == "wardrobe") {
+        val z0 = uz.metrx.app.furniture.legsOf(m, ws).toDouble() + m.elev
+        val yt = z0 + m.h
+        if (m.sections.isEmpty()) return listOfNotNull(box("${m.id}:body", x0, x0 + m.w, m.elev.toDouble(), yt, m.d.toDouble()))
+        var a = x0
+        return m.sections.mapIndexedNotNull { i, s -> box("${m.id}:s$i:body", a, a + s.w, m.elev.toDouble(), yt, m.d.toDouble()).also { a += s.w } }
+    }
+    val n1 = if (m.type == "filler") (if (isUpper(m)) K_WALL_D else K_BASE_D) + 18.0 else m.d.toDouble()
+    // a base unit stands on its plinth: its box from the floor
+    val y0 = if (!isUpper(m) && m.elev < 300) 0.0 else m.elev.toDouble()
+    return listOfNotNull(box("${m.id}:body", x0, x0 + m.w, y0, (m.elev + m.h).toDouble(), n1))
 }
 
 /** A front's own frame: its corner [o] at the hinge side and the bottom, unit directions across it [e], up it, out of it [tn]. */
@@ -565,7 +599,10 @@ internal class Builder3(
         val dBox = h.key == "fp.dSide" || h.key == "fp.dFront" || h.key == "fp.dBottom"
         val named = h.key !in TAGGED || k == h.key || (dBox && k == "fp.dBox")
         val rr = if (r == "frontUp" || r.startsWith("fm:")) "front" else r
-        return if (inMod && named && (h.role == rr || dBox)) p("hi") else p(show)
+        // "front+back" (the designers' 3D selection): the back board too, so a module seen from behind (a room-less
+        // kitchen's far side) or one without fronts (open shelves) still shows that it is selected
+        val roleOk = h.role == rr || (h.role == HI_FRONT_BACK && (rr == "front" || rr == "back"))
+        return if (inMod && named && (roleOk || dBox)) p("hi") else p(show)
     }
     fun p(k: String): Part {
         val lk = looks.getValue(k); val c = colors[k] ?: lk.rgb; val w = if (wall == ISLAND) null else wall

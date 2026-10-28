@@ -230,13 +230,17 @@ fun freeSub(f: Furniture, en: Boolean): String {
         val label = w.slide?.let { tr("fz.slideNow", "n" to it.n) } ?: f.model.takeIf { it.isNotEmpty() }?.let { tr(if (f.type.isNotEmpty()) "ft.$it" else "fz.m.$it") }
         return listOfNotNull(label, sizes).joinToString(" · ")
     }
-    val fs = f.free
-    val run = fs?.let { freeRunMm(f.layout, it.sides, it.island) } ?: uz.metrx.app.furniture.runMm(f)
-    val t = (max(0, run) + 50) / 100
+    // the typed sizes only while the piece has no room (put in one, they are its old ones); the running metres are the
+    // units' (what the price counts, Pricing.runMm), the typed sizes' only before there are units
+    val fs = f.free?.takeIf { f.roomId == null }
+    val run = if (f.modules.isNotEmpty()) uz.metrx.app.furniture.runMm(f) else fs?.let { freeRunMm(f.layout, it.sides, it.island) } ?: 0
     return listOfNotNull(tr(if (f.model.isNotEmpty()) "fz.m.${f.model}" else "kt.l${f.layout}"),
         fs?.let { (it.sides + listOfNotNull(it.island.takeIf { i -> i > 0 })).joinToString(" + ") { v -> m(v) } + " " + unitWord(fu) },
-        "${t / 10}${if (en) "." else ","}${t % 10} " + tr("kt.pm")).joinToString(" · ")
+        pogM(run, en) + " " + tr("kt.pm")).joinToString(" · ")
 }
+
+/** Running metres of [mm] to one decimal ("5,4"; English "5.4"), as every card, the designer and the price show them. */
+fun pogM(mm: Int, en: Boolean): String { val t = (max(0, mm) + 50) / 100; return "${t / 10}${if (en) "." else ","}${t % 10}" }
 
 /** "Xonasiz mebel": the order's pieces without a room, each with its price and "Xonaga qo‘yish". */
 @Composable

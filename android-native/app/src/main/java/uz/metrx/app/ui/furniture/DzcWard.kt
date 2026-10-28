@@ -383,7 +383,7 @@ private class WardGestures(val c: WardCtl) : DzcGestures {
         if (ord == c.m.sections.indices.toList()) { c.app.haptic(Hap.TICK); return }
         c.app.ward(c.p.id, c.f.id) { withSecOrder(it, ord) }
         st.sel = DSel("s${dr.at}")
-        c.app.dzcDone(c.p.id, c.f.id, c.app.t("dzc.secMoved", "n" to dr.from + 1, "a" to dr.at + 1))
+        c.app.dzcDone(c.p.id, c.f.id, c.app.t("dzc.secMoved", "n" to dr.from + 1, "v" to dr.at + 1))
     }
     override fun handleStart(kind: String, p: Offset) {
         val i = c.selSec ?: return
@@ -518,7 +518,7 @@ private fun wSetDecor(c: WardCtl, colour: String) {
     val ids = wTargets(c)
     if ((st.multi || (ids.isNotEmpty() && st.scope == "one")) && ids.isNotEmpty()) {
         app.ward(c.p.id, c.f.id) { m -> m.copy(sections = m.sections.mapIndexed { k, s -> if (k in ids) s.copy(front = b) else s }) }
-        app.dzcDone(c.p.id, c.f.id, if (ids.size > 1) app.t("dzc.decorN", "d" to name, "n" to ids.size) else app.t("dzc.decorSec", "d" to name, "n" to ids.first() + 1))
+        app.dzcDone(c.p.id, c.f.id, if (ids.size > 1) app.t("dzc.decorN", "c" to name, "n" to ids.size) else app.t("dzc.decorSec", "d" to name, "n" to ids.first() + 1))
         return
     }
     if (st.multi) { app.dzcWarn(app.t("dzc.tickFirst")); return }
@@ -583,7 +583,7 @@ private fun wSetSoft(c: WardCtl, on: Boolean) {
     val i = c.selSec ?: return
     if (c.st.scope == "all") app.kit.change(app, c.p.id, c.f.id) { x -> x.copy(modules = x.modules.map { if (it.type == "wardrobe") softAll(it, on) else it }) }
     else app.ward(c.p.id, c.f.id) { withSoft(it, i, on) }
-    app.dzcDone(c.p.id, c.f.id, app.t(if (on) "dzc.softOn" else "dzc.softOff") + " · " + if (c.st.scope == "all") app.t("dzc.toAll") else app.t("dzc.secN", "n" to i + 1))
+    app.dzcDone(c.p.id, c.f.id, app.t(if (on) "dzc.softOn" else "dzc.softOff", "m" to (if (c.st.scope == "all") app.t("dzc.toAll") else app.t("dzc.secN", "n" to i + 1))))
 }
 
 /** Plinth, legs or hung on the wall, as the old size step did it: the whole height stays. */
@@ -665,7 +665,7 @@ private fun WardOptions(c: WardCtl, cx: WardCtx, k: String) {
                 if (keys.isNotEmpty() && keys.none { hasHandle(m, it.key) }) "push" else type
             } else type
             val scope: (@Composable () -> Unit)? = if (st.multi || i == null) null else { { ScopeSeg(listOf("one" to tr("dzc.s.one"), "all" to tr("dzc.s.all")), st.scope) { st.scope = it } } }
-            OptRow(tr("dzc.tool.handle"), if (scope == null) scopeTxt else tr("dzc.handleNote"), back, scope) {
+            OptRow(tr("dzc.tool.handle"), if (scope == null || st.scope != "all") scopeTxt else tr("dzc.handleNote"), back, scope) {
                 listOf("bar", "long", "knob", "push").forEach { h -> OptChip(tr("dzc.h.$h"), curOne == h, glyph = "h-$h") { wSetHandle(c, h) } }
             }
         }

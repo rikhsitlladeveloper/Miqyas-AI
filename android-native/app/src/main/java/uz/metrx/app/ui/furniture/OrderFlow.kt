@@ -183,10 +183,19 @@ fun NewOrderScreen(industry: String = "furniture") {
     // quietly while the form is open (permission already given), so the tap is instant; nothing is kept until then
     var locState by remember { mutableStateOf(LocState.NONE) }
     var loc by remember { mutableStateOf<uz.metrx.app.data.Location?>(null) }
+    var keptFails by remember { mutableStateOf(0) }
     val gps = uz.metrx.app.ui.loc.rememberGps(warm = true) { l ->
         if (locState != LocState.LOCATING) return@rememberGps
         if (l != null) { loc = l; locState = LocState.OK; app.haptic(uz.metrx.app.ui.ux.Hap.CONFIRM) }
+        // a new search failed (location switched off…): the fix already on the form stays until it is removed
+        else if (loc != null) { locState = LocState.OK; keptFails++ }
         else { locState = LocState.FAIL; app.haptic(uz.metrx.app.ui.ux.Hap.WARN) }
+    }
+    val ctx = androidx.compose.ui.platform.LocalContext.current
+    LaunchedEffect(keptFails) {
+        if (keptFails == 0) return@LaunchedEffect
+        if (gps.off) app.say("loc.offT", kind = uz.metrx.app.ui.components.ToastKind.ERROR, action = "loc.settings") { uz.metrx.app.ui.loc.openLocationSettings(ctx) }
+        else app.say("loc.fail", kind = uz.metrx.app.ui.components.ToastKind.ERROR)
     }
     val focus = LocalFocusManager.current
     val fWho = remember { FocusRequester() }; val fPhone = remember { FocusRequester() }; val fAddr = remember { FocusRequester() }
@@ -274,7 +283,7 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project, addCard: Boolean = t
                     val sub = if (ward && (uz.metrx.app.furniture.isItemPiece(f) || uz.metrx.app.furniture.boxes(f).size > 1)) freeSub(f, en)
                         else if (ward) uz.metrx.app.furniture.wardOfF(f)?.let { m -> uz.metrx.app.geo.fmtLen(m.w, s.furnUnit, en) + " × " +
                         uz.metrx.app.geo.fmtLen(uz.metrx.app.furniture.valsOf(f, s.workshop)["h"] ?: m.h, s.furnUnit, en) + " " + unitWord(s.furnUnit) } ?: ""
-                        else tr("kt.l" + f.layout) + " · " + "%.1f".format(java.util.Locale.ROOT, runMm(f) / 1000.0).replace('.', if (en) '.' else ',') + " " + tr("kt.pm")
+                        else tr("kt.l" + f.layout) + " · " + pogM(runMm(f), en) + " " + tr("kt.pm")
                     PieceRow(p, f, sub, priced.lines.firstOrNull { it.key == f.id }?.amount, lang, badge = if (!f.keep) null else ({
                         Text(tr("fz.big"), style = ui(11f, 700, G.err), maxLines = 1,
                             modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(G.errWash).padding(horizontal = 6.dp, vertical = 2.dp))

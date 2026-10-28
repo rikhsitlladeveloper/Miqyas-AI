@@ -149,11 +149,36 @@ fun matRgb(mats: List<uz.metrx.app.furniture.Mat>): (String) -> Int = { id -> rg
 fun matLook(mats: List<uz.metrx.app.furniture.Mat>): (String) -> uz.metrx.app.geo.Look =
     { id -> matOf(mats, id).let { m -> uz.metrx.app.geo.Looks.of(m?.kind ?: "board", rgbOf(m?.rgb ?: "#F5F5F2"), m?.tex, m?.finish?.takeIf { it == "gloss" || it == "satin" } ?: "matte") } }
 
-/** The door or drawer under pixel [x], [y], nearest the eye, with each as far open as [amt] says (where it is drawn now). */
-fun Furn3D.pick(cam: Cam3D, x: Float, y: Float, amt: (String) -> Double = { 0.0 }): String? {
+/**
+ * The door or drawer under pixel [x], [y], nearest the eye, with each as far open as [amt] says (where it is drawn now).
+ * A module's body in front of it hides it: a tap on a carcass opens nothing behind it.
+ */
+fun Furn3D.pick(cam: Cam3D, x: Float, y: Float, amt: (String) -> Double = { 0.0 }): String? =
+    pickKey(cam, x, y, amt, withBodies = true)?.takeIf { !isBodyKey(it) }
+
+/**
+ * What a designer's tap at pixel [x], [y] picks, nearest the eye: a door or drawer, else a module's body ("mid:body",
+ * a wardrobe section's "mid:s2:body"), [withBodies]. A sliding door spans several sections: the section behind it.
+ */
+fun Furn3D.pickKey(cam: Cam3D, x: Float, y: Float, amt: (String) -> Double = { 0.0 }, withBodies: Boolean = true): String? {
     val (e, d) = cam.ray(x, y)
-    return picksAt(amt).mapNotNull { pk -> pk.box.hit(e, d)?.let { pk.key to it } }.minByOrNull { it.second }?.first
+    return pickRay(e, d, amt, withBodies)
 }
+
+/** The same for the ray from [e] along [d] (scene metres): pure, unit-tested. */
+fun Furn3D.pickRay(e: uz.metrx.app.geo.V3, d: uz.metrx.app.geo.V3, amt: (String) -> Double = { 0.0 }, withBodies: Boolean = true): String? {
+    val all = picksAt(amt) + (if (withBodies) bodies else emptyList())
+    val hits = all.mapNotNull { pk -> pk.box.hit(e, d)?.let { pk.key to it } }.sortedBy { it.second }
+    val first = hits.firstOrNull() ?: return null
+    if (first.first.substringAfterLast(':').startsWith("slide")) {
+        val mid = first.first.substringBefore(':')
+        hits.firstOrNull { it.first.startsWith("$mid:") && isBodyKey(it.first) && it.first.contains(":s") }?.let { return it.first }
+    }
+    return first.first
+}
+
+/** A module's body key ("mid:body", "mid:s2:body"), not a front's. */
+fun isBodyKey(k: String) = k.endsWith(":body")
 
 /** The same, for callers outside this package: the fronts where [mo] has them. */
 fun pickOf(f: Furn3D, cam: Cam3D, at: androidx.compose.ui.geometry.Offset, mo: DoorMotion): String? = f.pick(cam, at.x, at.y, mo.amt)

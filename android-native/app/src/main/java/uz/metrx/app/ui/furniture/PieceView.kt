@@ -90,7 +90,9 @@ private const val HI_RGB = 0x9FB2FF
 private val BLUE = Color(0xFF3550E0)
 
 /** The piece's scene; [bare] without its doors and fronts ("See inside"), [hi] a part lit up (parts list → 3D). */
-fun pieceScene(f: Furniture, ws: Workshop, mats: List<Mat>, bare: Boolean = false, hi: uz.metrx.app.geo.PartHi? = null): PieceScene {
+fun pieceScene(f0: Furniture, ws: Workshop, mats: List<Mat>, bare: Boolean = false, hi: uz.metrx.app.geo.PartHi? = null): PieceScene {
+    // a piece in a drawn room is drawn on the made-up room's walls (its own E, F… are not there)
+    val f = uz.metrx.app.furniture.onFreeWalls(f0)
     val room = freeRoom(f)
     val shell = buildShell(listOf(room), true, true)
     val b = shell.bases

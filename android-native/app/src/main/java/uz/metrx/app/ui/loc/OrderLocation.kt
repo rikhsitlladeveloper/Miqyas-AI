@@ -458,7 +458,8 @@ fun LocFormBlock(state: String, loc: Location?, gps: Gps, onState: (String) -> U
             Text(tr("loc.optPdf"), style = ui(12f, 500, G.ink3), modifier = Modifier.weight(1f), textAlign = TextAlign.End, maxLines = 2)
         }
         when (state) {
-            LocState.LOCATING -> WaitRow(gps) { gps.cancel(); onState(LocState.NONE) }
+            // cancelled: back to the fix already on the form, if there is one (it stays until it is removed)
+            LocState.LOCATING -> WaitRow(gps) { gps.cancel(); onState(if (loc != null) LocState.OK else LocState.NONE) }
             LocState.OK -> if (loc != null) {
                 PinRow(loc)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

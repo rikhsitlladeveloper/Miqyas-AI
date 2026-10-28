@@ -214,6 +214,22 @@ fun placeWalls(f: Furniture, ids: List<String>, first: String): List<String> {
     return if (ISLAND in f.walls) out + ISLAND else out
 }
 
+/**
+ * [f] on the made-up walls of its own [freeRoom] (A–D), for a picture of the piece alone (its card, the 2D painter):
+ * a piece standing in a room keeps the room's wall names (a drawn room's E, F…), which the made-up room does not
+ * have, so nothing was drawn and its card came out blank grey. A kitchen's walls become [freeWalls], a cabinet's
+ * first two A, B (D, A with the corner on the left); a place dragged in the room ([Furniture.pose]) is dropped.
+ */
+fun onFreeWalls(f: Furniture): Furniture {
+    val own = f.walls.filter { it != ISLAND }
+    if (own.isEmpty()) return f
+    val want = if (f.kind == "kitchen") freeWalls(f.layout, f.hand) else if (own.first() == "D") listOf("D", "A") else listOf("A", "B")
+    val target = want.filter { it != ISLAND }
+    if (own.indices.all { i -> target.getOrNull(i) == null || target[i] == own[i] }) return f
+    val walls = f.walls.map { w -> if (w == ISLAND) w else own.indexOf(w).let { i -> target.getOrNull(i) ?: w } }
+    return onWalls(f, walls).copy(pose = null)
+}
+
 /** The piece with its walls renamed index by index (the island stays the island). */
 fun onWalls(f: Furniture, walls: List<String>): Furniture {
     val old = f.walls

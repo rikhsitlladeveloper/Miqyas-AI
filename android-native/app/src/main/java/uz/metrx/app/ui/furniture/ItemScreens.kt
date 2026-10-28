@@ -110,7 +110,7 @@ fun ItemScreen(rt: Route.Wardrobe, p: Project, f: Furniture) {
     val st = app.dzc(f.id)
     Box(Modifier.fillMaxSize().roomGrid()) {
         Column(Modifier.fillMaxSize()) {
-            uz.metrx.app.ui.ux.DesignerTop(p, f, pieceLine(f, ws))
+            uz.metrx.app.ui.ux.DesignerTop(p, f, pieceLine(f, ws)) { st.teach = true }
             if (room == null) {
                 Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.weight(1f).padding(24.dp))
             } else Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -132,6 +132,8 @@ fun ItemScreen(rt: Route.Wardrobe, p: Project, f: Furniture) {
             }
             uz.metrx.app.ui.ux.DesignerBar(p, f, rt.d3) { app.setTop(rt.copy(d3 = it)) }
         }
+        // "?" (Designer C v2 fix): the short designer's own hint, the tools, turning it in 3D, zooming
+        if (st.teach) TeachHint(item = true) { st.teach = false }
     }
 }
 

@@ -168,8 +168,7 @@ fun FPriceTab(p: Project) {
                         val how = when {
                             ln.key == "deliver" -> tr("fd.deliver") + ": " + tr("fp.plusPct", "p" to pct)
                             f != null && fp.mode == "run" && f.kind == "kitchen" -> {
-                                val v = (runMm(f) + 50) / 100
-                                dn(f.name, lang) + ": " + "${v / 10}${if (en) "." else ","}${v % 10} " + tr("kt.pm") + " × " + money(p, fp.rRun.toBigIntegerOrNull() ?: BigInteger.ZERO)
+                                dn(f.name, lang) + ": " + pogM(runMm(f), en) + " " + tr("kt.pm") + " × " + money(p, fp.rRun.toBigIntegerOrNull() ?: BigInteger.ZERO)
                             }
                             f != null -> dn(f.name, lang) + ": " + tr("fp.plusPct", "p" to pct)
                             else -> ln.key

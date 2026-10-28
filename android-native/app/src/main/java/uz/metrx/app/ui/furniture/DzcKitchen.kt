@@ -81,6 +81,7 @@ import uz.metrx.app.furniture.colourOf
 import uz.metrx.app.furniture.copyRight
 import uz.metrx.app.furniture.curType
 import uz.metrx.app.furniture.deleteToGap
+import uz.metrx.app.furniture.gapLeft
 import uz.metrx.app.furniture.fillOf
 import uz.metrx.app.furniture.frontOf
 import uz.metrx.app.furniture.handleFronts
@@ -539,7 +540,8 @@ private fun androidx.compose.foundation.layout.BoxScope.kBubbles(c: KitCtl, foun
             Bubble("h ${m.h}", bx, c.sy(m.elev) + with(d) { 8.dp.toPx() }, live = hl) { app.sheet = Sheet.DzcNum(c.p.id, c.f.id, m.id, "h") }
         }
         (dr as? KDrag.Resize)?.res?.takeIf { it.aid != null && it.aid != END_ID }?.let { r ->
-            g.modules.firstOrNull { it.id == r.aid }?.let { a -> Bubble("${shortName(app, a)} ${r.aw0} → ${r.aw1}", c.sx(a.x + a.w / 2), c.sy(a.elev + a.h / 2), amber = true) }
+            g.modules.firstOrNull { it.id == r.aid }?.let { a -> Bubble("${shortName(app, a)} ${r.aw0} → ${r.aw1}", c.sx(a.x + a.w / 2), c.sy(a.elev + a.h / 2), amber = true,
+                note = if (r.back) tr("dzc.fromLeft") else null) }
         }
         (dr as? KDrag.Resize)?.res?.takeIf { it.aid == END_ID }?.let { r ->
             Bubble(tr("dzc.endGap") + " ${r.aw0} → ${r.aw1}", c.sx(c.rowStart(isUpper(m)) + fillOf(g, c.run, isUpper(m)).used + max(0, r.aw1) / 2), c.sy(m.elev + m.h / 2), amber = true)
@@ -573,10 +575,10 @@ private fun kFixOf(c: KitCtl, q: FCheck, m: Module): Pair<String, () -> Unit>? {
         "kc.window" -> {
             val o = room?.openings?.filter { it.wall == m.wall && it.type == "window" }?.firstOrNull { it.off < m.x + m.w && it.off + it.w > m.x }
             val fw = o?.let { it.off - m.x } ?: 0
-            if (fw >= 150) tr("dzc.fixTo", "v" to fw) to { kSetWidth(c, m, fw, app.t("dzc.fixed")) }
-            else tr("dzc.fixDel") to { kDelete(c, m, app.t("dzc.fixed")) }
+            if (fw >= 150) tr("dzc.fixTo", "v" to fw) to { kSetWidth(c, m, fw, app.t("dzc.fixed", "m" to app.modName(m))) }
+            else tr("dzc.fixDel") to { kDelete(c, m, app.t("dzc.fixed", "m" to app.modName(m))) }
         }
-        "kc.tallUp", "kc.door" -> tr("dzc.fixDel") to { kDelete(c, m, app.t("dzc.fixed")) }
+        "kc.tallUp", "kc.door" -> tr("dzc.fixDel") to { kDelete(c, m, app.t("dzc.fixed", "m" to app.modName(m))) }
         else -> null
     }
 }
@@ -721,7 +723,8 @@ private class KitGestures(val c: KitCtl) : DzcGestures {
         val row = kRow(c.f, c.run, up)
         val i = row.indexOfFirst { it.id == m.id }
         if (i < 0) return
-        val mx = maxW(row, i)
+        // the right edge moves right: the room comes from the right (Designer C v2 fix, 27 Oct 2026)
+        val mx = maxW(row, i, side = 1)
         c.drag = KDrag.Resize(m.id, up, row, i, m.x, m.w, mx, candidates(row[i], mx), m.w, null, false)
     }
 
@@ -733,7 +736,7 @@ private class KitGestures(val c: KitCtl) : DzcGestures {
                 val nw = snapWidth(raw, dr.cands, st.fine, s.allowed == null, 150, dr.mx, dr.w0)
                 val hit = raw > dr.mx + 60
                 if (hit && !dr.maxHit) c.app.haptic(Hap.WARN)
-                val res = if (nw == dr.w0) null else resize(dr.row0, dr.i, nw)
+                val res = if (nw == dr.w0) null else resize(dr.row0, dr.i, nw, side = 1)
                 c.drag = dr.copy(nw = nw, res = res, maxHit = hit)
             }
             is KDrag.Height -> c.drag = dr.copy(nh = snapHeight((dr.top - c.mmY(p)).toDouble()))
@@ -773,7 +776,7 @@ private fun widthMsg(app: App, c: KitCtl, m: Module, w0: Int, w1: Int, r: uz.met
         END_ID -> " · " + app.t("dzc.endGap") + " ${r.aw0} → ${r.aw1}"
         else -> c.module(r.aid)?.let { a -> " · " + shortName(app, a) + " ${r.aw0} → ${r.aw1}" + if (slotKind(a) == SK.FILLER && r.aw1 >= 150) " (" + app.t("dzc.nowGap") + ")" else "" } ?: ""
     }
-    return shortName(app, m) + ": $w0 → $w1 " + app.t("u.mm") + who
+    return shortName(app, m) + ": $w0 → $w1 " + app.t("u.mm") + (if (r.back && r.aid != null) " · " + app.t("dzc.fromLeft") else "") + who
 }
 
 /* ---------------- selection ---------------- */
@@ -905,8 +908,10 @@ private fun kCopy(c: KitCtl, m: Module) {
 }
 
 /** " · To‘ldiruvchi −50, Bo‘sh joy −400". */
+/** Where the room came from, in plain words: "Bo‘sh joy hisobidan 400 mm olindi" (was "Pastda bo‘sh joy −400"). */
 private fun took(app: App, c: KitCtl, p: Planned): String = if (p.took.isEmpty()) "" else " · " + p.took.joinToString(", ") { (id, v) ->
-    (if (id == END_ID) app.t("dzc.endGap") else c.module(id)?.let { shortName(app, it) } ?: app.t("dzc.gap")) + " −$v"
+    val who = if (id == END_ID) app.t("dzc.endGap") else c.module(id)?.let { m -> if (slotKind(m) == SK.GAP) app.t("dzc.endGap") else shortName(app, m) } ?: app.t("dzc.endGap")
+    app.t("dzc.took", "w" to who, "v" to v)
 }
 
 internal fun kDelete(c: KitCtl, m: Module, why: String?) {
@@ -916,7 +921,7 @@ internal fun kDelete(c: KitCtl, m: Module, why: String?) {
     val out = deleteToGap(row, i)
     change(c) { x -> applyRow(x, c.run.wall, isUpper(m), out, c.ws) }
     c.st.clear()
-    app.dzcDone(c.p.id, c.f.id, (why?.let { "$it · " } ?: "") + app.t("dzc.deleted", "m" to app.modName(m), "w" to m.w))
+    app.dzcDone(c.p.id, c.f.id, (why?.let { "$it · " } ?: "") + app.t("dzc.deleted", "m" to app.modName(m), "v" to gapLeft(out, m.id, i, m.w)))
 }
 
 private fun kDeleteMany(c: KitCtl) {
@@ -945,7 +950,7 @@ private fun kCloseGap(c: KitCtl, m: Module) {
     change(c) { x -> applyRow(x, c.run.wall, isUpper(m), p.row, c.ws) }
     c.st.clear()
     val grew = p.grew
-    app.dzcDone(c.p.id, c.f.id, app.t("dzc.closed") + if (grew != null) " · " + (if (grew.first == END_ID) app.t("dzc.endGap") else app.t("dzc.endGrows")) + " → ${grew.second} " + app.t("u.mm") else "")
+    app.dzcDone(c.p.id, c.f.id, if (grew != null) app.t("dzc.closed", "v" to grew.second) + " · " + (if (grew.first == END_ID) app.t("dzc.endGap") else app.t("dzc.endGrows")) else app.t("dzc.closed0"))
 }
 
 private fun kMoveBy(c: KitCtl, m: Module, d: Int) {
@@ -984,11 +989,11 @@ private fun kSetDecor(c: KitCtl, colour: String) {
             val ids = st.ticks
             if (ids.isEmpty()) { app.dzcWarn(app.t("dzc.tickFirst")); return }
             change(c) { x -> x.copy(modules = x.modules.map { if (it.id in ids) it.copy(front = b) else it }) }
-            app.dzcDone(c.p.id, c.f.id, app.t("dzc.decorN", "d" to name, "n" to ids.size))
+            app.dzcDone(c.p.id, c.f.id, app.t("dzc.decorN", "c" to name, "n" to ids.size))
         }
         m == null || st.scope == "all" -> {
             change(c) { x -> clearOwnFronts(withLook(x) { it }).let { y -> y.copy(mats = y.mats.copy(front = b, frontUp = null)) } }
-            app.dzcDone(c.p.id, c.f.id, app.t("dzc.decorAll", "d" to name))
+            app.dzcDone(c.p.id, c.f.id, app.t("dzc.decorAll", "c" to name))
         }
         st.scope == "row" -> {
             val up = isUpper(m)
@@ -1001,7 +1006,7 @@ private fun kSetDecor(c: KitCtl, colour: String) {
         }
         else -> {
             change(c) { x -> x.copy(modules = x.modules.map { if (it.id == m.id) it.copy(front = b) else it }) }
-            app.dzcDone(c.p.id, c.f.id, app.t("dzc.decorOne", "d" to name, "m" to app.modName(m)))
+            app.dzcDone(c.p.id, c.f.id, app.t("dzc.decorOne", "c" to name, "m" to app.modName(m)))
         }
     }
 }
@@ -1062,7 +1067,7 @@ private fun kSetSoft(c: KitCtl, on: Boolean) {
     val m = c.selM ?: return
     val all = c.st.scope == "all"
     change(c) { x -> x.copy(modules = x.modules.map { if (all || it.id == m.id) it.copy(soft = on) else it }) }
-    app.dzcDone(c.p.id, c.f.id, app.t(if (on) "dzc.softOn" else "dzc.softOff") + " · " + (if (all) app.t("dzc.toAll") else app.modName(m)))
+    app.dzcDone(c.p.id, c.f.id, app.t(if (on) "dzc.softOn" else "dzc.softOff", "m" to (if (all) app.t("dzc.toAll") else app.modName(m))))
 }
 
 private fun kSetDepth(c: KitCtl, v: Int) {
@@ -1203,7 +1208,7 @@ private fun KitOptions(c: KitCtl, k: String, found: List<FCheck>) {
                 if (keys.isNotEmpty() && keys.none { hasHandle(m, it.key) }) "push" else type
             } else type
             val scope: (@Composable () -> Unit)? = if (st.multi || m == null) null else { { ScopeSeg(listOf("one" to tr("dzc.s.one"), "all" to tr("dzc.s.all")), st.scope) { st.scope = it } } }
-            OptRow(tr("dzc.tool.handle"), if (scope == null) scopeTxt else tr("dzc.handleNote"), back, scope) {
+            OptRow(tr("dzc.tool.handle"), if (scope == null || st.scope != "all") scopeTxt else tr("dzc.handleNote"), back, scope) {
                 listOf("bar", "long", "knob", "gola", "push").forEach { h -> OptChip(tr("dzc.h.$h"), curOne == h, glyph = "h-$h") { kSetHandle(c, h) } }
             }
         }

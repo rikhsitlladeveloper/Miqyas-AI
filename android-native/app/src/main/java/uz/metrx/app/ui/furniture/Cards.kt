@@ -71,7 +71,9 @@ import java.io.File
 private const val TAG = "Cards"
 
 /** A model's lit scene as the 3D screens build a piece without a room, with the walls it stands against behind it. */
-internal fun cardShell(f: Furniture, ws: Workshop, mats: List<Mat>, light: Boolean = false): Shell3D {
+internal fun cardShell(f0: Furniture, ws: Workshop, mats: List<Mat>, light: Boolean = false): Shell3D {
+    // a piece in a drawn room is pictured on the made-up room's walls (its own E, F… are not there)
+    val f = uz.metrx.app.furniture.onFreeWalls(f0)
     val room = freeRoom(f)
     val b = buildShell(listOf(room), true, true)
     val fur = furniture3D(listOf(f), b.bases, ws, matRgb(mats), emptySet(), look = matLook(mats), mats = mats, light = light)
