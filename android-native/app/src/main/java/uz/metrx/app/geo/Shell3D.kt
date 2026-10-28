@@ -547,15 +547,17 @@ fun buildShell(rooms: List<Room>, single: Boolean, snap: Boolean = true, bare: S
 /**
  * The colour three.js (r128, no colour management) gives a Lambert face with normal [n]: the base colour times
  * ambient 0.3 + hemisphere 0.5 (white sky, #C9D3E0 ground) + directional 0.55 · max(0, n·l), clamped. sRGB numbers.
+ * [cap] keeps a lit face from going past its own colour: tiles (and the trades' devices) show the colour picked
+ * instead of washing out to white on the floor.
  */
-fun shade(rgb: Int, n: V3, light: V3): Int {
+fun shade(rgb: Int, n: V3, light: V3, cap: Double = Double.MAX_VALUE): Int {
     val w = .5 * n.y + .5; val dl = .55 * max(0.0, n.dot(light))
     val ground = intArrayOf(0xC9, 0xD3, 0xE0)
     var out = 0
     for (k in 0..2) {
         val c = (rgb shr (16 - 8 * k)) and 255
         val g = ground[k] / 255.0
-        val f = .3 + .5 * (g + (1 - g) * w) + dl
+        val f = min(cap, .3 + .5 * (g + (1 - g) * w) + dl)
         out = (out shl 8) or (c * f).roundToInt().coerceIn(0, 255)
     }
     return out

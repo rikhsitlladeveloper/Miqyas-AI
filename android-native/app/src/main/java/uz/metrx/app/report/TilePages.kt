@@ -45,6 +45,7 @@ internal fun Doc.tilePages(ls: List<TileLayout>, troom: List<TileRoom>) {
     }
     table(rows, head = 1)
     fn(t("tl.r.note"))
+    typedPanels(shown.filter { it.roomId == null && it.panel != null })
     // each tiled room: the floor from above, then the tiled walls from the front
     sn.rooms.forEach { sr ->
         val r = sr.room
@@ -82,8 +83,8 @@ internal fun Doc.tilePages(ls: List<TileLayout>, troom: List<TileRoom>) {
             }
         }
         y += ph; after(8f)
-        // the walls with tiles on them, two a row
-        val walls = g.walls.filter { w -> laid.any { (_, ld) -> ld.surfs.any { it.wall == w.id && it.kind != "floor" } } }
+        // the walls with tiles on them, two a row (an inner partition's faces too, each as high as it is)
+        val walls = (g.walls + g.inner).filter { w -> laid.any { (_, ld) -> ld.surfs.any { it.wall == w.id && it.kind != "floor" } } }
         val ew = (CW - 10f) / 2; val eh = 150f
         walls.chunked(2).forEach { two ->
             val caps = two.map { w -> measure(t("tl.wallN", "w" to w.id) + " · " + len(w.len.toInt()) + " " + mUnit(), ui(9f, 600)) }
@@ -96,13 +97,14 @@ internal fun Doc.tilePages(ls: List<TileLayout>, troom: List<TileRoom>) {
                     drawText(caps[i], topLeft = Offset(x, t0))
                     val bt = t0 + caps[i].size.height + 3f
                     drawRect(Color.White, Offset(x, bt), Size(ew, eh))
+                    val wh = (g.innerH[w.id] ?: g.H).toFloat()
                     val kk = minOf((ew - 20f) / w.len.toFloat().coerceAtLeast(1f), (eh - 20f) / g.H.toFloat().coerceAtLeast(1f))
                     val ex = x + (ew - w.len.toFloat() * kk) / 2; val eb = bt + eh - (eh - g.H.toFloat() * kk) / 2
                     val elev = { v: V2 -> Offset(ex + (v.x * kk).toFloat(), eb - (v.y * kk).toFloat()) }
                     // the wall's own surfaces: the wall less its openings, a bath's front, a niche's back, a column's face
                     val on = { s: uz.metrx.app.tiles.Surf -> s.wall == w.id && (s.kind == "wall" || s.kind == "bath" || s.kind == "niche" || (s.kind == "col" && s.key.endsWith(":f"))) }
                     laid.forEach { (lt, ld) -> drawLaidCapped(ld, lt, { s -> if (on(s)) elev else { _ -> null } }, outline = true) }
-                    drawRect(WALL_INK, Offset(ex, eb - g.H.toFloat() * kk), Size(w.len.toFloat() * kk, g.H.toFloat() * kk), style = Stroke(1f))
+                    drawRect(WALL_INK, Offset(ex, eb - wh * kk), Size(w.len.toFloat() * kk, wh * kk), style = Stroke(1f))
                     // the doors and windows, outlined
                     r.openings.filter { it.wall == w.id }.forEach { o ->
                         drawRect(WALL_INK, Offset(ex + o.off * kk, eb - (o.sill + o.h) * kk), Size(o.w * kk, o.h * kk), style = Stroke(.8f))
@@ -112,5 +114,40 @@ internal fun Doc.tilePages(ls: List<TileLayout>, troom: List<TileRoom>) {
             }
             y += need; after(10f)
         }
+    }
+}
+
+/**
+ * The layouts typed by size (no room): each surface on its own, two a row, with its tiles and cuts as laid, like a
+ * room's walls; a floor seen from above, a wall or backsplash from the front.
+ */
+private fun Doc.typedPanels(ls: List<TileLayout>) {
+    val ew = (CW - 10f) / 2; val eh = 150f
+    ls.chunked(2).forEach { two ->
+        val caps = two.map { l -> val p = l.panel!!; measure(t(placeKey(l)) + " · " + len(p.a) + " × " + len(p.b) + " " + mUnit(), ui(9f, 600)) }
+        val need = caps.maxOf { it.size.height.toFloat() } + 3f + eh
+        ensure(need + 6f); space(8f)
+        val t0 = y
+        draw {
+            two.forEachIndexed { i, l ->
+                val p = l.panel!!
+                val x = PX + i * (ew + 10f)
+                drawText(caps[i], topLeft = Offset(x, t0))
+                val bt = t0 + caps[i].size.height + 3f
+                drawRect(Color.White, Offset(x, bt), Size(ew, eh))
+                val a = p.a.toFloat().coerceAtLeast(1f); val b = p.b.toFloat().coerceAtLeast(1f)
+                val kk = minOf((ew - 20f) / a, (eh - 20f) / b)
+                val ex = x + (ew - a * kk) / 2; val ey = bt + (eh - b * kk) / 2
+                val floor = p.kind == "floor"
+                // a floor's second size runs down the page, a wall's up it
+                val at = { v: V2 -> Offset(ex + (v.x * kk).toFloat(), if (floor) ey + (v.y * kk).toFloat() else ey + b * kk - (v.y * kk).toFloat()) }
+                uz.metrx.app.tiles.panelSurf(l, uz.metrx.app.tiles.panelFrame(p.kind))?.let { s ->
+                    drawLaidCapped(uz.metrx.app.tiles.layAll(l, listOf(s), null, null), l, { _ -> at }, outline = true)
+                }
+                drawRect(WALL_INK, Offset(ex, ey), Size(a * kk, b * kk), style = Stroke(1f))
+                drawRect(FRAME, Offset(x + .5f, bt + .5f), Size(ew - 1f, eh - 1f), style = Stroke(.75f))
+            }
+        }
+        y += need; after(10f)
     }
 }

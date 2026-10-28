@@ -510,7 +510,9 @@ fun reportPages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, im
     d.figurePages()
     d.notesPages()
     // the first page holding only the parties has room for the rest
-    if (roomsOn || d.pages.size > 1) d.newPage()
+    // (only before the views or the estimate: the notes and the signatures alone carry on where the page is)
+    val bigNext = (sn.pdf.views && rooms.any { it.room.views.isNotEmpty() }) || sn.pdf.estimate
+    if (bigNext && ((roomsOn && rooms.isNotEmpty()) || d.pages.size > 1)) d.newPage()
     if (sn.pdf.views) d.views()
     if (sn.pdf.estimate) d.estimate(sn.estimate)
     if (sn.notes.isNotBlank()) { d.h2(d.t("rpt.notes")); d.para(AnnotatedString(sn.notes), d.ui(10f), 10f, 10f) }

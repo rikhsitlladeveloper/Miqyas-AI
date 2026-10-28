@@ -342,7 +342,7 @@ internal class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: a
     private fun flatPart(root: Node, p: uz.metrx.app.geo.Part, s: Shell3D): GeometryNode? {
         if (p.faces.isEmpty()) return null
         val byColor = LinkedHashMap<Int, ArrayList<uz.metrx.app.geo.Face>>()
-        p.faces.forEach { f -> byColor.getOrPut(shade(if (p.slab && f.n.y > .9) slabTop(p.rgb) else p.rgb, f.n, s.light)) { ArrayList() } += f }
+        p.faces.forEach { f -> byColor.getOrPut(shade(if (p.slab && f.n.y > .9) slabTop(p.rgb) else p.rgb, f.n, s.light, if (p.tile) 1.0 else Double.MAX_VALUE)) { ArrayList() } += f }
         val verts = ArrayList<Geometry.Vertex>(); val prim = ArrayList<List<Int>>(); val colors = ArrayList<Int>()
         byColor.forEach { (c, fs) ->
             val idx = ArrayList<Int>()
