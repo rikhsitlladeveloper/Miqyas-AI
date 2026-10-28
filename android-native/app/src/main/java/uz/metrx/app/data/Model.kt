@@ -183,7 +183,10 @@ data class Opening(
     val thr: Int = 0,
     /** How it opens, seen from inside: a door's inL, inR, outL, outR; a window's L, R or T (fortochka). "" the usual. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val sw: String = ""
+    val sw: String = "",
+    /** On an inner wall's face (geo/InnerWalls.kt): that face's key "<piece id>:<face>", so the opening keeps its face when letters move; "" an outer wall. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val fk: String = ""
 ) {
     val approx get() = offDrag || sillDrag
     /** A balcony block: a door and a window side by side. */
@@ -204,7 +207,10 @@ data class SitePoint(val id: String, val t: String, val wall: String, val off: I
     val style: String = "",
     /** A radiator's or an air conditioner's width, mm (0: not given). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val pw: Int = 0)
+    val pw: Int = 0,
+    /** On an inner wall's face: the face's key (as [Opening.fk]); "" an outer wall. */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val fk: String = "")
 
 /**
  * A column against a wall or a niche into it (room editor "Ustun / nisha"): [type] column or niche; [off] from the
@@ -256,11 +262,46 @@ data class Room(
     val features: List<Feature> = emptyList(),
     /** Each wall's own thickness, mm, by wall id (room editor v2 "Qalinlik"); a wall not in it has T (200). */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val thick: Map<String, Int> = emptyMap()
+    val thick: Map<String, Int> = emptyMap(),
+    /** Inner walls (partitions) standing inside the measured outer shape (founder, 28 Oct 2026; geo/InnerWalls.kt). */
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val inner: List<InnerWall> = emptyList()
 ) {
     fun dim(k: String) = dims[k] ?: Dim()
     val isPoly get() = shape == "poly" && (poly?.verts?.size ?: 0) >= 3
 }
+
+/**
+ * An inner wall (a partition) put inside the room from a ready piece (founder-approved mockup v3, 28 Oct 2026): [k]
+ * straight, L, T, half (a low wall), col (a column) or arch (a wall with a passage); centred on [x], [y] (plan mm, the
+ * outer walls' coordinates) and turned [ang] (0, 90, 180, 270); [len] along it (a column's side or diameter), an L's or
+ * a T's arm [len2], its thickness [th]; a half wall's height [h]; a round column [round]; an arch's passage [opW] × [opH].
+ * [mir]: an L whose arm stands at its start (a mirrored room). Its faces act as walls, lettered after the outer walls.
+ */
+@Serializable
+data class InnerWall(
+    val id: String,
+    val k: String,
+    val x: Int,
+    val y: Int,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val ang: Int = 0,
+    val len: Int = 2000,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val len2: Int = 0,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val th: Int = 100,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val h: Int = 0,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val round: Boolean = false,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val opW: Int = 0,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val opH: Int = 0,
+    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
+    val mir: Boolean = false
+)
 
 @Serializable
 data class Estimate(val materials: List<Row> = emptyList(), val labor: List<Row> = emptyList())

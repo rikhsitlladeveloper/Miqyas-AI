@@ -366,6 +366,13 @@ val FREE_TYPES = setOf("desk", "shelving", "bed", "bunk", "loft", "dining", "cof
 
 fun canStandFree(f: Furniture) = f.kind == "wardrobe" && f.type in FREE_TYPES
 
+/**
+ * Any piece on the wardrobe's engine may stand free in the room, turned any way (founder, 28 Oct 2026: "har qanday
+ * mebel erkin bo‘la oladi", a room-dividing cabinet too); a corner piece needs its two walls. A kitchen's run stays on
+ * its walls (its worktop, sink and hob need them); its island stands free.
+ */
+fun canBeFree(f: Furniture) = f.kind == "wardrobe" && f.type !in CORNER_TYPES
+
 /** The empty stretch a kitchen's first side starts with (its leading space gaps) taken off: what is left to place again. */
 fun withoutLead(f: Furniture, len: (String) -> Int? = { null }): Furniture {
     if (f.kind != "kitchen") return f
