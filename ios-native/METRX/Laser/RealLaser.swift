@@ -326,7 +326,7 @@ final class RealLaser: LzBleOwner {
     /// other named devices are listed. keep: the list is kept (the radar page starts scan after scan; a device not heard
     /// for a while leaves the radar by itself). look: the scan for the remembered laser after its capped tries.
     func startScan(keep: Bool = false, look: Bool = false) {
-        if scanning || paused || bg { return }
+        if scanning || paused || bg || RealLaser.uiStage != nil { return }
         guard ensureManager(), let cm else { return }
         if bt != .on {
             if bt == .unknown { pendingScan = true; pendingKeep = keep } else { log("scan: Bluetooth is \(bt)") }
@@ -432,7 +432,7 @@ final class RealLaser: LzBleOwner {
     /// Connects to the laser id; user when the builder picked it (only then is a failure said). again: the same try going
     /// on after a quick drop (the radar keeps its "Ulanmoqda" animation, the counts are kept).
     func connect(_ id: UUID, _ name: String?, user: Bool = true, again: Bool = false) {
-        if paused { return }
+        if paused || RealLaser.uiStage != nil { return }
         // a second tap on the laser being connected (the bubble and "Ulash"): the try goes on; a background one becomes the builder's
         if !again && link == .connecting && linkId == id {
             if user && !userConnect {
@@ -743,5 +743,57 @@ final class RealLaser: LzBleOwner {
         log("=== real laser resumed ===")
         attempt = 0
         plan(0.6)
+    }
+}
+
+// ---------- the screen tests' staged radar ----------
+
+extension RealLaser {
+    /// The screen tests' radar picture: with -uiReset, "-uiRadar <stage>" opens the radar page from every laser button
+    /// (the simulator has no Bluetooth) and shows it in one of its states, so each card and animation can be
+    /// photographed: noBt, off, denied, search (then "nothing" after 8 s), found, connecting, connected, lost, and the
+    /// failures fail-timeout, fail-busy, fail-notLaser, fail-btOff, fail-permission and fail-many (3 tries). Nothing
+    /// is scanned or connected meanwhile. The App Store app never has it (no -uiReset).
+    static let uiStage: String? = {
+        let a = ProcessInfo.processInfo.arguments
+        guard a.contains("-uiReset"), let i = a.firstIndex(of: "-uiRadar"), i + 1 < a.count else { return nil }
+        return a[i + 1]
+    }()
+
+    /// The radar page opened with a staged state: RealLaser says what that state needs.
+    func applyUiStage() {
+        guard let s = RealLaser.uiStage else { return }
+        let id = UUID(uuidString: "0783B03E-8535-4B5A-8140-A304D2495CB8") ?? UUID()
+        let other = UUID(uuidString: "6E400001-B5A3-4393-8E8C-0A3E5F1C2D3B") ?? UUID()
+        switch s {
+        case "off": bt = .off
+        case "denied": bt = .unauthorized
+        case "noBt": bt = .unsupported
+        default: bt = .on
+        }
+        found = [:]
+        if bt == .on {
+            found[other] = LzFound(id: other, name: "Mi Band 7", rssi: -78, laser: false, avg: -78, seen: 0)
+            if s == "found" || s == "lost" || s.hasPrefix("fail-") {
+                found[id] = LzFound(id: id, name: "ZB-08", rssi: -57, laser: true, avg: -57, seen: 0)
+            }
+        }
+        switch s {
+        case "connecting":
+            link = .connecting; linkId = id; linkName = "ZB-08"; userConnect = true
+        case "connected":
+            link = .connected; linkId = id; linkName = "ZB-08"
+        case "lost":
+            linkId = id; linkName = "ZB-08"; lostSeq += 1
+        default:
+            guard s.hasPrefix("fail-") else { break }
+            let k = String(s.dropFirst(5))
+            let kinds: [String: LaserFail] = ["timeout": .timeout, "busy": .busy, "notLaser": .notLaser, "btOff": .btOff,
+                                              "permission": .permission, "many": .timeout]
+            failure = kinds[k] ?? .timeout
+            failId = id; failName = "ZB-08"
+            failStreak = k == "many" ? LaserLinkRules.manyAfter : 1
+            failSeq += 1
+        }
     }
 }

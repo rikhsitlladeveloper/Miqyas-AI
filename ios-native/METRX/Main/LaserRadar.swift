@@ -316,9 +316,14 @@ struct LaserRadarScreen: View {
 
     private func opened() {
         real.radar = true
-        real.clearFailure()
-        real.prepare()
-        real.opened()
+        if RealLaser.uiStage != nil {
+            // the screen tests' staged state (RealLaser.applyUiStage): no Bluetooth is asked or scanned
+            real.applyUiStage()
+        } else {
+            real.clearFailure()
+            real.prepare()
+            real.opened()
+        }
         LaserRouter.shared.radarTake = { r in
             reading = r
             readingSeq += 1

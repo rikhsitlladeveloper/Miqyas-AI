@@ -74,7 +74,11 @@ targets:
   METRXUITests:
     type: bundle.ui-testing
     platform: iOS
-    sources: [METRXUITests]
+    sources:
+      - path: METRXUITests
+      # the tour (METRXUITests/TourTests.swift) finds texts by their strings.json words in its language
+      - path: ../android-native/app/src/main/assets/strings.json
+        buildPhase: resources
     dependencies:
       - target: METRX
     settings:

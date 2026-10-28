@@ -9,7 +9,11 @@ func lzOpenSettings() {
 }
 
 /// This phone has Bluetooth LE (false on the simulator).
-func lzHasBt() -> Bool { lzBtState(nil) != .unsupported }
+func lzHasBt() -> Bool {
+    // the screen tests' staged radar (RealLaser.uiStage) stands for a phone with Bluetooth, unless it stages none
+    if let s = RealLaser.uiStage { return s != "noBt" }
+    return lzBtState(nil) != .unsupported
+}
 
 extension AppModel {
     /// The Bluetooth button on the home pages and Profile (Android MainNav.laser), and every "Lazer" / "Ulash" button
