@@ -34,8 +34,11 @@ val SITE_WATER = setOf("cold", "hot", "sewer")
  */
 class PCtx(val id: String, val room: Room, val g: TRoomGeo, val kind: String, val pr: PlRoom, val free: PlFree? = null) {
     val H get() = g.H.toInt()
+    /** Every door, an inner partition's too (geo/InnerWalls.kt): fixtures keep out of their swings. */
     val doors get() = room.openings.filter { it.type == "door" }
-    val entry: Opening? get() = doors.firstOrNull { it.id == pr.door } ?: doors.firstOrNull()
+    /** The doors in its outer walls, the ones pipes come in and leave by (an inner partition's door is inside the room). */
+    val ways get() = doors.filter { o -> g.walls.any { it.id == o.wall } }
+    val entry: Opening? get() = ways.firstOrNull { it.id == pr.door } ?: ways.firstOrNull()
     fun wall(id: String?) = id?.let { g.wall(it) }
     /** The floor's area, m². */
     val areaM2 get() = abs(area(g.floor)) / 1e6

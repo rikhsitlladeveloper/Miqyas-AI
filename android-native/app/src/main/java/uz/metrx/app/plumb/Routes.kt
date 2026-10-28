@@ -67,7 +67,7 @@ fun runZ(kind: String, run: String): Double = when {
 fun inset(kind: String, run: String): Double = if (kind == "drain") 60.0 else if (run != "floor") 14.0 else when (kind) { "cold" -> 40.0; "hot" -> 80.0; "hs" -> 120.0; else -> 160.0 }
 
 /** The door of room [sc] a pipe to room [away] leaves by: the one set for it, else the room's last door. */
-fun exitDoor(sc: PCtx, away: PCtx): Opening? = sc.doors.firstOrNull { it.id == away.pr.pdoor } ?: sc.doors.lastOrNull()
+fun exitDoor(sc: PCtx, away: PCtx): Opening? = sc.ways.firstOrNull { it.id == away.pr.pdoor } ?: sc.ways.lastOrNull()
 
 /** The way round the walls from [from] to [to] (lengths round the room), clockwise or not, as pieces in the order walked. */
 fun walk(per: Perim, from: Double, to: Double, cw: Boolean): List<Triple<TWall, Double, Double>> {

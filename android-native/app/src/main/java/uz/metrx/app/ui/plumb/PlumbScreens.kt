@@ -811,18 +811,18 @@ private fun RoomSetSheet(pid: String, rid: String) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             KINDS.forEach { k -> Chip(tr(kindKey(k)), k == c.kind) { app.updatePRoom(pid, rid) { it.copy(kind = k) } } }
         }
-        if (c.doors.size > 1) {
+        if (c.ways.size > 1) {
             Text(tr("sx.door"), style = ui(15f, 700))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                c.doors.forEachIndexed { i, o -> Chip(tr("el.doorN", "i" to i + 1, "w" to o.wall), c.entry?.id == o.id) { app.updatePRoom(pid, rid) { it.copy(door = o.id) } } }
+                c.ways.forEachIndexed { i, o -> Chip(tr("el.doorN", "i" to i + 1, "w" to o.wall), c.entry?.id == o.id) { app.updatePRoom(pid, rid) { it.copy(door = o.id) } } }
             }
         }
         if (rs != null && rc != null && rs.roomId != rid) {
-            if (rc.doors.size > 1) {
+            if (rc.ways.size > 1) {
                 Text(tr("sx.pdoor", "r" to dn(rc.room.name, app.settings.lang)), style = ui(15f, 700))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val cur = exitDoor(rc, c)
-                    rc.doors.forEachIndexed { i, o -> Chip(tr("el.doorN", "i" to i + 1, "w" to o.wall), cur?.id == o.id) { app.updatePRoom(pid, rid) { it.copy(pdoor = o.id) } } }
+                    rc.ways.forEachIndexed { i, o -> Chip(tr("el.doorN", "i" to i + 1, "w" to o.wall), cur?.id == o.id) { app.updatePRoom(pid, rid) { it.copy(pdoor = o.id) } } }
                 }
             }
             GField(tr("sx.link"), tLink, { v -> tLink = v.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' }.take(7) }, "1", decimal = true, labelRight = tr(if (unit == LenUnit.CM) "u.cm" else "u.m"))
