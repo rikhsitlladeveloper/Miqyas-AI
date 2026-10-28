@@ -204,7 +204,7 @@ fun PViewScreen(rt: Route.PView) {
             }
             if (c == null) {
                 Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text(tr("tl.needMeasure"), style = ui(16f, 700, G.ink, 1.35f), textAlign = TextAlign.Center)
+                    Text(tr("el.needMeasure"), style = ui(16f, 700, G.ink, 1.35f), textAlign = TextAlign.Center)
                     if (room != null) GBtn(tr("ns.measureB"), { app.openRoom(p.id, room.id) }, fill = false)
                 }
                 return@Column

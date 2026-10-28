@@ -87,6 +87,13 @@ class InnerWallTradesTest {
         assertTrue(dr(inner).horiz > 900)
     }
 
+    @Test fun aTypedBathroomIsNotFlaggedForItsUsualDistanceToTheRiser() {
+        val k = uz.metrx.app.plumb.pkitOf("bt.bath")!!
+        val f = uz.metrx.app.plumb.freeOf(k, k.opts, "f", "Hammom", 2500, 2000, 2700)
+        val ws = uz.metrx.app.plumb.calcOf(Project("p", "QA", industry = "plumb", plumb = PlumbOrder(free = listOf(f))), true).warns
+        assertTrue(ws.none { it.key == "sx.w.slope" || it.key == "sx.w.long" || it.key == "sx.w.wcFar" })
+    }
+
     /** A 3 000 × 2 400 bathroom, 2 700 high, with a partition 1 200 long from wall A into the room (one free end). */
     private fun tiled(free: Boolean): Pair<uz.metrx.app.tiles.TRoomGeo, Room> {
         val r = Room("t", "w", "Hammom", dims = mapOf("A" to Dim(3000, "manual"), "B" to Dim(2400, "manual"), "H" to Dim(2700, "manual"), "T" to Dim(200, "default")),

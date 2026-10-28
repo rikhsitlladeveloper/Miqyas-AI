@@ -39,7 +39,11 @@ fun warningsOf(p: Project, cs: List<PCtx>, rt: PRoutes): List<PWarn> {
         c.free?.let { f -> freeMissing(f, fs).forEach { (t, n) -> out += PWarn("sx.w.noFit", c.id, null, mapOf("t" to "~sx.t.$t", "n" to n)) } }
     }
     val fixType = cs.flatMap { fixesIn(p, it) }.associate { it.id to it.t }
+    // a room typed by size has no real way to the riser (only the usual distance, for the estimate): its drains' slope
+    // and length are not checked, or every typed bathroom would be flagged
+    val typed = cs.filter { it.free != null }.map { it.id }.toSet()
     for (d in rt.drains) {
+        if (d.pt.roomId in typed) continue
         val who = d.pt.fix ?: d.pt.id
         if (d.horiz > 0 && d.slope + 1e-6 < minSlope(d.dia))
             out += PWarn("sx.w.slope", d.pt.roomId, who, mapOf("s" to cm1(d.slope), "m" to cm1(minSlope(d.dia).toDouble()), "d" to d.dia))

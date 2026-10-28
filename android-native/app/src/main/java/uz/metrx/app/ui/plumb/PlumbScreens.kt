@@ -451,7 +451,7 @@ fun PNextStep(p: Project) {
     val riser = uz.metrx.app.plumb.riserToPlace(p, s.angleSnap)
     data class Step(val title: String, val sub: String?, val button: String, val go: () -> Unit)
     val step: Step? = when {
-        p.floors.isEmpty() && p.plumb.free.isEmpty() -> Step(tr("el.ns.pickT"), tr("sx.ns.pickS"), tr("ns.needB")) { app.push(Route.PGallery(p.id)) }
+        p.floors.isEmpty() && p.plumb.free.isEmpty() -> Step(tr("sx.ns.pickT"), tr("sx.ns.pickS"), tr("ns.needB")) { app.push(Route.PGallery(p.id)) }
         undrawn != null -> Step(tr("ns.measureT"), floorName(undrawn, lang), tr("fo.drawRoom")) { app.drawTileRoom(p.id, undrawn, lang) }
         unmeasured != null -> Step(tr("ns.measureT"), tr("ns.measureS", "r" to floorName(unmeasured.first, lang)), tr("ns.measureB")) { app.openRoom(p.id, unmeasured.second.id) }
         bare != null -> Step(tr("sx.ns.roomT", "r" to floorName(bare.first, lang)), tr("sx.ns.roomS"), tr("ns.needB")) { app.push(Route.PGallery(p.id, bare.second.id)) }
