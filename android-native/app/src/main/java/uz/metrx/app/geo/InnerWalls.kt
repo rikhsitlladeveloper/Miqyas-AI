@@ -133,7 +133,7 @@ fun pieceGeo(p: InnerWall, rh: Int): PieceGeo {
 fun newPiece(k: String, c: V2, rh: Int, id: String = "w" + uid()): InnerWall {
     val D = IWK[k] ?: IWK.getValue("straight")
     return InnerWall(id, k, c.x.roundToInt(), c.y.roundToInt(), 0, D.len, D.len2, if (k == "col") 400 else 100,
-        if (k == "half") D.h else 0, false, if (k == "arch") D.opW else 0, if (k == "arch") min(D.opH, rh - 100) else 0)
+        if (k == "half") D.h else 0, false, if (k == "arch") uz.metrx.app.data.IwOp(D.opW, min(D.opH, rh - 100)) else null)
 }
 
 /* ---------------- faces as walls ---------------- */
@@ -186,6 +186,24 @@ fun syncFaces(r: Room, snap: Boolean = true): Room {
     val ops = r.openings.mapNotNull { o -> fix(o.wall, o.fk)?.let { (w, k) -> if (w == o.wall && k == o.fk) o else o.copy(wall = w, fk = k) } }
     val pts = r.points.mapNotNull { p -> fix(p.wall, p.fk)?.let { (w, k) -> if (w == p.wall && k == p.fk) p else p.copy(wall = w, fk = k) } }
     return if (ops == r.openings && pts == r.points) r else r.copy(openings = ops, points = pts)
+}
+
+/**
+ * The room as it is saved (the same as the iPhone's): a door, window or point on an inner face names the face's key
+ * ("<piece>:<n>") as its wall. In the app it keeps the face's letter in [Opening.wall] (every screen shows that) and the
+ * key in [Opening.fk].
+ */
+fun roomToDisk(r: Room): Room {
+    if (r.openings.none { it.fk.isNotEmpty() } && r.points.none { it.fk.isNotEmpty() }) return r
+    return r.copy(openings = r.openings.map { if (it.fk.isNotEmpty()) it.copy(wall = it.fk, fk = "") else it },
+        points = r.points.map { if (it.fk.isNotEmpty()) it.copy(wall = it.fk, fk = "") else it })
+}
+
+/** A saved room back in the app: an item whose wall is a face's key gets that face's letter (and keeps the key). */
+fun roomFromDisk(r: Room, snap: Boolean = true): Room {
+    if (r.openings.none { ':' in it.wall } && r.points.none { ':' in it.wall }) return r
+    return syncFaces(r.copy(openings = r.openings.map { if (':' in it.wall) it.copy(fk = it.wall) else it },
+        points = r.points.map { if (':' in it.wall) it.copy(fk = it.wall) else it }), snap)
 }
 
 /** The letters of the inner faces by key (for moving furniture that stands against them when letters change). */

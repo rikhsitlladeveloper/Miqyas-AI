@@ -275,7 +275,7 @@ data class Room(
  * An inner wall (a partition) put inside the room from a ready piece (founder-approved mockup v3, 28 Oct 2026): [k]
  * straight, L, T, half (a low wall), col (a column) or arch (a wall with a passage); centred on [x], [y] (plan mm, the
  * outer walls' coordinates) and turned [ang] (0, 90, 180, 270); [len] along it (a column's side or diameter), an L's or
- * a T's arm [len2], its thickness [th]; a half wall's height [h]; a round column [round]; an arch's passage [opW] × [opH].
+ * a T's arm [len2], its thickness [th]; a half wall's height [h]; a round column [round]; an arch's passage [op] (w × h).
  * [mir]: an L whose arm stands at its start (a mirrored room). Its faces act as walls, lettered after the outer walls.
  */
 @Serializable
@@ -295,13 +295,19 @@ data class InnerWall(
     val h: Int = 0,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val round: Boolean = false,
+    /** An arch's passage, saved as {w, h} like the iPhone's. */
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val opW: Int = 0,
-    @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
-    val opH: Int = 0,
+    val op: IwOp? = null,
     @kotlinx.serialization.EncodeDefault(kotlinx.serialization.EncodeDefault.Mode.NEVER)
     val mir: Boolean = false
-)
+) {
+    val opW: Int get() = op?.w ?: 0
+    val opH: Int get() = op?.h ?: 0
+}
+
+/** An arch wall's passage, mm. */
+@Serializable
+data class IwOp(val w: Int, val h: Int)
 
 @Serializable
 data class Estimate(val materials: List<Row> = emptyList(), val labor: List<Row> = emptyList())

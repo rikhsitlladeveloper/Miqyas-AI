@@ -38,7 +38,7 @@ class InnerWalls3DTest {
         val withDoor = buildShell(listOf(syncFaces(rect(listOf(piece), listOf(Opening("d", "door", "E", 800, 2100, 600))))), true)
         assertEquals(18, withDoor.parts.first { it.wall == "iw" }.faces.size)
         // an arch: two parts and the lintel
-        val arch = buildShell(listOf(rect(listOf(piece.copy(k = "arch", len = 2400, opW = 900, opH = 2100)))), true)
+        val arch = buildShell(listOf(rect(listOf(piece.copy(k = "arch", len = 2400, op = uz.metrx.app.data.IwOp(900, 2100))))), true)
         assertEquals(18, arch.parts.first { it.wall == "iw" }.faces.size)
     }
 

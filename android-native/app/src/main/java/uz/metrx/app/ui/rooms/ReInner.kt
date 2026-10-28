@@ -172,14 +172,14 @@ fun App.iwSetOpW(s: ReSession, v: Int) {
     val p = s.selPiece ?: return
     if (p.opW == v) return
     if (v > p.len - 200) { iwWarn(t("iw.opWide", "v" to mm(p.len - 200))); return }
-    iwSet(s, t("iw.chOpW", "n" to iwName(p.k), "a" to mm(p.opW), "b" to mm(v))) { it.copy(opW = v) }
+    iwSet(s, t("iw.chOpW", "n" to iwName(p.k), "a" to mm(p.opW), "b" to mm(v))) { it.copy(op = uz.metrx.app.data.IwOp(v, it.opH)) }
 }
 
 fun App.iwSetOpH(s: ReSession, v: Int) {
     val p = s.selPiece ?: return; val r = s.room ?: return
     if (p.opH == v) return
     if (v > roomH(r) - 50) { iwWarn(t("iw.hHigh", "v" to mm(roomH(r)))); return }
-    iwSet(s, t("iw.chOpH", "n" to iwName(p.k), "a" to mm(p.opH), "b" to mm(v))) { it.copy(opH = v) }
+    iwSet(s, t("iw.chOpH", "n" to iwName(p.k), "a" to mm(p.opH), "b" to mm(v))) { it.copy(op = uz.metrx.app.data.IwOp(it.opW, v)) }
 }
 
 fun App.iwRound(s: ReSession, rd: Boolean) { val p = s.selPiece ?: return; if (p.round != rd) iwSet(s, t(if (rd) "iw.toRound" else "iw.toSquare")) { it.copy(round = rd) } }

@@ -20,7 +20,7 @@ class InnerWallsTest {
             openings = ops, points = pts, inner = inner)
 
     private fun wall(id: String = "p1", k: String = "straight", x: Int = 1700, y: Int = 1300, len: Int = 2000, ang: Int = 0, len2: Int = 0, th: Int = 100) =
-        InnerWall(id, k, x, y, ang, len, len2, th, if (k == "half") 1100 else 0, false, if (k == "arch") 900 else 0, if (k == "arch") 2100 else 0)
+        InnerWall(id, k, x, y, ang, len, len2, th, if (k == "half") 1100 else 0, false, if (k == "arch") uz.metrx.app.data.IwOp(900, 2100) else null)
 
     private fun near(a: V2, x: Double, y: Double) = kotlin.math.abs(a.x - x) < 1e-6 && kotlin.math.abs(a.y - y) < 1e-6
 
@@ -109,6 +109,29 @@ class InnerWallsTest {
         assertEquals(InnerWall("w", "straight", 10, 20, len = 2000), js.decodeFromString(InnerWall.serializer(), p))
         val withIn = rect(inner = listOf(wall()))
         assertEquals(withIn, js.decodeFromString(Room.serializer(), js.encodeToString(Room.serializer(), withIn)))
+    }
+
+    @Test fun savedLikeTheIphoneFacesByKeyArchPassageAsOp() {
+        val js = Json { ignoreUnknownKeys = true; encodeDefaults = true }
+        val r = syncFaces(rect(inner = listOf(wall(), wall("p2", k = "arch", len = 2400, y = 600)),
+            ops = listOf(Opening("d", "door", "G", 800, 2000, 300)), pts = listOf(SitePoint("s", "socket", "E", 400, 300))))
+        val disk = roomToDisk(r)
+        assertEquals("p2:0", disk.openings[0].wall); assertEquals("", disk.openings[0].fk)
+        assertEquals("p1:0", disk.points[0].wall)
+        val text = js.encodeToString(Room.serializer(), disk)
+        assertTrue(text.contains("\"op\":{\"w\":900,\"h\":2100}")); assertFalse(text.contains("opW"))
+        assertFalse(text.contains("\"fk\""))
+        // read back: the letters again, the keys kept
+        val back = roomFromDisk(js.decodeFromString(Room.serializer(), text))
+        assertEquals(r, back)
+        // the iPhone's own form reads too (an arch without the Android-only fields)
+        val ios = """{"id":"r","floorId":"f","name":"X","dims":{"A":{"v":3400},"B":{"v":2600},"H":{"v":2700}},"inner":[{"id":"w1","k":"arch","x":1700,"y":1300,"len":2400,"th":100,"op":{"w":900,"h":2100}}],
+            "openings":[{"id":"o","type":"door","wall":"w1:1","w":800,"h":2000,"off":200}]}"""
+        val ir = roomFromDisk(js.decodeFromString(Room.serializer(), ios))
+        assertEquals(900, ir.inner[0].opW); assertEquals("F", ir.openings[0].wall); assertEquals("w1:1", ir.openings[0].fk)
+        // a project's rooms and its quotes' rooms both
+        val p = uz.metrx.app.data.Project("p", "P", rooms = listOf(r))
+        assertEquals("p2:0", uz.metrx.app.data.onDisk(p) { roomToDisk(it) }.rooms[0].openings[0].wall)
     }
 
     /* ---- snap and gaps ---- */

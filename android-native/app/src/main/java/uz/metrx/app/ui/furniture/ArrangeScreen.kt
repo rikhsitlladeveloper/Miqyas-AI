@@ -379,7 +379,11 @@ private fun PlaceCanvas(app: App, pid: String, st: ArrState, room: Room, walls: 
         // the labels of narrow passages
         val seen = ArrayList<Offset>()
         chk.yel.values.flatten().forEach { y ->
-            val a = M(y.p0); val b = M(y.p1); val m = Offset((a.x + b.x) / 2, (a.y + b.y) / 2)
+            val a = M(y.p0); val b = M(y.p1); val l = max(hypot(b.x - a.x, b.y - a.y), 1f)
+            // beside its dimension line (up, or left of an upright one), clear of the blue distance pills on it
+            var qx = -(b.y - a.y) / l; var qy = (b.x - a.x) / l
+            if (qy > .01f || (abs(qy) <= .01f && qx > 0)) { qx = -qx; qy = -qy }
+            val m = Offset((a.x + b.x) / 2 + qx * 20 * u, (a.y + b.y) / 2 + qy * 20 * u)
             if (seen.any { hypot(it.x - m.x, it.y - m.y) < 24 * u }) return@forEach
             seen += m
             AmberTag(app.t("fp.pl.pass", "v" to mm(y.gap)), m.x, m.y)

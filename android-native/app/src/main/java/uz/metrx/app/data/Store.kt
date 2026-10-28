@@ -52,7 +52,7 @@ class Store private constructor(context: Context) {
             while (c.moveToNext()) {
                 val text = c.getString(1)
                 // trade data left on rooms deleted before deleting took it along goes now (shown nowhere, still counted)
-                runCatching { withoutOrphans(json.decodeFromString(Project.serializer(), text)) }
+                runCatching { withoutOrphans(onDisk(json.decodeFromString(Project.serializer(), text)) { uz.metrx.app.geo.roomFromDisk(it) }) }
                     .onSuccess { loaded += it }
                     .onFailure {
                         Log.e("METRX", "a saved project could not be read and was skipped", it)
@@ -119,7 +119,7 @@ class Store private constructor(context: Context) {
     /** Writes one project; false when it failed (logged, and said once until a write works again). */
     private fun write(p: Project): Boolean {
         try {
-            val text = json.encodeToString(Project.serializer(), p)
+            val text = json.encodeToString(Project.serializer(), onDisk(p) { uz.metrx.app.geo.roomToDisk(it) })
             val w = db.writableDatabase
             w.beginTransaction()
             try {
@@ -167,4 +167,16 @@ class Store private constructor(context: Context) {
         @Volatile private var inst: Store? = null
         fun get(context: Context) = inst ?: synchronized(this) { inst ?: Store(context).also { inst = it } }
     }
+}
+
+/**
+ * [p] with [f] applied to every room that has inner walls (its own and its quotes' frozen ones): items on an inner wall's
+ * face are saved by the face's key, as the iPhone saves them (geo/InnerWalls.kt roomToDisk, roomFromDisk).
+ */
+internal fun onDisk(p: Project, f: (Room) -> Room): Project {
+    fun has(r: Room) = r.inner.isNotEmpty()
+    if (p.rooms.none(::has) && p.quotes.none { q -> q.sn.rooms.any { has(it.room) } || q.sn.calcRooms.any { has(it.room) } }) return p
+    fun g(r: Room) = if (has(r)) f(r) else r
+    return p.copy(rooms = p.rooms.map(::g), quotes = p.quotes.map { q -> q.copy(sn = q.sn.copy(rooms = q.sn.rooms.map { it.copy(room = g(it.room)) },
+        calcRooms = q.sn.calcRooms.map { it.copy(room = g(it.room)) })) })
 }
