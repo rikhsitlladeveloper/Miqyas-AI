@@ -608,8 +608,10 @@ struct DzcMiddle: View {
             HStack(spacing: 2) {
                 ForEach([(false, "2D"), (true, "3D")], id: \.0) { k, l in
                     let on = k == d3
-                    T(l, ui(14, on ? 800 : 600, on ? G.ink : G.ink2))
-                        .padding(.horizontal, 12).frame(minHeight: 46)
+                    // one line always: on a small phone with a long main button "2D" wrapped to "2 / D"
+                    T(l, ui(14, on ? 800 : 600, on ? G.ink : G.ink2), lines: 1)
+                        .fixedSize()
+                        .padding(.horizontal, 10).frame(minHeight: 46)
                         .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(on ? G.glass(0.95) : .clear))
                         .pressable(0.97) { if !on { onDim(k) } }
                         .accessibilityAddTraits(on ? [.isButton, .isSelected] : .isButton)

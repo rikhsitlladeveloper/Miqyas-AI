@@ -280,7 +280,8 @@ struct RePickWindow: View {
         let cur = p.v[f]
         head(p, reKindName(p.kind) + " · " + reStyleName(p.kind, p.style), tr("re.stepOf", ["w": reWL(p.wall), "i": i + 1, "n": steps.count]))
         ReSizeArt(it: it, field: f, roomH: g.H, bad: err != nil, fmt: reLen)
-            .frame(height: kb ? 100 : 176)
+            // a short phone with the keyboard up: a strip, so the window's head stays in sight (it was scrolled off)
+            .frame(height: kb ? (UIScreen.main.bounds.height < 700 ? 58 : 100) : 176)
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(RD.elev))
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         HStack(spacing: 5) {

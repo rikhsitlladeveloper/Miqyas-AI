@@ -115,8 +115,10 @@ struct ToastHost: View {
                     T(m.text, ui(14.5, 600, .white, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
                     if let a = m.action {
                         // 48 pt: easy to hit (UX upgrades section 3)
-                        HStack(spacing: 6) { MIcon("undo", .white, 16, 2.2); T(a, ui(14, 700, .white), lines: 2).fixedSize(horizontal: false, vertical: true) }
+                        HStack(spacing: 6) { MIcon("undo", .white, 16, 2.2); T(a, ui(14, 700, .white), lines: 2).fixedSize(horizontal: false, vertical: true).minimumScaleFactor(0.85) }
                             .padding(.horizontal, 12).frame(minHeight: 48)
+                            // the message wraps first: "Отменить" was broken into "Отменит / ь" on a small phone
+                            .layoutPriority(1)
                             .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.white.opacity(0.14)))
                             .pressable(0.97) { if acted != m.id { acted = m.id; m.onAction?() }; hide() }
                             .accessibilityIdentifier("toast.undo")

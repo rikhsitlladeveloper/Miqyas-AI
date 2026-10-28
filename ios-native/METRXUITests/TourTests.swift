@@ -228,8 +228,9 @@ class TourBase: ScreenTestCase {
 
     func type(_ field: XCUIElement?, _ v: String, clear: Bool = false) {
         guard let field, hit(field) else { return }
-        usleep(400_000)
-        field.typeText((clear ? String(repeating: XCUIKeyboardKey.delete.rawValue, count: 12) : "") + v)
+        usleep(500_000)
+        // typed into whatever has the focus now (the field's own snapshot can be gone once the keyboard moved it)
+        app.typeText((clear ? String(repeating: XCUIKeyboardKey.delete.rawValue, count: 12) : "") + v)
         usleep(300_000)
     }
 
@@ -247,7 +248,9 @@ class TourBase: ScreenTestCase {
 
     /// The page's own back button.
     func back() {
-        let p = NSPredicate(format: "identifier == 'back' OR label == %@ OR label == 'Orqaga'", tr("nt.back"))
+        // a page's back button, or a full-page form's X (the new order)
+        let p = NSPredicate(format: "identifier == 'back' OR label == %@ OR label == 'Orqaga' OR (label == %@ AND NOT (identifier == 'sheet.close'))",
+                            tr("nt.back"), tr("common.close"))
         if let b = app.buttons.matching(p).allElementsBoundByIndex.last(where: { $0.m3Seen }) { b.tap(); usleep(1_200_000) }
         else { app.swipeRight(); usleep(800_000) }
     }
@@ -418,6 +421,11 @@ class TourBase: ScreenTestCase {
         if tap("re.vFront", 3) { S("re-wall-view"); tap("re.vPlan", 2) }
         if tap("re.v3d", 3, wait: 3) { S("re-3d"); tap("re.v2d", 2) }
         if reToolT("more") { S("re-more"); tap("dzc.back", 2, wait: 0.5) }
+        // nothing selected at the end (the inner wall piece's tools have no "Qo‘shimcha")
+        tap("re.desel", 1, wait: 0.5)
+        if find("re.t.add", 1) == nil {
+            app.coordinate(withNormalizedOffset: CGVector(dx: 0.06, dy: 0.24)).tap(); usleep(700_000)
+        }
     }
 
     /// The editor's tool t ("re.t.<t>"), its slider dragged until it is on the screen.
@@ -453,6 +461,7 @@ class TourBase: ScreenTestCase {
 
     /// Profile → "Kengaytirilgan" on (prices, stages, estimates); back to Home.
     func advancedOn() {
+        _ = toHome()
         guard tap("tab.profile", 5, wait: 1) else { skip("advanced-profile"); return }
         if tap("pf.advanced", 4, wait: 1.2) { S("profile-advanced-on") } else { skip("advanced-switch") }
         calm()
@@ -732,6 +741,8 @@ final class TourFurnTests: TourBase {
             if let c = find(g, 2), bring(c, vertical: false) { c.tap(); usleep(900_000) }
             guard hit(find(m, 4)) else { skip(name + "-card"); continue }
             usleep(1_200_000)
+            // a tap while the list was still gliding to the group: once more
+            if find("fx.next", 1.5) == nil && find("fx.value", 0.5) == nil && find("fx.go", 0.5) == nil { hit(find(m, 2)); usleep(1_200_000) }
             S(name + "-step1")
             guard sizes(name) else { skip(name + "-sizes"); continue }
             S(name + "-summary")
@@ -771,7 +782,12 @@ class TourTradeBase: TourBase {
         role = industry
         start(industry)
         S("home")
-        explore("home", ["home."], marker: "home.new", max: 4)
+        // the trade's own gallery tile and the Measure page from Home
+        for t in ["home.tGallery", "home.eGallery", "home.pGallery", "home.wGallery"] where tap(t, 1, wait: 1.5) {
+            S("home-tile"); closeSheets(); if !(find("home.new", 1)?.m3Seen ?? false) { backTo("home.new", 3) }; tap("re.pkX", 0.5)
+            _ = toHome()
+        }
+        if tap("home.measure", 2, wait: 1.2) { S("home-measure"); _ = toHome() }
         guard newOrder("Aziza Nazarova") else { return }
         if find("sd.a", 4) != nil {
             S("start-dialog")

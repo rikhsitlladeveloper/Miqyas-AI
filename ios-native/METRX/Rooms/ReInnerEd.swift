@@ -339,7 +339,8 @@ struct ReIwWindow: View {
                         ForEach(IW_KINDS.map(\.id), id: \.self) { k in
                             VStack(alignment: .leading, spacing: 3) {
                                 IwThumb(k: k).background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(G.glass(0.7)))
-                                T(iwName(k), ui(13, 800), lines: 1)
+                                // two lines: "Стена с проёмом (арка)" was cut off
+                                T(iwName(k), ui(13, 800, lh: 1.15), lines: 2).minimumScaleFactor(0.85)
                                 T(iwCardLine(k), num(11, 500, G.ink2), lines: 2)
                             }
                             .padding(8)

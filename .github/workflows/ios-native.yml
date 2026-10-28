@@ -134,14 +134,15 @@ jobs:
           # grouped by their last measured times, about 10-12 minutes of tests each; a new screen-test class
           # (METRXUITests/ScreenTests.swift) runs only once it is added to one of these lists
           - group: builder
-            tests: Part1Tests Part2Tests Part3Tests Part4Tests Part5Tests Furniture2Tests UXTests
+            # (Furniture2Tests and UXTests went to m3d on 28 Oct: with them this group passed the 35 minutes, run 40716502786)
+            tests: Part1Tests Part2Tests Part3Tests Part4Tests Part5Tests
           - group: report-measure
             tests: Part6Tests Part7Tests EdgeMeasureTests Furniture1Tests Furniture3Tests Furniture8Tests RoomShapeTests Furniture7Tests
           - group: furniture
             tests: Furniture4Tests Furniture5Tests Furniture6Tests
           # the modern 3D shots alone: with the furniture tests they passed the 35-minute limit
           - group: m3d
-            tests: Modern3DShots
+            tests: Modern3DShots Furniture2Tests UXTests
     defaults:
       run:
         working-directory: ios-native

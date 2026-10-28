@@ -550,7 +550,7 @@ struct FStepsScreen: View {
     /// The size step's laser, mic and laser line scrolled above the "Keyingi" bar once the keyboard is up.
     private func toolsUp(_ proxy: ScrollViewProxy) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo("fx.tools", anchor: UnitPoint(x: 0.5, y: 0.7)) }
+            withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo("fx.end", anchor: .bottom) }
         }
     }
 
@@ -606,6 +606,8 @@ struct FStepsScreen: View {
             }
             .padding(.horizontal, 4).frame(minHeight: 32)
             .id("fx.tools")
+            // the floating "Keyingi" bar's room: scrolled to with the keyboard up, the field and the laser stay above the bar
+            Color.clear.frame(height: 96).id("fx.end")
         }
     }
 

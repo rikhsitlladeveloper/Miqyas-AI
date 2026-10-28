@@ -272,7 +272,9 @@ struct LaserRadarScreen: View {
         let m = modeNow(lasers)
         let every = tickEvery(m)
         GeometryReader { geo in
-            let size: CGFloat = min(geo.size.width * 0.84, geo.size.height * 0.40, 310)
+            // a short phone (iPhone SE): a smaller radar, so the line under it is not covered by the card (it showed
+            // through the glass, over the card's own words)
+            let size: CGFloat = min(geo.size.width * 0.84, geo.size.height * (geo.size.height < 720 ? 0.29 : 0.40), 310)
             ZStack(alignment: .bottom) {
                 VStack(spacing: 0) {
                     header
@@ -282,7 +284,7 @@ struct LaserRadarScreen: View {
                     Spacer(minLength: 0)
                 }
                 .frame(maxWidth: .infinity)
-                cardArea(m, lasers, maxH: geo.size.height * 0.46)
+                cardArea(m, lasers, maxH: geo.size.height * (geo.size.height < 720 ? 0.41 : 0.46))
                 if othersOpen { othersSheet }
             }
         }
