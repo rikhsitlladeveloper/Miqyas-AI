@@ -7,11 +7,21 @@ import SwiftUI
  * haptic, a wrong number shows its error with a warning haptic.
  */
 
+/// What a size field keeps between keys: the voice's words and the value they replaced, the green flash count and
+/// the laser waiting (the room-shape draft, and the room editor's size steps).
+protocol RshFieldHost: AnyObject {
+    var heard: (before: String, words: String)? { get set }
+    var flash: Int { get set }
+    var busy: Bool { get set }
+}
+
+extension RshDraft: RshFieldHost {}
+
 /// The field and its tools. text is what is typed (in unit); fresh: the value was put in for the maker (the last
 /// height, a size opened again) and the first key replaces it; hint shows when empty; issue a red line under it.
 struct RshSizeField: View {
     let app: AppModel
-    let d: RshDraft
+    let d: any RshFieldHost
     /// Changes with each step, so the field takes the focus again.
     let key: String
     let label: String
@@ -27,12 +37,14 @@ struct RshSizeField: View {
     /// A laser or voice value, mm; words: what was heard (nil from the laser).
     let onValue: (Int, String?) -> Void
     let onUnVoice: () -> Void
+    /// Quick chips between the help line and the field (the room editor's size steps).
+    var chips: AnyView? = nil
     @FocusState private var focused: Bool
     @State private var glow = false
     @State private var seenFlash = 0
 
     var body: some View {
-        let unit = rshUnit(d)
+        let unit = AppSettings.shared.unit
         let uw = unitWord(unit)
         let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
         let bad = issue != nil
@@ -51,6 +63,7 @@ struct RshSizeField: View {
             } else {
                 T(help, ui(13, 400, G.ink2, lh: 1.35))
             }
+            if let chips { chips }
             HStack(spacing: 10) {
                 // a value put in for the maker (the last height, a size opened again) shows as the field's blue prompt over an
                 // empty field, so the first key typed replaces it (as selected text would) and "Keyingi" keeps it; the
@@ -58,7 +71,7 @@ struct RshSizeField: View {
                 let shownFresh = fresh && !text.isEmpty
                 TextField("", text: Binding(get: { shownFresh ? "" : text }, set: { v in
                     let now = live()
-                    let clean = String(v.filter { $0.isNumber || (unit != .mm && ($0 == "," || $0 == ".")) }.prefix(unit == .mm ? 5 : 8))
+                    let clean = String(v.filter { $0.isNumber || (unit != .mm && ($0 == "," || $0 == ".")) }.prefix(unit == .mm ? 6 : 8))
                     if now.fresh && !now.text.isEmpty { if !clean.isEmpty { onText(clean) }; return }
                     if clean != now.text { onText(clean) }
                 }), prompt: Text(shownFresh ? text : unit == .mm ? fmtMm(Double(hint)) : Geo.fmtField(hint, unit, rshEn))
@@ -120,7 +133,7 @@ func rshReplaceFresh(_ old: String, _ new: String) -> String {
 
 /// The laser button's reading: the real laser's next measurement; with the screen tests' simulator the newest reading
 /// not used yet, else one near hint; with no laser, the radar to connect one.
-func rshRead(_ app: AppModel, _ d: RshDraft, _ hint: Int, _ label: String, _ got: @escaping (Int) -> Void) {
+func rshRead(_ app: AppModel, _ d: any RshFieldHost, _ hint: Int, _ label: String, _ got: @escaping (Int) -> Void) {
     guard !d.busy else { return }
     if LaserRouter.shared.isReal {
         d.busy = true

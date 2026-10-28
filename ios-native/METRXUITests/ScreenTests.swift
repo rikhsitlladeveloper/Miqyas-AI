@@ -66,12 +66,36 @@ class ScreenTestCase: XCTestCase {
         usleep(800_000)
     }
 
+    /// "Nimadan boshlaymiz?" after a new order or project (room-editor mockup v2): its card or "Keyinroq" by id
+    /// (sd.a the room, sd.b without one, sd.later the order page).
+    func startDialog(_ app: XCUIApplication, _ id: String) {
+        let b = app.buttons[id]
+        if b.waitForExistence(timeout: 4) { if !b.isHittable { app.swipeUp(); usleep(500_000) }; b.tap(); usleep(1_000_000) }
+    }
+
+    /// From the room editor v2 (or the furniture gallery's "Xonani tahrirlash") to the old editor under "Qo‘shimcha",
+    /// where the older tests go on.
+    func toOldEditor(_ app: XCUIApplication) {
+        // the furniture gallery's coach mark or its style question, if they show
+        if app.buttons["ux.coachOk"].waitForExistence(timeout: 1) { app.buttons["ux.coachOk"].tap(); usleep(500_000) }
+        if app.buttons["re.editRoom"].waitForExistence(timeout: 3) {
+            if !app.buttons["re.editRoom"].isHittable { app.swipeUp(); usleep(500_000) }
+            app.buttons["re.editRoom"].tap(); sleep(1)
+        }
+        guard app.buttons["re.t.more"].waitForExistence(timeout: 4) else { return }
+        app.buttons["re.t.more"].tap(); usleep(700_000)
+        XCTAssertTrue(app.buttons["re.old"].waitForExistence(timeout: 3))
+        app.buttons["re.old"].tap(); sleep(1)
+        if app.buttons["tip.ok"].waitForExistence(timeout: 2) { app.buttons["tip.ok"].tap(); usleep(700_000) }
+    }
+
     /// A project with one workspace, opened at the workspace page (for the editor tests).
     func newWorkspace(_ app: XCUIApplication, _ name: String) {
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText(name)
         app.textFields.element(boundBy: 1).tap(); app.textFields.element(boundBy: 1).typeText(name == "Дом" ? "Иван" : "Ali Valiyev")
         app.buttons["np.save"].tap(); usleep(1_000_000)
+        startDialog(app, "sd.later")
         XCTAssertTrue(app.buttons["ws.create"].waitForExistence(timeout: 4))
         app.buttons["ws.create"].tap(); usleep(800_000)
         app.buttons["ws.save"].tap(); usleep(1_000_000)
@@ -84,10 +108,8 @@ class ScreenTestCase: XCTestCase {
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText(who)
         app.buttons["no.create"].tap(); usleep(1_200_000)
-        // the design style step comes first (modern 3D part 2): chosen later
-        if app.buttons["lk.later"].waitForExistence(timeout: 4) { if !app.buttons["lk.later"].isHittable { app.swipeUp(); usleep(600_000) }; app.buttons["lk.later"].tap(); usleep(900_000) }
-        XCTAssertTrue(app.buttons["fg.measure"].waitForExistence(timeout: 4))
-        app.buttons["fg.measure"].tap(); usleep(900_000)
+        // "Nimadan boshlaymiz?": the room first (the same room sheet as the gallery's "Avval xonani o‘lchash")
+        startDialog(app, "sd.a")
         let roomType = ["wardrobe": "Yotoqxona"][need]
         if let roomType {
             // the sheet's room type chip, not the gallery's group chip of the same name behind the sheet (a tap on that
@@ -111,17 +133,24 @@ class ScreenTestCase: XCTestCase {
         app.buttons["rsh.next"].tap(); usleep(700_000)
     }
 
-    /// A door, window or pipe in the flow's openings step: its card, its wall on the plan, then its sizes (a window's
+    /// A door, window or pipe in the flow's openings step (room-editor mockup v2): its icon, its wall chip, the first
+    /// style card, then its sizes one per step (vals: the distance first, which the wall's middle now takes; a window's
     /// sill, 900 put in, is kept).
     func flowOp(_ app: XCUIApplication, _ kind: String, _ wall: String, _ vals: [String]) {
-        XCTAssertTrue(app.buttons["rsh.op." + kind].waitForExistence(timeout: 4))
-        app.buttons["rsh.op." + kind].tap(); usleep(800_000)
-        let w = app.descendants(matching: .any).matching(identifier: "rsh.wall." + wall).firstMatch
+        let tile = app.buttons["re.tile." + kind]
+        XCTAssertTrue(tile.waitForExistence(timeout: 4))
+        tile.tap(); usleep(700_000)
+        let w = app.buttons["re.wchip." + wall]
         XCTAssertTrue(w.waitForExistence(timeout: 4))
-        w.tap(); usleep(800_000)
-        for v in vals { flowType(app, v) }
+        w.tap(); usleep(900_000)
+        let card = app.buttons[kind == "window" ? "re.sty.double" : "re.sty.single"]
+        XCTAssertTrue(card.waitForExistence(timeout: 4))
+        card.tap(); usleep(900_000)
+        for v in vals.dropFirst() { flowType(app, v) }
         if kind == "window" { app.buttons["rsh.next"].tap(); usleep(800_000) }
-        usleep(400_000)
+        usleep(600_000)
+        // the floating card of the item just placed: put away, so the next icon's chips are free
+        if app.buttons["re.desel"].waitForExistence(timeout: 2) { app.buttons["re.desel"].tap(); usleep(500_000) }
     }
 
     /// The room-shape flow from its shape screen to the editor (room-shapes spec §2): the shape (the rectangle unless
@@ -147,6 +176,9 @@ class ScreenTestCase: XCTestCase {
         app.buttons["rsh.opsDone"].tap(); usleep(900_000)
         XCTAssertTrue(app.buttons["rsh.open"].waitForExistence(timeout: 4)); pic("-summary")
         app.buttons["rsh.open"].tap(); sleep(1)
+        if let shots, app.buttons["re.t.more"].waitForExistence(timeout: 3) { shot(shots + "-room-editor") }
+        // the room editor v2 opens (a furniture maker's gallery first); the older tests go on in the old editor
+        toOldEditor(app)
         if app.buttons["tip.ok"].waitForExistence(timeout: 2) { app.buttons["tip.ok"].tap(); usleep(700_000) }
     }
 
@@ -328,7 +360,7 @@ final class Part2Tests: ScreenTestCase {
         app.textFields.element(boundBy: 2).tap(); app.textFields.element(boundBy: 2).typeText("901112233")
         app.textFields.element(boundBy: 3).tap(); app.textFields.element(boundBy: 3).typeText("Chilonzor 9")
         shot("41-new-project-filled")
-        app.buttons["np.save"].tap(); usleep(1_000_000); shot("42-project")
+        app.buttons["np.save"].tap(); usleep(1_000_000); shot("42-start-dialog"); startDialog(app, "sd.later"); shot("42-project")
         app.buttons["ws.create"].tap(); usleep(800_000); shot("43-new-workspace")
         btn(app, "Hammom").tap(); usleep(400_000); shot("44-new-workspace-bath")
         app.buttons["ws.save"].tap(); usleep(1_000_000); shot("45-workspace-blank")
@@ -771,7 +803,7 @@ final class Furniture1Tests: ScreenTestCase {
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText("Dilnoza Karimova")
         shot("f1-04-new-order")
-        app.buttons["no.create"].tap(); sleep(1); shot("f1-04a-style")
+        app.buttons["no.create"].tap(); sleep(1); shot("f1-04-start-dialog"); startDialog(app, "sd.b"); shot("f1-04a-style")
         // the design style step comes first (modern 3D part 2): chosen later
         if app.buttons["lk.later"].waitForExistence(timeout: 4) { if !app.buttons["lk.later"].isHittable { app.swipeUp(); usleep(600_000) }; app.buttons["lk.later"].tap(); usleep(900_000) }
         shot("f1-04b-gallery")
@@ -1131,7 +1163,7 @@ final class Furniture8Tests: ScreenTestCase {
         firstRun(app, "ind.furn")
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText("Dilnoza Karimova")
-        app.buttons["no.create"].tap(); usleep(1_200_000)
+        app.buttons["no.create"].tap(); usleep(1_200_000); startDialog(app, "sd.b")
         // the design style step comes first (modern 3D part 2): chosen later
         if app.buttons["lk.later"].waitForExistence(timeout: 4) { if !app.buttons["lk.later"].isHittable { app.swipeUp(); usleep(600_000) }; app.buttons["lk.later"].tap(); usleep(900_000) }
         XCTAssertTrue(app.buttons["model.L"].waitForExistence(timeout: 4)); shot("f8-01-gallery")
@@ -1192,7 +1224,7 @@ final class UXTests: ScreenTestCase {
         // a new order: the gallery with the style row on top
         app.buttons["home.new"].tap(); usleep(900_000)
         app.textFields.element(boundBy: 0).typeText("Aziza Nazarova")
-        app.buttons["no.create"].tap(); sleep(2)
+        app.buttons["no.create"].tap(); sleep(2); startDialog(app, "sd.b")
         if app.buttons["ux.coachOk"].waitForExistence(timeout: 2) { shot("ux-05-gallery-coach"); app.buttons["ux.coachOk"].tap(); usleep(600_000) }
         shot("ux-11-gallery")
         // the style row: another style (the second chip, on screen) repaints the cards

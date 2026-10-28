@@ -44,9 +44,8 @@ struct RoomShapeScreen: View {
         case "walls": WallsStep(app: app, d: d, kb: kb)
         case "height": HeightStep(app: app, d: d, kb: kb)
         case "ops":
-            if let op = d.op {
-                if op.stage == "wall" { OpWall(app: app, d: d, op: op) } else { OpNum(app: app, d: d, op: op, kb: kb) }
-            } else { OpsList(app: app, d: d) }
+            // the redesigned step (room-editor mockup v2): drag or tap the icons onto the walls, the style window, the sizes
+            ReOpsStep(app: app, d: d, back: { rshBack(app, d) }, done: { go(d, "summary") })
         case "summary": SummaryStep(app: app, d: d)
         default: ShapeStep(app: app, d: d)
         }
@@ -86,7 +85,15 @@ private func rshBack(_ app: AppModel, _ d: RshDraft) {
     case "height":
         if d.ret { d.ret = false; go(d, "summary") }
         else { let n = rshAsks(d).count; setStep(d, d.shape == "free" ? n : max(0, n - 1)); go(d, "walls") }
-    case "ops": if let op = d.op { opBack(d, op) } else { go(d, "height") }
+    case "ops":
+        // the style window, a number or the list closes first; then the selection; then back to the height
+        if let st = ReState.map[d.key] {
+            if st.kp != nil { st.kp = nil; return }
+            if let p = st.pk { if p.phase == "style" { st.pkCancel() } else { st.pkBack(rshWorkHost(d)) }; return }
+            if st.list { st.list = false; return }
+            if st.sel != nil || st.arm != nil { st.deselect(); return }
+        }
+        go(d, "height")
     case "summary": go(d, "ops")
     default: app.pop()
     }
@@ -100,8 +107,13 @@ private func rshBack(_ app: AppModel, _ d: RshDraft) {
     case "walls": d.input = t; d.fresh = false; d.err = nil
     case "height": d.hIn = t; d.hFresh = false; d.hErr = nil
     case "ops":
-        guard var op = d.op, op.stage == "num" else { return false }
-        op.input = t; op.fresh = false; op.err = nil; d.op = op
+        // a real laser's reading goes into the style window's size, or the number being typed
+        guard let st = ReState.map[d.key] else { return false }
+        if st.kp != nil { st.kpText = t }
+        else if st.pkField() != nil { st.pkSet(mm) }
+        else { return false }
+        st.heard = nil; st.flash += 1; Haptic.confirm()
+        return true
     default: return false
     }
     d.heard = nil; d.flash += 1; Haptic.confirm()
@@ -299,7 +311,7 @@ private struct ShapeCard: View {
             }
             .contentShape(Rectangle())
             .pressable(0.98) {
-                if d.shape != k.id { d.shape = k.id; d.vals = [:]; d.mir = false; d.rot = 0; d.diag = nil; if k != .free { d.sk = nil }; d.ops = [] }
+                if d.shape != k.id { d.shape = k.id; d.vals = [:]; d.mir = false; d.rot = 0; d.diag = nil; if k != .free { d.sk = nil }; d.ops = []; d.wOps = []; d.wPts = [] }
                 Haptic.tick()
             }
             .accessibilityAddTraits(sel ? [.isSelected] : [])
@@ -334,7 +346,7 @@ private struct ShapeCard: View {
 private func sketchDone(_ app: AppModel, _ d: RshDraft, _ mm: [Pt]) {
     let fsk = freeSketch(mm)
     if fsk.dirs.count < 3 { app.say("sk.cross", kind: .error); return }
-    d.sk = fsk; d.vals = [:]; d.diag = nil; d.ops = []; d.ret = false
+    d.sk = fsk; d.vals = [:]; d.diag = nil; d.ops = []; d.wOps = []; d.wPts = []; d.ret = false
     Haptic.confirm()
     setStep(d, 0); go(d, "walls")
 }
@@ -377,6 +389,8 @@ private struct WallsStep: View {
                          onNext: { wallsNext(d) },
                          onValue: { mm, words in takeValue(d, mm, words) },
                          onUnVoice: { unVoice(d) })
+            // a wall above 30 m: "Katta devor — to‘g‘rimi?", never in the way (room-editor mockup v2)
+            if !isD, d.err == nil, let t = typed, t > Geo.WALL_BIG, t <= RSH_WALL_MAX { ReBigNote(mm: t) }
         }
     }
 }
@@ -726,7 +740,7 @@ private struct SummaryStep: View {
         let ch = tr("fz.change")
         let err = g.error.map { rshErrText(d, $0) }
         var look = PlanLook(final: true)
-        look.ops = d.ops; look.fmt = lenFmt(d)
+        look.ops = rshOpsForPlan(d); look.fmt = lenFmt(d)
         if let dg = d.diag { look.diagK = rshDiagK(d); look.diagTxt = lenWords(dg, unit) }
         let size = g.size
         // in the editor's letter order (a mirrored shape was asked the other way round)
@@ -768,11 +782,12 @@ private struct SummaryStep: View {
             Sect(tr("rsh.hTitle"))
             SumRow(label: tr("rsh.hT"), value: lenWords(d.height, unit) + " " + u) { ChangeBtn(label: ch, id: "rsh.changeH") { d.ret = true; go(d, "height") } }
             Sect(tr("rsh.opsShort"))
-            if d.ops.isEmpty {
+            let work = reItems(rshWorkRoom(d))
+            if work.isEmpty {
                 SumRow(label: tr("rsh.opsShort"), value: tr("rsh.none"), small: true, auto: true) { ChangeBtn(label: tr("rsh.add")) { d.ret = false; go(d, "ops") } }
             } else {
-                ForEach(Array(d.ops.enumerated()), id: \.offset) { _, it in
-                    SumRow(label: tr("rsh.op." + it.kind.id) + " · " + geo.letter(it.wall), value: opDesc(it, unit), small: true) {
+                ForEach(work, id: \.id) { it in
+                    SumRow(label: reKindName(it.kind) + " · " + it.wall, value: reStyleName(it.kind, it.style) + " · " + reSizeLine(it), small: true) {
                         ChangeBtn(label: ch) { d.ret = false; go(d, "ops") }
                     }
                 }

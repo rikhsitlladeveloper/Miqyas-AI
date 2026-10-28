@@ -215,7 +215,8 @@ func skirtRuns(_ l: TileLayout, _ g: TRoomGeo, _ all: [TileLayout]) -> [TRun] {
     for w in g.walls {
         if tiledToFloor(all, g.room.id, w.id) { continue }
         var cuts: [(Double, Double)] = []
-        for o in g.room.openings where o.wall == w.id && o.type == "door" { cuts.append((Double(o.off), Double(o.off + o.w))) }
+        // a balcony block's door part cuts the skirting too (Opening.holes)
+        for o in g.room.openings where o.wall == w.id { for hl in o.holes where hl.door { cuts.append((Double(hl.off), Double(hl.off + hl.w))) } }
         for f in g.fixes { if let c = coverOn(g, w, f) { cuts.append(c) } }
         let cols = g.rect ? g.room.features.filter { $0.wall == w.id && $0.type == "column" } : []
         for c in cols { cuts.append((Double(c.off), Double(c.off + c.w))) }
@@ -253,8 +254,8 @@ func profileMm(_ l: TileLayout, _ g: TRoomGeo) -> Double {
             if y1 > lo && y1 < hi { sum += x1 - x0 }
             if y0 > lo + 1 && y0 < hi { sum += x1 - x0 }
         }
-        for o in g.room.openings where o.wall == wid && o.type == "window" {
-            edges(Double(o.off), Double(o.off + o.w), Double(o.sill), Double(o.sill + o.h))
+        for o in g.room.openings where o.wall == wid {
+            for hl in o.holes where !hl.door { edges(Double(hl.off), Double(hl.off + hl.w), Double(hl.sill), Double(hl.sill + hl.h)) }
         }
         if g.rect {
             for f in g.room.features where f.wall == wid {
@@ -285,7 +286,7 @@ func wpM2(_ tr: TileRoom, _ g: TRoomGeo) -> Double {
     if !tr.wp { return 0 }
     var mm2 = abs(polyArea(g.floor))
     for w in g.walls {
-        let doors = g.room.openings.filter { $0.wall == w.id && $0.type == "door" }.reduce(0.0) { $0 + Double($1.w) }
+        let doors = g.room.openings.filter { $0.wall == w.id }.flatMap(\.holes).filter { $0.door }.reduce(0.0) { $0 + Double($1.w) }
         mm2 += max(0.0, w.len - doors) * Double(tr.wpUp)
         for f in g.fixes {
             if let c = coverOn(g, w, f) { mm2 += (c.1 - c.0) * max(0.0, min(Double(tr.showerH), g.H) - Double(tr.wpUp)) }

@@ -276,7 +276,29 @@ struct Opening: Codable, Equatable, Identifiable {
     var sill = 0
     var offDrag = false         // position set by dragging: approximate until saved from its sheet
     var sillDrag = false
+    /// The style (room-editor mockup v2, Rooms/ReCatalog.swift RE_STYLES; Android Opening.style): a door's single, double,
+    /// slide, arch, glass, balcony or fold; a window's single, double, triple, fort, pano or balcony. "" an older opening
+    /// (a door single, a window double). A balcony block (door or window style "balcony") is one opening from the
+    /// floor: w in all, h the door's height (the window's top is level with it), dw the door part's width and wh the
+    /// window's height; its sill stays 0.
+    var style = ""
+    var dw = 0
+    var wh = 0
+    /// A door's threshold, mm (0, 20, 40).
+    var thr = 0
+    /// How it opens, seen from inside: a door's inL, inR, outL, outR; a window's L, R or T (fortochka). "" the usual.
+    var sw = ""
     var approx: Bool { offDrag || sillDrag }
+    /// A balcony block: a door and a window side by side.
+    var balcony: Bool { style == "balcony" && dw > 0 }
+    /// The wall it takes away, mm²: a balcony block's door part plus its window part.
+    var area: Int64 { balcony ? Int64(dw) * Int64(h) + Int64(max(0, w - dw)) * Int64(min(wh, h)) : Int64(w) * Int64(h) }
+    /// The holes it makes in its wall (along it from the wall's start corner): a balcony block's door part (at the start)
+    /// and window part (level with the door's top), else itself.
+    var holes: [(off: Int, w: Int, sill: Int, h: Int, door: Bool)] {
+        if balcony { return [(off, dw, 0, h, true), (off + dw, max(0, w - dw), max(0, h - min(wh, h)), min(wh, h), false)] }
+        return [(off, w, sill, h, type == "door")]
+    }
     init(id: String, type: String, wall: String, w: Int, h: Int, off: Int, sill: Int = 0) {
         self.id = id; self.type = type; self.wall = wall; self.w = w; self.h = h; self.off = off; self.sill = sill
     }
@@ -285,6 +307,21 @@ struct Opening: Codable, Equatable, Identifiable {
         id = try c.decode(String.self, forKey: .id); type = c.v(.type, "door"); wall = c.v(.wall, "A")
         w = c.v(.w, 900); h = c.v(.h, 2100); off = c.v(.off, 0); sill = c.v(.sill, 0)
         offDrag = c.v(.offDrag, false); sillDrag = c.v(.sillDrag, false)
+        style = c.v(.style, ""); dw = c.v(.dw, 0); wh = c.v(.wh, 0); thr = c.v(.thr, 0); sw = c.v(.sw, "")
+    }
+    // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
+    enum CodingKeys: String, CodingKey { case id, type, wall, w, h, off, sill, offDrag, sillDrag, style, dw, wh, thr, sw }
+    /// The new fields are written only when set, so an older opening saves as before (Android EncodeDefault.NEVER).
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id); try c.encode(type, forKey: .type); try c.encode(wall, forKey: .wall)
+        try c.encode(w, forKey: .w); try c.encode(h, forKey: .h); try c.encode(off, forKey: .off); try c.encode(sill, forKey: .sill)
+        try c.encode(offDrag, forKey: .offDrag); try c.encode(sillDrag, forKey: .sillDrag)
+        if !style.isEmpty { try c.encode(style, forKey: .style) }
+        if dw != 0 { try c.encode(dw, forKey: .dw) }
+        if wh != 0 { try c.encode(wh, forKey: .wh) }
+        if thr != 0 { try c.encode(thr, forKey: .thr) }
+        if !sw.isEmpty { try c.encode(sw, forKey: .sw) }
     }
 }
 
@@ -331,8 +368,13 @@ struct Room: Codable, Equatable, Identifiable {
     var points: [SitePoint] = []
     /// Columns and niches (room editor).
     var features: [Feature] = []
+    /// Each wall's own thickness, mm, by wall id (room-editor mockup v2 "Qalinlik"; Android Room.thick); a wall not in
+    /// it has T (200).
+    var thick: [String: Int] = [:]
 
     func dim(_ k: String) -> Dim { dims[k] ?? Dim() }
+    /// Wall id's thickness, mm.
+    func thickOf(_ id: String) -> Int { thick[id] ?? dims["T"]?.v ?? 200 }
     var isPoly: Bool { shape == "poly" && (poly?.verts.count ?? 0) >= 3 }
 
     init(id: String, floorId: String, name: String, created: Ms = 0) { self.id = id; self.floorId = floorId; self.name = name; self.created = created }
@@ -343,7 +385,21 @@ struct Room: Codable, Equatable, Identifiable {
         dims = c.v(.dims, ["A": Dim(), "B": Dim(), "H": Dim(), "T": Dim(v: 200, src: "default")])
         openings = c.v(.openings, []); poly = c.v(.poly, nil); rot = c.v(.rot, 0); views = c.v(.views, [])
         wallColor = c.v(.wallColor, "#ECE8E1"); floorColor = c.v(.floorColor, "#C49A6C"); created = c.v(.created, 0)
-        points = c.v(.points, []); features = c.v(.features, [])
+        points = c.v(.points, []); features = c.v(.features, []); thick = c.v(.thick, [:])
+    }
+    // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
+    enum CodingKeys: String, CodingKey {
+        case id, floorId, name, template, shape, dims, openings, poly, rot, views, wallColor, floorColor, created, points, features, thick
+    }
+    /// The synthesized form, with thick written only when set (a room without it saves as before).
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id); try c.encode(floorId, forKey: .floorId); try c.encode(name, forKey: .name)
+        try c.encode(template, forKey: .template); try c.encode(shape, forKey: .shape); try c.encode(dims, forKey: .dims)
+        try c.encode(openings, forKey: .openings); try c.encodeIfPresent(poly, forKey: .poly); try c.encode(rot, forKey: .rot)
+        try c.encode(views, forKey: .views); try c.encode(wallColor, forKey: .wallColor); try c.encode(floorColor, forKey: .floorColor)
+        try c.encode(created, forKey: .created); try c.encode(points, forKey: .points); try c.encode(features, forKey: .features)
+        if !thick.isEmpty { try c.encode(thick, forKey: .thick) }
     }
 }
 
@@ -376,13 +432,29 @@ struct SitePoint: Codable, Equatable, Identifiable {
     var d = 0
     var mh = 0
     var src = "manual"
-    init(id: String, t: String, wall: String, off: Int, h: Int, d: Int = 0, mh: Int = 0, src: String = "manual") {
+    /// The style (room-editor mockup v2, Rooms/ReCatalog.swift RE_STYLES: a socket's one, two, three, usb or power…);
+    /// "" the kind's first one. The kinds now also include boiler, rad, ac, vent and panel.
+    var style = ""
+    /// A radiator's or an air conditioner's width, mm (0: not given).
+    var pw = 0
+    init(id: String, t: String, wall: String, off: Int, h: Int, d: Int = 0, mh: Int = 0, src: String = "manual", style: String = "", pw: Int = 0) {
         self.id = id; self.t = t; self.wall = wall; self.off = off; self.h = h; self.d = d; self.mh = mh; self.src = src
+        self.style = style; self.pw = pw
     }
     init(from dd: Decoder) throws {
         let c = try dd.container(keyedBy: CodingKeys.self)
         id = try c.decode(String.self, forKey: .id); t = c.v(.t, "socket"); wall = c.v(.wall, "A"); off = c.v(.off, 0); h = c.v(.h, 0)
-        d = c.v(.d, 0); mh = c.v(.mh, 0); src = c.v(.src, "manual")
+        d = c.v(.d, 0); mh = c.v(.mh, 0); src = c.v(.src, "manual"); style = c.v(.style, ""); pw = c.v(.pw, 0)
+    }
+    // spelled out: with both init(from:) and encode(to:) written by hand Swift makes no CodingKeys
+    enum CodingKeys: String, CodingKey { case id, t, wall, off, h, d, mh, src, style, pw }
+    /// style and pw are written only when set, so an older point saves as before (Android EncodeDefault.NEVER).
+    func encode(to e: Encoder) throws {
+        var c = e.container(keyedBy: CodingKeys.self)
+        try c.encode(id, forKey: .id); try c.encode(t, forKey: .t); try c.encode(wall, forKey: .wall); try c.encode(off, forKey: .off)
+        try c.encode(h, forKey: .h); try c.encode(d, forKey: .d); try c.encode(mh, forKey: .mh); try c.encode(src, forKey: .src)
+        if !style.isEmpty { try c.encode(style, forKey: .style) }
+        if pw != 0 { try c.encode(pw, forKey: .pw) }
     }
 }
 

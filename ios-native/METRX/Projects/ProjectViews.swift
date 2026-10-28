@@ -70,7 +70,7 @@ struct Plans2D: View {
                                             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(Color.white))
                                             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(Color.white.opacity(0.8), lineWidth: 1))
                                             .boxShadow(G.shade.opacity(0.12), blur: 28, y: 12)
-                                            .pressable(0.98) { app.push(.editor(pid: p.id, rid: r.id, mode: "plan")) }
+                                            .pressable(0.98) { app.push(.roomEd(pid: p.id, rid: r.id)) }
                                             .accessibilityIdentifier("v2d.room")
                                     }
                                 }

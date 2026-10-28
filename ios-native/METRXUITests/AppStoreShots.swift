@@ -69,6 +69,7 @@ final class AppStoreShots: ScreenTestCase {
         guard typeAt(app, 0, s.project), typeAt(app, 1, s.customer) else { skip("06-estimate", "project-fields"); return }
         guard tap(app, "np.save", 5) else { skip("06-estimate", "project-save"); return }
         usleep(1_000_000)
+        if let later = find(app, "sd.later", 4) { later.tap(); usleep(900_000) }
         guard tap(app, "ws.create", 8) else { skip("06-estimate", "workspace"); return }
         usleep(800_000)
         guard tap(app, "ws.save", 5) else { skip("06-estimate", "workspace-save"); return }
@@ -261,6 +262,8 @@ final class AppStoreShots: ScreenTestCase {
         guard field.waitForExistence(timeout: 10), typeInto(app, field, who) else { skip(name, "order-name"); return false }
         guard tap(app, "no.create", 6) else { skip(name, "order-create"); return false }
         usleep(1_200_000)
+        // "Nimadan boshlaymiz?": the design-only way, straight to the gallery (room-editor mockup v2)
+        if let b = find(app, "sd.b", 4) { b.tap(); usleep(1_000_000) }
         if let card = find(app, "lk.p." + preset, 12), bring(app, card), hit(app, card) {
             usleep(1_200_000)
         } else {

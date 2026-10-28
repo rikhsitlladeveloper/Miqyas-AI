@@ -56,6 +56,10 @@ final class RshDraft {
     var hErr: String? = nil
     var ops: [ShapeOpening] = []
     var op: OpEdit? = nil
+    /// The openings step's doors, windows and points (room-editor mockup v2, Rooms/ReOpsStep.swift), on the walls of the
+    /// room the shape makes (its own wall letters); they go into the room as they are.
+    var wOps: [Opening] = []
+    var wPts: [SitePoint] = []
     /// A step opened from the summary: its button reads "Saqlash" and goes back there.
     var ret = false
     /// +1 for each laser or voice value (the field's green flash); the voice's words and the value it replaced.
@@ -224,7 +228,14 @@ func rshErrText(_ d: RshDraft, _ e: ShapeError) -> String {
 func rshRoom(_ base: Room, _ d: RshDraft) -> Room {
     let made = shapeToRoom(specOf(d), valsList(d, d.vals), height: d.height, id: base.id, floorId: base.floorId, name: base.name,
                            created: base.created, diagonal: d.diag, openings: d.ops, angleSnap: AppSettings.shared.angleSnap)
-    return made?.room ?? base
+    guard var room = made?.room else { return base }
+    // the openings step's items, already on the room's own walls
+    if !d.wOps.isEmpty || !d.wPts.isEmpty {
+        room.openings += d.wOps
+        room.points += d.wPts
+        reClampItems(&room)
+    }
+    return room
 }
 
 /// Makes the room as its trade does, with the flow's shape, sizes, height and openings; returns its id.
@@ -254,7 +265,25 @@ func finishRoom(_ app: AppModel, _ d: RshDraft) {
     guard app.once(), let before = Store.shared.get(d.pid) else { return }
     guard let rid = makeRoom(app, d) else { return }
     RshDrafts.map[d.key] = nil
-    app.replaceTop(.editor(pid: d.pid, rid: rid, mode: "plan"))
+    ReState.map[d.key] = nil
+    // a furniture maker goes on to the 3D gallery on the room's type (the room editor is its "Xonani tahrirlash"); the
+    // other trades open the room in the one room editor (room-editor mockup v2)
+    if let fid = d.fid {
+        // a room drawn for a room-less piece: the piece goes in at once
+        app.placeAfter = nil
+        app.replaceTop(.fPlace(pid: d.pid, fid: fid, rid: rid))
+    } else if d.trade == "furniture" || (d.trade == "into" && Store.shared.get(d.pid)?.isFurniture == true) {
+        // back to the order (a gallery opened before the room was measured goes too), then its gallery for the room
+        let pid = d.pid
+        if app.stack.contains(where: { if case .project(let id, _, _, _) = $0 { return id == pid }; return false }) {
+            app.popTo { if case .project(let id, _, _, _) = $0 { return id == pid }; return false }
+            app.push(.fGallery(pid: pid, rid: rid))
+        } else {
+            app.replaceTop(.fGallery(pid: pid, rid: rid))
+        }
+    } else {
+        app.replaceTop(.roomEd(pid: d.pid, rid: rid))
+    }
     let pid = d.pid
     app.act("rsh.added", ["n": dn(d.name)]) {
         Store.shared.update(pid) { p in

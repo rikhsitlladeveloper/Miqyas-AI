@@ -93,6 +93,8 @@ enum Route: Hashable {
     /// Adding a room in any trade (room-shapes spec §2, Rooms/RshScreens.swift): the shape, the walls, the height, the
     /// openings and the summary of the draft key (RshDrafts).
     case roomShape(pid: String, key: String)
+    /// The one room editor of every trade (room-editor mockup v2, Rooms/ReEditor.swift).
+    case roomEd(pid: String, rid: String)
 
     /// The same page with another tab does not slide.
     var pageKey: String {
@@ -197,6 +199,8 @@ enum Sheet: Equatable {
     case wPrices(pid: String?)
     /// An order's location (room-shapes spec §1): adding or changing it by GPS, and the "Yo‘l" sheet that opens it in a map.
     case locAdd(pid: String), yol(pid: String)
+    /// "Nimadan boshlaymiz?" right after a new order (room-editor mockup v2, UX/StartDialog.swift).
+    case startOrder(pid: String)
     /// Designer C: a typed size from the mm bubble (key "w" or "h"; sec a wardrobe's section, -1 the unit), and
     /// "Batafsil" (tab "k" a kitchen's, "w" a wardrobe's, "i" an item's): the piece's other settings.
     case dzcNum(pid: String, fid: String, mid: String, key: String, sec: Int)
@@ -271,7 +275,7 @@ final class AppModel {
                 case .newProject(let e): return e == nil || store.get(e) != nil
                 case .space(let pid, let wid): return store.get(pid)?.floors.contains { $0.id == wid } == true
                 case .note(let pid, let wid, let iid): return store.get(pid)?.floors.first { $0.id == wid }?.items.contains { $0.id == iid } == true
-                case .editor(let pid, let rid, _), .wallView(let pid, let rid, _): return store.get(pid)?.rooms.contains { $0.id == rid } == true
+                case .editor(let pid, let rid, _), .wallView(let pid, let rid, _), .roomEd(let pid, let rid): return store.get(pid)?.rooms.contains { $0.id == rid } == true
                 case .sketch(let pid, let wid, _): return store.get(pid)?.floors.contains { $0.id == wid } == true
                 case .markup(let pid, let iid):
                     return pid.map { store.get($0)?.floors.contains { w in w.items.contains { $0.id == iid } } == true } ?? AppSettings.shared.shots.contains { $0.id == iid }

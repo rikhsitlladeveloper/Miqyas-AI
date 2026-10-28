@@ -295,6 +295,8 @@ struct NewProjectScreen: View {
             if AppSettings.shared.furniture { p.industry = "furniture" } else if let t = AppSettings.shared.industry, isTrade(t) { p.industry = t }
             Store.shared.add(p)
             app.replaceTop(.project(id: p.id, tab: "rooms"))
+            // "Nimadan boshlaymiz?": the room first, or the estimate (room-editor mockup v2, UX/StartDialog.swift)
+            app.sheet = .startOrder(pid: p.id)
             app.say("np.created", ["n": n])
         }
     }

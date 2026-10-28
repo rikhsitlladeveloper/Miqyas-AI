@@ -22,8 +22,11 @@ enum Parsed: Equatable {
 
 enum Geo {
     /// Limits of a typed dimension, mm (prototype DIM_MAX); a room is at most 6 m high.
-    static let DIM_MAX: [String: Int] = ["A": 100_000, "B": 100_000, "H": 6_000, "T": 2_000]
-    static func dimMax(_ k: String) -> Int { DIM_MAX[k] ?? 100_000 }
+    /// Walls take up to 999 999 mm (room-editor mockup v2: a hall, a warehouse, a yard wall); above WALL_BIG the field
+    /// says "Katta devor — to‘g‘rimi?" but does not stop.
+    static let DIM_MAX: [String: Int] = ["A": 999_999, "B": 999_999, "H": 6_000, "T": 2_000]
+    static func dimMax(_ k: String) -> Int { DIM_MAX[k] ?? 999_999 }
+    static let WALL_BIG = 30_000
 
     /// The least a room's measurement may be, mm: a rectangle's side 0,5 m, the height 1,8 m (a drawn room's walls may be short).
     static func dimMin(_ k: String, _ poly: Bool) -> Int {
@@ -179,7 +182,8 @@ enum Geo {
             return a + 2 * Int64(f.d) * nh + (f.sill > 0 ? Int64(f.w) * Int64(f.d) : 0) + (Int64(f.sill) + nh < Int64(H) ? Int64(f.w) * Int64(f.d) : 0)
         }
         let gross = perim * Int64(H) + extra
-        let open = r.openings.reduce(Int64(0)) { $0 + Int64($1.w) * Int64($1.h) }
+        // a balcony block takes its door and its window part (Opening.area)
+        let open = r.openings.reduce(Int64(0)) { $0 + $1.area }
         return Areas(floor: floorF, perim: perimF, gross: gross, open: open, net: gross - open)
     }
 

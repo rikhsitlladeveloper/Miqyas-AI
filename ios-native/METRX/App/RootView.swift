@@ -197,6 +197,7 @@ struct RootView: View {
         case .laserTest: LaserTestScreen(app: app)
         case .laserRadar: LaserRadarScreen(app: app)
         case .roomShape(let pid, let key): RoomShapeScreen(app: app, pid: pid, key: key)
+        case .roomEd(let pid, let rid): ReEditorScreen(app: app, pid: pid, rid: rid)
         }
     }
 
@@ -206,7 +207,8 @@ struct RootView: View {
         case .device: DeviceSheet(app: app)
         case .voicePack: VoicePackSheet(app: app)
         default:
-            if LocSheet.handles(s) { LocSheet(app: app, sheet: s) }
+            if StartSheet.handles(s) { StartSheet(app: app, sheet: s) }
+            else if LocSheet.handles(s) { LocSheet(app: app, sheet: s) }
             else if WinSheet.handles(s) { WinSheet(app: app, sheet: s) }
             else if PlumbSheet.handles(s) { PlumbSheet(app: app, sheet: s) }
             else if ElecSheet.handles(s) { ElecSheet(app: app, sheet: s) }

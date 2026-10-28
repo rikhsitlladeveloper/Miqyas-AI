@@ -197,7 +197,7 @@ private struct RoomCard: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             }
             .contentShape(Rectangle())
-            .onTapGesture { app.push(.editor(pid: p.id, rid: r.id, mode: "plan")) }
+            .onTapGesture { app.push(.roomEd(pid: p.id, rid: r.id)) }
             .accessibilityElement(children: .combine)
             .accessibilityAddTraits(.isButton)
             .accessibilityIdentifier("room.card")

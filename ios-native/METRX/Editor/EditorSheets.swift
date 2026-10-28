@@ -165,6 +165,8 @@ private struct MeasureSheet: View {
             let title = k == "H" ? tr("ed.H") : k == "T" ? tr("ed.T") : k.hasPrefix("X") ? tr("sk.diagName", ["d": k]) : tr("ed.wallLen", ["w": k])
             let parsed = Geo.lenErr(v, Geo.dimMax(k), unit, en, min: Geo.dimMin(k, r.isPoly))
             let tall = k == "H" && (parsed.value ?? 0) > Int64(Geo.H_TALL)
+            // a wall above 30 m: asked, never stopped (room-editor mockup v2, the same rule everywhere)
+            let big = k != "H" && k != "T" && !k.hasPrefix("X") && (parsed.value ?? 0) > Int64(Geo.WALL_BIG)
             GlassSheet(title, onClose: close) {
                 if !ops.laserOn {
                     HStack(spacing: 10) {
@@ -177,6 +179,7 @@ private struct MeasureSheet: View {
                 // a wrong value says why as it is typed (Save stays off without a word otherwise)
                 NumField(label: title, value: $v, suffix: unitName(), error: errText(parsed), showError: touched || !v.isEmpty, focus: $focus, me: .v, id: "ms.value")
                 if tall { T(tr("ms.tall"), ui(13, 500, G.amberInk, lh: 1.35)) }
+                if big { ReBigNote(mm: Int(parsed.value ?? 0)) }
                 T(tr("ms.hint", ["ex": Geo.fmtLen(4255, unit, en)]), ui(13, 400, G.ink2))
                 T(tr("ms.current", ["v": d.v != nil ? Geo.fmtLen(d.v, unit, en, full: true) + " " + unitName() + " (" + tr(srcKey(d.src)) + ")" : tr("ms.none")]), ui(13, 400, G.ink2))
                 Note(text: tr("ms.manualNote"))

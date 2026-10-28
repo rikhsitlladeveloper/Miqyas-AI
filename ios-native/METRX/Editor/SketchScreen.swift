@@ -142,7 +142,7 @@ struct SketchScreen: View {
         var room = Room(id: uid(), floorId: wid, name: name, created: nowMs())
         room.template = "poly"; room.shape = "poly"; room.dims = Geo.polyDims(mm.count); room.poly = Poly(verts: mm, template: "sketch", snap: AppSettings.shared.angleSnap)
         Store.shared.update(pid) { $0.rooms.append(room) }
-        app.replaceTop(.editor(pid: pid, rid: room.id, mode: "plan"))
+        app.replaceTop(.roomEd(pid: pid, rid: room.id))
         app.say("sk.created", ["n": dn(room.name)])
     }
 

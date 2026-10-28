@@ -118,6 +118,8 @@ final class Modern3DShots: ScreenTestCase {
         field.tap(); usleep(300_000); field.typeText(who)
         guard m3Tap(app, "no.create", 6) else { m3Skip(name, "order-create"); return false }
         usleep(1_200_000)
+        // "Nimadan boshlaymiz?": the design-only way, straight to the gallery (room-editor mockup v2)
+        if let b = m3Find(app, "sd.b", 4) { b.tap(); usleep(1_000_000) }
         if let card = m3Find(app, "lk.p." + preset, 12), m3Bring(app, card) {
             card.tap(); usleep(1_200_000)
         } else {

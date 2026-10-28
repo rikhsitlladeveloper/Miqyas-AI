@@ -89,7 +89,9 @@ func roomKind(_ w: Workspace?) -> String { w?.type == "kitchen" ? "kitchen" : "w
 }
 
 /// Opens a room in the editor with wall A waiting for the laser or typing.
-func openRoom(_ app: AppModel, _ pid: String, _ rid: String) { app.push(.editor(pid: pid, rid: rid, mode: "plan")); RoomOps.shared.focus(rid, "A") }
+/// Opens a room in the one room editor of every trade (room-editor mockup v2, Rooms/ReEditor.swift); the old editor is
+/// under its "Qo‘shimcha".
+func openRoom(_ app: AppModel, _ pid: String, _ rid: String) { app.push(.roomEd(pid: pid, rid: rid)); RoomOps.shared.focus(rid, "A") }
 
 /// Draws the first room of a workspace that has none yet: its shape, sizes, height and openings (room-shape flow).
 func drawRoomIn(_ app: AppModel, _ pid: String, _ w: Workspace) {
@@ -183,15 +185,10 @@ struct NewOrderScreen: View {
         p.industry = industry; p.autoName = industry == "furniture"
         Store.shared.add(p)
         app.replaceTop(.project(id: p.id, tab: "rooms"))
-        // a tiler picks the layout first (Tiles/Tiles.swift), a furniture maker the design style and then the furniture
-        // (Furniture/Core/PieceLook.swift)
-        // the style is picked on the gallery itself (UX upgrades section 7)
-        var next: Route = .fGallery(pid: p.id, fromNew: true)
-        if industry == "tiler" { next = .tGallery(pid: p.id, fromNew: true) }
-        else if industry == "elec" { next = .eGallery(pid: p.id, fromNew: true) }
-        else if industry == "plumb" { next = .pGallery(pid: p.id, fromNew: true) }
-        else if industry == "win" { next = .wGallery(pid: p.id, fromNew: true) }
-        app.push(next)
+        // "Nimadan boshlaymiz?" (room-editor mockup v2): measure the room, or go on without one (the furniture's 3D
+        // gallery with sizes, the tiler's m², the electrician's and plumber's list, the windows' products); "Keyinroq"
+        // stays on the order. Nothing is remembered for the next order.
+        app.sheet = .startOrder(pid: p.id)
         app.say("np.created", ["n": name])
     }
 }
@@ -208,10 +205,8 @@ struct FRoomsTab: View {
             // everything that is wrong with the order's pieces, in one place (bazis ideas, 23 Oct 2026)
             CheckCard(app: app, p: p)
             FreeCard(app: app, p: p)
-            if p.floors.isEmpty && !p.furniture.contains(where: { $0.roomId == nil }) {
-                T(tr("fz.empty"), ui(14.5, 400, G.ink2), align: .center).padding(22).frame(maxWidth: .infinity)
-                    .glassCard(RoundedRectangle(cornerRadius: 22, style: .continuous), fill: G.glass(0.55))
-            }
+            // no room yet: both ways in stay on the order (room-editor mockup v2, UX/StartDialog.swift)
+            if p.floors.isEmpty && !p.furniture.contains(where: { $0.roomId == nil }) { StartPaths(app: app, p: p) }
             ForEach(p.floors) { w in roomCard(w, snap, amounts) }
             // delivery and installation, once an order: with it the pieces' amounts add up to the order's price above
             if let d = amounts["deliver"], d > 0 {

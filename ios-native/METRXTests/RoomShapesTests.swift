@@ -150,11 +150,12 @@ final class RoomShapesTests: XCTestCase {
         XCTAssertEqual(stepError(t, [4800, 1400, 3400, 2200, 1600, 2200], 5)?.code, .wallNegative)
         // the range of a typed size, before anything else
         XCTAssertEqual(stepError(t, [299], 0)?.code, .outOfRange)
-        XCTAssertEqual(stepError(t, [20_001], 0)?.code, .outOfRange)
+        XCTAssertEqual(stepError(t, [1_000_000], 0)?.code, .outOfRange)
+        XCTAssertNil(stepError(t, [40_000], 0).flatMap { $0.code == .outOfRange ? $0 : nil })
         XCTAssertEqual(stepError(t, [nil], 0)?.code, .outOfRange)
         XCTAssertEqual(stepError(t, [], 0)?.code, .outOfRange)
         XCTAssertNil(stepError(t, [300], 0))
-        XCTAssertEqual(wallValueError(250), ShapeError(.outOfRange, value: 250, limit: 20_000, min: 300))
+        XCTAssertEqual(wallValueError(250), ShapeError(.outOfRange, value: 250, limit: 999_999, min: 300))
         // height
         XCTAssertNil(heightError(2700))
         XCTAssertNil(heightError(2000))

@@ -68,13 +68,31 @@ private func pUniq(_ xs: [String]) -> [String] {
 func takeInPlumbPoints(_ pid: String, _ rid: String) {
     guard let p = Store.shared.get(pid), let c = pCtxOf(p, rid, AppSettings.shared.angleSnap) else { return }
     let got = pFromSitePoints(c, { uid() })
-    if got.isEmpty { return }
+    // the room editor's radiators (a towel rail as one) and a two-circuit boiler become fixtures where they were put
+    let fixes = pFixesFromSitePoints(c)
+    if got.isEmpty && fixes.isEmpty { return }
     Store.shared.update(pid) { pr in
         var er = pr.plumb.room(rid)
-        er.seen = pUniq(er.seen + got.compactMap(\.from))
+        er.seen = pUniq(er.seen + got.compactMap(\.from) + fixes.map(\.from))
         pr.plumb.points += got
+        pr.plumb.fixes += fixes.map(\.fix)
         pr.plumb.rooms = pr.plumb.rooms.filter { $0.roomId != rid } + [er]
     }
+}
+
+/// The room's radiators and two-circuit boiler marked on its walls (room-editor mockup v2), not taken in yet, as the
+/// plumber's fixtures: a radiator at its width (Opening-like pw), a towel rail, a gas boiler; from: the point's id.
+func pFixesFromSitePoints(_ c: PCtx) -> [(fix: PlFix, from: String)] {
+    var out: [(fix: PlFix, from: String)] = []
+    for x in c.room.points where !c.pr.seen.contains(x.id) && c.wall(x.wall) != nil {
+        let t: String
+        if x.t == "rad" { t = x.style == "towel" ? "tr" : "rad" }
+        else if x.t == "boiler" && x.style == "dual" { t = "gb" }
+        else { continue }
+        let w = t == "rad" ? (x.pw > 0 ? x.pw : fixType(t).w) : 0
+        out.append((PlFix(id: uid(), t: t, roomId: c.id, wall: x.wall, off: x.off, w: w, pts: defaultPts(t, w)), x.id))
+    }
+    return out
 }
 
 /// Puts kit k with choices o into measured room rid: the riser goes in first when there is none (here, when this is a

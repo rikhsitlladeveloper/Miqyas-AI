@@ -272,7 +272,7 @@ func surfacesOf(_ l: TileLayout, _ g: TRoomGeo) -> [Surf] {
         if hi - lo < 1 { continue }
         var holes: [[V2]] = []
         for o in r.openings where o.wall == w.id {
-            holes.append(tRect(Double(o.off), Double(o.sill), Double(o.off + o.w), Double(o.sill + o.h)))
+            for hl in o.holes { holes.append(tRect(Double(hl.off), Double(hl.sill), Double(hl.off + hl.w), Double(hl.sill + hl.h))) }
         }
         for f in g.fixes { if let c = coverOn(g, w, f) { holes.append(tRect(c.0, -1, c.1, Double(f.h))) } }
         let frame = g.wallFrame(w)

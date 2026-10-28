@@ -207,13 +207,14 @@ private func rectRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
         if p.role == .wall { boxEdges(b.edgesOf(gi, w), X(x0), X(x1), y0, y1, z0, z1) }
     }
     func opsOn(_ w: String) -> [[Double]] {
-        room.openings.filter { $0.wall == w }.map { o in
-            let off = Double(o.off) / 1000, wd = Double(o.w) / 1000
+        // a balcony block is two holes: its door part and its window part (Opening.holes)
+        room.openings.filter { $0.wall == w }.flatMap { o in o.holes.map { hl -> [Double] in
+            let off = Double(hl.off) / 1000, wd = Double(hl.w) / 1000
             let ab: (Double, Double) = w == "A" || w == "B" ? (off, off + wd) : w == "C" ? (L - off - wd, L - off) : (W - off - wd, W - off)
-            let door: Double = o.type == "door" ? 1 : 0
+            let door: Double = hl.door ? 1 : 0
             let filled: Double = bare.contains(o.id) ? 1 : 0
-            return [ab.0, ab.1, Double(o.sill) / 1000, Double(o.h) / 1000, door, filled]
-        }
+            return [ab.0, ab.1, Double(hl.sill) / 1000, Double(hl.h) / 1000, door, filled]
+        } }
     }
     // niches: cut out of the wall like an opening [a, b, sill, height, 2] and closed at their depth
     func nichesOn(_ w: String) -> [[Double]] {
@@ -423,11 +424,12 @@ private func polyRoom(_ b: Builder3, _ room: Room, _ gi: Int, _ ox: Double, _ si
         let a = ip[i], c = ip[(i + 1) % n], u = uu[i], len = u.2, q = no[i]
         let at = { (d: Double) -> P2 in (a.0 + u.0 * d, a.1 + u.1 * d) }
         let off = { (p: P2, k: Double) -> P2 in (p.0 + q.0 * k, p.1 + q.1 * k) }
-        let ops: [[Double]] = room.openings.filter { $0.wall == w.id }.map { o -> [Double] in
-            let door: Double = o.type == "door" ? 1 : 0
+        // a balcony block is two holes: its door part and its window part (Opening.holes)
+        let ops: [[Double]] = room.openings.filter { $0.wall == w.id }.flatMap { o in o.holes.map { hl -> [Double] in
+            let door: Double = hl.door ? 1 : 0
             let filled: Double = bare.contains(o.id) ? 1 : 0
-            return [Double(o.off) / 1000, Double(o.off + o.w) / 1000, Double(o.sill) / 1000, Double(o.h) / 1000, door, filled]
-        }
+            return [Double(hl.off) / 1000, Double(hl.off + hl.w) / 1000, Double(hl.sill) / 1000, Double(hl.h) / 1000, door, filled]
+        } }
         let p = b.part(gi, w.id, .wall, wallRgb), e = b.edgesOf(gi, w.id)
         for pc in wallPieces(0, len, ops, H) {
             let s0 = max(0, pc[0]), s1 = min(len, pc[1])

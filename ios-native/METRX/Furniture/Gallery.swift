@@ -114,6 +114,17 @@ struct FGalleryScreen: View {
                                 let f = { (mm: Int?) in Geo.fmtLen(mm, AppSettings.shared.unit, en) }
                                 let name = p.floors.first { $0.id == room.floorId }.map { floorName($0) } ?? dn(room.name)
                                 T(tr("fg.forRoom", ["r": name, "a": f(Geo.roomSize(room, AppSettings.shared.angleSnap)?.0), "b": f(Geo.roomSize(room, AppSettings.shared.angleSnap)?.1), "h": f(room.dim("H").v)]), ui(13.5, 400, G.ink2, lh: 1.4))
+                                // the room's one editor (room-editor mockup v2): its walls, doors, windows and points
+                                HStack(spacing: 8) {
+                                    PathIcon(SD_ROOM_IC, G.cobalt2, 20, 2)
+                                    T(tr("re.editRoom"), ui(14.5, 700, G.cobalt2)).frame(maxWidth: .infinity, alignment: .leading)
+                                    MIcon("chev", G.ink3, 16, 2)
+                                }
+                                .padding(.horizontal, 12).frame(minHeight: 48)
+                                .dashedGlass(16)
+                                .pressable(0.98) { app.push(.roomEd(pid: p.id, rid: room.id)) }
+                                .accessibilityElement(children: .combine).accessibilityAddTraits(.isButton)
+                                .accessibilityIdentifier("re.editRoom")
                                 // a measured kitchen: built for it, six styles to pick from (Joylan ideas, 26 Oct 2026)
                                 if first == "kitchen" && measuredRoom(room, s.angleSnap) { AutoKitchenEntry(app: app, pid: p.id, rid: room.id) }
                             } else {

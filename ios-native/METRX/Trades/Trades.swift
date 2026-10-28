@@ -93,7 +93,8 @@ func tileArea(_ r: Room, _ t: TradeSet, _ snap: Bool = true) -> Double {
     if t.wallH > 0 {
         let H = r.dim("H").v ?? t.wallH
         let hh = min(t.wallH, H)
-        let open = r.openings.reduce(0.0) { $0 + Double($1.w) * Double(max(0, min($1.sill + $1.h, hh) - $1.sill)) }
+        // each hole up to the tiled height: a balcony block's door and window parts on their own
+        let open = r.openings.flatMap(\.holes).reduce(0.0) { $0 + Double($1.w) * Double(max(0, min($1.sill + $1.h, hh) - $1.sill)) }
         mm2 += Double(a.perim) * Double(hh) - open
     }
     return mm2 / 1e6

@@ -73,11 +73,12 @@ struct ProjectScreen: View {
                                     }
                                     .padding(.horizontal, 20).padding(.top, 12)
                                 } else if p.isFurniture { FRoomsTab(app: app, p: p) }
-                                else if p.isTiler { TRoomsTab(app: app, p: p, view: view) }
-                                else if p.isElec { ERoomsTab(app: app, p: p, view: view) }
-                                else if p.isPlumb { PRoomsTab(app: app, p: p, view: view) }
-                                else if p.isWin { WRoomsTab(app: app, p: p, view: view) }
-                                else { WorkspacesTab(app: app, p: p) }
+                                else if p.rooms.isEmpty && p.floors.isEmpty && !p.isFurniture && startPathsShown(p) {
+                                    // no room yet: both ways in stay on the order (room-editor mockup v2)
+                                    StartPaths(app: app, p: p).padding(.horizontal, 16).padding(.top, 12)
+                                    tradeRooms(p, view)
+                                }
+                                else { tradeRooms(p, view) }
                             }
                         }
                         // the floating total leaves room for the last rows
@@ -88,6 +89,24 @@ struct ProjectScreen: View {
                 if withTotal { EstimateTotal(app: app, p: p).bottomBar().padding(.bottom, NAV_SPACE - 12) }
             }
         }
+    }
+
+    /// The rooms tab of a trade's order (or the builder's workspaces).
+    @ViewBuilder private func tradeRooms(_ p: Project, _ view: String) -> some View {
+        if p.isTiler { TRoomsTab(app: app, p: p, view: view) }
+        else if p.isElec { ERoomsTab(app: app, p: p, view: view) }
+        else if p.isPlumb { PRoomsTab(app: app, p: p, view: view) }
+        else if p.isWin { WRoomsTab(app: app, p: p, view: view) }
+        else { WorkspacesTab(app: app, p: p) }
+    }
+
+    /// Both paths show while the order has nothing yet: no layouts, devices, fixtures, products or estimate rows.
+    private func startPathsShown(_ p: Project) -> Bool {
+        if p.isTiler { return p.tiles.isEmpty }
+        if p.isElec { return p.elec.free.isEmpty }
+        if p.isPlumb { return p.plumb.free.isEmpty }
+        if p.isWin { return p.win.items.isEmpty }
+        return p.estimate.materials.isEmpty && p.estimate.labor.isEmpty
     }
 
     private func call(_ p: Project) { if let u = URL(string: "tel:+998" + Phone.digits(p.phone)) { openURL(u) } }

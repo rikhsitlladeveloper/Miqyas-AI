@@ -217,9 +217,9 @@ struct ShapeError: Equatable {
     }
 }
 
-/// Walls (and the bay's sizes, the diagonal, door and window widths) are 300–20 000 mm.
+/// Walls (and the bay's sizes, the diagonal, door and window widths) are 300–999 999 mm (above 30 000 the field asks, it does not stop).
 let SHAPE_WALL_MIN = 300
-let SHAPE_WALL_MAX = 20_000
+let SHAPE_WALL_MAX = 999_999
 /// The room's height is 2 000–6 000 mm, 2 700 the first time.
 let SHAPE_HEIGHT_MIN = 2_000
 let SHAPE_HEIGHT_MAX = 6_000
@@ -458,7 +458,7 @@ private func shapeSegsMeet(_ a: Pt, _ b: Pt, _ c: Pt, _ d: Pt) -> Bool {
 
 /* ---------------- step errors (mockup wNext / stepErr) ---------------- */
 
-/// A wall (or bay size) typed on the walls step: nil when 300–20 000 mm, else .outOfRange.
+/// A wall (or bay size) typed on the walls step: nil when 300–999 999 mm, else .outOfRange.
 func wallValueError(_ v: Int?) -> ShapeError? {
     if let v, v >= SHAPE_WALL_MIN, v <= SHAPE_WALL_MAX { return nil }
     return ShapeError(.outOfRange, value: v.map { Double($0) }, limit: Double(SHAPE_WALL_MAX), min: Double(SHAPE_WALL_MIN))
@@ -589,7 +589,7 @@ func opHint(_ g: ShapeGeo, _ roomHeight: Int, _ kind: OpKind, _ wall: Int, _ fie
 }
 
 /// What stops "Keyingi" on an item's field (mockup opNext): value typed for field; dist, w, h typed before. Distance:
-/// at most the wall. Width: 300–20 000 and distance + width within the wall. Height: 300 up to the room's height.
+/// at most the wall. Width: 300–999 999 and distance + width within the wall. Height: 300 up to the room's height.
 /// Sill: sill + height up to the room's height.
 func opFieldError(_ g: ShapeGeo, _ roomHeight: Int, _ kind: OpKind, _ wall: Int, _ field: OpField, _ value: Int?,
                   dist: Int = 0, w: Int = 0, h: Int = 0) -> ShapeError? {

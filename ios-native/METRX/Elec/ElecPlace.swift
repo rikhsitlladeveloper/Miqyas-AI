@@ -696,9 +696,27 @@ func nearestWall(_ ws: [TWall], _ q: V2) -> (TWall, Double, Double) {
 /// The site points of a room taken in as devices: its sockets as single sockets and switches as single switches.
 func fromSitePoints(_ c: ECtx, _ id: () -> String) -> [ElecDev] {
     var out: [ElecDev] = []
-    for x in c.room.points where (x.t == "socket" || x.t == "switch") && !c.er.seen.contains(x.id) {
+    for x in c.room.points where (x.t == "socket" || x.t == "switch" || x.t == "ac") && !c.er.seen.contains(x.id) {
         if c.wall(x.wall) == nil { continue }
-        out.append(ElecDev(id: id(), t: x.t == "socket" ? "s1" : "k1", roomId: c.id, wall: x.wall, off: x.off, h: min(max(x.h, 60), c.H - 60), from: x.id))
+        // the room editor's styles (room-editor mockup v2): two sockets, a desk row, USB, the stove's power socket; two
+        // or three keys, a pass switch; an air conditioner's own socket under it
+        out.append(ElecDev(id: id(), t: elecTypeOf(x), roomId: c.id, wall: x.wall, off: x.off, h: min(max(x.t == "ac" ? x.h - 300 : x.h, 60), c.H - 60), from: x.id))
     }
     return out
+}
+
+/// The device a room point is taken in as.
+func elecTypeOf(_ x: SitePoint) -> String {
+    switch x.t {
+    case "ac": return "pac"
+    case "switch": return x.style == "k2" || x.style == "k3" ? "k2" : x.style == "pass" ? "kp" : "k1"
+    default:
+        switch x.style {
+        case "two": return "s2"
+        case "three": return "sw"
+        case "usb": return "su"
+        case "power": return "pst"
+        default: return "s1"
+        }
+    }
 }
