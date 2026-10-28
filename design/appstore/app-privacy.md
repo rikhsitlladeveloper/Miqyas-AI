@@ -1,6 +1,6 @@
-# METRX 1.0 — App Privacy, age rating, category, export and content rights
+# METRX (iPhone) — App Privacy, age rating, category, export and content rights
 
-What to answer in App Store Connect, and why. Checked against the iPhone code in `ios-native/METRX` on 24 Oct 2026.
+What to answer in App Store Connect, and why. Checked against the iPhone code in `ios-native/METRX` on 24 Oct 2026, and again on 28 Oct 2026 (ios-native at 29cf63e: room editor v2, inner walls, free furniture, Designer C v2, live-accuracy GPS). The answer is unchanged: **Data Not Collected** — nothing leaves the device, and the location stays on the device.
 
 ## 1. What the code actually does (the evidence)
 
@@ -9,12 +9,12 @@ What to answer in App Store Connect, and why. Checked against the iPhone code in
 | Does the app talk to any server? | **Only for one file download (since the UX upgrades, 26 Oct 2026).** `UX/VoicePack.swift` downloads the voice pack (whisper.cpp's `ggml-base-q5_1.bin`, about 57 MB, from `huggingface.co/ggerganov/whisper.cpp`, pinned to one version and checked by SHA-256) when the user taps "Yuklab olish". Wi-Fi only (`allowsCellularAccess`, `allowsExpensiveNetworkAccess` and `allowsConstrainedNetworkAccess` off; `NWPathMonitor` only to show whether Wi-Fi is there). It is a plain GET with no user data; the file is kept in Application Support (not backed up). Nothing else: no `URLRequest` with user data, WebKit, CloudKit or iCloud. |
 | Third-party code (SDKs, analytics, ads, crash tools)? | **No analytics, ads or crash tools.** One library: whisper.cpp's official XCFramework (MIT licence, release b5130) as a local Swift package (`ios-native/Packages/WhisperBin`), for on-device speech to text. It makes no network calls. Fonts: OFL licence (`ios-native/FONT_LICENSE_OFL.txt`). |
 | Where is data stored? | On the phone only: projects as JSON files in the app's Application Support folder (`Data/Store.swift`), 3D pictures and photos next to them (`Data/ViewFiles.swift`), small settings in `UserDefaults` (`Core/Settings.swift`). Nothing is excluded from the iPhone's own backups, so iCloud Backup or a computer backup made by the user includes it. Apple keeps that, not us. |
-| Links the app opens | Three, all started by the user: `tel:` (the "Call" button opens the Phone app), the iPhone's Settings page for METRX (when Bluetooth permission is off), and `https://www.google.com/maps/search/?api=1&query=lat,lng` ("Open in maps" on a project with a saved location). That one opens Google Maps or Safari, outside the app. |
-| Sharing | The PDF quote goes through the iPhone's share sheet (`Report/ReportScreen.swift`), to an app or person the user chooses. |
+| Links the app opens | All started by the user: `tel:` (the "Call" button opens the Phone app), the iPhone's Settings page for METRX (when a permission is off), and the maps links of `UX/OrderLocation.swift` / `Projects/ProjectScreen.swift` ("Open in maps" / "Route"): Yandex Maps, Yandex Navigator or Google Maps (`yandexmaps://`, `yandexnavi://`, `comgooglemaps://` in `LSApplicationQueriesSchemes`), or their website in Safari. They open outside the app with the saved coordinates. "Copy" puts the coordinates on the clipboard. |
+| Sharing | Through the iPhone's share sheet, to an app or person the user chooses: the PDF quote (`Report/ReportScreen.swift`), a marked-up photo as a JPEG (`Markup/MarkupScreen.swift` `shareShot`) and the client 3D files, USDZ + HTML (`Furniture/Client3DShare.swift`). |
 | Bluetooth | CoreBluetooth only, to find and connect the ZB-08 laser and read its distance messages (`Laser/RealLaser.swift`). No background modes. |
 | Camera / Photos | `AVCaptureSession` and `UIImagePickerController` for photos the user takes or picks to draw dimensions on (`Markup/`). Photos are saved inside the app only. |
 | Microphone | `NSMicrophoneUsageDescription` (Uzbek and English). `AVAudioEngine` records only while the size field's mic button is held (`UX/VoiceEngine.swift`); whisper.cpp turns it into text on the phone and `UX/VoiceParse.swift` into millimetres. The audio is kept in memory only, never saved or sent. |
-| Location | **Yes, optional.** `NSLocationWhenInUseUsageDescription` is in `Info.plist`, and `CLLocationManager` is used in `Projects/ProjectsList.swift` (`OneFix`). It is asked only when the user taps **"Get my location"** in a project's or order's details. It takes **one** fix (it stops after 15 s), saves latitude, longitude and accuracy in that project, and can be removed ("Remove"). There is no background or continuous tracking. The PDF quote prints the saved coordinates (`Report/Pages.swift`). GPS works without internet. |
+| Location | **Yes, optional, on the device only.** `NSLocationWhenInUseUsageDescription` and `NSLocationTemporaryUsageDescriptionDictionary` (key `OrderPlace`, for temporary precise access) are in `Info.plist`; `CLLocationManager` lives in `UX/OrderLocation.swift` (`Gps`, best accuracy). The permission is asked when the user taps **"Get my location"**. Updates then run while the screen is open: the accuracy shows live ("±X m"), the search stops at ±20 m or after 30 s, and "Good enough" saves early. If the app is already allowed, `warm()` starts updates quietly when the new-order form, a new project or the location sheet opens, so the first tap is quick; nothing is saved until the user accepts a point, and updates stop when the screen goes. It saves latitude, longitude and accuracy in that project, and it can be removed. No background mode, no geocoding, no network. Only a **builder's** PDF quote prints the coordinates (`Report/Snapshot.swift`: furniture and the other trades keep them for the maker). GPS works without internet. |
 | Personal details typed by the user | The user's own name and phone (printed on quotes), and customers' names, phones and addresses in projects. All stay on the phone. |
 
 ## 2. App Privacy questionnaire
@@ -24,7 +24,7 @@ What to answer in App Store Connect, and why. Checked against the iPhone code in
 1. *"Do you or your third-party partners collect data from this app?"* → **No, we do not collect data from this app.**
 2. Result shown on the store: **"Data Not Collected."**
 
-**Why this is correct.** Apple defines *collect* as sending data off the device so that you or your partners can access it for longer than it takes to answer the request in real time. Data handled only on the device is not collected. METRX has no network code and no third-party SDKs, so nothing leaves the phone through the app.
+**Why this is correct.** Apple defines *collect* as sending data off the device so that you or your partners can access it for longer than it takes to answer the request in real time. Data handled only on the device is not collected. METRX has no servers and no analytics, ads or crash SDKs; its only network call is the plain voice-pack download, which sends no user data. So nothing the user enters leaves the phone through the app.
 
 The edge cases, and why they don't change the answer:
 
@@ -36,23 +36,23 @@ The edge cases, and why they don't change the answer:
 
 **Tracking:** No. There is no IDFA, no `AppTrackingTransparency` prompt, no ads, and nothing is linked to other companies' data.
 
-**Privacy Policy URL** (required): `https://<your-github-user>.github.io/<repo>/privacy.html`
-**Support URL** (required): `https://<your-github-user>.github.io/<repo>/`
+**Privacy Policy URL** (required): `https://metrx-site.pages.dev/privacy` (live; the same page covers iPhone and Android; source `web/metrx-site/privacy.html`). Switch to `https://metrxai.uz/privacy` once the domain works.
+**Support URL** (required): `https://metrx-site.pages.dev`
+
+The old GitHub Pages draft in `site/` (privacy effective 25 Oct) is superseded by the live page; don't publish it.
 **Marketing URL**: leave empty (optional).
 
-### Privacy manifest (still to add to the app; not done here)
+### Privacy manifest (`ios-native/METRX/PrivacyInfo.xcprivacy`)
 
-The plan lists `PrivacyInfo.xcprivacy`, but it doesn't exist yet in `ios-native/METRX`. Apple rejects uploads that use "required reason" APIs without one. From the code:
+It exists (added 24 Oct, bundled as a resource by `project.yml`) with tracking `false`, no tracking domains, no collected data types (matches "Data Not Collected"), and these required-reason APIs:
 
-| Key | Value |
-|---|---|
-| `NSPrivacyTracking` | `false` |
-| `NSPrivacyTrackingDomains` | empty |
-| `NSPrivacyCollectedDataTypes` | empty (matches "Data Not Collected") |
-| `NSPrivacyAccessedAPITypes` → `NSPrivacyAccessedAPICategoryUserDefaults` | reason `CA92.1` (settings read and written by the app itself) |
-| `NSPrivacyAccessedAPITypes` → `NSPrivacyAccessedAPICategorySystemBootTime` | reason `35F9.1`. `ProcessInfo.systemUptime` in `Laser/LaserLog.swift` times the laser log; this reason covers measuring time between events in the app. |
+| Key | Value | In the manifest? |
+|---|---|---|
+| `NSPrivacyAccessedAPICategoryUserDefaults` | `CA92.1` — the app's own settings (`Core/Settings.swift`, `Data/Store.swift`, `Furniture/DzcKit.swift`) | yes |
+| `NSPrivacyAccessedAPICategorySystemBootTime` | `35F9.1` — `ProcessInfo.systemUptime` in `Laser/LaserLog.swift` times the laser's events | yes |
+| `NSPrivacyAccessedAPICategoryFileTimestamp` | `C617.1` — `Furniture/CardCache.swift` reads `contentModificationDate` of its own cached gallery cards (in the app's Caches folder) to keep the newest; `Furniture/Client3DShare.swift` calls `attributesOfItem` (size only) on a file it just wrote | **no — must be added** (App Store Connect sends an ITMS-91053 "Missing API declaration" mail and can reject the upload) |
 
-No file-timestamp, disk-space or active-keyboard APIs were found. Check again if code changes before the upload.
+No disk-space or active-keyboard APIs were found. The whisper.cpp XCFramework is not on Apple's list of SDKs that need their own manifest. Check again if code changes before the upload.
 
 ## 3. Age rating
 
@@ -88,7 +88,7 @@ You can change the category later.
 ## 5. Export compliance (encryption)
 
 - `ITSAppUsesNonExemptEncryption` is already **`false`** in `ios-native/METRX/Info.plist`, so App Store Connect won't ask about each build.
-- If it asks anyway: *"Does your app use encryption?"* → **No.** The app has no networking, no HTTPS and no cryptography code of its own. iOS's built-in file protection is exempt.
+- If it asks anyway: *"Does your app use encryption?"* → **No** (no proprietary or non-standard encryption). The only network use is the voice pack download over HTTPS through Apple's `URLSession`, and the app has no cryptography code of its own; both are exempt.
 - Nothing to upload (no French declaration, no CCATS).
 
 ## 6. Content rights
@@ -97,7 +97,7 @@ You can change the category later.
   - All texts, icons, 3D furniture, tiles and fittings are drawn by the app's own code.
   - The fonts (Plus Jakarta Sans, Manrope, IBM Plex) are under the SIL Open Font License, which allows bundling them.
   - Users' own photos stay on their phone.
-- Make sure the build has no **Google "G" logo**. It sits on the "Continue with Google" button that is being removed. Without a real Google sign-in, that logo could be a trademark problem.
+- The **Google "G" logo** is only on the hidden "Continue with Google" button (`Auth/AuthScreens.swift`, never shown while `AuthFlags.accounts = false`). Keep it hidden: without a real Google sign-in, that logo could be a trademark problem.
 - The store texts name the **ZB-08** laser only to say it is compatible. That's fine, but don't use the laser maker's logo or photos in screenshots without their permission. Your own photos of the device are fine.
 
 ## 7. Other App Store Connect answers
@@ -110,5 +110,5 @@ You can change the category later.
 ## Voice input (added 26 Oct 2026)
 
 - App Privacy stays **"Data Not Collected"**: the audio is processed on the device and discarded; the voice pack download sends no user data (Apple's definition of *collect* is data sent off the device that we can access).
-- The privacy policy (`site/privacy.html`, all three languages) now names the microphone permission and the one-time voice pack download from the whisper.cpp project's Hugging Face page.
+- The live privacy policy (`https://metrx-site.pages.dev/privacy`, all three languages) names the microphone permission and the one-time voice pack download from the whisper.cpp project's Hugging Face page.
 - Export compliance is unchanged: the download is HTTPS by the system (exempt encryption).
