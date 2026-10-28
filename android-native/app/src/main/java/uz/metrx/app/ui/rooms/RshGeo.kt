@@ -131,6 +131,16 @@ fun errText(app: App, d: RshDraft, e: ShapeError): String {
     }
 }
 
+/**
+ * The room being made, for the openings step (room editor v2): the shape as it stands with the doors, windows and
+ * points already placed kept on their walls (a wall that is gone takes its items with it).
+ */
+fun rshTmpRoom(d: RshDraft, snap: Boolean, app: App): Room? {
+    val base = shapeToRoom(specOf(d), valsList(d, d.vals), d.height, "rsh-" + d.key, d.wid ?: "rsh", d.name, 0, d.diag, emptyList(), snap)?.room ?: return d.tmp
+    val old = d.tmp ?: return base
+    return app.clampItems(base.copy(openings = old.openings, points = old.points, thick = old.thick))
+}
+
 /** The room the flow made, into the trade's fresh [base] room (its id, workspace, name and date kept). */
 fun rshRoom(base: Room, d: RshDraft, snap: Boolean): Room {
     val ops = d.ops.map { ShapeOpening(kindOf(it.kind), it.wall, it.dist, it.w, it.h, it.sill) }

@@ -114,6 +114,8 @@ class RshDraft(val key: String, val pid: String, val trade: String, val kind: St
     var heard by mutableStateOf<Pair<String, String>?>(null)
     /** The openings step's toasts' Undo. */
     val undos = UndoStack()
+    /** Room editor v2: the room being made, its doors, windows and points placed in the openings step (ReOps.kt). */
+    var tmp by mutableStateOf<Room?>(null)
 }
 
 /** A free sketch's walls: unit directions in plan coordinates (y down) and the drawn lengths, mm. */
@@ -131,7 +133,7 @@ object RshDrafts {
     private val map = HashMap<String, RshDraft>()
     fun get(k: String) = map[k]
     fun put(d: RshDraft) { map[d.key] = d }
-    fun drop(k: String) { map.remove(k) }
+    fun drop(k: String) { map.remove(k); ReSessions.drop("rsh:$k") }
 }
 
 /** The kinds of openings and points, their asked fields (key, label, usual value) and pictures. */
@@ -183,7 +185,8 @@ private fun App.makeRoom(d: RshDraft): String? {
             r.id
         }
     }
-    store.update(d.pid) { pr -> pr.copy(rooms = pr.rooms.map { if (it.id == rid) rshRoom(it, d, settings.angleSnap) else it }) }
+    // the doors, windows and points placed in the openings step go into the room as they are (same wall letters)
+    store.update(d.pid) { pr -> pr.copy(rooms = pr.rooms.map { if (it.id == rid) rshRoom(it, d, settings.angleSnap).let { nr -> d.tmp?.let { t -> nr.copy(openings = t.openings, points = t.points, thick = t.thick) } ?: nr } else it }) }
     if (d.fid != null) placeAfter = rid to d.fid
     settings.keepRoomH(d.height)
     return rid
@@ -195,7 +198,8 @@ private fun App.finishRoom(d: RshDraft) {
     val before = store.get(d.pid) ?: return
     val rid = makeRoom(d) ?: return
     RshDrafts.drop(d.key)
-    replaceTop(Route.Editor(d.pid, rid))
+    // furniture: the 3D gallery opens on the room's type group; the other trades: the room editor (founder 27 Oct)
+    replaceTop(if (d.trade == "furniture" || store.get(d.pid)?.isFurniture == true) Route.FGallery(d.pid, rid) else Route.Editor(d.pid, rid))
     act(t("rsh.added", "n" to dn(d.name, settings.lang)), {
         store.update(d.pid) { it.copy(floors = before.floors, rooms = before.rooms, elec = before.elec, plumb = before.plumb, troom = before.troom) }
         if (placeAfter?.first == rid) placeAfter = null
@@ -239,7 +243,7 @@ fun RoomShapeScreen(rt: Route.RoomShape) {
         "sketch" -> uz.metrx.app.ui.editor.SketchScreen(Route.Sketch(d.pid, d.wid ?: "", d.name), onShape = { mm -> sketchDone(app, d, mm) }, onClose = { go(app, d, "shape") })
         "walls" -> WallsStep(d)
         "height" -> HeightStep(d)
-        "ops" -> OpsStep(d)
+        "ops" -> ReOpsStep(d, { rshBack(app, d) }, { app.haptic(Hap.TICK); go(app, d, "summary") })
         "summary" -> SummaryStep(d)
         else -> ShapeStep(d)
     }
@@ -251,7 +255,7 @@ private fun go(app: App, d: RshDraft, s: String) {
     // a step's toast (e.g. "Eshik qo‘shildi") does not follow onto the next screen (mockup go → hideToast)
     if (s != d.screen) app.toast = null
     if (s == "height") { d.hIn = fieldText(d.height, app.rshUnit(d), app.english()); d.hFresh = true; d.hErr = null }
-    if (s == "ops") d.op = null
+    if (s == "ops") { d.op = null; d.tmp = rshTmpRoom(d, app.settings.angleSnap, app) }
     d.screen = s
 }
 
@@ -278,7 +282,14 @@ private fun rshBack(app: App, d: RshDraft) {
             else -> go(app, d, if (d.shape == "free") "sketch" else "shape")
         }
         "height" -> if (d.ret) { d.ret = false; go(app, d, "summary") } else { val n = rshAsks(d).size; setStep(app, d, if (d.shape == "free") n else n - 1); go(app, d, "walls") }
-        "ops" -> { val op = d.op; if (op != null) opBack(app, d, op) else go(app, d, "height") }
+        "ops" -> { val rs = ReSessions.get("rsh:" + d.key)
+            when {
+                rs?.kp != null -> rs.kp = null
+                rs?.pk != null -> rs.pk = null
+                rs?.listOpen == true -> rs.listOpen = false
+                rs?.sel != null || rs?.arm != null -> { rs.sel = null; rs.arm = null }
+                else -> go(app, d, "height")
+            } }
         "summary" -> go(app, d, "ops")
         else -> app.pop()
     }
@@ -785,7 +796,10 @@ private fun SummaryStep(d: RshDraft) {
         UxBar(tr("rsh.open"), null, { app.finishRoom(d) }, null, false, mainEnabled = g.err == null)
     }) {
         PicBox(230.dp, null) {
-            PlanPic(g.model, d.mir, d.rot, PlanLook(fmt = lenFmt(app, d), final = true, ops = planOps(d), diagK = if (d.diag != null) rshDiagK(d) else null, diagTxt = d.diag?.let { lenWords(it, unit, en) }),
+            val tmp = d.tmp
+            // with doors, windows or points the room editor's own plan shows them all; else the shape's
+            if (tmp != null && (tmp.openings.isNotEmpty() || tmp.points.isNotEmpty())) RoomPlanStatic(tmp, Modifier.fillMaxSize())
+            else PlanPic(g.model, d.mir, d.rot, PlanLook(fmt = lenFmt(app, d), final = true, ops = planOps(d), diagK = if (d.diag != null) rshDiagK(d) else null, diagTxt = d.diag?.let { lenWords(it, unit, en) }),
                 g.letters, tr("rsh.auto"), tr("rsh.gap"), Modifier.fillMaxSize())
         }
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -811,8 +825,19 @@ private fun SummaryStep(d: RshDraft) {
         Sect(tr("rsh.hTitle"))
         SumRow(tr("rsh.hT"), lenWords(d.height, unit, en) + " " + u) { ChangeBtn(ch) { d.ret = true; go(app, d, "height") } }
         Sect(tr("rsh.opsShort"))
-        if (d.ops.isEmpty()) SumRow(tr("rsh.opsShort"), tr("rsh.none"), small = true, auto = true) { ChangeBtn(tr("rsh.add")) { d.ret = false; go(app, d, "ops") } }
-        else d.ops.forEach { SumRow(tr("rsh.op.${it.kind}") + " · " + g.letters.getOrElse(it.wall) { "?" }, opDesc(it, unit, en), small = true) { ChangeBtn(ch) { d.ret = false; go(app, d, "ops") } } }
+        val tmp = d.tmp
+        val items: List<Any> = (tmp?.openings ?: emptyList<Any>()) + (tmp?.points ?: emptyList())
+        if (tmp == null || items.isEmpty()) SumRow(tr("rsh.opsShort"), tr("rsh.none"), small = true, auto = true) { ChangeBtn(tr("rsh.add")) { d.ret = false; go(app, d, "ops") } }
+        else {
+            items.forEach { x ->
+                val kind = (x as? uz.metrx.app.data.Opening)?.type ?: (x as uz.metrx.app.data.SitePoint).t
+                val wall = (x as? uz.metrx.app.data.Opening)?.wall ?: (x as uz.metrx.app.data.SitePoint).wall
+                val L = app.wallL(tmp, wall)
+                val dd = if (x is uz.metrx.app.data.Opening) uz.metrx.app.geo.distsOf(x, L) else uz.metrx.app.geo.distsOf(x as uz.metrx.app.data.SitePoint, L)
+                val line = (if (x is uz.metrx.app.data.Opening) app.sizeLine(x) else app.sizeLine(x as uz.metrx.app.data.SitePoint)) + " · " + mm(dd.left) + " | " + mm(dd.right)
+                SumRow(app.kindName(kind) + " · " + wall, line, small = true) { ChangeBtn(ch) { d.ret = false; go(app, d, "ops") } }
+            }
+        }
     }
 }
 
