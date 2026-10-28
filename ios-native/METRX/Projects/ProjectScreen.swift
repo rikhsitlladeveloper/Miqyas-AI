@@ -157,7 +157,8 @@ struct ProjectScreen: View {
                 ForEach(tabsOf(p), id: \.0) { k, l in
                     let on = tab == k
                     HStack(spacing: 4) {
-                        T(tr(l), ui(12.5, on ? 700 : 600, on ? G.ink : G.slate), lines: 1)
+                        // "Workspaces" was cut to "Worksp…" on a small phone
+                        T(tr(l), ui(12.5, on ? 700 : 600, on ? G.ink : G.slate), lines: 1).minimumScaleFactor(0.75)
                         if k == "quotes" && !p.quotes.isEmpty && !p.isFurniture {
                             T("\(p.quotes.count)", ui(11, 700, .white)).padding(.horizontal, 6).padding(.vertical, 1).background(Capsule().fill(G.cobalt))
                         }
