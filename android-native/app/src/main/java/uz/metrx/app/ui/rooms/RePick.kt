@@ -131,7 +131,7 @@ private fun CloseX(onClick: () -> Unit) {
 @Composable
 private fun Btn2(label: String, icon: String?, modifier: Modifier = Modifier, primary: Boolean = false, enabled: Boolean = true, onClick: () -> Unit) {
     val shape = RoundedCornerShape(16.dp)
-    Row(modifier.heightIn(min = 50.dp).clip(shape).background(if (primary) (if (enabled) G.cobalt else G.cobalt.copy(alpha = .15f)) else G.glass(.85f))
+    Row(modifier.heightIn(min = 50.dp).clip(shape).background(if (primary) (if (enabled) G.cobalt else G.cobalt.copy(alpha = .15f)) else chipBg)
         .border(1.dp, if (primary) Color.Transparent else G.rim, shape).clickable(enabled = enabled, role = Role.Button, onClick = onClick).padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
         if (icon != null) ReIcon(icon, if (primary) Color.White else G.ink, 18.dp)
@@ -192,7 +192,7 @@ private fun StylePhase(s: ReSession, pk: Pick, rh: Int) {
                 val isL = last != null && st.id == last.first
                 val on = pk.mode != "new" && cur == st.id
                 val shape = RoundedCornerShape(18.dp)
-                Column(Modifier.weight(1f).fillMaxHeight().clip(shape).background(G.glass(.85f)).border(if (isL || on) 2.5.dp else 1.dp, if (isL || on) G.cobalt else G.rim, shape)
+                Column(Modifier.weight(1f).fillMaxHeight().clip(shape).background(chipBg).border(if (isL || on) 2.5.dp else 1.dp, if (isL || on) G.cobalt else G.rim, shape)
                     .clickable(role = Role.Button) { app.pkStyle(s, st.id) }.padding(6.dp)) {
                     Box(Modifier.fillMaxWidth().height(78.dp).clip(RoundedCornerShape(13.dp)).background(RP.elev)) {
                         val u = LocalDensity.current.density
@@ -254,7 +254,7 @@ private fun SizePhase(s: ReSession, pk: Pick, rh: Int, L: Int) {
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         chips.chips.forEach { x ->
             val on = cur == x
-            Row(Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(12.dp)).background(if (on) G.cobalt else G.glass(.85f)).border(1.dp, if (on) Color.Transparent else G.rim, RoundedCornerShape(12.dp))
+            Row(Modifier.heightIn(min = 40.dp).clip(RoundedCornerShape(12.dp)).background(if (on) G.cobalt else chipBg).border(1.dp, if (on) Color.Transparent else G.rim, RoundedCornerShape(12.dp))
                 .clickable(role = Role.Button) { s.pk = pk.copy(v = pk.v + (f to x), note = null); app.haptic(Hap.TICK) }.padding(horizontal = 12.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(mm(x), style = num(13.5f, 800, if (on) Color.White else G.ink))

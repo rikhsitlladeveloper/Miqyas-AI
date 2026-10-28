@@ -11,8 +11,44 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.Text
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import uz.metrx.app.ui.theme.G
+import uz.metrx.app.ui.theme.num
+import kotlin.math.roundToInt
 import uz.metrx.app.ui.App
 import uz.metrx.app.ui.icons.PathIcon
+
+/** A chip's or a secondary button's fill on the white cards (the mockup's glass2 on the sheet). */
+val chipBg: Color get() = G.ink.copy(alpha = .06f)
+
+/**
+ * A distance or size bubble centred on [x], [y] (px): blue, green while a magnet holds it; [small] in the floating
+ * card's front view. Kept inside its box.
+ */
+@Composable
+fun BoxScope.ReBubble(text: String, x: Float, y: Float, live: Boolean = false, small: Boolean = false, onClick: (() -> Unit)? = null) {
+    val d = LocalDensity.current
+    val h = if (small) 24 else 30
+    val pad = with(d) { 4.dp.roundToPx() }
+    Row(Modifier.layout { m, cs ->
+        val pl = m.measure(cs.copy(minWidth = 0, minHeight = 0))
+        val left = (x - pl.width / 2f).roundToInt().coerceIn(pad, kotlin.math.max(pad, cs.maxWidth - pl.width - pad))
+        val top = (y - pl.height / 2f).roundToInt().coerceIn(pad, kotlin.math.max(pad, cs.maxHeight - pl.height - pad))
+        layout(pl.width, pl.height) { pl.place(left, top) }
+    }.height(h.dp).clip(RoundedCornerShape((h / 2).dp)).background(if (live) G.green else G.cobalt)
+        .let { if (onClick != null) it.clickable(role = Role.Button, onClick = onClick) else it }
+        .padding(horizontal = if (small) 8.dp else 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Text(text, style = num(if (small) 11.5f else 12.5f, 800, Color.White), maxLines = 1)
+    }
+}
 
 /*
  * Small shared pieces of the room editor v2 (mockup design/room-editor/mockup.html): its icons, each kind's colour and

@@ -227,12 +227,12 @@ private fun BoxScope.PlanPills(s: ReSession, r: Room, fit: PlanFit, it: Any, liv
     val dd = when (it) { is Opening -> distsOf(it, L); is SitePoint -> distsOf(it, L); else -> return }
     val m1 = Offset((A.x + s0.x) / 2, (A.y + s0.y) / 2); val m2 = Offset((s1.x + B.x) / 2, (s1.y + B.y) / 2)
     val magged = s.mag?.first == (it as? Opening)?.id ?: (it as? SitePoint)?.id
-    Bubble(mm(dd.left), m1.x, m1.y - 14 * u, live = magged, onClick = if (live) ({ app.openKp(s, "dl") }) else null)
-    Bubble(mm(dd.right), m2.x, m2.y - 14 * u, live = magged, onClick = if (live) ({ app.openKp(s, "dr") }) else null)
+    ReBubble(mm(dd.left), m1.x, m1.y, live = magged, small = !live, onClick = if (live) ({ app.openKp(s, "dl") }) else null)
+    ReBubble(mm(dd.right), m2.x, m2.y, live = magged, small = !live, onClick = if (live) ({ app.openKp(s, "dr") }) else null)
     s.mag?.let { m ->
         val c = if (rec.op) Offset((rec.p0.x + rec.p1.x) / 2, (rec.p0.y + rec.p1.y) / 2) else rec.c
         val p = Offset(c.x + f.n.x * (if (rec.op) 46 else 40) * u, c.y + f.n.y * (if (rec.op) 46 else 40) * u)
-        Bubble(app.t("re.mag", "a" to app.t(if (m.second == "mid") "re.magMid" else "re.magCorner")), p.x, p.y - 12 * u, amber = false, live = true)
+        ReBubble(app.t("re.mag", "a" to app.t(if (m.second == "mid") "re.magMid" else "re.magCorner")), p.x, p.y, live = true, small = true)
     }
 }
 
@@ -249,18 +249,18 @@ private fun BoxScope.FrontPills(s: ReSession, r: Room, ff: FrontFit, u: Float) {
         val xl = min(ff.X(o.off.toDouble()), ff.X((o.off + o.w).toDouble())); val xr = max(ff.X(o.off.toDouble()), ff.X((o.off + o.w).toDouble()))
         val yt = ff.Z(opTop(o).toDouble()); val yb = ff.Z(z0Of(o).toDouble()); val xc = (xl + xr) / 2; val ym = (yt + yb) / 2
         val offx = 54 * u; var hx = xr + offx; if (hx > ff.X(ff.L.toDouble()) + 40 * u) hx = xl - offx
-        Bubble(mm(o.w), xc, yt - 36 * u, note = app.t("re.f.w").lowercase(), onClick = { app.openKp(s, "w") })
-        Bubble(mm(o.h), hx, ym - 20 * u, note = app.t("re.f.h").lowercase(), onClick = { app.openKp(s, "h") })
-        if (o.type == "window" && styleId(o) != "pano" && styleId(o) != "balcony") Bubble(mm(o.sill), if (hx > xr) xl - offx else xr + offx, (yb + yf) / 2 - 20 * u, note = app.t("re.f.sill").lowercase(), onClick = { app.openKp(s, "sill") })
+        ReBubble(app.t("re.f.w").lowercase() + " " + mm(o.w), xc, yt - 22 * u, onClick = { app.openKp(s, "w") })
+        ReBubble(app.t("re.f.h").lowercase() + " " + mm(o.h), hx, ym, onClick = { app.openKp(s, "h") })
+        if (o.type == "window" && styleId(o) != "pano" && styleId(o) != "balcony") ReBubble(app.t("re.f.sill").lowercase() + " " + mm(o.sill), if (hx > xr) xl - offx else xr + offx, (yb + yf) / 2, onClick = { app.openKp(s, "sill") })
         val L = app.wallL(r, o.wall); val dd = distsOf(o, L)
-        Bubble(mm(dd.left), (ff.X(0.0) + xl) / 2, yf + 2 * u, onClick = { app.openKp(s, "dl") })
-        Bubble(mm(dd.right), (xr + ff.X(ff.L.toDouble())) / 2, yf + 2 * u, onClick = { app.openKp(s, "dr") })
+        ReBubble(mm(dd.left), (ff.X(0.0) + xl) / 2, yf + 15 * u, onClick = { app.openKp(s, "dl") })
+        ReBubble(mm(dd.right), (xr + ff.X(ff.L.toDouble())) / 2, yf + 15 * u, onClick = { app.openKp(s, "dr") })
     } else if (p != null) {
         val x = ff.X(p.off.toDouble()); val y = ff.Z(p.h.toDouble())
-        Bubble(mm(p.h), x + 52 * u, y - 18 * u, note = "h", onClick = { app.openKp(s, "ph") })
+        ReBubble("h " + mm(p.h), x + 52 * u, y, onClick = { app.openKp(s, "ph") })
         val L = app.wallL(r, p.wall); val dd = distsOf(p, L)
-        Bubble(mm(dd.left), (ff.X(0.0) + x) / 2, yf + 2 * u, onClick = { app.openKp(s, "dl") })
-        Bubble(mm(dd.right), (x + ff.X(ff.L.toDouble())) / 2, yf + 2 * u, onClick = { app.openKp(s, "dr") })
+        ReBubble(mm(dd.left), (ff.X(0.0) + x) / 2, yf + 15 * u, onClick = { app.openKp(s, "dl") })
+        ReBubble(mm(dd.right), (x + ff.X(ff.L.toDouble())) / 2, yf + 15 * u, onClick = { app.openKp(s, "dr") })
     }
 }
 

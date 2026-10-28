@@ -49,7 +49,10 @@ class RoomOps(private val app: App) {
     /** Plan ↔ 3D on the same page (prototype A.mode): the sheet closes and the drawn room's shape / diagonal modes end. */
     fun mode(pid: String, rid: String, m: String) {
         app.sheet = null; polyMode = "plan"; diagFirst = null
-        app.setTop(uz.metrx.app.ui.Route.Editor(pid, rid, m))
+        // room editor v2: the shared editor is the plan; its "Haqiqiy 3D" / "Eski muharrir" go back to it
+        val below = app.stack.getOrNull(app.stack.size - 2)
+        if (m == "plan" && below is uz.metrx.app.ui.Route.Editor && below.pid == pid && below.rid == rid) { app.pop(); return }
+        app.setTop(uz.metrx.app.ui.Route.Editor(pid, rid, if (m == "plan") "old" else m))
     }
 
     /** The editor was left: a drawn room's shape / diagonal mode does not come back with it next time. */

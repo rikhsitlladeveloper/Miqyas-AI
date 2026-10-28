@@ -125,7 +125,7 @@ private fun IconTile(s: ReSession, geo: ReGeo, k: String, app: App) {
     var root by remember { mutableStateOf(Offset.Zero) }
     val on = s.arm == k
     val shape = RoundedCornerShape(16.dp)
-    Column(Modifier.width(74.dp).heightIn(min = 66.dp).clip(shape).background(if (on) G.cobalt.copy(alpha = .12f) else G.glass(.85f))
+    Column(Modifier.width(74.dp).heightIn(min = 66.dp).clip(shape).background(if (on) G.cobalt.copy(alpha = .12f) else chipBg)
         .border(if (on) 2.dp else 1.dp, if (on) G.cobalt else G.rim, shape)
         .onGloballyPositioned { root = it.positionInRoot() }
         .semantics { contentDescription = app.kindName(k) }
@@ -213,13 +213,13 @@ private fun FcBtn(label: String, icon: String, red: Boolean = false, modifier: M
 
 @Composable
 private fun RoundX(icon: String, label: String, onClick: () -> Unit) {
-    Box(Modifier.size(38.dp).clip(CircleShape).background(G.glass(.85f)).border(1.dp, G.rim, CircleShape).semantics { contentDescription = label }
+    Box(Modifier.size(38.dp).clip(CircleShape).background(chipBg).border(1.dp, G.rim, CircleShape).semantics { contentDescription = label }
         .clickable(role = Role.Button, onClick = onClick), contentAlignment = Alignment.Center) { ReIcon(icon, G.ink2, 17.dp) }
 }
 
 @Composable
 private fun DistChip(v: Int, onClick: () -> Unit) {
-    Text(mm(v), style = num(13f, 800, G.ink), modifier = Modifier.heightIn(min = 34.dp).clip(RoundedCornerShape(12.dp)).background(G.glass(.9f)).border(1.dp, G.rim, RoundedCornerShape(12.dp))
+    Text(mm(v), style = num(13f, 800, G.ink), modifier = Modifier.heightIn(min = 34.dp).clip(RoundedCornerShape(12.dp)).background(chipBg).border(1.dp, G.rim, RoundedCornerShape(12.dp))
         .clickable(role = Role.Button, onClick = onClick).padding(horizontal = 10.dp, vertical = 8.dp))
 }
 
@@ -332,14 +332,14 @@ private fun MiniFrontCanvas(s: ReSession, geo: ReGeo, r: uz.metrx.app.data.Room,
         if (o != null && o.wall == wall) {
             val xl = minOf(ff.X(o.off.toDouble()), ff.X((o.off + o.w).toDouble())); val xr = maxOf(ff.X(o.off.toDouble()), ff.X((o.off + o.w).toDouble()))
             val yt = ff.Z(opTop(o).toDouble()); val yb = ff.Z(uz.metrx.app.geo.z0Of(o).toDouble()); val yf = ff.Z(0.0)
-            val off = 46 * u; var hx = xr + off; if (hx > W - 40 * u) hx = xl - off
-            Bubble(mm(o.w), (xl + xr) / 2, yf - 4 * u, onClick = { app.openKp(s, "w") })
-            Bubble(mm(o.h), hx, (yt + yb) / 2 - 14 * u, onClick = { app.openKp(s, "h") })
+            val off = 52 * u; var hx = xr + off; if (hx > W - 40 * u) hx = xl - off
+            ReBubble(app.t("re.f.w").lowercase() + " " + mm(o.w), (xl + xr) / 2, yf + 12 * u, small = true, onClick = { app.openKp(s, "w") })
+            ReBubble(app.t("re.f.h").lowercase() + " " + mm(o.h), hx, (yt + yb) / 2, small = true, onClick = { app.openKp(s, "h") })
             if (o.type == "window" && styleId(o) != "pano" && styleId(o) != "balcony")
-                Bubble(mm(o.sill), if (hx > xr) xl - off else xr + off, (yb + yf) / 2 - 14 * u, onClick = { app.openKp(s, "sill") })
+                ReBubble(app.t("re.f.sill").lowercase() + " " + mm(o.sill), if (hx > xr) xl - off else xr + off, (yb + yf) / 2, small = true, onClick = { app.openKp(s, "sill") })
         } else if (p != null && p.wall == wall) {
             val x = ff.X(p.off.toDouble()); val y = ff.Z(p.h.toDouble())
-            Bubble("h " + mm(p.h), if (x + 50 * u > W - 30 * u) x - 50 * u else x + 50 * u, y - 14 * u, onClick = { app.openKp(s, "ph") })
+            ReBubble("h " + mm(p.h), if (x + 50 * u > W - 30 * u) x - 50 * u else x + 50 * u, y, small = true, onClick = { app.openKp(s, "ph") })
         }
         Box(Modifier.fillMaxSize().pointerInput(Unit) { miniGestures(app, s, geo) })
     }
@@ -525,7 +525,7 @@ fun ReOpsStep(d: RshDraft, onBack: () -> Unit, onDone: () -> Unit) {
     Box(Modifier.fillMaxSize().onGloballyPositioned { rootOrigin = it.positionInRoot() }) {
         Column(Modifier.fillMaxSize()) {
             UxTop(tr("re.opsT"), onBack, eyebrow = tr("re.opsSub", "n" to uz.metrx.app.data.dn(d.name, app.settings.lang)), right = {
-                Box(Modifier.size(46.dp).clip(CircleShape).background(G.glass(.85f)).border(1.dp, G.rim, CircleShape).semantics { contentDescription = app.t("re.coachAgain") }
+                Box(Modifier.size(46.dp).clip(CircleShape).background(chipBg).border(1.dp, G.rim, CircleShape).semantics { contentDescription = app.t("re.coachAgain") }
                     .clickable(role = Role.Button) { s.coachPlay = 2; s.sel = null; s.arm = null; app.haptic(Hap.TICK) }, contentAlignment = Alignment.Center) {
                     Text("?", style = ui(20f, 800, G.cobalt))
                 }
@@ -575,7 +575,7 @@ fun WallChips(s: ReSession, r: uz.metrx.app.data.Room) {
         Text(tr("re.wallW"), style = ui(11.5f, 700, G.ink2), modifier = Modifier.padding(horizontal = 2.dp))
         ws.forEach { w ->
             val on = s.selWall == w.id; val lit = hl == w.id; val pick = s.arm != null
-            Column(Modifier.widthIn(min = 54.dp).heightIn(min = 38.dp).clip(RoundedCornerShape(11.dp)).background(if (lit) RP.green else if (on) G.cobalt else G.glass(.85f))
+            Column(Modifier.widthIn(min = 54.dp).heightIn(min = 38.dp).clip(RoundedCornerShape(11.dp)).background(if (lit) RP.green else if (on) G.cobalt else chipBg)
                 .border(if (pick && !on && !lit) 2.dp else 1.dp, if (pick && !on && !lit) G.cobalt else G.rim, RoundedCornerShape(11.dp))
                 .clickable(role = Role.Button) { val a = s.arm; if (a != null) app.placeAt(s, a, w.id, w.L / 2.0, "chip") else selectWall(app, s, w.id) }.padding(horizontal = 6.dp, vertical = 3.dp),
                 horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {

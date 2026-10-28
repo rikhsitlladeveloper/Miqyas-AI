@@ -220,7 +220,7 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     is Route.Project -> ProjectScreen(route)
                                     is Route.Space -> SpaceScreen(route)
                                     is Route.Note -> NoteScreen(route)
-                                    is Route.Editor -> uz.metrx.app.ui.editor.EditorScreen(route)
+                                    is Route.Editor -> if (route.mode == "plan") uz.metrx.app.ui.rooms.RoomEditorScreen(route.pid, route.rid) else uz.metrx.app.ui.editor.EditorScreen(route)
                                     is Route.WallView -> uz.metrx.app.ui.editor.WallViewScreen(route)
                                     is Route.Sketch -> uz.metrx.app.ui.editor.SketchScreen(route)
                                     is Route.RoomShape -> uz.metrx.app.ui.rooms.RoomShapeScreen(route)
