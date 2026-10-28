@@ -76,6 +76,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
@@ -784,7 +785,8 @@ private fun StatusText(mode: RMode, fail: LaserFail?, many: Boolean, checkOn: Bo
     // the moving dots only while a title has them
     val dotted = mode == RMode.SEARCH || mode == RMode.NONE || mode == RMode.SAVED || mode == RMode.CONNECTING || (mode == RMode.CONNECTED && !checkOn)
     LaunchedEffect(reduced, dotted) { if (!reduced && dotted) while (true) { delay(300); n = (n + 1) % 4 } }
-    fun dots(s: String) = if (reduced) "$s…" else s + ".".repeat(n)
+    // the missing dots are drawn see-through (HIDDEN_DOT), so the centred title keeps its width and does not jiggle
+    fun dots(s: String) = if (reduced) "$s…" else s + ".".repeat(n) + HIDDEN_DOT.toString().repeat(3 - n)
     val connectingTitle = dots(tr(if (lost || !user) "lr.reconnecting" else "lr.connecting")) + if (streak >= 1 && user) " " + tr("lr.try", "k" to streak + 1) else ""
     val (title, sub) = when (mode) {
         RMode.NO_BT -> tr("lt.noBt") to ""
@@ -809,10 +811,15 @@ private fun StatusText(mode: RMode, fail: LaserFail?, many: Boolean, checkOn: Bo
         }
     }
     Column(Modifier.fillMaxWidth().padding(start = 22.dp, end = 22.dp, top = 16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(title, style = ui(18f, 800, lineHeight = 1.25f).copy(textAlign = TextAlign.Center))
+        Text(androidx.compose.ui.text.buildAnnotatedString {
+            title.forEach { ch -> if (ch == HIDDEN_DOT) withStyle(androidx.compose.ui.text.SpanStyle(color = Color.Transparent)) { append('.') } else append(ch) }
+        }, style = ui(18f, 800, lineHeight = 1.25f).copy(textAlign = TextAlign.Center))
         if (sub.isNotEmpty()) Text(sub, style = ui(13f, 400, G.ink2, 1.45f).copy(textAlign = TextAlign.Center), modifier = Modifier.padding(top = 4.dp))
     }
 }
+
+/** A dot of the searching title's "..." not shown yet (drawn see-through). */
+private const val HIDDEN_DOT = ''
 
 // ---------- the card's pieces ----------
 

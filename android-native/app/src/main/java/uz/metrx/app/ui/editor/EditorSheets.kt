@@ -175,7 +175,7 @@ private fun NewRoomSheet(s: Sheet.NewRoom) {
         app.startRoomShape(p.id, "build", w.type, keptName(), wid = w.id)
     }
     GlassSheet(tr("fo.addRoom"), { app.close() }, footer = { RshSheetGo(err == null, ::create) }) {
-        RshSheetSub(p)
+        RshSheetSub(p, typed = false)
         GField(tr("fr.name"), name, { name = it.take(NAME_MAX) }, tr("smp.living"), error = err, showError = true, imeAction = ImeAction.Done, onIme = ::create)
     }
 }

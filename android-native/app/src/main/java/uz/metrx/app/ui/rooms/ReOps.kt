@@ -184,8 +184,8 @@ fun BoxScope.GhostTag(s: ReSession, rootOrigin: Offset) {
     val r = s.room ?: return
     val ok = g.it != null
     val sub = when (val it = g.it) {
-        is Opening -> { val d = distsOf(it, app.wallL(r, it.wall)); app.t("re.toWall", "w" to it.wall) to (mm(d.left) + " | " + mm(d.right) + " mm") }
-        is SitePoint -> { val d = distsOf(it, app.wallL(r, it.wall)); app.t("re.toWall", "w" to it.wall) to (mm(d.left) + " | " + mm(d.right) + " mm") }
+        is Opening -> { val d = distsOf(it, app.wallL(r, it.wall)); app.t("re.toWall", "w" to it.wall) to (mm(d.left) + " | " + mm(d.right) + " " + app.t("u.mm")) }
+        is SitePoint -> { val d = distsOf(it, app.wallL(r, it.wall)); app.t("re.toWall", "w" to it.wall) to (mm(d.left) + " | " + mm(d.right) + " " + app.t("u.mm")) }
         else -> null to app.t("re.bringWall")
     }
     val d = LocalDensity.current
@@ -258,7 +258,7 @@ fun FloatCard(s: ReSession, modifier: Modifier) {
                 KindBadge(kind, 36.dp)
                 Column(Modifier.weight(1f)) {
                     Text(nm, style = ui(14f, 800), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text("$size mm", style = num(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("$size " + tr("u.mm"), style = num(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 RoundX("down", tr("re.cardMin")) { s.cardMin = true; app.haptic(Hap.TICK) }
                 RoundX("close", tr("re.desel")) { deselect(s) }

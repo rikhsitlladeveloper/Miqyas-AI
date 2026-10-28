@@ -639,8 +639,8 @@ private fun DevSheet(s: Sheet.EDev) {
     val wl = c.wall(wall)?.len
     val err = when {
         vOff == null || vH == null || vLen == null -> tr("tl.fixErr")
-        !old.onCeiling && wl != null && vOff > wl -> tr("pt.offBig")
-        !old.onCeiling && vH > c.H -> tr("pt.hBig")
+        !old.onCeiling && wl != null && vOff > wl -> tr("pt.offBig", "v" to uz.metrx.app.geo.fmtLen(Math.round(wl).toInt(), unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
+        !old.onCeiling && vH > c.H -> tr("pt.hBig", "v" to uz.metrx.app.geo.fmtLen(c.H, unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
         else -> null
     }
     fun save() {

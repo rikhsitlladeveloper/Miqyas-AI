@@ -236,7 +236,7 @@ private fun SizePhase(s: ReSession, pk: Pick, rh: Int, L: Int) {
         CloseX { s.pk = null; app.haptic(Hap.TICK) }
     }
     Box(Modifier.fillMaxWidth().height(if (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 700) 132.dp else 176.dp).clip(RoundedCornerShape(18.dp)).background(RP.elev)) {
-        val ceil = tr("re.ceil")
+        val ceil = tr("rsh.ceil")
         Canvas(Modifier.fillMaxSize()) { pkDraw(k, st, pk.v, f, rh, err != null, ceil, tm, u) }
     }
     @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)

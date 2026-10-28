@@ -106,8 +106,8 @@ private fun shown(f: WField, w: Workshop): String {
     val app = LocalApp.current; val en = LocalLang.current == Lang.EN
     val raw = f.get(w)
     return when (f.kind) {
-        WKind.MM10 -> tenths(raw.toInt(), en) + " mm"
-        WKind.MM -> "$raw mm"
+        WKind.MM10 -> tenths(raw.toInt(), en) + " " + tr("u.mm")
+        WKind.MM -> "$raw " + tr("u.mm")
         WKind.PCT -> "$raw %"
         WKind.MONEY -> moneyStr(raw.toBigIntegerOrNull() ?: BigInteger.ZERO, 0, en) + " " + curSuffix(app.settings.currency, LocalLang.current)
     }
@@ -158,7 +158,7 @@ fun WorkshopScreen() {
             Hairline()
             Row(Modifier.fillMaxWidth().padding(vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Text(tr("wk.t"), style = ui(14.5f, 500), modifier = Modifier.weight(1f))
-                Box(Modifier.size(150.dp, 48.dp)) { Seg(listOf("16" to "16 mm", "18" to "18 mm"), w.t.toString()) { s.setWorkshopRules(w.copy(t = it.toInt())) } }
+                Box(Modifier.size(150.dp, 48.dp)) { Seg(listOf("16" to "16 " + tr("u.mm"), "18" to "18 " + tr("u.mm")), w.t.toString()) { s.setWorkshopRules(w.copy(t = it.toInt())) } }
             }
             Hairline()
             Column(Modifier.padding(vertical = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -242,7 +242,7 @@ fun MaterialsScreen() {
 
 @Composable
 private fun matSub(m: Mat): String = when (m.kind) {
-    "band" -> tr("mt.bandK") + " · " + tenths(m.t, LocalLang.current == Lang.EN) + " mm"
+    "band" -> tr("mt.bandK") + " · " + tenths(m.t, LocalLang.current == Lang.EN) + " " + tr("u.mm")
     "back" -> tr("mt.backK") + " · ${m.l} × ${m.w}"
     "worktop" -> tr("mt.wtK") + " · ${m.t} mm · ${m.l} × ${m.w}"
     "splash" -> tr("mt.splashK") + " · ${m.t} mm · ${m.l} × ${m.w}"
