@@ -104,7 +104,7 @@ fun Room3DScreen(r0: Route.Editor) {
         Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             ModeSeg("3d") { if (it == "plan") ops.mode(p.id, r.id, "plan") }
             Box(Modifier.weight(1f))
-            Box(Modifier.size(44.dp)) { LaserButton { app.sheet = Sheet.Device } }
+            Box(Modifier.size(44.dp)) { LaserButton { app.openLaser() } }
         }
         if (!ready3D(r, snap)) {
             Column(Modifier.weight(1f).fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp, Alignment.CenterVertically)) {

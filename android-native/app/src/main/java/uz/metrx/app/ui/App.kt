@@ -30,8 +30,6 @@ sealed interface Route {
     data class RoomShape(val pid: String, val key: String) : Route
     /** Profile → Boshqa sozlamalar (prototype PAGES.settingsMore). */
     data object SettingsMore : Route
-    /** Profile → METRX Pro (prototype PAGES.sub). */
-    data object Subscription : Route
     /** Profile → Ustaxona sozlamalari, Materiallar va furnitura (furniture makers). */
     data object Workshop : Route
     data object Materials : Route
@@ -298,7 +296,12 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
     fun setTop(r: Route) { stack[stack.lastIndex] = r }
 
     /** The Bluetooth button: with a laser connected (or the simulator) the small Device sheet shows its status, else the radar finds one. */
-    fun openLaser() { if (laser.isReal || laser.simOn) sheet = Sheet.Device else push(Route.LaserRadar) }
+    /**
+     * The Bluetooth button on the home pages and Profile, and every "Lazer" / "Ulash" button while no laser is connected:
+     * with a laser connected (or the debug simulator) the small Device sheet shows its status; else the radar finds one
+     * (an open sheet closes first). No made-up readings (Google Play / App Store v1).
+     */
+    fun openLaser() { if (laser.isReal || laser.simOn) sheet = Sheet.Device else { sheet = null; push(Route.LaserRadar) } }
 
     fun say(key: String, vararg v: Pair<String, Any?>, kind: ToastKind = ToastKind.OK, action: String? = null, onAction: (() -> Unit)? = null) {
         // every Undo in a toast reads "Ortga qaytarish" (UX upgrades §3) and ticks
@@ -398,7 +401,7 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
                     is Route.FPack -> store.get(r.pid) != null
                     is Route.FCheck -> store.get(r.pid) != null
                     is Route.FPrice -> store.get(r.pid) != null
-                    Route.Root, Route.SettingsMore, Route.Subscription, Route.Workshop, Route.Materials, Route.Remnants, is Route.Measure, Route.LiveCam, Route.LaserTest, Route.LaserRadar -> true
+                    Route.Root, Route.SettingsMore, Route.Workshop, Route.Materials, Route.Remnants, is Route.Measure, Route.LiveCam, Route.LaserTest, Route.LaserRadar -> true
                 }
             }
             if (keep.size != st.size) { st.clear(); st.addAll(keep) }

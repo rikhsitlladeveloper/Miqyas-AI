@@ -21,8 +21,9 @@ android {
         applicationId = "uz.metrx.app"
         minSdk = 26
         targetSdk = 36
-        versionCode = 8
-        versionName = "0.7.1"
+        // Google Play 1.0.0 (28 Oct 2026); the earlier test builds were 0.x up to code 8
+        versionCode = 10
+        versionName = "1.0.0"
     }
 
     signingConfigs {
@@ -41,6 +42,14 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
             signingConfig = signingConfigs.findByName("release")
         }
+        // The release build (R8, shrunk resources) under its own id and the debug key, to try on the emulator next to the
+        // installed debug app (which holds real data) without replacing it: ./gradlew :app:installQa
+        create("qa") {
+            initWith(getByName("release"))
+            applicationIdSuffix = ".qa"
+            signingConfig = signingConfigs.getByName("debug")
+            matchingFallbacks += "release"
+        }
     }
 
     compileOptions {
@@ -48,7 +57,8 @@ android {
         targetCompatibility = JavaVersion.VERSION_21
     }
 
-    buildFeatures { compose = true }
+    // BuildConfig.DEBUG: the laser simulator is there only in a debug build with test mode on (laser/LaserRouter.kt)
+    buildFeatures { compose = true; buildConfig = true }
 
     // Phones (arm64, older arm) and the x86_64 emulator. Native libraries are stored uncompressed and 16 KB aligned in
     // the APK (Google Play's 16 KB page-size rule, 26 Oct 2026), so Android maps them straight from the APK.

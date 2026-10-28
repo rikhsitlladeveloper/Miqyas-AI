@@ -11,8 +11,15 @@ Needs the Android SDK (compile SDK 37) and the JDK that comes with Android Studi
 export JAVA_HOME="/c/Program Files/Android/Android Studio/jbr"
 ./gradlew :app:assembleDebug      # app/build/outputs/apk/debug/app-debug.apk
 ./gradlew :app:assembleRelease    # signed, shrunk: app/build/outputs/apk/release/app-release.apk
+./gradlew :app:bundleRelease      # Google Play upload: app/build/outputs/bundle/release/app-release.aab
+./gradlew :app:installQa          # the release build (R8) as uz.metrx.app.qa, debug-signed, next to the debug app
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
+
+Google Play 1.0.0 (versionCode 10, 28 Oct 2026) follows the App Store v1 rules: no sign-in buttons (`AuthFlags.accounts`),
+name and phone optional, every laser button opens the radar when no ZB-08 is connected (the simulator only in a debug
+build with test mode on), test mode by 7 taps on Profile's version line (the "Lazer sinovi" page), no Pro card or
+subscription page, a privacy-policy row in Profile. Keep R8's `mapping.txt` of each Play build for its crash reports.
 
 The release key is not in the repo. `app/build.gradle.kts` reads `D:/WORKDESK/TOKENS/metrx-keystore.properties`
 (or the file named by the `METRX_KEYSTORE` variable). Without it, release builds come out unsigned.

@@ -53,6 +53,10 @@ class Settings(context: Context) {
     /** A furniture maker's prices, order stages, workshop rules and cutting lists (Profile → Advanced); off, the app is just the 3D design. */
     var advanced by mutableStateOf(p.getBoolean("advanced", false)); private set
     fun setAdvancedOn(v: Boolean) { advanced = v; p.edit().putBoolean("advanced", v).apply() }
+    /** Test mode: the laser test page ("Lazer sinovi") shows in the Device sheet and the radar; turned on by 7 taps on
+     *  Profile's version line, kept (as iPhone AppSettings.devMode). */
+    var devMode by mutableStateOf(p.getBoolean("devMode", false)); private set
+    fun setDevModeOn(v: Boolean) { devMode = v; p.edit().putBoolean("devMode", v).apply() }
     /** "Mijozga 3D yuborish" (ui/furniture/Share3D.kt): what the client's 3D file shows, the price (Advanced), the sizes, the maker's phone. */
     var share3dPrice by mutableStateOf(p.getBoolean("share3dPrice", false)); private set
     var share3dDims by mutableStateOf(p.getBoolean("share3dDims", true)); private set

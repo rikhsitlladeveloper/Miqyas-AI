@@ -9,7 +9,7 @@
     <!-- the Measure page's live camera; asked only when the builder opens it. Photos come through the phone's own camera app -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
-    <!-- Profile → device → "Lazer sinovi": finds a real Bluetooth laser (BLE or classic SPP) and only reads what it sends.
+    <!-- every "Lazer" button (the radar page) and Profile → device: finds a real Bluetooth laser (BLE or classic SPP) and only reads what it sends.
          Up to Android 11 scanning needs the location permission above; from Android 12 only BLUETOOTH_SCAN/CONNECT:
          scan results are never used for location (neverForLocation; the ZB-08's adverts are not beacons, so none are
          filtered out) -->
@@ -25,6 +25,8 @@
          asked on the first hold. The voice pack (about 50 MB a language) is downloaded once, over Wi-Fi only -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
     <uses-feature android:name="android.hardware.microphone" android:required="false" />
+    <!-- INTERNET: only the voice-pack download from alphacephei.com (https; no cleartext traffic). ACCESS_NETWORK_STATE: checks
+         the phone is on Wi-Fi before it starts -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
     <queries>
@@ -48,6 +50,7 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:supportsRtl="false"
+        android:usesCleartextTraffic="false"
         android:theme="@style/Theme.Metrx.Starting">
         <activity
             android:name=".MainActivity"

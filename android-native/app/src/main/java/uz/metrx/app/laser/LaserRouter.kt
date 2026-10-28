@@ -53,12 +53,19 @@ import uz.metrx.app.ui.theme.ui
  *  1. the app's "Lazer" button that is waiting for it ([await]; the "Lazerda o‘lchang…" bar with Cancel shows meanwhile),
  *  2. the size the screen (or its sheet) has in focus ([LaserSink], the newest one first; a sink may pass),
  *  3. the readings' inbox (settings.readings, src "laser"), which the editor's tray and the Measure page show.
- * Without the real laser, the screens make up readings as before ("sim"), when the simulator is connected ([simOn]).
+ * Without the real laser, a "Lazer" button opens the radar page to connect one (App.openLaser). Only a debug build in
+ * test mode can connect the simulator ([simAllowed]), and then the screens make up readings as before ("sim").
  */
 class LaserRouter(private val app: App) {
     val real: RealLaser = RealLaser.get(app.ctx)
-    /** The simulated laser is "connected" (founder decision: kept for when no real laser is there). */
-    var simOn by mutableStateOf(false)
+    /** The simulated laser is "connected" (only while [simAllowed]). */
+    var simOn by mutableStateOf(false); private set
+    /**
+     * Google Play / App Store v1 (founder, 25 and 28 Oct 2026): no made-up laser values. The simulator is only for a
+     * debug build with test mode on (7 taps on Profile's version line); everyone else connects the real laser or types.
+     */
+    val simAllowed get() = uz.metrx.app.BuildConfig.DEBUG && app.settings.devMode
+    fun setSim(on: Boolean) { simOn = on && simAllowed }
 
     /** A real laser is connected: every laser button waits for its measurement, nothing is made up. */
     val isReal get() = real.connected

@@ -529,7 +529,9 @@ fun LaserRadarScreen() {
                             when {
                                 many -> {
                                     CardHead(RI.HELP, Tone.WARN, tr("lr.fManyTitle"), bullets = listOf(tr("lr.fMany1"), tr("lr.fMany2"), tr("lr.fMany3"), tr("lr.fMany4")))
-                                    Two(tr("lt.row"), { app.push(Route.LaserTest) }, tr("lr.retry"), retry)
+                                    // the laser test page is there only in test mode (7 taps on Profile's version line)
+                                    if (app.settings.devMode) Two(tr("lt.row"), { app.push(Route.LaserTest) }, tr("lr.retry"), retry)
+                                    else Two(tr("lr.toSearch"), toSearch, tr("lr.retry"), retry)
                                 }
                                 fail == LaserFail.TIMEOUT -> {
                                     CardHead(RI.BANG, Tone.WARN, tr("lr.fTimeoutTitle"), bullets = listOf(tr("lr.fTimeout1"), tr("lr.fTimeout2")))

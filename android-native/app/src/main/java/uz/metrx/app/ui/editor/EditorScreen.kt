@@ -113,7 +113,7 @@ fun EditorScreen(r0: Route.Editor) {
                     Text(dn(r.name, lang), style = ui(20f, 800, G.ink, 1.2f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(dn(p.name, lang) + (if (w != null) " › " + floorName(w, lang) else ""), style = ui(12f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Box(Modifier.size(44.dp)) { LaserButton { app.sheet = Sheet.Device } }
+                Box(Modifier.size(44.dp)) { LaserButton { app.openLaser() } }
                 GlassIconButton("more", tr("common.menu"), { app.sheet = Sheet.RoomInfo(p.id, r.id) })
             }
             Box(Modifier.weight(1f).fillMaxWidth()) {
@@ -316,7 +316,7 @@ private fun StepCard(pid: String, r: Room, f: RoomOps.Focus) {
                         else -> {
                             CardBtn(tr("ed2.manual"), "kbd", false, Modifier.weight(1f)) { app.sheet = Sheet.Measure(pid, r.id, k) }
                             if (ops.laserOn) CardBtn(tr("ed2.getLaser"), "laser", true, Modifier.weight(1f)) { ops.laser(pid, r.id, k) }
-                            else CardBtn(tr("ed2.dev"), "bt", true, Modifier.weight(1f)) { app.sheet = Sheet.Device }
+                            else CardBtn(tr("ed2.dev"), "bt", true, Modifier.weight(1f)) { app.openLaser() }
                         }
                     }
                 }

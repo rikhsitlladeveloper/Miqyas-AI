@@ -86,6 +86,14 @@ import uz.metrx.app.ui.theme.au
 import uz.metrx.app.ui.theme.mono
 import uz.metrx.app.ui.theme.tr
 
+/**
+ * Google Play / App Store v1 (founder, 25 and 28 Oct 2026): no accounts. The app opens straight into use: the welcome
+ * screen has only "Boshlash" (the builder's name and phone, both optional, kept on this phone), then the trade. The
+ * sign-up, log-in and Google screens stay in the code for a later version, unreachable while this is false (as iPhone
+ * AuthFlags.accounts).
+ */
+object AuthFlags { const val accounts = false }
+
 /** Where the sign-in flow goes next. Sign-up and log-in are screens only for now: their buttons explain that. */
 interface AuthNav {
     fun signUp()
@@ -106,7 +114,8 @@ private fun Modifier.rise(play: Boolean, delayMs: Int): Modifier {
     return this.alpha(a.value).offset(y = (10 * (1 - a.value)).dp)
 }
 
-/** Welcome: the sample room card, the promise, three sign-in buttons and "continue without an account". */
+/** Welcome: the sample room card, the promise and "Boshlash" (with [AuthFlags.accounts]: three sign-in buttons and
+ *  "continue without an account"). */
 @Composable
 fun WelcomeScreen(nav: AuthNav, fromSplash: Boolean) {
     val settings = LocalSettings.current
@@ -142,14 +151,16 @@ fun WelcomeScreen(nav: AuthNav, fromSplash: Boolean) {
                 Text(tr("au.welcome"), style = au(27f, 700, Au.ink, 1.18f, -.015f), modifier = Modifier.padding(top = 4.dp))
                 Text(tr("au.tagline"), style = au(15f, 400, Au.ink2, 1.45f))
             }
-            Column(Modifier.padding(top = 4.dp).rise(fromSplash, 160), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                AuButton(tr("au.signup"), nav::signUp)
-                AuButton(tr("au.login"), nav::logIn, BtnKind.OUTLINE)
-                AuButton(tr("au.google"), nav::soon, BtnKind.OUTLINE, fontSize = 15f, leading = { GoogleLogo() })
-            }
-            SkipCard(nav::local, Modifier.rise(fromSplash, 160))
-            Spacer(Modifier.weight(1f, fill = false))
-            Terms(Modifier.padding(top = 2.dp).rise(fromSplash, 160))
+            if (AuthFlags.accounts) {
+                Column(Modifier.padding(top = 4.dp).rise(fromSplash, 160), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    AuButton(tr("au.signup"), nav::signUp)
+                    AuButton(tr("au.login"), nav::logIn, BtnKind.OUTLINE)
+                    AuButton(tr("au.google"), nav::soon, BtnKind.OUTLINE, fontSize = 15f, leading = { GoogleLogo() })
+                }
+                SkipCard(nav::local, Modifier.rise(fromSplash, 160))
+                Spacer(Modifier.weight(1f, fill = false))
+                Terms(Modifier.padding(top = 2.dp).rise(fromSplash, 160))
+            } else StartBlock(nav::local, Modifier.padding(top = 4.dp).rise(fromSplash, 160))
         }
         if (menu) LanguageMenu(lang, onPick = { settings.setLanguage(it); menu = false }, onDismiss = { menu = false })
     }
@@ -255,6 +266,18 @@ private fun PlanDrawing(modifier: Modifier, lang: Lang, m: String) {
                 lab(lx, Offset(150f, 28f), 0f)
                 lab(ly, Offset(252f, 112f), 90f)
             }
+        }
+    }
+}
+
+/** v1's start: one button to the builder's details, and where everything is kept. */
+@Composable
+private fun StartBlock(onClick: () -> Unit, modifier: Modifier) {
+    Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        AuButton(tr("fr.start"), onClick, trailing = { MIcon("chev", Color.White, 18.dp, 2f) })
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            MIcon("device", Au.ink2, 18.dp, 1.8f)
+            Text(tr("au.skipNote"), style = au(13f, 400, Au.ink2, 1.4f), modifier = Modifier.weight(1f))
         }
     }
 }
@@ -374,19 +397,21 @@ fun LocalScreen(nav: AuthNav, title: String? = null) {
     var tName by rememberSaveable { mutableStateOf(false) }
     var tPhone by rememberSaveable { mutableStateOf(false) }
     val phoneF = remember { FocusRequester() }
-    val nErr = if (name.isBlank()) tr("bd.req") else null
-    val pErr = Phone.errorKey(phone, true)?.let { tr(it) }
+    // both optional (store review: an app without accounts must not demand personal data); they only go on the PDF
+    // quotes. A phone, when typed, must still be valid.
+    val nErr: String? = null
+    val pErr = Phone.errorKey(phone, false)?.let { tr(it) }
     val kb = LocalSoftwareKeyboardController.current
     val focus = LocalFocusManager.current
     val ok = nErr == null && pErr == null
     fun start() { kb?.hide(); focus.clearFocus(); settings.saveBuilder(name, phone); nav.done() }
-    AuPage(title ?: tr("au.skip"), null, nav::back, footer = { AuButton(if (title != null) tr("common.save") else tr("fr.start"), ::start, enabled = ok) }) {
+    AuPage(title ?: tr(if (AuthFlags.accounts) "au.skip" else "fr.builderTitle"), null, nav::back, footer = { AuButton(if (title != null) tr("common.save") else tr("fr.start"), ::start, enabled = ok) }) {
         AuHeading(tr("fr.aboutTitle"), tr("fr.aboutBody"))
         AuField(tr("su.name"), name, { name = it }, FieldKind.TEXT, tr("fr.namePh"), nErr, tName, { tName = true }, ImeAction.Next, { phoneF.requestFocus() })
         AuField(tr("su.phone"), phone, { phone = it }, FieldKind.PHONE, "90 123 45 67", pErr, tPhone, { tPhone = true }, ImeAction.Done, { if (ok) start() else kb?.hide() }, phoneF)
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MIcon("device", Au.ink2, 18.dp, 1.8f)
-            Text(tr("fr.noAccount"), style = au(13f, 400, Au.ink2, 1.4f))
+            Text(tr(if (AuthFlags.accounts) "fr.noAccount" else "au.skipNote"), style = au(13f, 400, Au.ink2, 1.4f))
         }
     }
 }

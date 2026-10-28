@@ -114,7 +114,8 @@ class RoomOps(private val app: App) {
 
     /**
      * The step card's laser button. With the real laser connected it waits for the next measurement (the card shows
-     * [k] meanwhile); otherwise a simulated reading (prototype simTarget + edLaser): every third one is 2 mm off.
+     * [k] meanwhile); with no laser it opens the radar to connect one; only the debug simulator makes up a reading
+     * (prototype simTarget + edLaser): every third one is 2 mm off.
      */
     fun laser(pid: String, rid: String, k: String) {
         val r = room(pid, rid) ?: return
@@ -123,6 +124,7 @@ class RoomOps(private val app: App) {
             app.laser.await { mm -> if (!realReading(pid, rid, mm)) app.laser.dispatch(uz.metrx.app.laser.LaserReading(mm, 0, System.currentTimeMillis())) }
             return
         }
+        if (!app.laser.simOn) { app.openLaser(); return }
         val target = simTarget(r, k)
         val n = ++simCount
         val mm = if (n % 3 == 0) target + 2 else target
@@ -149,9 +151,10 @@ class RoomOps(private val app: App) {
         return true
     }
 
-    /** The tray's laser button: the real laser's next measurement, else a reading close to one of this room's walls or its height (prototype traySim). */
+    /** The tray's laser button: the real laser's next measurement; with no laser the radar; the debug simulator: a reading close to one of this room's walls or its height (prototype traySim). */
     fun trayReading(pid: String, rid: String) {
         if (app.laser.isReal) { app.laser.await { mm -> app.settings.addReading(mm, "laser") }; return }
+        if (!app.laser.simOn) { app.openLaser(); return }
         val r = room(pid, rid) ?: return
         val pool = uz.metrx.app.geo.stepKeys(r, app.settings.angleSnap).map { simTarget(r, it) }
         val n = app.settings.readings.size

@@ -138,7 +138,7 @@ fun SizeField(key: Any, label: String, help: String, text: String, fresh: Boolea
 
 /**
  * The laser button and the mic, always under the field (UX upgrades §6). Without a laser the button opens the radar;
- * with one it takes the next measurement (the simulator: the newest reading not used yet, else one near [hint]).
+ * with one it takes the next measurement (the debug simulator: the newest reading not used yet, else one near [hint]).
  */
 @Composable
 private fun LaserMic(hint: Int, unit: LenUnit, onLaser: (Int) -> Unit, onVoice: (Int, String) -> Unit) {
@@ -149,6 +149,8 @@ private fun LaserMic(hint: Int, unit: LenUnit, onLaser: (Int) -> Unit, onVoice: 
     fun read() {
         if (busy) return
         if (app.laser.isReal) { busy = true; app.laser.await(onCancel = { busy = false }) { mm -> busy = false; onLaser(mm) }; return }
+        // no laser: the radar to connect one (made-up values only with the debug simulator)
+        if (!app.laser.simOn) { app.openLaser(); return }
         val r = app.settings.readings.lastOrNull { it.used == null && it.src != "manual" }
         if (r != null) { app.settings.markReadingUsed(r.id, app.t("rsh.title")); onLaser(r.mm); return }
         scope.launch { busy = true; delay(900); busy = false; onLaser(((hint + Random.nextInt(-120, 121)) / 10) * 10) }

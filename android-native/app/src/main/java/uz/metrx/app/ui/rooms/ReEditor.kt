@@ -166,7 +166,8 @@ private fun App.wallLaser(s: ReSession, scope: kotlinx.coroutines.CoroutineScope
         else setWallLen(s, id, mm, t("re.laserPre"))
     }
     if (laser.isReal) { laser.await { take(it) }; return }
-    if (settings.laser != Laser.CONNECTED) { push(Route.LaserRadar); return }
+    // no laser (made-up values only with the debug simulator): the radar
+    if (!laser.simOn) { push(Route.LaserRadar); return }
     val rd = settings.readings.lastOrNull { it.used == null && it.src != "manual" }
     if (rd != null) { settings.markReadingUsed(rd.id, t("re.wall", "w" to id)); take(rd.mm); return }
     take(L + Random.nextInt(-12, 13))

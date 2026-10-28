@@ -116,7 +116,8 @@ private fun App.cardLine(kind: String, id: String, rh: Int): String {
  */
 fun App.laserFor(scope: CoroutineScope, hint: Int, onBusy: (Boolean) -> Unit, ok: (Int) -> Unit) {
     if (laser.isReal) { onBusy(true); laser.await(onCancel = { onBusy(false) }) { mm -> onBusy(false); ok(mm) }; return }
-    if (settings.laser != Laser.CONNECTED) { push(Route.LaserRadar); return }
+    // no laser (made-up values only with the debug simulator): the radar
+    if (!laser.simOn) { push(Route.LaserRadar); return }
     val r = settings.readings.lastOrNull { it.used == null && it.src != "manual" }
     if (r != null) { settings.markReadingUsed(r.id, t("re.title")); ok(r.mm); return }
     scope.launch { onBusy(true); delay(700); onBusy(false); ok(((hint + Random.nextInt(-9, 10)) / 1).coerceAtLeast(0)) }

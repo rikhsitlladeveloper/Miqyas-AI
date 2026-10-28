@@ -17,6 +17,8 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.wrapContentHeight
+import uz.metrx.app.ui.components.ToastKind
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -71,11 +73,11 @@ import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
 
 /*
- * Profile (prototype profile.js "status first, short groups" with the glass Pro card) and its "More settings" page,
- * the subscription page and the settings sheets. Dark mode is this app's own addition (founder's decision).
+ * Profile (prototype profile.js "status first, short groups") and its "More settings" page and the settings sheets.
+ * Dark mode is this app's own addition (founder's decision). Google Play / App Store v1 (founder, 25 and 28 Oct 2026):
+ * free, no accounts and no subscription, so there is no Pro card, no subscription page and no sign-in row; the version
+ * line at the bottom turns test mode on after 7 taps (the laser test page).
  */
-
-private val GOLD = Color(0xFFF5C451)
 
 @Composable
 fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
@@ -106,7 +108,6 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                     MIcon("doc", G.ink2, 16.dp, 2f); Text(tr(if ((s.furniture || s.tiler || s.elec || s.plumb || s.win) && !s.advanced) "pf.onDesign" else "pf.onQuote"), style = ui(12.5f, 400, G.ink2, 1.4f))
                 }
             }
-            ProCard { app.push(Route.Subscription) }
             // furniture makers (UX upgrades mockup, Profil): one "Sozlamalar" card in the mockup's order: haptics, the size
             // unit, the voice pack, "Narxlarni ko‘rsatish (Advanced)" (with the workshop and its boards once on), the tips again
             if (s.furniture) {
@@ -201,56 +202,59 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
                 Row1("door", tr("se.defaults"), fmtLen(s.doorW, s.unit, en) + " × " + fmtLen(s.doorH, s.unit, en)) { app.sheet = Sheet.Defaults }
                 SwitchRow("ruler", tr("se.snap"), s.angleSnap) { s.setSnap(!s.angleSnap) }
             }
-            Group(tr("ac.group"))
-            Card { Row1("user", tr("ac.signIn"), null, sub = tr("ac.noneB")) { nav.signIn() } }
+            // accounts are not in v1 (AuthFlags.accounts)
+            if (uz.metrx.app.ui.auth.AuthFlags.accounts) {
+                Group(tr("ac.group"))
+                Card { Row1("user", tr("ac.signIn"), null, sub = tr("ac.noneB")) { nav.signIn() } }
+            }
             val shape = RoundedCornerShape(14.dp)
             Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 14.dp).fillMaxWidth().height(52.dp).glassCard(shape, fill = G.glass(.55f)).pressable({ app.push(Route.SettingsMore) }, .99f)
                 .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MIcon("sliders", G.ink, 18.dp, 2f); Text(tr("pf.more"), style = ui(15f, 600), modifier = Modifier.weight(1f)); MIcon("chev", G.ink2, 18.dp, 2f)
             }
-            Row(Modifier.padding(start = 18.dp, end = 18.dp, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                MIcon("device", G.ink2, 16.dp, 2f); Text(tr("prof.local"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.weight(1f))
+            // the privacy policy (Google Play's User Data policy: a link inside the app), opened in the browser
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            Row(Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp).fillMaxWidth().height(52.dp).glassCard(shape, fill = G.glass(.55f))
+                .pressable({ runCatching { ctx.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(PRIVACY_URL))) } }, .99f, label = tr("prof.privacy"))
+                .padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                MIcon("lock", G.ink, 18.dp, 2f); Text(tr("prof.privacy"), style = ui(15f, 600), modifier = Modifier.weight(1f)); MIcon("chev", G.ink2, 18.dp, 2f)
             }
+            Row(Modifier.padding(start = 18.dp, end = 18.dp, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MIcon("device", G.ink2, 16.dp, 2f); Text(tr("prof.onPhone"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.weight(1f))
+            }
+            VersionLine(Modifier.padding(start = 18.dp, end = 18.dp, top = 4.dp))
         }
     }
+}
+
+/** The privacy policy page (the support site, web/; 3 languages). */
+private const val PRIVACY_URL = "https://metrx-site.pages.dev/privacy.html"
+
+/** "METRX 1.0.0 (10)": seven taps (each within 1.5 s of the last) turn test mode on (the laser test page in the Device
+ *  sheet and the radar), kept in the settings (as iPhone VersionLine). */
+@Composable
+private fun VersionLine(modifier: Modifier) {
+    val app = LocalApp.current
+    val c = androidx.compose.ui.platform.LocalContext.current
+    val line = remember {
+        runCatching {
+            val pi = c.packageManager.getPackageInfo(c.packageName, 0)
+            "METRX " + pi.versionName + " (" + androidx.core.content.pm.PackageInfoCompat.getLongVersionCode(pi) + ")"
+        }.getOrDefault("METRX")
+    }
+    var taps by remember { mutableStateOf(0) }
+    var last by remember { mutableStateOf(0L) }
+    Text(line, style = ui(12.5f, 400, G.ink3), modifier = modifier.fillMaxWidth().heightIn(min = 36.dp)
+        .clickable(interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }, indication = null) {
+            if (app.settings.devMode) return@clickable
+            val now = android.os.SystemClock.elapsedRealtime()
+            taps = if (now - last < 1500) taps + 1 else 1
+            last = now
+            if (taps >= 7) { taps = 0; app.settings.setDevModeOn(true); app.say("lt.devOn", kind = ToastKind.INFO) }
+        }.wrapContentHeight(Alignment.CenterVertically))
 }
 
 private fun Modifier.topRule() = drawBehind { drawLine(G.rim, Offset(0f, 0f), Offset(size.width, 0f), .67.dp.toPx()) }
-
-/** METRX Pro: active during the pilot, everything open (glass .gl-pro: deep violet, a gold rim and a sheen). */
-@Composable
-private fun ProCard(onClick: () -> Unit) {
-    val shape = RoundedCornerShape(28.dp)
-    Column(
-        Modifier.padding(start = 20.dp, end = 20.dp, top = 12.dp).fillMaxWidth()
-            .dropShadow(shape, Shadow(40.dp, Color(0x613C288C), offset = DpOffset(0.dp, 18.dp)))
-            .drawBehind { drawRoundRect(GOLD.copy(alpha = .12f), Offset(-4.dp.toPx(), -4.dp.toPx()), androidx.compose.ui.geometry.Size(size.width + 8.dp.toPx(), size.height + 8.dp.toPx()), androidx.compose.ui.geometry.CornerRadius(32.dp.toPx())) }
-            .clip(shape).background(Brush.linearGradient(listOf(Color(0xFF171B45), Color(0xFF2B2A78), Color(0xFF52309A)), start = Offset(0f, 0f), end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)))
-            .drawBehind {
-                // the sheen: a soft light band across the card
-                val band = Path().apply { moveTo(size.width * .1f, 0f); lineTo(size.width * .45f, 0f); lineTo(size.width * .25f, size.height); lineTo(-size.width * .1f, size.height); close() }
-                clipPath(band) { drawRect(Brush.horizontalGradient(listOf(Color.White.copy(alpha = 0f), Color.White.copy(alpha = .1f), Color.White.copy(alpha = 0f)))) }
-            }
-            .border(.67.dp, GOLD.copy(alpha = .6f), shape).pressable(onClick, .99f).padding(18.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
-    ) {
-        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Box(Modifier.size(46.dp).clip(RoundedCornerShape(16.dp)).background(GOLD.copy(alpha = .18f)), contentAlignment = Alignment.Center) { MIcon("card", GOLD, 22.dp, 2f) }
-            Column {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("METRX Pro", style = ui(19f, 800, Color.White))
-                    Text(tr("pf.subOn"), style = ui(12f, 700, Color(0xFF7BE3A9)), modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(Color(0x2E3DD68C)).padding(horizontal = 9.dp, vertical = 3.dp))
-                }
-                Text(tr("gl.proOn"), style = ui(13f, 400, Color(0xFFD4D7F7)))
-            }
-        }
-        Row(Modifier.fillMaxWidth().drawBehind { drawLine(Color.White.copy(alpha = .14f), Offset(0f, 0f), Offset(size.width, 0f), .67.dp.toPx()) }.padding(top = 12.dp),
-            verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(tr("sub.pilot"), style = ui(13f, 400, Color(0xFFD4D7F7), 1.4f), modifier = Modifier.weight(1f))
-            Text(tr("gl.manage"), style = ui(14f, 700, GOLD)); MIcon("chev", GOLD, 14.dp, 2.4f)
-        }
-    }
-}
 
 @Composable
 private fun Group(text: String) = Text(text, style = ui(13f, 500, G.ink2), modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 18.dp, bottom = 8.dp))
@@ -364,33 +368,8 @@ fun SettingsMoreScreen() {
         }
         Card {
             Row1("bt", tr("se.device"), tr(if (s.laser == Laser.CONNECTED) "pf.btOn" else "pf.btDisc")) { app.sheet = Sheet.Device }
-            Row1("card", tr("se.sub"), tr("se.active")) { app.push(Route.Subscription) }
         }
         Card { Row1("info", tr("se.about"), null) { app.sheet = Sheet.About } }
-    }
-}
-
-/** METRX Pro (prototype PAGES.sub): active in the pilot; what keeps working and what would need a subscription. */
-@Composable
-fun SubscriptionScreen() {
-    SubPage(tr("se.sub")) {
-        Card {
-            Row(Modifier.fillMaxWidth().padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(tr("dv.status"), style = ui(14f, 400, G.ink2), modifier = Modifier.weight(1f)); Text(tr("se.active"), style = ui(15f, 700))
-            }
-        }
-        Text(tr("sub.pilot"), style = ui(14f, 400, G.ink2, 1.45f), modifier = Modifier.padding(horizontal = 24.dp))
-        Group(tr("sub.works"))
-        Card { listOf("sub.w1", "sub.w2", "sub.w4").forEachIndexed { i, k -> if (i > 0) Hairline(); Li("check", tr(k), G.green) } }
-        Group(tr("sub.locked"))
-        Card { listOf("sub.l1", "sub.l2", "sub.l3").forEachIndexed { i, k -> if (i > 0) Hairline(); Li("lock", tr(k), G.ink2) } }
-    }
-}
-
-@Composable
-private fun Li(icon: String, text: String, tint: Color) {
-    Row(Modifier.fillMaxWidth().heightIn(min = 52.dp).padding(horizontal = 14.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-        MIcon(icon, tint, 20.dp, 2.2f); Text(text, style = ui(15f, 500))
     }
 }
 

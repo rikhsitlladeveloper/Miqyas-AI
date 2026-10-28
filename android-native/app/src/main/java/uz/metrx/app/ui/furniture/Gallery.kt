@@ -406,8 +406,8 @@ fun FStepsScreen(rt: Route.FSteps) {
     }
     uz.metrx.app.laser.LaserSink { mm -> gotReal(mm) }
 
-    // with the real laser, its next measurement; else the laser's newest reading not used yet (its readings' inbox)
-    // first, and with none a made-up one near the usual size (the simulator, as the editor's laser button)
+    // with the real laser, its next measurement; with no laser the radar to connect one; the debug simulator: the
+    // laser's newest reading not used yet (its readings' inbox) first, and with none a made-up one near the usual size
     fun reading() {
         if (laser == "busy" || at >= n || steps[at].choice) return
         if (app.laser.isReal) {
@@ -415,6 +415,7 @@ fun FStepsScreen(rt: Route.FSteps) {
             laser = "busy"
             return
         }
+        if (!app.laser.simOn) { app.openLaser(); return }
         val s = steps[at]; val i = at
         val r = app.settings.readings.lastOrNull { it.used == null && it.src != "manual" }
         if (r != null) {
@@ -614,7 +615,7 @@ private fun ChoiceAsk(s: uz.metrx.app.furniture.SizeStep, cur: Int, onPick: (Int
 @Composable
 private fun LaserLine(app: App, laser: String?) {
     val on = app.settings.laser == Laser.CONNECTED
-    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp).let { if (on) it else it.clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button) { app.sheet = Sheet.Device } }
+    Row(Modifier.fillMaxWidth().heightIn(min = 40.dp).let { if (on) it else it.clip(RoundedCornerShape(12.dp)).clickable(role = Role.Button) { app.openLaser() } }
         .padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Box(Modifier.size(9.dp).clip(CircleShape).background(if (on) Color(0xFF16A34A) else G.ink3))
         Text(when { laser == "busy" -> tr("fx.busy"); laser != null -> laser; on -> tr("fx.laserOn"); else -> tr("fx.laserOff") }, style = ui(12.5f, 600, G.ink2, 1.35f), modifier = Modifier.weight(1f))

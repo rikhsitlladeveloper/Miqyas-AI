@@ -44,8 +44,8 @@ import uz.metrx.app.ui.theme.tr
 import uz.metrx.app.ui.theme.ui
 
 /**
- * The measuring device (prototype SHEETS.device): the real ZB-08 over Bluetooth, and the simulator for when there is
- * none. "Qidirish" opens the laser radar (main/LaserRadar.kt), which finds and connects the laser; a scan's results still
+ * The measuring device (prototype SHEETS.device): the real ZB-08 over Bluetooth (the simulator only in a debug build in
+ * test mode: no made-up values in the store app). "Qidirish" opens the laser radar (main/LaserRadar.kt), which finds and connects the laser; a scan's results still
  * show here (lasers first, other named devices under them; a tap connects). The laser connected
  * last is remembered and connected again by itself (opening this sheet tries it at once); "Uzish" disconnects and
  * stops that until the next start, "Unutish" forgets it. Typing values always works.
@@ -148,8 +148,8 @@ fun DeviceSheet(onClose: () -> Unit, onTest: () -> Unit = {}, onRadar: () -> Uni
             }
         }
 
-        // the simulator, for trying the app without a laser (only while no real laser is connected)
-        if (!real.connected) {
+        // the simulator: only a debug build in test mode (Google Play v1: no made-up values), while no real laser is connected
+        if (!real.connected && rl.simAllowed) {
             Text(tr("lz.simHead"), style = ui(13f, 700, G.ink3), modifier = Modifier.padding(top = 4.dp))
             Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).border(1.dp, if (rl.simOn) G.green else G.rim, RoundedCornerShape(16.dp)).padding(horizontal = 14.dp, vertical = 10.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -158,16 +158,16 @@ fun DeviceSheet(onClose: () -> Unit, onTest: () -> Unit = {}, onRadar: () -> Uni
                     Text(tr("dv.simDev"), style = ui(15.5f, 700))
                     Text(tr("nt.simLaser"), style = ui(13f, 500, G.amberInk, 1.35f))
                 }
-                if (rl.simOn) GBtn(tr("dv.disconnect"), { rl.simOn = false }, Btn.SECONDARY, height = 40.dp, corner = 12.dp, fontSize = 14f, fill = false)
-                else GBtn(tr("dv.connect"), { rl.simOn = true; app.sheet = null; app.say("dv.connected", kind = ToastKind.OK) }, height = 40.dp, corner = 12.dp, fontSize = 14f, fill = false)
+                if (rl.simOn) GBtn(tr("dv.disconnect"), { rl.setSim(false) }, Btn.SECONDARY, height = 40.dp, corner = 12.dp, fontSize = 14f, fill = false)
+                else GBtn(tr("dv.connect"), { rl.setSim(true); app.sheet = null; app.say("dv.connected", kind = ToastKind.OK) }, height = 40.dp, corner = 12.dp, fontSize = 14f, fill = false)
             }
         }
 
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MIcon("kbd", G.ink2, 18.dp, 2f); Text(tr("dv.always"), style = ui(13f, 400, G.ink2, 1.4f))
         }
-        // a real laser's own signal, read only (main/LaserTest.kt)
-        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).border(1.dp, G.rim, RoundedCornerShape(16.dp))
+        // a real laser's own signal, read only (main/LaserTest.kt): only after the secret taps on Profile's version line
+        if (app.settings.devMode) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(G.glass(.6f)).border(1.dp, G.rim, RoundedCornerShape(16.dp))
             .pressable(onTest, .98f, label = tr("lt.row")).padding(horizontal = 14.dp, vertical = 12.dp),
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             MIcon("bt", G.cobalt, 22.dp, 2f)

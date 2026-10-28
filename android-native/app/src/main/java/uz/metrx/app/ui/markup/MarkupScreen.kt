@@ -635,7 +635,11 @@ private fun DimSheet(s: Sheet.MkDim) {
     }) {
         val recv = app.mk.recv
         when {
-            !on -> Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) { MIcon("btoff", G.ink2, 18.dp, 2f); Text(tr("mk.noLaser"), style = ui(13.5f, 400, G.ink2, 1.4f), modifier = Modifier.weight(1f)) }
+            // no laser: typing works; "Ulash" opens the radar to connect one
+            !on -> Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MIcon("btoff", G.ink2, 18.dp, 2f); Text(tr("mk.noLaser"), style = ui(13.5f, 400, G.ink2, 1.4f), modifier = Modifier.weight(1f))
+                Text(tr("ms.connect"), style = ui(14f, 700, G.cobalt), modifier = Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(10.dp)).clickable { app.openLaser() }.padding(horizontal = 6.dp, vertical = 12.dp))
+            }
             recv != null -> Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(G.amberWash).drawBehind { drawRect(G.amberInk, size = Size(3.dp.toPx(), size.height)) }
                 .padding(start = 12.dp, end = 6.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 MIcon("laser", G.amberInk, 18.dp, 2f)
@@ -644,6 +648,8 @@ private fun DimSheet(s: Sheet.MkDim) {
             }
             else -> GBtn(tr("mk.laser"), {
                 if (app.laser.isReal) { app.laser.await { mm -> app.mk.recv = mm }; return@GBtn }
+                // made-up values only with the debug simulator
+                if (!app.laser.simOn) { app.openLaser(); return@GBtn }
                 val base = e.v ?: (800 + Random.nextInt(3401))
                 app.mk.recv = maxOf(50, base + ((Random.nextFloat() - .5f) * (if (e.v != null) 6 else 40)).roundToInt())
             }, Btn.SECONDARY, icon = "laser")

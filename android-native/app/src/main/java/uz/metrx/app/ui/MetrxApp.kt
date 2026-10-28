@@ -227,7 +227,6 @@ fun MetrxApp(settings: Settings, playIntro: Boolean) {
                                     Route.SettingsMore -> uz.metrx.app.ui.main.SettingsMoreScreen()
                                     Route.Workshop -> uz.metrx.app.ui.furniture.WorkshopScreen()
                                     Route.Materials -> uz.metrx.app.ui.furniture.MaterialsScreen()
-                                    Route.Subscription -> uz.metrx.app.ui.main.SubscriptionScreen()
                                     is Route.Report -> uz.metrx.app.ui.report.ReportScreen(route.pid, null)
                                     is Route.Quote -> uz.metrx.app.ui.report.ReportScreen(route.pid, route.no)
                                     is Route.Kitchen -> uz.metrx.app.ui.furniture.KitchenScreen(route)

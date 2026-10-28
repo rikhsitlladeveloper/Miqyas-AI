@@ -144,7 +144,7 @@ fun LiveCamScreen() {
         Row(Modifier.fillMaxWidth().heightIn(min = 56.dp).padding(start = 6.dp, end = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Box(Modifier.size(44.dp).clip(CircleShape).clickable(role = Role.Button) { app.pop() }, contentAlignment = Alignment.Center) { MIcon("x", Color.White, 22.dp, 2f) }
             Text(tr("cm.live"), style = ui(17f, 700, Color.White), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Row(Modifier.heightIn(min = 36.dp).clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = .14f)).clickable { app.sheet = Sheet.Device }.padding(horizontal = 10.dp),
+            Row(Modifier.heightIn(min = 36.dp).clip(RoundedCornerShape(10.dp)).background(Color.White.copy(alpha = .14f)).clickable { app.openLaser() }.padding(horizontal = 10.dp),
                 verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 MIcon(if (bt) "bt" else "btoff", if (bt) Color.White else Color(0xFFFFD7A8), 16.dp, 2f)
                 Text(tr(if (bt) "dev.conn" else "dev.disc"), style = ui(12.5f, 500, if (bt) Color.White else Color(0xFFFFD7A8)), maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -191,8 +191,10 @@ fun LiveCamScreen() {
         }
         Row(Modifier.fillMaxWidth().padding(10.dp, 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             LcBtn("kbd", tr("ed2.manual"), s.line != null, false, Modifier.weight(1f)) { app.sheet = Sheet.LcManual }
-            LcBtn("laser", tr("qc.measure"), s.line != null && bt, true, Modifier.weight(1.3f)) {
+            LcBtn("laser", tr("qc.measure"), s.line != null, true, Modifier.weight(1.3f)) {
                 if (app.laser.isReal) app.laser.await { mm -> if (s.line != null) { s.v = mm; s.src = "laser" } else app.settings.addReading(mm, "laser") }
+                // no laser: the radar to connect one; a made-up length only with the debug simulator
+                else if (!app.laser.simOn) app.openLaser()
                 else { s.v = 600 + Random.nextInt(7601); s.src = "laser" }
             }
             LcBtn("save", tr("common.save"), s.v != null && on && !saving, false, Modifier.weight(1f)) {

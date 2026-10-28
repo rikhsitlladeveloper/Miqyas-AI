@@ -231,15 +231,16 @@ fun PointSheet(s: Sheet.PointForm) {
             NumField(tr("op.offset", "c" to corner), offv, { offv = it; src = "manual" }, app.unitName(), errText(po), tried, modifier = Modifier.weight(1f))
             NumField(tr("pt.h"), hv, { hv = it; src = "manual" }, app.unitName(), errText(ph), tried, modifier = Modifier.weight(1f))
         }
-        // with the real laser, its next measurement; else the laser's newest reading not used yet (its readings' inbox)
-        // first, and with none a made-up one ([made], the simulator)
+        // with the real laser, its next measurement; with no laser the radar to connect one; the debug simulator: the
+        // laser's newest reading not used yet (its readings' inbox) first, and with none a made-up one ([made])
         fun fromLaser(where: String, made: () -> Int, put: (String) -> Unit) {
             if (app.laser.isReal) { app.laser.await { mm -> put(fmtField(mm, unit, en)); src = "laser" }; return }
+            if (!app.laser.simOn) { app.openLaser(); return }
             val rd = app.settings.readings.lastOrNull { it.used == null && it.src != "manual" }
             if (rd != null) app.settings.markReadingUsed(rd.id, where)
             put(fmtField(rd?.mm ?: made(), unit, en)); src = "sim"
         }
-        if (ops.laserOn) Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             LaserLink(tr("pt.laserOff")) { fromLaser(app.t("pt.laserOff"), { Random.nextInt(200, max(400, (L ?: 3000) - 100)) / 10 * 10 }) { offv = it } }
             LaserLink(tr("pt.laserH")) { fromLaser(app.t("pt.laserH"), { pointDefaults(type).first + Random.nextInt(-30, 31) }) { hv = it } }
         }

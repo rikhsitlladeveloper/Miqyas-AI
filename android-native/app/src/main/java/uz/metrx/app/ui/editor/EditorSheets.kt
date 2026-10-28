@@ -206,7 +206,7 @@ private fun MeasureSheet(s: Sheet.Measure) {
         if (!ops.laserOn) Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.amberWash).padding(12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             MIcon("btoff", AMBER, 18.dp, 2f)
             Text(tr("ms.discBody"), style = ui(13.5f, 500, AMBER, 1.35f), modifier = Modifier.weight(1f))
-            Text(tr("ms.connect"), style = ui(14f, 700, G.cobalt), modifier = Modifier.clickable(role = Role.Button) { app.sheet = Sheet.Device }.padding(6.dp))
+            Text(tr("ms.connect"), style = ui(14f, 700, G.cobalt), modifier = Modifier.clickable(role = Role.Button) { app.openLaser() }.padding(6.dp))
         }
         // a wrong value says why as it is typed (Save stays off without a word otherwise)
         NumField(title, v, { v = it }, app.unitName(), err, v.isNotEmpty() || touched, onBlur = { touched = true }, imeAction = ImeAction.Done, onIme = ::save, focusRequester = fr)
@@ -535,7 +535,7 @@ private fun TraySheet(s: Sheet.Tray) {
             verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             MIcon("btoff", G.amberInk, 18.dp, 2f)
             Text(tr("ms.discBody"), style = ui(13.5f, 500, G.ink, 1.4f), modifier = Modifier.weight(1f))
-            Text(tr("ms.connect"), style = ui(14f, 700, G.cobalt), modifier = Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(10.dp)).clickable { app.sheet = Sheet.Device }.padding(horizontal = 8.dp, vertical = 12.dp))
+            Text(tr("ms.connect"), style = ui(14f, 700, G.cobalt), modifier = Modifier.heightIn(min = 44.dp).clip(RoundedCornerShape(10.dp)).clickable { app.openLaser() }.padding(horizontal = 8.dp, vertical = 12.dp))
         }
         if (rs.isEmpty()) Text(tr("tr.empty"), style = ui(14f, 500, G.ink2, 1.45f))
         rs.forEach { x ->

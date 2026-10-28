@@ -146,9 +146,9 @@ fun MeasureScreen(calcTitle: Boolean) {
     val on = s.laser == Laser.CONNECTED
     // the real laser measures on its own button, one press one reading: no continuous mode then
     val real = app.laser.isReal
-    if (!on || real) c.live = false
+    if (!on || real || !app.laser.simOn) c.live = false
     if (real) c.cont = false
-    // continuous mode: the simulated laser keeps reporting a value that moves a little
+    // continuous mode (debug simulator only): the simulated laser keeps reporting a value that moves a little
     LaunchedEffect(c.live) {
         while (c.live) { c.liveVal = ((c.liveVal ?: Random.nextInt(600, 8200)) + Random.nextInt(-3, 4)).coerceIn(300, 9000); delay(400) }
     }
@@ -168,7 +168,7 @@ fun MeasureScreen(calcTitle: Boolean) {
             Row(Modifier.fillMaxWidth().padding(start = 16.dp, end = 16.dp, top = 4.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 GlassIconButton("back", tr("nt.back"), { app.pop() })
                 Text(tr(if (calcTitle) "gl.calc" else "tab.measure"), style = ui(36f, 800, G.ink, 1.15f, -.02f), modifier = Modifier.weight(1f), maxLines = 1)
-                Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) { LaserButton { app.sheet = Sheet.Device } }
+                Box(Modifier.size(52.dp), contentAlignment = Alignment.Center) { LaserButton { app.openLaser() } }
             }
             val scroll = rememberScrollState()
             // "Kalkulyator" opens the page at its tools row (prototype glScroll 'calc': the row 12 px from the top)
@@ -203,7 +203,7 @@ fun MeasureScreen(calcTitle: Boolean) {
                     // two lines rather than "Lazerni …" when the phone's font is set large
                     !on -> GBtn(tr("qc.connect"), { app.openLaser() }, icon = "bt", modifier = Modifier.weight(1f), maxLines = 2)
                     c.cont -> GBtn(tr("qc.saveLive"), { c.liveVal?.let { add(it, "sim"); app.say("qm.saved") } }, icon = "save", enabled = c.liveVal != null, modifier = Modifier.weight(1f), maxLines = 2)
-                    else -> GBtn(tr("qc.measure"), { if (real) app.laser.await { add(it, "laser") } else add(Random.nextInt(600, 8200), "sim") }, icon = "laser", modifier = Modifier.weight(1f), maxLines = 2)
+                    else -> GBtn(tr("qc.measure"), { if (real) app.laser.await { add(it, "laser") } else if (app.laser.simOn) add(Random.nextInt(600, 8200), "sim") else app.openLaser() }, icon = "laser", modifier = Modifier.weight(1f), maxLines = 2)
                 }
             }
         }

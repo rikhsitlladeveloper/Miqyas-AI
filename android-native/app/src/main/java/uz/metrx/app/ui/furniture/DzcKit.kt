@@ -741,8 +741,10 @@ fun DzcNumSheet(title: String, cur: Int, lo: Int, hi: Int, note: String? = null,
             GBtn(tr(if (busy) "dzc.laserWait" else "dzc.laser"), {
                 if (busy) return@GBtn
                 if (app.laser.isReal) { busy = true; app.laser.await(onCancel = { busy = false }) { mm -> busy = false; v = mm.toString(); app.haptic(Hap.CONFIRM) } }
+                // no laser: the radar to connect one (no made-up values)
+                else if (!app.laser.simOn) app.openLaser()
                 else {
-                    // the laser's newest reading not used yet, else the simulator's made-up one near the current size
+                    // the debug simulator: the laser's newest reading not used yet, else a made-up one near the current size
                     val r = app.settings.readings.lastOrNull { it.used == null && it.src != "manual" }
                     if (r != null) { app.settings.markReadingUsed(r.id, title); v = r.mm.toString(); app.haptic(Hap.CONFIRM) }
                     else scope.launch { busy = true; kotlinx.coroutines.delay(700); v = ((cur + kotlin.random.Random.nextInt(-60, 61)) / 5 * 5).coerceIn(lo, hi).toString(); busy = false; app.haptic(Hap.CONFIRM) }
