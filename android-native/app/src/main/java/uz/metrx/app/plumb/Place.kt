@@ -40,8 +40,8 @@ class PCtx(val id: String, val room: Room, val g: TRoomGeo, val kind: String, va
     val ways get() = doors.filter { o -> g.walls.any { it.id == o.wall } }
     val entry: Opening? get() = ways.firstOrNull { it.id == pr.door } ?: ways.firstOrNull()
     fun wall(id: String?) = id?.let { g.wall(it) }
-    /** The floor's area, m². */
-    val areaM2 get() = abs(area(g.floor)) / 1e6
+    /** The floor's area less what inner partitions stand on, m². */
+    val areaM2 get() = (abs(area(g.floor)) - (if (room.inner.isEmpty()) 0L else uz.metrx.app.geo.innerAreas(room).floor)) / 1e6
 }
 
 /** The made-up room of a room typed by size: [f]'s box with a door on wall A and a window on wall C. */

@@ -268,8 +268,8 @@ fun EOrderRow(p: Project, onClick: () -> Unit) {
         Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(G.cobalt.copy(alpha = .1f)), contentAlignment = Alignment.Center) { PathIcon(BOLT, G.cobalt, 22.dp, 2f) }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(dn(p.name, lang), style = ui(15f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val sub = if (p.elec.devs.isEmpty() && p.elec.free.isEmpty()) tr("el.noDevs") else devSummary(p.elec.devs) +
-                if (p.elec.free.isNotEmpty()) " · " + tr("el.freeN", "n" to p.elec.free.size) else ""
+            val sub = listOfNotNull(p.elec.devs.takeIf { it.isNotEmpty() }?.let { devSummary(it) }, p.elec.free.takeIf { it.isNotEmpty() }?.let { tr("el.freeN", "n" to it.size) })
+                .joinToString(" · ").ifEmpty { tr("el.noDevs") }
             Text(sub, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
             uz.metrx.app.ui.loc.OrderLocRow(p, Modifier.padding(top = 4.dp))
         }

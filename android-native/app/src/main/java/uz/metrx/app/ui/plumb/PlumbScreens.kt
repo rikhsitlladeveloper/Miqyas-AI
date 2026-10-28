@@ -291,8 +291,10 @@ fun POrderRow(p: Project, onClick: () -> Unit) {
         Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(G.cobalt.copy(alpha = .1f)), contentAlignment = Alignment.Center) { PathIcon(TAP, G.cobalt, 22.dp, 2f) }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(dn(p.name, lang), style = ui(15f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val sub = if (p.plumb.fixes.isEmpty() && p.plumb.free.isEmpty()) tr("sx.noFix") else fixSummary(p.plumb.fixes.filter { it.t != "manif" }) +
-                if (p.plumb.free.isNotEmpty()) " · " + tr("el.freeN", "n" to p.plumb.free.size) else ""
+            // the drawn rooms' fixtures, then the rooms typed by size (their fixtures are counted there, not 'no fixtures')
+            val fx = p.plumb.fixes.filter { it.t != "manif" }
+            val sub = listOfNotNull(fx.takeIf { it.isNotEmpty() }?.let { fixSummary(it) }, p.plumb.free.takeIf { it.isNotEmpty() }?.let { tr("el.freeN", "n" to it.size) })
+                .joinToString(" · ").ifEmpty { tr("sx.noFix") }
             Text(sub, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
             uz.metrx.app.ui.loc.OrderLocRow(p, Modifier.padding(top = 4.dp))
         }

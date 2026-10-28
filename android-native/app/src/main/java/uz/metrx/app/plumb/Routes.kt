@@ -298,8 +298,18 @@ fun snake(c: PCtx, step: Int, k: Int = 0, n: Int = 1): List<Pair<V2, V2>> {
     val out = ArrayList<Pair<V2, V2>>()
     var y = sy0; var prev: V2? = null; var right = true
     val st = step.coerceIn(50, 400).toDouble()
+    // no pipe under an inner partition (geo/InnerWalls.kt): its body, 100 mm round it, is left out of each line
+    val rh = uz.metrx.app.geo.roomHOf(c.room)
+    val bodies = c.room.inner.flatMap { p -> uz.metrx.app.geo.pieceGeo(p, rh).R.map { b -> b.map { V2(it.x, it.y) } } }
     while (y <= sy1 + 1e-6) {
-        val xs = scan(f, y).filter { it.second - it.first > 200 }
+        var xs = scan(f, y)
+        bodies.forEach { b ->
+            val ys = b.map { it.y }
+            if (y < ys.min() - 100 || y > ys.max() + 100) return@forEach
+            val bx0 = b.minOf { it.x } - 100; val bx1 = b.maxOf { it.x } + 100
+            xs = xs.flatMap { (s0, s1) -> listOf(s0 to min(s1, bx0), max(s0, bx1) to s1).filter { it.second > it.first } }
+        }
+        xs = xs.filter { it.second - it.first > 200 }
         val seg = xs.maxByOrNull { it.second - it.first }
         if (seg != null) {
             val a = V2(max(seg.first + 150, x0), y); val b = V2(min(seg.second - 150, x1), y)
