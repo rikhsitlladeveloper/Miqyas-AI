@@ -96,7 +96,8 @@ class ScreenTestCase: XCTestCase {
         XCTAssertTrue(b.waitForExistence(timeout: 4))
         // a drag along the tools' row, from the right to the left, at the tool's own height
         var n = 0
-        while !b.isHittable && n < 4 {
+        // (isHittable itself fails on a button past the screen's edge: its frame says it)
+        while (b.frame.maxX > app.frame.width - 4 || b.frame.minX < 0) && n < 5 {
             let y = b.frame.midY
             let from = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.width * 0.85, dy: y))
             let to = app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: app.frame.width * 0.15, dy: y))
