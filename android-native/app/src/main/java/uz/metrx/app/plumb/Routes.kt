@@ -313,7 +313,8 @@ fun snake(c: PCtx, step: Int, k: Int = 0, n: Int = 1): List<Pair<V2, V2>> {
         val seg = xs.maxByOrNull { it.second - it.first }
         if (seg != null) {
             val a = V2(max(seg.first + 150, x0), y); val b = V2(min(seg.second - 150, x1), y)
-            val (s, e) = if (right) a to b else b to a
+            // each line starts at the end nearer the last one, so a short line (beside a partition) does not leave a long diagonal
+            val (s, e) = prev?.let { pv -> if (kotlin.math.abs(pv.x - a.x) <= kotlin.math.abs(pv.x - b.x)) a to b else b to a } ?: if (right) a to b else b to a
             prev?.let { out += it to s }
             out += s to e; prev = e; right = !right
         }

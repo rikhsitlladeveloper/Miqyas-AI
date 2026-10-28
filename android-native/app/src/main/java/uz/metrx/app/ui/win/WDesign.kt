@@ -274,15 +274,16 @@ private fun SashCard(it: WinItem, ci: Int, ri: Int, onSel: (Int, Int) -> Unit, u
             listOf("L", "R").forEach { h -> Chip(tr(if (s.t == "slide") "dw.slide$h" else "dw.hinge$h"), s.cell.hinge == h) { upd { w -> setCell(w, ci, ri) { c -> c.copy(hinge = h) } } } }
         }
         Text(tr("dw.tS.${s.t}"), style = ui(12.5f, 400, G.ink2, 1.35f))
+        // two a row, the merge under them: three in a row cut "+ Горизонтальный импост" and the like
+        val app = LocalApp.current
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             // too narrow (low) to split: it says why instead of making a sash with no room for its glass
-            val app = LocalApp.current
             GBtn(tr("dw.addV"), { if (uz.metrx.app.win.canSplitCol(it, ci)) upd { w -> splitCol(w, ci) } else app.say("dw.tooNarrow", "n" to 2 * uz.metrx.app.win.SPLIT_MIN, kind = uz.metrx.app.ui.components.ToastKind.ERROR) },
                 Btn.SECONDARY, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.weight(1f), maxLines = 2)
             GBtn(tr("dw.addH"), { if (uz.metrx.app.win.canSplitRow(it, ci, ri)) upd { w -> splitRow(w, ci, ri) } else app.say("dw.tooLow", "n" to 2 * uz.metrx.app.win.SPLIT_MIN, kind = uz.metrx.app.ui.components.ToastKind.ERROR) },
                 Btn.SECONDARY, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.weight(1f), maxLines = 2)
-            GBtn(tr("dw.merge"), { upd { w -> mergeAt(w, ci, ri) }; onSel(0, 0) }, Btn.SECONDARY, enabled = ss.size > 1, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.weight(1f), maxLines = 2)
         }
+        GBtn(tr("dw.merge"), { upd { w -> mergeAt(w, ci, ri) }; onSel(0, 0) }, Btn.SECONDARY, enabled = ss.size > 1, height = 42.dp, corner = 14.dp, fontSize = 13.5f, modifier = Modifier.fillMaxWidth(), maxLines = 1)
     }
 }
 
