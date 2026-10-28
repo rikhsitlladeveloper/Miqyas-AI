@@ -204,7 +204,7 @@ fun PViewScreen(rt: Route.PView) {
             }
             if (c == null) {
                 Column(Modifier.fillMaxWidth().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                    Text(tr("tl.needMeasure"), style = ui(16f, 700, G.ink, 1.35f), textAlign = TextAlign.Center)
+                    Text(tr("el.needMeasure"), style = ui(16f, 700, G.ink, 1.35f), textAlign = TextAlign.Center)
                     if (room != null) GBtn(tr("ns.measureB"), { app.openRoom(p.id, room.id) }, fill = false)
                 }
                 return@Column
@@ -222,7 +222,7 @@ fun PViewScreen(rt: Route.PView) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (mode == "wall") Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    c.g.walls.forEach { w -> Chip(tr("tl.wallN", "w" to w.id) + " · " + fmtLen(w.len.toInt(), LenUnit.M, en), w.id == wall) { wall = w.id } }
+                    (c.g.walls + c.g.inner).forEach { w -> Chip(tr("tl.wallN", "w" to w.id) + " · " + fmtLen(w.len.toInt(), LenUnit.M, en), w.id == wall) { wall = w.id } }
                 }
                 if (mode != "3d") Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     LAYERS.forEach { k -> Chip(tr("sx.l.$k"), k in layers) { layerS = (if (k in layers) layers - k else LAYERS.filter { it in layers || it == k }).joinToString(",") } }
@@ -451,11 +451,13 @@ private fun WallView(p: Project, c: PCtx, wid: String, fs: List<PlFix>, pts: Lis
 /* ---------------- under the picture ---------------- */
 
 /** The pipes' colours in this room, the underfloor loops' too. */
+@OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
 @Composable
 private fun Legend(kinds: Set<String>, loops: Boolean) {
     val ks = listOf("cold", "hot", "drain", "hs", "hr").filter { it in kinds }
     if (ks.isEmpty() && !loops) return
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+    // wraps, so every colour is seen (in Russian the row ran past the screen's edge)
+    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         ks.forEach { k ->
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                 Box(Modifier.size(width = 16.dp, height = if (k == "drain") 6.dp else 4.dp).clip(RoundedCornerShape(2.dp)).background(rgbC(kindRgb(k))))
@@ -498,7 +500,7 @@ private fun Fixtures(p: Project, c: PCtx, fs: List<PlFix>, pts: List<APt>, bad: 
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(20.dp), fill = G.glass(.55f)).padding(vertical = 6.dp)) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (wall != null) tr("el.onWall", "w" to wall) else tr("sx.fixes"), style = ui(15f, 800), modifier = Modifier.weight(1f))
-            Text(fixSummary(list), style = ui(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.4f), textAlign = TextAlign.End)
+            if (list.isNotEmpty()) Text(fixSummary(list), style = ui(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.4f), textAlign = TextAlign.End)
         }
         if (list.isEmpty() && loose.isEmpty()) Text(tr("sx.noFix"), style = ui(13.5f, 400, G.ink2), modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
         FIX_CATS.forEach { cat ->

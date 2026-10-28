@@ -21,6 +21,8 @@ import kotlin.math.max
 class WCtx(val id: String, val room: Room, val g: TRoomGeo, val T: Int, val free: WinItem? = null) {
     fun wall(id: String?) = id?.let { g.wall(it) }
     fun opening(id: String?) = room.openings.firstOrNull { it.id == id }
+    /** The wall's thickness at wall [wall]: an inner partition's own (geo/InnerWalls.kt), else the room's [T]. */
+    fun tOf(wall: String?): Int = if (room.inner.isEmpty() || wall == null || free != null) T else uz.metrx.app.geo.innerFaces(room).firstOrNull { it.id == wall }?.th ?: T
 }
 
 /** The made-up room of a product without a room: a wall [FREE_T] (or its own) thick with the opening it fits, a sill at 850 for a window. */
@@ -70,7 +72,7 @@ fun placed(c: WCtx, it: WinItem): Placed? {
     val w = c.wall(o.wall) ?: return null
     val a0 = o.off + (o.w - it.w) / 2.0
     val z0 = o.sill + (if (o.type == "door") 0.0 else (o.h - it.h) / 2.0)
-    return Placed(it, o, w, a0, z0, c.T)
+    return Placed(it, o, w, a0, z0, c.tOf(o.wall))
 }
 
 fun placedIn(p: Project, c: WCtx): List<Placed> = itemsIn(p, c).mapNotNull { placed(c, it) }
@@ -80,7 +82,7 @@ fun fillOpening(id: String, k: WKind, c: WCtx, o: Opening, gap: Int): WinItem {
     val (w, h) = sizeFor(o.w, o.h, o.type, gap)
     val it = newItem(id, k, w, h, gap, c.id, o.id)
     if (k.isDoor) return it
-    val r = revealOf(c.T, frameDepth(it))
+    val r = revealOf(c.tOf(o.wall), frameDepth(it))
     return if (o.type == "window" && o.sill > 0) it.copy(sill = sillFor(r), drip = true) else it.copy(drip = o.type == "window")
 }
 

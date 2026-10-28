@@ -541,6 +541,8 @@ private fun FixSheet(s: Sheet.TFixForm) {
     val tr0 = tileRoomOf(p, r.id)
     val old = s.fid?.let { id -> tr0.fixes.firstOrNull { it.id == id } }
     val ws = walls(r, app.settings.angleSnap)
+    // a tray or bath can stand against an inner partition's face too
+    val wsAll = uz.metrx.app.geo.allWalls(r, app.settings.angleSnap)
     val start = old ?: (if (s.type == "bath") TFix(uid(), "bath", "A", 0, 1700, 700, 560) else TFix(uid(), "tray", "A", 0, 900, 900, 150)).let { f ->
         // a new one goes against the first wall it fits on without a door in the way
         val w = ws.firstOrNull { w -> (w.len ?: 0) >= f.w && r.openings.none { o -> o.wall == w.id && o.type == "door" && o.off < f.w } } ?: ws.firstOrNull()
@@ -551,7 +553,7 @@ private fun FixSheet(s: Sheet.TFixForm) {
     var texts by rememberSaveable { mutableStateOf(listOf(start.off, start.w, start.d, start.h).map { fmtField(it, unit, en) }) }
     // the offset may be 0 (in the corner); the sizes may not
     val vals = texts.mapIndexed { i, t -> if (i == 0) (if (t.isBlank()) 0 else (uz.metrx.app.geo.parseDec(t, uz.metrx.app.geo.unitDecimals(unit)) as? uz.metrx.app.geo.Parsed.Ok)?.value?.toInt()) else parseMm(t, unit) }
-    val len = ws.firstOrNull { it.id == wall }?.len
+    val len = wsAll.firstOrNull { it.id == wall }?.len
     val err = when {
         vals.any { it == null } -> tr("tl.fixErr")
         len != null && vals[0]!! + vals[1]!! > len -> tr("tl.fixLong")
@@ -577,7 +579,7 @@ private fun FixSheet(s: Sheet.TFixForm) {
         Text(tr("tl.fixB"), style = ui(13.5f, 400, G.ink2, 1.4f))
         Text(tr("tl.fixWall"), style = ui(15f, 700))
         androidx.compose.foundation.layout.FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ws.forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
+            wsAll.forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
         }
         val uw = tr(if (unit == LenUnit.CM) "u.cm" else "u.m")
         keys.chunked(2).forEach { row ->

@@ -22,6 +22,7 @@ import kotlinx.coroutines.withContext
 import uz.metrx.app.geo.V3
 import uz.metrx.app.tiles.V2
 import uz.metrx.app.ui.elec.PlanMap
+import uz.metrx.app.ui.elec.drawInnerWalls
 import uz.metrx.app.ui.elec.rgbC
 import uz.metrx.app.ui.tiles.TCam
 import uz.metrx.app.win.DOOR_FRAME
@@ -319,6 +320,7 @@ fun DrawScope.drawWinPlan(c: WCtx, m: PlanMap, pls: List<Placed>, sweeps: List<S
     val f = c.g.floor
     val out = Path().apply { val o = f.map { m.at(it) }; moveTo(o[0].x, o[0].y); o.drop(1).forEach { lineTo(it.x, it.y) }; close() }
     drawPath(out, P_FLOOR)
+    drawInnerWalls(c.room, m::at, P_WALL)
     obs.forEach { ob ->
         val o = ob.poly.map { m.at(it) }
         val path = Path().apply { moveTo(o[0].x, o[0].y); o.drop(1).forEach { lineTo(it.x, it.y) }; close() }

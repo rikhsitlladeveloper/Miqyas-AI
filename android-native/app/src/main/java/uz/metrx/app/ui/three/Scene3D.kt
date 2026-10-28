@@ -342,7 +342,7 @@ internal class ShellNodes(val engine: Engine, val ml: MaterialLoader, val ctx: a
     private fun flatPart(root: Node, p: uz.metrx.app.geo.Part, s: Shell3D): GeometryNode? {
         if (p.faces.isEmpty()) return null
         val byColor = LinkedHashMap<Int, ArrayList<uz.metrx.app.geo.Face>>()
-        p.faces.forEach { f -> byColor.getOrPut(shade(if (p.slab && f.n.y > .9) slabTop(p.rgb) else p.rgb, f.n, s.light)) { ArrayList() } += f }
+        p.faces.forEach { f -> byColor.getOrPut(shade(if (p.slab && f.n.y > .9) slabTop(p.rgb) else p.rgb, f.n, s.light, if (p.tile) 1.0 else Double.MAX_VALUE)) { ArrayList() } += f }
         val verts = ArrayList<Geometry.Vertex>(); val prim = ArrayList<List<Int>>(); val colors = ArrayList<Int>()
         byColor.forEach { (c, fs) ->
             val idx = ArrayList<Int>()
@@ -856,9 +856,16 @@ fun BoxScope.Labels3D(cam: Cam3D, points: List<V3>, content: @Composable (Int) -
         val top = 56.dp.roundToPx(); val pad = 4.dp.roundToPx()
         layout(c.maxWidth, c.maxHeight) {
             var j = 0
+            // two letters that land on each other (a cut-away front wall's over a side wall's) are set apart, the later one just below
+            val placed = ArrayList<IntArray>()
             points.indices.forEach { i -> val p = at[i] ?: return@forEach; val q = pl[j++]
                 val x = (p.x - q.width / 2f).toInt().coerceIn(pad, maxOf(pad, c.maxWidth - q.width - pad))
-                val y = (p.y - q.height / 2f).toInt().coerceIn(minOf(top, maxOf(0, c.maxHeight - q.height)), maxOf(top, c.maxHeight - q.height - pad))
+                var y = (p.y - q.height / 2f).toInt().coerceIn(minOf(top, maxOf(0, c.maxHeight - q.height)), maxOf(top, c.maxHeight - q.height - pad))
+                var tries = 0
+                while (tries++ < 4 && placed.any { r -> x < r[2] && x + q.width > r[0] && y < r[3] && y + q.height > r[1] }) {
+                    y = placed.filter { r -> x < r[2] && x + q.width > r[0] && y < r[3] && y + q.height > r[1] }.maxOf { it[3] } + pad / 2
+                }
+                placed += intArrayOf(x, y, x + q.width, y + q.height)
                 q.place(x, y) }
         }
     }

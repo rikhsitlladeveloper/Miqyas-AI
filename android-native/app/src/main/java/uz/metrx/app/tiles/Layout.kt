@@ -224,6 +224,8 @@ fun surfacesOf(l: TileLayout, g: TRoomGeo): List<Surf> {
             val holes = ArrayList<List<V2>>()
             if (g.rect) r.features.filter { it.type == "column" }.forEach { f -> colFoot(g, f)?.let { holes += it } }
             g.fixes.forEach { f -> footprint(g, f)?.let { holes += it } }
+            // no tiles under the inner partitions (an arch's passage is floor)
+            if (r.inner.isNotEmpty()) { val rh = uz.metrx.app.geo.roomHOf(r); r.inner.forEach { p -> uz.metrx.app.geo.pieceGeo(p, rh).R.forEach { b -> holes += b.map { V2(it.x, it.y) } } } }
             out += Surf("floor", "floor", null, g.floor, holes, g.floorFrame, s.alt)
             continue
         }

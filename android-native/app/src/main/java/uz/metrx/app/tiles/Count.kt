@@ -143,10 +143,12 @@ private fun tiledToFloor(all: List<TileLayout>, roomId: String, wall: String) =
 fun skirtRuns(l: TileLayout, g: TRoomGeo, all: List<TileLayout>): List<Run> {
     if (l.skirt <= 0 || l.surfs.none { it.id == "floor" }) return emptyList()
     val out = ArrayList<Run>()
-    for (w in g.walls) {
+    // an inner partition's faces get skirting too (geo/InnerWalls.kt), less an arch's passage
+    for (w in g.walls + g.inner) {
         if (tiledToFloor(all, g.room.id, w.id)) continue
         val cuts = ArrayList<Pair<Double, Double>>()
         g.room.openings.filter { it.wall == w.id && it.type == "door" }.forEach { cuts += it.off.toDouble() to (it.off + it.w).toDouble() }
+        if (g.inner.isNotEmpty()) uz.metrx.app.geo.archGap(g.room, w.id)?.let { (t0, t1, _) -> cuts += t0 to t1 }
         g.fixes.forEach { f -> coverOn(g, w, f)?.let { cuts += it } }
         val cols = if (g.rect) g.room.features.filter { it.wall == w.id && it.type == "column" } else emptyList()
         cols.forEach { cuts += it.off.toDouble() to (it.off + it.w).toDouble() }
@@ -167,7 +169,7 @@ private fun overlap(a0: Double, a1: Double, b0: Double, b1: Double) = max(0.0, m
 fun profileMm(l: TileLayout, g: TRoomGeo): Double {
     if (!l.profiles) return 0.0
     var sum = 0.0
-    val zones = l.surfs.filter { g.wall(it.id) != null }.associate { it.id to zoneOf(it, g.H) }
+    val zones = l.surfs.filter { g.wall(it.id) != null }.associate { it.id to zoneOf(it, g.innerH[it.id] ?: g.H) }
     for ((wid, z) in zones) {
         val (lo, hi) = z
         fun edges(x0: Double, x1: Double, y0: Double, y1: Double) {
@@ -190,16 +192,40 @@ fun profileMm(l: TileLayout, g: TRoomGeo): Double {
         val z0 = zones[prev.id] ?: return@forEachIndexed; val z1 = zones[w.id] ?: return@forEachIndexed
         sum += overlap(z0.first, z0.second, z1.first, z1.second)
     }
+    // an inner partition (geo/InnerWalls.kt): its outside corners where both faces are tiled (an L's or T's), and the
+    // two edges of an end standing free in the room (not against a wall)
+    if (g.inner.isNotEmpty()) uz.metrx.app.geo.innerFaces(g.room).groupBy { it.pid }.values.forEach { fs ->
+        val ws = fs.mapNotNull { f -> g.inner.firstOrNull { it.id == f.id } }
+        fun same(a: V2, b: V2) = abs(a.x - b.x) < 1 && abs(a.y - b.y) < 1
+        ws.forEach { w ->
+            val z = zones[w.id]
+            val end = w.at(w.len)
+            ws.firstOrNull { it !== w && same(it.p0, end) }?.let { nx ->
+                val z1 = zones[nx.id]
+                if (w.t.cross(nx.t) < -1e-6 && z != null && z1 != null) sum += overlap(z.first, z.second, z1.first, z1.second)
+            }
+            if (z != null) for (q in listOf(w.p0, end)) {
+                if (ws.any { it !== w && (same(it.p0, q) || same(it.at(it.len), q)) }) continue
+                if (g.walls.minOf { segDist(q, it) } < 40) continue
+                sum += z.second - z.first
+            }
+        }
+    }
     return sum
 }
+
+/** How far plan point [q] is from wall [w]'s face, mm. */
+private fun segDist(q: V2, w: TWall): Double { val a = ((q - w.p0).dot(w.t)).coerceIn(0.0, w.len); val p = w.at(a); return kotlin.math.hypot(q.x - p.x, q.y - p.y) }
 
 /** A room's waterproofing, m²: the floor, [TileRoom.wpUp] up every wall (less its doors), and the walls by the tray and bath up to the shower height. */
 fun wpM2(tr: TileRoom, g: TRoomGeo): Double {
     if (!tr.wp) return 0.0
-    var mm2 = abs(area(g.floor))
-    for (w in g.walls) {
-        val doors = g.room.openings.filter { it.wall == w.id && it.type == "door" }.sumOf { it.w.toDouble() }
-        mm2 += max(0.0, w.len - doors) * tr.wpUp
+    // the floor less what the inner partitions stand on, and their faces (up to the band) as walls
+    var mm2 = abs(area(g.floor)) - uz.metrx.app.geo.innerAreas(g.room).floor
+    for (w in g.walls + g.inner) {
+        val doors = g.room.openings.filter { it.wall == w.id && it.type == "door" }.sumOf { it.w.toDouble() } +
+            (if (g.inner.isNotEmpty()) uz.metrx.app.geo.archGap(g.room, w.id)?.let { (t0, t1, _) -> t1 - t0 } ?: 0.0 else 0.0)
+        mm2 += max(0.0, w.len - doors) * min(tr.wpUp.toDouble(), g.innerH[w.id] ?: g.H)
         g.fixes.forEach { f -> coverOn(g, w, f)?.let { (a, b) -> mm2 += (b - a) * max(0.0, tr.showerH.toDouble().coerceAtMost(g.H) - tr.wpUp) } }
     }
     return mm2 / 1e6

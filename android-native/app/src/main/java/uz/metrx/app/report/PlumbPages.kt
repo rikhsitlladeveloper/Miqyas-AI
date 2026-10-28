@@ -134,7 +134,7 @@ internal fun Doc.plumbPages(e: PlumbOrder) {
         val runs = runsIn(calc.routes, c.id)
         val loop = calc.routes.loops.firstOrNull { it.roomId == c.id }
         if (fs.isEmpty() && pts.isEmpty() && runs.isEmpty() && loop == null || !drawn(c)) return@forEach
-        newPage()
+        newPageUnlessNearTop()
         h2(t("sx.r.roomT", "r" to (names[c.id] ?: "")))
         space(0f)
         val ph = 250f; val top = y
@@ -144,7 +144,7 @@ internal fun Doc.plumbPages(e: PlumbOrder) {
             drawRect(FRAME, Offset(PX + .5f, top + .5f), Size(CW - 1f, ph - 1f), style = Stroke(.75f))
         }
         y += ph; after(8f)
-        val ws = c.g.walls.filter { w -> pts.any { it.wall == w.id } || fs.any { it.wall == w.id } || (rs?.let { it.roomId == c.id && it.wall == w.id } == true) }
+        val ws = (c.g.walls + c.g.inner).filter { w -> pts.any { it.wall == w.id } || fs.any { it.wall == w.id } || (rs?.let { it.roomId == c.id && it.wall == w.id } == true) }
         val bw = (CW - 10f) / 2; val bh = 150f
         ws.chunked(2).forEach { two ->
             val caps = two.map { w -> measure(t("tl.wallN", "w" to w.id) + " · " + len(w.len.toInt()) + " " + mUnit(), ui(9f, 600)) }

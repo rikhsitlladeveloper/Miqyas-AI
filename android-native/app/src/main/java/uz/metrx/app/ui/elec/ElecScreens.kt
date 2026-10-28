@@ -268,8 +268,8 @@ fun EOrderRow(p: Project, onClick: () -> Unit) {
         Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(G.cobalt.copy(alpha = .1f)), contentAlignment = Alignment.Center) { PathIcon(BOLT, G.cobalt, 22.dp, 2f) }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(dn(p.name, lang), style = ui(15f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val sub = if (p.elec.devs.isEmpty() && p.elec.free.isEmpty()) tr("el.noDevs") else devSummary(p.elec.devs) +
-                if (p.elec.free.isNotEmpty()) " · " + tr("el.freeN", "n" to p.elec.free.size) else ""
+            val sub = listOfNotNull(p.elec.devs.takeIf { it.isNotEmpty() }?.let { devSummary(it) }, p.elec.free.takeIf { it.isNotEmpty() }?.let { tr("el.freeN", "n" to it.size) })
+                .joinToString(" · ").ifEmpty { tr("el.noDevs") }
             Text(sub, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
             uz.metrx.app.ui.loc.OrderLocRow(p, Modifier.padding(top = 4.dp))
         }
@@ -341,7 +341,7 @@ fun ERoomsTab(p: Project, lang: Lang, route: Route.Project) {
                     Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(G.cobalt.copy(alpha = .1f)), contentAlignment = Alignment.Center) { MIcon("cube", G.cobalt, 18.dp, 2f) }
                     Column(Modifier.weight(1f)) {
                         Text(uz.metrx.app.data.dn(f.name, lang).ifBlank { tr(kindKey(f.kind)) }, style = ui(14.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " " + tr("u.m") + " · " + tr("el.freeCnt", "s" to f.sock + f.power, "k" to f.sw, "l" to f.light), style = ui(12.5f, 500, G.ink2), maxLines = 1)
+                        Text(fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " " + tr("u.m") + " · " + tr("el.freeCnt", "s" to f.sock + f.power, "k" to f.sw, "l" to f.light + f.lamps.size), style = ui(12.5f, 500, G.ink2), maxLines = 1)
                     }
                     MIcon("chev", G.ink3, 16.dp, 2f)
                 }
@@ -639,8 +639,8 @@ private fun DevSheet(s: Sheet.EDev) {
     val wl = c.wall(wall)?.len
     val err = when {
         vOff == null || vH == null || vLen == null -> tr("tl.fixErr")
-        !old.onCeiling && wl != null && vOff > wl -> tr("pt.offBig", "v" to uz.metrx.app.geo.fmtLen(Math.round(wl).toInt(), unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
-        !old.onCeiling && vH > c.H -> tr("pt.hBig", "v" to uz.metrx.app.geo.fmtLen(c.H, unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
+        !old.onCeiling && wl != null && vOff > wl -> tr("pt.offBig", "v" to fmtLen(wl.toInt(), unit, en) + " " + tr(uz.metrx.app.ui.rooms.unitKeyOf(unit)))
+        !old.onCeiling && vH > c.H -> tr("pt.hBig", "v" to fmtLen(c.H, unit, en) + " " + tr(uz.metrx.app.ui.rooms.unitKeyOf(unit)))
         else -> null
     }
     fun save() {
@@ -666,7 +666,7 @@ private fun DevSheet(s: Sheet.EDev) {
         if (!old.onCeiling) {
             Text(tr("tl.fixWall"), style = ui(15f, 700))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                c.g.walls.forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
+                (c.g.walls + c.g.inner).forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

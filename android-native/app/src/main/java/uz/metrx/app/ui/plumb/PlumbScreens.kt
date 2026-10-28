@@ -291,8 +291,10 @@ fun POrderRow(p: Project, onClick: () -> Unit) {
         Box(Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)).background(G.cobalt.copy(alpha = .1f)), contentAlignment = Alignment.Center) { PathIcon(TAP, G.cobalt, 22.dp, 2f) }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(dn(p.name, lang), style = ui(15f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val sub = if (p.plumb.fixes.isEmpty() && p.plumb.free.isEmpty()) tr("sx.noFix") else fixSummary(p.plumb.fixes.filter { it.t != "manif" }) +
-                if (p.plumb.free.isNotEmpty()) " · " + tr("el.freeN", "n" to p.plumb.free.size) else ""
+            // the drawn rooms' fixtures, then the rooms typed by size (their fixtures are counted there, not 'no fixtures')
+            val fx = p.plumb.fixes.filter { it.t != "manif" }
+            val sub = listOfNotNull(fx.takeIf { it.isNotEmpty() }?.let { fixSummary(it) }, p.plumb.free.takeIf { it.isNotEmpty() }?.let { tr("el.freeN", "n" to it.size) })
+                .joinToString(" · ").ifEmpty { tr("sx.noFix") }
             Text(sub, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
             uz.metrx.app.ui.loc.OrderLocRow(p, Modifier.padding(top = 4.dp))
         }
@@ -451,7 +453,7 @@ fun PNextStep(p: Project) {
     val riser = uz.metrx.app.plumb.riserToPlace(p, s.angleSnap)
     data class Step(val title: String, val sub: String?, val button: String, val go: () -> Unit)
     val step: Step? = when {
-        p.floors.isEmpty() && p.plumb.free.isEmpty() -> Step(tr("el.ns.pickT"), tr("sx.ns.pickS"), tr("ns.needB")) { app.push(Route.PGallery(p.id)) }
+        p.floors.isEmpty() && p.plumb.free.isEmpty() -> Step(tr("sx.ns.pickT"), tr("sx.ns.pickS"), tr("ns.needB")) { app.push(Route.PGallery(p.id)) }
         undrawn != null -> Step(tr("ns.measureT"), floorName(undrawn, lang), tr("fo.drawRoom")) { app.drawTileRoom(p.id, undrawn, lang) }
         unmeasured != null -> Step(tr("ns.measureT"), tr("ns.measureS", "r" to floorName(unmeasured.first, lang)), tr("ns.measureB")) { app.openRoom(p.id, unmeasured.second.id) }
         bare != null -> Step(tr("sx.ns.roomT", "r" to floorName(bare.first, lang)), tr("sx.ns.roomS"), tr("ns.needB")) { app.push(Route.PGallery(p.id, bare.second.id)) }
@@ -657,8 +659,8 @@ private fun FixSheet(s: Sheet.PFix) {
         vOff == null || vW == null || vH.any { it == null } -> tr("tl.fixErr")
         // a radiator of two sections at least (and no wider than its wall)
         old.t == "rad" && (vW < 2 * uz.metrx.app.plumb.SEC_MM || (wl != null && vW > wl)) -> tr("sx.radMin", "a" to 2 * uz.metrx.app.plumb.SEC_MM)
-        wl != null && vOff > wl -> tr("pt.offBig", "v" to uz.metrx.app.geo.fmtLen(Math.round(wl).toInt(), unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
-        vH.any { it!! > c.H } -> tr("pt.hBig", "v" to uz.metrx.app.geo.fmtLen(c.H, unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
+        wl != null && vOff > wl -> tr("pt.offBig", "v" to fmtLen(wl.toInt(), unit, en) + " " + tr(uz.metrx.app.ui.rooms.unitKeyOf(unit)))
+        vH.any { it!! > c.H } -> tr("pt.hBig", "v" to fmtLen(c.H, unit, en) + " " + tr(uz.metrx.app.ui.rooms.unitKeyOf(unit)))
         else -> null
     }
     fun save() {
@@ -684,7 +686,7 @@ private fun FixSheet(s: Sheet.PFix) {
     }) {
         Text(tr("tl.fixWall"), style = ui(15f, 700))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            c.g.walls.forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
+            (c.g.walls + c.g.inner).forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GField(tr("sx.f.off"), tOff, { v -> tOff = v.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' }.take(8) }, "1", decimal = true, labelRight = uw, modifier = Modifier.weight(1f))
@@ -752,8 +754,8 @@ private fun PointSheet(s: Sheet.PPoint) {
     val wl = c.wall(wall)?.len
     val err = when {
         vOff == null || vH == null -> tr("tl.fixErr")
-        wl != null && vOff > wl -> tr("pt.offBig", "v" to uz.metrx.app.geo.fmtLen(Math.round(wl).toInt(), unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
-        vH > c.H -> tr("pt.hBig", "v" to uz.metrx.app.geo.fmtLen(c.H, unit, en) + " " + uz.metrx.app.ui.rooms.unitWordOf(unit))
+        wl != null && vOff > wl -> tr("pt.offBig", "v" to fmtLen(wl.toInt(), unit, en) + " " + tr(uz.metrx.app.ui.rooms.unitKeyOf(unit)))
+        vH > c.H -> tr("pt.hBig", "v" to fmtLen(c.H, unit, en) + " " + tr(uz.metrx.app.ui.rooms.unitKeyOf(unit)))
         else -> null
     }
     GlassSheet(tr("sx.o.${old.t}"), { app.sheet = null }, footer = {
@@ -779,7 +781,7 @@ private fun PointSheet(s: Sheet.PPoint) {
         }
         Text(tr("tl.fixWall"), style = ui(15f, 700))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            c.g.walls.forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
+            (c.g.walls + c.g.inner).forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GField(tr("el.f.off"), tOff, { v -> tOff = v.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' }.take(8) }, "0", decimal = true, labelRight = uw, modifier = Modifier.weight(1f))
@@ -811,18 +813,18 @@ private fun RoomSetSheet(pid: String, rid: String) {
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             KINDS.forEach { k -> Chip(tr(kindKey(k)), k == c.kind) { app.updatePRoom(pid, rid) { it.copy(kind = k) } } }
         }
-        if (c.doors.size > 1) {
+        if (c.ways.size > 1) {
             Text(tr("sx.door"), style = ui(15f, 700))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                c.doors.forEachIndexed { i, o -> Chip(tr("el.doorN", "i" to i + 1, "w" to o.wall), c.entry?.id == o.id) { app.updatePRoom(pid, rid) { it.copy(door = o.id) } } }
+                c.ways.forEachIndexed { i, o -> Chip(tr("el.doorN", "i" to i + 1, "w" to o.wall), c.entry?.id == o.id) { app.updatePRoom(pid, rid) { it.copy(door = o.id) } } }
             }
         }
         if (rs != null && rc != null && rs.roomId != rid) {
-            if (rc.doors.size > 1) {
+            if (rc.ways.size > 1) {
                 Text(tr("sx.pdoor", "r" to dn(rc.room.name, app.settings.lang)), style = ui(15f, 700))
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     val cur = exitDoor(rc, c)
-                    rc.doors.forEachIndexed { i, o -> Chip(tr("el.doorN", "i" to i + 1, "w" to o.wall), cur?.id == o.id) { app.updatePRoom(pid, rid) { it.copy(pdoor = o.id) } } }
+                    rc.ways.forEachIndexed { i, o -> Chip(tr("el.doorN", "i" to i + 1, "w" to o.wall), cur?.id == o.id) { app.updatePRoom(pid, rid) { it.copy(pdoor = o.id) } } }
                 }
             }
             GField(tr("sx.link"), tLink, { v -> tLink = v.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' }.take(7) }, "1", decimal = true, labelRight = tr(if (unit == LenUnit.CM) "u.cm" else "u.m"))
