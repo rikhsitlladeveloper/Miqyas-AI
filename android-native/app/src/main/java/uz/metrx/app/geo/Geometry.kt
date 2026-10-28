@@ -215,6 +215,8 @@ data class Issue(val field: String, val key: String, val vars: Map<String, Any?>
 /** The first problem with [o] in room [r], or null. [kindName] is the localised "Eshik"/"Deraza". */
 fun openingIssue(r: Room, o: Opening, kindName: String, unit: LenUnit, english: Boolean, snap: Boolean = true): Issue? {
     val w = walls(r, snap).firstOrNull { it.id == o.wall }
+    // a door or window on an inner wall's face: the room editor's own checks (InnerWalls.kt, RoomKit.kt) have it
+    if (w == null && o.fk.isNotEmpty()) return null
     val L = w?.len ?: return Issue("wall", "op.needWall", mapOf("w" to if (w?.derived == true) w.dimKey else o.wall))
     if (o.off + o.w > L) return Issue("w", "op.exceeds", mapOf("o" to kindName, "x" to fmtLen(o.off + o.w - L, LenUnit.M, english)))
     val H = r.dim("H").v
