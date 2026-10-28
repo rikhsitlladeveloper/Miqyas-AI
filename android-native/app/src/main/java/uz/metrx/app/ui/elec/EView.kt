@@ -193,7 +193,7 @@ fun EViewScreen(rt: Route.EView) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (mode == "wall") Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    c.g.walls.forEach { w -> Chip(tr("tl.wallN", "w" to w.id) + " · " + fmtLen(w.len.toInt(), LenUnit.M, en), w.id == wall) { wall = w.id } }
+                    (c.g.walls + c.g.inner).forEach { w -> Chip(tr("tl.wallN", "w" to w.id) + " · " + fmtLen(w.len.toInt(), LenUnit.M, en), w.id == wall) { wall = w.id } }
                 }
                 if (warns.isNotEmpty()) Warnings(p, c, warns, byDev)
                 if (runs.isNotEmpty()) Circuits(calc, runs)
@@ -408,7 +408,7 @@ private fun Devices(p: Project, c: ECtx, ds: List<ElecDev>, byDev: Map<String, C
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(20.dp), fill = G.glass(.55f)).padding(vertical = 6.dp)) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (wall != null) tr("el.onWall", "w" to wall) else tr("el.devs"), style = ui(15f, 800), modifier = Modifier.weight(1f))
-            Text(devSummary(list), style = ui(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.4f), textAlign = TextAlign.End)
+            if (list.isNotEmpty()) Text(devSummary(list), style = ui(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.4f), textAlign = TextAlign.End)
         }
         if (list.isEmpty()) Text(tr("el.noDevs"), style = ui(13.5f, 400, G.ink2), modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
         CATS.forEach { cat ->

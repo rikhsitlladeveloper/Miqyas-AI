@@ -341,7 +341,7 @@ fun ERoomsTab(p: Project, lang: Lang, route: Route.Project) {
                     Box(Modifier.size(34.dp).clip(RoundedCornerShape(8.dp)).background(G.cobalt.copy(alpha = .1f)), contentAlignment = Alignment.Center) { MIcon("cube", G.cobalt, 18.dp, 2f) }
                     Column(Modifier.weight(1f)) {
                         Text(uz.metrx.app.data.dn(f.name, lang).ifBlank { tr(kindKey(f.kind)) }, style = ui(14.5f, 700), maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " " + tr("u.m") + " · " + tr("el.freeCnt", "s" to f.sock + f.power, "k" to f.sw, "l" to f.light), style = ui(12.5f, 500, G.ink2), maxLines = 1)
+                        Text(fmtLen(f.L, LenUnit.M, en) + " × " + fmtLen(f.W, LenUnit.M, en) + " " + tr("u.m") + " · " + tr("el.freeCnt", "s" to f.sock + f.power, "k" to f.sw, "l" to f.light + f.lamps.size), style = ui(12.5f, 500, G.ink2), maxLines = 1)
                     }
                     MIcon("chev", G.ink3, 16.dp, 2f)
                 }
@@ -666,7 +666,7 @@ private fun DevSheet(s: Sheet.EDev) {
         if (!old.onCeiling) {
             Text(tr("tl.fixWall"), style = ui(15f, 700))
             FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                c.g.walls.forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
+                (c.g.walls + c.g.inner).forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {

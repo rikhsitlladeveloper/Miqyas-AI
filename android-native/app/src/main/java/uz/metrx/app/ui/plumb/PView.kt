@@ -222,7 +222,7 @@ fun PViewScreen(rt: Route.PView) {
             Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 28.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 if (mode == "wall") Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    c.g.walls.forEach { w -> Chip(tr("tl.wallN", "w" to w.id) + " · " + fmtLen(w.len.toInt(), LenUnit.M, en), w.id == wall) { wall = w.id } }
+                    (c.g.walls + c.g.inner).forEach { w -> Chip(tr("tl.wallN", "w" to w.id) + " · " + fmtLen(w.len.toInt(), LenUnit.M, en), w.id == wall) { wall = w.id } }
                 }
                 if (mode != "3d") Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     LAYERS.forEach { k -> Chip(tr("sx.l.$k"), k in layers) { layerS = (if (k in layers) layers - k else LAYERS.filter { it in layers || it == k }).joinToString(",") } }
@@ -498,7 +498,7 @@ private fun Fixtures(p: Project, c: PCtx, fs: List<PlFix>, pts: List<APt>, bad: 
     Column(Modifier.fillMaxWidth().glassCard(RoundedCornerShape(20.dp), fill = G.glass(.55f)).padding(vertical = 6.dp)) {
         Row(Modifier.padding(horizontal = 14.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(if (wall != null) tr("el.onWall", "w" to wall) else tr("sx.fixes"), style = ui(15f, 800), modifier = Modifier.weight(1f))
-            Text(fixSummary(list), style = ui(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.4f), textAlign = TextAlign.End)
+            if (list.isNotEmpty()) Text(fixSummary(list), style = ui(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1.4f), textAlign = TextAlign.End)
         }
         if (list.isEmpty() && loose.isEmpty()) Text(tr("sx.noFix"), style = ui(13.5f, 400, G.ink2), modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp))
         FIX_CATS.forEach { cat ->

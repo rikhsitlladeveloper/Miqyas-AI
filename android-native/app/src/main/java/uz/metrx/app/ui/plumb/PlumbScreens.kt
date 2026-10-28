@@ -684,7 +684,7 @@ private fun FixSheet(s: Sheet.PFix) {
     }) {
         Text(tr("tl.fixWall"), style = ui(15f, 700))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            c.g.walls.forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
+            (c.g.walls + c.g.inner).forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GField(tr("sx.f.off"), tOff, { v -> tOff = v.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' }.take(8) }, "1", decimal = true, labelRight = uw, modifier = Modifier.weight(1f))
@@ -779,7 +779,7 @@ private fun PointSheet(s: Sheet.PPoint) {
         }
         Text(tr("tl.fixWall"), style = ui(15f, 700))
         FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            c.g.walls.forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
+            (c.g.walls + c.g.inner).forEach { w -> Chip(tr("tl.wallN", "w" to w.id), w.id == wall) { wall = w.id } }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             GField(tr("el.f.off"), tOff, { v -> tOff = v.filter { ch -> ch.isDigit() || ch == ',' || ch == '.' }.take(8) }, "0", decimal = true, labelRight = uw, modifier = Modifier.weight(1f))

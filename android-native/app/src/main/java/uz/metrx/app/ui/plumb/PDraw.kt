@@ -28,6 +28,7 @@ import uz.metrx.app.plumb.snake
 import uz.metrx.app.tiles.TWall
 import uz.metrx.app.tiles.V2
 import uz.metrx.app.ui.elec.PlanMap
+import uz.metrx.app.ui.elec.drawInnerWalls
 import uz.metrx.app.ui.elec.WallMap
 import uz.metrx.app.ui.elec.rgbC
 import kotlin.math.max
@@ -118,6 +119,7 @@ fun DrawScope.drawPlumbPlan(c: PCtx, m: PlanMap, fs: List<PlFix>, pts: List<APt>
         drawLine(rgbC(UFH_RGB, if (k % 2 == 0) .9f else .6f), m.at(a), m.at(b), max(1f, sym * .14f))
     }
     drawPath(out, P_INK, style = Stroke(max(2f, sym * .45f), join = androidx.compose.ui.graphics.StrokeJoin.Miter))
+    drawInnerWalls(c.room, m::at, P_INK)
     c.room.openings.forEach { o ->
         val w = c.wall(o.wall) ?: return@forEach
         val a = m.at(w.at(o.off.toDouble())); val b = m.at(w.at((o.off + o.w).toDouble()))

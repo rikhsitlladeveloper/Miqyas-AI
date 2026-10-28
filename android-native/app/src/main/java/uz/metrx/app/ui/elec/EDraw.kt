@@ -106,6 +106,19 @@ fun DrawScope.devSymbol(t: String, c: Offset, r: Float, col: Color, ink: Color =
     }
 }
 
+/** The room's inner partitions (geo/InnerWalls.kt) on a plan from above, in the walls' colour (a half wall lighter). */
+fun DrawScope.drawInnerWalls(r: uz.metrx.app.data.Room, at: (V2) -> Offset, col: Color) {
+    if (r.inner.isEmpty()) return
+    val rh = uz.metrx.app.geo.roomHOf(r)
+    r.inner.forEach { p ->
+        uz.metrx.app.geo.pieceGeo(p, rh).R.forEach { poly ->
+            if (poly.size < 3) return@forEach
+            val o = poly.map { at(V2(it.x, it.y)) }
+            drawPath(Path().apply { moveTo(o[0].x, o[0].y); o.drop(1).forEach { lineTo(it.x, it.y) }; close() }, if (p.k == "half") col.copy(alpha = col.alpha * .55f) else col)
+        }
+    }
+}
+
 /** How the room from above maps into a box: plan mm → pixels, the room fitted and centred with [margin] round it. */
 class PlanMap(private val f: List<V2>, box: Rect, margin: Float) {
     constructor(c: ECtx, box: Rect, margin: Float) : this(c.g.floor, box, margin)
@@ -127,6 +140,7 @@ fun DrawScope.drawElecPlan(c: ECtx, m: PlanMap, ds: List<ElecDev>, pn: ElecPanel
     val out = Path().apply { val o = f.map { m.at(it) }; moveTo(o[0].x, o[0].y); o.drop(1).forEach { lineTo(it.x, it.y) }; close() }
     drawPath(out, E_FLOOR)
     drawPath(out, E_WALL, style = Stroke(max(2f, sym * .45f), join = androidx.compose.ui.graphics.StrokeJoin.Miter))
+    drawInnerWalls(c.room, m::at, E_WALL)
     // the routes over the walls' line: a run along a wall is drawn just inside it, each circuit a little further in
     if (routes) runs.forEachIndexed { k, r ->
         val col = rgbC(r.circuit.rgb)
