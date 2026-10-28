@@ -234,7 +234,7 @@ private fun SizePhase(s: ReSession, pk: Pick, rh: Int, L: Int) {
         }
         CloseX { s.pk = null; app.haptic(Hap.TICK) }
     }
-    Box(Modifier.fillMaxWidth().height(176.dp).clip(RoundedCornerShape(18.dp)).background(RP.elev)) {
+    Box(Modifier.fillMaxWidth().height(if (androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp < 700) 132.dp else 176.dp).clip(RoundedCornerShape(18.dp)).background(RP.elev)) {
         val ceil = tr("re.ceil")
         Canvas(Modifier.fillMaxSize()) { pkDraw(k, st, pk.v, f, rh, err != null, ceil, tm, u) }
     }
@@ -279,7 +279,7 @@ private fun SizePhase(s: ReSession, pk: Pick, rh: Int, L: Int) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
         val on = app.settings.laser == Laser.CONNECTED || app.laser.isReal
         val ls = RoundedCornerShape(12.dp)
-        Row(Modifier.weight(1f).heightIn(min = 48.dp).clip(ls).background(if (on) G.greenWash else G.cobalt.copy(alpha = .1f)).border(1.5.dp, if (on) G.green else G.cobalt, ls)
+        Row(Modifier.weight(.8f).heightIn(min = 48.dp).clip(ls).background(if (on) G.greenWash else G.cobalt.copy(alpha = .1f)).border(1.5.dp, if (on) G.green else G.cobalt, ls)
             .clickable(role = Role.Button, enabled = !busy) {
                 app.haptic(Hap.TICK)
                 app.laserFor(scope, cur ?: 0, { busy = it }) { v -> val p2 = s.pk ?: return@laserFor
@@ -288,7 +288,7 @@ private fun SizePhase(s: ReSession, pk: Pick, rh: Int, L: Int) {
             ReIcon(if (on) "laser" else "bt", if (on) G.green else G.cobalt2, 18.dp)
             Text(tr(if (busy) "ux.lz.busy" else if (on) "re.laserOn" else "re.laser"), style = ui(13.5f, 700, if (on) G.green else G.cobalt2), maxLines = 1)
         }
-        uz.metrx.app.voice.VoiceMic(Modifier.weight(1f)) { v, words -> val p2 = s.pk ?: return@VoiceMic
+        uz.metrx.app.voice.VoiceMic(Modifier.weight(1.2f)) { v, words -> val p2 = s.pk ?: return@VoiceMic
             s.pk = p2.copy(v = p2.v + (f to v), note = app.t("re.voiceGot", "t" to words), flash = p2.flash + 1); app.haptic(Hap.CONFIRM) }
     }
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -350,14 +350,14 @@ fun BoxScope.KeypadOverlay(s: ReSession) {
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
             val on = app.settings.laser == Laser.CONNECTED || app.laser.isReal
-            Row(Modifier.weight(1f).heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp)).background(if (on) G.greenWash else G.cobalt.copy(alpha = .12f))
+            Row(Modifier.weight(.8f).heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp)).background(if (on) G.greenWash else G.cobalt.copy(alpha = .12f))
                 .border(1.5.dp, if (on) G.green else G.cobalt, RoundedCornerShape(12.dp)).clickable(role = Role.Button, enabled = !busy) {
                     app.laserFor(scope, k.cur, { busy = it }) { v -> k.v = v.toString(); k.err = null; k.note = app.t("re.laserGot", "v" to mm(v)); app.haptic(Hap.CONFIRM) }
                 }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
                 ReIcon(if (on) "laser" else "bt", if (on) G.green else G.cobalt2, 18.dp)
                 Text(tr(if (busy) "ux.lz.busy" else if (on) "re.laserOn" else "re.laser"), style = ui(13.5f, 700, if (on) G.green else G.cobalt2))
             }
-            uz.metrx.app.voice.VoiceMic(Modifier.weight(1f)) { v, words -> k.v = v.toString(); k.err = null; k.note = app.t("re.voiceGot", "t" to words) }
+            uz.metrx.app.voice.VoiceMic(Modifier.weight(1.2f)) { v, words -> k.v = v.toString(); k.err = null; k.note = app.t("re.voiceGot", "t" to words) }
         }
         listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("", "0", "bk")).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {

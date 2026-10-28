@@ -472,8 +472,16 @@ fun App.dupSel(s: ReSession) {
 /** Every item kept on its wall after the walls changed. */
 fun App.clampItems(r: Room): Room {
     val lens = wallLens(r)
+    val kept = ArrayList<Opening>()
+    r.openings.filter { it.wall in lens }.forEach { o0 ->
+        val L = lens[o0.wall]!!; val w = minOf(o0.w, L / 10 * 10)
+        var o = o0.copy(w = w, off = o0.off.coerceIn(0, max(0, L - w)))
+        // a shorter wall may push two openings over each other: the later one moves to the nearest free place
+        if (kept.any { overlaps(o, it) }) freeSpot(o, kept, L)?.let { d -> o = o.copy(off = d) }
+        kept += o
+    }
     return r.copy(
-        openings = r.openings.filter { it.wall in lens }.map { o -> val L = lens[o.wall]!!; val w = minOf(o.w, L / 10 * 10); o.copy(w = w, off = o.off.coerceIn(0, max(0, L - w))) },
+        openings = kept,
         points = r.points.filter { it.wall in lens }.map { p -> p.copy(off = p.off.coerceIn(0, lens[p.wall]!!)) })
 }
 

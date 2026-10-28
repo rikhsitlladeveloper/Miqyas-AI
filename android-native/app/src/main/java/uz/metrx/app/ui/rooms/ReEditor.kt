@@ -219,9 +219,9 @@ fun RoomEditorScreen(pid: String, rid: String) {
                                 .clickable(role = Role.Button) { s.fw = w.id; s.zooms["front"]!!.reset(); if (s.selWall != null) s.sel = ReSel.Wall(w.id) }.padding(vertical = 10.dp))
                         }
                     }
-                    if (s.view == "3d") Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp).clip(RoundedCornerShape(15.dp)).background(G.solid).border(1.dp, G.rim, RoundedCornerShape(15.dp))
+                    if (s.view == "3d") Row(Modifier.align(Alignment.BottomCenter).padding(start = 12.dp, end = 12.dp, bottom = 10.dp).clip(RoundedCornerShape(15.dp)).background(G.solid).border(1.dp, G.rim, RoundedCornerShape(15.dp))
                         .padding(horizontal = 12.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        ReIcon("info", G.cobalt, 16.dp); Text(tr("re.isoHint"), style = ui(12f, 700, G.ink2), maxLines = 1)
+                        ReIcon("info", G.cobalt, 16.dp); Text(tr("re.isoHint"), style = ui(12f, 700, G.ink2, 1.25f), maxLines = 2, modifier = Modifier.weight(1f, false))
                     }
                     val arm = s.arm
                     if (arm != null) Row(Modifier.align(Alignment.BottomCenter).padding(start = 10.dp, end = 10.dp, bottom = if (s.view == "front") 56.dp else 8.dp).fillMaxWidth()

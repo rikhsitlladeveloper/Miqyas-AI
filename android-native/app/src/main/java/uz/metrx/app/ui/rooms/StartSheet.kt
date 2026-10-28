@@ -142,9 +142,10 @@ fun StartPaths(p: Project, modifier: Modifier = Modifier) {
         Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(G.cobalt.copy(alpha = .12f)), contentAlignment = Alignment.Center) { ReIcon("room", G.cobalt, 26.dp, 2f) }
         Text(tr("sd.empty.t"), style = ui(16f, 800), textAlign = TextAlign.Center)
         Text(tr("sd.empty.b", "b" to tr("sd.b.$t")), style = ui(13.5f, 400, G.ink2, 1.4f), textAlign = TextAlign.Center)
-        Row(Modifier.fillMaxWidth().padding(top = 4.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            GBtn(tr("sd.b.$t"), { app.startOtherPath(p.id) }, Btn.SECONDARY, height = 52.dp, corner = 16.dp, fontSize = 14f, modifier = Modifier.weight(1f))
-            GBtn(tr("sd.room"), { app.startRoomPath(p.id) }, icon = "plus", height = 52.dp, corner = 16.dp, fontSize = 14f, modifier = Modifier.weight(1f))
+        // one under the other: the room-less way's name is long in every language ("Faqat dizayn (o‘lchamlar bilan)")
+        Column(Modifier.fillMaxWidth().padding(top = 4.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            GBtn(tr("sd.room"), { app.startRoomPath(p.id) }, icon = "plus", height = 52.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.fillMaxWidth())
+            GBtn(tr("sd.b.$t"), { app.startOtherPath(p.id) }, Btn.SECONDARY, height = 52.dp, corner = 16.dp, fontSize = 15f, modifier = Modifier.fillMaxWidth())
         }
     }
 }
