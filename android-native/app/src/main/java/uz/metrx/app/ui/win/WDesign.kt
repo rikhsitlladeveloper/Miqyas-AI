@@ -197,9 +197,11 @@ private fun Elevation(it: WinItem, sel: Pair<Int, Int>?, bad: Boolean, onPick: (
     val big = TextStyle(fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color(0xFF334155))
     val small = TextStyle(fontSize = 9.sp, fontWeight = FontWeight.Medium, color = Color(0xFF475569))
     val cur by rememberUpdatedState(it)
-    fun map(w: Float, h: Float) = ElevMap(cur.w.toDouble(), cur.h.toDouble(), Rect(0f, 0f, w, h), 30 * dens, 36 * dens, 12 * dens)
+    val drawLbl = tr("dw.draw")
+    // the bottom margin holds the width line and, under it, the hint
+    fun map(w: Float, h: Float) = ElevMap(cur.w.toDouble(), cur.h.toDouble(), Rect(0f, 0f, w, h), 30 * dens, 54 * dens, 12 * dens)
     Box(Modifier.fillMaxSize()) {
-        Canvas(Modifier.fillMaxSize().semantics { contentDescription = "drawing" }.pointerInput(Unit) {
+        Canvas(Modifier.fillMaxSize().semantics { contentDescription = drawLbl }.pointerInput(Unit) {
             detectTapGestures { pos ->
                 val m = map(size.width.toFloat(), size.height.toFloat())
                 val q = m.back(pos)
