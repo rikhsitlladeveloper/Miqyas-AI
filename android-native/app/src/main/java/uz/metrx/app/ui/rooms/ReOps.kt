@@ -326,6 +326,7 @@ private fun MiniFrontCanvas(s: ReSession, geo: ReGeo, r: uz.metrx.app.data.Room,
         val W = constraints.maxWidth.toFloat(); val H = constraints.maxHeight.toFloat()
         val ff = frontFit(wall, app.wallL(r, wall), roomH(r), Rect(0f, 0f, W, H), true, u = u)
         geo.ff = ff; geo.frecs = frontRecs(r, ff, u); geo.view = "front"
+        Box(Modifier.fillMaxSize().pointerInput(Unit) { miniGestures(app, s, geo) })
         val bad = app.issuesOf(r).map { it.id }.toSet()
         Canvas(Modifier.fillMaxSize()) { drawFront(r, ff, (s.sel as? ReSel.Item)?.id, false, null, bad, app.neighbours(r, wall), null, tm, u) }
         val o = s.selOp; val p = s.selPt
@@ -341,7 +342,6 @@ private fun MiniFrontCanvas(s: ReSession, geo: ReGeo, r: uz.metrx.app.data.Room,
             val x = ff.X(p.off.toDouble()); val y = ff.Z(p.h.toDouble())
             ReBubble("h " + mm(p.h), if (x + 50 * u > W - 30 * u) x - 50 * u else x + 50 * u, y, small = true, onClick = { app.openKp(s, "ph") })
         }
-        Box(Modifier.fillMaxSize().pointerInput(Unit) { miniGestures(app, s, geo) })
     }
 }
 
@@ -521,6 +521,7 @@ fun ReOpsStep(d: RshDraft, onBack: () -> Unit, onDone: () -> Unit) {
     var firstTile by remember { mutableStateOf<Offset?>(null) }
     var cardH by remember { mutableFloatStateOf(0f) }
     var bottomH by remember { mutableFloatStateOf(0f) }
+    var chipsH by remember { mutableFloatStateOf(0f) }
     val u = LocalDensity.current.density
     Box(Modifier.fillMaxSize().onGloballyPositioned { rootOrigin = it.positionInRoot() }) {
         Column(Modifier.fillMaxSize()) {
@@ -532,7 +533,7 @@ fun ReOpsStep(d: RshDraft, onBack: () -> Unit, onDone: () -> Unit) {
             })
             Column(Modifier.weight(1f).padding(start = 12.dp, end = 12.dp, top = 10.dp, bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Box(Modifier.weight(1f).fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(RP.paper).border(1.dp, G.rim, RoundedCornerShape(22.dp))) {
-                    ReCanvas(s, geo, Modifier.fillMaxSize(), avoid = if (s.selOp != null || s.selPt != null) cardH - 8 * u else 0f)
+                    ReCanvas(s, geo, Modifier.fillMaxSize(), avoid = if (s.selOp != null || s.selPt != null) cardH + 6 * u else 0f)
                     val n = r.openings.size + r.points.size
                     if (n > 0 && s.pk == null) Row(Modifier.align(Alignment.TopEnd).padding(10.dp).heightIn(min = 32.dp).clip(RoundedCornerShape(16.dp)).background(G.solid)
                         .border(1.dp, G.rim, RoundedCornerShape(16.dp)).clickable(role = Role.Button) { s.listOpen = true }.padding(horizontal = 12.dp),
@@ -540,10 +541,10 @@ fun ReOpsStep(d: RshDraft, onBack: () -> Unit, onDone: () -> Unit) {
                         ReIcon("list", G.cobalt, 16.dp); Text(tr("re.nItems", "n" to n), style = ui(12.5f, 800))
                     }
                 }
-                WallChips(s, r)
+                Box(Modifier.onSizeChanged { chipsH = it.height.toFloat() }) { WallChips(s, r) }
             }
             Column(Modifier.fillMaxWidth().onSizeChanged { bottomH = it.height.toFloat() }) {
-            Column(Modifier.fillMaxWidth().background(G.sheet(.97f))) {
+            Column(Modifier.fillMaxWidth().then(uz.metrx.app.ui.ux.barSpotModifier()).background(G.sheet(.97f))) {
                 Row(Modifier.padding(start = 14.dp, end = 12.dp, top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
                     Text(tr("re.iconsT"), style = ui(12.5f, 800)); Text(tr("re.iconsSub"), style = ui(11.5f, 600, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
@@ -553,7 +554,7 @@ fun ReOpsStep(d: RshDraft, onBack: () -> Unit, onDone: () -> Unit) {
             }
         }
         // the floating card, just above the icon row
-        if (s.pk == null && (s.sel != null || s.arm != null)) Box(Modifier.align(Alignment.BottomCenter).padding(start = 10.dp, end = 10.dp, bottom = with(LocalDensity.current) { bottomH.toDp() } + 8.dp)
+        if (s.pk == null && (s.sel != null || s.arm != null)) Box(Modifier.align(Alignment.BottomCenter).padding(start = 10.dp, end = 10.dp, bottom = with(LocalDensity.current) { (bottomH + chipsH).toDp() } + 14.dp).then(uz.metrx.app.ui.ux.barSpotModifier())
             .onSizeChanged { cardH = it.height.toFloat() }) {
             FloatCard(s, Modifier)
         }

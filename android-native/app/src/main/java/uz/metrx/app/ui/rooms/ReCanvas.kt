@@ -143,6 +143,8 @@ fun ReCanvas(s: ReSession, geo: ReGeo, modifier: Modifier, top: Float = 0f, avoi
         val W = constraints.maxWidth.toFloat(); val H = constraints.maxHeight.toFloat()
         val small = s.inFlow
         geo.view = view
+        // the fingers first, under the bubbles and chips drawn on top (those take their own taps)
+        Box(Modifier.fillMaxSize().pointerInput(s.inFlow) { gestures(app, s, geo, { ring = it }) })
         // the ghost: the icon row's drag, or the pick's item on its wall while its window is open
         val ghost: Any? = s.ghost?.it ?: s.pk?.takeIf { it.mode == "new" }?.let { app.pkBuild(s, it) }
         val ghostWall = when (ghost) { is Opening -> ghost.wall; is SitePoint -> ghost.wall; else -> null }
@@ -196,7 +198,6 @@ fun ReCanvas(s: ReSession, geo: ReGeo, modifier: Modifier, top: Float = 0f, avoi
         PressRingAt(ring)
         overlay()
         // gestures
-        Box(Modifier.fillMaxSize().pointerInput(s.inFlow) { gestures(app, s, geo, { ring = it }) })
     }
 }
 

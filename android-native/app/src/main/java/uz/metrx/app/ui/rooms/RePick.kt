@@ -238,7 +238,8 @@ private fun SizePhase(s: ReSession, pk: Pick, rh: Int, L: Int) {
         val ceil = tr("re.ceil")
         Canvas(Modifier.fillMaxSize()) { pkDraw(k, st, pk.v, f, rh, err != null, ceil, tm, u) }
     }
-    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+    @OptIn(androidx.compose.foundation.layout.ExperimentalLayoutApi::class)
+    androidx.compose.foundation.layout.FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(5.dp, Alignment.CenterHorizontally), verticalArrangement = Arrangement.spacedBy(2.dp)) {
         steps.forEachIndexed { j, x ->
             if (j > 0) Text("→", style = ui(12f, 700, G.ink3))
             Text(stepWords(x, k, st, rh).first, style = ui(12f, if (j == i) 800 else 700, if (j == i) G.cobalt2 else if (j < i) G.ink2 else G.ink3))

@@ -391,7 +391,7 @@ fun DrawScope.drawFront(r: Room, ff: FrontFit, selItem: String?, selWall: Boolea
     val ls = txtStyle(10.5f, G.ink3, FontWeight.Bold)
     tm.measure("‹ " + nb.first, ls).let { drawText(it, topLeft = Offset(xa + 3 * u, yt - 5 * u - it.size.height)) }
     tm.measure(nb.second + " ›", ls).let { drawText(it, topLeft = Offset(xb - 3 * u - it.size.width, yt - 5 * u - it.size.height)) }
-    if (caption != null) tm.measure(caption, txtStyle(11f, G.ink2, FontWeight.Bold)).let { drawText(it, topLeft = Offset((xa + xb) / 2 - it.size.width / 2, yf + 26 * u)) }
+    if (caption != null) tm.measure(caption, txtStyle(11f, G.ink2, FontWeight.Bold)).let { drawText(it, topLeft = Offset((xa + xb) / 2 - it.size.width / 2, yf + 36 * u)) }
     fun item(it: Any, prev: Boolean) {
         val al = if (prev) .62f else 1f
         when (it) {

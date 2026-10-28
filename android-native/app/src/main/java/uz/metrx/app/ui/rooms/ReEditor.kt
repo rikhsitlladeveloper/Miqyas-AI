@@ -236,7 +236,7 @@ fun RoomEditorScreen(pid: String, rid: String) {
                 })
                 Caption(s, Modifier.align(Alignment.TopStart).padding(start = 10.dp, end = 10.dp, top = 6.dp).onSizeChanged { capH = it.height.toFloat() })
             }
-            Column(Modifier.fillMaxWidth().background(G.sheet(.97f))) {
+            Column(Modifier.fillMaxWidth().then(uz.metrx.app.ui.ux.barSpotModifier()).background(G.sheet(.97f))) {
                 val st = s.strip
                 if (st == null) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 6.dp, vertical = 4.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
                     tools(s).forEach { t -> ToolBtn(t) { onTool(app, s, t.key, scope) } }
@@ -297,8 +297,8 @@ private fun Options(s: ReSession, k: String, geo: ReGeo, scope: kotlinx.coroutin
     val back = { s.strip = null; s.arm = null }
     fun row(title: String, sub: String, content: @Composable RowScope.() -> Unit) = @Composable { OptRow(title, sub, back, key = k, content = content) }
     val content: @Composable () -> Unit = when (k) {
-        "add" -> { { OptRow(tr("re.t.add"), tr("re.iconsSub"), back, key = k) { IconRow(s, geo, modifier = Modifier.weight(1f, false)) } } }
-        "pt" -> { { OptRow(tr("re.t.pt"), tr("re.ptSub", "w" to (w ?: "")), back, key = k) { IconRow(s, geo, only = POINT_KINDS) } } }
+        "add" -> { { IconOpts(tr("re.t.add"), tr("re.iconsSub"), back) { IconRow(s, geo, modifier = Modifier.weight(1f)) } } }
+        "pt" -> { { IconOpts(tr("re.t.pt"), tr("re.ptSub", "w" to (w ?: "")), back) { IconRow(s, geo, only = POINT_KINDS, modifier = Modifier.weight(1f)) } } }
         "shape" -> row(tr("re.t.shape"), tr("re.shapeNow", "n" to app.t(shapeKey(shapeIdOf(r))))) {
             SHAPES.forEach { sh ->
                 val on = shapeIdOf(r) == sh
@@ -395,4 +395,20 @@ private fun Options(s: ReSession, k: String, geo: ReGeo, scope: kotlinx.coroutin
         else -> { {} }
     }
     content()
+}
+
+/** An option row whose content scrolls by itself (the icon row): the title, ← and the icons. */
+@Composable
+private fun IconOpts(title: String, sub: String, onBack: () -> Unit, content: @Composable RowScope.() -> Unit) {
+    Column(Modifier.fillMaxWidth().padding(top = 8.dp, bottom = 4.dp)) {
+        Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, style = ui(14f, 800), maxLines = 1)
+            Text(sub, style = ui(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        }
+        Row(Modifier.fillMaxWidth().padding(top = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.padding(start = 6.dp).size(48.dp).clip(CircleShape).background(chipBg).semantics { contentDescription = "←" }
+                .clickable(role = Role.Button, onClick = onBack), contentAlignment = Alignment.Center) { ReIcon("back", G.ink, 22.dp, 2.2f) }
+            content()
+        }
+    }
 }
