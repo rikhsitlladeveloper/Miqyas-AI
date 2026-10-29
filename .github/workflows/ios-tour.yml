@@ -31,7 +31,7 @@ jobs:
       matrix:
         include:
           - { lang: uz, phone: big, models: all }
-          - { lang: uz, phone: small, models: all }
+          - { lang: uz, phone: small, models: few }
           - { lang: ru, phone: small, models: few }
           - { lang: en, phone: small, models: few }
           - { lang: uzc, phone: small, models: few }
