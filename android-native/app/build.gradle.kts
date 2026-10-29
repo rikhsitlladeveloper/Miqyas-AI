@@ -22,8 +22,8 @@ android {
         minSdk = 26
         targetSdk = 36
         // Google Play 1.0.0 (28 Oct 2026); the earlier test builds were 0.x up to code 8
-        versionCode = 10
-        versionName = "1.0.0"
+        versionCode = 11
+        versionName = "1.0.1"
     }
 
     signingConfigs {
