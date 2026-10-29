@@ -10,13 +10,13 @@ import SwiftUI
  */
 
 /// A piece kind's name ("To‘g‘ri devor").
-func iwName(_ k: String) -> String { tr("iw.k." + k) }
+func iwName(_ k: String) -> String { reTr("iw.k." + k) }
 
 /// "2 000 × 100 × 2 700", "400 × 400 · dumaloq", "2 400 × 100 × 2 700 · o‘tish 900 × 2 100" (mockup iwSize).
 func iwSizeLine(_ p: InnerWall, _ rh: Int) -> String {
     if p.k == "col" { return reLen(p.len) + " × " + reLen(p.len) + " · " + tr(p.round ? "iw.round" : "iw.square") }
-    var s = reLen(p.len) + (p.len2 > 0 ? " + " + reLen(p.len2) : "") + " × \(p.th) × " + reLen(p.k == "half" ? (p.h > 0 ? p.h : 1100) : rh)
-    if p.k == "arch", let op = p.op { s += " · " + tr("iw.pass", ["w": reLen(op.w), "h": reLen(op.h)]) }
+    var s = reLen(p.len) + (p.len2 > 0 ? " + " + reLen(p.len2) : "") + " × " + reLen(p.th) + " × " + reLen(p.k == "half" ? (p.h > 0 ? p.h : 1100) : rh)
+    if p.k == "arch", let op = p.op { s += " · " + reTr("iw.pass", ["w": reLen(op.w), "h": reLen(op.h)]) }
     return s
 }
 
@@ -24,10 +24,10 @@ func iwSizeLine(_ p: InnerWall, _ rh: Int) -> String {
 func iwCardLine(_ k: String) -> String {
     let D = iwKind(k)
     switch k {
-    case "col": return tr("iw.cl.col")
-    case "half": return reLen(D.len) + " × 100 · h " + reLen(D.h) + " · " + tr("iw.d.half")
-    case "arch": return reLen(D.len) + " × 100 · " + tr("iw.pass", ["w": reLen(D.op?.w ?? 900), "h": reLen(D.op?.h ?? 2100)])
-    default: return reLen(D.len) + (D.len2 > 0 ? " + " + reLen(D.len2) : "") + " × 100 · " + tr("iw.cl.ceil")
+    case "col": return reTr("iw.cl.col")
+    case "half": return reLen(D.len) + " × 100 · h " + reLen(D.h) + " · " + reTr("iw.d.half")
+    case "arch": return reLen(D.len) + " × 100 · " + reTr("iw.pass", ["w": reLen(D.op?.w ?? 900), "h": reLen(D.op?.h ?? 2100)])
+    default: return reLen(D.len) + (D.len2 > 0 ? " + " + reLen(D.len2) : "") + " × 100 · " + reTr("iw.cl.ceil")
     }
 }
 
@@ -97,7 +97,7 @@ extension ReState {
         let g = reGeo(r)
         let p = iwNew(k, iwRoomCentre(g), r, g.outer)
         iwWin = false
-        commit(app, h, tr("iw.m.added", ["n": iwName(k)])) { $0.inner.append(p); return nil }
+        commit(app, h, reTr("iw.m.added", ["n": iwName(k)])) { $0.inner.append(p); return nil }
         sel = .piece(p.id); newPiece = p.id; arm = nil; strip = nil
     }
 
@@ -122,13 +122,13 @@ extension ReState {
         t.ang = (t.ang + 90) % 360
         let g = reGeo(r)
         let m = iwSnap(r, g.outer, g.poly, t)
-        iwChange(p.id, tr("iw.m.rot", ["n": iwName(p.k)]) + (m.stretched ? " · " + tr("iw.m.stretched") : ""), app, h) { x, _, _ in x = m.p; return nil }
+        iwChange(p.id, reTr("iw.m.rot", ["n": iwName(p.k)]) + (m.stretched ? " · " + reTr("iw.m.stretched") : ""), app, h) { x, _, _ in x = m.p; return nil }
     }
 
     /// The length (a column's side): the piece keeps its start (P0) where it is.
     func iwSetLen(_ v: Int, _ app: AppModel, _ h: ReHost) {
         guard let p = curPiece(h), v != p.len else { return }
-        guard v >= (p.k == "col" ? 100 : 300), v <= SHAPE_WALL_MAX else { warn(app, tr("iw.m.range")); return }
+        guard v >= (p.k == "col" ? 100 : 300), v <= SHAPE_WALL_MAX else { warn(app, reTr("iw.m.range")); return }
         let msg = tr(p.k == "col" ? "iw.m.size" : "iw.m.len", ["n": iwName(p.k), "a": reLen(p.len), "b": reLen(v)])
         iwChange(p.id, msg, app, h) { x, r, _ in
             if x.k != "col" {
@@ -146,7 +146,7 @@ extension ReState {
         let g = reGeo(r)
         guard let res = iwSides(r, g.outer, p)[field], res.gap != v else { return }
         let sh = Double(res.gap - v)
-        iwChange(p.id, tr("iw.m.gap", ["n": iwName(p.k), "v": reLen(v)]), app, h) { x, _, _ in
+        iwChange(p.id, reTr("iw.m.gap", ["n": iwName(p.k), "v": reLen(v)]), app, h) { x, _, _ in
             x.x = Int((Double(x.x) + res.dir.x * sh).rounded()); x.y = Int((Double(x.y) + res.dir.y * sh).rounded())
             return nil
         }
@@ -154,21 +154,21 @@ extension ReState {
 
     func iwSetTh(_ v: Int, _ app: AppModel, _ h: ReHost) {
         guard let p = curPiece(h), v != p.th else { return }
-        guard v >= 50, v <= 1000 else { warn(app, tr("iw.m.range")); return }
-        iwChange(p.id, tr("iw.m.th", ["n": iwName(p.k), "v": "\(v)"]), app, h) { x, _, _ in x.th = v; return nil }
+        guard v >= 50, v <= 1000 else { warn(app, reTr("iw.m.range")); return }
+        iwChange(p.id, reTr("iw.m.th", ["n": iwName(p.k), "v": reLen(v)]), app, h) { x, _, _ in x.th = v; return nil }
     }
 
     func iwSetH(_ v: Int, _ app: AppModel, _ h: ReHost) {
         guard let p = curPiece(h), let r = h.room() else { return }
-        guard v >= 300, v < reHeight(r) else { warn(app, tr("iw.m.hRange", ["v": reLen(reHeight(r))])); return }
-        iwChange(p.id, tr("iw.m.h", ["n": iwName(p.k), "v": reLen(v)]), app, h) { x, _, _ in x.h = v; return nil }
+        guard v >= 300, v < reHeight(r) else { warn(app, reTr("iw.m.hRange", ["v": reLen(reHeight(r))])); return }
+        iwChange(p.id, reTr("iw.m.h", ["n": iwName(p.k), "v": reLen(v)]), app, h) { x, _, _ in x.h = v; return nil }
     }
 
     func iwSetOp(w: Int? = nil, hh: Int? = nil, _ app: AppModel, _ h: ReHost) {
         guard let p = curPiece(h), let r = h.room(), let op = p.op else { return }
         let nw = w ?? op.w, nh = hh ?? op.h
-        guard nw >= 400, nw <= p.len - 200, nh >= 1000, nh <= reHeight(r) - 50 else { warn(app, tr("iw.m.opRange")); return }
-        iwChange(p.id, tr("iw.m.op", ["n": iwName(p.k), "w": reLen(nw), "h": reLen(nh)]), app, h) { x, _, _ in x.op = InnerOp(w: nw, h: nh); return nil }
+        guard nw >= 400, nw <= p.len - 200, nh >= 1000, nh <= reHeight(r) - 50 else { warn(app, reTr("iw.m.opRange")); return }
+        iwChange(p.id, reTr("iw.m.op", ["n": iwName(p.k), "w": reLen(nw), "h": reLen(nh)]), app, h) { x, _, _ in x.op = InnerOp(w: nw, h: nh); return nil }
     }
 
     func iwRound(_ on: Bool, _ app: AppModel, _ h: ReHost) {
@@ -186,17 +186,17 @@ extension ReState {
             let c = Pt(x: G.c.x + dv.x * off, y: G.c.y + dv.y * off)
             if iwInside(c, g.poly) { ok = c; break }
         }
-        guard let c = ok else { warn(app, tr("iw.m.noCopy")); return }
+        guard let c = ok else { warn(app, reTr("iw.m.noCopy")); return }
         var cp = p
         cp.id = uid(); cp.x = Int(c.x.rounded()); cp.y = Int(c.y.rounded())
-        if commit(app, h, tr("iw.m.copy", ["n": iwName(p.k)]), { $0.inner.append(cp); return nil }) { sel = .piece(cp.id) }
+        if commit(app, h, reTr("iw.m.copy", ["n": iwName(p.k)]), { $0.inner.append(cp); return nil }) { sel = .piece(cp.id) }
     }
 
     /// "O‘chirish": the piece and the doors, windows and points on its faces.
     func iwDel(_ app: AppModel, _ h: ReHost) {
         guard let p = curPiece(h), let r = h.room() else { return }
         let lost = r.openings.filter { iwPieceOf($0.wall) == p.id }.count + r.points.filter { iwPieceOf($0.wall) == p.id }.count
-        let msg = tr("iw.m.del", ["n": iwName(p.k)]) + (lost > 0 ? " · " + tr("iw.m.delN", ["n": lost]) : "")
+        let msg = reTr("iw.m.del", ["n": iwName(p.k)]) + (lost > 0 ? " · " + reTr("iw.m.delN", ["n": lost]) : "")
         commit(app, h, msg) { r in
             r.inner.removeAll { $0.id == p.id }
             r.openings.removeAll { iwPieceOf($0.wall) == p.id }
@@ -246,7 +246,7 @@ extension ReState {
         iwGlow = []
         guard !cancel, lv.changed, let r = pv, let p = r.inner.first(where: { $0.id == lv.id }) else { return }
         newPiece = nil
-        let msg = tr("iw.m.moved", ["n": iwName(p.k), "l": reLen(p.len) + (p.len2 > 0 ? " + " + reLen(p.len2) : "")]) + (lv.edge == "s" ? " · " + tr("iw.m.stretched") : "")
+        let msg = reTr("iw.m.moved", ["n": iwName(p.k), "l": reLen(p.len) + (p.len2 > 0 ? " + " + reLen(p.len2) : "")]) + (lv.edge == "s" ? " · " + reTr("iw.m.stretched") : "")
         commit(app, h, msg) { $0 = r; return nil }
     }
 
@@ -327,8 +327,8 @@ struct ReIwWindow: View {
                         PathIcon(IW_IC, .white, 18, 2).frame(width: 34, height: 34)
                             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(RD.wallc))
                         VStack(alignment: .leading, spacing: 1) {
-                            T(tr("iw.winT"), ui(15, 800), lines: 1)
-                            T(tr("iw.winS"), ui(12, 500, G.ink2, lh: 1.2), lines: 2)
+                            T(reTr("iw.winT"), ui(15, 800), lines: 1)
+                            T(reTr("iw.winS"), ui(12, 500, G.ink2, lh: 1.2), lines: 2)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         MIcon("x", G.ink2, 17, 2).frame(width: 38, height: 38).background(Circle().fill(G.ink.opacity(0.06)))
@@ -350,8 +350,8 @@ struct ReIwWindow: View {
                             .accessibilityIdentifier("iw.card." + k)
                         }
                     }
-                    T(tr("iw.note", ["h": reLen(reHeight(r))]), ui(11.5, 500, G.ink2, lh: 1.25), lines: 4)
-                    GBtn(tr("iw.cancel"), kind: .secondary, height: 48) { st.iwWin = false }
+                    T(reTr("iw.note", ["h": reLen(reHeight(r))]), ui(11.5, 500, G.ink2, lh: 1.25), lines: 4)
+                    GBtn(reTr("iw.cancel"), kind: .secondary, height: 48) { st.iwWin = false }
                         .accessibilityIdentifier("iw.cancel")
                 }
                 .padding(14)
@@ -370,13 +370,13 @@ struct ReIwTile: View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         VStack(spacing: 4) {
             PathIcon(IW_IC, RD.wallc, 24, 2)
-            T(tr("iw.tile"), ui(10.5, 700, G.ink, lh: 1.05), align: .center, lines: 2).minimumScaleFactor(0.8)
+            T(reTr("iw.tile"), ui(10.5, 700, G.ink, lh: 1.05), align: .center, lines: 2).minimumScaleFactor(0.8)
         }
         .padding(.horizontal, 2)
         .frame(width: 74, height: 66)
         .background(shape.fill(G.glass(0.78)))
         .overlay(shape.strokeBorder(G.rim, lineWidth: 1))
-        .pressable(0.96, label: tr("iw.tile")) { Haptic.tick(); tap() }
+        .pressable(0.96, label: reTr("iw.tile")) { Haptic.tick(); tap() }
         .accessibilityIdentifier("iw.open")
     }
 }
@@ -407,12 +407,12 @@ struct ReIwBubbles: View {
                     }
                 }
                 let lp = lay.map.p(p.k == "col" ? G.c : Pt(x: G.c.x + G.d.x * Double(p.len) / 4, y: G.c.y + G.d.y * Double(p.len) / 4))
-                pill((p.k == "col" ? "" : tr("iw.p.len") + " ") + reLen(p.len), lp, W, H, strong: true, id: "iw.len") {
+                pill((p.k == "col" ? "" : reTr("iw.p.len") + " ") + reLen(p.len), lp, W, H, strong: true, id: "iw.len") {
                     st.openKp(tr(p.k == "col" ? "iw.kp.size" : "iw.kp.len"), cur: p.len, lo: p.k == "col" ? 100 : 300, hi: SHAPE_WALL_MAX, big: p.k != "col") { v in st.iwSetLen(v, app, h) }
                 }
                 if !st.iwGlow.isEmpty {
                     let mp = lay.map.p(Pt(x: G.c.x - G.n.x * (Double(p.th) / 2 + 260), y: G.c.y - G.n.y * (Double(p.th) / 2 + 260)))
-                    T(tr("iw.mag"), ui(11.5, 800, .white), lines: 1).padding(.horizontal, 10).frame(height: 26)
+                    T(reTr("iw.mag"), ui(11.5, 800, .white), lines: 1).padding(.horizontal, 10).frame(height: 26)
                         .background(Capsule().fill(RD.green))
                         .position(x: min(W - 60, max(60, mp.x)), y: min(H - 14, max(14, mp.y)))
                         .allowsHitTesting(false)
@@ -449,29 +449,29 @@ struct ReIwCard: View {
                 PathIcon(IW_IC, .white, 18, 2).frame(width: 32, height: 32)
                     .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(RD.wallc))
                 VStack(alignment: .leading, spacing: 1) {
-                    T(iwName(p.k) + (st.newPiece == p.id ? " · " + tr("iw.c.new") : ""), ui(14, 800), lines: 1)
-                    T(iwSizeLine(p, g.H) + " mm", num(12, 500, G.ink2), lines: 1)
+                    T(iwName(p.k) + (st.newPiece == p.id ? " · " + reTr("iw.c.new") : ""), ui(14, 800), lines: 1)
+                    T(iwSizeLine(p, g.H) + " " + unitWord(AppSettings.shared.unit), num(12, 500, G.ink2), lines: 1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                xb(st.cardMin ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6", st.cardMin ? tr("re.cardOpen") : tr("re.cardMin"), "re.cardMin") { st.cardMin.toggle(); Haptic.tick() }
-                xb("M6 6l12 12M18 6L6 18", tr("re.desel"), "re.desel") { st.deselect() }
+                xb(st.cardMin ? "M6 15l6-6 6 6" : "M6 9l6 6 6-6", st.cardMin ? reTr("re.cardOpen") : reTr("re.cardMin"), "re.cardMin") { st.cardMin.toggle(); Haptic.tick() }
+                xb("M6 6l12 12M18 6L6 18", reTr("re.desel"), "re.desel") { st.deselect() }
             }
             if !st.cardMin {
                 HStack(spacing: 6) {
                     T(tr(p.k == "col" ? "iw.c.shape" : "iw.c.th"), ui(12, 700, G.ink2), lines: 1)
                     if p.k == "col" {
-                        chip(tr("iw.o.square"), !p.round, "iw.c.sq") { st.iwRound(false, app, h) }
-                        chip(tr("iw.o.round"), p.round, "iw.c.rd") { st.iwRound(true, app, h) }
+                        chip(reTr("iw.o.square"), !p.round, "iw.c.sq") { st.iwRound(false, app, h) }
+                        chip(reTr("iw.o.round"), p.round, "iw.c.rd") { st.iwRound(true, app, h) }
                     } else {
-                        ForEach(IW_TH, id: \.self) { v in chip("\(v)", p.th == v, "iw.c.th\(v)") { st.iwSetTh(v, app, h) } }
+                        ForEach(IW_TH, id: \.self) { v in chip(reLen(v), p.th == v, "iw.c.th\(v)") { st.iwSetTh(v, app, h) } }
                     }
                 }
                 let fc = g.walls.filter { $0.inner && iwPieceOf($0.id) == p.id }
                 if !fc.isEmpty {
                     HStack(spacing: 6) {
-                        T(tr("iw.c.faces"), ui(12, 700, G.ink2), lines: 1)
+                        T(reTr("iw.c.faces"), ui(12, 700, G.ink2), lines: 1)
                         ForEach(fc, id: \.id) { w in chip(w.label, false, "iw.face." + w.label) { st.selectWall(w.id, h) } }
-                        T(tr("iw.c.facesN"), ui(11, 500, G.ink3), lines: 1).minimumScaleFactor(0.8)
+                        T(reTr("iw.c.facesN"), ui(11, 500, G.ink3), lines: 1).minimumScaleFactor(0.8)
                     }
                 }
                 if let issue {
@@ -483,18 +483,18 @@ struct ReIwCard: View {
                             st.openKp(tr(p.k == "col" ? "iw.kp.size" : "iw.kp.len"), cur: p.len, lo: p.k == "col" ? 100 : 300, hi: SHAPE_WALL_MAX, big: p.k != "col") { v in st.iwSetLen(v, app, h) }
                         }
                         if p.k == "half" {
-                            act(RE_IC["h"] ?? "", tr("iw.t.iwH"), "iw.b.h") {
-                                st.openKp(tr("iw.t.iwH"), cur: p.h > 0 ? p.h : 1100, lo: 300, hi: g.H - 1) { v in st.iwSetH(v, app, h) }
+                            act(RE_IC["h"] ?? "", reTr("iw.t.iwH"), "iw.b.h") {
+                                st.openKp(reTr("iw.t.iwH"), cur: p.h > 0 ? p.h : 1100, lo: 300, hi: g.H - 1) { v in st.iwSetH(v, app, h) }
                             }
                         }
                         if p.k == "arch", let op = p.op {
-                            act(RE_IC["w"] ?? "", tr("iw.t.iwOp"), "iw.b.op") {
-                                st.openKp(tr("iw.o.opW"), cur: op.w, lo: 400, hi: p.len - 200) { v in st.iwSetOp(w: v, app, h) }
+                            act(RE_IC["w"] ?? "", reTr("iw.t.iwOp"), "iw.b.op") {
+                                st.openKp(reTr("iw.o.opW"), cur: op.w, lo: 400, hi: p.len - 200) { v in st.iwSetOp(w: v, app, h) }
                             }
                         }
-                        if p.k != "col" { act(RE_IC["rot"] ?? "", tr("iw.t.iwRot"), "iw.b.rot") { st.iwRotate(app, h) } }
-                        act(RE_IC["copy"] ?? "", tr("iw.t.iwCopy"), "iw.b.copy") { st.iwCopy(app, h) }
-                        act(RE_IC["del"] ?? "", tr("iw.t.iwDel"), "iw.b.del", red: true) { st.iwDel(app, h) }
+                        if p.k != "col" { act(RE_IC["rot"] ?? "", reTr("iw.t.iwRot"), "iw.b.rot") { st.iwRotate(app, h) } }
+                        act(RE_IC["copy"] ?? "", reTr("iw.t.iwCopy"), "iw.b.copy") { st.iwCopy(app, h) }
+                        act(RE_IC["del"] ?? "", reTr("iw.t.iwDel"), "iw.b.del", red: true) { st.iwDel(app, h) }
                     }
                 }
             }

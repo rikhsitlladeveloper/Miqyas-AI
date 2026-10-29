@@ -129,10 +129,12 @@ struct DzcWardCanvas: View {
     var body: some View {
         let st = DzcState.shared
         let shown = st.live?.preview.flatMap { pv in pv.modules.first { $0.id == c.m.id } } ?? c.m
-        let lay = KLay(shown.w, outerH(shown, c.ws), 360, true)
+        // a box hung on the wall is drawn raised at its real height over the floor, as the 3D shows it (founder 29 Oct 2026)
+        let lift: Int = wallLift(shown, boxes(c.f)) ?? 0
+        let lay = KLay(shown.w, outerH(shown, c.ws) + lift, 360, true)
         GeometryReader { geo in
             let cam = st.cams[c.scene] ?? DzcCam()
-            let map = DzcMap(lay, geo.size, cam, top: 58, bottom: 6)
+            let map = DzcMap(lay, geo.size, cam, top: 58, bottom: 6, lift: lift)
             ZStack(alignment: .topLeading) {
                 Canvas { ctx, _ in DzcWDraw.all(ctx, map, c, shown) }
                     .allowsHitTesting(false)
@@ -216,6 +218,11 @@ enum DzcWDraw {
         let front = rgb(c.mats, frontOf(c.f, m0), "#CDBFAE"), carcass = rgb(c.mats, c.f.mats.carcass, "#F5F5F2")
         let open = st.inside || (st.peek && c.sec >= 0) || (st.multi && st.tool == "in")
         g.line(PC.ink, CGPoint(x: map.lay.x0 - 10, y: map.lay.yF), CGPoint(x: map.lay.x(m.w) + 10, y: map.lay.yF), 2)
+        // hung: the floor stays at the bottom, its height off the floor dimensioned, the box and its sizes drawn over it
+        if map.lift > 0 {
+            liftDims(g, map.lay, m.w, map.lift)
+            g.translateBy(x: 0, y: -CGFloat(map.lift) * map.lay.s)
+        }
         drawWard(g, map.lay, m, m.x, c.ws, carcass, front, -1, !open, c.cx.bad, labels: true, edge: opensByEdge(c.f))
         let starts = DzcWOps.starts(m)
         wardDims(g, map.lay, starts + [m.w], m.w, outerH(m, c.ws), 0)

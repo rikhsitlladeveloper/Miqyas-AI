@@ -31,6 +31,15 @@ enum QuoteSend {
             made = true
         }
         guard let q = Store.shared.get(pid)?.quotes.first(where: { $0.no == no }) else { return }
+        // the pieces' own 3D pictures first (usually made already while the price page was open)
+        let n = no, wasMade = made, old = before
+        Task { @MainActor in
+            _ = await PdfShots.shared.prepare(q.sn)
+            QuoteSend.share(app, pid, q, n, wasMade, old)
+        }
+    }
+
+    @MainActor private static func share(_ app: AppModel, _ pid: String, _ q: Quote, _ no: Int, _ made: Bool, _ before: Project) {
         let pages = furniturePages(q.sn, draft: false, meta: QuoteMeta(no: q.no, ts: q.ts), image: viewLoader(), prices: true)
         let fname = pdfName(dn(q.sn.name), tr("q.no", ["n": no]))
         guard let url = pdfFile(pages, fname) else { app.say("cm.shareErr", kind: .error); return }

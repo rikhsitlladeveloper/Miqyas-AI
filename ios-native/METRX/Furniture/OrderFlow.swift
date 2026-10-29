@@ -286,8 +286,15 @@ struct FRoomsTab: View {
         let ward = f.kind == "wardrobe"
         let sub: String
         if ward && (isItemPiece(f) || boxes(f).count > 1) { sub = freeSub(f, en) }
-        else if ward { sub = wardOfF(f).map { Geo.fmtLen($0.w, AppSettings.shared.unit, en) + " × " + Geo.fmtLen(valsOf(f, AppSettings.shared.workshop)["h"] ?? $0.h, AppSettings.shared.unit, en) + U_L } ?? "" }
+        else if ward, let m = wardOfF(f) {
+            // the box: W × H × D (a wall-hung one's height off the floor is the line under it)
+            let u = AppSettings.shared.unit
+            let h: Int = shownVals(f, AppSettings.shared.workshop)["h"] ?? m.h
+            sub = Geo.fmtLen(m.w, u, en) + " × " + Geo.fmtLen(h, u, en) + " × " + Geo.fmtLen(m.d, u, en) + U_L
+        }
+        else if ward { sub = "" }
         else { sub = tr("kt.l" + f.layout) + " · " + runMetres(f, en) + " " + tr("kt.pm") }
+        let floor: String? = floorLineText(f)
         return HStack(spacing: 10) {
             MIcon(ward ? "board" : "kitchen", G.ink3, 18, 2)
             VStack(alignment: .leading, spacing: 1) {
@@ -299,6 +306,7 @@ struct FRoomsTab: View {
                     }
                 }
                 if !sub.isEmpty { T(sub, num(12.5, 500, G.ink2), lines: 1) }
+                if let floor { T(floor, num(12, 600, G.cobalt2), lines: 1).accessibilityIdentifier("fo.floorLine") }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             if let amount, amount > 0 { T(shortStr(p, amount), num(14, 700)) }

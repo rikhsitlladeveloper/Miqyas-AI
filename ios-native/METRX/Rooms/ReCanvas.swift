@@ -62,7 +62,7 @@ struct ReCanvas: View {
                     } else if view == "front", let fv = reFrontOf(g, st.fw, size, small: false, cam: st.cam("front")) {
                         Canvas { ctx, sz in
                             reDrawFront(ctx, sz, fv, items, sel: st.selItem, wallSel: st.selWall == st.fw, ghost: st.ghost, left: g.prev(st.fw), right: g.next(st.fw),
-                                        caption: tr("re.frontCap", ["w": reWL(st.fw), "l": reLen(g.len(st.fw)), "h": reLen(g.hOf(st.fw))]), issues: iss, small: false)
+                                        caption: reTr("re.frontCap", ["w": reWL(st.fw), "l": reLen(g.len(st.fw)), "h": reLen(g.hOf(st.fw))]), issues: iss, small: false)
                         }
                         DzcTouch(act: frontActs(fv, g, size))
                         ReFrontBubbles(app: app, st: st, h: h, fv: fv, g: g, small: false)
@@ -150,7 +150,7 @@ struct ReCanvas: View {
                 let it = reNewItem(k, wall: w.id, centre: Int((w.t / lay.map.k).rounded()), wallL: L, roomH: lay.g.H)
                 let m = reMagnet(it.along, L, Double(it.dist), Double(lay.map.k))
                 st.placeAt(k, wall: w.id, centre: m.v + it.along / 2, how: "tap", app, h)
-            } else { st.warn(app, tr("re.tapWall")) }
+            } else { st.warn(app, reTr("re.tapWall")) }
             return
         }
         if let id = reHitItem(hits(lay, r), p) { st.select(id, h); return }
@@ -193,11 +193,11 @@ struct ReCanvas: View {
         let d = reDists(it, L)
         let msg: String
         if lv.mode == "edge" {
-            msg = lv.edge == "t" ? tr("re.m.h", ["n": reKindName(it.kind), "v": reLen(it.h)])
-                : lv.edge == "b" ? tr("re.m.sillH", ["s": reLen(it.sill), "h": reLen(it.h)])
-                : tr("re.m.w", ["n": reKindName(it.kind), "v": reLen(it.w)])
+            msg = lv.edge == "t" ? reTr("re.m.h", ["n": reKindName(it.kind), "v": reLen(it.h)])
+                : lv.edge == "b" ? reTr("re.m.sillH", ["s": reLen(it.sill), "h": reLen(it.h)])
+                : reTr("re.m.w", ["n": reKindName(it.kind), "v": reLen(it.w)])
         } else {
-            msg = tr("re.m.moved2", ["n": reKindName(it.kind), "l": reLen(d.l), "r": reLen(d.r)]) + (it.isOpening ? "" : " · " + tr("re.phV", ["v": reLen(it.ph)]))
+            msg = reTr("re.m.moved2", ["n": reKindName(it.kind), "l": reLen(d.l), "r": reLen(d.r)]) + (it.isOpening ? "" : " · " + reTr("re.phV", ["v": reLen(it.ph)]))
         }
         st.commit(app, h, msg) { rePut(&$0, it); return nil }
     }
@@ -236,7 +236,7 @@ struct ReCanvas: View {
                 if inWall {
                     let ph = reKind(k).isOpening ? nil : reSnapH(k, Double(fv.Hh(p.y)), Double(fv.k), g.H)
                     st.placeAt(k, wall: fv.id, centre: Int(fv.T(p.x).rounded()), how: "tap", ph: ph, app, h)
-                } else { st.warn(app, tr("re.tapWall")) }
+                } else { st.warn(app, reTr("re.tapWall")) }
                 return
             }
             if let id = reFrontHitItem(reFrontHits(fv, reItems(r), sel: st.selItem), p) { st.select(id, h); return }
@@ -308,7 +308,7 @@ struct ReCanvas: View {
                 if let hit, hit.hasPrefix("w:") {
                     let w = String(hit.dropFirst(2))
                     st.placeAt(k, wall: w, centre: reGeo(r).len(w) / 2, how: "tap", app, h)
-                } else { st.warn(app, tr("re.tapWall")) }
+                } else { st.warn(app, reTr("re.tapWall")) }
                 return
             }
             guard let hit else { st.deselect(); return }
@@ -392,7 +392,7 @@ func reEdge(_ it0: ReItem, _ e: String, t: Double, hz: Double, L: Int, rh: Int, 
 func reAreaLine(_ g: ReRoomGeo) -> String {
     let s = String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), g.area / 1e6)
     let a = AppSettings.shared.lang == .en ? s : s.replacingOccurrences(of: ".", with: ",")
-    return tr("re.areaLine", ["a": a, "p": reLen(g.perimeter)])
+    return reTr("re.areaLine", ["a": a, "p": reLen(g.perimeter)])
 }
 
 /* ---------------- the distance bubbles ---------------- */
@@ -425,7 +425,7 @@ struct RePlanBubbles: View {
                 bubble(mid(S1, B), reLen(d.r), live, id: "re.dr") { kpDist(it, "dr", L) }
                 if let m = st.mag {
                     let mp = (it.isOpening ? mid(s0, s1) : f.at(CGFloat(it.dist), 15, lay.map.k)) + f.n * (it.isOpening ? 46 : 40)
-                    T(tr("re.mag." + m), ui(11, 800, .white), lines: 1).padding(.horizontal, 8).frame(height: 22)
+                    T(reTr("re.mag." + m), ui(11, 800, .white), lines: 1).padding(.horizontal, 8).frame(height: 22)
                         .background(Capsule().fill(G.green))
                         .position(clampPt(mp, 30, 12))
                         .allowsHitTesting(false)
@@ -480,14 +480,14 @@ struct ReFrontBubbles: View {
                     let xl = min(x1, x2), xr = max(x1, x2), yt = fv.Z(CGFloat(it.top)), yb = fv.Z(CGFloat(it.z0))
                     let off: CGFloat = small ? 46 : 54
                     let hx = xr + off > fv.X(fv.fl ? 0 : fv.L) + 40 ? xl - off : xr + off
-                    bub(CGPoint(x: (xl + xr) / 2, y: small ? yf + 12 : yt - 22), tr("re.bW", ["v": reLen(it.w)]), "re.fw") { kp(it, "w") }
-                    bub(CGPoint(x: hx, y: (yt + yb) / 2), tr("re.bH", ["v": reLen(it.h)]), "re.fh") { kp(it, "h") }
+                    bub(CGPoint(x: (xl + xr) / 2, y: small ? yf + 12 : yt - 22), reTr("re.bW", ["v": reLen(it.w)]), "re.fw") { kp(it, "w") }
+                    bub(CGPoint(x: hx, y: (yt + yb) / 2), reTr("re.bH", ["v": reLen(it.h)]), "re.fh") { kp(it, "h") }
                     if it.kind == "window" && it.style != "pano" && !it.isBalcony {
-                        bub(CGPoint(x: hx == xr + off ? xl - off : xr + off, y: (yb + yf) / 2), tr("re.bS", ["v": reLen(it.sill)]), "re.fs") { kp(it, "sill") }
+                        bub(CGPoint(x: hx == xr + off ? xl - off : xr + off, y: (yb + yf) / 2), reTr("re.bS", ["v": reLen(it.sill)]), "re.fs") { kp(it, "sill") }
                     }
                 } else {
                     let x = fv.X(CGFloat(it.dist)), y = fv.Z(CGFloat(it.ph))
-                    bub(CGPoint(x: x + (small ? 40 : 46), y: y), tr("re.phV", ["v": reLen(it.ph)]), "re.fph") { kp(it, "ph") }
+                    bub(CGPoint(x: x + (small ? 40 : 46), y: y), reTr("re.phV", ["v": reLen(it.ph)]), "re.fph") { kp(it, "ph") }
                 }
             }
         }
@@ -502,10 +502,10 @@ struct ReFrontBubbles: View {
     private func kp(_ it: ReItem, _ key: String) {
         let L = g.len(it.wall)
         switch key {
-        case "w": st.openKp(tr("re.kpW", ["n": reKindName(it.kind)]), cur: it.w, lo: 300, hi: L) { st.setSize("w", $0, app, h) }
-        case "h": st.openKp(tr("re.kpH", ["n": reKindName(it.kind)]), cur: it.h, lo: 300, hi: g.H - it.z0) { st.setSize("h", $0, app, h) }
-        case "sill": st.openKp(tr("re.kpSill"), cur: it.sill, lo: 0, hi: g.H - it.h) { st.setSize("sill", $0, app, h) }
-        default: st.openKp(tr("re.kpPh", ["n": reKindName(it.kind)]), cur: it.ph, lo: 0, hi: g.H) { st.setSize("ph", $0, app, h) }
+        case "w": st.openKp(reTr("re.kpW", ["n": reKindName(it.kind)]), cur: it.w, lo: 300, hi: L) { st.setSize("w", $0, app, h) }
+        case "h": st.openKp(reTr("re.kpH", ["n": reKindName(it.kind)]), cur: it.h, lo: 300, hi: g.H - it.z0) { st.setSize("h", $0, app, h) }
+        case "sill": st.openKp(reTr("re.kpSill"), cur: it.sill, lo: 0, hi: g.H - it.h) { st.setSize("sill", $0, app, h) }
+        default: st.openKp(reTr("re.kpPh", ["n": reKindName(it.kind)]), cur: it.ph, lo: 0, hi: g.H) { st.setSize("ph", $0, app, h) }
         }
     }
 }

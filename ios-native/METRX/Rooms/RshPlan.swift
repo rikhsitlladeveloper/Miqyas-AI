@@ -182,7 +182,7 @@ struct PlanPic: View {
                 .position(x: (a.x + b.x) / 2 * k, y: (a.y + b.y) / 2 * k)
                 .onTapGesture { pick(i) }
                 .accessibilityElement()
-                .accessibilityLabel(Text(tr("rsh.wall", ["w": i < letters.count ? letters[i] : "?"])))
+                .accessibilityLabel(Text(reTr("rsh.wall", ["w": i < letters.count ? letters[i] : "?"])))
                 .accessibilityAddTraits(.isButton)
                 .accessibilityIdentifier("rsh.wall." + (i < letters.count ? letters[i] : "\(i)"))
         }
@@ -225,7 +225,7 @@ struct PlanPic: View {
                 else if st == "cur" { t = o.liveTxt ?? "?" }
                 else if st == "done" { t = o.fmt(e.len) }
                 else if st == "todo" { t = letter(i) }
-                else { t = tr("rsh.auto") }
+                else { t = reTr("rsh.auto") }
                 labels.append(PillAt(x: (a.x + b.x) / 2 + nx * off, y: (a.y + b.y) / 2 + ny * off, nx: nx, ny: ny, t: t, st: st))
             }
         }
@@ -264,7 +264,7 @@ struct PlanPic: View {
         if let gl = g.gap, let last = g.corners.last, let first = g.corners.first {
             let ga = f.m(last), gb = f.m(first)
             stroke(ctx, ga, gb, RC.red, 2.5, dash: [3, 4])
-            if !o.nolab { labels.append(PillAt(x: (ga.x + gb.x) / 2, y: (ga.y + gb.y) / 2, nx: 0, ny: 0, t: tr("rsh.gap") + " " + o.fmt(gl), st: "bad")) }
+            if !o.nolab { labels.append(PillAt(x: (ga.x + gb.x) / 2, y: (ga.y + gb.y) / 2, nx: 0, ny: 0, t: reTr("rsh.gap") + " " + o.fmt(gl), st: "bad")) }
         }
         if let c = o.corner, c < g.walls.count {
             let p = f.m(g.walls[c].from)
@@ -391,8 +391,8 @@ struct HeightPic: View {
             stroke(c, CGPoint(x: 282, y: 26), CGPoint(x: 298, y: 26), RC.blue, 5)
             stroke(c, CGPoint(x: 282, y: 158), CGPoint(x: 298, y: 158), RC.blue, 5)
             drawPill(c, pillRect(290, 92, txt, "cur", VB, 198), txt, "cur")
-            c.text(tr("rsh.ceil"), CGPoint(x: 155, y: 16), .ui, 11, 700, G.ink3)
-            c.text(tr("rsh.floor"), CGPoint(x: 155, y: 172), .ui, 11, 700, G.ink3)
+            c.text(reTr("rsh.ceil"), CGPoint(x: 155, y: 16), .ui, 11, 700, G.ink3)
+            c.text(reTr("rsh.floor"), CGPoint(x: 155, y: 172), .ui, 11, 700, G.ink3)
         }
         .accessibilityHidden(true)
     }

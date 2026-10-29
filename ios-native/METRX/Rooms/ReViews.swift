@@ -7,15 +7,22 @@ import UIKit
  * "N ta belgi" list and the yellow "Katta devor — to‘g‘rimi?" note. Used by the openings step and the editor.
  */
 
-/// "Katta devor — to‘g‘rimi?" under a wall above 30 m; it never stops "Keyingi".
+/// "Katta devor — to‘g‘rimi?" under a wall above 30 m (Geo.WALL_BIG, whatever the unit); it never stops "Keyingi".
 struct ReBigNote: View {
     let mm: Int
+    /// "35 000 mm = 35,0 m." in mm, "3 500 sm = 35,0 m." in cm, "35,000 m." in metres.
+    private func bigLine(_ m: String) -> String {
+        let u = AppSettings.shared.unit
+        if u == .m { return tr("re.bigDu", ["v": reLenU(mm)]) }
+        let mt = AppSettings.shared.lang == .en ? m : m.replacingOccurrences(of: ".", with: ",")
+        return reTr("re.bigD", ["v": u == .mm ? fmtMm(Double(mm)) : reLen(mm), "m": mt])
+    }
     var body: some View {
         let m = String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), Double(mm) / 1000)
         HStack(alignment: .top, spacing: 10) {
             MIcon("alert", G.amberInk, 19, 2)
-            (Text(tr("re.big") + " ").font(ui(12.5, 800).font).foregroundColor(G.amberInk)
-             + Text(tr("re.bigD", ["v": fmtMm(Double(mm)), "m": AppSettings.shared.lang == .en ? m : m.replacingOccurrences(of: ".", with: ",")]))
+            (Text(reTr("re.big") + " ").font(ui(12.5, 800).font).foregroundColor(G.amberInk)
+             + Text(bigLine(m))
                 .font(ui(12.5, 400).font).foregroundColor(G.ink))
                 .lineSpacing(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -142,7 +149,7 @@ struct ReWallChips: View {
     let tap: (String) -> Void
     var body: some View {
         HStack(spacing: 5) {
-            T(tr("re.wallW"), ui(11.5, 700, G.ink2), lines: 1).padding(.horizontal, 2)
+            T(reTr("re.wallW"), ui(11.5, 700, G.ink2), lines: 1).padding(.horizontal, 2)
             ForEach(g.walls, id: \.id) { w in
                 let on = w.id == sel, h = w.id == hl
                 let shape = RoundedRectangle(cornerRadius: 11, style: .continuous)
@@ -225,20 +232,20 @@ struct RePickWindow: View {
     @ViewBuilder private func styleBody(_ p: RePk, _ g: ReRoomGeo) -> some View {
         let last = p.mode == "new" ? st.last[p.kind] : nil
         let list = reStylesLastFirst(p.kind, last?.style)
-        head(p, tr("re.styT", ["n": reKindName(p.kind), "w": reWL(p.wall)]), tr(p.mode == "new" ? "re.styS" : "re.styR"))
+        head(p, reTr("re.styT", ["n": reKindName(p.kind), "w": reWL(p.wall)]), tr(p.mode == "new" ? "re.styS" : "re.styR"))
         if let l = last {
             VStack(spacing: 1) {
                 HStack(spacing: 8) {
                     MIcon("copy", .white, 18, 2.2)
-                    T(tr("re.again", ["v": reAgainLine(p.kind, l.style, l.v)]), ui(15.5, 800, .white), lines: 1).minimumScaleFactor(0.8)
+                    T(reTr("re.again", ["v": reAgainLine(p.kind, l.style, l.v)]), ui(15.5, 800, .white), lines: 1).minimumScaleFactor(0.8)
                 }
-                T(tr("re.againS", ["n": reStyleName(p.kind, l.style)]), ui(11.5, 600, .white.opacity(0.85)), lines: 1)
+                T(reTr("re.againS", ["n": reStyleName(p.kind, l.style)]), ui(11.5, 600, .white.opacity(0.85)), lines: 1)
             }
             .frame(maxWidth: .infinity, minHeight: 60)
             .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(G.cobalt))
             .pressable(0.98) { st.pkAgain(app, h) }
             .accessibilityIdentifier("re.again")
-            T(tr("re.orOther"), ui(11.5, 700, G.ink3), align: .center).frame(maxWidth: .infinity)
+            T(reTr("re.orOther"), ui(11.5, 700, G.ink3), align: .center).frame(maxWidth: .infinity)
         }
         LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
             ForEach(list, id: \.id) { s in
@@ -278,7 +285,7 @@ struct RePickWindow: View {
         let lastStep = i == steps.count - 1
         let ch = reChips(p.kind, p.style, f, g.H)
         let cur = p.v[f]
-        head(p, reKindName(p.kind) + " · " + reStyleName(p.kind, p.style), tr("re.stepOf", ["w": reWL(p.wall), "i": i + 1, "n": steps.count]))
+        head(p, reKindName(p.kind) + " · " + reStyleName(p.kind, p.style), reTr("re.stepOf", ["w": reWL(p.wall), "i": i + 1, "n": steps.count]))
         ReSizeArt(it: it, field: f, roomH: g.H, bad: err != nil, fmt: reLen)
             // a short phone with the keyboard up: a strip, so the window's head stays in sight (it was scrolled off)
             .frame(height: kb ? (UIScreen.main.bounds.height < 700 ? 58 : 100) : 176)
@@ -287,7 +294,7 @@ struct RePickWindow: View {
         HStack(spacing: 5) {
             ForEach(Array(steps.enumerated()), id: \.offset) { j, x in
                 if j > 0 { T("→", ui(12, 700, G.ink3)) }
-                T(tr("re.f." + reFieldKey(p.kind, p.style, x)), ui(12, j == i ? 800 : 700, j == i ? G.cobalt2 : j < i ? G.ink2 : G.ink3), lines: 1)
+                T(reTr("re.f." + reFieldKey(p.kind, p.style, x)), ui(12, j == i ? 800 : 700, j == i ? G.cobalt2 : j < i ? G.ink2 : G.ink3), lines: 1)
             }
         }
         .frame(maxWidth: .infinity)
@@ -297,7 +304,7 @@ struct RePickWindow: View {
                     let on = cur == x
                     HStack(spacing: 3) {
                         T(reLen(x), num(13, 800, on ? .white : G.ink))
-                        if x == ch.std { T(tr("re.std"), ui(10, 700, on ? .white.opacity(0.8) : G.ink3)) }
+                        if x == ch.std { T(reTr("re.std"), ui(10, 700, on ? .white.opacity(0.8) : G.ink3)) }
                     }
                     .padding(.horizontal, 12).frame(minHeight: 40)
                     .background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(on ? G.cobalt : G.glass(0.85)))
@@ -308,8 +315,8 @@ struct RePickWindow: View {
             }
             .padding(2)
         })
-        RshSizeField(app: app, d: st, key: "pk\(p.kind)\(p.style)\(f)\(i)", label: tr("re.f." + reFieldKey(p.kind, p.style, f)),
-                     help: tr("re.fd." + reFieldKey(p.kind, p.style, f), ["c": reLen(g.H)]) + (p.style == "balcony" ? " · " + tr("re.sill", ["v": reLen(it.h - it.wh)]) : ""),
+        RshSizeField(app: app, d: st, key: "pk\(p.kind)\(p.style)\(f)\(i)", label: reTr("re.f." + reFieldKey(p.kind, p.style, f)),
+                     help: reTr("re.fd." + reFieldKey(p.kind, p.style, f), ["c": reLen(g.H)]) + (p.style == "balcony" ? " · " + reTr("re.sill", ["v": reLen(it.h - it.wh)]) : ""),
                      text: p.input, fresh: p.fresh, hint: cur ?? ch.std ?? 0, issue: err,
                      live: { (st.pk?.input ?? "", st.pk?.fresh ?? false) },
                      onText: { st.pkText($0) },
@@ -323,8 +330,8 @@ struct RePickWindow: View {
                      onUnVoice: { if let hd = st.heard { st.pkText(hd.before); st.heard = nil } },
                      chips: chips)
         HStack(spacing: 6) {
-            GBtn(tr("re.back"), kind: .secondary, icon: "back", height: 50, fontSize: 13.5, fill: false) { st.pkBack(h) }.accessibilityIdentifier("re.pkBack")
-            GBtn(tr("re.stdB"), kind: .secondary, height: 50, fontSize: 13.5, fill: false) { st.pkStd(app, h) }.accessibilityIdentifier("re.pkStd")
+            GBtn(reTr("re.back"), kind: .secondary, icon: "back", height: 50, fontSize: 13.5, fill: false) { st.pkBack(h) }.accessibilityIdentifier("re.pkBack")
+            GBtn(reTr("re.stdB"), kind: .secondary, height: 50, fontSize: 13.5, fill: false) { st.pkStd(app, h) }.accessibilityIdentifier("re.pkStd")
             GBtn(tr(lastStep ? (p.mode == "new" ? "re.place" : "common.save") : "common.next"), height: 50, fontSize: 15) { st.pkNext(app, h) }
                 .accessibilityIdentifier("rsh.next")
         }
@@ -341,9 +348,9 @@ func reStylesLastFirst(_ kind: String, _ lastStyle: String?) -> [ReStyle] {
 
 /// "Yana shu · 800 × 2 100": the last sizes in a line.
 func reAgainLine(_ k: String, _ style: String, _ v: ReVals) -> String {
-    if (k == "door" || k == "window") && style == "balcony" { return tr("re.balLine", ["d": reLen(v["dw"] ?? 0), "w": reLen(v["ww"] ?? 0), "a": reLen(v["dw"] ?? 0), "b": reLen(v["ww"] ?? 0)]) }
+    if (k == "door" || k == "window") && style == "balcony" { return reTr("re.balLine", ["d": reLen(v["dw"] ?? 0), "w": reLen(v["ww"] ?? 0), "a": reLen(v["dw"] ?? 0), "b": reLen(v["ww"] ?? 0)]) }
     if k == "door" || k == "window" { return reLen(v["w"] ?? 0) + " × " + reLen(v["h"] ?? 0) }
-    return (v["pw"].map { tr("re.pwV", ["v": reLen($0)]) + " · " } ?? "") + tr("re.phV", ["v": reLen(v["ph"] ?? 0)])
+    return (v["pw"].map { reTr("re.pwV", ["v": reLen($0)]) + " · " } ?? "") + reTr("re.phV", ["v": reLen(v["ph"] ?? 0)])
 }
 
 /// A size step's name in the strings (re.f.<key>, re.fd.<key>): a door's height differs from a window's, a balcony's
@@ -370,14 +377,14 @@ struct ReKpOverlay: View {
             let v = rshParse(st.kpText, AppSettings.shared.unit, zeroOk: k.lo == 0)
             let bad: String? = {
                 guard !st.kpText.isEmpty else { return nil }
-                guard let v, v >= k.lo, v <= k.hi else { return tr("re.kpRange", ["a": reLen(k.lo), "b": reLen(k.hi), "u": unitWord(AppSettings.shared.unit)]) }
+                guard let v, v >= k.lo, v <= k.hi else { return reTr("re.kpRange", ["a": reLen(k.lo), "b": reLen(k.hi), "u": unitWord(AppSettings.shared.unit)]) }
                 return nil
             }()
             ZStack(alignment: .bottom) {
                 G.scrim.ignoresSafeArea().onTapGesture { st.kp = nil }
                 VStack(alignment: .leading, spacing: 10) {
                     RshSizeField(app: app, d: st, key: "kp" + k.title, label: k.title,
-                                 help: tr("re.kpRange", ["a": reLen(k.lo), "b": reLen(k.hi), "u": unitWord(AppSettings.shared.unit)]),
+                                 help: reTr("re.kpRange", ["a": reLen(k.lo), "b": reLen(k.hi), "u": unitWord(AppSettings.shared.unit)]),
                                  text: st.kpText, fresh: false, hint: k.cur, issue: bad,
                                  live: { (st.kpText, false) },
                                  onText: { st.kpText = $0; st.heard = nil },
@@ -392,7 +399,7 @@ struct ReKpOverlay: View {
                     if k.big, let v, reWallBig(v), bad == nil { ReBigNote(mm: v) }
                     HStack(spacing: 8) {
                         GBtn(tr("common.cancel"), kind: .secondary, height: 50, fontSize: 15) { st.kp = nil }
-                        GBtn(tr("re.done"), enabled: bad == nil, height: 50, fontSize: 15) { done(k, v, bad) }.accessibilityIdentifier("re.kpOk")
+                        GBtn(reTr("re.done"), enabled: bad == nil, height: 50, fontSize: 15) { done(k, v, bad) }.accessibilityIdentifier("re.kpOk")
                     }
                 }
                 .padding(16)
@@ -460,7 +467,7 @@ struct ReCoach: View {
             }
             HStack(spacing: 6) {
                 PathIcon(SD_HAND_IC, G.cobalt, 16, 2)
-                T(tr("re.coach"), ui(12, 700, G.ink2), lines: 1)
+                T(reTr("re.coach"), ui(12, 700, G.ink2), lines: 1)
             }
             .padding(.horizontal, 12).frame(height: 30)
             .background(Capsule().fill(G.sheet(0.94)))
@@ -529,8 +536,8 @@ struct ReListSheet: View {
                 G.scrim.ignoresSafeArea().onTapGesture { st.list = false }
                 VStack(alignment: .leading, spacing: 4) {
                     Capsule().fill(G.rim).frame(width: 40, height: 5).frame(maxWidth: .infinity).padding(.bottom, 8)
-                    T(tr("re.listT", ["n": items.count]), ui(19, 800))
-                    T(tr("re.listS"), ui(12.5, 400, G.ink2)).padding(.bottom, 6)
+                    T(reTr("re.listT", ["n": items.count]), ui(19, 800))
+                    T(reTr("re.listS"), ui(12.5, 400, G.ink2)).padding(.bottom, 6)
                     ScrollView {
                         VStack(spacing: 2) {
                             ForEach(items, id: \.id) { it in
@@ -539,7 +546,7 @@ struct ReListSheet: View {
                                     ReBadge(kind: it.kind, size: 30)
                                     VStack(alignment: .leading, spacing: 1) {
                                         T(reItemName(it), ui(13.5, 800), lines: 1)
-                                        T(tr("re.wallX", ["w": reWL(it.wall)]) + " · " + reSizeLine(it) + " · " + reLen(d.l) + " | " + reLen(d.r), num(12, 500, G.ink2), lines: 2)
+                                        T(reTr("re.wallX", ["w": reWL(it.wall)]) + " · " + reSizeLine(it) + " · " + reLen(d.l) + " | " + reLen(d.r), num(12, 500, G.ink2), lines: 2)
                                         if let e = iss[it.id] { T(e, ui(12, 700, RD.issue), lines: 2) }
                                     }
                                     .frame(maxWidth: .infinity, alignment: .leading)

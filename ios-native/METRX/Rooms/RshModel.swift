@@ -191,7 +191,7 @@ func rshOpErr(_ d: RshDraft, _ op: OpEdit, _ v: Int?) -> String? {
     guard let e = opFieldError(g, d.height, op.kind, op.wall, f, v, dist: op.vals[.dist] ?? 0, w: op.vals[.width] ?? 0, h: op.vals[.height] ?? 0) else { return nil }
     if e.code == .outOfRange && f == .height {
         let unit = rshUnit(d)
-        return tr("rsh.e.opH", ["a": lenWords(300, unit), "b": lenWords(d.height, unit), "u": unitWord(unit)])
+        return reTr("rsh.e.opH", ["a": lenWords(300, unit), "b": lenWords(d.height, unit), "u": unitWord(unit)])
     }
     return rshErrText(d, e)
 }
@@ -206,21 +206,21 @@ func rshErrText(_ d: RshDraft, _ e: ShapeError) -> String {
     func signed(_ x: Double?) -> String { ((x ?? 0) < 0 ? "−" : "") + len(abs(x ?? 0)) }
     switch e.code {
     case .outOfRange:
-        let r = tr("rsh.range", ["a": lenWords(Int((e.min ?? 0).rounded()), unit), "b": lenWords(Int((e.limit ?? 0).rounded()), unit), "u": u])
-        return tr("rsh.e.enter", ["r": r])
-    case .cutDNotShorter: return tr("rsh.e.cutD", ["v": len(e.limit), "d": wl(3), "a": wl(0)])
-    case .cutBNotShorter: return tr("rsh.e.cutB", ["v": len(e.limit), "b": wl(1), "e": wl(4)])
-    case .cutNoCut: return tr("rsh.e.cut", ["a": wl(0), "b": wl(1), "d": wl(3), "e": wl(4)])
-    case .bayNotFit: return tr("rsh.e.bayFit", ["v": len(e.value), "l": len(e.limit), "a": wl(0), "g": wl(6)])
-    case .bayTooDeep: return tr("rsh.e.bayDeep")
-    case .notClosed: return tr("rsh.e.open", ["v": len(e.value)])
-    case .wallNegative: return tr("rsh.e.neg", ["w": wl(e.wall), "v": signed(e.value)])
-    case .wallsCross: return tr("rsh.e.cross")
-    case .diagMismatch: return tr("rsh.e.diag", ["v": len(e.limit)])
-    case .empty: return tr("rsh.e.num")
-    case .opPastWall: return tr("rsh.e.long", ["w": wl(e.wall), "l": len(e.limit)])
-    case .opNotFit: return tr("rsh.e.fit", ["s": len(e.value), "l": len(e.limit)])
-    case .opAboveCeiling: return tr("rsh.e.sill", ["s": len(e.value), "l": len(e.limit)])
+        let r = reTr("rsh.range", ["a": lenWords(Int((e.min ?? 0).rounded()), unit), "b": lenWords(Int((e.limit ?? 0).rounded()), unit), "u": u])
+        return reTr("rsh.e.enter", ["r": r])
+    case .cutDNotShorter: return reTr("rsh.e.cutD", ["v": len(e.limit), "d": wl(3), "a": wl(0)])
+    case .cutBNotShorter: return reTr("rsh.e.cutB", ["v": len(e.limit), "b": wl(1), "e": wl(4)])
+    case .cutNoCut: return reTr("rsh.e.cut", ["a": wl(0), "b": wl(1), "d": wl(3), "e": wl(4)])
+    case .bayNotFit: return reTr("rsh.e.bayFit", ["v": len(e.value), "l": len(e.limit), "a": wl(0), "g": wl(6)])
+    case .bayTooDeep: return reTr("rsh.e.bayDeep")
+    case .notClosed: return reTr("rsh.e.open", ["v": len(e.value)])
+    case .wallNegative: return reTr("rsh.e.neg", ["w": wl(e.wall), "v": signed(e.value)])
+    case .wallsCross: return reTr("rsh.e.cross")
+    case .diagMismatch: return reTr("rsh.e.diag", ["v": len(e.limit)])
+    case .empty: return reTr("rsh.e.num")
+    case .opPastWall: return reTr("rsh.e.long", ["w": wl(e.wall), "l": len(e.limit)])
+    case .opNotFit: return reTr("rsh.e.fit", ["s": len(e.value), "l": len(e.limit)])
+    case .opAboveCeiling: return reTr("rsh.e.sill", ["s": len(e.value), "l": len(e.limit)])
     }
 }
 
@@ -305,13 +305,13 @@ struct RshSheetSub: View {
     var body: some View {
         let p = Store.shared.get(pid)
         let who = p.map { dn($0.customer).isEmpty ? dn($0.name) : dn($0.customer) } ?? ""
-        T(who.isEmpty ? tr("rsh.step1n") : tr("rsh.step1", ["c": who]), ui(13, 400, G.ink2), lines: 2)
+        T(who.isEmpty ? reTr("rsh.step1n") : reTr("rsh.step1", ["c": who]), ui(13, 400, G.ink2), lines: 2)
     }
 }
 
 /// "Xona turi", over the trade's room-type chips.
 struct RshTypeLabel: View {
-    var body: some View { T(tr("rsh.typeL"), ui(13, 700, G.ink2)) }
+    var body: some View { T(reTr("rsh.typeL"), ui(13, 700, G.ink2)) }
 }
 
 /// "Davom etish", with "Keyingi qadam — xona shakli." under it.
@@ -321,6 +321,6 @@ struct RshSheetGo: View {
     let go: () -> Void
     var body: some View {
         GBtn(tr("fr.continue"), enabled: enabled, go).accessibilityIdentifier(id)
-        T(tr("rsh.nextNote"), ui(13, 400, G.ink2, lh: 1.4)).padding(.horizontal, 4).frame(maxWidth: .infinity, alignment: .leading)
+        T(reTr("rsh.nextNote"), ui(13, 400, G.ink2, lh: 1.4)).padding(.horizontal, 4).frame(maxWidth: .infinity, alignment: .leading)
     }
 }

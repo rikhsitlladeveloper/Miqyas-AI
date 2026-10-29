@@ -122,7 +122,7 @@ func freeSub(_ f: Furniture, _ en: Bool) -> String {
         let modelName: String? = f.model.isEmpty ? nil : tr(!f.type.isEmpty ? "ft." + f.model : "fz.m." + f.model)
         let name: String? = w.slide.map { tr("fz.slideNow", ["n": $0.n]) } ?? modelName
         // the height as asked: a cabinet's with its legs
-        let v = valsOf(f, AppSettings.shared.workshop)
+        let v = shownVals(f, AppSettings.shared.workshop)
         let h = v["h"] ?? w.h
         let sizes: String
         if let mw = v["mw"] { sizes = m(mw) + " × " + m(v["ml"] ?? 0) + U_L }

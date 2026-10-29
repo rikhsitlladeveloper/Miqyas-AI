@@ -172,6 +172,14 @@ struct ProfileScreen: View {
                     .padding(.horizontal, 16).padding(.top, 10)
                     HStack(alignment: .top, spacing: 8) { MIcon("device", G.ink2, 16, 2); T(tr("prof.onPhone"), ui(12.5, 400, G.ink2, lh: 1.4)) }
                         .padding(.horizontal, 18).padding(.top, 12)
+                    // test mode on (7 taps on the version): a clear way to turn it off again (founder 29 Oct 2026)
+                    if s.devMode {
+                        Card {
+                            Row1(icon: "device", title: tr("lt.devOff"), value: nil, sub: tr("lt.devOnRow")) { devModeOff(app) }
+                                .accessibilityIdentifier("pf.devOff")
+                        }
+                        .padding(.top, 10)
+                    }
                     VersionLine(app: app).padding(.horizontal, 18).padding(.top, 4)
                 }
                 .padding(.top, 2).padding(.bottom, 20 + NAV_SPACE)
@@ -182,8 +190,21 @@ struct ProfileScreen: View {
     private func signIn() { app.authFromProfile = true; app.auth = [.welcome] }
 }
 
+/// Test mode off (Profile's row, the Lazer sinovi page), with Undo in the toast that turns it back on (and runs undo).
+func devModeOff(_ app: AppModel, undo: (() -> Void)? = nil) {
+    let s = AppSettings.shared
+    guard s.devMode else { return }
+    s.setDevMode(false)
+    Haptic.tick()
+    app.say("lt.devOffDone", action: "common.undo") {
+        s.setDevMode(true)
+        undo?()
+        app.say("lt.devOn", kind: .info)
+    }
+}
+
 /// "METRX 1.0 (1)": seven taps turn test mode on (the laser test page in the Device sheet and the radar), kept in
-/// the settings.
+/// the settings; Profile's "Test rejimini o‘chirish" row (and the Lazer sinovi page) turns it off.
 /// The privacy policy page (the same one the stores link to).
 let PRIVACY_URL = "https://metrx-site.pages.dev/privacy"
 

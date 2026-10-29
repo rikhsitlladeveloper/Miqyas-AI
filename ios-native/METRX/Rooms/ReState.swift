@@ -148,30 +148,30 @@ private var reUnit: LenUnit { AppSettings.shared.unit }
 func reLen(_ mm: Int) -> String { lenWords(mm, reUnit) }
 /// … with the unit.
 func reLenU(_ mm: Int) -> String { lenWords(mm, reUnit) + " " + unitWord(reUnit) }
-func reKindName(_ k: String) -> String { tr("re.k." + k) }
+func reKindName(_ k: String) -> String { reTr("re.k." + k) }
 func reStyleName(_ k: String, _ s: String) -> String { tr("st." + k + "." + reStyle(k, s).id) }
 func reItemName(_ it: ReItem) -> String { reKindName(it.kind) + " · " + reStyleName(it.kind, it.style) }
 
 /// "800 × 2 100 · tokcha 900", "eshik 700 × 2 100 + deraza 1 200 × 1 400", "eni 640 · h 600" (mockup sizeLine).
 func reSizeLine(_ it: ReItem) -> String {
     if it.isOpening {
-        if it.isBalcony { return tr("re.szBal", ["dw": reLen(it.dw), "h": reLen(it.h), "ww": reLen(it.w - it.dw), "wh": reLen(it.wh), "a": reLen(it.dw), "b": reLen(it.h), "c": reLen(it.w - it.dw), "d": reLen(it.wh)]) }
+        if it.isBalcony { return reTr("re.szBal", ["dw": reLen(it.dw), "h": reLen(it.h), "ww": reLen(it.w - it.dw), "wh": reLen(it.wh), "a": reLen(it.dw), "b": reLen(it.h), "c": reLen(it.w - it.dw), "d": reLen(it.wh)]) }
         var s = reLen(it.w) + " × " + reLen(it.h)
-        if it.kind == "window" { s += it.style == "pano" ? " · " + tr("re.fromFloor") : " · " + tr("re.sill", ["v": reLen(it.sill)]) }
+        if it.kind == "window" { s += it.style == "pano" ? " · " + reTr("re.fromFloor") : " · " + reTr("re.sill", ["v": reLen(it.sill)]) }
         return s
     }
-    return (it.pw > 0 ? tr("re.pwV", ["v": reLen(it.pw)]) + " · " : "") + tr("re.phV", ["v": reLen(it.ph)])
+    return (it.pw > 0 ? reTr("re.pwV", ["v": reLen(it.pw)]) + " · " : "") + reTr("re.phV", ["v": reLen(it.ph)])
 }
 
 /// A style card's line: its note and standard sizes (mockup cardLine).
 func reCardLine(_ k: String, _ st: ReStyle, _ roomH: Int) -> String {
     let v = reStd(k, st.id, roomH)
     var s: String
-    if (k == "door" || k == "window") && st.id == "balcony" { s = tr("re.balLine", ["d": reLen(v["dw"] ?? 0), "w": reLen(v["ww"] ?? 0), "a": reLen(v["dw"] ?? 0), "b": reLen(v["ww"] ?? 0)]) }
-    else if k == "door" || k == "window" { s = reLen(v["w"] ?? 0) + " × " + (st.v["h"] == RE_CEIL ? tr("re.toCeil") : reLen(v["h"] ?? 0)) }
-    else { s = (v["pw"].map { tr("re.pwV", ["v": reLen($0)]) + " · " } ?? "") + tr("re.phV", ["v": reLen(v["ph"] ?? 0)]) }
-    if k == "window", let sl = v["sill"] { s += " · " + tr("re.sill", ["v": reLen(sl)]) }
-    if k == "window" && st.id == "pano" { s += " · " + tr("re.sill", ["v": "0"]) }
+    if (k == "door" || k == "window") && st.id == "balcony" { s = reTr("re.balLine", ["d": reLen(v["dw"] ?? 0), "w": reLen(v["ww"] ?? 0), "a": reLen(v["dw"] ?? 0), "b": reLen(v["ww"] ?? 0)]) }
+    else if k == "door" || k == "window" { s = reLen(v["w"] ?? 0) + " × " + (st.v["h"] == RE_CEIL ? reTr("re.toCeil") : reLen(v["h"] ?? 0)) }
+    else { s = (v["pw"].map { reTr("re.pwV", ["v": reLen($0)]) + " · " } ?? "") + reTr("re.phV", ["v": reLen(v["ph"] ?? 0)]) }
+    if k == "window", let sl = v["sill"] { s += " · " + reTr("re.sill", ["v": reLen(sl)]) }
+    if k == "window" && st.id == "pano" { s += " · " + reTr("re.sill", ["v": "0"]) }
     return (st.hasD ? tr("st." + k + "." + st.id + ".d") + " · " : "") + s
 }
 
@@ -183,20 +183,20 @@ func reErrText(_ e: ReErr, wall: String) -> String {
     // the Android texts' names for the same values (its text wins in the shared strings)
     if let v = vars["v"] { vars["x"] = v }
     if let c = vars["c"] { vars["r"] = c }
-    return tr("re.e." + e.code, vars)
+    return reTr("re.e." + e.code, vars)
 }
 
 /// A Tekshiruv problem in words.
 func reIssueText(_ q: ReIssue) -> String {
     // an inner wall in a door's swing or doorway (room-editor mockup v3 iwIssues)
-    if q.code.hasPrefix("iw.") { return tr("iw.i." + q.code.dropFirst(3), ["n": iwName(q.kinds.first ?? "straight"), "w": reWL(q.wall)]) }
+    if q.code.hasPrefix("iw.") { return reTr("iw.i." + q.code.dropFirst(3), ["n": iwName(q.kinds.first ?? "straight"), "w": reWL(q.wall)]) }
     var vars: [String: Any] = ["w": reWL(q.wall), "a": q.kinds.first.map(reKindName) ?? "", "b": q.kinds.count > 1 ? reKindName(q.kinds[1]).lowercased() : ""]
     for (k, v) in q.vars { vars[k] = reLen(v) }
     vars["u"] = unitWord(reUnit)
     // the Android texts' names for the same words and values
     vars["k"] = vars["a"]; vars["o"] = vars["b"]
     if let c = vars["c"] { vars["r"] = c }
-    return tr("re.i." + q.code, vars)
+    return reTr("re.i." + q.code, vars)
 }
 
 /* ---------------- the actions ---------------- */
@@ -234,7 +234,7 @@ extension ReState {
         h.put(e.room)
         fixSel(h)
         Haptic.tick()
-        app.toast = ToastMsg(text: tr("re.undone", ["m": e.msg]), kind: .info, action: tr("re.redo"), onAction: { [weak self] in self?.redo(app, h) })
+        app.toast = ToastMsg(text: reTr("re.undone", ["m": e.msg]), kind: .info, action: reTr("re.redo"), onAction: { [weak self] in self?.redo(app, h) })
     }
 
     func redo(_ app: AppModel, _ h: ReHost) {
@@ -243,7 +243,7 @@ extension ReState {
         h.put(e.room)
         fixSel(h)
         Haptic.tick()
-        app.toast = ToastMsg(text: tr("re.redone", ["m": e.msg]), kind: .info)
+        app.toast = ToastMsg(text: reTr("re.redone", ["m": e.msg]), kind: .info)
     }
 
     /// A selection whose item or wall is gone is dropped.
@@ -375,8 +375,8 @@ extension ReState {
     func pkErr(_ h: ReHost) -> String? {
         guard let p = pk, let f = pkField(), let r = h.room() else { return nil }
         let g = reGeo(r)
-        if p.input.isEmpty && !p.fresh { return tr("re.e.empty") }
-        if !p.fresh, rshParse(p.input, reUnit, zeroOk: f == "sill" || f == "ph") == nil { return tr("re.e.empty") }
+        if p.input.isEmpty && !p.fresh { return reTr("re.e.empty") }
+        if !p.fresh, rshParse(p.input, reUnit, zeroOk: f == "sill" || f == "ph") == nil { return reTr("re.e.empty") }
         return reFieldErr(p.kind, p.style, p.v, f, wallL: g.len(p.wall), roomH: g.H).map { reErrText($0, wall: p.wall) }
     }
 
@@ -435,7 +435,7 @@ extension ReState {
         pk = nil
         let d = reDists(it, L)
         if p.mode == "new" {
-            let msg = tr("re.m.placed", ["n": reItemName(it), "w": reWL(it.wall), "l": reLen(d.l), "r": reLen(d.r)]) + (moved ? " · " + tr("re.m.moved") : "")
+            let msg = reTr("re.m.placed", ["n": reItemName(it), "w": reWL(it.wall), "l": reLen(d.l), "r": reLen(d.r)]) + (moved ? " · " + reTr("re.m.moved") : "")
             let id = it.id
             if commit(app, h, msg, { rePut(&$0, it); return nil }) {
                 sel = .item(id); fw = it.wall; strip = nil
@@ -451,7 +451,7 @@ extension ReState {
 
     func delSel(_ app: AppModel, _ h: ReHost) {
         guard let id = selItem, let r = h.room(), let it = reFind(r, id) else { return }
-        if commit(app, h, tr("re.m.deleted", ["n": reKindName(it.kind)]), { reRemove(&$0, id); return nil }) { sel = nil; strip = nil }
+        if commit(app, h, reTr("re.m.deleted", ["n": reKindName(it.kind)]), { reRemove(&$0, id); return nil }) { sel = nil; strip = nil }
     }
 
     func dupSel(_ app: AppModel, _ h: ReHost) {
@@ -465,11 +465,11 @@ extension ReState {
                 cp.dist = d
                 if d >= 0 && d + cp.w <= L && !reItems(r).contains(where: { reOverlap(cp, $0) }) { ok = d }
             }
-            guard let ok else { warn(app, tr("re.m.noCopy", ["w": reWL(it.wall)])); return }
+            guard let ok else { warn(app, reTr("re.m.noCopy", ["w": reWL(it.wall)])); return }
             cp.dist = ok
         } else { cp.dist = it.dist + 250 <= L ? it.dist + 250 : max(0, it.dist - 250) }
         let nid = cp.id
-        if commit(app, h, tr("re.m.copied", ["n": reKindName(it.kind), "v": reLen(cp.dist)]), { rePut(&$0, cp); return nil }) { sel = .item(nid) }
+        if commit(app, h, reTr("re.m.copied", ["n": reKindName(it.kind), "v": reLen(cp.dist)]), { rePut(&$0, cp); return nil }) { sel = .item(nid) }
     }
 
     /// Surish: by a step ("-100" … "100"), or to the start ("s"), the middle ("c") or the end ("e").
@@ -483,10 +483,10 @@ extension ReState {
         case "c": v = hi / 2
         default: v = reClamp(it.dist + (Int(a) ?? 0), 0, hi)
         }
-        if v == it.dist { warn(app, tr("re.m.noMove")); return }
+        if v == it.dist { warn(app, reTr("re.m.noMove")); return }
         it.dist = v
         let x = it
-        commit(app, h, tr("re.m.moved2", ["n": reKindName(it.kind), "l": reLen(v), "r": reLen(hi - v)])) { rePut(&$0, x); return nil }
+        commit(app, h, reTr("re.m.moved2", ["n": reKindName(it.kind), "l": reLen(v), "r": reLen(hi - v)])) { rePut(&$0, x); return nil }
     }
 
     /// Sets the selected item's distance to its start corner (dl) or end corner (dr) from a typed value.
@@ -496,7 +496,7 @@ extension ReState {
         let d = which == "dl" ? mm : L - it.along - mm
         it.dist = reClamp(d, 0, max(0, L - it.along))
         let x = it, corner = which == "dl" ? g.prev(it.wall) : g.next(it.wall)
-        commit(app, h, tr("re.m.dist", ["n": reKindName(it.kind), "c": corner, "v": reLen(mm)])) { rePut(&$0, x); return nil }
+        commit(app, h, reTr("re.m.dist", ["n": reKindName(it.kind), "c": corner, "v": reLen(mm)])) { rePut(&$0, x); return nil }
     }
 
     /// One size of the selected item from an editor tool: w, h, sill, thr, ph, sw (a swing side as text in s).
@@ -507,7 +507,7 @@ extension ReState {
         switch key {
         case "w":
             if v > L { warn(app, reErrText(ReErr(code: "wide", vars: ["v": v, "l": L]), wall: it.wall)); return }
-            if it.isBalcony && v < it.dw + 300 { warn(app, tr("re.e.balMin", ["v": reLen(it.dw + 300), "u": unitWord(reUnit)])); return }
+            if it.isBalcony && v < it.dw + 300 { warn(app, reTr("re.e.balMin", ["v": reLen(it.dw + 300), "u": unitWord(reUnit)])); return }
             let c = it.dist + it.w / 2
             it.w = v; it.dist = reClamp(reR10(c - v / 2), 0, max(0, L - v))
         case "h":
@@ -527,11 +527,11 @@ extension ReState {
         let x = it
         let msg: String
         switch key {
-        case "w": msg = tr("re.m.w", ["n": name, "v": reLen(v)])
-        case "h", "ph": msg = tr("re.m.h", ["n": name, "v": reLen(v)])
-        case "sill": msg = tr("re.m.sill", ["v": reLen(v)])
-        case "thr": msg = tr("re.m.thr", ["v": reLen(v)])
-        default: msg = tr("re.m.sw", ["n": name, "s": tr("re.sw." + s)])
+        case "w": msg = reTr("re.m.w", ["n": name, "v": reLen(v)])
+        case "h", "ph": msg = reTr("re.m.h", ["n": name, "v": reLen(v)])
+        case "sill": msg = reTr("re.m.sill", ["v": reLen(v)])
+        case "thr": msg = reTr("re.m.thr", ["v": reLen(v)])
+        default: msg = reTr("re.m.sw", ["n": name, "s": reTr("re.sw." + s)])
         }
         commit(app, h, msg) { rePut(&$0, x); return nil }
     }
@@ -542,13 +542,13 @@ extension ReState {
         // an inner face's length follows its piece (the piece's Uzunlik)
         guard let r = h.room(), iwPieceOf(id) == nil else { return }
         let old = reGeo(r).len(id)
-        if v == old { app.toast = ToastMsg(text: tr("re.m.same", ["w": reWL(id), "v": reLen(v)]), kind: .info); return }
-        let msg = (laser ? tr("re.m.laser") + " · " : "") + tr("re.m.len", ["w": reWL(id), "a": reLen(old), "b": reLen(v)]) + (reWallBig(v) ? " · " + tr("re.big") : "")
+        if v == old { app.toast = ToastMsg(text: reTr("re.m.same", ["w": reWL(id), "v": reLen(v)]), kind: .info); return }
+        let msg = (laser ? reTr("re.m.laser") + " · " : "") + reTr("re.m.len", ["w": reWL(id), "a": reLen(old), "b": reLen(v)]) + (reWallBig(v) ? " · " + reTr("re.big") : "")
         commit(app, h, msg) { room in
             switch reSetWallLen(&room, id, v) {
-            case "auto"?: return tr("re.m.auto")
-            case "range"?: return tr("re.m.range")
-            case "shape"?: return tr("re.m.shape")
+            case "auto"?: return reTr("re.m.auto")
+            case "range"?: return reTr("re.m.range")
+            case "shape"?: return reTr("re.m.shape")
             default: return nil
             }
         }
@@ -558,14 +558,14 @@ extension ReState {
         guard let id = selWall, let r = h.room() else { return }
         let old = r.thickOf(id)
         if old == v { return }
-        commit(app, h, tr("re.m.thick", ["w": reWL(id), "a": "\(old)", "b": "\(v)"])) { reSetThick(&$0, id, v); return nil }
+        commit(app, h, reTr("re.m.thick", ["w": reWL(id), "a": reLen(old), "b": reLen(v)])) { reSetThick(&$0, id, v); return nil }
     }
 
     func setRoomH(_ v: Int, _ app: AppModel, _ h: ReHost) {
         guard let r = h.room() else { return }
         let old = reHeight(r)
         if old == v { return }
-        commit(app, h, tr("re.m.rh", ["a": reLen(old), "b": reLen(v)])) { reSetHeight(&$0, v); return nil }
+        commit(app, h, reTr("re.m.rh", ["a": reLen(old), "b": reLen(v)])) { reSetHeight(&$0, v); return nil }
     }
 
     func turn(_ dir: Int, _ app: AppModel, _ h: ReHost) {
@@ -573,19 +573,19 @@ extension ReState {
     }
 
     func mirror(_ app: AppModel, _ h: ReHost) {
-        commit(app, h, tr("re.m.mirror")) { reMirror(&$0); return nil }
+        commit(app, h, reTr("re.m.mirror")) { reMirror(&$0); return nil }
     }
 
     func setShape(_ k: String, _ app: AppModel, _ h: ReHost) {
         guard let r = h.room(), let shape = RoomShape.of(k), reShapeOf(r) != k else { return }
-        if shape == .free { app.toast = ToastMsg(text: tr("re.m.free"), kind: .info); return }
+        if shape == .free { app.toast = ToastMsg(text: reTr("re.m.free"), kind: .info); return }
         var lost = 0
-        let ok = commit(app, h, tr("re.m.shapeTo", ["a": tr("rsh.s." + reShapeOf(r)), "b": tr("rsh.s." + k)])) { room in
-            guard let n = reChangeShape(&room, shape) else { return tr("re.m.free") }
+        let ok = commit(app, h, reTr("re.m.shapeTo", ["a": reTr("rsh.s." + reShapeOf(r)), "b": reTr("rsh.s." + k)])) { room in
+            guard let n = reChangeShape(&room, shape) else { return reTr("re.m.free") }
             lost = n
             return nil
         }
-        if ok && lost > 0 { app.toast = ToastMsg(text: tr("re.m.lost", ["n": lost]), kind: .info) }
+        if ok && lost > 0 { app.toast = ToastMsg(text: reTr("re.m.lost", ["n": lost]), kind: .info) }
         if ok { sel = nil }
     }
 }

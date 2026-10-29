@@ -54,17 +54,53 @@ private extension Doc {
     /// "Oshxona 1 (L, 5,4 pog. m): korpus, fasadlar, stoleshnitsa, furnitura" or "Shkaf 1 (2400 × 2500, 4 bo‘lim, 7 eshik)".
     func pieceText(_ f: Furniture, _ ws: Workshop?) -> String {
         let name = dn(f.name, l)
+        // a wall-hung piece: its box's size, and its height off the floor on a line of its own (founder 29 Oct 2026)
+        let floor: String = floorElev(f).map { "\n" + t("fz.offFloor", ["v": $0, "u": t("u.mm")]) } ?? ""
         // a bed, a table, a stenka, a corner piece…: its own sizes (the first box alone would tell the wrong ones)
         if f.kind == "wardrobe" && (isItemPiece(f) || boxes(f).count > 1) {
             let s = sizeLine(f, ws ?? Workshop(), t("u.mm"))
-            return s.isEmpty ? name : name + " (" + s + ")"
+            return (s.isEmpty ? name : name + " (" + s + ")") + floor
         }
         if f.kind == "wardrobe" {
             guard let m = wardOf(f) else { return name }
             let doors = m.sections.reduce(0) { $0 + ($1.fronts.kind == "door" ? $1.fronts.n : 0) }
-            return t("fd.lineW", ["n": name, "w": m.w, "h": ws.map { outerH(m, $0) } ?? m.h, "s": m.sections.count, "d": doors])
+            let h: Int = ws.map { outerH(m, $0) } ?? m.h
+            return t("fd.lineWb", ["n": name, "w": m.w, "h": h, "g": m.d, "s": m.sections.count, "d": doors]) + floor
         }
         return t("fd.lineK", ["n": name, "l": t("kt.l" + f.layout), "v": metres(runMm(f))])
+    }
+
+    /// Pieces' own 3D pictures two by two, each with its name over it; titled: the views' heading first (no saved view
+    /// printed one).
+    func pieceShots(_ items: [(String, UIImage)], titled: Bool) {
+        if items.isEmpty { return }
+        if titled { h2(t("r.views")) }
+        space(0)
+        let w = (CW - 8) / 2
+        var i = 0
+        while i < items.count {
+            let pair = Array(items[i..<min(items.count, i + 2)])
+            let caps: [NSAttributedString] = pair.map { a($0.0, ui(9.5, 600)) }
+            let capH: CGFloat = caps.map { measure($0, w).height }.max() ?? 0
+            let imgH: CGFloat = pair.map { w * $0.1.size.height / max(1, $0.1.size.width) }.max() ?? 0
+            let h = capH + 3 + imgH + 1.5
+            if y + h > LIMIT { newPage(); space(0) }
+            let top = y
+            for (k, it) in pair.enumerated() {
+                let x = PX + CGFloat(k) * (w + 8)
+                let cap = caps[k], img = it.1
+                let ih = w * img.size.height / max(1, img.size.width)
+                draw { ctx in
+                    drawText(ctx, cap, CGRect(x: x, y: top, width: w, height: capH))
+                    let r = CGRect(x: x, y: top + capH + 3, width: w, height: ih)
+                    ctx.draw(Image(uiImage: img), in: r.insetBy(dx: 0.75, dy: 0.75))
+                    ctx.stroke(Path(r.insetBy(dx: 0.375, dy: 0.375)), with: .color(F_FIG), lineWidth: 0.75)
+                }
+            }
+            y += h + 8
+            i += 2
+        }
+        pend = 0
     }
 
     func figure(_ title: String, _ vw: CGFloat, _ vh: CGFloat, _ fig: @escaping (GraphicsContext) -> Void) {
@@ -239,13 +275,22 @@ private extension Doc {
 
 /* ---------------- the customer's quote ---------------- */
 
-func furniturePages(_ sn: Snap, draft: Bool, meta: QuoteMeta?, image: @escaping (String) -> UIImage?, now: Ms = nowMs(), prices: Bool = true) -> [RPage] {
+/// shot: a piece's own 3D picture (Report/PdfShots.swift; the ones made so far by default).
+func furniturePages(_ sn: Snap, draft: Bool, meta: QuoteMeta?, image: @escaping (String) -> UIImage?, now: Ms = nowMs(), prices: Bool = true,
+                    shot: ((Furniture) -> UIImage?)? = nil) -> [RPage] {
     // without prices (the simple app) it is the design: dated, no draft mark, no price block
     let d = Doc(sn, draft && prices, meta, image, now)
     d.draftTitle = "fd.draft"; d.quoteTitle = prices ? "fd.quote" : "rpt.design"; d.makerKey = "fd.maker"
     if !prices { d.subLine = fmtDate(now) }
     d.newPage(); d.parties()
-    if sn.pdf.views { d.views() }
+    if sn.pdf.views {
+        d.views()
+        // each piece without a saved view of its room: its own 3D picture, after the saved views (founder 29 Oct 2026)
+        let get = shot ?? { PdfShots.shared.image($0, sn) }
+        let items: [(String, UIImage)] = pdfShotPieces(sn).compactMap { f in get(f).map { (dn(f.name, d.l), $0) } }
+        let saved = sn.rooms.contains { !$0.room.views.isEmpty }
+        d.pieceShots(items, titled: !saved)
+    }
     d.materials(sn)
     if prices { d.priceBlock(sn); d.tierBlock(sn) }
     // the front drawings, one per wall or wardrobe

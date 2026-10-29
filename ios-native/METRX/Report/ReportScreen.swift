@@ -173,6 +173,13 @@ struct ReportScreen: View {
                     images = built.compactMap { pageImage($0, width: w) }
                     if page >= built.count { page = max(0, built.count - 1) }
                     builtKey = key
+                    // a furniture order's pieces' own 3D pictures: made after the first layout, then the pages again
+                    if p.isFurniture, await PdfShots.shared.prepare(sn), !Task.isCancelled {
+                        let again = layout(p, quote, sn)
+                        pages = again
+                        images = again.compactMap { pageImage($0, width: w) }
+                        if page >= again.count { page = max(0, again.count - 1) }
+                    }
                 }
             }
         }

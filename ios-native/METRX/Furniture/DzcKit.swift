@@ -132,8 +132,12 @@ struct DzcMap {
     let ox: CGFloat
     let oy: CGFloat
     let z: CGFloat
-    init(_ lay: KLay, _ size: CGSize, _ cam: DzcCam, top: CGFloat, bottom: CGFloat) {
+    /// A wall-hung box drawn at its real height: its bottom this far over the floor, mm (the box's own mm stay from its
+    /// bottom; the layout's floor is lift under it).
+    let lift: Int
+    init(_ lay: KLay, _ size: CGSize, _ cam: DzcCam, top: CGFloat, bottom: CGFloat, lift: Int = 0) {
         self.lay = lay
+        self.lift = max(0, lift)
         let aw = max(40, size.width - 16), ah = max(40, size.height - top - bottom)
         let kk = min(aw / lay.vw, ah / lay.vh)
         k0 = kk
@@ -146,11 +150,11 @@ struct DzcMap {
     }
     /// mm along the drawing → screen x; mm up → screen y.
     func sx(_ mm: Int) -> CGFloat { ox + lay.x(mm) * k }
-    func sy(_ mm: Int) -> CGFloat { oy + lay.y(mm) * k }
+    func sy(_ mm: Int) -> CGFloat { oy + lay.y(mm + lift) * k }
     func sxD(_ mm: Double) -> CGFloat { ox + (lay.x0 + CGFloat(mm) * lay.s) * k }
     /// A screen point → mm along and up.
     func mmX(_ px: CGFloat) -> Int { Int((((px - ox) / k) - lay.x0) / lay.s) }
-    func mmY(_ py: CGFloat) -> Int { Int((lay.yF - (py - oy) / k) / lay.s) }
+    func mmY(_ py: CGFloat) -> Int { Int((lay.yF - (py - oy) / k) / lay.s) - lift }
     /// Screen points a millimetre.
     var pxPerMm: CGFloat { lay.s * k }
     /// Zoomed in past DZC_FINE_ZOOM: 10 mm steps.

@@ -836,7 +836,7 @@ struct ReSizeArt: View {
             func wall(_ Z: (CGFloat) -> CGFloat) {
                 ctx.box(CGRect(x: 8, y: Z(rh), width: W - 16, height: Z(0) - Z(rh)), fill: RD.elev, stroke: RD.ink3, 1.2)
                 ctx.line(RD.ink3, CGPoint(x: 8, y: Z(rh)), CGPoint(x: W - 8, y: Z(rh)), 1.2, dash: [5, 4])
-                ctx.text(tr("re.ceil", ["v": fmt(roomH)]), CGPoint(x: 50, y: Z(rh) - 8), .ui, 10.5, 700, RD.ink3)
+                ctx.text(reTr("re.ceil", ["v": fmt(roomH)]), CGPoint(x: 50, y: Z(rh) - 8), .ui, 10.5, 700, RD.ink3)
                 ctx.line(RD.ink2, CGPoint(x: 4, y: Z(0)), CGPoint(x: W - 4, y: Z(0)), 2)
             }
             func lab(_ x: CGFloat, _ y: CGFloat, _ t: String) {

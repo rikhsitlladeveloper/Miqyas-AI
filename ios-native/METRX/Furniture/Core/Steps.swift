@@ -308,9 +308,10 @@ func valsOf(_ f: Furniture, _ ws: Workshop) -> [String: Int] {
     return ["w": m.w, "h": f.type.isEmpty ? m.h : outerH(m, ws), "d": m.d]
 }
 
-/// A piece's sizes in a line: a bed's mattress, a corner piece's two arms, else width × height × depth; mm the unit's word.
+/// A piece's sizes in a line: a bed's mattress, a corner piece's two arms, else width × height × depth (a wall-hung
+/// piece's box: its height off the floor is floorElev's own line); mm the unit's word.
 func sizeLine(_ f: Furniture, _ ws: Workshop, _ mm: String) -> String {
-    let v = valsOf(f, ws)
+    let v = shownVals(f, ws)
     func g(_ k: String, _ d: Int) -> String { "\(v[k] ?? d)" }
     if v["mw"] != nil { return g("mw", 0) + " × " + g("ml", 0) + " · h " + g("h", 0) + " " + mm }
     if v["w2"] != nil { return g("w", 0) + " + " + g("w2", 0) + " × " + g("h", 0) + " × " + g("d", 0) + " " + mm }

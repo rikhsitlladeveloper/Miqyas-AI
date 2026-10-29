@@ -532,6 +532,14 @@ struct LaserTestScreen: View {
                             .overlay(RoundedRectangle(cornerRadius: 14, style: .continuous).strokeBorder(G.rim, lineWidth: 1))
                     }
                     logBox
+                    // test mode off (founder 29 Oct 2026): the page closes; Undo in the toast turns it on and opens it again
+                    GlassButton(tr("lt.devOff"), primary: false, icon: "x") {
+                        let a = app
+                        devModeOff(a) { a.push(.laserTest) }
+                        a.pop()
+                    }
+                    .accessibilityIdentifier("lt.devOff")
+                    .padding(.top, 8)
                 }
                 .padding(.horizontal, 20).padding(.top, 4).padding(.bottom, 24)
             }

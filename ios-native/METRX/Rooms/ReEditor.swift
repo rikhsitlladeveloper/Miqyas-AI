@@ -85,8 +85,8 @@ func reToolIcon(_ t: String) -> String {
 
 /// A tool's label: the room editor's (re.t.*) or the inner wall's (iw.t.*).
 func reToolLabel(_ t: String, _ col: Bool) -> String {
-    if t == "iwLen" && col { return tr("iw.t.iwSize") }
-    return t == "inner" || t.hasPrefix("iw") ? tr("iw.t." + t) : tr("re.t." + t)
+    if t == "iwLen" && col { return reTr("iw.t.iwSize") }
+    return t == "inner" || t.hasPrefix("iw") ? reTr("iw.t." + t) : reTr("re.t." + t)
 }
 
 /// A tool of the slider: icon over its label; red for O‘chirish; on for a switch that is on; a count badge.
@@ -173,7 +173,7 @@ struct ReEditorScreen: View {
                     bottom(st, h, p)
                 }
                 if let k = st.tileKind {
-                    let line = st.ghost.map { gh in tr("re.dragTo", ["w": reWL(gh.wall)]) + " · " + reLen(reDists(gh, g.len(gh.wall)).l) + " | " + reLen(reDists(gh, g.len(gh.wall)).r) } ?? tr("re.dragNear")
+                    let line = st.ghost.map { gh in reTr("re.dragTo", ["w": reWL(gh.wall)]) + " · " + reLen(reDists(gh, g.len(gh.wall)).l) + " | " + reLen(reDists(gh, g.len(gh.wall)).r) } ?? reTr("re.dragNear")
                     ReDragChip(kind: k, line: line, ok: st.ghost != nil).position(x: st.tilePt.x, y: st.tilePt.y - 56)
                 }
                 RePickWindow(app: app, st: st, h: h)
@@ -226,8 +226,8 @@ struct ReEditorScreen: View {
                     T("3D", ui(13, 700, G.ink3)).padding(.horizontal, 12).frame(height: 40)
                 } else {
                     HStack(spacing: 0) {
-                        seg(tr("re.plan"), st.view == "plan", "re.vPlan") { st.view = "plan"; st.last2d = "plan" }
-                        seg(tr("re.wallX", ["w": reWL(st.fw)]), st.view == "front", "re.vFront") { st.view = "front"; st.last2d = "front" }
+                        seg(reTr("re.plan"), st.view == "plan", "re.vPlan") { st.view = "plan"; st.last2d = "plan" }
+                        seg(reTr("re.wallX", ["w": reWL(st.fw)]), st.view == "front", "re.vFront") { st.view = "front"; st.last2d = "front" }
                     }
                     .padding(3)
                     .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.glass(0.6)))
@@ -252,7 +252,7 @@ struct ReEditorScreen: View {
             caption(st, h, r, g, items).padding(.horizontal, 10).padding(.top, 6)
             Spacer(minLength: 0)
             if st.view == "3d" {
-                HStack(spacing: 6) { MIcon("info", G.cobalt, 16, 2); T(tr("re.isoHint"), ui(12, 700, G.ink2), lines: 2) }
+                HStack(spacing: 6) { MIcon("info", G.cobalt, 16, 2); T(reTr("re.isoHint"), ui(12, 700, G.ink2), lines: 2) }
                     .padding(.horizontal, 12).frame(minHeight: 30)
                     .background(Capsule().fill(G.sheet(0.94)))
                     .frame(maxWidth: .infinity).padding(.bottom, 10)
@@ -276,7 +276,7 @@ struct ReEditorScreen: View {
             if !cam.fit {
                 HStack(spacing: 6) {
                     PathIcon(RE_IC["fit"]!, G.ink2, 16, 2)
-                    T(String(format: "%.1f", cam.z).replacingOccurrences(of: ".", with: AppSettings.shared.lang == .en ? "." : ",") + "× · " + tr("re.fit"), ui(12, 700, G.ink2), lines: 1)
+                    T(String(format: "%.1f", cam.z).replacingOccurrences(of: ".", with: AppSettings.shared.lang == .en ? "." : ",") + "× · " + reTr("re.fit"), ui(12, 700, G.ink2), lines: 1)
                 }
                 .padding(.horizontal, 12).frame(height: 34)
                 .background(Capsule().fill(G.sheet(0.94)))
@@ -290,7 +290,7 @@ struct ReEditorScreen: View {
         if let k = st.arm {
             HStack(spacing: 8) {
                 PathIcon(reKind(k).icon, .white, 16, 2)
-                T(tr("re.armBar", ["n": reKindName(k)]), ui(12.5, 700, .white), lines: 1).frame(maxWidth: .infinity, alignment: .leading)
+                T(reTr("re.armBar", ["n": reKindName(k)]), ui(12.5, 700, .white), lines: 1).frame(maxWidth: .infinity, alignment: .leading)
                 MIcon("x", .white, 16, 2).frame(width: 34, height: 34).background(Circle().fill(Color.white.opacity(0.2)))
                     .pressable(0.95) { st.arm = nil }
             }
@@ -307,16 +307,16 @@ struct ReEditorScreen: View {
         if st.arm == nil {
             if let w = st.selWall {
                 let n = items.filter { $0.wall == w }.count
-                capRow(tr("re.wallCap", ["w": reWL(w), "l": reLen(g.len(w)), "v": reLen(g.len(w))]), tr("re.wallCapS", ["t": "\(r.thickOf(w))", "n": n]), x: { st.deselect() }, shape)
+                capRow(reTr("re.wallCap", ["w": reWL(w), "l": reLen(g.len(w)), "v": reLen(g.len(w))]), reTr("re.wallCapS", ["t": reLenU(r.thickOf(w)), "n": n]), x: { st.deselect() }, shape)
             } else if let id = st.selPiece, let p = r.inner.first(where: { $0.id == id }) {
-                capRow(iwName(p.k) + (st.newPiece == id ? " · " + tr("iw.c.new") : ""), iwSizeLine(p, g.H) + " mm", x: { st.deselect() }, shape)
+                capRow(iwName(p.k) + (st.newPiece == id ? " · " + reTr("iw.c.new") : ""), iwSizeLine(p, g.H) + " " + unitWord(AppSettings.shared.unit), x: { st.deselect() }, shape)
             } else if let id = st.selItem, let it = items.first(where: { $0.id == id }) {
                 let d = reDists(it, g.len(it.wall))
                 capRow(reItemName(it), reSizeLine(it) + " · " + reWL(it.wall) + " · " + reLen(d.l) + " | " + reLen(d.r), x: { st.deselect() }, shape)
             } else {
                 HStack(spacing: 6) {
                     T(dn(r.name), ui(13, 800), lines: 1)
-                    T(tr("rsh.s." + reShapeOf(r)) + " · " + reAreaShort(g) + " · h " + reLen(g.H), ui(12, 500, G.ink2), lines: 1)
+                    T(reTr("rsh.s." + reShapeOf(r)) + " · " + reAreaShort(g) + " · h " + reLen(g.H), ui(12, 500, G.ink2), lines: 1)
                 }
                 .padding(.horizontal, 12).frame(minHeight: 34)
                 .background(shape.fill(G.sheet(0.94)))
@@ -330,7 +330,7 @@ struct ReEditorScreen: View {
             T(t, ui(13, 800), lines: 1)
             T(s, num(12, 500, G.ink2), lines: 1)
             MIcon("x", G.ink2, 15, 2).frame(width: 30, height: 30).background(Circle().fill(G.glass(0.8)))
-                .pressable(0.95, label: tr("re.desel"), x)
+                .pressable(0.95, label: reTr("re.desel"), x)
                 .accessibilityIdentifier("re.capX")
         }
         .padding(.leading, 12).padding(.trailing, 4).frame(minHeight: 34)
@@ -368,18 +368,18 @@ struct ReEditorScreen: View {
 
     private func toolsTitle(_ st: ReState, _ h: ReHost, _ items: [ReItem]) -> String {
         switch st.sel {
-        case .wall(let w)?: return iwPieceOf(w) != nil ? tr("iw.faceT", ["w": reWL(w)]) : tr("re.wallX", ["w": reWL(w)])
+        case .wall(let w)?: return iwPieceOf(w) != nil ? reTr("iw.faceT", ["w": reWL(w)]) : reTr("re.wallX", ["w": reWL(w)])
         case .piece(let id)?: return h.room()?.inner.first { $0.id == id }.map { iwName($0.k) } ?? ""
         case .item(let id)?: return items.first { $0.id == id }.map { reKindName($0.kind) } ?? ""
-        default: return tr("re.toolsT")
+        default: return reTr("re.toolsT")
         }
     }
     private func toolsSub(_ st: ReState) -> String {
         switch st.sel {
-        case .wall(let w)?: return iwPieceOf(w) != nil ? tr("iw.faceSub") : tr("re.toolsWall")
-        case .piece?: return tr("iw.toolsSub")
-        case .item?: return tr("re.toolsItem")
-        default: return tr("re.toolsNone")
+        case .wall(let w)?: return iwPieceOf(w) != nil ? reTr("iw.faceSub") : reTr("re.toolsWall")
+        case .piece?: return reTr("iw.toolsSub")
+        case .item?: return reTr("re.toolsItem")
+        default: return reTr("re.toolsNone")
         }
     }
 
@@ -410,7 +410,7 @@ struct ReEditorScreen: View {
     private func wallLaser(_ st: ReState, _ h: ReHost) {
         guard let w = st.selWall, let r = h.room() else { return }
         let L = reGeo(r).len(w)
-        rshRead(app, st, L, tr("re.wallX", ["w": reWL(w)])) { mm in st.setWallLen(w, mm, app, h, laser: true) }
+        rshRead(app, st, L, reTr("re.wallX", ["w": reWL(w)])) { mm in st.setWallLen(w, mm, app, h, laser: true) }
     }
 
     @ViewBuilder private func options(_ k: String, _ st: ReState, _ h: ReHost, _ r: Room, _ g: ReRoomGeo, _ items: [ReItem], _ issues: [ReIssue]) -> some View {
@@ -421,7 +421,7 @@ struct ReEditorScreen: View {
         case "add", "pt":
             VStack(alignment: .leading, spacing: 0) {
                 DzcOptRow(title: tr(k == "add" ? "re.t.add" : "re.t.pt"), sub: tr(k == "add" ? "re.tilesS" : "re.ptSub", ["w": reWL(wi ?? "")]), onBack: back) {
-                    if k == "add" { ReOpt(label: tr("iw.tile"), icon: IW_IC, id: "re.o.iw") { st.iwWin = true } }
+                    if k == "add" { ReOpt(label: reTr("iw.tile"), icon: IW_IC, id: "re.o.iw") { st.iwWin = true } }
                 }
                 ReTileRow(st: st, groups: k == "add" ? reGroups(h.industry) : reGroups(h.industry).filter { !$0.contains("door") },
                           tap: { kind in st.tileTap(kind, app, h) },
@@ -433,37 +433,37 @@ struct ReEditorScreen: View {
                     .padding(.bottom, 6)
             }
         case "shape":
-            DzcOptRow(title: tr("re.t.shape"), sub: tr("re.shapeSub", ["s": tr("rsh.s." + reShapeOf(r))]), onBack: back) {
+            DzcOptRow(title: reTr("re.t.shape"), sub: reTr("re.shapeSub", ["s": reTr("rsh.s." + reShapeOf(r))]), onBack: back) {
                 ForEach(RoomShape.allCases.filter { $0 != .free }, id: \.self) { s in
-                    ReOpt(label: tr("rsh.s." + s.id), icon: RE_IC["shape"], on: reShapeOf(r) == s.id, id: "re.o.shape." + s.id) { st.setShape(s.id, app, h) }
+                    ReOpt(label: reTr("rsh.s." + s.id), icon: RE_IC["shape"], on: reShapeOf(r) == s.id, id: "re.o.shape." + s.id) { st.setShape(s.id, app, h) }
                 }
-                ReOpt(label: tr("rsh.s.free"), on: false, id: "re.o.shape.free") { app.toast = ToastMsg(text: tr("re.m.free"), kind: .info) }
+                ReOpt(label: reTr("rsh.s.free"), on: false, id: "re.o.shape.free") { app.toast = ToastMsg(text: reTr("re.m.free"), kind: .info) }
             }
         case "rh":
-            DzcOptRow(title: tr("re.t.rh"), sub: tr("re.rhSub", ["v": reLenU(g.H)]), onBack: back) {
+            DzcOptRow(title: reTr("re.t.rh"), sub: reTr("re.rhSub", ["v": reLenU(g.H)]), onBack: back) {
                 ForEach([2500, 2600, 2700, 2800, 3000, 3200], id: \.self) { v in
                     ReOpt(label: reLen(v), on: g.H == v, id: "re.o.rh.\(v)") { st.setRoomH(v, app, h) }
                 }
-                ReOpt(label: tr("re.type2"), icon: RE_IC["kbd"], id: "re.o.rhKp") {
-                    st.openKp(tr("re.t.rh"), cur: g.H, lo: SHAPE_HEIGHT_MIN, hi: SHAPE_HEIGHT_MAX) { st.setRoomH($0, app, h) }
+                ReOpt(label: reTr("re.type2"), icon: RE_IC["kbd"], id: "re.o.rhKp") {
+                    st.openKp(reTr("re.t.rh"), cur: g.H, lo: SHAPE_HEIGHT_MIN, hi: SHAPE_HEIGHT_MAX) { st.setRoomH($0, app, h) }
                 }
             }
         case "rot":
-            DzcOptRow(title: tr("re.t.rot"), sub: tr("re.rotSub"), onBack: back) {
-                ReOpt(label: tr("re.rotL"), icon: RE_IC["rotL"], id: "re.o.rotL") { st.turn(-1, app, h) }
-                ReOpt(label: tr("re.rotR"), icon: RE_IC["rot"], id: "re.o.rotR") { st.turn(1, app, h) }
-                ReOpt(label: tr("rsh.mirror"), icon: RE_IC["mirror"], id: "re.o.mirror") { st.mirror(app, h) }
+            DzcOptRow(title: reTr("re.t.rot"), sub: reTr("re.rotSub"), onBack: back) {
+                ReOpt(label: reTr("re.rotL"), icon: RE_IC["rotL"], id: "re.o.rotL") { st.turn(-1, app, h) }
+                ReOpt(label: reTr("re.rotR"), icon: RE_IC["rot"], id: "re.o.rotR") { st.turn(1, app, h) }
+                ReOpt(label: reTr("rsh.mirror"), icon: RE_IC["mirror"], id: "re.o.mirror") { st.mirror(app, h) }
             }
         case "dims":
-            DzcOptRow(title: tr("re.t.dims"), sub: tr("re.dimsSub"), onBack: back) {
-                ReOpt(label: tr("re.dLen"), icon: RE_IC["len"], on: st.dimLen, id: "re.o.dLen") { st.dimLen.toggle() }
-                ReOpt(label: tr("re.dChain"), icon: RE_IC["w"], on: st.dimChain, id: "re.o.dChain") { st.dimChain.toggle() }
-                ReOpt(label: tr("re.dArea"), icon: RE_IC["shape"], on: st.dimArea, id: "re.o.dArea") { st.dimArea.toggle() }
+            DzcOptRow(title: reTr("re.t.dims"), sub: reTr("re.dimsSub"), onBack: back) {
+                ReOpt(label: reTr("re.dLen"), icon: RE_IC["len"], on: st.dimLen, id: "re.o.dLen") { st.dimLen.toggle() }
+                ReOpt(label: reTr("re.dChain"), icon: RE_IC["w"], on: st.dimChain, id: "re.o.dChain") { st.dimChain.toggle() }
+                ReOpt(label: reTr("re.dArea"), icon: RE_IC["shape"], on: st.dimArea, id: "re.o.dArea") { st.dimArea.toggle() }
             }
         case "checks":
-            DzcOptRow(title: tr("re.t.checks"), sub: issues.isEmpty ? tr("re.chkOk") : tr("re.chkN", ["n": issues.count]), onBack: back) {
+            DzcOptRow(title: reTr("re.t.checks"), sub: issues.isEmpty ? reTr("re.chkOk") : reTr("re.chkN", ["n": issues.count]), onBack: back) {
                 if issues.isEmpty {
-                    ReOpt(label: tr("re.chkNone"), icon: "M5 12.5l4.5 4.5L19 7", tone: "ok", id: "re.o.chkNone") {}
+                    ReOpt(label: reTr("re.chkNone"), icon: "M5 12.5l4.5 4.5L19 7", tone: "ok", id: "re.o.chkNone") {}
                 } else {
                     ForEach(Array(issues.enumerated()), id: \.offset) { _, q in
                         ReOpt(label: reIssueText(q), icon: RE_IC["checks"], tone: "iss", id: "re.o.iss") {
@@ -475,116 +475,116 @@ struct ReEditorScreen: View {
                 }
             }
         case "more":
-            DzcOptRow(title: tr("re.t.more"), sub: tr("re.moreSub"), onBack: back) {
+            DzcOptRow(title: reTr("re.t.more"), sub: reTr("re.moreSub"), onBack: back) {
                 if h.industry == "furniture" {
                     ReOpt(label: tr("fp.placeT"), icon: RE_IC["move"], id: "re.o.fp") { app.push(.fArrange(pid: pid, rid: rid)) }
                 }
-                ReOpt(label: tr("re.oldEd"), icon: RE_IC["more"], id: "re.old") { st.reset(); app.replaceTop(.editor(pid: pid, rid: rid, mode: "plan")) }
-                ReOpt(label: tr("re.feat"), icon: RE_IC["shape"], id: "re.o.feat") { app.sheet = .featureForm(pid: pid, rid: rid, fid: nil, type: "column") }
-                ReOpt(label: tr("re.tray"), icon: RE_IC["laser"], id: "re.o.tray") { app.sheet = .tray(pid: pid, rid: rid) }
-                ReOpt(label: tr("re.info"), icon: RE_IC["type"], id: "re.o.info") { app.sheet = .roomInfo(pid: pid, rid: rid) }
-                ReOpt(label: tr("re.wallView", ["w": reWL(st.fw)]), icon: RE_IC["sill"], id: "re.o.wallView") { app.push(.wallView(pid: pid, rid: rid, wall: st.fw)) }
-                ReOpt(label: tr("re.real3d"), icon: RE_IC["v3d"], id: "re.o.real3d") { app.push(.editor(pid: pid, rid: rid, mode: "3d")) }
+                ReOpt(label: reTr("re.oldEd"), icon: RE_IC["more"], id: "re.old") { st.reset(); app.replaceTop(.editor(pid: pid, rid: rid, mode: "plan")) }
+                ReOpt(label: reTr("re.feat"), icon: RE_IC["shape"], id: "re.o.feat") { app.sheet = .featureForm(pid: pid, rid: rid, fid: nil, type: "column") }
+                ReOpt(label: reTr("re.tray"), icon: RE_IC["laser"], id: "re.o.tray") { app.sheet = .tray(pid: pid, rid: rid) }
+                ReOpt(label: reTr("re.info"), icon: RE_IC["type"], id: "re.o.info") { app.sheet = .roomInfo(pid: pid, rid: rid) }
+                ReOpt(label: reTr("re.wallView", ["w": reWL(st.fw)]), icon: RE_IC["sill"], id: "re.o.wallView") { app.push(.wallView(pid: pid, rid: rid, wall: st.fw)) }
+                ReOpt(label: reTr("re.real3d"), icon: RE_IC["v3d"], id: "re.o.real3d") { app.push(.editor(pid: pid, rid: rid, mode: "3d")) }
             }
         case "len":
             let w = wi ?? "A"
             let L = g.len(w)
             let auto = r.isPoly && (g.wall(w)?.auto ?? false) && r.dim(w).v == nil
-            DzcOptRow(title: tr("re.t.len"), sub: auto ? tr("re.lenAuto", ["w": reWL(w), "v": reLenU(L)]) : tr("re.lenSub", ["w": reWL(w), "v": reLenU(L)]), onBack: back) {
+            DzcOptRow(title: reTr("re.t.len"), sub: auto ? reTr("re.lenAuto", ["w": reWL(w), "v": reLenU(L)]) : reTr("re.lenSub", ["w": reWL(w), "v": reLenU(L)]), onBack: back) {
                 if auto {
-                    T(tr("re.m.auto"), ui(11.5, 600, G.ink2, lh: 1.25)).frame(maxWidth: 220, alignment: .leading)
+                    T(reTr("re.m.auto"), ui(11.5, 600, G.ink2, lh: 1.25)).frame(maxWidth: 220, alignment: .leading)
                 } else {
-                    ForEach([-100, -10], id: \.self) { s in ReOpt(label: "−\(-s)", id: "re.o.len\(s)") { st.setWallLen(w, L + s, app, h) } }
+                    ForEach([-100, -10], id: \.self) { s in ReOpt(label: "−" + reLen(-s), id: "re.o.len\(s)") { st.setWallLen(w, L + s, app, h) } }
                     ReOpt(label: reLenU(L), on: true, id: "re.o.lenNow") {}
-                    ForEach([10, 100], id: \.self) { s in ReOpt(label: "+\(s)", id: "re.o.len+\(s)") { st.setWallLen(w, L + s, app, h) } }
-                    ReOpt(label: tr("re.type2"), icon: RE_IC["kbd"], id: "re.o.lenKp") {
-                        st.openKp(tr("re.wallLen", ["w": reWL(w), "v": reLenU(L)]), cur: L, lo: SHAPE_WALL_MIN, hi: SHAPE_WALL_MAX, big: true) { st.setWallLen(w, $0, app, h) }
+                    ForEach([10, 100], id: \.self) { s in ReOpt(label: "+" + reLen(s), id: "re.o.len+\(s)") { st.setWallLen(w, L + s, app, h) } }
+                    ReOpt(label: reTr("re.type2"), icon: RE_IC["kbd"], id: "re.o.lenKp") {
+                        st.openKp(reTr("re.wallLen", ["w": reWL(w), "v": reLenU(L)]), cur: L, lo: SHAPE_WALL_MIN, hi: SHAPE_WALL_MAX, big: true) { st.setWallLen(w, $0, app, h) }
                     }
                 }
             }
         case "thick":
             let w = wi ?? "A"
-            DzcOptRow(title: tr("re.t.thick"), sub: tr("re.thickSub", ["w": reWL(w), "v": "\(r.thickOf(w))"]), onBack: back) {
+            DzcOptRow(title: reTr("re.t.thick"), sub: reTr("re.thickSub", ["w": reWL(w), "v": reLen(r.thickOf(w))]), onBack: back) {
                 ForEach([100, 120, 200, 250, 380, 510], id: \.self) { v in
-                    ReOpt(label: "\(v) mm", on: r.thickOf(w) == v, id: "re.o.th\(v)") { st.setThick(v, app, h) }
+                    ReOpt(label: reLenU(v), on: r.thickOf(w) == v, id: "re.o.th\(v)") { st.setThick(v, app, h) }
                 }
-                ReOpt(label: tr("re.type2"), icon: RE_IC["kbd"], id: "re.o.thKp") {
-                    st.openKp(tr("re.t.thick"), cur: r.thickOf(w), lo: 50, hi: 1000) { st.setThick($0, app, h) }
+                ReOpt(label: reTr("re.type2"), icon: RE_IC["kbd"], id: "re.o.thKp") {
+                    st.openKp(reTr("re.t.thick"), cur: r.thickOf(w), lo: 50, hi: 1000) { st.setThick($0, app, h) }
                 }
             }
         case "corner":
             let w = wi ?? "A"
             let a0 = reCornerAngle(g, w), a1 = reCornerAngle(g, g.next(w))
-            DzcOptRow(title: tr("re.t.corner"), sub: tr("re.cornerSub", ["w": reWL(w)]), onBack: back) {
-                ReOpt(label: tr("re.angWith", ["w": g.prev(w), "a": a0]), id: "re.o.ang0") {}
-                ReOpt(label: tr("re.angWith", ["w": g.next(w), "a": a1]), id: "re.o.ang1") {}
-                ReOpt(label: tr("re.diag"), icon: RE_IC["len"], id: "re.o.diag") { diagCheck(st, g, w) }
-                T(tr("re.cornerNote"), ui(11.5, 600, G.ink2, lh: 1.25)).frame(maxWidth: 190, alignment: .leading)
+            DzcOptRow(title: reTr("re.t.corner"), sub: reTr("re.cornerSub", ["w": reWL(w)]), onBack: back) {
+                ReOpt(label: reTr("re.angWith", ["w": g.prev(w), "a": a0]), id: "re.o.ang0") {}
+                ReOpt(label: reTr("re.angWith", ["w": g.next(w), "a": a1]), id: "re.o.ang1") {}
+                ReOpt(label: reTr("re.diag"), icon: RE_IC["len"], id: "re.o.diag") { diagCheck(st, g, w) }
+                T(reTr("re.cornerNote"), ui(11.5, 600, G.ink2, lh: 1.25)).frame(maxWidth: 190, alignment: .leading)
             }
         case "w":
             if let it {
                 let cw = it.kind == "door" ? [700, 800, 900] : [1200, 1500, 1800]
-                DzcOptRow(title: tr("re.t.w"), sub: tr("re.wSub", ["n": reKindName(it.kind), "v": reLenU(it.w)]), onBack: back) {
+                DzcOptRow(title: reTr("re.t.w"), sub: reTr("re.wSub", ["n": reKindName(it.kind), "v": reLenU(it.w)]), onBack: back) {
                     ForEach(cw, id: \.self) { v in ReOpt(label: reLen(v), on: it.w == v, id: "re.o.w\(v)") { st.setSize("w", v, app, h) } }
-                    ReOpt(label: tr("re.type2"), icon: RE_IC["kbd"], id: "re.o.wKp") {
-                        st.openKp(tr("re.kpW", ["n": reKindName(it.kind)]), cur: it.w, lo: 300, hi: g.len(it.wall)) { st.setSize("w", $0, app, h) }
+                    ReOpt(label: reTr("re.type2"), icon: RE_IC["kbd"], id: "re.o.wKp") {
+                        st.openKp(reTr("re.kpW", ["n": reKindName(it.kind)]), cur: it.w, lo: 300, hi: g.len(it.wall)) { st.setSize("w", $0, app, h) }
                     }
                 }
             }
         case "h":
             if let it {
                 let ch = it.kind == "door" || it.isBalcony ? [2000, 2100, 2200] : [1200, 1400, 1500]
-                DzcOptRow(title: tr("re.t.h"), sub: tr("re.hSub", ["n": reKindName(it.kind), "v": reLenU(it.h)]), onBack: back) {
+                DzcOptRow(title: reTr("re.t.h"), sub: reTr("re.hSub", ["n": reKindName(it.kind), "v": reLenU(it.h)]), onBack: back) {
                     ForEach(ch, id: \.self) { v in ReOpt(label: reLen(v), on: it.h == v, id: "re.o.h\(v)") { st.setSize("h", v, app, h) } }
-                    ReOpt(label: tr("re.type2"), icon: RE_IC["kbd"], id: "re.o.hKp") {
-                        st.openKp(tr("re.kpH", ["n": reKindName(it.kind)]), cur: it.h, lo: 300, hi: g.H - it.z0) { st.setSize("h", $0, app, h) }
+                    ReOpt(label: reTr("re.type2"), icon: RE_IC["kbd"], id: "re.o.hKp") {
+                        st.openKp(reTr("re.kpH", ["n": reKindName(it.kind)]), cur: it.h, lo: 300, hi: g.H - it.z0) { st.setSize("h", $0, app, h) }
                     }
                 }
             }
         case "sill":
             if let it {
                 if it.kind == "window" {
-                    DzcOptRow(title: tr("re.t.sill"), sub: tr("re.sillSub", ["v": reLenU(it.sill)]), onBack: back) {
+                    DzcOptRow(title: reTr("re.t.sill"), sub: reTr("re.sillSub", ["v": reLenU(it.sill)]), onBack: back) {
                         ForEach([800, 900], id: \.self) { v in ReOpt(label: reLen(v), on: it.sill == v, id: "re.o.s\(v)") { st.setSize("sill", v, app, h) } }
-                        ReOpt(label: tr("re.type2"), icon: RE_IC["kbd"], id: "re.o.sKp") {
-                            st.openKp(tr("re.kpSill"), cur: it.sill, lo: 0, hi: g.H - it.h) { st.setSize("sill", $0, app, h) }
+                        ReOpt(label: reTr("re.type2"), icon: RE_IC["kbd"], id: "re.o.sKp") {
+                            st.openKp(reTr("re.kpSill"), cur: it.sill, lo: 0, hi: g.H - it.h) { st.setSize("sill", $0, app, h) }
                         }
                     }
                 } else {
-                    DzcOptRow(title: tr("re.thrT"), sub: tr("re.thrSub", ["v": "\(it.thr)"]), onBack: back) {
-                        ForEach([0, 20, 40], id: \.self) { v in ReOpt(label: "\(v) mm", on: it.thr == v, id: "re.o.thr\(v)") { st.setSize("thr", v, app, h) } }
+                    DzcOptRow(title: reTr("re.thrT"), sub: reTr("re.thrSub", ["v": reLen(it.thr)]), onBack: back) {
+                        ForEach([0, 20, 40], id: \.self) { v in ReOpt(label: reLenU(v), on: it.thr == v, id: "re.o.thr\(v)") { st.setSize("thr", v, app, h) } }
                     }
                 }
             }
         case "move":
             if let it {
                 let d = reDists(it, g.len(it.wall))
-                DzcOptRow(title: tr("re.t.move"), sub: tr("re.moveSub", ["l": reLen(d.l), "r": reLen(d.r), "a": reLen(d.l), "b": reLen(d.r)]), onBack: back) {
-                    ReOpt(label: "100", icon: DZC_ICON["left"], id: "re.o.mv-100") { st.moveSel("-100", app, h) }
-                    ReOpt(label: "10", icon: DZC_ICON["left"], id: "re.o.mv-10") { st.moveSel("-10", app, h) }
-                    ReOpt(label: "10", icon: DZC_ICON["right"], id: "re.o.mv10") { st.moveSel("10", app, h) }
-                    ReOpt(label: "100", icon: DZC_ICON["right"], id: "re.o.mv100") { st.moveSel("100", app, h) }
+                DzcOptRow(title: reTr("re.t.move"), sub: reTr("re.moveSub", ["l": reLen(d.l), "r": reLen(d.r), "a": reLen(d.l), "b": reLen(d.r)]), onBack: back) {
+                    ReOpt(label: reLen(100), icon: DZC_ICON["left"], id: "re.o.mv-100") { st.moveSel("-100", app, h) }
+                    ReOpt(label: reLen(10), icon: DZC_ICON["left"], id: "re.o.mv-10") { st.moveSel("-10", app, h) }
+                    ReOpt(label: reLen(10), icon: DZC_ICON["right"], id: "re.o.mv10") { st.moveSel("10", app, h) }
+                    ReOpt(label: reLen(100), icon: DZC_ICON["right"], id: "re.o.mv100") { st.moveSel("100", app, h) }
                     Rectangle().fill(G.ink.opacity(0.1)).frame(width: 1, height: 34)
-                    ReOpt(label: tr("re.mvS"), id: "re.o.mvS") { st.moveSel("s", app, h) }
-                    ReOpt(label: tr("re.mvC"), id: "re.o.mvC") { st.moveSel("c", app, h) }
-                    ReOpt(label: tr("re.mvE"), id: "re.o.mvE") { st.moveSel("e", app, h) }
+                    ReOpt(label: reTr("re.mvS"), id: "re.o.mvS") { st.moveSel("s", app, h) }
+                    ReOpt(label: reTr("re.mvC"), id: "re.o.mvC") { st.moveSel("c", app, h) }
+                    ReOpt(label: reTr("re.mvE"), id: "re.o.mvE") { st.moveSel("e", app, h) }
                 }
             }
         case "swing":
             if let it {
                 let sws = it.kind == "door" ? ["inL", "inR", "outL", "outR"] : ["L", "R", "T"]
-                DzcOptRow(title: tr("re.t.swing"), sub: tr("re.swingSub"), onBack: back) {
+                DzcOptRow(title: reTr("re.t.swing"), sub: reTr("re.swingSub"), onBack: back) {
                     ForEach(sws, id: \.self) { s in
-                        ReOpt(label: tr("re.sw." + s), icon: RE_IC["swing"], on: (it.sw.isEmpty ? sws[0] : it.sw) == s, id: "re.o.sw." + s) { st.setSize("sw", 0, s: s, app, h) }
+                        ReOpt(label: reTr("re.sw." + s), icon: RE_IC["swing"], on: (it.sw.isEmpty ? sws[0] : it.sw) == s, id: "re.o.sw." + s) { st.setSize("sw", 0, s: s, app, h) }
                     }
                 }
             }
         case "ph":
             if let it {
-                DzcOptRow(title: tr("re.t.ph"), sub: tr("re.phSub", ["n": reKindName(it.kind), "v": reLenU(it.ph)]), onBack: back) {
+                DzcOptRow(title: reTr("re.t.ph"), sub: reTr("re.phSub", ["n": reKindName(it.kind), "v": reLenU(it.ph)]), onBack: back) {
                     ForEach(reKind(it.kind).hs.sorted(), id: \.self) { v in ReOpt(label: reLen(v), on: it.ph == v, id: "re.o.ph\(v)") { st.setSize("ph", v, app, h) } }
-                    ReOpt(label: tr("re.type2"), icon: RE_IC["kbd"], id: "re.o.phKp") {
-                        st.openKp(tr("re.kpPh", ["n": reKindName(it.kind)]), cur: it.ph, lo: 0, hi: g.H) { st.setSize("ph", $0, app, h) }
+                    ReOpt(label: reTr("re.type2"), icon: RE_IC["kbd"], id: "re.o.phKp") {
+                        st.openKp(reTr("re.kpPh", ["n": reKindName(it.kind)]), cur: it.ph, lo: 0, hi: g.H) { st.setSize("ph", $0, app, h) }
                     }
                 }
             }
@@ -600,49 +600,49 @@ struct ReEditorScreen: View {
         switch k {
         case "iwLen":
             let col = p.k == "col"
-            DzcOptRow(title: reToolLabel("iwLen", col), sub: tr("iw.o.lenSub", ["n": nm, "v": reLen(p.len)]), onBack: back) {
-                ForEach([-100, -10], id: \.self) { s in ReOpt(label: "−\(-s)", id: "iw.o.len\(s)") { st.iwSetLen(p.len + s, app, h) } }
+            DzcOptRow(title: reToolLabel("iwLen", col), sub: reTr("iw.o.lenSub", ["n": nm, "v": reLen(p.len)]), onBack: back) {
+                ForEach([-100, -10], id: \.self) { s in ReOpt(label: "−" + reLen(-s), id: "iw.o.len\(s)") { st.iwSetLen(p.len + s, app, h) } }
                 ReOpt(label: reLenU(p.len), on: true, id: "iw.o.lenNow") {}
-                ForEach([10, 100], id: \.self) { s in ReOpt(label: "+\(s)", id: "iw.o.len+\(s)") { st.iwSetLen(p.len + s, app, h) } }
-                ReOpt(label: tr("re.type2"), icon: RE_IC["kbd"], id: "iw.o.lenKp") {
+                ForEach([10, 100], id: \.self) { s in ReOpt(label: "+" + reLen(s), id: "iw.o.len+\(s)") { st.iwSetLen(p.len + s, app, h) } }
+                ReOpt(label: reTr("re.type2"), icon: RE_IC["kbd"], id: "iw.o.lenKp") {
                     st.openKp(tr(col ? "iw.kp.size" : "iw.kp.len"), cur: p.len, lo: col ? 100 : 300, hi: SHAPE_WALL_MAX, big: !col) { st.iwSetLen($0, app, h) }
                 }
-                ReOpt(label: tr("re.t.laser"), icon: RE_IC["laser"], id: "iw.o.laser") {
+                ReOpt(label: reTr("re.t.laser"), icon: RE_IC["laser"], id: "iw.o.laser") {
                     rshRead(app, st, p.len, nm) { mm in st.iwSetLen(mm, app, h) }
                 }
             }
         case "iwTh":
-            DzcOptRow(title: tr("iw.t.iwTh"), sub: tr("iw.o.thSub", ["n": nm, "v": "\(p.th)"]), onBack: back) {
-                ForEach(IW_TH, id: \.self) { v in ReOpt(label: "\(v) mm", on: p.th == v, id: "iw.o.th\(v)") { st.iwSetTh(v, app, h) } }
-                ReOpt(label: tr("re.type2"), icon: RE_IC["kbd"], id: "iw.o.thKp") { st.openKp(tr("iw.t.iwTh"), cur: p.th, lo: 50, hi: 1000) { st.iwSetTh($0, app, h) } }
+            DzcOptRow(title: reTr("iw.t.iwTh"), sub: reTr("iw.o.thSub", ["n": nm, "v": reLen(p.th)]), onBack: back) {
+                ForEach(IW_TH, id: \.self) { v in ReOpt(label: reLenU(v), on: p.th == v, id: "iw.o.th\(v)") { st.iwSetTh(v, app, h) } }
+                ReOpt(label: reTr("re.type2"), icon: RE_IC["kbd"], id: "iw.o.thKp") { st.openKp(reTr("iw.t.iwTh"), cur: p.th, lo: 50, hi: 1000) { st.iwSetTh($0, app, h) } }
             }
         case "iwH":
             let hv = p.h > 0 ? p.h : 1100
-            DzcOptRow(title: tr("iw.t.iwH"), sub: tr("iw.o.hSub", ["v": reLen(hv)]), onBack: back) {
+            DzcOptRow(title: reTr("iw.t.iwH"), sub: reTr("iw.o.hSub", ["v": reLen(hv)]), onBack: back) {
                 ForEach(IW_HH, id: \.self) { v in ReOpt(label: reLen(v), on: hv == v, id: "iw.o.h\(v)") { st.iwSetH(v, app, h) } }
-                ReOpt(label: tr("re.type2"), icon: RE_IC["kbd"], id: "iw.o.hKp") { st.openKp(tr("iw.t.iwH"), cur: hv, lo: 300, hi: g.H - 1) { st.iwSetH($0, app, h) } }
+                ReOpt(label: reTr("re.type2"), icon: RE_IC["kbd"], id: "iw.o.hKp") { st.openKp(reTr("iw.t.iwH"), cur: hv, lo: 300, hi: g.H - 1) { st.iwSetH($0, app, h) } }
             }
         case "iwOp":
             if let op = p.op {
-                DzcOptRow(title: tr("iw.o.opT"), sub: tr("iw.o.opSub", ["w": reLen(op.w), "h": reLen(op.h)]), onBack: back) {
+                DzcOptRow(title: reTr("iw.o.opT"), sub: reTr("iw.o.opSub", ["w": reLen(op.w), "h": reLen(op.h)]), onBack: back) {
                     ForEach(IW_OPW, id: \.self) { v in ReOpt(label: reLen(v), on: op.w == v, id: "iw.o.op\(v)") { st.iwSetOp(w: v, app, h) } }
-                    ReOpt(label: tr("iw.o.opW"), icon: RE_IC["kbd"], id: "iw.o.opW") { st.openKp(tr("iw.o.opW"), cur: op.w, lo: 400, hi: p.len - 200) { st.iwSetOp(w: $0, app, h) } }
-                    ReOpt(label: tr("iw.o.opH", ["v": reLen(op.h)]), icon: RE_IC["h"], id: "iw.o.opH") {
-                        st.openKp(tr("iw.o.opH", ["v": reLen(op.h)]), cur: op.h, lo: 1000, hi: g.H - 50) { st.iwSetOp(hh: $0, app, h) }
+                    ReOpt(label: reTr("iw.o.opW"), icon: RE_IC["kbd"], id: "iw.o.opW") { st.openKp(reTr("iw.o.opW"), cur: op.w, lo: 400, hi: p.len - 200) { st.iwSetOp(w: $0, app, h) } }
+                    ReOpt(label: reTr("iw.o.opH", ["v": reLen(op.h)]), icon: RE_IC["h"], id: "iw.o.opH") {
+                        st.openKp(reTr("iw.o.opH", ["v": reLen(op.h)]), cur: op.h, lo: 1000, hi: g.H - 50) { st.iwSetOp(hh: $0, app, h) }
                     }
                 }
             }
         case "iwShape":
-            DzcOptRow(title: tr("iw.o.shapeT"), sub: iwSizeLine(p, g.H), onBack: back) {
-                ReOpt(label: tr("iw.o.square"), on: !p.round, id: "iw.o.sq") { st.iwRound(false, app, h) }
-                ReOpt(label: tr("iw.o.round"), on: p.round, id: "iw.o.rd") { st.iwRound(true, app, h) }
+            DzcOptRow(title: reTr("iw.o.shapeT"), sub: iwSizeLine(p, g.H), onBack: back) {
+                ReOpt(label: reTr("iw.o.square"), on: !p.round, id: "iw.o.sq") { st.iwRound(false, app, h) }
+                ReOpt(label: reTr("iw.o.round"), on: p.round, id: "iw.o.rd") { st.iwRound(true, app, h) }
                 Rectangle().fill(G.ink.opacity(0.1)).frame(width: 1, height: 34)
                 ForEach(IW_COL, id: \.self) { v in ReOpt(label: reLen(v), on: p.len == v, id: "iw.o.col\(v)") { st.iwSetLen(v, app, h) } }
             }
         default:
-            DzcOptRow(title: tr("iw.t.iwFace"), sub: tr("iw.o.faceSub"), onBack: back) {
+            DzcOptRow(title: reTr("iw.t.iwFace"), sub: reTr("iw.o.faceSub"), onBack: back) {
                 ForEach(g.walls.filter { $0.inner && iwPieceOf($0.id) == p.id }, id: \.id) { w in
-                    ReOpt(label: tr("iw.o.face", ["w": w.label]), icon: RE_IC["iwFace"], id: "iw.o.face." + w.label) { st.strip = nil; st.selectWall(w.id, h) }
+                    ReOpt(label: reTr("iw.o.face", ["w": w.label]), icon: RE_IC["iwFace"], id: "iw.o.face." + w.label) { st.strip = nil; st.selectWall(w.id, h) }
                 }
             }
         }
@@ -653,14 +653,14 @@ struct ReEditorScreen: View {
         guard let a = g.wall(w), let b = g.wall(g.next(w)) else { return }
         let dd = Int(hypot(b.b.x - a.a.x, b.b.y - a.a.y).rounded())
         let la = Double(a.len), lb = Double(b.len)
-        st.openKp(tr("re.diagT", ["a": w, "b": b.id]), cur: dd, lo: 300, hi: SHAPE_WALL_MAX) { v in
+        st.openKp(reTr("re.diagT", ["a": w, "b": b.id]), cur: dd, lo: 300, hi: SHAPE_WALL_MAX) { v in
             if abs(v - dd) <= max(20, Int(Double(dd) * 0.005)) {
                 Haptic.confirm()
-                app.toast = ToastMsg(text: tr("re.diagOk", ["a": reCornerAngle(g, b.id), "v": reLen(v)]), kind: .ok)
+                app.toast = ToastMsg(text: reTr("re.diagOk", ["a": reCornerAngle(g, b.id), "v": reLen(v)]), kind: .ok)
             } else {
                 let cs = max(-1, min(1, (la * la + lb * lb - Double(v) * Double(v)) / (2 * la * lb)))
                 let ang = String(format: "%.1f", acos(cs) * 180 / Double.pi)
-                st.warn(app, tr("re.diagBad", ["a": AppSettings.shared.lang == .en ? ang : ang.replacingOccurrences(of: ".", with: ",")]))
+                st.warn(app, reTr("re.diagBad", ["a": AppSettings.shared.lang == .en ? ang : ang.replacingOccurrences(of: ".", with: ",")]))
             }
         }
     }

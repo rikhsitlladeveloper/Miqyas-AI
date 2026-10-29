@@ -31,6 +31,8 @@ private struct BottomBarHeight: ViewModifier {
 struct UXTopBar<Right: View>: View {
     let title: String
     var sub: String? = nil
+    /// A short second line under sub (a wall-hung piece's "poldan 1500 mm").
+    var sub2: String? = nil
     let back: () -> Void
     @ViewBuilder var right: Right
     var body: some View {
@@ -38,6 +40,7 @@ struct UXTopBar<Right: View>: View {
             GlassIconButton("back", tr("nt.back"), back).accessibilityIdentifier("back")
             VStack(alignment: .leading, spacing: 1) {
                 if let sub { T(sub, ui(12, 600, G.ink3), lines: 1) }
+                if let sub2 { T(sub2, ui(11.5, 700, G.cobalt2), lines: 1).accessibilityIdentifier("ux.sub2") }
                 T(title, ui(18, 800, G.ink, lh: 1.18), lines: 2).fixedSize(horizontal: false, vertical: true)
                     .accessibilityAddTraits(.isHeader)
             }
@@ -135,12 +138,14 @@ struct DesignerHead: View {
     let p: Project
     let f: Furniture
     let sub: String
+    /// A wall-hung piece's height off the floor, its own line under the size.
+    var sub2: String? = nil
     /// "?": the gestures' hint again (the short designer of a bed or a table; the cabinets have theirs by the walls).
     var onHelp: (() -> Void)? = nil
     var body: some View {
         let kit = KitOps.shared
         UXTop {
-            UXTopBar(title: dn(f.name), sub: sub, back: { app.pop() }) {
+            UXTopBar(title: dn(f.name), sub: sub, sub2: sub2, back: { app.pop() }) {
                 if let onHelp {
                     T("?", ui(17, 800, G.cobalt2), align: .center)
                         .frame(width: 40, height: 40)

@@ -83,6 +83,21 @@ private func gkTower(_ ws: Workshop, _ x: Int, _ tw: Int, _ h: Int, _ glass: Boo
     return [lo, up]
 }
 
+/// The widest door the bridge gets by default, mm (Wardrobe.swift wardrobeChecks "wc.doorWide" warns above it).
+let GK_DOOR_MAX = 600
+
+/// The fewest doors for a bridge nw wide that keep each door GK_DOOR_MAX or narrower: each door's width as the parts and
+/// the checks work it out (its section's share of the box, the carcass sides included, less the edge gaps), at least 2
+/// (founder 29 Oct 2026: a 3000 gorka's 2000 bridge had 3 doors of 663, flagged heavy; now 4 of 497). New pieces only.
+func gkBridgeDoors(_ nw: Int, _ ws: Workshop) -> Int {
+    for n in 2...12 {
+        let secs = splitSections(nw, Array(repeating: Section(0, fronts: Fronts("door", 1)), count: n))
+        let widest = secs.flatMap { frontSizes($0.fronts, frontW($0), GK_BRIDGE_H, ws).map(\.1) }.max() ?? 0
+        if widest <= GK_DOOR_MAX { return n }
+    }
+    return 12
+}
+
 /// The gorka's boxes for o, from the wall's start (W_GAP_SIDE).
 func gorkaBoxes(_ ws: Workshop, _ o: GkOpts) -> [Module] {
     let n = gkClamp(o.towers, 1, 2)
@@ -98,7 +113,8 @@ func gorkaBoxes(_ ws: Workshop, _ o: GkOpts) -> [Module] {
     var out = gkTower(ws, x0, tw, h, o.glass, "R")
     out.append(base)
     if o.bridge {
-        let doors = splitSections(nw, Array(repeating: Section(0, fronts: Fronts("door", 1)), count: secs))
+        // as many doors as keep each one 600 or narrower (the designer's own "heavy door" check), not the base's drawers' count
+        let doors = splitSections(nw, Array(repeating: Section(0, fronts: Fronts("door", 1)), count: gkBridgeDoors(nw, ws)))
         out.append(Module(id: uid(), type: "wardrobe", w: nw, h: GK_BRIDGE_H, d: GK_BRIDGE_D, x: x0 + tw, wall: "A", elev: h - GK_BRIDGE_H, sections: doors,
                           legs: false, base: 0))
     }

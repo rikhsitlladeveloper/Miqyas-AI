@@ -139,18 +139,18 @@ final class GorkaTests: XCTestCase {
     func testTheGorkasPartsAndHardware() {
         let f = gorka()
         let parts = f.modules.flatMap { partsOf($0, ws) }
-        // glass doors are bought, not cut: only the bridge's three doors are board doors
-        XCTAssertEqual(qty(parts, "fp.door"), 3)
+        // glass doors are bought, not cut: only the bridge's four doors are board doors (2000 / 4: each under 600)
+        XCTAssertEqual(qty(parts, "fp.door"), 4)
         // five drawers: one in each tower, three in the base; each with its box
         XCTAssertEqual(qty(parts, "fp.dFace"), 5)
         XCTAssertEqual(qty(parts, "fp.dSide"), 10)
         XCTAssertEqual(qty(parts, "gk.panelBack"), 1)
         let h = hw(f)
-        // the towers' glass doors (497 × 1597) and glass shelves; hinges: 3 a tower door, 2 a bridge door
+        // the towers' glass doors (497 × 1597) and glass shelves; hinges: 3 a tower door, 2 each of the bridge's 4 doors
         XCTAssertEqual(h["glassDoor"], 2 * 497 * 1597); XCTAssertEqual(h["glassShelf"], 2 * 3 * (468 - 4) * (GK_TOWER_D - 25))
-        XCTAssertEqual(h["hingeSoft"], 12); XCTAssertEqual(h["runner"], 5)
+        XCTAssertEqual(h["hingeSoft"], 14); XCTAssertEqual(h["runner"], 5)
         // the glass doors open by a push latch; the drawers and the bridge's doors have handles
-        XCTAssertEqual(h["push"], 2); XCTAssertEqual(h["handle"], 8)
+        XCTAssertEqual(h["push"], 2); XCTAssertEqual(h["handle"], 9)
         // four boxes hang (the glass boxes on their drawer boxes, the base, the bridge)
         XCTAssertEqual(h["hanger"], 8)
         // the panel's stone facing by the m²

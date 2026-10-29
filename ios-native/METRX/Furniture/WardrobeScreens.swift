@@ -247,6 +247,18 @@ private func drawSlide(_ c: GraphicsContext, _ lay: KLay, _ m: Module, _ sl: Sli
     }
 }
 
+/// A wall-hung box's height off the floor, at the right of a drawing whose floor is lay's: from the floor up to the
+/// box's bottom lift mm over it, dashed, its value turned along it.
+func liftDims(_ c: GraphicsContext, _ lay: KLay, _ w: Int, _ lift: Int) {
+    let x = lay.x(w) + 9, y0 = lay.yF, y1 = lay.y(lift)
+    c.line(PC.ink3, CGPoint(x: lay.x0, y: y1), CGPoint(x: x + 3, y: y1), 0.6, dash: [3, 3])
+    c.line(PC.ink3, CGPoint(x: x, y: y1), CGPoint(x: x, y: y0), 0.8)
+    for yy in [y1, y0] { c.line(PC.ink3, CGPoint(x: x - 2.5, y: yy + 2.5), CGPoint(x: x + 2.5, y: yy - 2.5), 1.1) }
+    var r = c
+    r.translateBy(x: x + 7, y: (y0 + y1) / 2); r.rotate(by: .degrees(-90))
+    r.text("\(lift)", .zero, .num, 10, 500, PC.ink3)
+}
+
 /// Widths under the floor and the height at the left; cuts in mm from the drawing's start.
 func wardDims(_ c: GraphicsContext, _ lay: KLay, _ cuts: [Int], _ total: Int, _ h: Int, _ hx: Int) {
     guard let first = cuts.first, let lastCut = cuts.last else { return }
@@ -408,7 +420,7 @@ struct WardrobeScreen: View {
             VStack(spacing: 0) {
                 // the UX upgrades' bars: the name and the compact progress on top; Designer C's drawing, slider and
                 // options; Undo/Redo, 2D/3D and "Narxni ko‘rish" below (the older steps are in "Batafsil")
-                DesignerHead(app: app, p: p, f: f, sub: wardHeadSub(f, m, ws))
+                DesignerHead(app: app, p: p, f: f, sub: wardHeadSub(f, m, ws), sub2: floorLineText(f, .mm))
                 if let room = cx.room {
                     DzcWard(app: app, c: DzcWCtx(p: p, f: f, m: m, room: room, cx: cx, ws: ws, mats: mats, d3: d3, step: step, mod: mod))
                 } else {

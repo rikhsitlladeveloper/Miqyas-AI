@@ -30,8 +30,19 @@ enum Strings {
     static func has(_ key: String) -> Bool { table[key] != nil }
 
     static func t(_ key: String, _ lang: Lang, _ vars: [String: Any]? = nil) -> String {
-        guard let e = table[key] else { return key }
-        var s = e[lang.rawValue].isEmpty ? e[0] : e[lang.rawValue]
+        guard let s = template(key, lang) else { return key }
+        return fill(s, lang, vars)
+    }
+
+    /// key's text in lang before its values go in (Uzbek Latin when lang has none); nil for an unknown key.
+    static func template(_ key: String, _ lang: Lang) -> String? {
+        guard let e = table[key] else { return nil }
+        return e[lang.rawValue].isEmpty ? e[0] : e[lang.rawValue]
+    }
+
+    /// A template with its values put in: plural forms first, then the names.
+    static func fill(_ s0: String, _ lang: Lang, _ vars: [String: Any]?) -> String {
+        var s = s0
         guard let vars else { return s }
         s = replace(s, plural) { g in
             let raw = vars[g[1]]

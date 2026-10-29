@@ -33,6 +33,33 @@ func isItemPiece(_ f: Furniture) -> Bool { f.kind == "wardrobe" && ITEM_TYPES.co
 /// A box that hangs on the wall (or stands on another box): no legs, its bottom above the floor.
 func hung(_ m: Module) -> Bool { !m.legs && m.elev > 0 }
 
+/// How far box m is off the floor when it hangs on its wall with nothing of the piece under it (others: the piece's
+/// boxes), mm; nil when it stands, or sits on another box (a gorka's glass box, a stenka's shelf over its low piece).
+func wallLift(_ m: Module, _ others: [Module]) -> Int? {
+    guard hung(m) else { return nil }
+    let under = others.contains { o in o.id != m.id && o.wall == m.wall && o.elev < m.elev && o.x < m.x + m.w && m.x < o.x + o.w }
+    return under ? nil : m.elev
+}
+
+/// A wall-hung piece's height off the floor (its main box's bottom), mm (founder 29 Oct 2026: the box size W × H × D is
+/// the piece's size everywhere; "poldan N mm" is a line of its own where it matters); nil for a piece on the floor.
+func floorElev(_ f: Furniture) -> Int? {
+    guard f.kind == "wardrobe", let m = wardOfF(f) else { return nil }
+    let bs = boxes(f)
+    // a piece with a box on the floor (a stenka's low piece, a gorka's towers) is not wall-hung as a whole
+    if bs.contains(where: { !hung($0) }) { return nil }
+    return wallLift(m, bs)
+}
+
+/// The piece's sizes as shown (valsOf), the height its box's own for a wall-hung piece (a hung vanity's or tall
+/// cabinet's step height is from the floor to its top).
+func shownVals(_ f: Furniture, _ ws: Workshop) -> [String: Int] {
+    var v = valsOf(f, ws)
+    guard floorElev(f) != nil, let m = wardOfF(f), v["mw"] == nil, v["w2"] == nil else { return v }
+    v["h"] = ITEM_MODS.contains(m.type) ? m.h : outerH(m, ws)
+    return v
+}
+
 /// How high a box reaches from the floor.
 func topOf(_ m: Module, _ ws: Workshop) -> Int { ITEM_MODS.contains(m.type) ? itemTop(m, ws) : m.elev + outerH(m, ws) }
 

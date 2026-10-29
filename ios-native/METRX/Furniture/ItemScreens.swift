@@ -42,7 +42,7 @@ struct ItemScreen: View {
             RoomGrid().ignoresSafeArea()
             VStack(spacing: 0) {
                 // "?" plays the hint again: tap a tool, turn the 3D, zoom (as the cabinets' designers)
-                DesignerHead(app: app, p: p, f: f, sub: pieceLine(f, ws), onHelp: { DzcState.shared.startTeach() })
+                DesignerHead(app: app, p: p, f: f, sub: pieceLine(f, ws), sub2: floorLineText(f, .mm), onHelp: { DzcState.shared.startTeach() })
                 if let room = roomOf(p, f) {
                     ZStack(alignment: .top) {
                         VStack(spacing: 0) { content(room) }
@@ -333,6 +333,14 @@ struct IFieldSheet: View {
 
 /// A piece's sizes in a line: a bed's mattress, a corner piece's two arms, else width × height × depth (mm).
 func pieceLine(_ f: Furniture, _ ws: Workshop) -> String { sizeLine(f, ws, tr("u.mm")) }
+
+/// A wall-hung piece's own short line, "poldan 1500 mm", in unit (the app's by default; the designers' mm); nil for a
+/// piece on the floor (founder 29 Oct 2026).
+func floorLineText(_ f: Furniture, _ unit: LenUnit? = nil) -> String? {
+    guard let e = floorElev(f) else { return nil }
+    let u = unit ?? AppSettings.shared.unit
+    return tr("fz.offFloor", ["v": Geo.fmtLen(e, u, AppSettings.shared.lang == .en), "u": unitWord(u)])
+}
 
 /// What a card's picture is made from: the piece, its size, the workshop and the boards.
 private struct PieceThumbKey: Equatable {

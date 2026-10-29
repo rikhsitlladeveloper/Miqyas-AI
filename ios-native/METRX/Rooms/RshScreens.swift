@@ -255,8 +255,8 @@ private struct PicBox<Content: View>: View {
             content
             if let d = tools, d.shape != "free" {
                 VStack(spacing: 6) {
-                    ToolBtn(icon: MIRROR_IC, label: tr("rsh.mirror"), id: "rsh.mirror") { d.mir.toggle() }
-                    ToolBtn(icon: ROTATE_IC, label: tr("rsh.rotate"), id: "rsh.rotate") { d.rot = (d.rot + 1) % 4 }
+                    ToolBtn(icon: MIRROR_IC, label: reTr("rsh.mirror"), id: "rsh.mirror") { d.mir.toggle() }
+                    ToolBtn(icon: ROTATE_IC, label: reTr("rsh.rotate"), id: "rsh.rotate") { d.rot = (d.rot + 1) % 4 }
                 }
                 .frame(width: 104).padding(8)
             }
@@ -278,12 +278,12 @@ private struct ShapeStep: View {
     let d: RshDraft
     var body: some View {
         let free = d.shape == "free"
-        RshPage(title: tr("rsh.shapeT"), sub: dn(d.name), prog: 0, back: { rshBack(app, d) },
+        RshPage(title: reTr("rsh.shapeT"), sub: dn(d.name), prog: 0, back: { rshBack(app, d) },
               bar: RBar(label: tr(free ? "rsh.drawGo" : "fr.continue"), icon: free ? "pen" : nil, id: "rsh.shapeGo") {
                   Haptic.tick()
                   if free { go(d, "sketch") } else { d.ret = false; setStep(d, 0); go(d, "walls") }
               }) {
-            T(tr("rsh.shapeHint"), ui(13.5, 400, G.ink2, lh: 1.4))
+            T(reTr("rsh.shapeHint"), ui(13.5, 400, G.ink2, lh: 1.4))
             LazyVGrid(columns: [GridItem(.flexible(), spacing: 10), GridItem(.flexible(), spacing: 10)], spacing: 10) {
                 ForEach(RoomShape.allCases, id: \.self) { k in ShapeCard(d: d, k: k) }
             }
@@ -307,7 +307,7 @@ private struct ShapeCard: View {
                         MIcon("check", .white, 14, 3).frame(width: 24, height: 24).background(Circle().fill(G.cobalt)).padding(5)
                     }
                 }
-                T(tr("rsh.s." + k.id), ui(14, 800), lines: 2).padding(.horizontal, 4).padding(.top, 8)
+                T(reTr("rsh.s." + k.id), ui(14, 800), lines: 2).padding(.horizontal, 4).padding(.top, 8)
             }
             .contentShape(Rectangle())
             .pressable(0.98) {
@@ -320,17 +320,17 @@ private struct ShapeCard: View {
                 // side by side as in the mockup; one under the other only when the words don't fit (Russian)
                 ViewThatFits(in: .horizontal) {
                     HStack(spacing: 6) {
-                        ToolBtn(icon: MIRROR_IC, label: tr("rsh.mirror"), id: "rsh.mirror", shrink: false) { d.mir.toggle() }
-                        ToolBtn(icon: ROTATE_IC, label: tr("rsh.rotate"), id: "rsh.rotate", shrink: false) { d.rot = (d.rot + 1) % 4 }
+                        ToolBtn(icon: MIRROR_IC, label: reTr("rsh.mirror"), id: "rsh.mirror", shrink: false) { d.mir.toggle() }
+                        ToolBtn(icon: ROTATE_IC, label: reTr("rsh.rotate"), id: "rsh.rotate", shrink: false) { d.rot = (d.rot + 1) % 4 }
                     }
                     VStack(spacing: 4) {
-                        ToolBtn(icon: MIRROR_IC, label: tr("rsh.mirror"), id: "rsh.mirror") { d.mir.toggle() }
-                        ToolBtn(icon: ROTATE_IC, label: tr("rsh.rotate"), id: "rsh.rotate") { d.rot = (d.rot + 1) % 4 }
+                        ToolBtn(icon: MIRROR_IC, label: reTr("rsh.mirror"), id: "rsh.mirror") { d.mir.toggle() }
+                        ToolBtn(icon: ROTATE_IC, label: reTr("rsh.rotate"), id: "rsh.rotate") { d.rot = (d.rot + 1) % 4 }
                     }
                 }
                 .padding(.top, 2)
             } else {
-                let sub = k == .free ? tr(sel ? "rsh.byFinger" : "rsh.everyWall") : tr("rsh.nAsked", ["n": k.askCount])
+                let sub = k == .free ? tr(sel ? "rsh.byFinger" : "rsh.everyWall") : reTr("rsh.nAsked", ["n": k.askCount])
                 T(sub, ui(12, 500, G.ink2, lh: 1.25), lines: 2).padding(.horizontal, 4).frame(minHeight: 40, alignment: .topLeading)
             }
         }
@@ -370,16 +370,16 @@ private struct WallsStep: View {
         if !isD, let live { vals[st] = live }
         let geo = rshGeo(d, vals)
         let hint = isD ? Int((rshDiagLen(d) / 10).rounded()) * 10 : (st < n ? asks[st].def : 3000)
-        let label = isD ? tr("rsh.diag") : st < n ? askLabel(asks[st], geo) : ""
-        let help = isD ? tr("rsh.diagD") : st < n ? askHelp(d, asks[st], geo) : ""
-        let sub = isD ? tr("rsh.diagSub") : tr(d.shape == "bay" ? "rsh.sizeN" : "rsh.wallN", ["i": st + 1, "n": n])
+        let label = isD ? reTr("rsh.diag") : st < n ? askLabel(asks[st], geo) : ""
+        let help = isD ? reTr("rsh.diagD") : st < n ? askHelp(d, asks[st], geo) : ""
+        let sub = isD ? reTr("rsh.diagSub") : tr(d.shape == "bay" ? "rsh.sizeN" : "rsh.wallN", ["i": st + 1, "n": n])
         let liveTxt = typed.map { lenWords($0, unit) }
         var look = PlanLook(cur: isD ? nil : st, done: Set(vals.keys), liveTxt: isD ? nil : liveTxt)
         look.fmt = lenFmt(d); look.pad = 26; look.rp = free ? 0 : 108
         if isD { look.diagK = rshDiagK(d); look.diagCur = true; look.diagTxt = liveTxt ?? "?" }
         look.dimTxt = vals.mapValues { lenWords($0, unit) }
-        let main = isD && d.input.isEmpty ? tr("rsh.skip") : d.ret ? tr("common.save") : tr("common.next")
-        return RshPage(title: dn(d.name) + " · " + tr("rsh.s." + d.shape), sub: sub, prog: nil, back: { rshBack(app, d) },
+        let main = isD && d.input.isEmpty ? reTr("rsh.skip") : d.ret ? tr("common.save") : tr("common.next")
+        return RshPage(title: dn(d.name) + " · " + reTr("rsh.s." + d.shape), sub: sub, prog: nil, back: { rshBack(app, d) },
                      bar: RBar(label: main, enabled: !d.input.isEmpty || isD) { wallsNext(d) }) {
             // no step dots: "Devor 2 / 4" in the header says it (mockup scrWalls)
             PicBox(height: kb ? 150 : 220, tools: d) { PlanPic(g: geo.g, look: look, letters: geo.letters) }
@@ -398,9 +398,9 @@ private struct WallsStep: View {
 /// An asked value's title: "Devor B", "Erker eni".
 private func askLabel(_ a: ShapeAsk, _ geo: RGeo) -> String {
     switch a.kind {
-    case .bayWidth: return tr("rsh.bayW")
-    case .bayDepth: return tr("rsh.bayD")
-    case .wall: return tr("rsh.wall", ["w": geo.letter(a.wall)])
+    case .bayWidth: return reTr("rsh.bayW")
+    case .bayDepth: return reTr("rsh.bayD")
+    case .wall: return reTr("rsh.wall", ["w": geo.letter(a.wall)])
     }
 }
 
@@ -408,18 +408,18 @@ private func askLabel(_ a: ShapeAsk, _ geo: RGeo) -> String {
 private func askHelp(_ d: RshDraft, _ a: ShapeAsk, _ geo: RGeo) -> String {
     if d.shape == "bay" {
         switch a.kind {
-        case .bayWidth: return tr("rsh.bayWD")
-        case .bayDepth: return tr("rsh.bayDD")
+        case .bayWidth: return reTr("rsh.bayWD")
+        case .bayDepth: return reTr("rsh.bayDD")
         case .wall: return tr(a.wall == 6 ? "rsh.bayGD" : a.wall == 7 ? "rsh.bayHD" : "rsh.bayAD")
         }
     }
-    if d.shape == "free" { return tr("rsh.wallD") + " " + tr("rsh.wallFree") }
-    if d.shape == "cut" && a.wall == 3 { return tr("rsh.wallD") + " " + tr("rsh.wallCut", ["c": geo.letter(2)]) }
-    return tr("rsh.wallD")
+    if d.shape == "free" { return reTr("rsh.wallD") + " " + reTr("rsh.wallFree") }
+    if d.shape == "cut" && a.wall == 3 { return reTr("rsh.wallD") + " " + reTr("rsh.wallCut", ["c": geo.letter(2)]) }
+    return reTr("rsh.wallD")
 }
 
 private func rangeText(_ a: Int, _ b: Int, _ unit: LenUnit) -> String {
-    tr("rsh.range", ["a": lenWords(a, unit), "b": lenWords(b, unit), "u": unitWord(unit)])
+    reTr("rsh.range", ["a": lenWords(a, unit), "b": lenWords(b, unit), "u": unitWord(unit)])
 }
 
 private func wallsNext(_ d: RshDraft) {
@@ -432,7 +432,7 @@ private func wallsNext(_ d: RshDraft) {
     let range = rangeText(RSH_WALL_MIN, RSH_WALL_MAX, unit)
     if isD {
         if d.input.isEmpty { d.diag = nil; finishWalls(d); return }
-        guard let v = parseLen(d.input, unit), v >= RSH_WALL_MIN, v <= RSH_WALL_MAX else { bad(tr("rsh.e.enter", ["r": range])); return }
+        guard let v = parseLen(d.input, unit), v >= RSH_WALL_MIN, v <= RSH_WALL_MAX else { bad(reTr("rsh.e.enter", ["r": range])); return }
         if let e = rshDiagErr(d, v) { bad(e); return }
         d.diag = v
         finishWalls(d)
@@ -463,10 +463,10 @@ private struct HeightStep: View {
     var body: some View {
         let unit = rshUnit(d)
         let live = parseLen(d.hIn, unit).flatMap { $0 >= RSH_H_MIN && $0 <= RSH_H_MAX ? $0 : nil }
-        RshPage(title: dn(d.name), sub: tr("rsh.hSub"), prog: nil, back: { rshBack(app, d) },
+        RshPage(title: dn(d.name), sub: reTr("rsh.hSub"), prog: nil, back: { rshBack(app, d) },
               bar: RBar(label: tr(d.ret ? "common.save" : "common.next"), enabled: !d.hIn.isEmpty) { heightNext(d) }) {
             PicBox(height: kb ? 150 : 220) { HeightPic(txt: live.map { lenWords($0, unit) } ?? "?").padding(4) }
-            RshSizeField(app: app, d: d, key: "h", label: tr("rsh.hT"), help: tr("rsh.hD"), text: d.hIn, fresh: d.hFresh, hint: SHAPE_HEIGHT_DEFAULT, issue: d.hErr,
+            RshSizeField(app: app, d: d, key: "h", label: reTr("rsh.hT"), help: reTr("rsh.hD"), text: d.hIn, fresh: d.hFresh, hint: SHAPE_HEIGHT_DEFAULT, issue: d.hErr,
                          live: { (d.hIn, d.hFresh) },
                          onText: { d.hIn = $0; d.hFresh = false; d.hErr = nil; d.heard = nil },
                          onNext: { heightNext(d) },
@@ -480,7 +480,7 @@ private func heightNext(_ d: RshDraft) {
     let unit = rshUnit(d)
     d.heard = nil
     guard let v = parseLen(d.hIn, unit), v >= RSH_H_MIN, v <= RSH_H_MAX else {
-        d.hErr = tr("rsh.e.h", ["r": rangeText(RSH_H_MIN, RSH_H_MAX, unit)]); Haptic.warn(); return
+        d.hErr = reTr("rsh.e.h", ["r": rangeText(RSH_H_MIN, RSH_H_MAX, unit)]); Haptic.warn(); return
     }
     d.height = v; Haptic.tick()
     if d.ret { d.ret = false; go(d, "summary") } else { go(d, "ops") }
@@ -492,10 +492,10 @@ private func heightNext(_ d: RshDraft) {
 private func opDesc(_ it: ShapeOpening, _ unit: LenUnit) -> String {
     let u = unitWord(unit)
     if it.kind.isOpening {
-        let s = tr("rsh.opDescD", ["w": lenWords(it.w, unit), "h": lenWords(it.h, unit), "d": lenWords(it.dist, unit), "u": u])
-        return s + (it.kind == .window ? " · " + tr("rsh.opSill", ["s": lenWords(it.sill, unit)]) : "")
+        let s = reTr("rsh.opDescD", ["w": lenWords(it.w, unit), "h": lenWords(it.h, unit), "d": lenWords(it.dist, unit), "u": u])
+        return s + (it.kind == .window ? " · " + reTr("rsh.opSill", ["s": lenWords(it.sill, unit)]) : "")
     }
-    return tr("rsh.opDescP", ["d": lenWords(it.dist, unit), "u": u])
+    return reTr("rsh.opDescP", ["d": lenWords(it.dist, unit), "u": u])
 }
 
 private func opBack(_ d: RshDraft, _ op: OpEdit) {
@@ -522,7 +522,7 @@ private struct OpsList: View {
         let geo = rshGeo(d)
         var look = PlanLook(final: true)
         look.ops = d.ops; look.fmt = lenFmt(d)
-        return RshPage(title: tr("rsh.opsT"), sub: tr("rsh.opsSub", ["n": dn(d.name)]), prog: 3, back: { rshBack(app, d) },
+        return RshPage(title: reTr("rsh.opsT"), sub: reTr("rsh.opsSub", ["n": dn(d.name)]), prog: 3, back: { rshBack(app, d) },
                      bar: RBar(label: tr(d.ops.isEmpty ? "rsh.skip" : "rsh.ready"), id: "rsh.opsDone") { Haptic.tick(); go(d, "summary") }) {
             PicBox(height: 220) { PlanPic(g: geo.g, look: look, letters: geo.letters) }
             LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 8), count: 3), spacing: 8) {
@@ -531,7 +531,7 @@ private struct OpsList: View {
                     ZStack(alignment: .topTrailing) {
                         VStack(spacing: 6) {
                             OpIcon(kind: k, color: G.ink).frame(width: 36, height: 36)
-                            T(tr("rsh.op." + k.id), ui(12.5, 700, G.ink, lh: 1.15), align: .center, lines: 2)
+                            T(reTr("rsh.op." + k.id), ui(12.5, 700, G.ink, lh: 1.15), align: .center, lines: 2)
                         }
                         .padding(.horizontal, 4).padding(.vertical, 10).frame(maxWidth: .infinity, minHeight: 90)
                         if cnt > 0 {
@@ -545,16 +545,16 @@ private struct OpsList: View {
                 }
             }
             if d.ops.isEmpty {
-                T(tr("rsh.opsHint"), ui(12.5, 400, G.ink2, lh: 1.4)).padding(.horizontal, 4)
+                T(reTr("rsh.opsHint"), ui(12.5, 400, G.ink2, lh: 1.4)).padding(.horizontal, 4)
             } else {
-                Sect(tr("rsh.added2"))
+                Sect(reTr("rsh.added2"))
                 ForEach(Array(d.ops.enumerated()), id: \.offset) { i, it in
-                    SumRow(label: tr("rsh.op." + it.kind.id) + " · " + tr("rsh.wall", ["w": geo.letter(it.wall)]), value: opDesc(it, unit), small: true, endMin: 40) {
+                    SumRow(label: reTr("rsh.op." + it.kind.id) + " · " + reTr("rsh.wall", ["w": geo.letter(it.wall)]), value: opDesc(it, unit), small: true, endMin: 40) {
                         MIcon("x", G.ink3, 17, 2).frame(width: 40, height: 40)
                             .pressable(0.95, label: tr("common.delete")) {
                                 guard i < d.ops.count else { return }
                                 let gone = d.ops.remove(at: i)
-                                app.act("rsh.opDel", ["n": tr("rsh.op." + gone.kind.id)]) { d.ops.insert(gone, at: min(i, d.ops.count)) }
+                                app.act("rsh.opDel", ["n": reTr("rsh.op." + gone.kind.id)]) { d.ops.insert(gone, at: min(i, d.ops.count)) }
                             }
                             .accessibilityIdentifier("rsh.opX")
                     }
@@ -570,10 +570,10 @@ private struct OpWall: View {
     let op: OpEdit
     var body: some View {
         let geo = rshGeo(d)
-        let name = tr("rsh.op." + op.kind.id)
+        let name = reTr("rsh.op." + op.kind.id)
         var look = PlanLook(pick: true)
         look.ops = d.ops; look.fmt = lenFmt(d)
-        return RshPage(title: tr("rsh.whichWall", ["n": name]), sub: tr("rsh.tapWall"), prog: 3, back: { rshBack(app, d) },
+        return RshPage(title: reTr("rsh.whichWall", ["n": name]), sub: reTr("rsh.tapWall"), prog: 3, back: { rshBack(app, d) },
                      bar: RBar(label: tr("common.cancel"), secondary: true, id: "rsh.opCancel") { d.op = nil; Haptic.tick() }) {
             PicBox(height: 270) {
                 PlanPic(g: geo.g, look: look, letters: geo.letters) { i in
@@ -584,7 +584,7 @@ private struct OpWall: View {
             }
             HStack(spacing: 10) {
                 PathIcon(HAND_IC, G.cobalt2, 22, 2)
-                T(tr("rsh.tapWallD", ["n": name]), ui(13.5, 600, G.ink, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
+                T(reTr("rsh.tapWallD", ["n": name]), ui(13.5, 600, G.ink, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
             }
             .padding(12)
             .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.blueWash))
@@ -603,7 +603,7 @@ private struct OpNum: View {
         let fs = opAsks(op.kind)
         let sub = min(op.sub, fs.count - 1)
         let f = fs[sub]
-        let name = tr("rsh.op." + op.kind.id)
+        let name = reTr("rsh.op." + op.kind.id)
         let L = op.wall >= 0 && op.wall < geo.g.walls.count ? geo.g.walls[op.wall].len : 0
         let letter = geo.letter(op.wall)
         let live: Int? = f.field == .sill ? (op.input.isEmpty ? nil : (parseLen(op.input, unit) ?? 0)) : parseLen(op.input, unit)
@@ -614,14 +614,14 @@ private struct OpNum: View {
         let help: String
         switch f.field {
         case .dist: help = tr(op.kind.isOpening ? "rsh.distOpD" : "rsh.distPtD", ["n": name.lowercased(), "w": letter, "l": lw])
-        case .width: help = tr("rsh.wD")
-        case .height: help = tr("rsh.hOpD", ["n": name.lowercased()])
-        case .sill: help = tr("rsh.sillD", ["v": lenWords(900, unit) + " " + unitWord(unit)])
+        case .width: help = reTr("rsh.wD")
+        case .height: help = reTr("rsh.hOpD", ["n": name.lowercased()])
+        case .sill: help = reTr("rsh.sillD", ["v": lenWords(900, unit) + " " + unitWord(unit)])
         }
         var look = PlanLook(sel: op.wall, corner: op.wall)
         look.ops = d.ops; look.preview = prev; look.fmt = lenFmt(d); look.pad = 22
         let fieldLabel = tr(opFieldKey(op.kind, f.field))
-        return RshPage(title: name + " · " + tr("rsh.wall", ["w": letter]), sub: "\(sub + 1) / \(fs.count) · " + fieldLabel, prog: nil, back: { rshBack(app, d) },
+        return RshPage(title: name + " · " + reTr("rsh.wall", ["w": letter]), sub: "\(sub + 1) / \(fs.count) · " + fieldLabel, prog: nil, back: { rshBack(app, d) },
                      bar: RBar(label: tr(sub < fs.count - 1 ? "common.next" : "rsh.add"), enabled: !op.input.isEmpty) { opNext(app, d) }) {
             PicBox(height: kb ? 150 : 220) { PlanPic(g: geo.g, look: look, letters: geo.letters) }
             RshSizeField(app: app, d: d, key: "op\(op.kind.id)\(op.wall)\(sub)", label: fieldLabel, help: help, text: op.input, fresh: op.fresh,
@@ -659,7 +659,7 @@ private func opNext(_ app: AppModel, _ d: RshDraft) {
     let letter = rshGeo(d).letter(op.wall)
     d.op = nil
     d.ops.append(it)
-    app.act("rsh.opAdded", ["n": tr("rsh.op." + it.kind.id), "w": letter]) {
+    app.act("rsh.opAdded", ["n": reTr("rsh.op." + it.kind.id), "w": letter]) {
         if let i = d.ops.lastIndex(of: it) { d.ops.remove(at: i) }
     }
 }
@@ -708,7 +708,7 @@ private struct ChangeBtn: View {
 
 private struct AutoTag: View {
     var body: some View {
-        T(tr("rsh.auto"), ui(11.5, 800, G.ink3), lines: 1).padding(.horizontal, 9).padding(.vertical, 3)
+        T(reTr("rsh.auto"), ui(11.5, 800, G.ink3), lines: 1).padding(.horizontal, 9).padding(.vertical, 3)
             .overlay(RoundedRectangle(cornerRadius: 12, style: .continuous).strokeBorder(G.ink3.opacity(0.7), style: StrokeStyle(lineWidth: 1.5, dash: [3, 2])))
             .padding(.trailing, 6)
     }
@@ -746,29 +746,29 @@ private struct SummaryStep: View {
         // in the editor's letter order (a mirrored shape was asked the other way round)
         let order = g.walls.indices.sorted { geo.letter($0) < geo.letter($1) }
         func edit(_ i: Int) { d.ret = true; setStep(d, i); go(d, "walls") }
-        return RshPage(title: dn(d.name), sub: tr("rsh.sumSub"), prog: 4, back: { rshBack(app, d) },
-                     bar: RBar(label: tr("rsh.open"), enabled: err == nil, id: "rsh.open") { finishRoom(app, d) }) {
+        return RshPage(title: dn(d.name), sub: reTr("rsh.sumSub"), prog: 4, back: { rshBack(app, d) },
+                     bar: RBar(label: reTr("rsh.open"), enabled: err == nil, id: "rsh.open") { finishRoom(app, d) }) {
             PicBox(height: 230) { PlanPic(g: g, look: look, letters: geo.letters) }
             FlowLayout(spacing: 8) {
-                Chip2(t: tr("rsh.s." + d.shape))
+                Chip2(t: reTr("rsh.s." + d.shape))
                 Chip2(t: lenWords(Int(size.w.rounded()), unit) + " × " + lenWords(Int(size.h.rounded()), unit) + " " + u)
                 Chip2(t: m2(g))
-                if g.gapFixed > 0.5 { Chip2(t: tr("rsh.spread", ["v": lenWords(Int(g.gapFixed.rounded()), unit) + " " + u])) }
+                if g.gapFixed > 0.5 { Chip2(t: reTr("rsh.spread", ["v": lenWords(Int(g.gapFixed.rounded()), unit) + " " + u])) }
             }
             if let err {
                 HStack(alignment: .top, spacing: 8) { MIcon("alert", G.err, 18, 2); T(err, ui(13.5, 600, G.err, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading) }
                     .padding(12)
                     .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.errWash))
             }
-            Sect(tr("rsh.wallsT"))
+            Sect(reTr("rsh.wallsT"))
             ForEach(order, id: \.self) { i in
                 let e = g.walls[i]
-                let wl = tr("rsh.wall", ["w": geo.letter(i)])
+                let wl = reTr("rsh.wall", ["w": geo.letter(i)])
                 let lv = lenWords(Int(e.len.rounded()), unit) + " " + u
                 if let a = e.ask {
                     SumRow(label: wl, value: lv) { ChangeBtn(label: ch, id: "rsh.change." + geo.letter(i)) { edit(a) } }
                 } else {
-                    SumRow(label: wl + (e.angle.map { " · " + tr("rsh.cutAng", ["a": $0]) } ?? ""), value: lv, auto: true) { AutoTag() }
+                    SumRow(label: wl + (e.angle.map { " · " + reTr("rsh.cutAng", ["a": $0]) } ?? ""), value: lv, auto: true) { AutoTag() }
                 }
             }
             ForEach(Array(asks.enumerated()), id: \.offset) { j, a in
@@ -777,19 +777,19 @@ private struct SummaryStep: View {
                 }
             }
             if d.shape == "free" {
-                SumRow(label: tr("rsh.diagT"), value: d.diag.map { lenWords($0, unit) + " " + u } ?? tr("rsh.noDiag")) { ChangeBtn(label: ch) { edit(asks.count) } }
+                SumRow(label: reTr("rsh.diagT"), value: d.diag.map { lenWords($0, unit) + " " + u } ?? reTr("rsh.noDiag")) { ChangeBtn(label: ch) { edit(asks.count) } }
             }
-            Sect(tr("rsh.hTitle"))
-            SumRow(label: tr("rsh.hT"), value: lenWords(d.height, unit) + " " + u) { ChangeBtn(label: ch, id: "rsh.changeH") { d.ret = true; go(d, "height") } }
-            Sect(tr("rsh.opsShort"))
+            Sect(reTr("rsh.hTitle"))
+            SumRow(label: reTr("rsh.hT"), value: lenWords(d.height, unit) + " " + u) { ChangeBtn(label: ch, id: "rsh.changeH") { d.ret = true; go(d, "height") } }
+            Sect(reTr("rsh.opsShort"))
             if !d.wInner.isEmpty {
-                SumRow(label: tr("iw.sum", ["n": d.wInner.count]), value: d.wInner.map { iwName($0.k) }.joined(separator: ", "), small: true) {
+                SumRow(label: reTr("iw.sum", ["n": d.wInner.count]), value: d.wInner.map { iwName($0.k) }.joined(separator: ", "), small: true) {
                     ChangeBtn(label: ch) { d.ret = false; go(d, "ops") }
                 }
             }
             let work = reItems(rshWorkRoom(d))
             if work.isEmpty {
-                SumRow(label: tr("rsh.opsShort"), value: tr("rsh.none"), small: true, auto: true) { ChangeBtn(label: tr("rsh.add")) { d.ret = false; go(d, "ops") } }
+                SumRow(label: reTr("rsh.opsShort"), value: reTr("rsh.none"), small: true, auto: true) { ChangeBtn(label: reTr("rsh.add")) { d.ret = false; go(d, "ops") } }
             } else {
                 ForEach(work, id: \.id) { it in
                     SumRow(label: reKindName(it.kind) + " · " + reWL(it.wall), value: reStyleName(it.kind, it.style) + " · " + reSizeLine(it), small: true) {

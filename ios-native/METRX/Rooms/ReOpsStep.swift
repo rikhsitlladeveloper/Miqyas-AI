@@ -85,8 +85,8 @@ extension ReState {
         let gh = ghost
         ghost = nil; mag = nil
         guard pt != nil else { return }
-        if view == "3d" && !front { app.toast = ToastMsg(text: tr("re.no3dDrag"), kind: .info); return }
-        guard let it = gh else { warn(app, tr("re.dropFar")); return }
+        if view == "3d" && !front { app.toast = ToastMsg(text: reTr("re.no3dDrag"), kind: .info); return }
+        guard let it = gh else { warn(app, reTr("re.dropFar")); return }
         placeAt(kind, wall: it.wall, centre: it.isOpening ? it.dist + it.w / 2 : it.dist, how: "drag", ph: it.isOpening || !front ? nil : it.ph, app, h)
     }
 }
@@ -107,12 +107,12 @@ struct ReOpsStep: View {
         ZStack {
             VStack(spacing: 0) {
                 UXTop {
-                    UXTopBar(title: tr("re.opsT"), sub: tr("re.opsSub", ["n": dn(d.name)]), back: back) {
+                    UXTopBar(title: reTr("re.opsT"), sub: reTr("re.opsSub", ["n": dn(d.name)]), back: back) {
                         T("?", ui(20, 800, G.cobalt2), align: .center)
                             .frame(width: 46, height: 46)
                             .background(Circle().fill(G.glass(0.6)))
                             .overlay(Circle().strokeBorder(G.rim, lineWidth: 1))
-                            .pressable(0.95, label: tr("re.coachA")) { st.coachRuns = 2; st.coachT0 = Date(); st.deselect(); Haptic.tick() }
+                            .pressable(0.95, label: reTr("re.coachA")) { st.coachRuns = 2; st.coachT0 = Date(); st.deselect(); Haptic.tick() }
                             .accessibilityIdentifier("re.help")
                     }
                 }
@@ -123,7 +123,7 @@ struct ReOpsStep: View {
                             if !items.isEmpty && st.pk == nil {
                                 HStack(spacing: 6) {
                                     PathIcon("M9 6h12M9 12h12M9 18h12M4 6h.01M4 12h.01M4 18h.01", G.cobalt, 16, 2)
-                                    T(tr("re.nItems", ["n": items.count]), ui(12.5, 800), lines: 1)
+                                    T(reTr("re.nItems", ["n": items.count]), ui(12.5, 800), lines: 1)
                                 }
                                 .padding(.horizontal, 12).frame(height: 32)
                                 .background(Capsule().fill(G.sheet(0.94)))
@@ -150,8 +150,8 @@ struct ReOpsStep: View {
                 // the icon row
                 VStack(alignment: .leading, spacing: 2) {
                     HStack(spacing: 8) {
-                        T(tr("re.tilesT"), ui(12.5, 800), lines: 1)
-                        T(tr("re.tilesS"), ui(11.5, 600, G.ink2), lines: 1).minimumScaleFactor(0.8)
+                        T(reTr("re.tilesT"), ui(12.5, 800), lines: 1)
+                        T(reTr("re.tilesS"), ui(11.5, 600, G.ink2), lines: 1).minimumScaleFactor(0.8)
                     }
                     .padding(.horizontal, 14).padding(.top, 6)
                     ReTileRow(st: st, groups: reGroups(h.industry), tap: { st.tileTap($0, app, h) },
@@ -176,7 +176,7 @@ struct ReOpsStep: View {
             }
             coach(st, g, items)
             if let k = st.tileKind {
-                let line = st.ghost.map { gh in tr("re.dragTo", ["w": reWL(gh.wall)]) + " · " + reLen(reDists(gh, g.len(gh.wall)).l) + " | " + reLen(reDists(gh, g.len(gh.wall)).r) } ?? tr("re.dragNear")
+                let line = st.ghost.map { gh in reTr("re.dragTo", ["w": reWL(gh.wall)]) + " · " + reLen(reDists(gh, g.len(gh.wall)).l) + " | " + reLen(reDists(gh, g.len(gh.wall)).r) } ?? reTr("re.dragNear")
                 ReDragChip(kind: k, line: line, ok: st.ghost != nil)
                     .position(x: st.tilePt.x, y: st.tilePt.y - 56)
             }
@@ -254,11 +254,11 @@ struct ReOpsCard: View {
             } else if st.pk == nil, let id = st.selPiece, let r = st.shown(h), let p = r.inner.first(where: { $0.id == id }) {
                 ReIwCard(app: app, st: st, h: h, g: g, p: p, issue: reRoomIssues(r, g).first { $0.id == id }.map(reIssueText))
             } else if let k = st.arm {
-                oneLine(AnyView(ReBadge(kind: k, size: 32)), tr("re.armT", ["n": reKindName(k)]), tr("re.armS")) { st.arm = nil }
+                oneLine(AnyView(ReBadge(kind: k, size: 32)), reTr("re.armT", ["n": reKindName(k)]), reTr("re.armS")) { st.arm = nil }
             } else if let w = st.selWall, st.pk == nil {
                 let n = items.filter { $0.wall == w }.count
                 oneLine(AnyView(PathIcon(SD_ROOM_IC, .white, 18, 2).frame(width: 32, height: 32).background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(G.cobalt))),
-                        tr("re.wallCard", ["w": reWL(w), "l": reLen(g.len(w)), "v": reLen(g.len(w)), "n": n]), tr("re.wallCardS")) { st.deselect() }
+                        reTr("re.wallCard", ["w": reWL(w), "l": reLen(g.len(w)), "v": reLen(g.len(w)), "n": n]), reTr("re.wallCardS")) { st.deselect() }
             }
         }
         .background(shape.fill(G.solid))
@@ -299,8 +299,8 @@ struct ReOpsCard: View {
                     T(reSizeLine(it) + " · " + reLen(d.l) + " | " + reLen(d.r), num(12, 500, G.ink2), lines: 1)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
-                xBtn("selUp", tr("re.cardOpen"), "re.cardMin") { st.cardMin = false; Haptic.tick() }
-                xBtn("x", tr("re.desel"), "re.desel") { st.deselect() }
+                xBtn("selUp", reTr("re.cardOpen"), "re.cardMin") { st.cardMin = false; Haptic.tick() }
+                xBtn("x", reTr("re.desel"), "re.desel") { st.deselect() }
             }
             .padding(.leading, 8).padding(.trailing, 6).padding(.vertical, 6)
         } else {
@@ -312,13 +312,13 @@ struct ReOpsCard: View {
                         T(reSizeLine(it) + " " + unitWord(AppSettings.shared.unit), num(12, 500, G.ink2), lines: 1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-                    xBtn("down", tr("re.cardFold"), "re.cardMin") { st.cardMin = true; Haptic.tick() }
-                    xBtn("x", tr("re.desel"), "re.desel") { st.deselect() }
+                    xBtn("down", reTr("re.cardFold"), "re.cardMin") { st.cardMin = true; Haptic.tick() }
+                    xBtn("x", reTr("re.desel"), "re.desel") { st.deselect() }
                 }
                 HStack(spacing: 6) {
                     T(g.prev(it.wall) + " ←", ui(12, 700, G.ink2), lines: 1)
                     distChip(reLen(d.l), "re.cdl") { kp(it, "dl", L) }
-                    T(tr("re.wallX", ["w": reWL(it.wall)]) + " · " + reLen(L), ui(11.5, 700, G.ink3), align: .center, lines: 1).frame(maxWidth: .infinity)
+                    T(reTr("re.wallX", ["w": reWL(it.wall)]) + " · " + reLen(L), ui(11.5, 700, G.ink3), align: .center, lines: 1).frame(maxWidth: .infinity)
                     distChip(reLen(d.r), "re.cdr") { kp(it, "dr", L) }
                     T("→ " + g.next(it.wall), ui(12, 700, G.ink2), lines: 1)
                 }
@@ -331,8 +331,8 @@ struct ReOpsCard: View {
                         .padding(8).background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(G.amberWash))
                 }
                 HStack(spacing: 6) {
-                    cardBtn(DZC_ICON["type"]!, tr("re.type"), "re.cType") { st.pickFor("retype", h) }
-                    cardBtn(DZC_ICON["width"]!, tr("re.size"), "re.cSize") { st.pickFor("resize", h) }
+                    cardBtn(DZC_ICON["type"]!, reTr("re.type"), "re.cType") { st.pickFor("retype", h) }
+                    cardBtn(DZC_ICON["width"]!, reTr("re.size"), "re.cSize") { st.pickFor("resize", h) }
                     cardBtn(DZC_ICON["del"]!, tr("common.delete"), "re.cDel", red: true) { st.delSel(app, h) }
                 }
             }
@@ -427,9 +427,9 @@ struct ReMiniFront: View {
             let pv = st.preview
             st.preview = nil
             guard !cancel, lv.changed, let r = pv, let x = reFind(r, lv.id) else { return }
-            let msg = lv.mode == "slide" ? tr("re.m.h", ["n": reKindName(x.kind), "v": reLen(x.ph)])
-                : lv.edge == "t" ? tr("re.m.h", ["n": reKindName(x.kind), "v": reLen(x.h)])
-                : lv.edge == "b" ? tr("re.m.sillH", ["s": reLen(x.sill), "h": reLen(x.h)]) : tr("re.m.w", ["n": reKindName(x.kind), "v": reLen(x.w)])
+            let msg = lv.mode == "slide" ? reTr("re.m.h", ["n": reKindName(x.kind), "v": reLen(x.ph)])
+                : lv.edge == "t" ? reTr("re.m.h", ["n": reKindName(x.kind), "v": reLen(x.h)])
+                : lv.edge == "b" ? reTr("re.m.sillH", ["s": reLen(x.sill), "h": reLen(x.h)]) : reTr("re.m.w", ["n": reKindName(x.kind), "v": reLen(x.w)])
             st.commit(app, h, msg) { rePut(&$0, x); return nil }
         }
         return a
