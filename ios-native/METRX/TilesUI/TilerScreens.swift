@@ -211,7 +211,9 @@ struct TRoomsTab: View {
     }
 
     private func dashed(_ icon: String, _ label: String, _ id: String, _ action: @escaping () -> Void) -> some View {
-        HStack(spacing: 6) { MIcon(icon, G.cobalt2, 20, 2.2); T(label, ui(15, 700, G.cobalt2), lines: 1) }
+        // two lines in a half-width button ("Добавить раскладку" was cut on a small phone)
+        HStack(spacing: 6) { MIcon(icon, G.cobalt2, 20, 2.2); T(label, ui(15, 700, G.cobalt2, lh: 1.15), lines: 2).minimumScaleFactor(0.85) }
+            .padding(.horizontal, 6)
             .frame(maxWidth: .infinity).frame(height: 56)
             .dashedGlass(20)
             .pressable(0.98, action)
