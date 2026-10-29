@@ -126,8 +126,8 @@ class GorkaTest {
     @Test fun theGorkasPartsAndHardware() {
         val f = gorka()
         val parts = f.modules.flatMap { partsOf(it, ws) }
-        // glass doors are bought, not cut: only the bridge's three doors are board doors
-        assertEquals(3, parts.filter { it.key == "fp.door" }.sumOf { it.qty })
+        // glass doors are bought, not cut: only the bridge's four doors are board doors
+        assertEquals(4, parts.filter { it.key == "fp.door" }.sumOf { it.qty })
         // five drawers: one in each tower, three in the base; each with its box
         assertEquals(5, parts.filter { it.key == "fp.dFace" }.sumOf { it.qty })
         assertEquals(10, parts.filter { it.key == "fp.dSide" }.sumOf { it.qty })
@@ -135,15 +135,37 @@ class GorkaTest {
         val h = hw(f)
         // the towers' glass doors (497 × 1597) and glass shelves; hinges: 3 a tower door, 2 a bridge door
         assertEquals(2 * 497 * 1597, h["glassDoor"]); assertEquals(2 * 3 * (468 - 4) * (GK_TOWER_D - 25), h["glassShelf"])
-        assertEquals(12, h["hingeSoft"]); assertEquals(5, h["runner"])
+        assertEquals(14, h["hingeSoft"]); assertEquals(5, h["runner"])
         // the glass doors open by a push latch; the drawers and the bridge's doors have handles
-        assertEquals(2, h["push"]); assertEquals(8, h["handle"])
+        assertEquals(2, h["push"]); assertEquals(9, h["handle"])
         // four boxes hang (the glass boxes on their drawer boxes, the base, the bridge)
         assertEquals(8, h["hanger"])
         // the panel's stone facing by the m²
         assertEquals(1840 * 1160, h["tvStone"]); assertNull(h["led"]); assertNull(h["cornice"])
         assertEquals(1840 * 1160, hw(withGorkaPanel(f, panel = "mould"))["tvMould"])
         assertEquals(1, cutList(listOf(withGorkaPanel(f, panel = "mould")), ws).count { it.p.key == "gk.panel" })
+    }
+
+    @Test fun theBridgeGetsTheFewestDoorsThatAreNotTooWide() {
+        // a 3000 gorka's 2000 bridge: 3 doors would be 663 wide (over 600), so 4 of 497
+        val r = gorkaRoles(gorka())!!
+        val br = r.bridge!!
+        assertEquals(2000, br.w); assertEquals(4, br.sections.size)
+        assertEquals(4, bridgeDoors(2000, ws))
+        val doors = br.sections.flatMap { s -> frontSizes(s.fronts, frontW(s), br.h, ws) }
+        assertTrue(doors.all { it.second <= 600 }); assertTrue(doors.all { it.second == 497 })
+        // the designer's own check has nothing to say about them
+        assertTrue(wardrobeChecks(br, null, null, ws, emptyList(), emptyList()).none { it.key == "wc.doorWide" })
+        // the count follows the width: the fewest doors of 600 or less, edges and gaps counted
+        assertEquals(1, bridgeDoors(600, ws)); assertEquals(2, bridgeDoors(610, ws)); assertEquals(2, bridgeDoors(1200, ws))
+        assertEquals(3, bridgeDoors(1210, ws)); assertEquals(3, bridgeDoors(1800, ws)); assertEquals(4, bridgeDoors(1810, ws))
+        listOf(900, 1000, 1500, 2000, 2400, 2600, 3200).forEach { w ->
+            val n = bridgeDoors(w, ws)
+            fun widest(k: Int) = splitSections(w, List(k) { Section(0, Fronts("door", 1)) }).maxOf { s -> frontSizes(s.fronts, frontW(s), 300, ws).maxOf { it.second } }
+            assertTrue("$w", widest(n) <= 600); if (n > 1) assertTrue("$w", widest(n - 1) > 600)
+        }
+        // a wider gorka gets more: 3600 → a 2600 bridge of 5
+        assertEquals(5, gorkaRoles(gorka(mapOf("w" to 3600)))!!.bridge!!.sections.size)
     }
 
     @Test fun ledAndTheNeoclassicCornice() {

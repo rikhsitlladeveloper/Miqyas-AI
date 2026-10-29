@@ -369,11 +369,36 @@ internal fun DrawScope.wardDims(lay: KLay, cuts: List<Int>, total: Int, h: Int, 
     drawRoundRect(uz.metrx.app.ui.editor.PLAN_W, Offset((a + b) / 2 - pw / 2, ly - 10f), Size(pw, 20f), CornerRadius(10f))
     drawRoundRect(INK3, Offset((a + b) / 2 - pw / 2, ly - 10f), Size(pw, 20f), CornerRadius(10f), style = Stroke(1f))
     text(tm, "$total", Offset((a + b) / 2, ly), TextStyle(fontFamily = PlexCond, fontSize = 12.sp, color = INK))
-    // the height
+    // the height (a hung box's own, from its bottom)
     val x = lay.x(hx) - 9f
-    drawLine(INK3, Offset(x, lay.y(h)), Offset(x, lay.yF), .8f)
-    listOf(lay.y(h), lay.yF).forEach { yy -> drawLine(INK3, Offset(x - 2.5f, yy + 2.5f), Offset(x + 2.5f, yy - 2.5f), 1.1f) }
-    rotate(-90f, Offset(x - 7f, (lay.y(h) + lay.yF) / 2)) { text(tm, "$h", Offset(x - 7f, (lay.y(h) + lay.yF) / 2), st) }
+    val bz = lay.y(0)
+    drawLine(INK3, Offset(x, lay.y(h)), Offset(x, bz), .8f)
+    listOf(lay.y(h), bz).forEach { yy -> drawLine(INK3, Offset(x - 2.5f, yy + 2.5f), Offset(x + 2.5f, yy - 2.5f), 1.1f) }
+    rotate(-90f, Offset(x - 7f, (lay.y(h) + bz) / 2)) { text(tm, "$h", Offset(x - 7f, (lay.y(h) + bz) / 2), st) }
+    // a hung box: how high its bottom is above the floor, on its other side
+    if (lay.under > 0) {
+        val xr = lay.x(cuts.last()) + 9f
+        drawLine(INK3, Offset(xr, bz), Offset(xr, lay.yF), .8f)
+        listOf(bz, lay.yF).forEach { yy -> drawLine(INK3, Offset(xr - 2.5f, yy + 2.5f), Offset(xr + 2.5f, yy - 2.5f), 1.1f) }
+        rotate(-90f, Offset(xr + 7f, (bz + lay.yF) / 2)) { text(tm, "${lay.under}", Offset(xr + 7f, (bz + lay.yF) / 2), st) }
+    }
+}
+
+/**
+ * Under a hung box [m] drawn [lay.under] above the floor: the piece's other boxes below it (a gorka's TV base and panel
+ * under its bridge, a tower's drawer box under its glass box), faint, so the gap shows what fills it.
+ */
+internal fun DrawScope.boxesUnder(lay: KLay, f: Furniture, m: Module, ws: Workshop) {
+    if (lay.under <= 0) return
+    f.modules.filter { it.id != m.id && uz.metrx.app.furniture.isBox(it) && it.wall == m.wall }.forEach { o ->
+        val x0 = max(o.x, m.x) - m.x; val x1 = min(o.x + o.w, m.x + m.w) - m.x
+        val z0 = uz.metrx.app.furniture.legsOf(o, ws) + o.elev - lay.under
+        val z1 = min(uz.metrx.app.furniture.topOf(o, ws) - lay.under, 0)
+        if (x1 <= x0 || z1 <= z0) return@forEach
+        val tl = Offset(lay.x(x0), lay.y(z1)); val sz = Size((x1 - x0) * lay.s, (z1 - z0) * lay.s)
+        drawRect(GREY_LINE.copy(alpha = .12f), tl, sz)
+        drawRect(GREY_LINE, tl, sz, style = Stroke(1f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 3f))))
+    }
 }
 
 @Composable
@@ -428,11 +453,12 @@ fun WardThumb(p: Project, f: Furniture, modifier: Modifier) {
     val front = hex(mats.firstOrNull { it.id == f.mats.front }?.rgb ?: "#CDBFAE")
     val carcass = hex(mats.firstOrNull { it.id == f.mats.carcass }?.rgb ?: "#F5F5F2")
     Canvas(modifier) {
-        val lay = KLay(m.w, outerH(m, ws), 200f, false)
+        // a hung box above the floor line, as high as it hangs
+        val lay = KLay(m.w, outerH(m, ws), 200f, false, under = uz.metrx.app.furniture.boxLift(m) ?: 0)
         val k = min(size.width / lay.vw, size.height / lay.vh)
         withTransform({ translate((size.width - lay.vw * k) / 2f, (size.height - lay.vh * k) / 2f); scale(k, k, pivot = Offset.Zero) }) {
             drawLine(INK, Offset(lay.x0 - 6f, lay.yF), Offset(lay.x(m.w) + 6f, lay.yF), 2f)
-            drawWard(lay, m, m.x, ws, carcass, front, -1, true, emptyMap(), null, uz.metrx.app.furniture.opensByEdge(f))
+            drawWard(lay, m.copy(elev = 0), m.x, ws, carcass, front, -1, true, emptyMap(), null, uz.metrx.app.furniture.opensByEdge(f))
         }
     }
 }

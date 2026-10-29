@@ -649,6 +649,8 @@ fun LaserTestScreen() {
         }
         Column(Modifier.weight(1f).verticalScroll(rememberScrollState()).padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Text(tr("lt.intro"), style = ui(14f, 400, G.ink2, 1.45f))
+            // test mode off: this page hides again (Profile's row has the same switch); the toast can undo it
+            GlassButton(tr("lt.devOffBtn"), { app.devOff() }, primary = false)
 
             // what stands in the way: no Bluetooth, Bluetooth off, location off, permissions
             when {

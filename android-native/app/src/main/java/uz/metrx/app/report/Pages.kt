@@ -71,6 +71,8 @@ internal const val PX = 38f
 internal const val PY = 36f
 internal const val CW = PAGE_W - 2 * PX
 internal const val LIMIT = PAGE_H - PY - 6f
+/** At most this many pieces' own 3D pictures in a PDF (they keep it small: each about 480 × 360). */
+internal const val MAX_SHOTS = 8
 
 private val INK = Color(0xFF0E1C36)
 private val INK3 = Color(0xFF3E4A61)
@@ -396,25 +398,33 @@ internal class Doc(val tm: TextMeasurer, val sn: Snap, val draft: Boolean, val m
     }
 
     /** 3D views two by two (prototype .views), at most four; a picture whose file is gone gives its place to the next. */
-    fun views() {
-        val vs = sn.rooms.flatMap { it.room.views }.asSequence().mapNotNull { v -> image(v.img) }.take(4).toList()
+    fun views(extra: List<Pair<ImageBitmap, String>> = emptyList()) {
+        // the views saved from the 3D screens first, then [extra]: the pictures made for the pieces none of them shows,
+        // each with its piece's name under it (the simple furniture PDF)
+        val saved = sn.rooms.flatMap { it.room.views }.asSequence().mapNotNull { v -> image(v.img) }.take(4).toList()
+        val vs: List<Pair<ImageBitmap, String?>> = saved.map { it to null } + extra.take(MAX_SHOTS)
         if (vs.isEmpty()) return
         h2(t("r.views"))
         space(0f)
         val w = (CW - 8f) / 2
+        val capSt = ui(9f, 600, INK3)
         vs.chunked(2).forEach { pair ->
-            val h = pair.maxOf { w * it.height / it.width } + 1.5f
-            if (y + h > LIMIT) { newPage(); space(0f) }
+            val caps = pair.map { (_, c) -> c?.let { measure(it, capSt, w) } }
+            val capH = caps.maxOf { it?.size?.height?.toFloat()?.plus(3f) ?: 0f }
+            val h = pair.maxOf { (img, _) -> w * img.height / img.width } + 1.5f
+            if (y + h + capH > LIMIT) { newPage(); space(0f) }
             val top = y
-            pair.forEachIndexed { k, img ->
+            pair.forEachIndexed { k, (img, _) ->
                 val x = PX + k * (w + 8f); val ih = w * img.height / img.width
+                val cap = caps[k]
                 draw {
                     drawImage(img, srcOffset = androidx.compose.ui.unit.IntOffset.Zero, srcSize = androidx.compose.ui.unit.IntSize(img.width, img.height),
                         dstOffset = androidx.compose.ui.unit.IntOffset((x + .75f).toInt(), (top + .75f).toInt()), dstSize = androidx.compose.ui.unit.IntSize((w - 1.5f).toInt(), (ih - 1.5f).toInt()))
                     drawRect(FIG, Offset(x + .375f, top + .375f), Size(w - .75f, ih - .75f), style = Stroke(.75f))
+                    if (cap != null) drawText(cap, topLeft = Offset(x, top + ih + 3f))
                 }
             }
-            y += h + 8f
+            y += h + capH + 8f
         }
         pend = 0f
     }

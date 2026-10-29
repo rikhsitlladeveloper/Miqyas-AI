@@ -78,6 +78,17 @@ private fun tower(ws: Workshop, x: Int, tw: Int, h: Int, glass: Boolean, hinge: 
     return listOf(lo, up0.copy(sections = listOf(if (glass) s.copy(inserts = s.inserts.map { it.copy(kind = "glass") }) else s)))
 }
 
+/** A door is at most this wide (the designer's own check, Wardrobe.kt wc.doorWide). */
+const val GK_DOOR_MAX = 600
+
+/**
+ * How many doors a new gorka's bridge [nw] wide gets: the fewest that keep each door [GK_DOOR_MAX] or narrower, worked
+ * out on the doors' real widths (the sections as [splitSections] shares them, less the edges and gaps). 2000 → 4.
+ */
+fun bridgeDoors(nw: Int, ws: Workshop): Int = (1..40).firstOrNull { n ->
+    splitSections(nw, List(n) { Section(0, Fronts("door", 1)) }).all { s -> frontSizes(s.fronts, frontW(s), GK_BRIDGE_H, ws).all { it.second <= GK_DOOR_MAX } }
+} ?: 40
+
 /** The gorka's boxes for [o], from the wall's start ([W_GAP_SIDE]). */
 fun gorkaBoxes(ws: Workshop, o: GkOpts): List<Module> {
     val n = o.towers.coerceIn(1, 2)
@@ -90,7 +101,7 @@ fun gorkaBoxes(ws: Workshop, o: GkOpts): List<Module> {
     val base0 = Module(uid(), "wardrobe", nw, GK_BASE_H, GK_BASE_D, x = x0 + tw, wall = "A", legs = false, base = 0, elev = GK_BASE_ELEV)
     val base = base0.copy(sections = splitSections(nw, List(secs) { Section(0, Fronts("open", 0), fill(wardInnerH(base0, ws.t), g)) }))
     val bridge = if (!o.bridge) null else Module(uid(), "wardrobe", nw, GK_BRIDGE_H, GK_BRIDGE_D, x = x0 + tw, wall = "A", legs = false, base = 0,
-        elev = h - GK_BRIDGE_H, sections = splitSections(nw, List(secs) { Section(0, Fronts("door", 1)) }))
+        elev = h - GK_BRIDGE_H, sections = splitSections(nw, List(bridgeDoors(nw, ws)) { Section(0, Fronts("door", 1)) }))
     val pe = GK_BASE_ELEV + GK_BASE_H
     val panel = itemModule(TV_PANEL, ws, "A", x0 + tw + GK_PANEL_IN, nw - 2 * GK_PANEL_IN, h - GK_BRIDGE_H - GK_PANEL_GAP - pe, 0,
         Opt(panel = o.panel.takeIf { it in GK_PANELS } ?: "stone", tv = o.tv), elev = pe)

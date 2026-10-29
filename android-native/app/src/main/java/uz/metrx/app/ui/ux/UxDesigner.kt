@@ -39,10 +39,10 @@ import java.math.BigInteger
 
 /** The header of a kitchen, wardrobe, bed… designer. */
 @Composable
-fun DesignerTop(p: Project, f: Furniture, sub: String, onHelp: (() -> Unit)? = null) {
+fun DesignerTop(p: Project, f: Furniture, sub: String, lift: String? = null, onHelp: (() -> Unit)? = null) {
     val app = LocalApp.current
     val lang = LocalLang.current
-    UxTop(dn(f.name, lang), { app.pop() }, eyebrow = sub, right = {
+    UxTop(dn(f.name, lang), { app.pop() }, eyebrow = sub, eyebrow2 = lift, right = {
         // Designer C v2: "?" shows the gestures' hint again
         if (onHelp != null) Box(Modifier.size(46.dp).clip(CircleShape).background(G.ink.copy(alpha = .06f)).clickable(role = Role.Button, onClickLabel = tr("dzc.help"), onClick = onHelp),
             contentAlignment = Alignment.Center) { Text("?", style = ui(19f, 800, G.ink)) }

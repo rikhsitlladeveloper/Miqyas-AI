@@ -38,9 +38,15 @@ object Strings {
 
     fun has(key: String) = table.containsKey(key)
 
+    /** Puts texts in without a Context (the unit tests read strings.json themselves). */
+    internal fun put(key: String, v: Array<String>) { table[key] = v }
+
     fun t(key: String, lang: Lang, vars: Map<String, Any?>? = null): String {
         val e = table[key] ?: return key
         var s = e[lang.ordinal].ifEmpty { e[0] }
+        // the room editor's and inner walls' texts in the room's unit (geo.RoomUnit, 1.0.2): their "mm" and the lengths
+        // written in them follow it (the texts stay as they are for the iPhone app, which reads this file too)
+        if (uz.metrx.app.geo.RoomUnit.unit != uz.metrx.app.geo.LenUnit.MM && (key.startsWith("re.") || key.startsWith("iw."))) s = inRoomUnit(key, s, lang)
         if (vars != null) {
             s = PLURAL.replace(s) { m ->
                 // a number, or a number as text (a stored line's values: "n=1", "a=2,5")
@@ -55,6 +61,23 @@ object Strings {
 
     private val PLURAL = Regex("""\{(\w+):([^}]+)\}""")
     private val VAR = Regex("""\{(\w+)\}""")
+
+    /** A number written with its "mm" ("300 mm", "999 999 мм"), a "mm" alone, a number with no word in the texts that have such. */
+    private val NUM_MM = Regex("""(?<![\d{])(\d{1,3}(?:[  ]\d{3})+|\d+)[  ]?(mm|мм)(?![\p{L}])""")
+    private val MM = Regex("""(?<![\p{L}])(mm|мм)(?![\p{L}])""")
+    private val BARE = Regex("""(?<![\d{°])(\d{1,3}(?:[  ,]\d{3})+|\d{2,})(?![\d}°]|D|[  ,]\d|[  ]?(?:mm|мм)(?![\p{L}]))""")
+    /** The texts whose numbers are all lengths in mm even with no "mm" after them ("standart 100", "kamida 300", "400 × 400"). */
+    private val BARE_KEYS = setOf("iw.thSub", "iw.o.thSub", "iw.note", "iw.winNote", "re.balMinW", "re.lenSub", "iw.cl.col", "re.i.water", "re.i.gas", "re.wallRange", "re.m.range")
+
+    /** Template [s] of [key] with its lengths in [geo.RoomUnit]'s unit and its "mm" that unit's word (before its {values} go in). */
+    internal fun inRoomUnit(key: String, s: String, lang: Lang): String {
+        val ru = uz.metrx.app.geo.RoomUnit
+        val w = table[uz.metrx.app.geo.unitKey(ru.unit)]?.let { a -> a.getOrElse(lang.ordinal) { a[0] }.ifEmpty { a[0] } } ?: return s
+        fun len(n: String) = n.filter { it.isDigit() }.toIntOrNull()?.let { ru.text(it, ru.unit, lang == Lang.EN) } ?: n
+        var r = if (key in BARE_KEYS) BARE.replace(s) { m -> len(m.groupValues[1]) } else s
+        r = NUM_MM.replace(r) { m -> len(m.groupValues[1]) + " " + w }
+        return MM.replace(r) { w }
+    }
 
     private fun plural(n: Double, forms: String, lang: Lang): String {
         val f = forms.split('|')

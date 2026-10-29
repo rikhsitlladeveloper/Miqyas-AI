@@ -61,6 +61,54 @@ fun fmtArea(mm2: Long?, english: Boolean = false): String =
 /** A value to put back into a field: as shown, with all decimals when the mm need them (prototype fm()). */
 fun fmtField(mm: Int, unit: LenUnit, english: Boolean) = fmtLen(mm, unit, english, full = mm % 10 != 0)
 
+/** Whole mm in groups of three ("3 400", "999 999"; no-break spaces). */
+fun groupMm(mm: Int): String = kotlin.math.abs(mm).toString().reversed().chunked(3).joinToString(" ").reversed()
+
+/** The strings key of a unit's short word: mm, sm, m. */
+fun unitKey(unit: LenUnit) = when (unit) { LenUnit.CM -> "u.cm"; LenUnit.MM -> "u.mm"; else -> "u.m" }
+
+/**
+ * The unit the shared room editor, the room flow, its openings steps and the inner walls show and take lengths in
+ * (1.0.2): the role's own, a furniture maker's mm (Profile's furniture unit), a builder's m or cm (Profile's unit). The
+ * stored lengths stay mm. Those screens set it as they show ([set]); the texts' {lu} (the unit's word), {=300} (300 mm
+ * with the word) and {#300} (the number alone) follow it (core/Strings.kt).
+ */
+object RoomUnit {
+    @Volatile var unit: LenUnit = LenUnit.MM; private set
+    @Volatile var english: Boolean = false; private set
+    fun set(u: LenUnit, en: Boolean) { unit = u; english = en }
+    /** A length in the unit, without its word: "3 400" mm, "3,40" m, "340" cm. */
+    fun text(mm: Int): String = text(mm, unit, english)
+    fun text(mm: Int, u: LenUnit, en: Boolean): String = if (u == LenUnit.MM) groupMm(mm) else fmtLen(kotlin.math.abs(mm), u, en)
+    /** What the keypad shows for a value put in for the maker (the laser, the voice): "3400", "3,4", "340". */
+    fun field(mm: Int, u: LenUnit = unit, en: Boolean = english): String = if (u == LenUnit.MM) mm.toString() else fmtField(mm, u, en).let { s ->
+        if (s.contains(decMark(en))) s.trimEnd('0').trimEnd(decMark(en)) else s
+    }
+    /** What was typed in [u] as mm (0 for a typed zero), or null when it cannot be read. */
+    fun parse(s: String, u: LenUnit = unit): Int? = (parseDec(s, unitDecimals(u)) as? Parsed.Ok)?.value?.takeIf { it <= Int.MAX_VALUE }?.toInt()
+
+    /**
+     * The room keypad's text [v] after key [x] ("0"–"9", "," the decimal mark, "bk"), typed in [u]: mm takes whole
+     * numbers up to 6 digits; m and cm a decimal mark too, with up to 3 (m) or 1 (cm) decimals and 3 (m) or 5 (cm)
+     * whole digits, so 999 999 mm is still 999,999 m or 99 999,9 cm. Null: the key is refused (the keypad shakes).
+     */
+    fun typed(v: String, x: String, u: LenUnit): String? {
+        if (x == "bk") return v.dropLast(1)
+        if (x == "," || x == ".") {
+            if (u == LenUnit.MM || v.contains(',') || v.contains('.')) return null
+            return (v.ifEmpty { "0" }) + x
+        }
+        if (x.length != 1 || !x[0].isDigit()) return null
+        val sep = v.indexOfFirst { it == ',' || it == '.' }
+        if (sep < 0) {
+            val whole = if (u == LenUnit.MM) 6 else if (u == LenUnit.CM) 5 else 3
+            if (v == "0") return x
+            return if (v.length < whole) v + x else null
+        }
+        return if (v.length - sep - 1 < unitDecimals(u)) v + x else null
+    }
+}
+
 /* ---------------- typed values (prototype parseDec / lenErr) ---------------- */
 
 sealed interface Parsed {

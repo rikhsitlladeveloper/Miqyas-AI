@@ -222,6 +222,11 @@ fun ProfileScreen(nav: MainNav, onEditMe: () -> Unit) {
             Row(Modifier.padding(start = 18.dp, end = 18.dp, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MIcon("device", G.ink2, 16.dp, 2f); Text(tr("prof.onPhone"), style = ui(12.5f, 400, G.ink2, 1.4f), modifier = Modifier.weight(1f))
             }
+            // test mode (the version line's seven taps): while it is on, a switch here turns it off again
+            if (s.devMode) Card(Modifier.padding(top = 10.dp)) {
+                Row1("laser", tr("lt.row"), null, sub = tr("lt.rowSub")) { app.push(Route.LaserTest) }
+                SwitchRow("sliders", tr("lt.mode"), true, sub = tr("lt.modeSub")) { app.devOff() }
+            }
             VersionLine(Modifier.padding(start = 18.dp, end = 18.dp, top = 4.dp))
         }
     }

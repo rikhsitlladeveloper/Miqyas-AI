@@ -166,7 +166,7 @@ fun App.startRoomShape(pid: String, trade: String, kind: String, name: String, w
 }
 
 /** The unit the flow's sizes are typed in: a furniture maker's own (mm by default), the others' app unit. */
-fun App.rshUnit(d: RshDraft): LenUnit = if (d.trade == "furniture" || store.get(d.pid)?.isFurniture == true) settings.furnUnit else settings.unit
+fun App.rshUnit(d: RshDraft): LenUnit = roomUnit(d.pid, d.trade.takeIf { it == "furniture" } ?: "")
 
 /** Makes the room as its trade does, with the flow's shape, sizes, height and openings; returns its id. */
 private fun App.makeRoom(d: RshDraft): String? {
@@ -240,6 +240,8 @@ private fun app() = LocalApp.current
 fun RoomShapeScreen(rt: Route.RoomShape) {
     val app = LocalApp.current
     val d = RshDrafts.get(rt.key) ?: run { app.pop(); return }
+    // its lengths (and the openings step's editor) in the role's unit
+    uz.metrx.app.geo.RoomUnit.set(app.rshUnit(d), app.settings.lang == uz.metrx.app.core.Lang.EN)
     BackHandler { rshBack(app, d) }
     when (d.screen) {
         "sketch" -> uz.metrx.app.ui.editor.SketchScreen(Route.Sketch(d.pid, d.wid ?: "", d.name), onShape = { mm -> sketchDone(app, d, mm) }, onClose = { go(app, d, "shape") })
@@ -485,7 +487,9 @@ fun BigWallNote(mm: Int) {
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(G.amberWash).padding(horizontal = 12.dp, vertical = 10.dp),
         horizontalArrangement = Arrangement.spacedBy(10.dp)) {
         MIcon("alert", G.amberInk, 19.dp, 2f)
-        Text(tr("re.bigWall", "v" to lenWords(mm, LenUnit.MM, en), "m" to String.format(java.util.Locale.ROOT, "%.1f", mm / 1000.0).replace('.', if (en) '.' else ',')),
+        // in mm it says the metres too ("45 000 mm = 45,0 m"); in m or cm the length alone, in that unit (RoomUnit)
+        Text(if (uz.metrx.app.geo.RoomUnit.unit != LenUnit.MM) tr("re.bigWallS", "v" to mm(mm))
+            else tr("re.bigWall", "v" to lenWords(mm, LenUnit.MM, en), "m" to String.format(java.util.Locale.ROOT, "%.1f", mm / 1000.0).replace('.', if (en) '.' else ',')),
             style = ui(12.5f, 600, G.ink, 1.35f), modifier = Modifier.weight(1f))
     }
 }

@@ -98,9 +98,9 @@ fun App.wLab(r: Room, id: String) = if (isInner(r, id)) id + " " + t("iw.tag") e
 
 /** "2 000 × 100 × 2 700 mm", "2 000 + 1 200 × 100 × 2 700 mm", "400 × 400 mm · kvadrat", "… · o‘tish 900 × 2 100". */
 fun App.iwSize(r: Room, p: InnerWall): String {
-    val u = " " + t("u.mm")
+    val u = " " + lu()
     if (p.k == "col") return mm(p.len) + " × " + mm(p.len) + u + " · " + t(if (p.round) "iw.rd" else "iw.sq")
-    var s = mm(p.len) + (if (p.len2 > 0 && (p.k == "L" || p.k == "T")) " + " + mm(p.len2) else "") + " × " + p.th + " × " + mm(pieceH(p, roomH(r))) + u
+    var s = mm(p.len) + (if (p.len2 > 0 && (p.k == "L" || p.k == "T")) " + " + mm(p.len2) else "") + " × " + mm(p.th) + " × " + mm(pieceH(p, roomH(r))) + u
     if (p.k == "arch") s += " · " + t("iw.pass", "w" to mm(p.opW), "h" to mm(p.opH))
     return s
 }
@@ -110,9 +110,9 @@ fun App.iwCardLine(k: String, rh: Int): String {
     val D = IWK.getValue(k)
     return when (k) {
         "col" -> mm(D.len) + " × " + mm(D.len) + " · " + t("iw.d.col")
-        "half" -> mm(D.len) + " × 100 · h " + mm(D.h) + " · " + t("iw.d.half")
-        "arch" -> mm(D.len) + " × 100 · " + t("iw.pass", "w" to mm(D.opW), "h" to mm(min(D.opH, rh - 100)))
-        else -> mm(D.len) + (if (D.len2 > 0) " + " + mm(D.len2) else "") + " × 100 · " + t("iw.toCeil")
+        "half" -> mm(D.len) + " × " + mm(100) + " · h " + mm(D.h) + " · " + t("iw.d.half")
+        "arch" -> mm(D.len) + " × " + mm(100) + " · " + t("iw.pass", "w" to mm(D.opW), "h" to mm(min(D.opH, rh - 100)))
+        else -> mm(D.len) + (if (D.len2 > 0) " + " + mm(D.len2) else "") + " × " + mm(100) + " · " + t("iw.toCeil")
     }
 }
 
@@ -161,7 +161,7 @@ fun App.iwSetLen(s: ReSession, v: Int) {
     iwSet(s, t(if (p.k == "col") "iw.chSize" else "iw.chLen", "n" to iwName(p.k), "a" to mm(p.len), "b" to mm(v))) { iwWithLen(it, v) }
 }
 
-fun App.iwSetTh(s: ReSession, v: Int) { val p = s.selPiece ?: return; if (p.th != v) iwSet(s, t("iw.chTh", "n" to iwName(p.k), "a" to "${p.th}", "b" to "$v")) { it.copy(th = v) } }
+fun App.iwSetTh(s: ReSession, v: Int) { val p = s.selPiece ?: return; if (p.th != v) iwSet(s, t("iw.chTh", "n" to iwName(p.k), "a" to mm(p.th), "b" to mm(v))) { it.copy(th = v) } }
 
 fun App.iwSetH(s: ReSession, v: Int) {
     val p = s.selPiece ?: return; val r = s.room ?: return
@@ -379,7 +379,7 @@ fun PieceCard(s: ReSession, p: InnerWall, base: Modifier) {
             RoundX("close", tr("re.desel")) { deselect(s) }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (p.k != "col") { Text(tr("iw.th"), style = ui(12f, 700, G.ink2)); IW_TH.forEach { v -> SmallChip("$v", p.th == v) { app.iwSetTh(s, v) } } }
+            if (p.k != "col") { Text(tr("iw.th"), style = ui(12f, 700, G.ink2)); IW_TH.forEach { v -> SmallChip(mm(v), p.th == v) { app.iwSetTh(s, v) } } }
             else { Text(tr("iw.shape"), style = ui(12f, 700, G.ink2)); SmallChip(tr("iw.square"), !p.round) { app.iwRound(s, false) }; SmallChip(tr("iw.round"), p.round) { app.iwRound(s, true) } }
             val fc = innerFaces(r, app.reSnap()).filter { it.pid == p.id }
             if (fc.isNotEmpty()) {
@@ -420,15 +420,15 @@ fun PieceOptions(s: ReSession, k: String, back: () -> Unit) {
     val p = s.selPiece ?: return
     val nm = app.iwName(p.k)
     when (k) {
-        "iwTh" -> OptRow(tr("iw.th"), tr("iw.thSub", "n" to nm, "v" to p.th), back, key = k) {
-            IW_TH.forEach { v -> OptChip("$v " + tr("u.mm"), p.th == v) { app.iwSetTh(s, v) } }
+        "iwTh" -> OptRow(tr("iw.th"), tr("iw.thSub", "n" to nm, "v" to mm(p.th)), back, key = k) {
+            IW_TH.forEach { v -> OptChip(mm(v) + " " + app.lu(), p.th == v) { app.iwSetTh(s, v) } }
             OptChip(tr("re.type"), false) { app.openKp(s, "iwTh") }
         }
         "iwH" -> OptRow(tr("re.t.rh"), tr("iw.hSub", "n" to nm, "v" to mm(pieceH(p, roomH(r)))), back, key = k) {
             IW_HH.forEach { v -> OptChip(mm(v), pieceH(p, roomH(r)) == v) { app.iwSetH(s, v) } }
             OptChip(tr("re.type"), false) { app.openKp(s, "iwH") }
         }
-        "iwOp" -> OptRow(tr("iw.opT"), mm(p.opW) + " × " + mm(p.opH) + " " + tr("u.mm"), back, key = k) {
+        "iwOp" -> OptRow(tr("iw.opT"), mm(p.opW) + " × " + mm(p.opH) + " " + app.lu(), back, key = k) {
             IW_OPW.forEach { v -> OptChip(mm(v), p.opW == v) { app.iwSetOpW(s, v) } }
             OptChip(tr("iw.opWk"), false) { app.openKp(s, "iwOpW") }
             OptChip(tr("iw.opHk", "v" to mm(p.opH)), false) { app.openKp(s, "iwOpH") }

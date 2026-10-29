@@ -305,6 +305,17 @@ class App(val settings: Settings, val store: Store, val ctx: android.content.Con
      */
     fun openLaser() { if (laser.isReal || laser.simOn) sheet = Sheet.Device else { sheet = null; push(Route.LaserRadar) } }
 
+    /**
+     * Test mode off ("Test rejimini o‘chirish" on the Lazer sinovi page and on Profile's row): the test page hides again
+     * (and is left, if it is open); the toast's Undo turns it back on.
+     */
+    fun devOff() {
+        if (!settings.devMode) return
+        if (top == Route.LaserTest) pop()
+        settings.setDevModeOn(false)
+        say("lt.devOff", kind = ToastKind.INFO, action = "common.undo") { settings.setDevModeOn(true); say("lt.devOn", kind = ToastKind.INFO) }
+    }
+
     fun say(key: String, vararg v: Pair<String, Any?>, kind: ToastKind = ToastKind.OK, action: String? = null, onAction: (() -> Unit)? = null) {
         // every Undo in a toast reads "Ortga qaytarish" (UX upgrades §3) and ticks
         val act = if (action == "common.undo") "ux.undo" else action

@@ -288,7 +288,13 @@ private fun Pieces(p: Project) {
         one != null -> freeSub(one, lang == uz.metrx.app.core.Lang.EN).ifBlank { dn(one.name, lang) }
         else -> p.furniture.joinToString(", ") { dn(it.name, lang) }
     }
-    Text(line, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+    val lift = one?.let { liftSub(it) }
+    if (lift == null) Text(line, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+    // a hung piece: its height from the floor, a short line of its own under the box's sizes
+    else androidx.compose.foundation.layout.Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+        Text(line, style = ui(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(lift, style = ui(12f, 500, G.ink3), maxLines = 1, overflow = TextOverflow.Ellipsis)
+    }
 }
 
 /** One order in the Orders list: name, who, the 7 stages as a bar, the stage and install date, what is left; the call button. */

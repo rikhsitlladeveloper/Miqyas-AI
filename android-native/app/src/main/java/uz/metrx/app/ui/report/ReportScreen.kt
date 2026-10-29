@@ -129,6 +129,8 @@ fun ReportScreen(pid: String, no: Int?) {
     val key = if (quote != null) "q${quote.no}" else (if (design) "d" else "") + fingerprint(sn) + sn.pdf + sn.lang + sn.roomLabel + sn.extras.joinToString { it.text + it.checks }
     val tm = remember { reportMeasurer(ctx) }
     val loader = remember { viewLoader(ctx) }
+    /** The simple furniture PDF's own 3D picture of each piece, by its id (the latest made). */
+    val shots = remember { java.util.concurrent.ConcurrentHashMap<String, ImageBitmap>() }
     val density = LocalDensity.current
     val scope = rememberCoroutineScope()
     var viewer by remember { mutableStateOf<Int?>(null) }
@@ -137,11 +139,23 @@ fun ReportScreen(pid: String, no: Int?) {
         // a furniture order's quote has its own pages (furniture plan section 10)
         fun layout(): List<RPage> {
             val meta = quote?.let { QuoteMeta(it.no, it.ts) }
-            return if (p.isFurniture) uz.metrx.app.report.furniturePages(tm, sn, quote == null, meta, loader, prices = !design) else reportPages(tm, sn, quote == null, meta, loader, design = design)
+            return if (p.isFurniture) uz.metrx.app.report.furniturePages(tm, sn, quote == null, meta, loader, prices = !design, shots = shots.toMap())
+                else reportPages(tm, sn, quote == null, meta, loader, design = design)
         }
         // the pages are laid out and drawn away from the screen's thread, again whenever the report changes; each set
         // carries the key it was made for
         val built by produceState<Triple<String, List<RPage>, List<ImageBitmap>>?>(null, key, wPx) {
+            // the simple furniture PDF: each piece no saved 3D view shows gets its own 3D picture, from the card's angle
+            // (the real 3D's card, kept on disk, so the order page's cards and the PDF share them); made on this thread
+            if (design && p.isFurniture && sn.pdf.views) {
+                val s = app.settings
+                val tier = uz.metrx.app.ui.three.Quality3D.tier(ctx, s.quality)
+                val need = withContext(Dispatchers.Default) { uz.metrx.app.report.shotsFor(sn, loader) }
+                need.forEach { f ->
+                    val piece = p.furniture.firstOrNull { it.id == f.id } ?: f
+                    runCatching { uz.metrx.app.ui.furniture.Cards.piece(ctx, piece, s.workshop, s.mats, tier) }.getOrNull()?.let { shots[f.id] = it }
+                }
+            }
             value = withContext(Dispatchers.Default) { val pages = layout(); Triple(key, pages, pages.map { pageBitmap(it, wPx) }) }
         }
         val pages = built?.second.orEmpty(); val bmps = built?.third.orEmpty()

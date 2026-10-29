@@ -271,7 +271,7 @@ private fun SizePhase(s: ReSession, pk: Pick, rh: Int, L: Int) {
         .border(2.dp, if (err != null) G.err else lerp(G.cobalt, G.green, glow.value), fshape).clickable(role = Role.Button) { openPkKeypad(app, s, title) }
         .semantics { contentDescription = title }.padding(horizontal = 18.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(mm(cur ?: 0), style = num(32f, 800, G.ink), modifier = Modifier.weight(1f, false))
-        Text(tr("u.mm"), style = ui(18f, 700, G.ink2))
+        Text(tr(uz.metrx.app.geo.unitKey(uz.metrx.app.geo.RoomUnit.unit)), style = ui(18f, 700, G.ink2))
         Spacer(Modifier.weight(1f))
         ReIcon("kbd", G.cobalt2, 24.dp)
     }
@@ -323,10 +323,13 @@ fun BoxScope.KeypadOverlay(s: ReSession) {
     val k = s.kp ?: return
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
-    uz.metrx.app.laser.LaserSink { mm -> k.v = mm.toString(); k.err = null; k.note = app.t("re.laserGot", "v" to mm(mm)); app.haptic(Hap.CONFIRM); true }
+    // typed in the room's unit (m, cm or mm; RoomUnit), given back in mm
+    val ru = uz.metrx.app.geo.RoomUnit
+    fun field(mm: Int) = ru.field(mm, k.unit, app.settings.lang == uz.metrx.app.core.Lang.EN)
+    uz.metrx.app.laser.LaserSink { mm -> k.v = field(mm); k.err = null; k.note = app.t("re.laserGot", "v" to mm(mm)); app.haptic(Hap.CONFIRM); true }
     fun ok() {
         if (k.v.isEmpty()) { s.kp = null; return }
-        val v = k.v.toInt()
+        val v = ru.parse(k.v, k.unit) ?: run { k.err = app.t("re.kpRange", "a" to mm(k.lo), "b" to mm(k.hi), "u" to app.lu()); app.haptic(Hap.WARN); return }
         if (v < k.lo || v > k.hi) { k.err = app.t("re.kpBad", "v" to mm(v), "a" to mm(k.lo), "b" to mm(k.hi)); app.haptic(Hap.WARN); return }
         s.kp = null; k.ok(v)
     }
@@ -338,12 +341,14 @@ fun BoxScope.KeypadOverlay(s: ReSession) {
             Column(Modifier.weight(1f).padding(start = 6.dp)) {
                 Text(k.lab, style = ui(12f, 700, G.ink2), maxLines = 2)
                 Row(verticalAlignment = Alignment.Bottom) {
-                    Text(if (k.v.isNotEmpty()) mm(k.v.toInt()) else mm(k.cur), style = num(30f, 800, if (k.v.isNotEmpty()) G.ink else G.ink3))
-                    Text(" " + tr("u.mm"), style = ui(15f, 600, G.ink2), modifier = Modifier.padding(bottom = 4.dp))
+                    // what is typed as typed ("3,4" m), grouped in mm ("3 400")
+                    Text(if (k.v.isNotEmpty()) (if (k.unit == uz.metrx.app.geo.LenUnit.MM) ru.text(k.v.toIntOrNull() ?: 0, k.unit, false) else k.v)
+                        else ru.text(k.cur, k.unit, app.settings.lang == uz.metrx.app.core.Lang.EN), style = num(30f, 800, if (k.v.isNotEmpty()) G.ink else G.ink3))
+                    Text(" " + tr(uz.metrx.app.geo.unitKey(k.unit)), style = ui(15f, 600, G.ink2), modifier = Modifier.padding(bottom = 4.dp))
                 }
-                val v = k.v.toIntOrNull()
+                val v = if (k.v.isEmpty()) null else ru.parse(k.v, k.unit)
                 val amb = k.big && bigWall(v)
-                Text(k.err ?: if (amb) app.t("re.bigWallS", "v" to mm(v!!)) else k.note ?: app.t("re.kpRange", "a" to mm(k.lo), "b" to mm(k.hi), "u" to app.t("u.mm")),
+                Text(k.err ?: if (amb) app.t("re.bigWallS", "v" to mm(v!!)) else k.note ?: app.t("re.kpRange", "a" to mm(k.lo), "b" to mm(k.hi), "u" to app.lu()),
                     style = ui(12f, if (k.err != null || amb || k.note != null) 800 else 600, when { k.err != null -> G.err; amb -> G.amberInk; k.note != null -> G.green; else -> G.ink2 }), maxLines = 2)
             }
             Text(tr("dzc.done"), style = ui(15f, 800, Color.White), modifier = Modifier.heightIn(min = 48.dp).clip(RoundedCornerShape(14.dp)).background(G.cobalt)
@@ -353,20 +358,22 @@ fun BoxScope.KeypadOverlay(s: ReSession) {
             val on = app.settings.laser == Laser.CONNECTED || app.laser.isReal
             Row(Modifier.weight(.8f).heightIn(min = 44.dp).clip(RoundedCornerShape(12.dp)).background(if (on) G.greenWash else G.cobalt.copy(alpha = .12f))
                 .border(1.5.dp, if (on) G.green else G.cobalt, RoundedCornerShape(12.dp)).clickable(role = Role.Button, enabled = !busy) {
-                    app.laserFor(scope, k.cur, { busy = it }) { v -> k.v = v.toString(); k.err = null; k.note = app.t("re.laserGot", "v" to mm(v)); app.haptic(Hap.CONFIRM) }
+                    app.laserFor(scope, k.cur, { busy = it }) { v -> k.v = field(v); k.err = null; k.note = app.t("re.laserGot", "v" to mm(v)); app.haptic(Hap.CONFIRM) }
                 }, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp, Alignment.CenterHorizontally)) {
                 ReIcon(if (on) "laser" else "bt", if (on) G.green else G.cobalt2, 18.dp)
                 Text(tr(if (busy) "ux.lz.busy" else if (on) "re.laserOn" else "re.laser"), style = ui(13.5f, 700, if (on) G.green else G.cobalt2))
             }
-            uz.metrx.app.voice.VoiceMic(Modifier.weight(1.2f)) { v, words -> k.v = v.toString(); k.err = null; k.note = app.t("re.voiceGot", "t" to words) }
+            uz.metrx.app.voice.VoiceMic(Modifier.weight(1.2f)) { v, words -> k.v = field(v); k.err = null; k.note = app.t("re.voiceGot", "t" to words) }
         }
-        listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf("", "0", "bk")).forEach { row ->
+        // in m or cm the empty key is the decimal mark
+        val dec = if (k.unit == uz.metrx.app.geo.LenUnit.MM) "" else if (app.settings.lang == uz.metrx.app.core.Lang.EN) "." else ","
+        listOf(listOf("1", "2", "3"), listOf("4", "5", "6"), listOf("7", "8", "9"), listOf(dec, "0", "bk")).forEach { row ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), modifier = Modifier.padding(bottom = 6.dp)) {
                 row.forEach { x ->
                     Box(Modifier.weight(1f).height(46.dp).clip(RoundedCornerShape(8.dp)).background(if (x.isEmpty() || x == "bk") Color.Transparent else G.solid)
                         .semantics { contentDescription = if (x == "bk") "⌫" else x }
                         .clickable(enabled = x.isNotEmpty(), role = Role.Button) {
-                            if (x == "bk") k.v = k.v.dropLast(1) else if (k.v.length < 6) { if (k.v == "0") k.v = ""; k.v += x } else app.haptic(Hap.WARN)
+                            ru.typed(k.v, x, k.unit)?.let { k.v = it } ?: app.haptic(Hap.WARN)
                             k.err = null; k.note = null
                         }, contentAlignment = Alignment.Center) {
                         if (x == "bk") ReIcon("bksp", G.ink, 24.dp) else Text(x, style = ui(22f, 500, G.ink))

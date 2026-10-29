@@ -92,6 +92,8 @@ fun Modifier.roomGrid(): Modifier = drawBehind {
 fun EditorScreen(r0: Route.Editor) {
     if (r0.mode == "3d") { Room3DScreen(r0); return }
     val app = LocalApp.current
+    // this editor has its own units (Profile's); the shared room editor's texts stay as they are written here
+    uz.metrx.app.geo.RoomUnit.set(uz.metrx.app.geo.LenUnit.MM, false)
     val lang = LocalLang.current
     val ops = app.ops
     val p = app.store.get(r0.pid) ?: return

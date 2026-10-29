@@ -110,7 +110,7 @@ fun ItemScreen(rt: Route.Wardrobe, p: Project, f: Furniture) {
     val st = app.dzc(f.id)
     Box(Modifier.fillMaxSize().roomGrid()) {
         Column(Modifier.fillMaxSize()) {
-            uz.metrx.app.ui.ux.DesignerTop(p, f, pieceLine(f, ws)) { st.teach = true }
+            uz.metrx.app.ui.ux.DesignerTop(p, f, pieceLine(f, ws), liftSub(f)) { st.teach = true }
             if (room == null) {
                 Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.weight(1f).padding(24.dp))
             } else Box(Modifier.weight(1f).fillMaxWidth()) {

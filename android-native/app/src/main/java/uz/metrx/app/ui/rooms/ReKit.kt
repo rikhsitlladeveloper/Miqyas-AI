@@ -77,8 +77,21 @@ fun KindBadge(kind: String, size: Dp = 36.dp) {
 
 fun kindColor(kind: String) = Color(KIND_COLORS[kind] ?: 0xFF64748BL)
 
-/** "3 400": mm with thin groups, as the mockup's fmt. */
-fun mm(v: Int): String = fmtMm(kotlin.math.abs(v).toDouble())
+/**
+ * A length as the room editor, the room flow, the openings and the inner walls show it: in the role's unit
+ * ([uz.metrx.app.geo.RoomUnit], 1.0.2): "3 400" mm with thin groups (the mockup's fmt), "3,40" m, "340" cm.
+ */
+fun mm(v: Int): String = uz.metrx.app.geo.RoomUnit.text(v)
+
+/** The room unit's word (mm, sm, m). */
+fun App.lu(): String = t(uz.metrx.app.geo.unitKey(uz.metrx.app.geo.RoomUnit.unit))
+
+/** The unit the rooms of order [pid] are shown and typed in: a furniture maker's furniture unit (mm), else Profile's (m or cm). */
+fun App.roomUnit(pid: String?, trade: String? = null): uz.metrx.app.geo.LenUnit =
+    if (trade == "furniture" || pid?.let { store.get(it) }?.isFurniture == true || (pid == null && trade == null && settings.furniture)) settings.furnUnit else settings.unit
+
+/** Makes the room screens of order [pid] show and take lengths in its unit (called as they compose). */
+fun App.useRoomUnit(pid: String?, trade: String? = null) = uz.metrx.app.geo.RoomUnit.set(roomUnit(pid, trade), settings.lang == uz.metrx.app.core.Lang.EN)
 
 /** A kind's name ("Eshik", "Rozetka"). */
 fun App.kindName(kind: String) = t("re.k.$kind")

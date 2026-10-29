@@ -92,7 +92,9 @@ data class Pick(
 )
 
 /** The number keypad over the screen: [lab] what is typed, [cur] the value now, the range, [big] a wall (the 30 m note). */
-class Kp(val lab: String, val cur: Int, val lo: Int, val hi: Int, val big: Boolean = false, val ok: (Int) -> Unit) {
+class Kp(val lab: String, val cur: Int, val lo: Int, val hi: Int, val big: Boolean = false,
+         /** What is typed is in this unit (the room's, [uz.metrx.app.geo.RoomUnit]); [ok] gets mm. */
+         val unit: uz.metrx.app.geo.LenUnit = uz.metrx.app.geo.RoomUnit.unit, val ok: (Int) -> Unit) {
     var v by mutableStateOf("")
     var err by mutableStateOf<String?>(null)
     var note by mutableStateOf<String?>(null)
@@ -446,7 +448,7 @@ fun App.setH(s: ReSession, v: Int) {
     val o = s.selOp ?: return; val r = s.room ?: return
     if (v == o.h) return
     if (z0Of(o) + v > wallH(r, o.wall)) { warn(t("re.overCeil", "a" to mm(z0Of(o) + v), "b" to mm(wallH(r, o.wall)))); return }
-    if (o.balcony && v < o.wh + 100) { warn(t("re.e.balDoor", "m" to mm(o.wh + 100), "u" to t("u.mm"))); return }
+    if (o.balcony && v < o.wh + 100) { warn(t("re.e.balDoor", "m" to mm(o.wh + 100), "u" to lu())); return }
     setOp(s, t("re.chH", "n" to kindName(o.type), "a" to mm(o.h), "b" to mm(v))) { it.copy(h = v) }
 }
 
@@ -552,7 +554,7 @@ fun App.setThick(s: ReSession, id: String, v: Int) {
     val r = s.room ?: return
     val o = thickOf(r, id)
     if (v == o) return
-    s.commit(this, t("re.thickCh", "w" to id, "a" to "$o", "b" to "$v")) { it.copy(thick = it.thick + (id to v)) }
+    s.commit(this, t("re.thickCh", "w" to id, "a" to mm(o), "b" to mm(v))) { it.copy(thick = it.thick + (id to v)) }
 }
 
 fun App.setRoomH(s: ReSession, v: Int) {

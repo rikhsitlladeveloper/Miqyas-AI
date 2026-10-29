@@ -69,6 +69,13 @@ private fun Doc.pieceText(f: Furniture, ws: Workshop?): String {
     } else t("fd.lineK", "n" to name, "l" to t("kt.l" + f.layout), "v" to metres(runMm(f)))
 }
 
+/** A piece's row in the price: its line, and a hung piece's height from the floor as a short line of its own ("poldan 300 mm"). */
+private fun Doc.pieceCell(f: Furniture, ws: Workshop?, span: Int = 1): Cell {
+    val main = AnnotatedString(pieceText(f, ws)) to ui(10f)
+    val lift = uz.metrx.app.furniture.pieceLift(f) ?: return Cell(listOf(main), span)
+    return Cell(listOf(main, AnnotatedString(t("fz.fromFloor", "v" to "$lift " + t("u.mm"))) to ui(9f, 400, F_INK3)), span)
+}
+
 private fun Doc.figure(title: String, vw: Float, vh: Float, draw: androidx.compose.ui.graphics.drawscope.DrawScope.() -> Unit) {
     // two figures a page: at most 300 high, centred
     val fw = min(CW, 300f * vw / vh); val h = fw * vh / vw; val fx = PX + (CW - fw) / 2
@@ -88,14 +95,23 @@ private fun Doc.figure(title: String, vw: Float, vh: Float, draw: androidx.compo
 
 /* ---------------- the customer's quote ---------------- */
 
+/**
+ * The pieces the simple PDF pictures by their own 3D (each from the card's angle): the ones with boxes whose room has no
+ * 3D view saved by the user (a piece without a room never has one); a saved view is used instead. At most [MAX_SHOTS].
+ */
+fun shotsFor(sn: Snap, image: (String) -> ImageBitmap?): List<Furniture> {
+    val seen = sn.rooms.filter { r -> r.room.views.any { image(it.img) != null } }.map { it.room.id }.toSet()
+    return sn.furniture.filter { it.modules.isNotEmpty() && (it.roomId == null || it.roomId !in seen) }.take(MAX_SHOTS)
+}
+
 fun furniturePages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?, image: (String) -> ImageBitmap?, now: Long = System.currentTimeMillis(),
-                   prices: Boolean = true): List<RPage> {
+                   prices: Boolean = true, shots: Map<String, ImageBitmap> = emptyMap()): List<RPage> {
     // without prices (the simple app) it is the design: dated, no draft mark, no price block
     val d = Doc(tm, sn, draft && prices, meta, image, now)
     d.draftTitle = "fd.draft"; d.quoteTitle = if (prices) "fd.quote" else "rpt.design"; d.makerKey = "fd.maker"
     if (!prices) d.subLine = uz.metrx.app.data.fmtDate(now)
     d.newPage(); d.parties()
-    if (sn.pdf.views) d.views()
+    if (sn.pdf.views) d.views(if (prices) emptyList() else shotsFor(sn, image).mapNotNull { f -> shots[f.id]?.let { it to dn(f.name, d.l) } })
     d.materials(sn)
     if (prices) d.priceBlock(sn)
     // the three price options for the customer to choose from (Advanced, Project.tri)
@@ -111,7 +127,9 @@ fun furniturePages(tm: TextMeasurer, sn: Snap, draft: Boolean, meta: QuoteMeta?,
         figs.forEach { (f, fig) ->
             val tmm = tm
             val title = dn(f.name, d.l) + when (fig.wall) { null -> ""; ISLAND -> " · " + d.t(if (f.layout == "P") "kt.peninsula" else "kt.island")
-                else -> " · " + if (f.roomId == null) d.t("fz.sideN", "n" to f.walls.indexOf(fig.wall) + 1) else d.t("kt.wallN", "w" to fig.wall) }
+                else -> " · " + if (f.roomId == null) d.t("fz.sideN", "n" to f.walls.indexOf(fig.wall) + 1) else d.t("kt.wallN", "w" to fig.wall) } +
+                // a hung piece: its height from the floor, a short line of its own
+                (uz.metrx.app.furniture.pieceLift(f)?.let { "\n" + d.t("fz.fromFloor", "v" to "$it " + d.t("u.mm")) } ?: "")
             d.figure(title, fig.vw, fig.vh) { fig.draw(this, tmm) }
         }
         d.fn(d.t("fd.frontNote"))
@@ -181,11 +199,11 @@ private fun Doc.priceBlock(sn: Snap) {
     h2(t("fd.price"))
     val total = sn.ftotal.toBigIntegerOrNull() ?: BigInteger.ZERO
     val rows = ArrayList<List<Cell>>()
-    if (lines.isEmpty()) sn.furniture.forEach { f -> rows += listOf(cell(pieceText(f, sn.fws), span = 2)) }
+    if (lines.isEmpty()) sn.furniture.forEach { f -> rows += listOf(pieceCell(f, sn.fws, span = 2)) }
     lines.forEach { ln ->
         val f = sn.furniture.firstOrNull { it.id == ln.key }
-        val text = if (ln.key == "deliver") t("fd.deliver") else f?.let { pieceText(it, sn.fws) } ?: ln.key
-        rows += listOf(cell(text), rcell(money(ln.amount.toBigIntegerOrNull() ?: BigInteger.ZERO)))
+        val text = if (ln.key == "deliver") cell(t("fd.deliver")) else f?.let { pieceCell(it, sn.fws) } ?: cell(ln.key)
+        rows += listOf(text, rcell(money(ln.amount.toBigIntegerOrNull() ?: BigInteger.ZERO)))
     }
     table(rows, fixed = floatArrayOf(CW * .72f, CW * .28f))
     fn(t("fd.priceNote"))

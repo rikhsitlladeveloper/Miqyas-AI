@@ -180,7 +180,7 @@ fun WardrobeScreen(rt: Route.Wardrobe) {
     val st = app.dzc(f.id)
     Box(Modifier.fillMaxSize().roomGrid()) {
         Column(Modifier.fillMaxSize()) {
-            uz.metrx.app.ui.ux.DesignerTop(p, f, wardHeadSub(f, m, ws)) { st.teach = true }
+            uz.metrx.app.ui.ux.DesignerTop(p, f, wardHeadSub(f, m, ws), uz.metrx.app.furniture.boxLift(m)?.let { liftText(it) }) { st.teach = true }
             val room = cx.room
             if (room == null) Text(tr("kt.roomLost"), style = ui(15f, 500, G.ink2, 1.45f), modifier = Modifier.weight(1f).padding(24.dp))
             else Box(Modifier.weight(1f).fillMaxWidth()) { WardEditor(rt, p, f, m, room, cx, st) }
@@ -204,7 +204,8 @@ private fun WardEditor(rt: Route.Wardrobe, p: Project, f: Furniture, m: Module, 
         val wPx = constraints.maxWidth.toFloat(); val hPx = constraints.maxHeight.toFloat()
         val many = f.modules.count { it.type == "wardrobe" } > 1 || f.type == "stenka"
         val topPx = with(d) { (if (many) 100.dp else 56.dp).toPx() }
-        val lay = KLay(m.w, outerH(m, ws), 360f, true, m.w, st.z, st.px, st.py)
+        // a hung box is drawn as high above the floor line as it hangs (as the 3D shows it)
+        val lay = KLay(m.w, outerH(m, ws), 360f, true, m.w, st.z, st.px, st.py, under = uz.metrx.app.furniture.boxLift(m) ?: 0)
         val view = dzcFit(lay.vw, lay.vh, wPx, hPx, topPx, max(panelH.toFloat(), with(d) { 172.dp.toPx() }) + with(d) { 10.dp.toPx() })
         c.lay = lay; c.view = view
         if (rt.d3) DzcWard3D(p, room, f, c)
@@ -215,6 +216,7 @@ private fun WardEditor(rt: Route.Wardrobe, p: Project, f: Furniture, m: Module, 
             Canvas(Modifier.fillMaxSize().onGloballyPositioned { c.canvas = it.boundsInRoot() }.pointerInput(Unit) { dzcGestures(WardGestures(c)) }) {
                 withTransform({ translate(view.ox, view.oy); scale(view.u, view.u, pivot = androidx.compose.ui.geometry.Offset.Zero) }) {
                     drawLine(uz.metrx.app.ui.editor.INK, Offset(lay.x0 - 10f, lay.yF), Offset(lay.x(m.w) + 10f, lay.yF), 2f)
+                    boxesUnder(lay, f, m, ws)
                     val sel = if (st.sel?.front == null && !st.multi && c.drag !is WDrag.Move) c.selSec ?: -1 else -1
                     drawWard(lay, shown.copy(x = 0, elev = 0), 0, ws, carcass, front, sel, !st.inside, if (c.drag == null) cx.bad else emptyMap(), tm,
                         uz.metrx.app.furniture.opensByEdge(f), { id -> boardColor(mats, id) }, open)
@@ -284,7 +286,7 @@ private fun androidx.compose.ui.graphics.drawscope.DrawScope.wOverlay(c: WardCtl
             drawLine(Color.White, Offset(hx - 1.2f, hy - 5f), Offset(hx - 1.2f, hy + 5f), 1f); drawLine(Color.White, Offset(hx + 1.2f, hy - 5f), Offset(hx + 1.2f, hy + 5f), 1f)
         }
     }
-    (c.drag as? WDrag.Resize)?.let { dr -> dr.cands.forEach { v -> val on = v == dr.nw; val tx = lay.x(dr.x0 + v); drawLine(if (on) COB else uz.metrx.app.ui.editor.GREY_LINE, Offset(tx, lay.yF + 2f), Offset(tx, lay.yF + if (on) 9f else 6f), if (on) 2f else 1f) } }
+    (c.drag as? WDrag.Resize)?.let { dr -> dr.cands.forEach { v -> val on = v == dr.nw; val tx = lay.x(dr.x0 + v); drawLine(if (on) COB else uz.metrx.app.ui.editor.GREY_LINE, Offset(tx, lay.y(0) + 2f), Offset(tx, lay.y(0) + if (on) 9f else 6f), if (on) 2f else 1f) } }
     (c.drag as? WDrag.Move)?.let { dr ->
         val s = c.m.sections[dr.from]
         val at = dr.order.take(dr.at).sumOf { it.w }

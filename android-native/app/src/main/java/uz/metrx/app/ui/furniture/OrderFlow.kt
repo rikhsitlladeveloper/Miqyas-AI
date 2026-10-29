@@ -282,7 +282,7 @@ fun FRoomsTab(p: Project, lang: Lang, route: Route.Project, addCard: Boolean = t
                     val ward = f.kind == "wardrobe"
                     val sub = if (ward && (uz.metrx.app.furniture.isItemPiece(f) || uz.metrx.app.furniture.boxes(f).size > 1)) freeSub(f, en)
                         else if (ward) uz.metrx.app.furniture.wardOfF(f)?.let { m -> uz.metrx.app.geo.fmtLen(m.w, s.furnUnit, en) + " × " +
-                        uz.metrx.app.geo.fmtLen(uz.metrx.app.furniture.valsOf(f, s.workshop)["h"] ?: m.h, s.furnUnit, en) + " " + unitWord(s.furnUnit) } ?: ""
+                        uz.metrx.app.geo.fmtLen(uz.metrx.app.furniture.shownVals(f, s.workshop)["h"] ?: m.h, s.furnUnit, en) + " " + unitWord(s.furnUnit) } ?: ""
                         else tr("kt.l" + f.layout) + " · " + pogM(runMm(f), en) + " " + tr("kt.pm")
                     PieceRow(p, f, sub, priced.lines.firstOrNull { it.key == f.id }?.amount, lang, badge = if (!f.keep) null else ({
                         Text(tr("fz.big"), style = ui(11f, 700, G.err), maxLines = 1,
