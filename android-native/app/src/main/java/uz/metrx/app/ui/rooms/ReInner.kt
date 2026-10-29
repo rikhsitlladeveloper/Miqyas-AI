@@ -161,7 +161,7 @@ fun App.iwSetLen(s: ReSession, v: Int) {
     iwSet(s, t(if (p.k == "col") "iw.chSize" else "iw.chLen", "n" to iwName(p.k), "a" to mm(p.len), "b" to mm(v))) { iwWithLen(it, v) }
 }
 
-fun App.iwSetTh(s: ReSession, v: Int) { val p = s.selPiece ?: return; if (p.th != v) iwSet(s, t("iw.chTh", "n" to iwName(p.k), "a" to "${p.th}", "b" to "$v")) { it.copy(th = v) } }
+fun App.iwSetTh(s: ReSession, v: Int) { val p = s.selPiece ?: return; if (p.th != v) iwSet(s, t("iw.chTh", "n" to iwName(p.k), "a" to mm(p.th), "b" to mm(v))) { it.copy(th = v) } }
 
 fun App.iwSetH(s: ReSession, v: Int) {
     val p = s.selPiece ?: return; val r = s.room ?: return
@@ -379,7 +379,7 @@ fun PieceCard(s: ReSession, p: InnerWall, base: Modifier) {
             RoundX("close", tr("re.desel")) { deselect(s) }
         }
         Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (p.k != "col") { Text(tr("iw.th"), style = ui(12f, 700, G.ink2)); IW_TH.forEach { v -> SmallChip("$v", p.th == v) { app.iwSetTh(s, v) } } }
+            if (p.k != "col") { Text(tr("iw.th"), style = ui(12f, 700, G.ink2)); IW_TH.forEach { v -> SmallChip(mm(v), p.th == v) { app.iwSetTh(s, v) } } }
             else { Text(tr("iw.shape"), style = ui(12f, 700, G.ink2)); SmallChip(tr("iw.square"), !p.round) { app.iwRound(s, false) }; SmallChip(tr("iw.round"), p.round) { app.iwRound(s, true) } }
             val fc = innerFaces(r, app.reSnap()).filter { it.pid == p.id }
             if (fc.isNotEmpty()) {

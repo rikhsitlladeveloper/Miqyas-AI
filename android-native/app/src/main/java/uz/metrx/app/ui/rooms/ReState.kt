@@ -554,7 +554,7 @@ fun App.setThick(s: ReSession, id: String, v: Int) {
     val r = s.room ?: return
     val o = thickOf(r, id)
     if (v == o) return
-    s.commit(this, t("re.thickCh", "w" to id, "a" to "$o", "b" to "$v")) { it.copy(thick = it.thick + (id to v)) }
+    s.commit(this, t("re.thickCh", "w" to id, "a" to mm(o), "b" to mm(v))) { it.copy(thick = it.thick + (id to v)) }
 }
 
 fun App.setRoomH(s: ReSession, v: Int) {

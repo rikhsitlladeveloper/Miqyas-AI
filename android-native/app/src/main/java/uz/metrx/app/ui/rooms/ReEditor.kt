@@ -371,13 +371,13 @@ private fun Options(s: ReSession, k: String, geo: ReGeo, scope: kotlinx.coroutin
         }
         "len" -> { val id = w ?: return; val L = app.wallL(r, id)
             if (app.wallEditable(r, id)) row(tr("re.t.len"), tr("re.lenSub", "w" to id, "v" to mm(L))) {
-                listOf(-100, -10).forEach { dv -> OptChip((if (dv < 0) "−" else "+") + kotlin.math.abs(dv), false) { app.setWallLen(s, id, L + dv) } }
+                listOf(-100, -10).forEach { dv -> OptChip((if (dv < 0) "−" else "+") + mm(dv), false) { app.setWallLen(s, id, L + dv) } }
                 Text(mm(L) + " " + app.lu(), style = ui(13.5f, 800, G.cobalt2), modifier = Modifier.padding(horizontal = 10.dp))
-                listOf(10, 100).forEach { dv -> OptChip("+$dv", false) { app.setWallLen(s, id, L + dv) } }
+                listOf(10, 100).forEach { dv -> OptChip("+" + mm(dv), false) { app.setWallLen(s, id, L + dv) } }
                 IconChip(tr("re.type"), "kbd") { app.openKp(s, "wl") }
             } else row(tr("re.t.len"), tr("re.lenAuto", "w" to id, "v" to mm(L))) { OptNote(tr("re.lenAutoNote")) } }
         "thick" -> { val id = w ?: return
-            row(tr("re.t.thick"), tr("re.thickSub", "w" to id, "v" to thickOf(r, id))) {
+            row(tr("re.t.thick"), tr("re.thickSub", "w" to id, "v" to mm(thickOf(r, id)))) {
                 THICKS.forEach { v -> OptChip(mm(v) + " " + app.lu(), thickOf(r, id) == v) { app.setThick(s, id, v) } }
                 IconChip(tr("re.type"), "kbd") { app.openKp(s, "thick") }
             } }
