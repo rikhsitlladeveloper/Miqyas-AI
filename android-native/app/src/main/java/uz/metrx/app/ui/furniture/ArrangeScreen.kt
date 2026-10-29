@@ -163,6 +163,8 @@ private fun bodyFrame(f: Furniture, island: Boolean, walls: List<PlanWall>, ws: 
 @Composable
 fun FArrangeScreen(rt: Route.FArrange) {
     val app = LocalApp.current
+    // placing furniture stays in mm (its texts say mm), whatever room screen was open before
+    uz.metrx.app.geo.RoomUnit.set(uz.metrx.app.geo.LenUnit.MM, false)
     val lang = LocalLang.current
     val p = app.store.get(rt.pid) ?: return
     val room = p.rooms.firstOrNull { it.id == rt.rid } ?: return

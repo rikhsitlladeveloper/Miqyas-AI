@@ -251,9 +251,35 @@ fun valsOf(f: Furniture, ws: Workshop): Map<String, Int> {
     return mapOf("w" to m.w, "h" to if (f.type.isNotEmpty()) outerH(m, ws) else m.h, "d" to m.d)
 }
 
-/** A piece's sizes in a line: a bed's mattress, a corner piece's two arms, else width × height × depth; [mm] the unit's word. */
-fun sizeLine(f: Furniture, ws: Workshop, mm: String): String {
+/** A box's bottom above the floor when it hangs on the wall, mm (null: it stands on the floor, on its legs or a plinth). */
+fun boxLift(m: Module): Int? = m.elev.takeIf { hung(m) }
+
+/**
+ * A piece of one box that hangs on the wall (a wall-mounted sink cabinet or tall cabinet, a wall shelf, a mirror
+ * cabinet or panel): how high its bottom is above the floor, mm. Null for one that stands on the floor, a kitchen and a
+ * piece of several boxes (a vanity's mirror does not count as a box of its own).
+ */
+fun pieceLift(f: Furniture): Int? {
+    if (f.kind != "wardrobe") return null
+    val m = wardOfF(f) ?: return null
+    if (boxes(f).count { it.type != "mirror" } > 1) return null
+    return boxLift(m)
+}
+
+/**
+ * A piece's sizes as shown (the card, the designer's header, the PDF): its step values, but a hung piece's height is
+ * its box's (W × H × D), not the height from the floor to its top (the sink cabinet's step asks that one); the height
+ * from the floor is a line of its own ([pieceLift]).
+ */
+fun shownVals(f: Furniture, ws: Workshop): Map<String, Int> {
     val v = valsOf(f, ws)
+    val m = wardOfF(f) ?: return v
+    return if (pieceLift(f) != null && "h" in v && "mw" !in v) v + ("h" to outerH(m, ws)) else v
+}
+
+/** A piece's sizes in a line: a bed's mattress, a corner piece's two arms, else width × height × depth (a hung box's own); [mm] the unit's word. */
+fun sizeLine(f: Furniture, ws: Workshop, mm: String): String {
+    val v = shownVals(f, ws)
     val m = wardOfF(f)
     return when {
         "mw" in v -> "${v["mw"]} × ${v["ml"]} · h ${v["h"]} $mm"

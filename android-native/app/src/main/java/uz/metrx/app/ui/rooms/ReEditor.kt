@@ -191,6 +191,8 @@ private fun App.wallLaser(s: ReSession, scope: kotlinx.coroutines.CoroutineScope
 @Composable
 fun RoomEditorScreen(pid: String, rid: String) {
     val app = LocalApp.current
+    // its lengths in the role's unit (a builder's m or cm, a furniture maker's mm); kept in mm
+    app.useRoomUnit(pid)
     val p = app.store.get(pid) ?: return
     val s = app.edSession(pid, rid)
     val r = s.room ?: return
@@ -279,11 +281,11 @@ private fun Caption(s: ReSession, modifier: Modifier) {
     val o = s.selOp; val p = s.selPt; val w = s.selWall; val pc = s.selPieceOnly
     val (b, sub) = when {
         pc != null -> (app.iwName(pc.k) + if (s.ghostId == pc.id) " · " + app.t("iw.new") else "") to app.iwSize(r, pc)
-        w != null && app.isInner(r, w) -> tr("re.wallCap", "w" to app.wLab(r, w), "l" to mm(app.wallL(r, w))) to tr("re.wallCapSub", "t" to (s.selPiece?.th ?: 100), "n" to (r.openings.count { it.wall == w } + r.points.count { it.wall == w }))
+        w != null && app.isInner(r, w) -> tr("re.wallCap", "w" to app.wLab(r, w), "l" to mm(app.wallL(r, w))) to tr("re.wallCapSub", "t" to mm(s.selPiece?.th ?: 100), "n" to (r.openings.count { it.wall == w } + r.points.count { it.wall == w }))
         o != null -> { val d = distsOf(o, app.wallL(r, o.wall)); (app.kindName(o.type) + " · " + app.styleName(o.type, styleId(o))) to
             (app.sizeLine(o) + " · " + o.wall + " · " + mm(d.left) + " | " + mm(d.right)) }
         p != null -> { val d = distsOf(p, app.wallL(r, p.wall)); (app.kindName(p.t) + " · " + app.styleName(p.t, styleId(p))) to (app.sizeLine(p) + " · " + p.wall + " · " + mm(d.left) + " | " + mm(d.right)) }
-        w != null -> tr("re.wallCap", "w" to w, "l" to mm(app.wallL(r, w))) to tr("re.wallCapSub", "t" to thickOf(r, w), "n" to (r.openings.count { it.wall == w } + r.points.count { it.wall == w }))
+        w != null -> tr("re.wallCap", "w" to w, "l" to mm(app.wallL(r, w))) to tr("re.wallCapSub", "t" to mm(thickOf(r, w)), "n" to (r.openings.count { it.wall == w } + r.points.count { it.wall == w }))
         else -> uz.metrx.app.data.dn(r.name, app.settings.lang) to (app.t(shapeKey(shapeIdOf(r))) + " · " + app.areaLine(r).substringBefore(" ·") + " · h " + mm(roomH(r)))
     }
     Row(modifier.heightIn(min = 34.dp).clip(RoundedCornerShape(18.dp)).background(G.solid).border(1.dp, G.rim, RoundedCornerShape(18.dp))
@@ -370,13 +372,13 @@ private fun Options(s: ReSession, k: String, geo: ReGeo, scope: kotlinx.coroutin
         "len" -> { val id = w ?: return; val L = app.wallL(r, id)
             if (app.wallEditable(r, id)) row(tr("re.t.len"), tr("re.lenSub", "w" to id, "v" to mm(L))) {
                 listOf(-100, -10).forEach { dv -> OptChip((if (dv < 0) "−" else "+") + kotlin.math.abs(dv), false) { app.setWallLen(s, id, L + dv) } }
-                Text(mm(L) + " " + tr("u.mm"), style = ui(13.5f, 800, G.cobalt2), modifier = Modifier.padding(horizontal = 10.dp))
+                Text(mm(L) + " " + app.lu(), style = ui(13.5f, 800, G.cobalt2), modifier = Modifier.padding(horizontal = 10.dp))
                 listOf(10, 100).forEach { dv -> OptChip("+$dv", false) { app.setWallLen(s, id, L + dv) } }
                 IconChip(tr("re.type"), "kbd") { app.openKp(s, "wl") }
             } else row(tr("re.t.len"), tr("re.lenAuto", "w" to id, "v" to mm(L))) { OptNote(tr("re.lenAutoNote")) } }
         "thick" -> { val id = w ?: return
             row(tr("re.t.thick"), tr("re.thickSub", "w" to id, "v" to thickOf(r, id))) {
-                THICKS.forEach { v -> OptChip("$v " + tr("u.mm"), thickOf(r, id) == v) { app.setThick(s, id, v) } }
+                THICKS.forEach { v -> OptChip(mm(v) + " " + app.lu(), thickOf(r, id) == v) { app.setThick(s, id, v) } }
                 IconChip(tr("re.type"), "kbd") { app.openKp(s, "thick") }
             } }
         "corner" -> { val id = w ?: return; val ws = reWalls(r, app.reSnap()); val i = ws.indexOfFirst { it.id == id }; val n = ws.size
@@ -405,7 +407,7 @@ private fun Options(s: ReSession, k: String, geo: ReGeo, scope: kotlinx.coroutin
             if (oo.type == "window") row(tr("re.f.sill"), tr("re.sillSub", "v" to mm(oo.sill))) {
                 SILLS.forEach { v -> OptChip(mm(v), oo.sill == v) { app.setSill(s, v) } }; IconChip(tr("re.type"), "kbd") { app.openKp(s, "sill") }
             } else row(tr("re.thrT"), tr("re.thrSub", "v" to oo.thr)) {
-                THRESHOLDS.forEach { v -> OptChip("$v " + tr("u.mm"), oo.thr == v) { if (oo.thr != v) app.setOp(s, app.t("re.thrCh", "v" to v)) { it.copy(thr = v) } } }
+                THRESHOLDS.forEach { v -> OptChip(mm(v) + " " + app.lu(), oo.thr == v) { if (oo.thr != v) app.setOp(s, app.t("re.thrCh", "v" to mm(v))) { it.copy(thr = v) } } }
             } }
         "move" -> { val wall = o?.wall ?: p?.wall ?: return; val L = app.wallL(r, wall); val d = if (o != null) distsOf(o, L) else distsOf(p!!, L)
             row(tr("re.t.move"), tr("re.moveSub", "l" to mm(d.left), "r" to mm(d.right))) {

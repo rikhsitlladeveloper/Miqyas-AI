@@ -218,8 +218,8 @@ fun freeSub(f: Furniture, en: Boolean): String {
     fun m(v: Int) = uz.metrx.app.geo.fmtLen(v, fu, en)
     if (f.kind == "wardrobe") {
         val w = wardOfF(f) ?: return ""
-        // the height as asked: a cabinet's with its legs
-        val v = uz.metrx.app.furniture.valsOf(f, LocalApp.current.settings.workshop)
+        // the box's height (a cabinet's with its legs); a hung one's height from the floor is a line of its own (liftSub)
+        val v = uz.metrx.app.furniture.shownVals(f, LocalApp.current.settings.workshop)
         val h = v["h"] ?: w.h
         val sizes = when {
             "mw" in v -> m(v.getValue("mw")) + " × " + m(v["ml"] ?: 0) + " " + unitWord(fu)
@@ -238,6 +238,17 @@ fun freeSub(f: Furniture, en: Boolean): String {
         fs?.let { (it.sides + listOfNotNull(it.island.takeIf { i -> i > 0 })).joinToString(" + ") { v -> m(v) } + " " + unitWord(fu) },
         pogM(run, en) + " " + tr("kt.pm")).joinToString(" · ")
 }
+
+/** "poldan 300 mm" / "от пола 300 мм": how high a hung box's bottom is, in the role's unit. */
+@Composable
+fun liftText(mm: Int): String {
+    val fu = LocalApp.current.settings.furnUnit
+    return tr("fz.fromFloor", "v" to uz.metrx.app.geo.fmtLen(mm, fu, LocalLang.current == Lang.EN) + " " + unitWord(fu))
+}
+
+/** A hung piece's own short line under its sizes (the order card, the Rooms tab, the designer's header); null for one on the floor. */
+@Composable
+fun liftSub(f: Furniture): String? = uz.metrx.app.furniture.pieceLift(f)?.let { liftText(it) }
 
 /** Running metres of [mm] to one decimal ("5,4"; English "5.4"), as every card, the designer and the price show them. */
 fun pogM(mm: Int, en: Boolean): String { val t = (max(0, mm) + 50) / 100; return "${t / 10}${if (en) "." else ","}${t % 10}" }
@@ -287,6 +298,7 @@ internal fun PieceRow(p: Project, f: Furniture, sub: String, amount: java.math.B
                 badge?.invoke()
             }
             if (sub.isNotBlank()) Text(sub, style = num(12.5f, 500, G.ink2), maxLines = 2, overflow = TextOverflow.Ellipsis)
+            liftSub(f)?.let { Text(it, style = num(12f, 500, G.ink3), maxLines = 1, overflow = TextOverflow.Ellipsis) }
             val style = f.look?.preset.orEmpty()
             if (style.isNotEmpty()) Text(tr("lk.p.$style"), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (amount != null && amount.signum() > 0) {
@@ -519,7 +531,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
                 }
             }
         }
-        if (!asked) WhereAsk(dn(f.name, lang), uz.metrx.app.furniture.bodyOf(g, pw, ws)?.let { uz.metrx.app.ui.rooms.mm(it.w.roundToInt()) + " × " + uz.metrx.app.ui.rooms.mm(it.d.roundToInt()) } ?: "", { app.pop() }) { wall ->
+        if (!asked) WhereAsk(dn(f.name, lang), uz.metrx.app.furniture.bodyOf(g, pw, ws)?.let { uz.metrx.app.geo.groupMm(it.w.roundToInt()) + " × " + uz.metrx.app.geo.groupMm(it.d.roundToInt()) } ?: "", { app.pop() }) { wall ->
             asked = true
             val b0 = uz.metrx.app.furniture.bodyOf(g, pw, ws)
             val fr0 = uz.metrx.app.furniture.poseFrame(g, pw)
@@ -529,7 +541,7 @@ fun FPlaceScreen(rt: Route.FPlace) {
                 val spot = uz.metrx.app.furniture.placeWall(room, pw, b0.w, b0.d, others, ws, snap) ?: return@WhereAsk
                 if (spot.wall != first) first = spot.wall
                 off = spot.t.toString(); setPose(null); reset()
-                app.say("fp.pl.toWall", "n" to dn(f.name, lang), "w" to spot.wall, "a" to uz.metrx.app.ui.rooms.mm(spot.t))
+                app.say("fp.pl.toWall", "n" to dn(f.name, lang), "w" to spot.wall, "a" to uz.metrx.app.geo.groupMm(spot.t))
             } else {
                 val c = uz.metrx.app.geo.roomCen(room, snap)
                 setPose(uz.metrx.app.furniture.poseAt(pw, pw.first { !it.inner }.id, b0, fr0, uz.metrx.app.furniture.PlanPt(c.x, c.y), 0.0))

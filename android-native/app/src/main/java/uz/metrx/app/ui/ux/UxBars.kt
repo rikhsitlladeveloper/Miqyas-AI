@@ -91,7 +91,7 @@ fun Modifier.coachSpot(key: String): Modifier = composed {
 /** The header: Back, a small line above the title, the title on up to 3 lines, [right] buttons, and [below]. */
 @Composable
 fun UxTop(title: String, onBack: () -> Unit, eyebrow: String? = null, right: @Composable RowScope.() -> Unit = {},
-          below: (@Composable ColumnScope.() -> Unit)? = null) {
+          eyebrow2: String? = null, below: (@Composable ColumnScope.() -> Unit)? = null) {
     val haze = LocalHaze.current
     val backLbl = tr("nt.back")
     Column(Modifier.fillMaxWidth().glassBlur(haze, barFill(), 20.dp).background(barFill())
@@ -103,6 +103,8 @@ fun UxTop(title: String, onBack: () -> Unit, eyebrow: String? = null, right: @Co
                 .semantics { contentDescription = backLbl }, contentAlignment = Alignment.Center) { MIcon("back", G.ink, 24.dp, 2.2f) }
             Column(Modifier.weight(1f).padding(top = if (eyebrow != null) 2.dp else 11.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 if (eyebrow != null) Text(eyebrow, style = ui(12.5f, 600, G.cobalt2), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                // a second short line under it (a hung piece's height from the floor)
+                if (eyebrow2 != null) Text(eyebrow2, style = ui(12f, 500, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 // the order's name wraps and is never cut (§1)
                 Text(title, style = ui(18.5f, 800, G.ink, 1.2f))
             }

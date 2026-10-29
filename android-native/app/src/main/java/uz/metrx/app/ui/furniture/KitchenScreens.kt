@@ -255,21 +255,23 @@ private val GLASS_2D get() = pc(0xFFD6E6EC, 0xFF3A4A5C)
  * canvas zooms by [z] about the viewBox's origin and pans by [px], [py] (viewBox units), so lines and text stay their
  * size while the drawing grows; [vh] is the viewBox's height unzoomed.
  */
-internal class KLay(val L: Int, val H: Int, val vw: Float, val dims: Boolean, ext: Int = L, z: Float = 1f, px: Float = 0f, py: Float = 0f) {
+internal class KLay(val L: Int, val H: Int, val vw: Float, val dims: Boolean, ext: Int = L, z: Float = 1f, px: Float = 0f, py: Float = 0f, val under: Int = 0) {
     val padX = if (dims) 18f else 6f
     val top = if (dims) 28f else 8f
     /** Units past the wall's end still show (in red), so the drawing takes the longer of the two. */
     val span = max(L, ext)
-    private val s0 = min((vw - 2 * padX) / span, (if (dims) 230f else 118f) / H)
+    // [under]: a box hung on the wall is drawn that far above the floor line; its own millimetres still start at its
+    // bottom (y(0)), the floor is at yF (y(-under))
+    private val s0 = min((vw - 2 * padX) / span, (if (dims) 230f else 118f) / (H + under))
     val s = s0 * z
     val x0 = px + z * (padX + ((vw - 2 * padX) - span * s0) / 2f)
-    val yF = py + z * (top + H * s0)
-    val vh = top + H * s0 + if (dims) 56f else 10f
-    /** The millimetres along and up at viewBox point [vx], [vy]. */
+    val yF = py + z * (top + (H + under) * s0)
+    val vh = top + (H + under) * s0 + if (dims) 56f else 10f
+    /** The millimetres along and up (from the box's bottom) at viewBox point [vx], [vy]. */
     fun mmX(vx: Float) = (vx - x0) / s
-    fun mmY(vy: Float) = (yF - vy) / s
+    fun mmY(vy: Float) = (yF - vy) / s - under
     fun x(mm: Int) = x0 + mm * s
-    fun y(mm: Int) = yF - mm * s
+    fun y(mm: Int) = yF - (mm + under) * s
 }
 
 /** Where the run's rows end, mm from its start. */
@@ -1055,8 +1057,7 @@ fun FurnitureCard(p: Project, f: Furniture, modifier: Modifier) {
                 val wm = wardOf(f)
                 Text(if (ward && (uz.metrx.app.furniture.isItemPiece(f) || uz.metrx.app.furniture.boxes(f).size > 1)) pieceLine(f, app.settings.workshop)
                     else if (ward && wm != null) tr("wd.card", "w" to wm.w, "h" to uz.metrx.app.furniture.outerH(wm, app.settings.workshop), "n" to wm.sections.size)
-                    else tr("kt.card", "n" to f.modules.size, "l" to tr("kt.l" + f.layout)), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+                    else tr("kt.card", "n" to f.modules.size, "l" to tr("kt.l" + f.layout)), style = ui(12.5f, 400, G.ink2), maxLines = 1, overflow = TextOverflow.Ellipsis)            }
         }
         Box(Modifier.align(Alignment.BottomEnd).padding(bottom = 4.dp).size(44.dp).clip(CircleShape).clickable(role = Role.Button) { app.sheet = Sheet.FMenu(p.id, f.id) },
             contentAlignment = Alignment.Center) { MIcon("more", G.ink, 18.dp, 2f) }

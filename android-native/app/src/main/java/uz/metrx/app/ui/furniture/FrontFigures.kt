@@ -19,9 +19,11 @@ class FrontFig(val wall: String?, val vw: Float, val vh: Float, val draw: DrawSc
 fun frontFigures(f: Furniture, room: Room?, ws0: Workshop, mats: List<Mat>): List<FrontFig> {
     val ws = uz.metrx.app.furniture.wsOf(f, ws0)
     if (f.kind == "wardrobe") {
-        // each cabinet of the piece (a stenka's, a corner wardrobe's), drawn from its own bottom; a bed or a table has none
+        // each cabinet of the piece (a stenka's, a corner wardrobe's), drawn from its own bottom; a bed or a table has none;
+        // a piece of one box hung on the wall (a wall-mounted sink cabinet) above the floor line, as high as it hangs
+        val lift = uz.metrx.app.furniture.pieceLift(f) ?: 0
         return f.modules.filter { it.type == "wardrobe" }.map { it.copy(elev = 0) }.map { m ->
-        val lay = KLay(m.w, outerH(m, ws), 360f, true)
+        val lay = KLay(m.w, outerH(m, ws), 360f, true, under = lift)
         FrontFig(null, lay.vw, lay.vh) { tm ->
             Theme.onPaper {
                 val front = hex(mats.firstOrNull { it.id == f.mats.front }?.rgb ?: "#CDBFAE")
