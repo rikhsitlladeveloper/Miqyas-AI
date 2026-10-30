@@ -110,6 +110,51 @@ func centreLabel(_ ctx: GraphicsContext, _ name0: String, _ area: String, _ c: C
     else if nm { n(c) } else if ar { a(c) }
 }
 
+/// Whether p is inside the outline pts.
+func planInPoly(_ p: CGPoint, _ pts: [CGPoint]) -> Bool {
+    var inside = false, j = pts.count - 1
+    for i in pts.indices {
+        let a = pts[i], b = pts[j]
+        if (a.y > p.y) != (b.y > p.y) && p.x < (b.x - a.x) * (p.y - a.y) / (b.y - a.y) + a.x { inside.toggle() }
+        j = i
+    }
+    return inside
+}
+
+/// About how wide the room's label is on the plan (its name in capitals, at most 24 letters).
+func planLabelW(_ name: String) -> CGFloat { max(70, CGFloat(min(name.count, 24)) * 8) }
+
+/// Where the room's name and area go: c, or when an inner wall, a letter or a dimension runs through them the nearest
+/// spot clear of boxes with the whole label still inside the room; c again when there is no such spot.
+func planLabelSpot(_ c: CGPoint, _ w: CGFloat, _ h: CGFloat, _ boxes: [CGRect], inside: (CGPoint) -> Bool) -> CGPoint {
+    func box(_ p: CGPoint) -> CGRect { CGRect(x: p.x - w / 2, y: p.y - h / 2, width: w, height: h) }
+    func clear(_ p: CGPoint) -> Bool { !boxes.contains { $0.intersects(box(p)) } }
+    if boxes.isEmpty || clear(c) { return c }
+    // every spot on a 5 pt grid round the middle, nearest first (ties: above before below)
+    var spots: [(CGFloat, CGFloat)] = []
+    for dx in -40...40 { for dy in -40...40 { spots.append((CGFloat(dx) * 5, CGFloat(dy) * 5)) } }
+    spots.sort { a, b in
+        let da: CGFloat = a.0 * a.0 + a.1 * a.1, db: CGFloat = b.0 * b.0 + b.1 * b.1
+        return da != db ? da < db : a.1 < b.1
+    }
+    for (dx, dy) in spots {
+        let p = CGPoint(x: c.x + dx, y: c.y + dy), b = box(p)
+        if clear(p) && inside(CGPoint(x: b.minX, y: b.minY)) && inside(CGPoint(x: b.maxX, y: b.minY)) && inside(CGPoint(x: b.minX, y: b.maxY)) && inside(CGPoint(x: b.maxX, y: b.maxY)) { return p }
+    }
+    return c
+}
+
+/// Where a wall's letter circle (radius 9) goes: at base unless it covers one already placed; then it slides along the wall
+/// (u, at most half of it) away from the one it covers, 2 pt at a time, until it is clear.
+func planLetterSpot(_ base: CGPoint, _ u: CGPoint, _ half: CGFloat, _ placed: [CGPoint], gap: CGFloat = 19) -> CGPoint {
+    func hits(_ p: CGPoint) -> Bool { placed.contains { hypot($0.x - p.x, $0.y - p.y) < gap } }
+    guard let o = placed.first(where: { hypot($0.x - base.x, $0.y - base.y) < gap }) else { return base }
+    let dir: CGFloat = (base.x - o.x) * u.x + (base.y - o.y) * u.y >= 0 ? 1 : -1
+    var k: CGFloat = 0, p = base
+    while hits(p) && k + 2 <= half { k += 2; p = CGPoint(x: base.x + u.x * dir * k, y: base.y + u.y * dir * k) }
+    return p
+}
+
 /// The dark tooltip above the finger while dragging (prototype .dg-tip), in screen points.
 func dragTip(_ ctx: GraphicsContext, _ size: CGSize, _ s: String, _ finger: CGPoint, _ bad: Bool) {
     let t = ctx.resolve(Text(s).font(.custom(fontName(.ui, 600), fixedSize: 13)).foregroundColor(.white))

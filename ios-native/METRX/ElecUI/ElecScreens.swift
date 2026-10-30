@@ -55,12 +55,15 @@ private func eUniq(_ xs: [String]) -> [String] {
     return r.id
 }
 
-/// Takes the room's sockets and switches marked on its walls in as devices (once each).
+/// Takes the room's sockets and switches marked on its walls in as devices (once each), and the panel marked there as the
+/// order's panel while the order has none (it stayed "Joylanmagan", with a false warning).
 func takeInPoints(_ pid: String, _ rid: String) {
     guard let p = Store.shared.get(pid), let c = ctxOf(p, rid, AppSettings.shared.angleSnap) else { return }
     let got = fromSitePoints(c, { uid() })
-    if got.isEmpty { return }
+    let pn = livePanel(p) == nil ? panelFromSitePoint(c) : nil
+    if got.isEmpty && pn == nil { return }
     Store.shared.update(pid) { pr in
+        if let pn { pr.elec.panel = pn }
         var er = pr.elec.room(rid)
         er.seen = eUniq(er.seen + got.compactMap(\.from))
         pr.elec.devs += got

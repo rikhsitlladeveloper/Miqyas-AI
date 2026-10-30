@@ -747,7 +747,7 @@ private struct Chip2: View {
 /// "8,8 m²".
 private func m2(_ g: ShapeGeo) -> String {
     let s = String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), g.areaMm2 / 1e6)
-    return (rshEn ? s : s.replacingOccurrences(of: ".", with: ",")) + " m²"
+    return (rshEn ? s : s.replacingOccurrences(of: ".", with: ",")) + U_M2
 }
 
 private struct SummaryStep: View {

@@ -290,7 +290,8 @@ struct ReEditorScreen: View {
         }
         .padding(.trailing, 10)
         .frame(maxHeight: .infinity, alignment: .bottom)
-        .padding(.bottom, st.view == "front" ? 56 : 10)
+        // above the wall chips (front) and the 3D hint (two lines in Russian), not under them
+        .padding(.bottom, st.view == "front" ? 56 : st.view == "3d" ? 64 : 10)
         if let k = st.arm {
             HStack(spacing: 8) {
                 PathIcon(reKind(k).icon, .white, 16, 2)
@@ -708,5 +709,5 @@ struct ReEditorScreen: View {
 /// "8,8 m²".
 func reAreaShort(_ g: ReRoomGeo) -> String {
     let s = String(format: "%.1f", locale: Locale(identifier: "en_US_POSIX"), g.area / 1e6)
-    return (AppSettings.shared.lang == .en ? s : s.replacingOccurrences(of: ".", with: ",")) + " m²"
+    return (AppSettings.shared.lang == .en ? s : s.replacingOccurrences(of: ".", with: ",")) + U_M2
 }

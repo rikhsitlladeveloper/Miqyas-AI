@@ -295,10 +295,25 @@ func reDrawPlan(_ ctx: GraphicsContext, _ size: CGSize, _ g: ReRoomGeo, _ items:
         for p in poly { c = c + p / CGFloat(poly.count) }
         ctx.text(a, c, .ui, 13, 800, RD.ink2)
     }
+    var pills: [CGRect] = []
     for (i, f) in fr.enumerated() {
         let off = f.tp + 12
-        let c = mid(f.a, f.b) - f.n * off
         let t = look.showLen ? f.id + " · " + lenTxt(g.walls[i].len) : f.id
+        let w = max(24, CGFloat(t.count) * 6.6 + 14), h: CGFloat = 20
+        // a pill that would cover another's (the two sides of a narrow niche) slides along its wall until it is clear
+        func clear(_ p: CGPoint) -> Bool { !pills.contains { $0.intersects(CGRect(x: p.x - w / 2, y: p.y - h / 2, width: w, height: h)) } }
+        let base = mid(f.a, f.b) - f.n * off
+        var c = base
+        if !clear(base) {
+            var k: CGFloat = 3
+            let half = (f.b - f.a).len / 2
+            while k <= half {
+                if clear(base + f.u * k) { c = base + f.u * k; break }
+                if clear(base - f.u * k) { c = base - f.u * k; break }
+                k += 3
+            }
+        }
+        pills.append(CGRect(x: c.x - w / 2, y: c.y - h / 2, width: w, height: h))
         ctx.pill(t, c, cur: f.id == look.selWall || f.id == look.hl, bounds: size)
     }
     // an inner face's letter in front of it, when its piece or the face is in use

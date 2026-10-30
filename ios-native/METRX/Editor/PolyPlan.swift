@@ -302,13 +302,36 @@ private func drawPoly(_ ctx: GraphicsContext, _ lay: PolyLayout, _ r: Room, _ g:
             drawSitePoint(ctx, x, a + u * (CGFloat(x.off) * kk) - lay.normals[i] * 7, 0, 6.5, 1)
         }
     }
-    // name and floor area in the middle
+    // each wall's dimension as text with its status, and where it goes: first, the room's name keeps clear of them too
+    let dimTexts: [(txt: String, st: String)] = g.walls.map { w in
+        let d = r.dim(w.id)
+        switch w.status {
+        case "conf": return (Geo.fmtLen(d.v, unit, en), "conf")
+        case "recv": return (Geo.fmtLen(d.pending?.mm, unit, en, full: true), "recv")
+        case "calc": return ("=" + Geo.fmtLen(w.len, unit, en), "calc")
+        case "bad": return ("[" + Geo.fmtLen(d.v, unit, en) + "]", "bad")
+        case "unres": return ("[?]", "unres")
+        default: return ("?", "unset")
+        }
+    }
+    let dims = mode != "shape" ? polyDimSpots(lay, dimTexts.map { pillW($0.txt, $0.st != "unset" && $0.st != "calc") }) : []
+    // wall letters; one that would cover an earlier one (two short walls at a step: an L room's C and D on a small plan)
+    // slides along its own wall until it is clear
+    var letterAt: [CGPoint] = []
+    for i in 0..<n {
+        let wa = lay.inner[i], wb = lay.inner[(i + 1) % n]
+        letterAt.append(planLetterSpot(mid(wa, wb) - lay.normals[i] * 17, norm(wb - wa), (wb - wa).len / 2, letterAt))
+    }
+    // name and floor area in the middle; an inner wall, a dimension or a letter runs through it: the nearest clear spot
     let a = Geo.areas(r, snap)
     let cx = lay.inner.map(\.x).reduce(0, +) / CGFloat(n), cy = lay.inner.map(\.y).reduce(0, +) / CGFloat(n)
-    centreLabel(ctx, label, (a.map { Geo.fmtArea($0.floor, en) } ?? "?") + " " + m2, CGPoint(x: cx, y: cy), mode: labelMode)
+    var boxes: [CGRect] = dims.map(\.box) + letterAt.map { CGRect(x: $0.x - 10, y: $0.y - 10, width: 20, height: 20) }
+    if !r.inner.isEmpty, let at = innerPlanMap(r, snap: snap, a: lay.inner[0], b: lay.inner[1], inward: CGPoint(x: -lay.normals[0].x, y: -lay.normals[0].y)) { boxes += innerPlanBoxes(r, at) }
+    let spot = planLabelSpot(CGPoint(x: cx, y: cy), planLabelW(label), 30, boxes) { planInPoly($0, lay.inner) }
+    centreLabel(ctx, label, (a.map { Geo.fmtArea($0.floor, en) } ?? "?") + " " + m2, spot, mode: labelMode)
     // wall letters and corner numbers
     for i in 0..<n {
-        let m = mid(lay.inner[i], lay.inner[(i + 1) % n]) - lay.normals[i] * 17
+        let m = letterAt[i]
         let on = mode == "plan" && g.walls[i].id == sel
         ctx.disc(on ? PC.cob : PC.white, 9, m); ctx.ring(on ? PC.cob : PC.ink3, 9, m, 1)
         ctx.text(g.walls[i].id, m, .ui, 11, 600, on ? PC.onFill : PC.ink)
@@ -318,28 +341,12 @@ private func drawPoly(_ ctx: GraphicsContext, _ lay: PolyLayout, _ r: Room, _ g:
         if dg { ctx.disc(diagFirst == i ? PC.cob : PC.white, 11, cp); ctx.ring(PC.cob, 11, cp, 1.5) }
         ctx.text("\(i + 1)", cp, .ui, dg ? 11 : 9.5, dg ? 700 : 400, dg && diagFirst == i ? PC.onFill : PC.ink3)
     }
-    // a dimension per wall, parallel to it, with a status pill; a pill that would cover another moves further out
-    var placed: [CGRect] = []
+    // a dimension per wall, parallel to it, with a status pill (polyDimSpots: where it goes)
     if mode != "shape" {
-        for i in 0..<n {
+        for dm in dims {
+            let i = dm.i, o = dm.o, c = dm.c
             let w = g.walls[i], wa = lay.inner[i], wb = lay.inner[(i + 1) % n], nn = lay.normals[i]
-            let d = r.dim(w.id)
-            let txt: String, st: String
-            switch w.status {
-            case "conf": txt = Geo.fmtLen(d.v, unit, en); st = "conf"
-            case "recv": txt = Geo.fmtLen(d.pending?.mm, unit, en, full: true); st = "recv"
-            case "calc": txt = "=" + Geo.fmtLen(w.len, unit, en); st = "calc"
-            case "bad": txt = "[" + Geo.fmtLen(d.v, unit, en) + "]"; st = "bad"
-            case "unres": txt = "[?]"; st = "unres"
-            default: txt = "?"; st = "unset"
-            }
-            let pw = pillW(txt, st != "unset" && st != "calc")
-            var o = lay.tw + 30
-            func boxAt(_ o: CGFloat) -> (CGPoint, CGRect) { let c = mid(wa, wb) + nn * o; return (c, CGRect(x: c.x - pw / 2 - 4, y: c.y - 17, width: pw + 8, height: 34)) }
-            var (c, box) = boxAt(o)
-            var tries = 0
-            while tries < 3 && placed.contains(where: { $0.intersects(box) }) { o += 30; (c, box) = boxAt(o); tries += 1 }
-            placed.append(box)
+            let txt = dimTexts[i].txt, st = dimTexts[i].st
             let lc = w.status == "conf" ? PC.ink : w.status == "recv" ? PC.amber : w.status == "bad" ? PC.red : w.status == "calc" ? PC.cob : PC.greyLine
             ctx.line(lc, wa + nn * o, wb + nn * o, 1.1, dash: w.status == "conf" ? nil : [5, 4])
             ctx.line(lc.opacity(0.5), wa + nn * (lay.tw + 3), wa + nn * (o + 4), 0.8); ctx.line(lc.opacity(0.5), wb + nn * (lay.tw + 3), wb + nn * (o + 4), 0.8)
@@ -355,6 +362,48 @@ private func drawPoly(_ ctx: GraphicsContext, _ lay: PolyLayout, _ r: Room, _ g:
             polyPill(ctx, txt, mid(pa, pb), st == "ok" || st == "conf" ? "conf" : st == "warn" ? "unres" : st, report)
         }
     }
+}
+
+/// A wall's dimension on the plan: wall i, its line o out from the wall, its pill at c in box.
+private struct PolyDimSpot { let i: Int; let o: CGFloat; let c: CGPoint; let box: CGRect }
+
+/// Where each wall's dimension goes. The pill sits 30 out from the wall; a wall facing a narrow niche keeps it in the niche,
+/// not on the room across it; a pill that would cover another slides along its line, and only then moves further out,
+/// never past the drawing's edge (the PDF's frame).
+private func polyDimSpots(_ lay: PolyLayout, _ widths: [CGFloat]) -> [PolyDimSpot] {
+    var placed: [PolyDimSpot] = []
+    for i in 0..<lay.n {
+        let wa = lay.inner[i], wb = lay.inner[(i + 1) % lay.n], nn = lay.normals[i], u = norm(wb - wa)
+        let m0 = mid(wa, wb), half = (wb - wa).len / 2, pw = widths[i]
+        func box(_ c: CGPoint) -> CGRect { CGRect(x: c.x - pw / 2 - 4, y: c.y - 17, width: pw + 8, height: 34) }
+        func free(_ b: CGRect) -> Bool { !placed.contains { $0.box.intersects(b) } }
+        func onPage(_ b: CGRect) -> Bool { b.minY >= 2 && b.maxY <= lay.VH - 2 && b.minX >= 2 && b.maxX <= lay.VW - 2 }
+        var o = lay.tw + 30
+        if planInPoly(m0 + nn * o, lay.inner) {
+            var t = lay.tw
+            while t < o && !planInPoly(m0 + nn * t, lay.inner) { t += 2 }
+            o = t / 2
+        }
+        var c = m0 + nn * o
+        if !free(box(c)) {
+            // along the line first, nearest spot either way
+            var k: CGFloat = 12, found: CGPoint? = nil
+            while k <= half + 12 && found == nil {
+                for sg: CGFloat in [1, -1] where found == nil {
+                    let q = m0 + u * (sg * k) + nn * o
+                    if free(box(q)) && onPage(box(q)) { found = q }
+                }
+                k += 12
+            }
+            if let found { c = found }
+            else {
+                var tries = 0
+                while tries < 3 && !free(box(c)) && onPage(box(m0 + nn * (o + 30))) && !planInPoly(m0 + nn * (o + 30), lay.inner) { o += 30; c = m0 + nn * o; tries += 1 }
+            }
+        }
+        placed.append(PolyDimSpot(i: i, o: o, c: c, box: box(c)))
+    }
+    return placed
 }
 
 /// A glass pill with the value and its status mark (prototype skPill restyled by glass).

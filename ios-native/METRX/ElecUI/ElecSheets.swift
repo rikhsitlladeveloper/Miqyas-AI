@@ -177,8 +177,8 @@ private struct EDevEditSheet: View {
     private func errOf(_ c: ECtx, _ old: ElecDev) -> String? {
         let (vOff, vH, vLen) = vals(old)
         guard let vOff, let vH, vLen != nil else { return tr("tl.fixErr") }
-        if !old.onCeiling, let wl = c.wall(wall)?.len, Double(vOff) > wl { return tr("pt.offBig") }
-        if !old.onCeiling && vH > c.H { return tr("pt.hBig") }
+        if !old.onCeiling, let wl = c.wall(wall)?.len, Double(vOff) > wl { return tr("pt.offBig", ["v": ptLimit(wl)]) }
+        if !old.onCeiling && vH > c.H { return tr("pt.hBig", ["v": ptLimit(Double(c.H))]) }
         return nil
     }
 
@@ -610,4 +610,10 @@ struct EStepper: View {
                 .pressable(0.95, label: "+") { onSet(v + 1) }
         }
     }
+}
+
+/// A wall's length or the room's height in the error of a point's sheet: "Devor uzunligidan (4,20 m) katta."
+func ptLimit(_ mm: Double) -> String {
+    let st = AppSettings.shared
+    return Geo.fmtLen(Int(mm.rounded()), st.unit, st.lang == .en) + U_L
 }

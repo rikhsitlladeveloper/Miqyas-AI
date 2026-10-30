@@ -33,7 +33,7 @@ func hwUnit(_ kind: String) -> String { METRE_KINDS.contains(kind) ? "m" : AREA_
 func hwAmount(_ kind: String, _ v: Int, _ en: Bool) -> String {
     let s: String
     if METRE_KINDS.contains(kind) { s = String(format: "%.2f m", Double(v) / 1000) }
-    else if AREA_KINDS.contains(kind) { s = String(format: "%.2f m²", Double(v) / 1e6) }
+    else if AREA_KINDS.contains(kind) { s = String(format: "%.2f", Double(v) / 1e6) + U_M2 }
     else { s = "\(v)" }
     return en ? s : s.replacingOccurrences(of: ".", with: ",")
 }

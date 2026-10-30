@@ -20,10 +20,10 @@ private var en: Bool { AppSettings.shared.lang == .en }
     @ObservationIgnored private var baseSnap = true
     @ObservationIgnored private var baseShell: Shell3D? = nil
 
-    /// The room as drawn: its own sockets and switches are drawn as the electrician's devices.
+    /// The room as drawn: its own sockets and switches are drawn as the electrician's devices, its panel as the order's.
     static func shown(_ r: Room) -> Room {
         var x = r
-        x.points = r.points.filter { $0.t != "socket" && $0.t != "switch" }
+        x.points = r.points.filter { $0.t != "socket" && $0.t != "switch" && $0.t != "panel" }
         return x
     }
 

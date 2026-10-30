@@ -219,8 +219,8 @@ private struct PSFixEditSheet: View {
         // a radiator of two sections at least (and no wider than its wall)
         let wl = c.wall(wall)?.len
         if old.t == "rad" && (vW < 2 * SEC_MM || (wl.map { Double(vW) > $0 } ?? false)) { return tr("sx.radMin", ["a": 2 * SEC_MM]) }
-        if let wl, Double(vOff) > wl { return tr("pt.offBig") }
-        if vH.contains(where: { ($0 ?? 0) > c.H }) { return tr("pt.hBig") }
+        if let wl, Double(vOff) > wl { return tr("pt.offBig", ["v": ptLimit(wl)]) }
+        if vH.contains(where: { ($0 ?? 0) > c.H }) { return tr("pt.hBig", ["v": ptLimit(Double(c.H))]) }
         return nil
     }
 
@@ -397,8 +397,8 @@ private struct PSPointEditSheet: View {
     private func errOf(_ c: PCtx) -> String? {
         let unit = AppSettings.shared.unit
         guard let vOff = psOff(tOff, unit), let vH = parseLen(tH, unit) else { return tr("tl.fixErr") }
-        if let wl = c.wall(wall)?.len, Double(vOff) > wl { return tr("pt.offBig") }
-        if vH > c.H { return tr("pt.hBig") }
+        if let wl = c.wall(wall)?.len, Double(vOff) > wl { return tr("pt.offBig", ["v": ptLimit(wl)]) }
+        if vH > c.H { return tr("pt.hBig", ["v": ptLimit(Double(c.H))]) }
         return nil
     }
 

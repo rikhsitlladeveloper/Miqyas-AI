@@ -705,6 +705,13 @@ func fromSitePoints(_ c: ECtx, _ id: () -> String) -> [ElecDev] {
     return out
 }
 
+/// The panel marked on room c's wall in its openings step, as the order's panel: there, at its height, the cables coming
+/// in by the room's first door; nil when the room has none.
+func panelFromSitePoint(_ c: ECtx) -> ElecPanel? {
+    guard let x = c.room.points.first(where: { $0.t == "panel" && c.wall($0.wall) != nil }) else { return nil }
+    return ElecPanel(roomId: c.id, wall: x.wall, off: x.off, h: x.h > 0 ? min(max(x.h, 300), c.H - 300) : PANEL_H, entry: c.doors.first?.id)
+}
+
 /// The device a room point is taken in as.
 func elecTypeOf(_ x: SitePoint) -> String {
     switch x.t {

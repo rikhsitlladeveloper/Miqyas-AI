@@ -234,7 +234,7 @@ extension ReState {
         h.put(e.room)
         fixSel(h)
         Haptic.tick()
-        app.toast = ToastMsg(text: reTr("re.undone", ["m": e.msg]), kind: .info, action: reTr("re.redo"), onAction: { [weak self] in self?.redo(app, h) })
+        app.toast = ToastMsg(text: reTr("re.undone", ["m": e.msg]), kind: .info, action: reTr("re.redo"), onAction: { [weak self] in self?.redo(app, h) }, icon: "redo")
     }
 
     func redo(_ app: AppModel, _ h: ReHost) {

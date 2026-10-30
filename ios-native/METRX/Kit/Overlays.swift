@@ -89,6 +89,8 @@ struct ToastMsg: Identifiable, Equatable {
     var kind: ToastKind = .ok
     var action: String? = nil
     var onAction: (() -> Void)? = nil
+    /// The action button's icon: "undo" for Undo, "redo" for Redo.
+    var icon = "undo"
     static func == (a: ToastMsg, b: ToastMsg) -> Bool { a.id == b.id }
 }
 
@@ -154,7 +156,7 @@ struct ToastHost: View {
 
     /// Undo (or the toast's other action): 48 pt, easy to hit (UX upgrades section 3).
     private func actionButton(_ m: ToastMsg, _ a: String) -> some View {
-        HStack(spacing: 6) { MIcon("undo", .white, 16, 2.2); T(a, ui(14, 700, .white), lines: 2).fixedSize(horizontal: false, vertical: true).minimumScaleFactor(0.85) }
+        HStack(spacing: 6) { MIcon(m.icon, .white, 16, 2.2); T(a, ui(14, 700, .white), lines: 2).fixedSize(horizontal: false, vertical: true).minimumScaleFactor(0.85) }
             .padding(.horizontal, 12).frame(minHeight: 48)
             // the message wraps first: "Отменить" was broken into "Отменит / ь" on a small phone
             .layoutPriority(1)

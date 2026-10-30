@@ -98,7 +98,10 @@ final class HopsTimeline {
     private let areaO = Track(0), areaS = Track(0.6)
 
     // ---- the tagline: one line built word by word (room.css #tagline) ----
-    private let words = ["O‘lchang.", "Chizing.", "Hisoblang."]
+    private let words: [String] = {
+        let w = tr("splash.tag").split(separator: "|").map(String.init)
+        return w.count == 3 ? w : ["O‘lchang.", "Chizing.", "Hisoblang."]
+    }()
     private let wordO = [Track(0), Track(0), Track(0)], wordY = [Track(0), Track(0), Track(0)]
     private let taglineO = Track(1)
     private func wordIn(_ i: Int, _ t: Double) {
@@ -270,6 +273,8 @@ final class HopsTimeline {
 
     private let dimColor = Color(argb: 0x9EBECDFF)
     private func jakarta(_ size: CGFloat, _ w: String) -> Font { .custom("PlusJakartaSans-" + w, size: size) }
+    /// The words in the app's language: Plus Jakarta has no Cyrillic letters.
+    private func wordFont(_ size: CGFloat, _ w: String) -> Font { .custom((AppSettings.shared.lang.cyrillic ? "Manrope-" : "PlusJakartaSans-") + w, size: size) }
 
     private func dims(_ g: GraphicsContext, _ t: Double) {
         let o = dimsO(t); if o <= 0 { return }
@@ -293,7 +298,7 @@ final class HopsTimeline {
             var a = g; a.opacity = ao
             a.addFilter(.shadow(color: Color(argb: 0x733FD8F2), radius: 8))
             let txt = Text("18,72").font(jakarta(26, "Bold")).foregroundColor(.white)
-                + Text(" m²").font(jakarta(15, "Medium")).foregroundColor(Color(argb: 0xFFC9D4FF))
+                + Text(U_M2).font(wordFont(15, "Medium")).foregroundColor(Color(argb: 0xFFC9D4FF))
             let sc = areaS(t)
             a.translateBy(x: 195, y: 404); a.scaleBy(x: sc, y: sc)
             a.draw(a.resolve(txt), at: .zero, anchor: .center)
@@ -311,9 +316,9 @@ final class HopsTimeline {
         let lo = taglineO(t); if lo <= 0 { return }
         var c = g
         c.addFilter(.shadow(color: Color(argb: 0x593FD8F2), radius: 6))
-        let rs = words.map { c.resolve(Text($0).font(jakarta(22, "Bold")).foregroundColor(Color(argb: 0xFFF2F6FF))) }
+        let rs = words.map { c.resolve(Text($0).font(wordFont(22, "Bold")).foregroundColor(Color(argb: 0xFFF2F6FF))) }
         let ws = rs.map { $0.measure(in: CGSize(width: 1000, height: 100)).width }
-        let space = c.resolve(Text(" ").font(jakarta(22, "Bold"))).measure(in: CGSize(width: 100, height: 100)).width
+        let space = c.resolve(Text(" ").font(wordFont(22, "Bold"))).measure(in: CGSize(width: 100, height: 100)).width
         let total = ws.reduce(0, +) + space * CGFloat(ws.count - 1)
         var x = 195 - total / 2
         for i in rs.indices {

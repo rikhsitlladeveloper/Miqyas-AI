@@ -275,7 +275,8 @@ struct EstimateTotal: View {
             HStack(spacing: 10) {
                 VStack(alignment: .leading, spacing: 0) {
                     T(tr("es.grand"), ui(13, 400, G.ink2))
-                    T(tr("gs.split", ["m": Money.of(tt.m, p), "l": Money.of(tt.l, p)]), ui(12, 400, G.ink2, lh: 1.35))
+                    // a sum never breaks inside its digit groups ("Ish 1 / 664 000"): only between the words
+                    T(tr("gs.split", ["m": Money.of(tt.m, p).replacingOccurrences(of: " ", with: "\u{00A0}"), "l": Money.of(tt.l, p).replacingOccurrences(of: " ", with: "\u{00A0}")]), ui(12, 400, G.ink2, lh: 1.35))
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 HStack(alignment: .lastTextBaseline, spacing: 0) {

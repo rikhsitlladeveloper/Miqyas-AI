@@ -167,7 +167,13 @@ func drawRectPlan(_ ctx: GraphicsContext, _ lay: RectLayout, _ r: Room, _ sel: S
 
     // centre label: NAME and the floor area
     let a = Geo.areas(r)
-    centreLabel(ctx, label, (a.map { Geo.fmtArea($0.floor, en) } ?? "?") + " " + m2, CGPoint(x: inn.midX, y: inn.midY), mode: labelMode)
+    // an inner wall runs through the middle: the label moves to the nearest clear spot, off the wall letters too
+    var boxes: [CGRect] = []
+    if !r.inner.isEmpty, let w0 = lay.walls.first, let at = innerPlanMap(r, snap: AppSettings.shared.angleSnap, a: w0.a, b: w0.b, inward: CGPoint(x: -w0.n.x, y: -w0.n.y)) {
+        boxes = innerPlanBoxes(r, at) + lay.walls.map { w in let c = mid(w.a, w.b) - w.n * 17; return CGRect(x: c.x - 10, y: c.y - 10, width: 20, height: 20) }
+    }
+    let spot = planLabelSpot(CGPoint(x: inn.midX, y: inn.midY), planLabelW(label), 30, boxes) { inn.contains($0) }
+    centreLabel(ctx, label, (a.map { Geo.fmtArea($0.floor, en) } ?? "?") + " " + m2, spot, mode: labelMode)
 
     // wall letters (17 inside) and corner numbers
     for w in lay.walls {
@@ -299,32 +305,44 @@ func drawReportPlan(_ ctx: GraphicsContext, _ r: Room, _ unit: LenUnit, _ en: Bo
 /// found from wall A as the plan draws it. A half wall lighter.
 private func drawReportInner(_ ctx: GraphicsContext, _ r: Room, snap: Bool) {
     guard !r.inner.isEmpty else { return }
-    let g = reGeo(r, snap)
-    guard let f = reWallAFrame(g), let wa = g.outer.first, wa.len > 0 else { return }
-    let a: CGPoint, b: CGPoint, inside: CGPoint
+    let at: (Pt) -> CGPoint
     if r.isPoly {
         let lay = PolyLayout(Geo.polyGeo(r, snap).verts, r.dim("T").v ?? 200)
-        guard lay.inner.count >= 3 else { return }
-        a = lay.inner[0]; b = lay.inner[1]
-        inside = CGPoint(x: lay.inner.map(\.x).reduce(0, +) / CGFloat(lay.inner.count), y: lay.inner.map(\.y).reduce(0, +) / CGFloat(lay.inner.count))
+        guard lay.inner.count >= 3, let m = innerPlanMap(r, snap: snap, a: lay.inner[0], b: lay.inner[1], inward: CGPoint(x: -lay.normals[0].x, y: -lay.normals[0].y)) else { return }
+        at = m
     } else {
         let lay = RectLayout(r)
-        guard let w0 = lay.walls.first else { return }
-        a = w0.a; b = w0.b; inside = CGPoint(x: lay.inner.midX, y: lay.inner.midY)
-    }
-    let dx = b.x - a.x, dy = b.y - a.y, len = max(hypot(dx, dy), 1e-6)
-    let k = len / CGFloat(wa.len), ux = dx / len, uy = dy / len
-    var nx = -uy, ny = ux
-    if (inside.x - a.x) * nx + (inside.y - a.y) * ny < 0 { nx = -nx; ny = -ny }
-    func at(_ q: Pt) -> CGPoint {
-        let t = CGFloat((q.x - f.a.x) * f.u.x + (q.y - f.a.y) * f.u.y), s = CGFloat((q.x - f.a.x) * f.n.x + (q.y - f.a.y) * f.n.y)
-        return CGPoint(x: a.x + (ux * t + nx * s) * k, y: a.y + (uy * t + ny * s) * k)
+        guard let w0 = lay.walls.first, let m = innerPlanMap(r, snap: snap, a: w0.a, b: w0.b, inward: CGPoint(x: -w0.n.x, y: -w0.n.y)) else { return }
+        at = m
     }
     for p in r.inner {
         for R in iwGeo(p, reHeight(r)).R where R.count >= 3 {
             let q = R.map(at)
             var pp = Path(); pp.move(to: q[0]); q.dropFirst().forEach { pp.addLine(to: $0) }; pp.closeSubpath()
             ctx.fill(pp, with: .color(PC.ink.opacity(p.k == "half" ? 0.4 : 0.85)))
+        }
+    }
+}
+
+/// From room mm to a plan's drawing, found from wall A as the plan draws it (a to b, inward its side towards the room).
+func innerPlanMap(_ r: Room, snap: Bool, a: CGPoint, b: CGPoint, inward: CGPoint) -> ((Pt) -> CGPoint)? {
+    let g = reGeo(r, snap)
+    guard let f = reWallAFrame(g), let wa = g.outer.first, wa.len > 0 else { return nil }
+    let dx = b.x - a.x, dy = b.y - a.y, len = max(hypot(dx, dy), 1e-6)
+    let k = len / CGFloat(wa.len), ux = dx / len, uy = dy / len
+    return { q in
+        let t = CGFloat((q.x - f.a.x) * f.u.x + (q.y - f.a.y) * f.u.y), s = CGFloat((q.x - f.a.x) * f.n.x + (q.y - f.a.y) * f.n.y)
+        return CGPoint(x: a.x + (ux * t + inward.x * s) * k, y: a.y + (uy * t + inward.y * s) * k)
+    }
+}
+
+/// The inner walls' boxes on a drawing, which the room's label keeps clear of.
+func innerPlanBoxes(_ r: Room, _ at: (Pt) -> CGPoint) -> [CGRect] {
+    r.inner.flatMap { p in
+        iwGeo(p, reHeight(r)).R.map { R -> CGRect in
+            let q = R.map(at)
+            let x0 = q.map(\.x).min() ?? 0, x1 = q.map(\.x).max() ?? 0, y0 = q.map(\.y).min() ?? 0, y1 = q.map(\.y).max() ?? 0
+            return CGRect(x: x0, y: y0, width: x1 - x0, height: y1 - y0)
         }
     }
 }
