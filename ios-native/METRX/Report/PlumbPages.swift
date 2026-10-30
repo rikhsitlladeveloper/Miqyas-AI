@@ -193,7 +193,8 @@ extension Doc {
         let loop = calc.routes.loops.first { $0.roomId == c.id }
         if fs.isEmpty && pts.isEmpty && runs.isEmpty && loop == nil { return }
         let rs = calc.routes.riser
-        newPage()
+        // not a page with only the note at its top and the rest blank
+        if y > 160 { newPage() }
         h2(t("sx.r.roomT", ["r": name]))
         space(0)
         let ph: CGFloat = 250

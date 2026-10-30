@@ -208,7 +208,11 @@ private struct RshPage<Content: View>: View {
                     .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 16)
                 }
                 .scrollDismissesKeyboard(.interactively)
-                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in kbUp = true; toEnd(proxy) }
+                // the page may get shorter only after the keyboard's "did show" (then the scroll found nothing to do and the
+                // field stayed cut): it follows the page's height too
+                .background(GeometryReader { geo in Color.clear.onChange(of: geo.size.height) { _, _ in toEnd(proxy) } })
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillShowNotification)) { _ in kbUp = true }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in kbUp = true; toEnd(proxy); toEnd(proxy, delay: 0.4) }
                 .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in kbUp = false }
                 .onChange(of: title + (sub ?? "")) { _, _ in toEnd(proxy, delay: 0.45) }
             }

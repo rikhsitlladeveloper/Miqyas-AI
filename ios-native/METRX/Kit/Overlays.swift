@@ -172,7 +172,9 @@ struct ToastHost: View {
         let aw = min(150, (action as NSString).size(withAttributes: [.font: af]).width) + 16 + 6 + 24
         // the screen less the toast's margins and paddings, the icon, the gaps and the cross
         let room = UIScreen.main.bounds.width - 20 - 20 - 32 - 36 - 40 - aw
-        return widest > room
+        // a long message too: beside the action it was squeezed into five or six narrow lines
+        let whole = (text as NSString).size(withAttributes: [.font: f]).width
+        return widest > room || whole > room * 3
     }
 
     private func hide() {

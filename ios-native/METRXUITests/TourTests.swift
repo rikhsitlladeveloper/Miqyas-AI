@@ -956,7 +956,12 @@ class TourTradeBase: TourBase {
             orderTabs("adv-order")
             if tap("ptab.estimate", 3) {
                 if tap("trc.set", 3) { scrollShots("calc-settings", 3); closeSheets() }
-                for id in ["trc.apply", "tl.apply", "sx.apply", "el.apply", "dw.apply"] where tap(id, 1, wait: 1.5) { S("calc-applied-" + id); calm(4) }
+                for id in ["trc.apply", "tl.apply", "sx.apply", "el.apply", "dw.apply"] {
+                    // clear of the floating tab bar first (a tap at its edge went to Home)
+                    guard let b = find(id, 1) else { continue }
+                    if b.frame.midY > app.frame.height * 0.7 { drag(down: false); usleep(400_000) }
+                    if tap(id, 1, wait: 1.5) { S("calc-applied-" + id); calm(4) }
+                }
                 if find("es.preview", 2) == nil, tap("es.addMat", 3) {
                     S("estimate-material-sheet"); typeName(app, "Kabel"); typeIn(app, "gs.qty", "10"); typeIn(app, "gs.price", "12000"); tap("gs.save", 3)
                 }
@@ -974,13 +979,19 @@ class TourTradeBase: TourBase {
 
     /// The "Qaysi xonaga?" step: the room just above "Yangi xona", else "Xonasiz".
     func chooseWhere() {
-        if let nr = labelled(tr("fz.newRoom"), 1), nr.exists {
+        guard labelled(tr("fq.title"), 0.5) != nil, let free = labelled(tr("tl.s.noRoom"), 0.5) else { return }
+        // the room when the order has one (the first option), else "Xonasiz"
+        if let nr = labelled(tr("fz.newRoom"), 0.5), nr.frame.minY - free.frame.minY < 0, app.staticTexts.matching(NSPredicate(format: "label CONTAINS %@", " × ")).count > 0 {
             let f = nr.frame
             app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: f.midX, dy: f.minY - 34)).tap(); usleep(600_000)
-            if let n = find("ps.next", 0.3) ?? find("es.next", 0.3) ?? find("ts.next", 0.3), n.isEnabled { return }
-            if find("ps.save", 0.3)?.isEnabled == true || find("es.save", 0.3)?.isEnabled == true || find("ts.save", 0.3)?.isEnabled == true { return }
-        }
-        if hit(labelled(tr("tl.s.noRoom"), 1)) { usleep(600_000); S("steps-where-free") }
+            S("steps-where-room")
+        } else if hit(free) { usleep(600_000); S("steps-where-free") }
+    }
+
+    /// The windows' last step: the first empty opening of the measured room ticked.
+    func tickOpening() {
+        let e = app.descendants(matching: .any).matching(NSPredicate(format: "label CONTAINS %@", tr("dw.emptyOp"))).firstMatch
+        if e.exists, hit(e) { usleep(600_000) }
     }
 
     /// A kit's or layout's steps: next until save (the steps' own usual values).
@@ -992,7 +1003,9 @@ class TourTradeBase: TourBase {
         for i in 0..<10 {
             if let s = find(ids.1, 1), s.m3Seen, !(find(ids.0, 0.5)?.m3Seen ?? false) {
                 S("steps-last")
-                if !s.isEnabled { chooseWhere(); S("steps-last-where") }
+                chooseWhere()
+                if ids.1 == "dw.put" { tickOpening() }
+                S("steps-last-chosen")
                 hit(s); usleep(1_500_000); return
             }
             guard let n = find(ids.0, 2) else {
@@ -1000,8 +1013,7 @@ class TourTradeBase: TourBase {
                 return
             }
             if i < 4 { S("steps-\(i + 1)") }
-            if !n.isEnabled { chooseWhere() }
-            guard n.isEnabled else { skip("steps-disabled"); return }
+            chooseWhere()
             hit(n); usleep(900_000)
         }
     }
