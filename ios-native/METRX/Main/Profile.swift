@@ -271,7 +271,8 @@ private struct Row1: View {
                 if let sub { T(sub, ui(13, 400, G.ink2, lh: 1.35)) }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            if let value { T(value, ui(14, 400, G.ink2), lines: 1) }
+            // the value keeps its words and the title wraps (on an iPhone SE "Ўзбекча (кирилл)" was cut to "(кирил…")
+            if let value { T(value, ui(14, 400, G.ink2), lines: 1).minimumScaleFactor(0.85).layoutPriority(1) }
             MIcon("chev", G.ink2, 18, 2)
         }
         .padding(.leading, 12).padding(.trailing, 8).padding(.vertical, 8).frame(minHeight: 56)

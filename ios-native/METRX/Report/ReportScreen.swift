@@ -492,9 +492,10 @@ private struct IssueSheet: View {
                             .background(RoundedRectangle(cornerRadius: 14, style: .continuous).fill(G.errWash))
                     }
                 } footer: {
+                    // two lines: "Выдать предложение" was cut to "Выдать предло…" on an iPhone SE
                     HStack(spacing: 10) {
                         GBtn(tr("common.cancel"), kind: .secondary) { app.sheet = nil }
-                        GBtn(tr("rpt.issue"), icon: "lock", enabled: !empty) { issue(p, no) }.accessibilityIdentifier("iss.go")
+                        GBtn(tr("rpt.issue"), icon: "lock", enabled: !empty, lines: 2) { issue(p, no) }.accessibilityIdentifier("iss.go")
                     }
                 }
             }

@@ -181,7 +181,8 @@ class TourBase: ScreenTestCase {
     /// In sight already, or scrolled until it is in the middle part of the screen, then sideways in its row.
     func bring(_ el: XCUIElement, vertical: Bool = true) -> Bool {
         guard el.exists else { return false }
-        if el.m3Seen { return true }
+        // on the screen but under a floating bar (Home's tiles under the tab bar on an iPhone SE): scrolled too
+        if el.m3Seen && el.isHittable { return true }
         let win = app.windows.firstMatch.frame
         guard win.height > 0 else { return el.m3Seen }
         for _ in 0..<(vertical ? 14 : 0) {
@@ -580,7 +581,10 @@ final class TourAppTests: TourBase {
         // seven taps on the version line: test mode, then the Device sheet's "Lazer sinovi"
         for _ in 0..<8 { app.swipeUp(); usleep(200_000) }
         if let v = find("pf.version", 3) {
-            for _ in 0..<7 { v.tap(); usleep(150_000) }
+            // the app counts taps that come within 1.5 s of each other: taps at a fixed point (an element's tap looks
+            // it up again each time and took longer than that on the CI runner)
+            let c = v.coordinate(withNormalizedOffset: CGVector(dx: 0.3, dy: 0.5))
+            for _ in 0..<7 { c.tap() }
             sleep(1); S("dev-mode-on")
             tap("tab.home", 2)
             if tap("laser", 3) {

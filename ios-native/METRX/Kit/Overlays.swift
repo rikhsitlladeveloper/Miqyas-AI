@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 /// Measures a view's height (used to let a sheet hug its content until the screen is full).
 private struct HeightKey: PreferenceKey {
@@ -110,18 +111,20 @@ struct ToastHost: View {
             if !top { Spacer() }
             if visible, let m = shown {
                 let (tc, icon): (Color, String) = m.kind == .ok ? (Color(argb: 0xFF5BE49B), "check") : m.kind == .info ? (Color(argb: 0xFF9DB1FF), "info") : (Color(argb: 0xFFFF7A7A), "alert")
-                HStack(spacing: 12) {
+                // a message whose longest word would be broken beside the action ("Двустворчато / е" on an iPhone SE):
+                // the action goes under the message
+                let stacked = m.action.map { toastStacks(m.text, $0) } ?? false
+                HStack(alignment: stacked ? .top : .center, spacing: 12) {
                     MIcon(icon, tc, 18, 2.4).frame(width: 32, height: 32).background(Circle().fill(tc.opacity(0.2)))
-                    T(m.text, ui(14.5, 600, .white, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
-                    if let a = m.action {
-                        // 48 pt: easy to hit (UX upgrades section 3)
-                        HStack(spacing: 6) { MIcon("undo", .white, 16, 2.2); T(a, ui(14, 700, .white), lines: 2).fixedSize(horizontal: false, vertical: true).minimumScaleFactor(0.85) }
-                            .padding(.horizontal, 12).frame(minHeight: 48)
-                            // the message wraps first: "Отменить" was broken into "Отменит / ь" on a small phone
-                            .layoutPriority(1)
-                            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.white.opacity(0.14)))
-                            .pressable(0.97) { if acted != m.id { acted = m.id; m.onAction?() }; hide() }
-                            .accessibilityIdentifier("toast.undo")
+                    if stacked, let a = m.action {
+                        VStack(alignment: .leading, spacing: 8) {
+                            T(m.text, ui(14.5, 600, .white, lh: 1.35)).fixedSize(horizontal: false, vertical: true)
+                            actionButton(m, a)
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        T(m.text, ui(14.5, 600, .white, lh: 1.35)).frame(maxWidth: .infinity, alignment: .leading)
+                        if let a = m.action { actionButton(m, a) }
                     }
                     MIcon("x", Color.white.opacity(0.62), 18, 2).frame(width: 40, height: 40).pressable(0.95, label: tr("common.close")) { hide() }
                 }
@@ -147,6 +150,27 @@ struct ToastHost: View {
             let wait: Double = m.action != nil ? 6.5 : (m.kind == .error ? 5.2 : 3.4)
             DispatchQueue.main.asyncAfter(deadline: .now() + wait) { if shown?.id == id { hide() } }
         }
+    }
+
+    /// Undo (or the toast's other action): 48 pt, easy to hit (UX upgrades section 3).
+    private func actionButton(_ m: ToastMsg, _ a: String) -> some View {
+        HStack(spacing: 6) { MIcon("undo", .white, 16, 2.2); T(a, ui(14, 700, .white), lines: 2).fixedSize(horizontal: false, vertical: true).minimumScaleFactor(0.85) }
+            .padding(.horizontal, 12).frame(minHeight: 48)
+            // the message wraps first: "Отменить" was broken into "Отменит / ь" on a small phone
+            .layoutPriority(1)
+            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(Color.white.opacity(0.14)))
+            .pressable(0.97) { if acted != m.id { acted = m.id; m.onAction?() }; hide() }
+            .accessibilityIdentifier("toast.undo")
+    }
+
+    /// Whether the message's longest word is wider than what the action leaves it on this screen.
+    private func toastStacks(_ text: String, _ action: String) -> Bool {
+        let f = ui(14.5, 600).uiFont, af = ui(14, 700).uiFont
+        let widest = text.split(whereSeparator: { $0 == " " || $0 == "\n" }).map { (String($0) as NSString).size(withAttributes: [.font: f]).width }.max() ?? 0
+        let aw = min(150, (action as NSString).size(withAttributes: [.font: af]).width) + 16 + 6 + 24
+        // the screen less the toast's margins and paddings, the icon, the gaps and the cross
+        let room = UIScreen.main.bounds.width - 20 - 20 - 32 - 36 - 40 - aw
+        return widest > room
     }
 
     private func hide() {

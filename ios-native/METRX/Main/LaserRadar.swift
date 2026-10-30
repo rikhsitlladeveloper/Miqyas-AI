@@ -860,7 +860,11 @@ private struct LrRadarFrame: View {
     /// Where a laser sits: its angle, its distance (g: 1 = glided into the middle).
     private func spot(_ b: LrBub, _ g: Double) -> CGPoint {
         let a = LaserRadarMath.angle(b.id.uuidString) * .pi / 180
-        let dist: CGFloat = r * CGFloat(LaserRadarMath.radius(b.avg) * (1 - g))
+        // never closer than the middle circle plus the laser's icon and name: on the smaller radar of an iPhone SE a
+        // strong signal put "ZB-08" and its dBm under the middle circle (the glide still takes it into the middle)
+        let clear = coreD / 2 + 56
+        let base: CGFloat = min(r, max(clear, r * CGFloat(LaserRadarMath.radius(b.avg))))
+        let dist: CGFloat = base * CGFloat(1 - g)
         let x: CGFloat = r + dist * CGFloat(cos(a))
         let y: CGFloat = r + dist * CGFloat(sin(a))
         return CGPoint(x: x, y: y)

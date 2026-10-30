@@ -189,18 +189,38 @@ private struct RshPage<Content: View>: View {
     let back: () -> Void
     let bar: RBar
     @ViewBuilder let content: Content
+    // not private: the memberwise init the flow's steps call stays visible
+    @State var kbUp = false
     var body: some View {
         VStack(spacing: 0) {
             UXTop {
                 UXTopBar(title: title, sub: sub, back: back)
                 if let prog { RProg(cur: prog).padding(.horizontal, 12).padding(.bottom, 8) }
             }
-            ScrollView {
-                VStack(alignment: .leading, spacing: 10) { content }
+            // with the keyboard up on a small phone (iPhone SE) the size field and its laser and mic row were under the
+            // bottom bar: the page is scrolled to its end once the keyboard is up, and again on each new wall
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        content
+                        Color.clear.frame(height: 1).id("rsh.end")
+                    }
                     .padding(.horizontal, 16).padding(.top, 12).padding(.bottom, 16)
+                }
+                .scrollDismissesKeyboard(.interactively)
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardDidShowNotification)) { _ in kbUp = true; toEnd(proxy) }
+                .onReceive(NotificationCenter.default.publisher(for: UIResponder.keyboardWillHideNotification)) { _ in kbUp = false }
+                .onChange(of: title + (sub ?? "")) { _, _ in toEnd(proxy, delay: 0.45) }
             }
-            .scrollDismissesKeyboard(.interactively)
             bar
+        }
+    }
+
+    /// The page's end in sight, when the keyboard is up and the page is taller than what is left of the screen.
+    private func toEnd(_ proxy: ScrollViewProxy, delay: Double = 0.05) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard kbUp else { return }
+            withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo("rsh.end", anchor: .bottom) }
         }
     }
 }
@@ -682,11 +702,13 @@ private struct SumRow<End: View>: View {
     var body: some View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         HStack(spacing: 10) {
-            T(label, ui(14, 500, G.ink2, lh: 1.3)).frame(maxWidth: .infinity, alignment: .leading)
-            // fills its half and hugs the button, as the mockup's value next to "O‘zgartirish"
+            T(label, ui(14, 500, G.ink2, lh: 1.3)).frame(minWidth: 72, maxWidth: .infinity, alignment: .leading)
+            // fills its half and hugs the button, as the mockup's value next to "O‘zgartirish"; it takes its room before
+            // the label (on an iPhone SE "Одностворчатая" was broken into "Одностворчата / я")
             T(value, small ? ui(12.5, 700, auto ? G.ink2 : G.ink, lh: 1.3) : num(15.5, 700, auto ? G.ink2 : G.ink), align: .trailing)
                 .frame(maxWidth: 190, alignment: .trailing)
                 .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(1)
             end.frame(minWidth: endMin, alignment: .trailing)
         }
         .padding(.leading, 14).padding(.trailing, 6).padding(.vertical, 6).frame(minHeight: 52)
