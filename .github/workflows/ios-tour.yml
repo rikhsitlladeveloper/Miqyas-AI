@@ -147,6 +147,13 @@ jobs:
           # the tour is for looking at: a failed step is in skips.txt and the log, the pictures are the result
           if [ "$N" = "0" ]; then echo "::error::no pictures were made"; exit 1; fi
 
+      # JPEGs: a third of the PNGs' size, so the 32 artifacts download in reasonable time for the review
+      - name: Pictures to JPEG
+        if: always()
+        run: |
+          for f in out/tour/*.png; do [ -f "$f" ] || continue; sips -s format jpeg -s formatOptions 80 "$f" --out "${f%.png}.jpg" > /dev/null && rm "$f"; done
+          ls out/tour | wc -l
+
       - uses: actions/upload-artifact@v4
         if: always()
         with:

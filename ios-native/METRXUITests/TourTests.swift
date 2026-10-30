@@ -327,7 +327,7 @@ class TourBase: ScreenTestCase {
             S(name + "-location")
         }
         S(name + "-form-filled")
-        guard tap("no.create", 2) || tap("np.save", 2) else { skip(name + "-create"); return false }
+        guard tap("no.create", 2) || tap("np.save", 2) || find("sd.a", 1) != nil || find("ptab.rooms", 1) != nil else { skip(name + "-create"); return false }
         usleep(800_000)
         return true
     }
@@ -347,8 +347,12 @@ class TourBase: ScreenTestCase {
         guard find("rsh.shapeGo", 6) != nil else { skip("flow-shapes"); return }
         S("flow-shapes")
         if tap("rsh.shape.L", 2, wait: 0.6) { S("flow-shape-L"); tap("rsh.mirror", 1, wait: 0.6); S("flow-shape-L-mirrored") }
+        // the last card ("Erkin chizish") is under the "Davom etish" bar until the grid is scrolled
+        drag(down: false)
         if tap("rsh.shape.free", 2, wait: 0.8) { S("flow-shape-free"); }
+        drag(down: true)
         tap("rsh.shape.rect", 2, wait: 0.6)
+        if find("rsh.shapeGo", 1) == nil { skip("flow-shape-rect"); back() }
         tap("rsh.shapeGo", 3)
         let walls = mm ? ["3400", "2600"] : ["4,2", "3,6"]
         if find("rsh.value", 4) != nil { S("flow-wall-A") }
@@ -361,6 +365,15 @@ class TourBase: ScreenTestCase {
         flowType(walls[1], shot: "flow-wall-B-typed")
         if find("rsh.value", 4) != nil { S("flow-height") }
         flowType(mm ? "2700" : "2,7")
+        // a shape with more walls than a rectangle: each further step with the value it offers
+        for i in 0..<8 {
+            if find("rsh.opsDone", 2) != nil { break }
+            guard let f = find("rsh.value", 2) else { break }
+            let raw = (f.placeholderValue ?? "").isEmpty ? (f.value as? String ?? "") : (f.placeholderValue ?? "")
+            let v = String(raw.filter { $0.isNumber || $0 == "," || $0 == "." })
+            skip("flow-extra-step-\(i + 1)")
+            flowType(v.isEmpty ? (mm ? "2700" : "2,7") : v)
+        }
         guard find("rsh.opsDone", 5) != nil else { skip("flow-openings"); return }
         sleep(2); S("flow-openings")
         // a door on A: its icon, the wall chip, the style window, its sizes one per step
@@ -899,6 +912,9 @@ class TourTradeBase: TourBase {
             if tap("ptab.estimate", 3) {
                 if tap("trc.set", 3) { scrollShots("calc-settings", 3); closeSheets() }
                 if tap("trc.apply", 3, wait: 1.5) { S("calc-applied") }
+                if find("es.preview", 2) == nil, tap("es.addMat", 3) {
+                    S("estimate-material-sheet"); typeName(app, "Kabel"); typeIn(app, "gs.qty", "10"); typeIn(app, "gs.price", "12000"); tap("gs.save", 3)
+                }
                 scrollShots("estimate", 3)
                 report("estimate")
             } else { skip("estimate-tab") }
