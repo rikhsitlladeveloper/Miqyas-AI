@@ -24,7 +24,7 @@ private func dzFrontName(_ k: String) -> String { DZ_WOODS.contains(k) ? tr("lk.
 /// A front board's name: a decor's colour, else the workshop's name for it.
 private func dzBoardName(_ id: String?) -> String {
     if let k = colourOf(id) { return dzFrontName(k) }
-    return AppSettings.shared.mats.first { $0.id == id }?.name ?? (id ?? "")
+    return matShown(id ?? "")
 }
 
 /// Changes piece fid of order pid (the designer's undo list keeps the version before).

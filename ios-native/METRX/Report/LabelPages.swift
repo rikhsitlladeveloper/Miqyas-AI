@@ -62,7 +62,7 @@ func labelPagesOf(_ sn: Snap, _ ws: Workshop, _ mats: [Mat], _ order: String, _ 
         let x = CGFloat(slot.col) * cw, y = CGFloat(slot.row) * rh
         let tw: CGFloat = cw - 2 * pad - (qr ? qs + 6 : 0)
         var t: [LText] = []
-        let (nm, nmS) = one(d.t(lb.key) + (lb.grain ? " ↕" : ""), d.ui(9, 700), tw - 28)
+        let (nm, nmS) = one(d.t(lb.key) + (lb.grain ? " " + GRAIN_MARK : ""), d.ui(9, 700), tw - 28)
         t.append(LText(s: nm, rect: CGRect(x: x + pad, y: y + pad, width: nmS.width, height: nmS.height)))
         let (no, noS) = one("№\(lb.n)", d.num(9, 700), 40)
         t.append(LText(s: no, rect: CGRect(x: x + pad + tw - noS.width, y: y + pad, width: noS.width + 1, height: noS.height)))

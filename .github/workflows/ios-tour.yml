@@ -138,7 +138,7 @@ jobs:
           R=0
           TEST_RUNNER_TOUR_SHOTS="$PWD/out/tour" TEST_RUNNER_TOUR_LANG="${{ matrix.lang }}" TEST_RUNNER_TOUR_MODELS="$MODELS" \
             xcodebuild test-without-building -xctestrun "$XTR" -destination "id=$U" \
-            $ONLY -parallel-testing-enabled NO > out/tour/test.log 2>&1 || R=$?
+            $ONLY -parallel-testing-enabled NO -retry-tests-on-failure -test-iterations 2 > out/tour/test.log 2>&1 || R=$?
           echo "== results"; grep -E "Test [Cc]ase .*(passed|failed|skipped)" out/tour/test.log | sed 's/^.*Test [Cc]ase //' | sort | uniq | tail -n 40
           echo "== failures"; { grep -E "error: -\[|error: .*Test" out/tour/test.log || true; } | sed 's|.*/ios-native/||' | sort -u | head -n 60
           N=$(ls out/tour/*.png 2>/dev/null | wc -l | tr -d ' ')

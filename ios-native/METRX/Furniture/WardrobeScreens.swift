@@ -692,8 +692,8 @@ private struct WardSizeStep: View {
                 WValRow(label: tr("fz.mirH"), value: "\(r.h)" + U_MM, id: "pc.mirH") { app.sheet = .iField(pid: p.id, fid: f.id, mid: r.id, key: "h") }
                 WValRow(label: tr("fz.elev"), value: "\(r.elev)" + U_MM, id: "pc.mirE") { app.sheet = .iField(pid: p.id, fid: f.id, mid: r.id, key: "e") }
             }
-            let carcass = AppSettings.shared.mats.first { $0.id == f.mats.carcass }?.name ?? f.mats.carcass
-            T(tr("wd.sizeNote", ["d": m.d, "b": m.legs ? tr("wd.legs") : tr("wd.plinth"), "m": carcass]), ui(12.5, 400, G.ink2, lh: 1.4))
+            let carcass = matShown(f.mats.carcass)
+            T(tr("wd.sizeNote", ["d": m.d, "b": hung(m) ? tr("dzc.wb.wall") : m.legs ? tr("wd.legs") : tr("wd.plinth"), "m": carcass]), ui(12.5, 400, G.ink2, lh: 1.4))
         }
     }
 }
@@ -1228,7 +1228,7 @@ private struct WMoreSheet: View {
                         HStack(spacing: 10) {
                             VStack(alignment: .leading, spacing: 1) {
                                 T(tr("wi." + k), ui(15, 700))
-                                T(tr("wid." + k) + (blockH(Insert(k)) > 0 ? " · \(blockH(Insert(k))) mm" : ""), ui(12.5, 400, G.ink2))
+                                T(tr("wid." + k) + (blockH(Insert(k)) > 0 ? " · \(blockH(Insert(k)))" + U_MM : ""), ui(12.5, 400, G.ink2))
                             }
                             .frame(maxWidth: .infinity, alignment: .leading)
                             MIcon("plus", G.cobalt2, 20, 2.4)

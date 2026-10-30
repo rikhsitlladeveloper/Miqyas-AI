@@ -124,9 +124,10 @@ private struct FillPill: View {
         let shape = RoundedRectangle(cornerRadius: 16, style: .continuous)
         VStack(alignment: .leading, spacing: 0) {
             T(label, ui(11.5, 500, G.ink2), lines: 1)
+            // the sizes first: "3400 / 3…" hid the wall's length on an iPhone SE
             HStack(alignment: .lastTextBaseline, spacing: 6) {
-                T(fl.avail != nil ? "\(fl.used) / \(fl.avail!)" : "\(fl.used)", num(15, 700), lines: 1)
-                if fl.avail != nil { T(txt, ui(12, 700, c), lines: 1) }
+                T(fl.avail != nil ? "\(fl.used) / \(fl.avail!)" : "\(fl.used)", num(15, 700), lines: 1).layoutPriority(1)
+                if fl.avail != nil { T(txt, ui(12, 700, c), lines: 1).minimumScaleFactor(0.7) }
             }
         }
         .padding(.horizontal, 12).padding(.vertical, 8)
@@ -284,7 +285,7 @@ struct CostCard: View {
                 if cost.missing > 0 { T(tr("kt.noPrice", ["n": cost.missing]), ui(12.5, 600, G.amberInk)) }
                 // parts longer than a sheet: priced a sheet each, said here too (not only on the cut list)
                 ForEach(cost.layouts.filter { !$0.unplaced.isEmpty }, id: \.mat) { lay in
-                    let nm = s.mats.first { $0.id == lay.mat }?.name ?? lay.mat
+                    let nm = matShown(lay.mat)
                     T(tr("fw.unplaced", ["m": dn(nm), "n": lay.unplaced.count]), ui(12.5, 600, G.err, lh: 1.4))
                 }
             }

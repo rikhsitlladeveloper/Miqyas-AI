@@ -465,7 +465,7 @@ private struct ApproveSheet: View {
                 GField(label: tr("fo.pre"), value: Binding(get: { preText }, set: { pre = $0.filter { $0.isNumber }; preTouched = true }), placeholder: "0", optional: true,
                        error: rErr.map { tr($0) }, showError: true, focus: $focus, me: .b, submit: .done, number: true)
                 if let pv, let rv = rv0, rv > 0, rErr == nil {
-                    T(tr("fo.prePct", ["p": NSDecimalNumber(decimal: rv * 100 / pv).intValue]), ui(13, 400, G.ink2))
+                    T(tr("fo.prePct", ["p": Int(NSDecimalNumber(decimal: rv * 100 / pv).doubleValue.rounded())]), ui(13, 400, G.ink2))
                 }
             } footer: {
                 GBtn(tr("fo.approve"), enabled: !tried || ok) {

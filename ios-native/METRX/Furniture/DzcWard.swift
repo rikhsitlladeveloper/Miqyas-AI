@@ -115,7 +115,7 @@ private struct DzcWCaption: View {
             if let fk = st.front, let fr = handleFronts(c.m).first(where: { $0.key == fk }) {
                 DzcCaption(title: frontName(c.m, fr), sub: d3.isEmpty ? "" : "3D", up: tr("dzc.secN", ["n": i + 1]), onUp: { st.front = nil; st.tool = nil }) { DzcWOps.deselect() }
             } else {
-                DzcCaption(title: tr("dzc.secN", ["n": i + 1]) + " · \(s.w) mm", sub: tr(boxRole(c.f, c.m)) + d3, onUp: {}) { DzcWOps.deselect() }
+                DzcCaption(title: tr("dzc.secN", ["n": i + 1]) + " · \(s.w)" + U_MM, sub: tr(boxRole(c.f, c.m)) + d3, onUp: {}) { DzcWOps.deselect() }
             }
         }
     }
@@ -192,7 +192,7 @@ private struct DzcWBubble: View {
             let bx = map.sx(starts[i] + s.w / 2)
             let pid = c.p.id, fid = c.f.id, mid = m.id
             DzcPin(x: bx, y: map.sy(-150)) {
-                DzcBubble(text: (live && lv?.maxHit == true ? tr("dzc.max") + " " : "") + "\(s.w) mm", live: live, kbd: !live, warn: live && lv?.maxHit == true, id: "dzc.bubble") {
+                DzcBubble(text: (live && lv?.maxHit == true ? tr("dzc.max") + " " : "") + "\(s.w)" + U_MM, live: live, kbd: !live, warn: live && lv?.maxHit == true, id: "dzc.bubble") {
                     app.sheet = .dzcNum(pid: pid, fid: fid, mid: mid, key: "w", sec: i)
                 }
             }
@@ -1022,7 +1022,7 @@ private struct DzcWPlinth: View {
                 DzcOpt(label: tr("dzc.hungMore"), glyph: "size", id: "dzc.base.hung") { app.sheet = .dzcMore(pid: c.p.id, fid: c.f.id, tab: "size") }
             }
         } else {
-            DzcOptRow(title: tr("dzc.t.plinth"), sub: "\(h) mm", onBack: onBack) {
+            DzcOptRow(title: tr("dzc.t.plinth"), sub: "\(h)" + U_MM, onBack: onBack) {
                 DzcOpt(label: tr("dzc.base.plinth"), glyph: "plinth", on: kind == "plinth", id: "dzc.base.plinth") { set("plinth", h) }
                 DzcOpt(label: tr("dzc.base.legs"), glyph: "legs", on: kind == "legs", id: "dzc.base.legs") { set("legs", m.legs ? h : c.ws.legH) }
                 ForEach(list, id: \.self) { v in
@@ -1045,15 +1045,14 @@ private struct DzcWChecks: View {
     var body: some View {
         let list = c.issues
         DzcOptRow(title: tr("dzc.t.checks"), sub: list.isEmpty ? tr("dzc.allOk") : tr("dzc.nIssues", ["n": list.count]), onBack: onBack) {
-            if list.isEmpty { DzcOpt(label: tr("kt.allOk"), glyph: "done", id: "dzc.ck.ok") {} }
+            if list.isEmpty { DzcOpt(label: tr("kt.allOk"), glyph: "done", id: "dzc.ck.ok", wrap: 240) {} }
             ForEach(Array(list.enumerated()), id: \.offset) { i, ck in
-                DzcOpt(label: checkText(ck, c.f), glyph: "checks", tone: ck.level == "err" ? "red" : "", id: "dzc.ck.\(i)") {
+                DzcOpt(label: checkText(ck, c.f), glyph: "checks", tone: ck.level == "err" ? "red" : "", id: "dzc.ck.\(i)", wrap: 230) {
                     if let n = ck.vars["s"]?.base as? Int, n >= 1, n <= c.m.sections.count {
                         let st = DzcState.shared
                         st.tool = nil; st.sec = n - 1; st.front = nil
                     }
                 }
-                .frame(maxWidth: 280)
             }
         }
     }

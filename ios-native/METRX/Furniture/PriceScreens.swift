@@ -23,8 +23,8 @@ private func lineText(_ p: Project, _ l: CostLine) -> String {
     let s = AppSettings.shared
     let name: String
     switch l.group {
-    case "mat": name = s.mats.first { $0.id == l.key }?.name ?? l.key
-    case "hw": name = s.hws.first { $0.id == l.key }?.name ?? tr("hk." + l.key)
+    case "mat": name = matShown(l.key)
+    case "hw": name = s.hws.first { $0.id == l.key }.map { hwShown($0) } ?? tr("hk." + l.key)
     default: name = tr(l.key)
     }
     if l.unit == "order" { return name }
@@ -100,8 +100,8 @@ struct FPriceTab: View {
                 // the documents: the customer's PDF first, then the workshop's pack and the parts with their sheet layout
                 GBtn(tr("fd.btn"), icon: "share", height: 52, corner: 16, fontSize: 15.5) { app.push(.report(pid: p.id, no: nil)) }.accessibilityIdentifier("fp.quote")
                 HStack(spacing: 10) {
-                    GBtn(tr("fw.btn"), kind: .secondary, icon: "doc", height: 50, corner: 16, fontSize: 14.5) { app.push(.fPack(pid: p.id)) }.accessibilityIdentifier("fp.pack")
-                    GBtn(tr("fc.title"), kind: .secondary, icon: "board", height: 50, corner: 16, fontSize: 14.5) { app.push(.fCut(pid: p.id)) }.accessibilityIdentifier("fp.cut")
+                    GBtn(tr("fw.btn"), kind: .secondary, icon: "doc", height: 50, corner: 16, fontSize: 14.5, lines: 2) { app.push(.fPack(pid: p.id)) }.accessibilityIdentifier("fp.pack")
+                    GBtn(tr("fc.title"), kind: .secondary, icon: "board", height: 50, corner: 16, fontSize: 14.5, lines: 2) { app.push(.fCut(pid: p.id)) }.accessibilityIdentifier("fp.cut")
                 }
                 T(tr("fp.docsNote"), ui(12.5, 400, G.ink2, lh: 1.4))
                 PriceRow(label: tr("fp.days"), value: tr("fd.days", ["d": fp.days, "i": fp.inst]), id: "fp.days") { app.sheet = .fPriceField(pid: p.id, key: "days") }
@@ -156,7 +156,7 @@ private struct PriceRow: View {
         let shape = RoundedRectangle(cornerRadius: 14, style: .continuous)
         HStack(spacing: 6) {
             T(label, ui(14.5, 500)).frame(maxWidth: .infinity, alignment: .leading)
-            T(value, num(15, 700), lines: 1); MIcon("chev", G.ink3, 16, 2)
+            T(value, num(15, 700), lines: 1).minimumScaleFactor(0.8).layoutPriority(1); MIcon("chev", G.ink3, 16, 2)
         }
         .padding(.horizontal, 14).frame(minHeight: 50)
         .background(shape.fill(G.glass(0.6))).overlay(shape.strokeBorder(G.rim, lineWidth: 1))
@@ -284,7 +284,7 @@ struct CutScreen: View {
                                 HStack(spacing: 6) {
                                     ForEach(cost.layouts, id: \.mat) { l in
                                         let extra = l.rems.isEmpty ? "" : " + \(l.rems.count)"
-                                        FChip(label: (s.mats.first { $0.id == l.mat }?.name ?? l.mat) + " · \(l.sheets.count)" + extra, on: l.mat == lay.mat) { mat = l.mat; sheet = 0; hiRow = -1 }
+                                        FChip(label: matShown(l.mat) + " · \(l.sheets.count)" + extra, on: l.mat == lay.mat) { mat = l.mat; sheet = 0; hiRow = -1 }
                                             .accessibilityIdentifier("fc.mat." + l.mat)
                                     }
                                 }
@@ -328,7 +328,7 @@ struct CutScreen: View {
                 HStack(spacing: 8) {
                     T("\(number[i] ?? 0)", num(13, 700, G.ink2)).frame(width: 24, alignment: .leading)
                     VStack(alignment: .leading, spacing: 0) {
-                        T(tr(r.p.key) + (r.p.grain ? " ↕" : ""), ui(13.5, 600), lines: 1)
+                        T(tr(r.p.key) + (r.p.grain ? " " + GRAIN_MARK : ""), ui(13.5, 600), lines: 1)
                         if r.cutL != r.p.L || r.cutW != r.p.W { T(tr("wk.cut", ["v": "\(r.cutL) × \(r.cutW)"]), ui(11.5, 400, G.ink2)) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -385,7 +385,7 @@ struct CutScreen: View {
         }
         T(tr("fw.sheetNote", ["l": lay.sheetL, "w": lay.sheetW, "k": ws.kerf, "t": ws.trim]), ui(12.5, 400, G.ink2, lh: 1.4))
         if !lay.unplaced.isEmpty {
-            T(tr("fw.unplaced", ["m": mats.first { $0.id == lay.mat }?.name ?? lay.mat, "n": lay.unplaced.count]), ui(13, 600, G.err, lh: 1.4))
+            T(tr("fw.unplaced", ["m": matShown(lay.mat), "n": lay.unplaced.count]), ui(13, 600, G.err, lh: 1.4))
         }
     }
 }

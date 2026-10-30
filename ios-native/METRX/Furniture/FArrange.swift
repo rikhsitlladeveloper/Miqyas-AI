@@ -298,7 +298,7 @@ struct FArrangeScreen: View {
     private func card(_ st: FArrState, _ f: Furniture, _ pc: FpPiece, _ chk: FpCheck, _ walls: [PlanWall], _ room: Room, _ ws: Workshop, _ pieces: [FpPiece], _ g: ReRoomGeo) -> some View {
         let shape = RoundedRectangle(cornerRadius: 22, style: .continuous)
         let wher = pc.free ? tr("fp.free", ["a": fpAngle(pc)]) : pc.wall.map { tr("fp.onWall", ["w": reWL($0)]) } ?? ""
-        let sz = reLen(Int(pc.w.rounded())) + " × " + reLen(Int(pc.d.rounded())) + " mm"
+        let sz = reLen(Int(pc.w.rounded())) + " × " + reLen(Int(pc.d.rounded())) + U_MM
         return VStack(alignment: .leading, spacing: 8) {
             HStack(spacing: 10) {
                 PathIcon("M4 11h16v6H4zM6 17v2M18 17v2M6 11V8h12v3", .white, 18, 2).frame(width: 32, height: 32)

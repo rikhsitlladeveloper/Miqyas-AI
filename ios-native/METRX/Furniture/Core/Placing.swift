@@ -316,6 +316,14 @@ func placeWarnings(_ f: Furniture, _ others: [Furniture], _ room: Room, _ walls:
     if mySw.contains(where: { ft in ft.pts.contains { q in !inside(poly, q) && (walls.map { $0.dist(q) }.min() ?? 0) > 5 } }) {
         out.append(FitIssue(key: "fz.doorRoom", vars: ["n": f.name]))
     }
+    // through an inner wall (the same words as "Mebel joylash")
+    if !room.inner.isEmpty {
+        let bodies = fpGeo(room, AppSettings.shared.angleSnap).g.bodies
+        for b in bodies where mine.contains(where: { ft in ft.floor && b.R.contains { iwSat(ft.pts.map { Pt(x: $0.x, y: $0.y) }, $0) } }) {
+            out.append(FitIssue(key: "fp.r.iw", vars: ["n": iwName(b.k).lowercased()]))
+            break
+        }
+    }
     for op in room.openings {
         guard let w = walls.first(where: { $0.id == op.wall }) else { continue }
         let a0 = Double(op.off), a1 = Double(op.off + op.w)

@@ -163,6 +163,12 @@ struct OrderProgress: View {
     var compact = false
     var body: some View {
         let st = orderSteps(p)
+        if compact { row(st, all: false) }
+        // all five names when they fit; else only the current one, as the designer's head (an iPhone SE cut them to "Ro…", "Furn…")
+        else { ViewThatFits(in: .horizontal) { row(st, all: true); row(st, all: false) } }
+    }
+
+    private func row(_ st: [FStep], all: Bool) -> some View {
         HStack(spacing: compact ? 2 : 4) {
             ForEach(Array(st.enumerated()), id: \.offset) { i, s in
                 if i > 0 { Spacer(minLength: 0) }
@@ -175,9 +181,9 @@ struct OrderProgress: View {
                     }
                     .frame(width: compact ? 18 : 22, height: compact ? 18 : 22)
                     // the designer's narrow head: the current step's name only (the others were cut to "Di…")
-                    if !compact || s.state == .cur {
+                    if all || s.state == .cur {
                         T(s.label, ui(compact ? 11 : 12.5, s.state == .cur ? 800 : 600, s.state == .todo || s.state == .skip ? G.ink3 : col), lines: 1)
-                            .minimumScaleFactor(0.6)
+                            .minimumScaleFactor(compact ? 0.6 : 0.9)
                     }
                 }
                 // each step as wide as its name (equal widths cut "Yuborish" to "Yubo…" while "Xona" had room)

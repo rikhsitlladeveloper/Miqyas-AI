@@ -291,6 +291,41 @@ func drawReportPlan(_ ctx: GraphicsContext, _ r: Room, _ unit: LenUnit, _ en: Bo
     Theme.shared.onPaper {
         if r.isPoly { _ = drawReportPoly(ctx, r, unit, en, label, snap: snap, labelMode: labelMode, m2: m2) }
         else { drawRectPlan(ctx, RectLayout(r), r, nil, nil, unit, en, label, { _ in false }, report: true, m2: m2, labelMode: labelMode) }
+        drawReportInner(ctx, r, snap: snap)
+    }
+}
+
+/// The room's inner walls on the report's plan (its areas already count them): each piece's body in the plan's own place,
+/// found from wall A as the plan draws it. A half wall lighter.
+private func drawReportInner(_ ctx: GraphicsContext, _ r: Room, snap: Bool) {
+    guard !r.inner.isEmpty else { return }
+    let g = reGeo(r, snap)
+    guard let f = reWallAFrame(g), let wa = g.outer.first, wa.len > 0 else { return }
+    let a: CGPoint, b: CGPoint, inside: CGPoint
+    if r.isPoly {
+        let lay = PolyLayout(Geo.polyGeo(r, snap).verts, r.dim("T").v ?? 200)
+        guard lay.inner.count >= 3 else { return }
+        a = lay.inner[0]; b = lay.inner[1]
+        inside = CGPoint(x: lay.inner.map(\.x).reduce(0, +) / CGFloat(lay.inner.count), y: lay.inner.map(\.y).reduce(0, +) / CGFloat(lay.inner.count))
+    } else {
+        let lay = RectLayout(r)
+        guard let w0 = lay.walls.first else { return }
+        a = w0.a; b = w0.b; inside = CGPoint(x: lay.inner.midX, y: lay.inner.midY)
+    }
+    let dx = b.x - a.x, dy = b.y - a.y, len = max(hypot(dx, dy), 1e-6)
+    let k = len / CGFloat(wa.len), ux = dx / len, uy = dy / len
+    var nx = -uy, ny = ux
+    if (inside.x - a.x) * nx + (inside.y - a.y) * ny < 0 { nx = -nx; ny = -ny }
+    func at(_ q: Pt) -> CGPoint {
+        let t = CGFloat((q.x - f.a.x) * f.u.x + (q.y - f.a.y) * f.u.y), s = CGFloat((q.x - f.a.x) * f.n.x + (q.y - f.a.y) * f.n.y)
+        return CGPoint(x: a.x + (ux * t + nx * s) * k, y: a.y + (uy * t + ny * s) * k)
+    }
+    for p in r.inner {
+        for R in iwGeo(p, reHeight(r)).R where R.count >= 3 {
+            let q = R.map(at)
+            var pp = Path(); pp.move(to: q[0]); q.dropFirst().forEach { pp.addLine(to: $0) }; pp.closeSubpath()
+            ctx.fill(pp, with: .color(PC.ink.opacity(p.k == "half" ? 0.4 : 0.85)))
+        }
     }
 }
 

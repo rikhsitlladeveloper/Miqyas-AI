@@ -482,11 +482,22 @@ private struct FOrderPage: View {
                     GlassIconButton("more", tr("common.menu"), iconSize: 18) { app.sheet = .projectMenu(pid: p.id) }.accessibilityIdentifier("project.menu")
                 }
                 OrderProgress(app: app, p: p).padding(.horizontal, 10)
-                HStack(spacing: 8) {
-                    OrderPriceLine(p: p)
-                    Spacer(minLength: 0)
-                    if adv { FStageChip(stage: p.stage) }
-                    InstallChip(p: p)
+                // on two lines when they do not fit (the exact price was cut to "25 356 6…", the date chip too)
+                ViewThatFits(in: .horizontal) {
+                    HStack(spacing: 8) {
+                        OrderPriceLine(p: p).fixedSize()
+                        Spacer(minLength: 0)
+                        if adv { FStageChip(stage: p.stage).fixedSize() }
+                        InstallChip(p: p).fixedSize()
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        OrderPriceLine(p: p)
+                        HStack(spacing: 8) {
+                            if adv { FStageChip(stage: p.stage) }
+                            InstallChip(p: p)
+                            Spacer(minLength: 0)
+                        }
+                    }
                 }
                 .padding(.horizontal, 16).padding(.top, 4).padding(.bottom, 10)
             }

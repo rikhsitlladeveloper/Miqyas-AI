@@ -215,7 +215,7 @@ private extension Doc {
     func bandText(_ r: CutRow) -> String {
         let b = r.p.bands, all = [b.l1, b.l2, b.s1, b.s2]
         let thick = all.filter { $0 == 2 }.count, thin = all.filter { $0 == 1 }.count
-        let parts = [thick > 0 ? "2 mm × \(thick)" : nil, thin > 0 ? (en ? "0.4" : "0,4") + " × \(thin)" : nil].compactMap { $0 }
+        let parts = [thick > 0 ? "2 " + t("u.mm") + " × \(thick)" : nil, thin > 0 ? (en ? "0.4 " : "0,4 ") + t("u.mm") + " × \(thin)" : nil].compactMap { $0 }
         return parts.isEmpty ? "—" : parts.joined(separator: ", ")
     }
 
@@ -370,7 +370,7 @@ func workshopPages(_ sn: Snap, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], _ pr:
         d.h2(d.t("fw.cut", ["m": dn(matName(mat), d.l), "n": list.reduce(0) { $0 + $1.element.p.qty }]))
         var rows: [[Cell]] = [[d.th("№"), d.th(d.t("fw.c.part")), d.th(d.t("fw.c.size"), right: true), d.th(d.t("fw.c.cut"), right: true), d.th(d.t("fw.c.qty"), right: true), d.th(d.t("fw.c.band"))]]
         for (i, r) in list {
-            rows.append([d.cell("\(number[i] ?? 0)"), d.cell(d.t(r.p.key) + (r.p.grain ? " ↕" : "")), d.rcell("\(r.p.L) × \(r.p.W)"), d.rcell("\(r.cutL) × \(r.cutW)"),
+            rows.append([d.cell("\(number[i] ?? 0)"), d.cell(d.t(r.p.key) + (r.p.grain ? " " + GRAIN_MARK : "")), d.rcell("\(r.p.L) × \(r.p.W)"), d.rcell("\(r.cutL) × \(r.cutW)"),
                          d.rcell("\(r.p.qty)"), d.cell(d.bandText(r), d.num(9.5))])
         }
         d.table(rows, head: 1)

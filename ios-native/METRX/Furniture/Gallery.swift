@@ -113,7 +113,7 @@ struct FGalleryScreen: View {
                             if let room {
                                 let f = { (mm: Int?) in Geo.fmtLen(mm, AppSettings.shared.unit, en) }
                                 let name = p.floors.first { $0.id == room.floorId }.map { floorName($0) } ?? dn(room.name)
-                                T(tr("fg.forRoom", ["r": name, "a": f(Geo.roomSize(room, AppSettings.shared.angleSnap)?.0), "b": f(Geo.roomSize(room, AppSettings.shared.angleSnap)?.1), "h": f(room.dim("H").v)]), ui(13.5, 400, G.ink2, lh: 1.4))
+                                T(tr("fg.forRoomU", ["u": unitWord(AppSettings.shared.unit), "r": name, "a": f(Geo.roomSize(room, AppSettings.shared.angleSnap)?.0), "b": f(Geo.roomSize(room, AppSettings.shared.angleSnap)?.1), "h": f(room.dim("H").v)]), ui(13.5, 400, G.ink2, lh: 1.4))
                                 // the room's one editor (room-editor mockup v2): its walls, doors, windows and points
                                 HStack(spacing: 8) {
                                     PathIcon(SD_ROOM_IC, G.cobalt2, 20, 2)
@@ -138,7 +138,8 @@ struct FGalleryScreen: View {
                                 .accessibilityIdentifier("fp.open")
                                 // a measured kitchen: built for it, six styles to pick from (Joylan ideas, 26 Oct 2026)
                                 if first == "kitchen" && measuredRoom(room, s.angleSnap) { AutoKitchenEntry(app: app, pid: p.id, rid: room.id) }
-                            } else {
+                            } else if !p.rooms.contains(where: { measuredRoom($0, s.angleSnap) }) {
+                                // not when the order has a measured room ("Measure the room first" was shown over its gallery)
                                 HStack(spacing: 12) {
                                     MIcon("room", G.cobalt, 24, 2)
                                     VStack(alignment: .leading, spacing: 1) { T(tr("fg.measure"), ui(14.5, 700, G.cobalt2)); T(tr("fg.measureS"), ui(12.5, 400, G.ink2)) }
@@ -407,6 +408,7 @@ struct FStepsScreen: View {
                                 }
                             }
                             .frame(maxWidth: .infinity)
+                            .id("fx.top")
                             // with the keyboard up the picture gets lower, so the field and the laser stay in sight
                             ZStack(alignment: .bottomTrailing) {
                                 PieceView(scene: scene, hi: hi, label: label)
@@ -425,7 +427,11 @@ struct FStepsScreen: View {
                     .scrollDismissesKeyboard(.interactively)
                     // with the keyboard up the laser and mic row went under "Keyingi": it is scrolled up above the bar
                     .onChange(of: typing) { _, on in if on { toolsUp(proxy) } }
-                    .onChange(of: at) { _, _ in if typing { toolsUp(proxy) } }
+                    .onChange(of: at) { _, v in
+                        // the summary opens from its top (it was left with the picture under the title)
+                        if v >= n { DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { proxy.scrollTo("fx.top", anchor: .top) } }
+                        else if typing { toolsUp(proxy) }
+                    }
                     }
                 }
                 FloatingFooter {
@@ -548,9 +554,19 @@ struct FStepsScreen: View {
     }
 
     /// The size step's laser, mic and laser line scrolled above the "Keyingi" bar once the keyboard is up.
+    /// The step being asked has usual sizes under its field.
+    private var hasPicks: Bool {
+        guard let m = fModel(model) else { return false }
+        let st = stepsNow(m)
+        return at < st.count && !st[at].picks.isEmpty
+    }
+
     private func toolsUp(_ proxy: ScrollViewProxy) {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
-            withAnimation(.easeOut(duration: 0.25)) { proxy.scrollTo("fx.end", anchor: .bottom) }
+            // on an iPhone SE a step with usual sizes under the field (a mattress's) is taller than the space above the
+            // keyboard: its heading stays in sight (it went under the title), the chips scroll
+            let tall = UIScreen.main.bounds.height < 700 && self.hasPicks
+            withAnimation(.easeOut(duration: 0.25)) { if tall { proxy.scrollTo("fx.ask", anchor: .top) } else { proxy.scrollTo("fx.end", anchor: .bottom) } }
         }
     }
 
@@ -561,7 +577,7 @@ struct FStepsScreen: View {
         let shape = RoundedRectangle(cornerRadius: 18, style: .continuous)
         let on = AppSettings.shared.laser == .connected
         VStack(alignment: .leading, spacing: 6) {
-            T(tr(s.label), ui(21, 800, G.ink, lh: 1.2)).padding(.top, 4)
+            T(tr(s.label), ui(21, 800, G.ink, lh: 1.2)).padding(.top, 4).id("fx.ask")
             T(tr(s.help), ui(13, 400, G.ink2, lh: 1.4))
             HStack(spacing: 10) {
                 TextField("", text: Binding(get: { txt(steps, i) }, set: { v in

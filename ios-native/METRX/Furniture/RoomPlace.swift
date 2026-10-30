@@ -51,6 +51,14 @@ struct PlacePlan: View {
                 for (i, w) in walls.enumerated() { let a = scr(w.p0); if i == 0 { outline.move(to: a) } else { outline.addLine(to: a) } }
                 outline.closeSubpath()
                 ctx.fill(outline, with: .color(.white))
+                // the inner walls, where they stand (a piece must not go through one: placeWarnings)
+                for b in fpGeo(room, AppSettings.shared.angleSnap).g.bodies {
+                    for R in b.R where R.count >= 3 {
+                        let q = R.map { scr(PlanPt($0.x, $0.y)) }
+                        var pp = Path(); pp.move(to: q[0]); q.dropFirst().forEach { pp.addLine(to: $0) }; pp.closeSubpath()
+                        ctx.fill(pp, with: .color(RD.wallc.opacity(b.k == "half" ? 0.45 : 0.88)))
+                    }
+                }
                 // a piece's box: filled when it stands on the floor, outlined when it hangs; the one being placed with a heavier front
                 func foot(_ ft: Foot, _ c: Color, _ me: Bool) {
                     let pts = ft.pts.map(scr)

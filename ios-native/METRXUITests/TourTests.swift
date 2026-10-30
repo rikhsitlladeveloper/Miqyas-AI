@@ -501,10 +501,19 @@ class TourBase: ScreenTestCase {
         return find("ptab.rooms", 4) != nil || find("ptab.info", 2) != nil
     }
 
+    /// The report's current page enlarged, from its top down.
+    func pageWhole(_ name: String) {
+        guard tap("rp.page", 1.5, wait: 1.2) else { return }
+        S(name + "-zoom")
+        app.swipeUp(); usleep(800_000); S(name + "-zoom-2")
+        tap("pv.close", 2, wait: 0.8)
+    }
+
     /// The report (PDF preview) from the order's estimate tab: its pages, the set-up, the issue sheet (not issued).
     func report(_ name: String) {
         guard tap("es.preview", 3, wait: 3) || tap("fp.quote", 2, wait: 4) else { skip(name + "-report"); return }
         S(name + "-report")
+        pageWhole(name + "-report")
         for i in 0..<2 where tap("rp.next", 2, wait: 1.2) { S(name + "-report-p\(i + 2)") }
         if tap("rp.setup", 2) { S(name + "-report-setup"); tap("rp.done", 2, wait: 2) }
         if tap("rp.issue", 2) { S(name + "-report-issue"); closeSheets() }
@@ -737,8 +746,10 @@ final class TourFurnTests: TourBase {
     /// "Mebel joylash" from the gallery of the room: the plan, a piece selected (tapped where it is drawn), turned,
     /// put against a wall, made free again, Undo.
     func arrangePieces() {
-        guard toOrder(), tap("fz.addMore", 4, wait: 1.5) else { skip("arrange-gallery"); return }
-        guard tap("fp.open", 4, wait: 1.5) else { skip("arrange-open"); back(); return }
+        // the order's "Xona" step opens the room editor; "Mebel joylash" is under its "Qo‘shimcha"
+        guard toOrder(), tap("ux.step.room", 4, wait: 2) else { skip("arrange-room"); return }
+        if tap("ux.coachOk", 2, wait: 0.5) {}
+        guard reToolT("more"), tap("re.o.fp", 3, wait: 1.5) else { skip("arrange-open"); return }
         calm(); S("arrange-plan")
         // the plan's points nearest its middle first (the wardrobe was put in the middle of the room)
         var pts: [(Double, Double)] = []
@@ -765,6 +776,7 @@ final class TourFurnTests: TourBase {
         guard tap("ux.step.send", 3, wait: 2) || tap("ux.step.price", 2, wait: 2) else { skip("pdf-step"); return }
         guard find("rp.next", 8) != nil || find("rp.page", 2) != nil else { skip("pdf-report"); back(); return }
         sleep(5); S("pdf")
+        pageWhole("pdf")
         for i in 0..<7 where tap("rp.next", 2, wait: 2) { S("pdf-p\(i + 2)") }
         if tap("rp.setup", 2) { scrollShots("pdf-setup", 2); tap("rp.done", 2, wait: 2) }
         back()
@@ -824,6 +836,16 @@ final class TourFurnTests: TourBase {
                 // a tap while the list was still gliding to the group: once more
                 if find("fx.next", 1.5) == nil && find("fx.value", 0.5) == nil && find("fx.go", 0.5) == nil { hit(find("model." + m, 2)); usleep(1_200_000) }
                 S(name + "-step1")
+                // the gallery of an order with a measured room puts the model straight into it (the room's own sizes)
+                if find("fz.place", 1.5) != nil {
+                    S(name + "-place")
+                    if !tap("fz.place", 2, wait: 1.5) { skip(name + "-place"); continue }
+                    // an overlap left as it is
+                    if find("fz.keep", 1) != nil { tap("fz.keep", 1); tap("fz.place", 2, wait: 1.5) }
+                    sleep(2); calm()
+                    designerC(name)
+                    continue
+                }
                 guard sizes(name) else { skip(name + "-sizes"); continue }
                 S(name + "-summary")
                 tap("fx.go", 3, wait: 1.5)
@@ -892,6 +914,18 @@ class TourTradeBase: TourBase {
         } else { skip("start-dialog") }
         toOrder()
         orderTabs("order")
+        // the order's next step: the trade's gallery; a kit or layout into the measured room (real pipes, cables, windows, tiles)
+        if tap("ns.go", 3, wait: 1.5), find("ptab.rooms", 1) == nil || findPrefix(kit, 2) != nil {
+            S("next-gallery")
+            if hit(findPrefix(kit, 3)) {
+                usleep(1_200_000)
+                tradeSteps(steps)
+                sleep(2); calm(); S("kit-in-room")
+                if tap("dim.3D", 2, wait: 3) || tap("seg.r", 1, wait: 3) { S("kit-in-room-3d") }
+                explore("kit-view", viewPrefixes, marker: view, max: 4)
+            } else { skip("next-kit") }
+            toOrder()
+        }
         // the other start: an order without a room, its gallery and first kit
         if toHome(), newOrder("Bobur Rahimov", "order2") {
             if tap("sd.b", 4, wait: 1.5) {
@@ -915,7 +949,7 @@ class TourTradeBase: TourBase {
             orderTabs("adv-order")
             if tap("ptab.estimate", 3) {
                 if tap("trc.set", 3) { scrollShots("calc-settings", 3); closeSheets() }
-                if tap("trc.apply", 3, wait: 1.5) { S("calc-applied") }
+                for id in ["trc.apply", "tl.apply", "sx.apply", "el.apply", "dw.apply"] where tap(id, 1, wait: 1.5) { S("calc-applied-" + id); calm(4) }
                 if find("es.preview", 2) == nil, tap("es.addMat", 3) {
                     S("estimate-material-sheet"); typeName(app, "Kabel"); typeIn(app, "gs.qty", "10"); typeIn(app, "gs.price", "12000"); tap("gs.save", 3)
                 }
@@ -925,8 +959,21 @@ class TourTradeBase: TourBase {
         }
         _ = toHome()
         S("home-with-orders")
-        tap("tab.projects", 3); S("orders-list")
+        tap("tab.projects", 3)
+        if find("ptab.rooms", 1) != nil { back() }
+        S("orders-list")
         profile()
+    }
+
+    /// The "Qaysi xonaga?" step: the room just above "Yangi xona", else "Xonasiz".
+    func chooseWhere() {
+        if let nr = labelled(tr("fz.newRoom"), 1), nr.exists {
+            let f = nr.frame
+            app.coordinate(withNormalizedOffset: .zero).withOffset(CGVector(dx: f.midX, dy: f.minY - 34)).tap(); usleep(600_000)
+            if let n = find("ps.next", 0.3) ?? find("es.next", 0.3) ?? find("ts.next", 0.3), n.isEnabled { return }
+            if find("ps.save", 0.3)?.isEnabled == true || find("es.save", 0.3)?.isEnabled == true || find("ts.save", 0.3)?.isEnabled == true { return }
+        }
+        if hit(labelled(tr("tl.s.noRoom"), 1)) { usleep(600_000); S("steps-where-free") }
     }
 
     /// A kit's or layout's steps: next until save (the steps' own usual values).
@@ -936,12 +983,17 @@ class TourTradeBase: TourBase {
             return
         }
         for i in 0..<10 {
-            if let s = find(ids.1, 1), s.m3Seen, !(find(ids.0, 0.5)?.m3Seen ?? false) { S("steps-last"); hit(s); usleep(1_500_000); return }
+            if let s = find(ids.1, 1), s.m3Seen, !(find(ids.0, 0.5)?.m3Seen ?? false) {
+                S("steps-last")
+                if !s.isEnabled { chooseWhere(); S("steps-last-where") }
+                hit(s); usleep(1_500_000); return
+            }
             guard let n = find(ids.0, 2) else {
                 if let s = find(ids.1, 1) { S("steps-last"); hit(s); usleep(1_500_000) }
                 return
             }
             if i < 4 { S("steps-\(i + 1)") }
+            if !n.isEnabled { chooseWhere() }
             guard n.isEnabled else { skip("steps-disabled"); return }
             hit(n); usleep(900_000)
         }

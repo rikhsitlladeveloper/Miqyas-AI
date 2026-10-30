@@ -259,14 +259,18 @@ struct ReEditorScreen: View {
                     .allowsHitTesting(false)
             }
             if st.view == "front" {
-                HStack(spacing: 6) {
-                    ForEach(g.walls, id: \.id) { w in
-                        let on = w.id == st.fw
-                        T(reWL(w.id), ui(13, 800, on ? .white : G.ink)).frame(minWidth: 44, minHeight: 40)
-                            .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(on ? G.cobalt : G.sheet(0.94)))
-                            .pressable(0.96) { st.fw = w.id; st.cams["front"] = ReCam(); if st.selWall != nil { st.sel = .wall(w.id) }; Haptic.tick() }
-                            .accessibilityIdentifier("re.fw." + w.id)
+                // a row that scrolls: with an inner wall's letters it widened the whole page past the screen
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: 6) {
+                        ForEach(g.walls, id: \.id) { w in
+                            let on = w.id == st.fw
+                            T(reWL(w.id), ui(13, 800, on ? .white : G.ink)).frame(minWidth: 44, minHeight: 40)
+                                .background(RoundedRectangle(cornerRadius: 13, style: .continuous).fill(on ? G.cobalt : G.sheet(0.94)))
+                                .pressable(0.96) { st.fw = w.id; st.cams["front"] = ReCam(); if st.selWall != nil { st.sel = .wall(w.id) }; Haptic.tick() }
+                                .accessibilityIdentifier("re.fw." + w.id)
+                        }
                     }
+                    .padding(.horizontal, 12)
                 }
                 .frame(maxWidth: .infinity).padding(.bottom, 8)
             }

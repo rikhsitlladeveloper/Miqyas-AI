@@ -137,7 +137,8 @@ private struct WDElevation: View {
     @State private var started = false
 
     private func map(_ size: CGSize) -> WElevMap {
-        WElevMap(Double(it.w), Double(it.h), CGRect(origin: .zero, size: size), 30, 36, 12)
+        // the hint line under the drawing keeps its own 18 pt (the bottom dimension ran through it on an iPhone SE)
+        WElevMap(Double(it.w), Double(it.h), CGRect(x: 0, y: 0, width: size.width, height: max(60, size.height - 18)), 30, 36, 12)
     }
 
     var body: some View {

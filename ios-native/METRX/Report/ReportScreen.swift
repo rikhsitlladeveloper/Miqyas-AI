@@ -567,7 +567,7 @@ private struct SendCard: View {
                     T(tr("ux.clientPrice"), ui(12.5, 500, G.ink2))
                     Text(Money.str(pr.price, p.precision, en) + " " + Money.cur(p.currency)).st(num(24, 800)).lineLimit(1).minimumScaleFactor(0.7)
                     let profit = pr.price - cost
-                    let pc = pr.price > 0 ? NSDecimalNumber(decimal: profit * 100 / pr.price).intValue : 0
+                    let pc = pr.price > 0 ? Int(NSDecimalNumber(decimal: profit * 100 / pr.price).doubleValue.rounded()) : 0
                     T(tr("ux.costProfit", ["c": Money.str(cost, p.precision, en), "p": Money.str(profit, p.precision, en), "pc": pc]), ui(12.5, 500, G.ink2), lines: 2)
                 }
             } else {

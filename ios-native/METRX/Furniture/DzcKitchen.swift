@@ -159,7 +159,7 @@ private struct DzcKCaption: View {
             } else {
                 let row = tr(isUpper(m) ? "dzc.rowUp" : "dzc.rowLow")
                 let wall = m.wall == ISLAND ? runName(c.f, c.run) : tr("kt.wallN", ["w": m.wall ?? ""])
-                DzcCaption(title: modName(m) + " mm", sub: wall + " · " + row + d3, onUp: {}) { DzcKOps.deselect() }
+                DzcCaption(title: modName(m) + U_MM, sub: wall + " · " + row + d3, onUp: {}) { DzcKOps.deselect() }
             }
         } else if c.run.wall != ISLAND && !measured(c.room, AppSettings.shared.angleSnap, c.run.wall) && !c.d3 {
             T(tr("kt.noLen", ["w": c.run.wall]), ui(12, 600, G.amberInk, lh: 1.3), lines: 2)
@@ -252,7 +252,7 @@ private struct DzcKBubbles: View {
             // kept inside the drawing however near its edge the unit is (DzcPin)
             let bx = map.sx(m.x + m.w / 2)
             let by = isUpper(m) ? map.sy(m.elev + m.h) - 20 : map.sy(-150)
-            let label = (live && lv?.maxHit == true ? tr("dzc.max") + " " : "") + "\(m.w) mm"
+            let label = (live && lv?.maxHit == true ? tr("dzc.max") + " " : "") + "\(m.w)" + U_MM
             let pid = c.p.id, fid = c.f.id, mid = m.id
             DzcPin(x: bx, y: by) {
                 DzcBubble(text: label, live: live, kbd: !live, warn: live && lv?.maxHit == true, id: "dzc.bubble") {
@@ -349,6 +349,8 @@ private struct DzcKCallouts: View {
                         DzcCallout(app: app, c: c, ck: ck, m: m)
                             .frame(width: min(250, size.width - 24))
                             .position(x: min(size.width - 130, max(130, map.sx(m.x + m.w / 2))), y: dzcCalloutY(m, map, size, i))
+                            // over the other modules' "!" badges (one covered its first word)
+                            .zIndex(1)
                     } else {
                         T("!", ui(13, 900, .white), align: .center).frame(width: 24, height: 24)
                             .background(Circle().fill(ck.level == "err" ? G.err : G.amberInk))
@@ -1533,7 +1535,7 @@ private struct DzcKDepth: View {
             let up = isUpper(m)
             DzcOptRow(title: tr("dzc.t.depth"), sub: tr("dzc.dSub", ["v": m.d]), scopes: [("one", tr("dzc.sc.one")), ("row", tr("dzc.sc.row"))], onBack: onBack) {
                 ForEach(up ? DZC_DEPTH_UP : DZC_DEPTH_LOW, id: \.self) { v in
-                    DzcOpt(label: "\(v) mm", on: m.d == v, id: "dzc.d.\(v)") { set(m, v) }
+                    DzcOpt(label: "\(v)" + U_MM, on: m.d == v, id: "dzc.d.\(v)") { set(m, v) }
                 }
             }
         }
@@ -1562,7 +1564,7 @@ private struct DzcKPlinth: View {
         let kind = dzcKitchenBaseKind(c.f)
         let h = wsOf(c.f, AppSettings.shared.workshop).legH
         let i = DZC_BASE_H.firstIndex(of: dzcNearest(h, DZC_BASE_H)) ?? 1
-        DzcOptRow(title: tr("dzc.t.plinth"), sub: tr("dzc.wholeK") + " · \(h) mm", onBack: onBack) {
+        DzcOptRow(title: tr("dzc.t.plinth"), sub: tr("dzc.wholeK") + " · \(h)" + U_MM, onBack: onBack) {
             ForEach(["plinth", "legs", "metal"], id: \.self) { k in
                 DzcOpt(label: tr("dzc.base." + k), glyph: k, on: kind == k, id: "dzc.base." + k) { set(k, h) }
             }
@@ -1588,13 +1590,13 @@ private struct DzcKChecks: View {
         let list = c.issues
         DzcOptRow(title: tr("dzc.t.checks"), sub: list.isEmpty ? tr("dzc.allOk") : tr("dzc.nIssues", ["n": list.count]), onBack: onBack) {
             if list.isEmpty {
-                DzcOpt(label: tr("kt.allOk"), glyph: "done", id: "dzc.ck.ok") {}
+                DzcOpt(label: tr("kt.allOk"), glyph: "done", id: "dzc.ck.ok", wrap: 240) {}
             }
             ForEach(Array(list.enumerated()), id: \.offset) { i, ck in
                 let fixable = dzcFix(c.f, ck, c.runs, c.room.openings, ws: c.ws) != nil
                 HStack(spacing: 4) {
-                    DzcOpt(label: checkText(ck, c.f), glyph: "checks", tone: ck.level == "err" ? "red" : "", id: "dzc.ck.\(i)") { go(ck) }
-                        .frame(maxWidth: 260)
+                    // the sentence wraps (at a fixed 260 it ran on under "Tuzatish")
+                    DzcOpt(label: checkText(ck, c.f), glyph: "checks", tone: ck.level == "err" ? "red" : "", id: "dzc.ck.\(i)", wrap: 210) { go(ck) }
                     if fixable {
                         DzcOpt(label: tr("dzc.fix"), glyph: "done", on: true, id: "dzc.ck.fix\(i)") { DzcKOps.fix(app, c, ck) }
                     }

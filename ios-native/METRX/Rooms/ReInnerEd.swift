@@ -316,6 +316,26 @@ struct ReIwWindow: View {
     let app: AppModel
     let st: ReState
     let h: ReHost
+    private func iwWinBody(_ st: ReState, _ h: ReHost, _ r: Room) -> some View {
+        VStack(alignment: .leading, spacing: 10) {
+            LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
+                ForEach(IW_KINDS.map(\.id), id: \.self) { k in
+                    VStack(alignment: .leading, spacing: 3) {
+                        IwThumb(k: k).background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(G.glass(0.7)))
+                        // two lines: "Стена с проёмом (арка)" was cut off
+                        T(iwName(k), ui(13, 800, lh: 1.15), lines: 2).minimumScaleFactor(0.85)
+                        T(iwCardLine(k), num(11, 500, G.ink2), lines: 2)
+                    }
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.solid))
+                    .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(G.rim, lineWidth: 1))
+                    .pressable(0.97, label: iwName(k)) { Haptic.tick(); st.iwPick(k, app, h) }
+                    .accessibilityIdentifier("iw.card." + k)
+                }
+            }
+            T(reTr("iw.note", ["h": reLen(reHeight(r))]), ui(11.5, 500, G.ink2, lh: 1.25)).fixedSize(horizontal: false, vertical: true)
+        }
+    }
     var body: some View {
         if st.iwWin, let r = h.room() {
             ZStack(alignment: .bottom) {
@@ -328,29 +348,18 @@ struct ReIwWindow: View {
                             .background(RoundedRectangle(cornerRadius: 10, style: .continuous).fill(RD.wallc))
                         VStack(alignment: .leading, spacing: 1) {
                             T(reTr("iw.winT"), ui(15, 800), lines: 1)
-                            T(reTr("iw.winS"), ui(12, 500, G.ink2, lh: 1.2), lines: 2)
+                            T(reTr("iw.winS"), ui(12, 500, G.ink2, lh: 1.2), lines: 2).fixedSize(horizontal: false, vertical: true)
                         }
                         .frame(maxWidth: .infinity, alignment: .leading)
                         MIcon("x", G.ink2, 17, 2).frame(width: 38, height: 38).background(Circle().fill(G.ink.opacity(0.06)))
                             .pressable(0.95, label: tr("common.cancel")) { st.iwWin = false }
                             .accessibilityIdentifier("iw.close")
                     }
-                    LazyVGrid(columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)], spacing: 8) {
-                        ForEach(IW_KINDS.map(\.id), id: \.self) { k in
-                            VStack(alignment: .leading, spacing: 3) {
-                                IwThumb(k: k).background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(G.glass(0.7)))
-                                // two lines: "Стена с проёмом (арка)" was cut off
-                                T(iwName(k), ui(13, 800, lh: 1.15), lines: 2).minimumScaleFactor(0.85)
-                                T(iwCardLine(k), num(11, 500, G.ink2), lines: 2)
-                            }
-                            .padding(8)
-                            .background(RoundedRectangle(cornerRadius: 16, style: .continuous).fill(G.solid))
-                            .overlay(RoundedRectangle(cornerRadius: 16, style: .continuous).strokeBorder(G.rim, lineWidth: 1))
-                            .pressable(0.97, label: iwName(k)) { Haptic.tick(); st.iwPick(k, app, h) }
-                            .accessibilityIdentifier("iw.card." + k)
-                        }
+                    // the cards and the note scroll when they do not fit (an iPhone SE cut the subtitle and the note)
+                    ViewThatFits(in: .vertical) {
+                        iwWinBody(st, h, r)
+                        ScrollView { iwWinBody(st, h, r) }
                     }
-                    T(reTr("iw.note", ["h": reLen(reHeight(r))]), ui(11.5, 500, G.ink2, lh: 1.25), lines: 4)
                     GBtn(reTr("iw.cancel"), kind: .secondary, height: 48) { st.iwWin = false }
                         .accessibilityIdentifier("iw.cancel")
                 }
@@ -422,7 +431,7 @@ struct ReIwBubbles: View {
     }
 
     private func pill(_ t: String, _ c: CGPoint, _ W: CGFloat, _ H: CGFloat, strong: Bool = false, id: String, _ a: @escaping () -> Void) -> some View {
-        T(t, num(12, 800, strong ? .white : G.cobalt2), lines: 1).padding(.horizontal, 9).frame(minWidth: 44, minHeight: 28)
+        T(t, num(12, 800, strong ? .white : G.cobalt2), lines: 1).fixedSize().padding(.horizontal, 9).frame(minWidth: 44, minHeight: 28)
             .background(Capsule().fill(strong ? G.cobalt : G.solid))
             .overlay(Capsule().strokeBorder(G.cobalt.opacity(0.5), lineWidth: 1))
             .contentShape(Capsule())

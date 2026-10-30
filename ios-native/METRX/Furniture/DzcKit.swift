@@ -473,7 +473,7 @@ struct DzcScope: View {
         HStack(spacing: 2) {
             ForEach(items, id: \.0) { k, label in
                 let on = st.scope == k
-                T(label, ui(11.5, on ? 800 : 600, on ? G.ink : G.ink2), lines: 1)
+                T(label, ui(11.5, on ? 800 : 600, on ? G.ink : G.ink2), lines: 1).minimumScaleFactor(0.75)
                     .padding(.horizontal, 9).frame(minHeight: 32)
                     .background(RoundedRectangle(cornerRadius: 9, style: .continuous).fill(on ? G.glass(0.95) : .clear))
                     .pressable(0.97) { st.scope = k; Haptic.tick() }
@@ -493,6 +493,8 @@ struct DzcOpt: View {
     var on = false
     var tone = ""
     var id = ""
+    /// A long text (a check's sentence): it wraps within this width instead of running on under the next option.
+    var wrap: CGFloat? = nil
     let action: () -> Void
     var body: some View {
         let fg: Color = tone == "red" ? G.err : on ? G.cobalt2 : G.ink
@@ -500,7 +502,8 @@ struct DzcOpt: View {
         HStack(spacing: 6) {
             if let d = DZC_GLYPH[glyph] { DzcIcon(d: d, color: fg, size: 26, box: 30, stroke: 1.8) }
             else if let d = DZC_ICON[glyph] { DzcIcon(d: d, color: fg, size: 20) }
-            T(label, ui(13.5, on ? 800 : 600, fg), lines: 2).fixedSize(horizontal: true, vertical: false)
+            if let wrap { T(label, ui(13, on ? 800 : 600, fg), lines: 3).frame(width: wrap, alignment: .leading).fixedSize(horizontal: false, vertical: true) }
+            else { T(label, ui(13.5, on ? 800 : 600, fg), lines: 2).fixedSize(horizontal: true, vertical: false) }
         }
         .padding(.horizontal, 12).frame(minHeight: 52)
         .background(shape.fill(on ? G.cobalt.opacity(0.1) : G.glass(0.6)))
@@ -838,7 +841,7 @@ struct DzcTeach: View {
             box(40, 34, w, 70, true)
             c.fill(Path(roundedRect: CGRect(x: 40 + w - 6, y: 54, width: 12, height: 30), cornerRadius: 6), with: .color(blue))
             finger(CGPoint(x: 40 + w + 4, y: 78))
-            c.text(ease < 0.5 ? "600 mm" : "450 mm", CGPoint(x: 40 + w / 2, y: 20), .num, 13, 700, blue)
+            c.text((ease < 0.5 ? "600" : "450") + U_MM, CGPoint(x: 40 + w / 2, y: 20), .num, 13, 700, blue)
         case 1:
             box(30, 34, 70, 70, false)
             let lift = min(1, u * 3)

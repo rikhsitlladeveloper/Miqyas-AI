@@ -157,7 +157,7 @@ private struct SampleCard: View {
                 HStack(spacing: 8) {
                     VStack(alignment: .leading, spacing: 1) {
                         T(tr(r.p.key), ui(13.5, 700), lines: 1)
-                        T(s.mats.first { $0.id == r.mat }?.name ?? r.mat, ui(11.5, 400, G.ink2), lines: 1)
+                        T(matShown(r.mat), ui(11.5, 400, G.ink2), lines: 1)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                     VStack(alignment: .trailing, spacing: 1) {
@@ -191,12 +191,12 @@ struct MaterialsScreen: View {
             T(tr("mt.lead"), ui(12.5, 400, G.ink2, lh: 1.45))
             if tab == "m" {
                 ForEach(s.mats) { m in
-                    ItemRow(swatch: matColor(m.rgb), name: m.name, sub: matSub(m, en), price: priceOf(m.price, en), unit: unitOf(m)) { app.sheet = .matForm(id: m.id) }
+                    ItemRow(swatch: matColor(m.rgb), name: matShown(m), sub: matSub(m, en), price: priceOf(m.price, en), unit: unitOf(m)) { app.sheet = .matForm(id: m.id) }
                         .accessibilityIdentifier("mt." + m.id)
                 }
             } else {
                 ForEach(s.hws) { h in
-                    ItemRow(swatch: nil, name: h.name, sub: tr("hk." + h.kind), price: priceOf(h.price, en), unit: tr(perKey(h.kind))) { app.sheet = .hwForm(id: h.id) }
+                    ItemRow(swatch: nil, name: hwShown(h), sub: tr("hk." + h.kind), price: priceOf(h.price, en), unit: tr(perKey(h.kind))) { app.sheet = .hwForm(id: h.id) }
                         .accessibilityIdentifier("hw." + h.id)
                 }
             }
@@ -215,8 +215,8 @@ private func matSub(_ m: Mat, _ en: Bool) -> String {
     switch m.kind {
     case "band": return tr("mt.bandK") + " · " + tenths(m.t, en) + U_MM
     case "back": return tr("mt.backK") + " · \(m.l) × \(m.w)"
-    case "worktop": return tr("mt.wtK") + " · \(m.t) mm · \(m.l) × \(m.w)"
-    default: return tr("mt.board") + " · \(m.t) mm · \(m.l) × \(m.w)" + (m.grain ? " · ↕" : "")
+    case "worktop": return tr("mt.wtK") + " · \(m.t)" + U_MM + " · \(m.l) × \(m.w)"
+    default: return tr("mt.board") + " · \(m.t)" + U_MM + " · \(m.l) × \(m.w)" + (m.grain ? " · " + GRAIN_MARK : "")
     }
 }
 
@@ -316,7 +316,7 @@ private struct FieldSheet: View {
     }
     var body: some View {
         let s = AppSettings.shared, f = field(key), parsed = parseField(f.kind, v, f.key)
-        let unit: String = { switch f.kind { case .mm, .mm10: return "mm"; case .pct: return "%"; case .money: return Money.cur(s.currency) } }()
+        let unit: String = { switch f.kind { case .mm, .mm10: return tr("u.mm"); case .pct: return "%"; case .money: return Money.cur(s.currency) } }()
         func save() {
             guard let parsed else { return }
             var w = s.workshop; f.set(&w, parsed); s.setWorkshopRules(w)

@@ -468,10 +468,22 @@ private struct CheckPiece: View {
 /* ---------------- Change for all: fronts and handles ---------------- */
 
 /// A board's name: a preset's in the app language (the workshop's own as typed).
-private func bzMatName(_ m: Mat) -> String {
+private func bzMatName(_ m: Mat) -> String { matShown(m) }
+
+/// A preset board's name in the app's language; the workshop's own as typed.
+func matShown(_ m: Mat) -> String {
     if MAT_PRESETS.contains(where: { $0.id == m.id && $0.name == m.name }) && Strings.has("mp." + m.id) { return tr("mp." + m.id) }
     return m.name
 }
+/// The board with this id, by matShown; the id when it is gone.
+func matShown(_ id: String) -> String { AppSettings.shared.mats.first { $0.id == id }.map { matShown($0) } ?? id }
+/// A preset fitting's name in the app's language; the workshop's own as typed.
+func hwShown(_ h: Hw) -> String {
+    if HW_PRESETS.contains(where: { $0.id == h.id && $0.name == h.name }) && Strings.has("hp." + h.id) { return tr("hp." + h.id) }
+    return h.name
+}
+/// The grain mark as text (the plain arrow is drawn as a blue emoji tile on iOS).
+let GRAIN_MARK = "\u{2195}\u{FE0E}"
 
 /// A hardware item's name: a preset's in the app language.
 private func bzHwName(_ h: Hw) -> String {
@@ -669,7 +681,7 @@ private struct RemnantRow: View {
         let by: String? = taken ? Store.shared.get(r.used).map { dn($0.name) } : nil
         HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 1) {
-                T("\(r.L) × \(r.W) " + tr("u.mm") + (r.grain ? " ↕" : ""), num(15, 700))
+                T("\(r.L) × \(r.W) " + tr("u.mm") + (r.grain ? " " + GRAIN_MARK : ""), num(15, 700))
                 T(words(taken, by), ui(12, 400, taken ? G.amberInk : G.ink2), lines: 2)
             }
             .frame(maxWidth: .infinity, alignment: .leading)

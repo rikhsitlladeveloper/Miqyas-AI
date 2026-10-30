@@ -99,7 +99,7 @@ struct FreeBanner: View {
         VStack(alignment: .leading, spacing: 10) {
             T(tr("fz.banner"), ui(13.5, 500, G.ink, lh: 1.4))
             HStack(spacing: 8) {
-                GBtn(tr("fz.toRoom"), icon: "room", height: 44, corner: 14, fontSize: 14) { app.sheet = .fPickRoom(pid: p.id, fid: f.id) }.accessibilityIdentifier("fz.toRoom")
+                GBtn(tr("fz.toRoom"), icon: "room", height: 44, corner: 14, fontSize: 14, lines: 2) { app.sheet = .fPickRoom(pid: p.id, fid: f.id) }.accessibilityIdentifier("fz.toRoom")
                 GBtn(tr("fz.sizesBtn"), kind: .secondary, icon: "ruler", height: 44, corner: 14, fontSize: 14) {
                     app.push(.fSteps(pid: p.id, model: modelOf(f).id, fid: f.id))
                 }
@@ -380,7 +380,7 @@ struct FPlaceScreen: View {
                 FPage(eyebrow: dn(f.name) + " → " + roomName, title: tr("fz.toRoom"), back: { app.pop() }) {
                     // a new piece: against a wall, or in the middle of the room (free) — asked once, changeable later
                     if existing == nil && canBeFree(f) && !canStandFree(f) {
-                        FWhereCard(cur: wher.isEmpty ? (pose == nil ? "" : "free") : wher) { k in
+                        FWhereCard(cur: pose != nil ? "free" : wher == "wall" || (wher == "free" && pose == nil) ? "wall" : "") { k in
                             wher = k
                             if k == "wall" { pose = nil; return }
                             let geo = fpGeo(room, snap)
