@@ -333,6 +333,13 @@ class TourBase: ScreenTestCase {
         return true
     }
 
+    /// The start dialog's "Xonani o‘lchash": a tap while the sheet still slides up misses, so once more until next shows.
+    func startA(_ next: String) {
+        sleep(1)
+        tap("sd.a", 3)
+        if find(next, 3) == nil, find("sd.a", 0.5) != nil { sleep(1); tap("sd.a", 2) }
+    }
+
     /// Types v into the room-shape flow's field and goes on.
     func flowType(_ v: String, shot: String? = nil) {
         guard let f = find("rsh.value", 4) else { skip("flow-field"); return }
@@ -638,7 +645,7 @@ final class TourBuildTests: TourBase {
         guard newOrder("Yangi uy", "project") else { return }
         if find("sd.a", 4) != nil {
             S("start-dialog")
-            tap("sd.a", 3)
+            startA("nr.create")
             if find("nr.create", 4) != nil { S("room-sheet") }
             tap("nr.create", 3)
             roomFlow(mm: false)
@@ -674,7 +681,7 @@ final class TourFurnTests: TourBase {
         guard newOrder("Dilnoza Karimova") else { return }
         if find("sd.a", 4) != nil {
             S("start-dialog")
-            tap("sd.a", 3)
+            startA("fr.create")
             if find("fr.create", 4) != nil { S("room-sheet") }
             tap("fr.create", 3)
             roomFlow(mm: true)
@@ -893,7 +900,7 @@ class TourTradeBase: TourBase {
         guard newOrder("Aziza Nazarova") else { return }
         if find("sd.a", 4) != nil {
             S("start-dialog")
-            tap("sd.a", 3)
+            startA(sheet)
             if find(sheet, 4) != nil { S("room-sheet") }
             tap(sheet, 3)
             roomFlow(mm: false)

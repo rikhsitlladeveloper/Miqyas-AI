@@ -220,7 +220,7 @@ struct PresetCard: View {
                 .aspectRatio(1.45, contentMode: .fit)
                 .frame(maxWidth: .infinity)
                 .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
-            T(tr("lk.p." + p.id), ui(14, 800), lines: 1)
+            T(tr("lk.p." + p.id), ui(14, 800), lines: 2).minimumScaleFactor(0.85)
             T(tr("lk.p." + p.id + ".d"), ui(11.5, 500, G.ink2, lh: 1.3), lines: 2)
                 .fixedSize(horizontal: false, vertical: true)
         }

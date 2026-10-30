@@ -331,7 +331,7 @@ struct ReOpsCard: View {
                         .padding(8).background(RoundedRectangle(cornerRadius: 12, style: .continuous).fill(G.amberWash))
                 }
                 HStack(spacing: 6) {
-                    cardBtn(DZC_ICON["type"]!, reTr("re.type"), "re.cType") { st.pickFor("retype", h) }
+                    cardBtn(DZC_ICON["type"]!, tr("dzc.tool.type"), "re.cType") { st.pickFor("retype", h) }
                     cardBtn(DZC_ICON["width"]!, reTr("re.size"), "re.cSize") { st.pickFor("resize", h) }
                     cardBtn(DZC_ICON["del"]!, tr("common.delete"), "re.cDel", red: true) { st.delSel(app, h) }
                 }

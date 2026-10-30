@@ -314,7 +314,7 @@ private func drawPoly(_ ctx: GraphicsContext, _ lay: PolyLayout, _ r: Room, _ g:
         default: return ("?", "unset")
         }
     }
-    let dims = mode != "shape" ? polyDimSpots(lay, dimTexts.map { pillW($0.txt, $0.st != "unset" && $0.st != "calc") }) : []
+    let dims = mode != "shape" ? polyDimSpots(lay, dimTexts.map { pillW($0.txt, $0.st != "unset" && $0.st != "calc") }, dimTexts.map(\.txt)) : []
     // wall letters; one that would cover an earlier one (two short walls at a step: an L room's C and D on a small plan)
     // slides along its own wall until it is clear
     var letterAt: [CGPoint] = []
@@ -347,6 +347,14 @@ private func drawPoly(_ ctx: GraphicsContext, _ lay: PolyLayout, _ r: Room, _ g:
             let i = dm.i, o = dm.o, c = dm.c
             let w = g.walls[i], wa = lay.inner[i], wb = lay.inner[(i + 1) % n], nn = lay.normals[i]
             let txt = dimTexts[i].txt, st = dimTexts[i].st
+            if let ang = dm.angle {
+                // the side of a narrow niche: the bare value in the gap, along the wall
+                let vc = w.status == "conf" ? PC.ink : w.status == "recv" ? PC.amber : w.status == "bad" ? PC.red : w.status == "calc" ? PC.cob : PC.greyLine
+                var rc = ctx
+                rc.translateBy(x: c.x, y: c.y); rc.rotate(by: .degrees(ang))
+                rc.text(txt, .zero, .num, 10.5, 600, vc)
+                continue
+            }
             let lc = w.status == "conf" ? PC.ink : w.status == "recv" ? PC.amber : w.status == "bad" ? PC.red : w.status == "calc" ? PC.cob : PC.greyLine
             ctx.line(lc, wa + nn * o, wb + nn * o, 1.1, dash: w.status == "conf" ? nil : [5, 4])
             ctx.line(lc.opacity(0.5), wa + nn * (lay.tw + 3), wa + nn * (o + 4), 0.8); ctx.line(lc.opacity(0.5), wb + nn * (lay.tw + 3), wb + nn * (o + 4), 0.8)
@@ -365,12 +373,20 @@ private func drawPoly(_ ctx: GraphicsContext, _ lay: PolyLayout, _ r: Room, _ g:
 }
 
 /// A wall's dimension on the plan: wall i, its line o out from the wall, its pill at c in box.
-private struct PolyDimSpot { let i: Int; let o: CGFloat; let c: CGPoint; let box: CGRect }
+private struct PolyDimSpot { let i: Int; let o: CGFloat; let c: CGPoint; let box: CGRect; var angle: Double? = nil }
 
-/// Where each wall's dimension goes. The pill sits 30 out from the wall; a wall facing a narrow niche keeps it in the niche,
-/// not on the room across it; a pill that would cover another slides along its line, and only then moves further out,
-/// never past the drawing's edge (the PDF's frame).
-private func polyDimSpots(_ lay: PolyLayout, _ widths: [CGFloat]) -> [PolyDimSpot] {
+/// How far out from wall point m0 (outward nn) the room starts again, when that is nearer than need: the gap a dimension has there.
+private func polyNarrowGap(_ m0: CGPoint, _ nn: CGPoint, _ need: CGFloat, _ pts: [CGPoint]) -> CGFloat? {
+    var t: CGFloat = 2
+    while t < need { if planInPoly(m0 + nn * t, pts) { return t }; t += 1 }
+    return nil
+}
+
+/// Where each wall's dimension goes. The pill sits 30 out from the wall; a pill that would cover another slides along its
+/// line, and only then moves further out, never past the drawing's edge (the PDF's frame). A wall facing a gap a pill does not
+/// fit in (the sides of a narrow niche) gets its bare value in the gap, along the wall, the two sides one above the other;
+/// in a gap too narrow even for that it gets none here (the walls' table beside the plan has it).
+private func polyDimSpots(_ lay: PolyLayout, _ widths: [CGFloat], _ texts: [String]) -> [PolyDimSpot] {
     var placed: [PolyDimSpot] = []
     for i in 0..<lay.n {
         let wa = lay.inner[i], wb = lay.inner[(i + 1) % lay.n], nn = lay.normals[i], u = norm(wb - wa)
@@ -378,12 +394,19 @@ private func polyDimSpots(_ lay: PolyLayout, _ widths: [CGFloat]) -> [PolyDimSpo
         func box(_ c: CGPoint) -> CGRect { CGRect(x: c.x - pw / 2 - 4, y: c.y - 17, width: pw + 8, height: 34) }
         func free(_ b: CGRect) -> Bool { !placed.contains { $0.box.intersects(b) } }
         func onPage(_ b: CGRect) -> Bool { b.minY >= 2 && b.maxY <= lay.VH - 2 && b.minX >= 2 && b.maxX <= lay.VW - 2 }
-        var o = lay.tw + 30
-        if planInPoly(m0 + nn * o, lay.inner) {
-            var t = lay.tw
-            while t < o && !planInPoly(m0 + nn * t, lay.inner) { t += 2 }
-            o = t / 2
+        let across = abs(nn.x) > abs(nn.y)
+        if let gap = polyNarrowGap(m0, nn, across ? pw + 8 : 34, lay.inner) {
+            if gap < 12 { continue }
+            let len = CGFloat(texts[i].count) * 5 + 2
+            func small(_ c: CGPoint) -> CGRect { across ? CGRect(x: c.x - 7, y: c.y - len / 2, width: 14, height: len) : CGRect(x: c.x - len / 2, y: c.y - 7, width: len, height: 14) }
+            let c0 = m0 + nn * (gap / 2)
+            // first a half length off the middle, so the wall facing it has its half of the gap
+            let spots = [c0 - u * (len / 2), c0 + u * (len / 2), c0].filter { abs(($0.x - c0.x) * u.x + ($0.y - c0.y) * u.y) + len / 2 <= half }
+            guard let c = spots.first(where: { free(small($0)) }) else { continue }
+            placed.append(PolyDimSpot(i: i, o: 0, c: c, box: small(c), angle: across ? -90 : 0))
+            continue
         }
+        var o = lay.tw + 30
         var c = m0 + nn * o
         if !free(box(c)) {
             // along the line first, nearest spot either way

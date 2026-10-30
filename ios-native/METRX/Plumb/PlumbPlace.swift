@@ -691,7 +691,7 @@ func pFromSitePoints(_ c: PCtx, _ id: () -> String) -> [PlPoint] {
         if c.wall(x.wall) == nil { continue }
         let sewer = x.t == "sewer"
         let h = eClampI(x.h, 30, max(30, c.H - 50))
-        out.append(PlPoint(id: id(), t: sewer ? "drain" : x.t, roomId: c.id, wall: x.wall, off: x.off, h: h, d: sewer ? drainD(x.d) : 0, from: x.id))
+        out.append(PlPoint(id: id(), t: sewer ? "drain" : x.t, roomId: c.id, wall: x.wall, off: x.off, h: h, d: sewer ? (x.style == "d110" ? 110 : x.style == "d50" ? 50 : drainD(x.d)) : 0, from: x.id))
     }
     return out
 }

@@ -149,10 +149,12 @@ struct ReportScreen: View {
                             if design {
                                 GBtn(tr("rpt.share"), icon: "share") { share(p, quote, sn, key) }.accessibilityIdentifier("rp.share")
                             } else if quote == nil {
+                                // on a small phone the two buttons give up their icons, so a long word ("Қораламани") does not break in two
+                                let roomy = UIScreen.main.bounds.width >= 400
                                 HStack(spacing: 10) {
                                     // the full text, on two lines when needed (UX upgrades section 8)
-                                    GBtn(tr("rp2.shareDraft"), kind: .secondary, icon: "share", fontSize: 15, lines: 2) { share(p, quote, sn, key) }.accessibilityIdentifier("rp.shareDraft")
-                                    GBtn(tr("rpt.issue"), icon: "lock", fontSize: 15, lines: 2) {
+                                    GBtn(tr("rp2.shareDraft"), kind: .secondary, icon: roomy ? "share" : nil, fontSize: 14.5, lines: 2) { share(p, quote, sn, key) }.accessibilityIdentifier("rp.shareDraft")
+                                    GBtn(tr("rpt.issue"), icon: roomy ? "lock" : nil, fontSize: 14.5, lines: 2) {
                                         let n = p.isFurniture ? 0 : rowsMissing(p)
                                         if n > 0 { app.say("et.block", ["n": n], kind: .error) } else { app.sheet = .issue(pid: p.id) }
                                     }
@@ -578,9 +580,10 @@ private struct SendCard: View {
                 }
             }
             T(tr("ux.repT"), ui(13, 700, G.ink2)).padding(.top, 4)
+            let roomy = UIScreen.main.bounds.width >= 400
             HStack(spacing: 10) {
-                GBtn(tr("rp2.shareDraft"), kind: .secondary, icon: "share", height: 54, fontSize: 14.5, lines: 2, share).accessibilityIdentifier("rp.shareDraft")
-                GBtn(tr("rpt.issue"), kind: .secondary, icon: "lock", height: 54, fontSize: 14.5, lines: 2) { app.sheet = .issue(pid: p.id) }
+                GBtn(tr("rp2.shareDraft"), kind: .secondary, icon: roomy ? "share" : nil, height: 54, fontSize: 14.5, lines: 2, share).accessibilityIdentifier("rp.shareDraft")
+                GBtn(tr("rpt.issue"), kind: .secondary, icon: roomy ? "lock" : nil, height: 54, fontSize: 14.5, lines: 2) { app.sheet = .issue(pid: p.id) }
                     .accessibilityIdentifier("rp.issue")
             }
         }

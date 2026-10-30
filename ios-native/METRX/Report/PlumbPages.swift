@@ -26,7 +26,9 @@ extension Doc {
         ensure(260)
         h2(t("sx.r.title"))
         let rs = calc.routes.riser
-        var sys = t("sx.r.system", ["s": t("sx.sys." + e.water), "r": t("sx.run." + e.run), "h": t("sx.run." + e.hrun)])
+        // the heating's way is said only when the order has heating
+        let heated = !calc.routes.loops.isEmpty || calc.routes.runs.contains { $0.kind == "hs" || $0.kind == "hr" }
+        var sys = t(heated ? "sx.r.system" : "sx.r.systemW", ["s": t("sx.sys." + e.water), "r": t("sx.run." + e.run), "h": t("sx.run." + e.hrun)])
         if let rs { sys += " " + t("sx.r.riser", ["r": names[rs.roomId] ?? "", "w": rs.wall]) }
         para(a(sys, ui(9.5, 400)), top: 2, bottom: 6)
         ppFixTable(p, calc, names)
@@ -76,7 +78,7 @@ extension Doc {
             let joined = what.joined(separator: ", ")
             var row: [Cell] = [cell(names[c.id] ?? ""), cell(joined.isEmpty ? "—" : joined), rcell("\(pts.count)")]
             if withLen {
-                let m = runsIn(calc.routes, c.id).reduce(0.0) { $0 + $1.len } / 1000
+                let m = pipeInRoom(c, calc.routes) / 1000
                 row.append(rcell(ppD1(m) + " " + t("u.m")))
             }
             rows.append(row)

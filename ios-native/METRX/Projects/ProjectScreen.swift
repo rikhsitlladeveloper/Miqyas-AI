@@ -506,7 +506,8 @@ private struct FOrderPage: View {
                     HStack(spacing: 2) {
                         ForEach(tabs, id: \.0) { k, l in
                             let on = tab == k
-                            T(tr(l), ui(14, on ? 800 : 600, on ? G.ink : G.slate), lines: 1)
+                            // a smaller word rather than a cut one ("Таклифл") on a small phone
+                            T(tr(l), ui(14, on ? 800 : 600, on ? G.ink : G.slate), lines: 1).minimumScaleFactor(0.75)
                                 .padding(.horizontal, 4)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                                 .background(RoundedRectangle(cornerRadius: 18, style: .continuous).fill(on ? G.glass(0.95) : .clear).boxShadow(on ? G.shade.opacity(0.12) : .clear, blur: 10, y: 3))

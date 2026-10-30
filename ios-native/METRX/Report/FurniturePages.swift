@@ -367,6 +367,8 @@ func workshopPages(_ sn: Snap, _ ws: Workshop, _ mats: [Mat], _ hws: [Hw], _ pr:
     for mat in mats0 { var k = 0; for (i, r) in cost.rows.enumerated() where r.mat == mat { k += 1; number[i] = k } }
     for mat in mats0 {
         let list = cost.rows.enumerated().filter { $0.element.mat == mat }
+        // the title with its first rows, not alone at the foot of a page
+        d.ensure(90)
         d.h2(d.t("fw.cut", ["m": dn(matName(mat), d.l), "n": list.reduce(0) { $0 + $1.element.p.qty }]))
         var rows: [[Cell]] = [[d.th("№"), d.th(d.t("fw.c.part")), d.th(d.t("fw.c.size"), right: true), d.th(d.t("fw.c.cut"), right: true), d.th(d.t("fw.c.qty"), right: true), d.th(d.t("fw.c.band"))]]
         for (i, r) in list {

@@ -328,7 +328,7 @@ struct CutScreen: View {
                 HStack(spacing: 8) {
                     T("\(number[i] ?? 0)", num(13, 700, G.ink2)).frame(width: 24, alignment: .leading)
                     VStack(alignment: .leading, spacing: 0) {
-                        T(tr(r.p.key) + (r.p.grain ? " " + GRAIN_MARK : ""), ui(13.5, 600), lines: 1)
+                        T(tr(r.p.key) + (r.p.grain ? " " + GRAIN_MARK : ""), ui(13.5, 600), lines: 2)
                         if r.cutL != r.p.L || r.cutW != r.p.W { T(tr("wk.cut", ["v": "\(r.cutL) × \(r.cutW)"]), ui(11.5, 400, G.ink2)) }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)

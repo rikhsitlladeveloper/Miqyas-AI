@@ -87,17 +87,8 @@ func pCountOf(_ p: Project, _ cs: [PCtx], _ rt: PRoutes) -> PCount {
     var drainRuns: [PRun] = []
     for d in rt.drains { drainRuns += d.runs }
     for c in cs {
-        let rs = drainRuns.filter { $0.roomId == c.id }
-        if rs.isEmpty { continue }
-        let P = Perim(c.g.walls).P
-        var s110: [(Double, Double)] = [], s50: [(Double, Double)] = []
-        var drop110 = 0.0, drop50 = 0.0
-        for r in rs {
-            if r.dia >= 100 { s110 += r.stretches; drop110 += r.drops } else { s50 += r.stretches; drop50 += r.drops }
-        }
-        let u110 = unionLen(s110, P)
-        d110 += u110 + drop110
-        d50 += (unionLen(s50 + s110, P) - u110) + drop50
+        let (a, b) = drainsIn(c, rt)
+        d110 += a; d50 += b
     }
     // the pipe between the doors, once a room and diameter
     var groupKeys: [String] = []
@@ -231,4 +222,31 @@ func plumbRows(_ p: Project, _ t: TradeSet, _ snap: Bool, _ name: (String, [Stri
     lab("lRad", Double(c.radiators) * pNum(t.lPRad), ["n": "\(c.radiators)"])
     lab("lChase", chaseM * pNum(t.lPChase), ["a": pQty(chaseM)])
     return TradeResult(mats: mats, labor: labor, facts: ["points": Double(c.points), "pipe": c.pipeM])
+}
+
+/// The drain pipe in room c, mm, at 110 and at 50: each stretch of wall once a diameter (the pipes join), a 50 where a 110
+/// runs beside it is the 110's.
+func drainsIn(_ c: PCtx, _ rt: PRoutes) -> (Double, Double) {
+    var rs: [PRun] = []
+    for d in rt.drains { rs += d.runs.filter { $0.roomId == c.id } }
+    if rs.isEmpty { return (0, 0) }
+    let P = Perim(c.g.walls).P
+    var s110: [(Double, Double)] = [], s50: [(Double, Double)] = []
+    var drop110 = 0.0, drop50 = 0.0
+    for r in rs {
+        if r.dia >= 100 { s110 += r.stretches; drop110 += r.drops } else { s50 += r.stretches; drop50 += r.drops }
+    }
+    let u110 = unionLen(s110, P)
+    return (u110 + drop110, (unionLen(s50 + s110, P) - u110) + drop50)
+}
+
+/// The pipe in room c, mm, counted as the order's totals count it: joined drains once, with the room's underfloor loops and
+/// the pipe between the doors, so the rooms' figures add up to the pipe table beside them (24,6 m stood beside a total of 19,6 m).
+func pipeInRoom(_ c: PCtx, _ rt: PRoutes) -> Double {
+    let (a, b) = drainsIn(c, rt)
+    var between: [Bool: Double] = [:]
+    for d in rt.drains where d.between > 0 && d.pt.roomId == c.id { between[d.dia >= 100] = max(between[d.dia >= 100] ?? 0, d.between) }
+    let sup = rt.inRoom(c.id).filter { $0.kind != "drain" }.reduce(0.0) { $0 + $1.len }
+    let loops = rt.loops.filter { $0.roomId == c.id }.reduce(0.0) { $0 + $1.total }
+    return sup + a + b + between.values.reduce(0, +) + loops
 }
