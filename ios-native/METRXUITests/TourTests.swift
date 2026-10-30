@@ -229,6 +229,11 @@ class TourBase: ScreenTestCase {
     func type(_ field: XCUIElement?, _ v: String, clear: Bool = false) {
         guard let field, hit(field) else { return }
         usleep(500_000)
+        // no keyboard (the tap missed the field): once more, then the step is noted instead of failing the whole test
+        // (typeText with nothing focused ends the test: "Neither element nor any descendant has keyboard focus")
+        let focused = { self.app.keyboards.count > 0 || self.app.descendants(matching: .any).matching(NSPredicate(format: "hasKeyboardFocus == true")).count > 0 }
+        if !focused() { if field.exists { field.tap() }; usleep(800_000) }
+        guard focused() else { skip("type-no-keyboard"); return }
         // typed into whatever has the focus now (the field's own snapshot can be gone once the keyboard moved it)
         app.typeText((clear ? String(repeating: XCUIKeyboardKey.delete.rawValue, count: 12) : "") + v)
         usleep(300_000)
@@ -665,6 +670,11 @@ final class TourFurnTests: TourBase {
         toOrder()
         orderTabs("order")
         if tap("fz.addMore", 3, wait: 1.2) { S("add-more-gallery"); back() }
+        // a wardrobe into the measured room ("Qayerga qo‘yamiz?": Devorga / Erkin), then "Mebel joylash" with it
+        wardrobeIntoRoom()
+        arrangePieces()
+        // the simple app's PDF (the order's last step), each piece with its own 3D picture
+        simplePdf()
         // every model in Designer C, without a room
         models()
         // Advanced: the price, the parts, the workshop pack, the quote
@@ -686,6 +696,61 @@ final class TourFurnTests: TourBase {
         profile()
         if tap("pf.workshop", 3) { scrollShots("workshop", 3); back() }
         if tap("pf.mats", 3) { scrollShots("materials", 2); back() }
+    }
+
+    /// A two-door wardrobe from the gallery of the measured room: its sizes, "Qaysi xonaga?", then the room's page with
+    /// "Qayerga qo‘yamiz?" — "Xonaning o‘rtasiga (erkin)", "Devorga", and placed free in the middle.
+    func wardrobeIntoRoom() {
+        guard toOrder(), tap("fz.addMore", 4, wait: 1.5) else { skip("wardrobe-gallery"); return }
+        if let c = find("fg.chip.bedroom", 2), bring(c, vertical: false) { c.tap(); usleep(1_000_000) }
+        guard hit(find("model.h2", 4)) else { skip("wardrobe-card"); return }
+        usleep(1_200_000)
+        guard sizes("wardrobe") else { skip("wardrobe-sizes"); return }
+        S("wardrobe-summary")
+        tap("fx.go", 3, wait: 1.5)
+        if find("fq.room", 4) != nil { S("wardrobe-which-room"); tap("fq.room", 2, wait: 1.5) } else { skip("wardrobe-which-room") }
+        guard find("fz.place", 5) != nil else { skip("wardrobe-place"); return }
+        calm(); S("wardrobe-place")
+        if tap("fp.w.free", 3, wait: 1.2) { S("wardrobe-place-free"); app.swipeUp(); usleep(700_000); S("wardrobe-place-free-2") } else { skip("wardrobe-where-free") }
+        if tap("fp.w.wall", 3, wait: 1.2) { S("wardrobe-place-wall") } else { skip("wardrobe-where-wall") }
+        tap("fp.w.free", 2, wait: 1)
+        if tap("fz.place", 3, wait: 2.5) { calm(); S("wardrobe-designer") } else { skip("wardrobe-placed") }
+    }
+
+    /// "Mebel joylash" from the gallery of the room: the plan, a piece selected (tapped where it is drawn), turned,
+    /// put against a wall, made free again, Undo.
+    func arrangePieces() {
+        guard toOrder(), tap("fz.addMore", 4, wait: 1.5) else { skip("arrange-gallery"); return }
+        guard tap("fp.open", 4, wait: 1.5) else { skip("arrange-open"); back(); return }
+        calm(); S("arrange-plan")
+        // the plan's points nearest its middle first (the wardrobe was put in the middle of the room)
+        var pts: [(Double, Double)] = []
+        for y in stride(from: 0.22, through: 0.72, by: 0.05) { for x in stride(from: 0.15, through: 0.85, by: 0.1) { pts.append((x, y)) } }
+        pts.sort { abs($0.0 - 0.5) + abs($0.1 - 0.45) < abs($1.0 - 0.5) + abs($1.1 - 0.45) }
+        let desel = app.descendants(matching: .any).matching(identifier: "fp.desel").firstMatch
+        for (x, y) in pts {
+            app.coordinate(withNormalizedOffset: CGVector(dx: x, dy: y)).tap(); usleep(400_000)
+            if desel.exists { break }
+        }
+        guard desel.exists else { skip("arrange-select"); tap("fp.done", 2); return }
+        S("arrange-selected")
+        if tap("fp.rot90", 2, wait: 1.2) { S("arrange-turned"); calm() }
+        if tap("fp.stick", 2, wait: 1.2) { S("arrange-stuck"); calm(4) }
+        if tap("fp.toFree", 2, wait: 1.2) { S("arrange-freed"); calm(4) }
+        if tap("fp.undo", 2, wait: 1.2) { S("arrange-undo"); calm(4) }
+        tap("fp.done", 3, wait: 1.2)
+    }
+
+    /// The simple app's last step "Yuborish": the PDF the customer gets, page by page (the pieces' 3D pictures are
+    /// made after the first layout).
+    func simplePdf() {
+        guard toOrder() else { skip("pdf-order"); return }
+        guard tap("ux.step.send", 3, wait: 2) || tap("ux.step.price", 2, wait: 2) else { skip("pdf-step"); return }
+        guard find("rp.next", 8) != nil || find("rp.page", 2) != nil else { skip("pdf-report"); back(); return }
+        sleep(5); S("pdf")
+        for i in 0..<7 where tap("rp.next", 2, wait: 2) { S("pdf-p\(i + 2)") }
+        if tap("rp.setup", 2) { scrollShots("pdf-setup", 2); tap("rp.done", 2, wait: 2) }
+        back()
     }
 
     /// Designer C on what is open: the slider, Tekshiruv, Batafsil, a unit selected and its tools, the 3D.
@@ -712,46 +777,43 @@ final class TourFurnTests: TourBase {
         }
     }
 
-    /// Every model of the gallery (or one of each group) through its size steps into the designer.
+    /// The gallery's groups and models (METRX/Furniture/Core/Steps.swift GALLERY).
+    static let gallery: [(String, [String])] = [
+        ("kitchen", ["I", "L", "U", "O", "P", "dining", "bar", "pantry"]),
+        ("bedroom", ["h2", "h3", "s2", "s3", "cornerW", "bed", "dresser", "nightstand", "vanity", "shelfW", "tvBed"]),
+        ("living", ["tv", "stenka", "gorka", "vitrina", "sideboard", "shelving", "dining12", "coffee", "shelvesW"]),
+        ("hall", ["hallway", "shoe", "hallW", "mirrorP", "op"]),
+        ("kids", ["bunk", "loft", "kidsW", "toys"]),
+        ("office", ["desk", "cornerDesk", "bookcase", "officeC"]),
+        ("bath", ["sinkV", "mirrorC", "penal", "washer"]),
+    ]
+
+    /// Every model of the gallery (TOUR_MODELS=all), or the first and last of each group and the four the first tour
+    /// never reached (bar, tvBed, shelvesW, op), through its size steps into the designer.
     func models() {
         guard toOrder(), tap("fz.addMore", 4, wait: 1.5) else { skip("models-gallery"); return }
-        // the model ids, group by group
-        var groups: [String] = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'fg.chip.'")).allElementsBoundByIndex.map(\.identifier)
-        if groups.isEmpty { groups = ["fg.chip.kitchen"] }
-        var list: [(String, String)] = []
-        for g in groups {
-            if let c = find(g, 2), bring(c, vertical: false) { c.tap(); usleep(1_000_000) }
-            S("gallery-" + g.replacingOccurrences(of: "fg.chip.", with: ""))
-            var seen = 0
-            for _ in 0..<6 {
-                let ms = app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH 'model.'")).allElementsBoundByIndex
-                for m in ms where m.m3Seen && !list.contains(where: { $0.1 == m.identifier }) { list.append((g, m.identifier)) }
-                if list.count == seen { break }
-                seen = list.count
-                if !allModels { break }
-                drag(down: false)
-            }
+        for (g, _) in TourFurnTests.gallery {
+            if let c = find("fg.chip." + g, 2), bring(c, vertical: false) { c.tap(); usleep(1_000_000); S("gallery-" + g) }
         }
         back()
-        var done: Set<String> = []
-        var firstOfGroup: Set<String> = []
-        for (g, m) in list where !done.contains(m) {
-            if !allModels && firstOfGroup.contains(g) { continue }
-            firstOfGroup.insert(g); done.insert(m)
-            let name = m.replacingOccurrences(of: "model.", with: "m-")
-            guard toOrder(), tap("fz.addMore", 4, wait: 1.2) else { skip(name + "-gallery"); continue }
-            if let c = find(g, 2), bring(c, vertical: false) { c.tap(); usleep(900_000) }
-            guard hit(find(m, 4)) else { skip(name + "-card"); continue }
-            usleep(1_200_000)
-            // a tap while the list was still gliding to the group: once more
-            if find("fx.next", 1.5) == nil && find("fx.value", 0.5) == nil && find("fx.go", 0.5) == nil { hit(find(m, 2)); usleep(1_200_000) }
-            S(name + "-step1")
-            guard sizes(name) else { skip(name + "-sizes"); continue }
-            S(name + "-summary")
-            tap("fx.go", 3, wait: 1.5)
-            if tap("fq.none", 2, wait: 1.5) {}
-            sleep(2); calm()
-            designerC(name)
+        let extra: Set<String> = ["bar", "tvBed", "shelvesW", "op"]
+        for (g, ms) in TourFurnTests.gallery {
+            for m in ms where allModels || m == ms.first || m == ms.last || extra.contains(m) {
+                let name = "m-" + m
+                guard toOrder(), tap("fz.addMore", 4, wait: 1.2) else { skip(name + "-gallery"); continue }
+                if let c = find("fg.chip." + g, 2), bring(c, vertical: false) { c.tap(); usleep(1_000_000) }
+                guard hit(find("model." + m, 4)) else { skip(name + "-card"); continue }
+                usleep(1_200_000)
+                // a tap while the list was still gliding to the group: once more
+                if find("fx.next", 1.5) == nil && find("fx.value", 0.5) == nil && find("fx.go", 0.5) == nil { hit(find("model." + m, 2)); usleep(1_200_000) }
+                S(name + "-step1")
+                guard sizes(name) else { skip(name + "-sizes"); continue }
+                S(name + "-summary")
+                tap("fx.go", 3, wait: 1.5)
+                if tap("fq.none", 2, wait: 1.5) {}
+                sleep(2); calm()
+                designerC(name)
+            }
         }
     }
 
@@ -764,12 +826,11 @@ final class TourFurnTests: TourBase {
             if f.exists {
                 let raw = (f.placeholderValue ?? "").isEmpty ? (f.value as? String ?? "") : (f.placeholderValue ?? "")
                 let v = String(raw.filter { $0.isNumber || $0 == "," || $0 == "." })
-                if v.isEmpty { return false }
-                type(f, v, clear: true)
+                if !v.isEmpty { type(f, v, clear: true) }
                 if shots < 2 { shots += 1; S(name + "-size-\(shots)") }
             }
             guard let next = find("fx.next", 4) else { return find("fx.go", 2) != nil }
-            guard next.isEnabled else { return false }
+            guard next.isEnabled else { skip(name + "-next-off"); return false }
             hit(next); usleep(900_000)
         }
         return find("fx.go", 3) != nil

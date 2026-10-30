@@ -1,12 +1,19 @@
-# The pre-publishing tour of the iPhone app (ios-native/): METRXUITests/TourTests.swift walks every screen of all six
-# roles (builder, furniture, tiler, electrician, plumber, windows), the opening animation, Profile and its sheets, the
-# language switch and the laser radar in each of its states, and saves a picture of each (plus its accessibility tree as
-# text, for finding untranslated keys and {x} placeholders) as <lang>-<role>-<nnn>-<name>.png.
-# One job a language and phone: Uzbek (Latin) on a small and a big iPhone, Russian, English and Uzbek (Cyrillic) on the
-# small one (long words show there first). The new order's GPS gets a simulated location in Tashkent.
+# The pre-publishing tour of the iPhone app (ios-native/): METRXUITests/TourTests.swift walks the main jobs of all six
+# roles end to end (builder: a whole order from the room's shape to the PDF; furniture maker: the gallery with every
+# model, the designer, "Mebel joylash", the simple-mode PDF; tiler, electrician, plumber, windows: one order each), the
+# opening animation, Profile and its sheets, the language switch and the laser radar in each of its states, and saves a
+# picture of each (plus its accessibility tree as text, for finding untranslated keys and {x} placeholders) as
+# <lang>-<role>-<nnn>-<name>.png.
+# The app and its tests are compiled once (job "build"); then one runner a part, language and phone runs that part
+# (part: app = first run, Profile, radar; build; furn; trades = the four trades) on a small (iPhone SE) and a big
+# (Pro Max) iPhone in Uzbek (Latin), Uzbek (Cyrillic), Russian and English. Each runner stays well under its limit (the
+# whole tour on one runner took up to 150 minutes). Every furniture model in Uzbek (Latin); in the other languages the
+# first and last model of each gallery group, and the four the old tour never reached (bar, tvBed, shelvesW, op).
+# The new order's GPS gets a simulated location in Tashkent.
 # It is its own workflow (with its own concurrency group), so the usual CI (ios-native.yml) keeps its 35-minute jobs.
 # Start it with a tag: git tag tour-<n> && git push origin tour-<n> (or Actions → iOS tour → Run workflow).
-# Artifacts: tour-<lang>-<phone> (the pictures, the trees, skips.txt with the steps that could not be reached, the log).
+# Artifacts: tour-<part>-<lang>-<phone> (the pictures, the trees, skips.txt with the steps that could not be reached,
+# the log).
 name: iOS tour
 
 on:
@@ -22,19 +29,9 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  tour:
-    name: tour (${{ matrix.lang }}, ${{ matrix.phone }})
+  build:
     runs-on: macos-latest
-    timeout-minutes: 150
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - { lang: uz, phone: big, models: all }
-          - { lang: uz, phone: small, models: few }
-          - { lang: ru, phone: small, models: few }
-          - { lang: en, phone: small, models: few }
-          - { lang: uzc, phone: small, models: few }
+    timeout-minutes: 40
     defaults:
       run:
         working-directory: ios-native
@@ -52,19 +49,66 @@ jobs:
           brew install xcodegen
           xcodegen generate
 
-      - name: Pick the ${{ matrix.phone }} iPhone
+      - name: Pick a simulator to build for
         id: sim
-        run: python3 tools/pick_sim_size.py ${{ matrix.phone }} | tee -a "$GITHUB_OUTPUT"
+        run: python3 tools/pick_sim_size.py small | tee -a "$GITHUB_OUTPUT"
 
       - name: Build for the simulator
         run: |
-          mkdir -p out/tour
+          mkdir -p out
           xcodebuild build-for-testing -project METRX.xcodeproj -scheme METRX -destination "id=${{ steps.sim.outputs.udid }}" \
             -derivedDataPath out/dd > out/build.log 2>&1 || {
               echo "== source errors"; { grep -E "^/.*\.swift:[0-9]+:[0-9]+: error" out/build.log || true; } | sed 's|.*/ios-native/||' | sort -u | head -n 120
               echo "== other errors"; { grep -nE "error:|FAILED" out/build.log || true; } | head -n 40
               exit 1; }
-          echo "built"
+          # the app, the test runner and the .xctestrun that test-without-building runs from
+          tar -czf out/products.tgz -C out/dd/Build Products
+          ls -la out/products.tgz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tour-products
+          path: ios-native/out/products.tgz
+          retention-days: 2
+
+  tour:
+    needs: build
+    name: tour (${{ matrix.part }}, ${{ matrix.lang }}, ${{ matrix.phone }})
+    runs-on: macos-latest
+    timeout-minutes: 150
+    strategy:
+      fail-fast: false
+      # the longest parts first, so they are not the last ones waiting for a runner
+      matrix:
+        part: [furn, trades, build, app]
+        lang: [uz, ru, en, uzc]
+        phone: [small, big]
+    defaults:
+      run:
+        working-directory: ios-native
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Newest Xcode
+        run: |
+          X=$(ls -d /Applications/Xcode_*.app | grep -vi beta | sort -V | tail -1)
+          sudo xcode-select -s "$X"
+          xcodebuild -version
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: tour-products
+          path: ios-native/out
+
+      - name: Unpack the build
+        run: |
+          mkdir -p out/dd/Build out/tour
+          tar -xzf out/products.tgz -C out/dd/Build
+          ls out/dd/Build/Products
+
+      - name: Pick the ${{ matrix.phone }} iPhone
+        id: sim
+        run: python3 tools/pick_sim_size.py ${{ matrix.phone }} | tee -a "$GITHUB_OUTPUT"
 
       - name: Boot it with a clean status bar, a location in Tashkent and the location allowed
         run: |
@@ -79,26 +123,33 @@ jobs:
           xcrun simctl location "$U" set 41.311081,69.240562 || true
           echo "booted ${{ steps.sim.outputs.name }}"
 
-      - name: The tour (${{ matrix.lang }})
+      - name: The tour (${{ matrix.part }}, ${{ matrix.lang }})
         run: |
           U="${{ steps.sim.outputs.udid }}"
+          case "${{ matrix.part }}" in
+            app) CLASSES="TourAppTests" ;;
+            build) CLASSES="TourBuildTests" ;;
+            furn) CLASSES="TourFurnTests" ;;
+            trades) CLASSES="TourTilerTests TourElecTests TourPlumbTests TourWinTests" ;;
+          esac
+          MODELS=few; [ "${{ matrix.lang }}" = "uz" ] && MODELS=all
+          ONLY=""; for c in $CLASSES; do ONLY="$ONLY -only-testing:METRXUITests/$c"; done
+          XTR=$(ls out/dd/Build/Products/*.xctestrun | head -1)
           R=0
-          ONLY=""
-          for c in TourAppTests TourBuildTests TourFurnTests TourTilerTests TourElecTests TourPlumbTests TourWinTests; do ONLY="$ONLY -only-testing:METRXUITests/$c"; done
-          TEST_RUNNER_TOUR_SHOTS="$PWD/out/tour" TEST_RUNNER_TOUR_LANG="${{ matrix.lang }}" TEST_RUNNER_TOUR_MODELS="${{ matrix.models }}" \
-            xcodebuild test-without-building -project METRX.xcodeproj -scheme METRX -destination "id=$U" -derivedDataPath out/dd \
+          TEST_RUNNER_TOUR_SHOTS="$PWD/out/tour" TEST_RUNNER_TOUR_LANG="${{ matrix.lang }}" TEST_RUNNER_TOUR_MODELS="$MODELS" \
+            xcodebuild test-without-building -xctestrun "$XTR" -destination "id=$U" \
             $ONLY -parallel-testing-enabled NO > out/tour/test.log 2>&1 || R=$?
           echo "== results"; grep -E "Test [Cc]ase .*(passed|failed|skipped)" out/tour/test.log | sed 's/^.*Test [Cc]ase //' | sort | uniq | tail -n 40
           echo "== failures"; { grep -E "error: -\[|error: .*Test" out/tour/test.log || true; } | sed 's|.*/ios-native/||' | sort -u | head -n 60
           N=$(ls out/tour/*.png 2>/dev/null | wc -l | tr -d ' ')
           echo "== $N pictures"; echo "== skipped steps"; cat out/tour/skips.txt 2>/dev/null || true
-          echo "### tour ${{ matrix.lang }} on ${{ steps.sim.outputs.name }}: $N pictures, xcodebuild $R" >> "$GITHUB_STEP_SUMMARY"
+          echo "### tour ${{ matrix.part }} ${{ matrix.lang }} on ${{ steps.sim.outputs.name }}: $N pictures, xcodebuild $R" >> "$GITHUB_STEP_SUMMARY"
           # the tour is for looking at: a failed step is in skips.txt and the log, the pictures are the result
           if [ "$N" = "0" ]; then echo "::error::no pictures were made"; exit 1; fi
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: tour-${{ matrix.lang }}-${{ matrix.phone }}
+          name: tour-${{ matrix.part }}-${{ matrix.lang }}-${{ matrix.phone }}
           path: ios-native/out/tour
           if-no-files-found: ignore
